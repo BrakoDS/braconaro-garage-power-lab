@@ -374,9 +374,11 @@ section.block { padding-block: var(--section-y); position: relative; }
    ============================================================ */
 .modes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 18px;
 }
+@media (max-width: 900px) { .modes-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .modes-grid { grid-template-columns: 1fr; } }
 .mode-card {
   position: relative;
   background: var(--card);
@@ -471,7 +473,10 @@ section.block { padding-block: var(--section-y); position: relative; }
 /* ============================================================
    HORÁRIOS
    ============================================================ */
-.hours-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 14px; }
+.hours-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+@media (max-width: 900px) { .hours-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 620px) { .hours-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 400px) { .hours-grid { grid-template-columns: 1fr; } }
 .day {
   border: 1px solid var(--line); background: var(--card); padding: 20px 20px 22px;
   display: flex; flex-direction: column; gap: 12px;
