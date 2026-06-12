@@ -93,7 +93,7 @@
     { name: 'Terça',   dow: 2, slots: ['06:00 – 13:00', '15:00 – 20:00'] },
     { name: 'Quarta',  dow: 3, slots: ['06:00 – 13:00', '15:00 – 20:00'] },
     { name: 'Quinta',  dow: 4, slots: ['06:00 – 13:00', '15:00 – 20:00'] },
-    { name: 'Sexta',   dow: 5, slots: ['06:00 – 13:00', '15:00 – 17:00', '18:00 – 19:00'] },
+    { name: 'Sexta',   dow: 5, slots: ['06:00 – 13:00', '15:00 – 19:00'] },
     { name: 'Sábado',  dow: 6, slots: ['Aula às 09:00'] },
     { name: 'Domingo', dow: 0, slots: [], closed: true }
   ];

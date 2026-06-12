@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" width="1000" height="750" role="img" aria-label="GAP — glúteos, abdômen e pernas">
+  <defs>
+    <radialGradient id="gapBg" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#1b1b20"/>
+      <stop offset="100%" stop-color="#0c0c0e"/>
+    </radialGradient>
+    <filter id="gapGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1000" height="750" fill="url(#gapBg)"/>
+  <!-- chão -->
+  <line x1="300" y1="612" x2="720" y2="612" stroke="#f5c518" stroke-opacity="0.32" stroke-width="7" stroke-linecap="round"/>
+  <!-- figura em agachamento (air squat), perfil -->
+  <g fill="none" stroke="#f5c518" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" filter="url(#gapGlow)">
+    <circle cx="452" cy="232" r="52" fill="#f5c518" stroke="none"/>
+    <path d="M452 300 L548 462"/>
+    <path d="M474 342 L666 404"/>
+    <path d="M548 462 L398 478"/>
+    <path d="M398 478 L432 606"/>
+    <path d="M378 606 L498 606"/>
+  </g>
+</svg>
