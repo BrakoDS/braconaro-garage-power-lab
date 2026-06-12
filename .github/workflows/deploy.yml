@@ -32,8 +32,8 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Publica apenas a pasta do site (que está num subdiretório)
-          path: 'Landing Page Garage'
+          # Site na raiz do repositório
+          path: '.'
 
       - name: Deploy to GitHub Pages
         id: deployment
