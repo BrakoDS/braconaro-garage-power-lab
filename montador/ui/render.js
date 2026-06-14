@@ -3,6 +3,7 @@ import { MODALIDADES } from '../config/modalidades.js';
 import { PADRAO_LABEL } from '../config/padroes.js';
 import { EQUIP_POR_ID } from '../data/equipamentos.js';
 import { alternativasViaveis, aplicarTroca } from '../core/gerador.js';
+import { sugerirCarga } from '../core/cargas.js';
 
 const mmss = (s) => `${Math.round(s / 60)}min`;
 const equipNomes = (ids) => ids.map((i) => (EQUIP_POR_ID[i]?.nome || i)).join(', ');
@@ -36,7 +37,9 @@ function corpoTreino(id) {
   const t = vivos.get(id);
   const mod = MODALIDADES[t.modalidade];
   const aquec = t.aquecimento.map((a) => `<li>${a.exercicio.nome} — ${mmss(a.duracaoSeg)}</li>`).join('');
-  const main = t.principal.map((p, i) => `
+  const main = t.principal.map((p, i) => {
+    const carga = sugerirCarga(p.exercicio, t.nivel, t.modalidade);
+    return `
     <tr>
       <td>${i + 1}</td>
       <td>
@@ -44,6 +47,7 @@ function corpoTreino(id) {
           <div>
             <b>${p.exercicio.nome}</b><br>
             <small>${PADRAO_LABEL[p.exercicio.padrao]} · ${equipNomes(p.exercicio.equipamento)}</small>
+            <div><span class="chip acc">🏋 ${carga.texto}</span></div>
           </div>
           <button class="btn ghost sm swap" data-card="${id}" data-idx="${i}">trocar</button>
         </div>
@@ -52,7 +56,8 @@ function corpoTreino(id) {
       <td>${p.series}× ${p.reps}</td>
       <td>${p.descansoSeg}s</td>
       <td>${mmss(p.tempoSeg)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   const fin = t.finalizador ? `<div class="fin"><b>Finalizador — ${t.finalizador.tipo}</b><br>${t.finalizador.descricao}</div>` : '';
   return `
     <h3>${mod.nome} · ${t.dia.toUpperCase()} · semana ${t.semana}</h3>
@@ -65,6 +70,7 @@ function corpoTreino(id) {
     <ul class="aquec">${aquec}</ul>
     <h4>Bloco principal</h4>
     <table><thead><tr><th>#</th><th>Exercício</th><th>Séries</th><th>Desc.</th><th>Tempo</th></tr></thead><tbody>${main}</tbody></table>
+    <small class="mut">🏋 Cargas são um <b>ponto de partida</b> (nível + modalidade + pesos do box) — ajuste pelo aluno.</small>
     ${fin}
     <h4>Volume por músculo (séries equivalentes)</h4>
     ${renderVolume(t.volume)}`;
