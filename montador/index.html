@@ -13,6 +13,7 @@
       <button class="tab active" data-view="dia">Aula do dia</button>
       <button class="tab" data-view="semana">Semana do aluno</button>
       <button class="tab" data-view="meso">Mesociclo</button>
+      <button class="tab" data-view="historico">Histórico</button>
       <button class="tab" data-view="alunos">Alunos</button>
     </nav>
   </header>
@@ -25,7 +26,9 @@
         <div class="field"><label>Nível</label><select id="d-nivel"></select></div>
         <div class="field"><label>Dia</label><select id="d-dia"></select></div>
         <div class="field"><label>Semana (ciclo 1–4)</label><input id="d-semana" type="number" min="1" max="8" value="1" style="min-width:90px" /></div>
+        <div class="field"><label>Salvar para</label><select id="d-aluno"></select></div>
         <button class="btn" id="d-gerar">Gerar treino</button>
+        <button class="btn ghost" id="d-salvar">Salvar treino</button>
         <button class="btn ghost" id="d-imprimir">Imprimir</button>
       </div>
       <div class="grid" id="d-saida"></div>
@@ -55,6 +58,15 @@
         <button class="btn ghost" id="m-imprimir">Imprimir</button>
       </div>
       <div class="grid" id="m-saida"></div>
+    </section>
+
+    <!-- ============ HISTÓRICO ============ -->
+    <section class="view" id="view-historico">
+      <div class="panel">
+        <div class="field"><label>Aluno</label><select id="h-aluno"></select></div>
+        <button class="btn ghost" id="h-imprimir">Imprimir</button>
+      </div>
+      <div class="grid" id="h-saida"></div>
     </section>
 
     <!-- ============ ALUNOS ============ -->

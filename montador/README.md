@@ -142,12 +142,14 @@ Rodando 12 seeds por modalidade (nível intermediário), 100% dos treinos:
   em `config/frequencias.js` e os fatores de progressão em `core/periodizacao.js`
   são pontos de calibração para a realidade do box.
 
-- **Fase 4 — Sugestão de carga (parcial, CONCLUÍDA):** cada exercício mostra uma
-  **carga inicial** calculada por nível + intensidade da modalidade, com *snap* para os
-  pesos que realmente existem no box (`core/cargas.js`). Peso corporal/cardio recebem
-  orientação de esforço; polia recebe orientação qualitativa.
+- **Fase 4 — Carga, histórico e integração (CONCLUÍDA):**
+  - **Sugestão de carga inicial** por exercício (nível + intensidade da modalidade,
+    com *snap* para os pesos reais do box — `core/cargas.js`).
+  - **Histórico por aluno**: salvar treinos gerados e revisar/remover depois
+    (aba Histórico, persistido em localStorage via `ui/store.js`).
+  - **Integração com o site**: link "Montador de treinos (coach)" no rodapé de `index.html`.
 
-## Próximos passos possíveis (Fase 4+)
+## Próximos passos possíveis
 
-Salvar/exportar histórico de treinos por aluno, biblioteca com vídeos/imagens dos
-exercícios, e integração com o site (link no menu).
+Biblioteca com vídeos/imagens dos exercícios (requer mídia), exportar histórico em PDF
+por período, e sugestão de carga personalizada a partir do 1RM informado do aluno.
