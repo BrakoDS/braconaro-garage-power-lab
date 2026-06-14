@@ -46,7 +46,8 @@ function mulberry32(seed) {
 function tempoExercicio(ex, series, mod) {
   const transicao = 20;
   if (mod.formato === 'circuito' && mod.segPorRepMedia === 0) {
-    return series * 45 + transicao; // HIIT: 30s on / 15s off por rodada
+    const porRodada = mod.id === 'gap' ? 30 : 45; // GAP: TABATA 20/10; HIIT: 30/15
+    return series * porRodada + transicao;
   }
   return series * (ex.tempoMedioSeg + mod.descansoSeg) + transicao;
 }
@@ -89,7 +90,8 @@ export function gerarTreino(opcoes) {
     (e) =>
       e.categorias.includes(modalidade) &&
       NIVEL_ORDEM[e.nivel] <= nivelAluno &&
-      !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade')
+      !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade') &&
+      (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao)) // GAP: só trem inferior + core
   );
 
   /** @type {Exercicio[]} */
@@ -127,7 +129,9 @@ export function gerarTreino(opcoes) {
   };
 
   // -------- Passo 3+6: preencher padrões obrigatórios (full body equilibrado) --------
-  const obrigatorios = padroesObrigatorios(/** @type {4|5|6} */ (Math.min(6, nExercicios)));
+  const obrigatorios = mod.padroesAlvo
+    ? mod.padroesAlvo
+    : padroesObrigatorios(/** @type {4|5|6} */ (Math.min(6, nExercicios)));
   for (const padrao of obrigatorios) {
     const faltantes = new Set(obrigatorios.filter((p) => !selecionados.some((s) => s.padrao === p)));
     const candidatos = pool
@@ -179,7 +183,7 @@ export function gerarTreino(opcoes) {
   }));
 
   const aquecimento = montarAquecimento(rng);
-  const finalizador = mod.finalizador ? montarFinalizador(pool, selecionados, rng) : null;
+  const finalizador = mod.finalizador ? montarFinalizador(pool, selecionados, rng, modalidade) : null;
 
   const volume = calcularVolume(principal.map((p) => ({ exercicio: p.exercicio, series: p.series })));
   const viabilidade = verificarViabilidade(selecionados, nAlunos, selecionados.length);
@@ -267,14 +271,17 @@ function montarAquecimento(rng) {
 
 /**
  * Finalizador (WOD curto) para modalidades híbridas/hyrox.
+ * No Híbrido o WOD é a parte "Cross" do treino (academia + crosstraining).
  * @param {Exercicio[]} pool @param {Exercicio[]} jaUsados @param {() => number} rng
+ * @param {string} modalidade
  */
-function montarFinalizador(pool, jaUsados, rng) {
+function montarFinalizador(pool, jaUsados, rng, modalidade) {
   const wod = pool.filter((e) => e.categorias.includes('wod') && !jaUsados.includes(e));
   const itens = embaralhar(wod, rng).slice(0, 3);
   if (!itens.length) return null;
+  const tipo = modalidade === 'hibrido' ? 'Cross WOD · AMRAP 6 min' : 'AMRAP 6 min';
   return {
-    tipo: 'AMRAP 6 min',
+    tipo,
     descricao: `Maior número de rodadas em 6 min: ${itens.map((e) => `10x ${e.nome}`).join(' + ')}`,
     itens,
     tempoSeg: 360,

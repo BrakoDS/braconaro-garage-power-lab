@@ -16,10 +16,13 @@ import { MODALIDADES } from '../config/modalidades.js';
  * @param {Partial<Record<Dia, ModalidadeId>>} [opcoes.grade]
  * @param {'iniciante'|'intermediario'|'avancado'} [opcoes.nivelRef]
  * @param {number} [opcoes.nSemanas]
+ * @param {number} [opcoes.semanaGap]  Semana do ciclo em que o HIIT vira GAP (1×/mês). 0 = nunca.
  * @param {number} [opcoes.seed]
  */
 export function gerarMesociclo(opcoes) {
   const { grade = GRADE_PADRAO, nivelRef = 'intermediario', nSemanas = 4, seed } = opcoes;
+  // GAP substitui o HIIT uma vez por mês; por padrão na 3ª semana (evita a de deload)
+  const semanaGap = opcoes.semanaGap ?? 3;
 
   // intensidade média a partir das modalidades da grade
   const faixas = Object.values(grade).filter(Boolean).map((m) => MODALIDADES[m].intensidadePctRM);
@@ -28,13 +31,20 @@ export function gerarMesociclo(opcoes) {
 
   const semanas = [];
   for (let semana = 1; semana <= nSemanas; semana++) {
+    // troca HIIT→GAP na semana designada
+    const temGap = semana === semanaGap && Object.values(grade).includes('hiit');
+    const gradeSemana = temGap
+      ? Object.fromEntries(Object.entries(grade).map(([d, m]) => [d, m === 'hiit' ? 'gap' : m]))
+      : grade;
+
     const programa = gerarProgramaSemanal({
-      grade, nivelRef, semana, seed: seed != null ? seed + semana * 100 : undefined,
+      grade: gradeSemana, nivelRef, semana, seed: seed != null ? seed + semana * 100 : undefined,
     });
     const totalSeries = programa.treinos.reduce((a, t) => a + t.volume.totalSeries, 0);
     semanas.push({
       semana,
       deload: ehDeload(semana),
+      gap: temGap,
       intensidade: intensidadeSemana([lo, hi], semana),
       totalSeries,
       atingeMinimo: programa.cenarios[3]?.atingeMinimo ?? true,
@@ -42,5 +52,5 @@ export function gerarMesociclo(opcoes) {
     });
   }
 
-  return { grade, nivelRef, nSemanas, semanas };
+  return { grade, nivelRef, nSemanas, semanaGap, semanas };
 }

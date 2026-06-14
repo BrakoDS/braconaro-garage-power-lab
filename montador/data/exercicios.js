@@ -13,7 +13,7 @@
  * @property {Padrao} padrao                  Padrão principal de movimento
  * @property {string[]} musculosPrimarios
  * @property {string[]} musculosSecundarios
- * @property {Array<'forca'|'hipertrofia'|'hiit'|'hyrox'|'mobilidade'|'tecnica'|'wod'>} categorias
+ * @property {Array<'forca'|'hipertrofia'|'hiit'|'hyrox'|'hibrido'|'gap'|'mobilidade'|'tecnica'|'wod'>} categorias
  * @property {string[]} equipamento           IDs de equipamentos.js
  * @property {'iniciante'|'intermediario'|'avancado'} nivel
  * @property {number} tempoMedioSeg           Tempo médio de execução de 1 série/rodada
@@ -129,14 +129,14 @@ export const EXERCICIOS = [
     id: 'goblet_squat', nome: 'Agachamento goblet (kettlebell)',
     descricao: 'Segurar KB junto ao peito e agachar.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
-    categorias: ['hipertrofia', 'hiit', 'hibrido'], equipamento: ['kettlebell'],
+    categorias: ['hipertrofia', 'hiit', 'hibrido', 'gap'], equipamento: ['kettlebell'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'afundo_halter', nome: 'Afundo com halteres',
     descricao: 'Passada à frente/trás segurando halteres.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['posterior_coxa'],
-    categorias: ['forca', 'hipertrofia', 'hyrox', 'hibrido'], equipamento: ['halter'],
+    categorias: ['forca', 'hipertrofia', 'hyrox', 'hibrido', 'gap'], equipamento: ['halter'],
     nivel: 'intermediario', tempoMedioSeg: 40,
   },
   {
@@ -150,14 +150,14 @@ export const EXERCICIOS = [
     id: 'box_step_up', nome: 'Step-up no caixote',
     descricao: 'Subir no caixote de 30 cm alternando as pernas, com ou sem carga.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha'],
-    categorias: ['hiit', 'hyrox', 'wod'], equipamento: ['caixote'],
+    categorias: ['hiit', 'hyrox', 'wod', 'gap'], equipamento: ['caixote'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'agachamento_livre', nome: 'Agachamento livre (peso corporal)',
     descricao: 'Air squat — usado em circuitos e aquecimento.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: ['gluteo'],
-    categorias: ['hiit', 'wod', 'mobilidade'], equipamento: ['corporal'],
+    categorias: ['hiit', 'wod', 'mobilidade', 'gap'], equipamento: ['corporal'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
 
@@ -180,14 +180,14 @@ export const EXERCICIOS = [
     id: 'kb_swing', nome: 'Kettlebell swing',
     descricao: 'Dobradiça de quadril explosiva levando a KB à altura dos ombros.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo', 'posterior_coxa'], musculosSecundarios: ['core', 'ombro'],
-    categorias: ['hiit', 'hyrox', 'wod', 'hibrido'], equipamento: ['kettlebell'],
+    categorias: ['hiit', 'hyrox', 'wod', 'hibrido', 'gap'], equipamento: ['kettlebell'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
   {
     id: 'elevacao_pelvica', nome: 'Elevação pélvica (hip thrust)',
     descricao: 'Ombros no banco, empurrar o quadril com carga sobre o quadril.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: ['posterior_coxa'],
-    categorias: ['hipertrofia'], equipamento: ['banco', 'anilhas'],
+    categorias: ['hipertrofia', 'gap'], equipamento: ['banco', 'anilhas'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
@@ -203,7 +203,7 @@ export const EXERCICIOS = [
     id: 'prancha', nome: 'Prancha isométrica',
     descricao: 'Manter alinhamento corpo-reto apoiado nos antebraços.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: ['ombro'],
-    categorias: ['hiit', 'mobilidade', 'wod'], equipamento: ['colchonete'],
+    categorias: ['hiit', 'mobilidade', 'wod', 'gap'], equipamento: ['colchonete'],
     nivel: 'iniciante', tempoMedioSeg: 40,
   },
   {
@@ -217,14 +217,14 @@ export const EXERCICIOS = [
     id: 'russian_twist', nome: 'Russian twist (anilha)',
     descricao: 'Sentado, rotação de tronco segurando anilha.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: [],
-    categorias: ['hiit', 'wod'], equipamento: ['anilhas', 'colchonete'],
+    categorias: ['hiit', 'wod', 'gap'], equipamento: ['anilhas', 'colchonete'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
   {
     id: 'dead_bug', nome: 'Dead bug',
     descricao: 'Deitado, estender braço e perna opostos mantendo lombar neutra.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: ['estabilizadores'],
-    categorias: ['mobilidade', 'tecnica'], equipamento: ['colchonete'],
+    categorias: ['mobilidade', 'tecnica', 'gap'], equipamento: ['colchonete'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
 
@@ -298,7 +298,7 @@ export const EXERCICIOS = [
     id: 'wall_ball_shot', nome: 'Wall ball shot',
     descricao: 'Agachar e arremessar a bola no alvo da parede.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'ombro'], musculosSecundarios: ['gluteo'],
-    categorias: ['hiit', 'hyrox', 'wod'], equipamento: ['wall_ball'],
+    categorias: ['hiit', 'hyrox', 'wod', 'gap'], equipamento: ['wall_ball'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
 

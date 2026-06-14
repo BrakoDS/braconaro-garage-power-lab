@@ -22,7 +22,7 @@ const BASE = {
 };
 
 /** Multiplicador por modalidade (condicionamento usa carga menor). */
-const MULT_MODALIDADE = { forca: 1.15, hipertrofia: 1.0, hibrido: 0.9, hyrox: 0.75, hiit: 0.7 };
+const MULT_MODALIDADE = { forca: 1.15, hipertrofia: 1.0, hibrido: 0.9, hyrox: 0.75, hiit: 0.7, gap: 0.55 };
 
 /** Pesos de halteres realmente disponíveis no box (leves + pesados). */
 const HALTERES_DISPONIVEIS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12.5, 15, 17.5];
@@ -47,7 +47,7 @@ export function sugerirCarga(ex, nivel, modalidade) {
   const ehSoCorporal = ex.equipamento.every((id) => corporais.includes(id));
   if (ehSoCorporal) {
     const esforco = { forca: 'controlado', hipertrofia: 'cadência 2-1-2', hibrido: 'forte',
-      hyrox: 'ritmo sustentável', hiit: 'máximo no tempo' }[modalidade] || 'controlado';
+      hyrox: 'ritmo sustentável', hiit: 'máximo no tempo', gap: 'TABATA — máximo no tempo' }[modalidade] || 'controlado';
     return { texto: `peso corporal · ${esforco}`, kg: null, tipo: 'corporal' };
   }
 

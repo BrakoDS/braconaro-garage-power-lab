@@ -17,6 +17,8 @@
  * @property {'estacoes'|'circuito'|'blocos'} formato
  * @property {boolean} finalizador       Tem finalizador (WOD/condicionamento)?
  * @property {string} estimulo
+ * @property {import('./padroes.js').Padrao[]} [padroesAlvo]  Se definido, o treino NÃO é
+ *           full body: foca só nestes padrões (ex.: GAP = trem inferior + core).
  */
 
 /** @type {Record<ModalidadeId, Modalidade>} */
@@ -73,9 +75,23 @@ export const MODALIDADES = {
     finalizador: true,
     estimulo: 'Resistência híbrida: corrida intercalada com estações funcionais (carries, sled-like, swings).',
   },
+  gap: {
+    id: 'gap',
+    nome: 'GAP (Glúteo/Abdômen/Perna)',
+    faixaExercicios: [5, 6],
+    series: 4, // rodadas
+    reps: 'TABATA 20s on / 10s off',
+    descansoSeg: 10,
+    intensidadePctRM: [40, 55],
+    segPorRepMedia: 0, // baseado em tempo
+    formato: 'circuito',
+    finalizador: false,
+    estimulo: 'TABATA intenso de trem inferior e core. Alto gasto calórico, pouca carga.',
+    padroesAlvo: ['quadriceps', 'posterior_gluteo', 'core'],
+  },
   hibrido: {
     id: 'hibrido',
-    nome: 'Híbrido (Hipertrofia + WOD)',
+    nome: 'Híbrido (Hipertrofia + Cross WOD)',
     faixaExercicios: [4, 5],
     series: 3,
     reps: '8–12 reps + WOD final',

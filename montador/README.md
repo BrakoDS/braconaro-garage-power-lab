@@ -43,7 +43,7 @@ montador/
 │   └── exercicios.js     # Catálogo mapeado 1:1 aos aparelhos existentes
 ├── config/
 │   ├── padroes.js        # Padrões de movimento + músculos rastreados
-│   ├── modalidades.js    # Força / Hipertrofia / HIIT / Hyrox / Híbrido
+│   ├── modalidades.js    # Força / Hipertrofia / HIIT / Hyrox / Híbrido / GAP
 │   └── frequencias.js    # Combinações de dias (3x/4x/5x) + metas de volume
 ├── core/
 │   ├── viabilidade.js    # Checagem de aparelhos p/ 8 alunos em circuito
@@ -64,6 +64,15 @@ montador/
 ```
 
 ---
+
+## Modalidades (alinhadas ao site)
+
+Força, Hipertrofia, HIIT, Hyrox, Híbrido e **GAP**. Notas:
+- **GAP** = HIIT com protocolo **TABATA** (20s/10s), foco **glúteo/abdômen/perna + core**,
+  pouca carga. É a única modalidade **não full body** (`padroesAlvo` em `modalidades.js`).
+  **Substitui o HIIT 1×/mês** — no mesociclo isso acontece na semana configurada (`semanaGap`, padrão 3).
+- **Cross** não é uma modalidade separada: é a parte **WOD do Híbrido** (academia + crosstraining),
+  rotulada "Cross WOD" no finalizador.
 
 ## Modelo de frequência (importante)
 

@@ -129,7 +129,7 @@ export function renderMesociclo(meso) {
   const linhas = meso.semanas.map((s) => `
     <tr class="${s.deload ? 'bad-row' : ''}">
       <td><b>Semana ${s.semana}</b></td>
-      <td>${s.intensidade.rotulo}${s.deload ? ' 💤' : ''}</td>
+      <td>${s.intensidade.rotulo}${s.deload ? ' 💤' : ''}${s.gap ? ' · HIIT→GAP' : ''}</td>
       <td>~${s.intensidade.pctRM}% 1RM</td>
       <td>${s.totalSeries}</td>
       <td><span class="bar" style="display:inline-block;width:140px;vertical-align:middle"><span style="width:${(s.totalSeries / maxSeries) * 100}%"></span></span></td>
