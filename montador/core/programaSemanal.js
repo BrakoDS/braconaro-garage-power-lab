@@ -25,10 +25,12 @@ export const GRADE_PADRAO = /** @type {Record<Dia, ModalidadeId>} */ ({
  * @param {Partial<Record<Dia, ModalidadeId>>} [opcoes.grade]  Modalidade de cada dia
  * @param {'iniciante'|'intermediario'|'avancado'} [opcoes.nivelRef]  Nível de referência da turma
  * @param {number} [opcoes.semana]
+ * @param {Partial<Record<Dia, string[]>>} [opcoes.evitarPorDia]  IDs de exercícios a evitar por dia
+ *        (ex.: os da semana anterior do mês), para variar o estímulo entre semanas.
  * @param {number} [opcoes.seed]
  */
 export function gerarProgramaSemanal(opcoes) {
-  const { grade = GRADE_PADRAO, nivelRef = 'intermediario', semana = 1, seed } = opcoes;
+  const { grade = GRADE_PADRAO, nivelRef = 'intermediario', semana = 1, evitarPorDia = {}, seed } = opcoes;
 
   // dias de treino, em ordem da semana
   const dias = ORDEM_DIAS.filter((d) => grade[d]);
@@ -59,6 +61,7 @@ export function gerarProgramaSemanal(opcoes) {
     const treino = gerarTreino({
       modalidade: /** @type {ModalidadeId} */ (grade[dia]),
       nivel: nivelRef, dia, semana, treinoAnterior: anterior, viesPadrao,
+      idsEvitar: evitarPorDia[dia] || [],
       seed: seed != null ? seed + i : undefined,
     });
     treinos.push(treino);

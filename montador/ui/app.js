@@ -1,17 +1,17 @@
 // @ts-check
-import { gerarTreino } from '../core/gerador.js';
+/* Controlador da UI. Fluxo mensal: o programa de cada semana do mês é gerado,
+   salvo e travado (regerar = substituir). Ver README "Fluxo mensal". */
 import { gerarProgramaSemanal, GRADE_PADRAO } from '../core/programaSemanal.js';
 import { gerarMesociclo } from '../core/mesociclo.js';
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
 import { COMBINACOES, COMBINACAO_POR_ID } from '../config/frequencias.js';
 import * as store from './store.js';
-import { renderTreino, renderCenarios, renderMesociclo, ativarTrocas } from './render.js';
+import { renderCenarios, renderDiaSalvo, renderRelatorioMes, renderAcumuladoAluno, renderMesociclo } from './render.js';
 import { sugerirCarga } from '../core/cargas.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const NIVEIS = ['iniciante', 'intermediario', 'avancado'];
-const DIAS = ['seg', 'ter', 'qua', 'qui', 'sex'];
 const GRADE_IDS = { seg: '#g-seg', ter: '#g-ter', qua: '#g-qua', qui: '#g-qui', sex: '#g-sex' };
 const opt = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; };
 
@@ -21,18 +21,11 @@ $$('.tab').forEach((tab) => tab.addEventListener('click', () => {
   $$('.view').forEach((v) => v.classList.remove('active'));
   tab.classList.add('active');
   $('#view-' + tab.dataset.view).classList.add('active');
+  if (tab.dataset.view === 'historico') { atualizarMesesSelects(); renderHistorico(); }
 }));
 
 // ---------- popular selects ----------
 function popularSelects() {
-  MODALIDADE_IDS.forEach((id) => $('#d-modalidade').appendChild(opt(id, MODALIDADES[id].nome)));
-  DIAS.forEach((d) => $('#d-dia').appendChild(opt(d, d.toUpperCase())));
-  COMBINACOES.forEach((c) => $('#al-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
-  ['#d-nivel', '#al-nivel', '#m-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
-  $('#d-nivel').value = 'intermediario';
-  $('#m-nivel').value = 'intermediario';
-
-  // grade da semana: cada dia escolhe uma modalidade (ou folga)
   const cfg = store.getConfig();
   const grade = cfg.grade || GRADE_PADRAO;
   Object.entries(GRADE_IDS).forEach(([dia, sel]) => {
@@ -41,66 +34,38 @@ function popularSelects() {
     MODALIDADE_IDS.forEach((id) => el.appendChild(opt(id, MODALIDADES[id].nome)));
     el.value = grade[dia] || '';
   });
-  const nivelSel = $('#s-nivel');
-  NIVEIS.forEach((n) => nivelSel.appendChild(opt(n, n)));
-  nivelSel.value = cfg.nivelRef || 'intermediario';
+  ['#s-nivel', '#m-nivel', '#al-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
+  $('#s-nivel').value = cfg.nivelRef || 'intermediario';
+  $('#m-nivel').value = cfg.nivelRef || 'intermediario';
+  COMBINACOES.forEach((c) => $('#al-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
+
+  // semana do mês (1..5)
+  for (let n = 1; n <= 5; n++) $('#s-semana').appendChild(opt(String(n), `Semana ${n}`));
+  $('#s-semana').value = String(store.semanaDoMes());
 }
 
-// ---------- AULA DO DIA ----------
-/** @type {import('../core/tipos.js').Treino|null} */
-let treinoDia = null;
-
-function gerarDia() {
-  treinoDia = gerarTreino({
-    modalidade: $('#d-modalidade').value,
-    nivel: $('#d-nivel').value,
-    dia: $('#d-dia').value,
-    semana: Number($('#d-semana').value) || 1,
-    seed: Math.floor(Math.random() * 1e9),
+/** Popula os selects de mês (atual + meses com programas salvos). */
+function atualizarMesesSelects() {
+  const atual = store.mesIdDe();
+  const ids = [...new Set([atual, ...store.listarMeses()])].sort().reverse();
+  [['#s-mes', store.mesIdDe()], ['#h-mes', store.mesIdDe()]].forEach(([sel, def]) => {
+    const cur = $(sel).value || def;
+    $(sel).innerHTML = '';
+    ids.forEach((id) => $(sel).appendChild(opt(id, store.rotuloMes(id))));
+    $(sel).value = ids.includes(cur) ? cur : atual;
   });
-  $('#d-saida').innerHTML = renderTreino(treinoDia);
 }
 
-/** Snapshot compacto de um treino para o histórico. */
-function snapshotTreino(t) {
-  return {
-    modalidade: t.modalidade, dia: t.dia, semana: t.semana, nivel: t.nivel,
-    tempoTotalSeg: t.tempoTotalSeg, totalSeries: t.volume.totalSeries,
-    exercicios: t.principal.map((p) => ({
-      nome: p.exercicio.nome, padrao: p.exercicio.padrao,
-      series: p.series, reps: p.reps,
-      carga: sugerirCarga(p.exercicio, t.nivel, t.modalidade).texto,
-    })),
-  };
-}
-
-function salvarTreinoDia() {
-  const alunoId = $('#d-aluno').value;
-  if (!alunoId) { alert('Selecione um aluno em "Salvar para".'); return; }
-  if (!treinoDia) { alert('Gere um treino primeiro.'); return; }
-  store.salvarSessao(alunoId, {
-    data: new Date().toISOString(), tipo: 'dia',
-    resumo: `${MODALIDADES[treinoDia.modalidade].nome} · ${treinoDia.principal.length} exercícios · ${treinoDia.volume.totalSeries} séries`,
-    dados: snapshotTreino(treinoDia),
-  });
-  const btn = $('#d-salvar');
-  const txt = btn.textContent; btn.textContent = '✓ Salvo'; setTimeout(() => { btn.textContent = txt; }, 1500);
+function atualizarSelectAlunos() {
+  const sel = $('#h-aluno');
+  const atual = sel.value;
+  sel.innerHTML = '';
+  sel.appendChild(opt('', '— relatório do box —'));
+  store.listarAlunos().forEach((a) => sel.appendChild(opt(a.id, `${a.nome} (${a.nivel})`)));
+  sel.value = atual;
 }
 
 // ---------- PROGRAMA DA SEMANA ----------
-function atualizarSelectAlunos() {
-  const placeholders = { '#d-aluno': '— sem aluno —', '#h-aluno': '— selecione um aluno —' };
-  Object.entries(placeholders).forEach(([id, ph]) => {
-    const sel = $(id);
-    const atual = sel.value;
-    sel.innerHTML = '';
-    sel.appendChild(opt('', ph));
-    store.listarAlunos().forEach((a) => sel.appendChild(opt(a.id, `${a.nome} (${a.nivel})`)));
-    sel.value = atual; // preserva seleção quando possível
-  });
-}
-
-/** Lê a grade configurada nos selects e persiste. */
 function lerGrade() {
   const grade = {};
   Object.entries(GRADE_IDS).forEach(([dia, sel]) => { const v = $(sel).value; if (v) grade[dia] = v; });
@@ -109,15 +74,71 @@ function lerGrade() {
   return { grade, nivelRef };
 }
 
-function gerarPrograma(freqDestaque) {
+function aplicarGradeNosSelects(grade) {
+  Object.entries(GRADE_IDS).forEach(([dia, sel]) => { $(sel).value = grade[dia] || ''; });
+}
+
+/** Monta o snapshot compacto e persistível de um programa gerado. */
+function montarSnapshot(prog, mesId, semana, grade, nivelRef) {
+  return {
+    mesId, semana, geradoEm: new Date().toISOString(), grade, nivelRef,
+    minimo: prog.minimo, cenarios: prog.cenarios, volPorDia: prog.volPorDia,
+    dias: prog.treinos.map((t) => ({
+      dia: t.dia, modalidade: t.modalidade,
+      viabilidade: { ok: t.viabilidade.ok, tamanhoGrupo: t.viabilidade.tamanhoGrupo },
+      exercicios: t.principal.map((p) => ({
+        id: p.exercicio.id, nome: p.exercicio.nome, padrao: p.exercicio.padrao,
+        equipamento: p.exercicio.equipamento, series: p.series, reps: p.reps,
+        carga: sugerirCarga(p.exercicio, nivelRef, t.modalidade).texto,
+      })),
+      finalizador: t.finalizador ? { tipo: t.finalizador.tipo, descricao: t.finalizador.descricao } : null,
+    })),
+  };
+}
+
+function renderProgramaView(snap, jaExistia) {
+  const aviso = `<div class="card" style="border-color:var(--acc)">
+    <b>Semana ${snap.semana} — ${store.rotuloMes(snap.mesId)}</b> · salva ✓
+    ${jaExistia ? '(visualizando o treino salvo desta semana)' : '(gerada e salva no histórico)'}.
+    Para mudar, clique em <b>Gerar / ver semana</b> e confirme a substituição.</div>`;
+  $('#s-saida').innerHTML = aviso + renderCenarios(snap) + snap.dias.map(renderDiaSalvo).join('');
+}
+
+function gerarPrograma() {
+  const mesId = $('#s-mes').value;
+  const semana = Number($('#s-semana').value);
   const { grade, nivelRef } = lerGrade();
-  const prog = gerarProgramaSemanal({
-    grade, nivelRef,
-    semana: Number($('#s-semana').value) || 1,
-    seed: Math.floor(Math.random() * 1e6),
-  });
-  $('#s-saida').innerHTML = renderCenarios(prog, freqDestaque) +
-    prog.treinos.map((t) => renderTreino(t)).join('');
+
+  const existente = store.getPrograma(mesId, semana);
+  if (existente) {
+    const sub = confirm(`Já existe um treino salvo para a Semana ${semana} — ${store.rotuloMes(mesId)}.\n\nDeseja substituir o treino dessa semana?`);
+    if (!sub) { renderProgramaView(existente, true); return; }
+  }
+
+  // usa a última semana salva do mês para variar os exercícios
+  const ant = store.programasAnteriores(mesId, semana).slice(-1)[0];
+  const evitarPorDia = {};
+  if (ant) ant.dias.forEach((d) => { evitarPorDia[d.dia] = d.exercicios.map((e) => e.id); });
+
+  const prog = gerarProgramaSemanal({ grade, nivelRef, semana, evitarPorDia, seed: Math.floor(Math.random() * 1e6) });
+  const snap = montarSnapshot(prog, mesId, semana, grade, nivelRef);
+  store.salvarPrograma(mesId, semana, snap);
+  renderProgramaView(snap, false);
+  atualizarMesesSelects();
+}
+
+/** Ao trocar mês/semana, carrega o programa salvo (se houver) ou mostra dica. */
+function aoTrocarSemana() {
+  const mesId = $('#s-mes').value;
+  const semana = Number($('#s-semana').value);
+  const ex = store.getPrograma(mesId, semana);
+  if (ex) {
+    aplicarGradeNosSelects(ex.grade);
+    $('#s-nivel').value = ex.nivelRef;
+    renderProgramaView(ex, true);
+  } else {
+    $('#s-saida').innerHTML = `<div class="empty">Sem treino salvo para a Semana ${semana} — ${store.rotuloMes(mesId)}.<br>Configure a grade e clique em <b>Gerar / ver semana</b>.</div>`;
+  }
 }
 
 // ---------- MESOCICLO ----------
@@ -134,24 +155,14 @@ function gerarMeso() {
 
 // ---------- HISTÓRICO ----------
 function renderHistorico() {
+  const mesId = $('#h-mes').value || store.mesIdDe();
   const alunoId = $('#h-aluno').value;
-  const el = $('#h-saida');
-  if (!alunoId) { el.innerHTML = '<div class="empty">Selecione um aluno para ver o histórico.</div>'; return; }
-  const sessoes = store.listarSessoes(alunoId);
-  if (!sessoes.length) { el.innerHTML = '<div class="empty">Nenhum treino salvo para este aluno ainda.</div>'; return; }
-  el.innerHTML = sessoes.map((s) => {
-    const d = new Date(s.data);
-    const exs = (s.dados.exercicios || []).map((e) =>
-      `<tr><td>${e.nome}</td><td>${e.series}× ${e.reps}</td><td><small>${e.carga}</small></td></tr>`).join('');
-    return `<article class="card">
-      <div class="ex-row">
-        <div><h3>${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</h3>
-          <div class="mut">${s.resumo}</div></div>
-        <button class="btn danger sm" data-delsessao="${s.id}" style="margin-left:auto">Remover</button>
-      </div>
-      <table><tbody>${exs}</tbody></table>
-    </article>`;
-  }).join('');
+  const semanas = store.listarProgramasDoMes(mesId);
+  const rotulo = store.rotuloMes(mesId);
+  if (!alunoId) { $('#h-saida').innerHTML = renderRelatorioMes(rotulo, semanas); return; }
+  const aluno = store.listarAlunos().find((a) => a.id === alunoId);
+  const dias = COMBINACAO_POR_ID[aluno?.combinacaoId]?.dias || [];
+  $('#h-saida').innerHTML = renderAcumuladoAluno(aluno.nome, dias, semanas, rotulo);
 }
 
 // ---------- ALUNOS ----------
@@ -167,7 +178,7 @@ function renderAlunos() {
         <div class="meta">${a.nivel} · ${c ? c.frequencia + '× ' + c.rotulo : '—'}</div>
       </div>
       <div class="acoes">
-        <button class="btn ghost sm" data-gerar="${a.id}">Ver programa</button>
+        <button class="btn ghost sm" data-acum="${a.id}">Ver acumulado</button>
         <button class="btn danger sm" data-del="${a.id}">Remover</button>
       </div>
     </div>`;
@@ -178,9 +189,7 @@ function bindAlunos() {
   $('#al-add').addEventListener('click', () => {
     const nome = $('#al-nome').value.trim();
     if (!nome) { $('#al-nome').focus(); return; }
-    store.adicionarAluno({
-      nome, nivel: $('#al-nivel').value, combinacaoId: $('#al-combinacao').value, modalidadesPorDia: {},
-    });
+    store.adicionarAluno({ nome, nivel: $('#al-nivel').value, combinacaoId: $('#al-combinacao').value, modalidadesPorDia: {} });
     $('#al-nome').value = '';
     renderAlunos();
     atualizarSelectAlunos();
@@ -188,37 +197,32 @@ function bindAlunos() {
   $('#al-lista').addEventListener('click', (ev) => {
     const del = ev.target.closest('[data-del]');
     if (del) { store.removerAluno(del.dataset.del); renderAlunos(); atualizarSelectAlunos(); return; }
-    const ger = ev.target.closest('[data-gerar]');
-    if (ger) {
-      const aluno = store.listarAlunos().find((a) => a.id === ger.dataset.gerar);
-      const freq = COMBINACAO_POR_ID[aluno?.combinacaoId]?.frequencia;
+    const acum = ev.target.closest('[data-acum]');
+    if (acum) {
       $$('.tab').forEach((t) => t.classList.remove('active'));
       $$('.view').forEach((v) => v.classList.remove('active'));
-      document.querySelector('.tab[data-view="semana"]').classList.add('active');
-      $('#view-semana').classList.add('active');
-      gerarPrograma(freq);
+      document.querySelector('.tab[data-view="historico"]').classList.add('active');
+      $('#view-historico').classList.add('active');
+      $('#h-aluno').value = acum.dataset.acum;
+      renderHistorico();
     }
   });
 }
 
 // ---------- init ----------
 popularSelects();
+atualizarMesesSelects();
 atualizarSelectAlunos();
 renderAlunos();
-renderHistorico();
 bindAlunos();
-$('#d-gerar').addEventListener('click', gerarDia);
-$('#s-gerar').addEventListener('click', () => gerarPrograma());
+$('#s-gerar').addEventListener('click', gerarPrograma);
+$('#s-mes').addEventListener('change', () => { atualizarMesesSelects(); aoTrocarSemana(); });
+$('#s-semana').addEventListener('change', aoTrocarSemana);
 $('#m-gerar').addEventListener('click', gerarMeso);
-$('#d-salvar').addEventListener('click', salvarTreinoDia);
+$('#h-mes').addEventListener('change', renderHistorico);
 $('#h-aluno').addEventListener('change', renderHistorico);
-$('#h-saida').addEventListener('click', (ev) => {
-  const del = ev.target.closest('[data-delsessao]');
-  if (del) { store.removerSessao($('#h-aluno').value, del.dataset.delsessao); renderHistorico(); }
-});
-$('#d-imprimir').addEventListener('click', () => window.print());
 $('#s-imprimir').addEventListener('click', () => window.print());
 $('#m-imprimir').addEventListener('click', () => window.print());
 $('#h-imprimir').addEventListener('click', () => window.print());
-ativarTrocas($('main'));
-gerarDia();
+aoTrocarSemana();
+renderHistorico();

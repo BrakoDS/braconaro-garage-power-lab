@@ -10,8 +10,7 @@
   <header class="topbar">
     <div class="brand"><b>BRACONARO</b> · Montador<small>Garage Power Lab</small></div>
     <nav class="tabs">
-      <button class="tab active" data-view="dia">Aula do dia</button>
-      <button class="tab" data-view="semana">Programa da semana</button>
+      <button class="tab active" data-view="semana">Programa da semana</button>
       <button class="tab" data-view="meso">Mesociclo</button>
       <button class="tab" data-view="historico">Histórico</button>
       <button class="tab" data-view="alunos">Alunos</button>
@@ -19,32 +18,18 @@
   </header>
 
   <main>
-    <!-- ============ AULA DO DIA ============ -->
-    <section class="view active" id="view-dia">
-      <div class="panel">
-        <div class="field"><label>Modalidade</label><select id="d-modalidade"></select></div>
-        <div class="field"><label>Nível</label><select id="d-nivel"></select></div>
-        <div class="field"><label>Dia</label><select id="d-dia"></select></div>
-        <div class="field"><label>Semana (ciclo 1–4)</label><input id="d-semana" type="number" min="1" max="8" value="1" style="min-width:90px" /></div>
-        <div class="field"><label>Salvar para</label><select id="d-aluno"></select></div>
-        <button class="btn" id="d-gerar">Gerar treino</button>
-        <button class="btn ghost" id="d-salvar">Salvar treino</button>
-        <button class="btn ghost" id="d-imprimir">Imprimir</button>
-      </div>
-      <div class="grid" id="d-saida"></div>
-    </section>
-
     <!-- ============ PROGRAMA DA SEMANA ============ -->
-    <section class="view" id="view-semana">
+    <section class="view active" id="view-semana">
       <div class="panel">
+        <div class="field"><label>Mês</label><select id="s-mes"></select></div>
+        <div class="field"><label>Semana do mês</label><select id="s-semana"></select></div>
         <div class="field"><label>SEG</label><select id="g-seg" class="grade-sel"></select></div>
         <div class="field"><label>TER</label><select id="g-ter" class="grade-sel"></select></div>
         <div class="field"><label>QUA</label><select id="g-qua" class="grade-sel"></select></div>
         <div class="field"><label>QUI</label><select id="g-qui" class="grade-sel"></select></div>
         <div class="field"><label>SEX</label><select id="g-sex" class="grade-sel"></select></div>
         <div class="field"><label>Nível de referência</label><select id="s-nivel"></select></div>
-        <div class="field"><label>Semana</label><input id="s-semana" type="number" min="1" max="8" value="1" style="min-width:80px" /></div>
-        <button class="btn" id="s-gerar">Gerar programa</button>
+        <button class="btn" id="s-gerar">Gerar / ver semana</button>
         <button class="btn ghost" id="s-imprimir">Imprimir</button>
       </div>
       <div class="grid" id="s-saida"></div>
@@ -65,7 +50,8 @@
     <!-- ============ HISTÓRICO ============ -->
     <section class="view" id="view-historico">
       <div class="panel">
-        <div class="field"><label>Aluno</label><select id="h-aluno"></select></div>
+        <div class="field"><label>Mês</label><select id="h-mes"></select></div>
+        <div class="field"><label>Aluno (acumulado do mês)</label><select id="h-aluno"></select></div>
         <button class="btn ghost" id="h-imprimir">Imprimir</button>
       </div>
       <div class="grid" id="h-saida"></div>

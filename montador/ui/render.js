@@ -1,6 +1,6 @@
 // @ts-check
 import { MODALIDADES } from '../config/modalidades.js';
-import { PADRAO_LABEL } from '../config/padroes.js';
+import { PADRAO_LABEL, PADROES } from '../config/padroes.js';
 import { EQUIP_POR_ID } from '../data/equipamentos.js';
 import { alternativasViaveis, aplicarTroca } from '../core/gerador.js';
 import { sugerirCarga } from '../core/cargas.js';
@@ -140,6 +140,69 @@ export function renderMesociclo(meso) {
     <h3>Mesociclo · ${meso.nSemanas} semanas</h3>
     <div class="mut" style="margin-bottom:8px">Grade: ${gradeTxt}. Progressão de volume e intensidade com deload automático na semana 4 do ciclo.</div>
     <table><thead><tr><th>Semana</th><th>Fase</th><th>Intensidade</th><th>Séries (5 dias)</th><th>Volume</th></tr></thead><tbody>${linhas}</tbody></table>
+  </article>`;
+}
+
+/** Card de um dia salvo (read-only, a partir do snapshot). */
+export function renderDiaSalvo(d) {
+  const exs = d.exercicios.map((e, i) => `
+    <tr><td>${i + 1}</td>
+      <td><b>${e.nome}</b><br><small>${PADRAO_LABEL[e.padrao] || e.padrao} · ${equipNomes(e.equipamento || [])}</small>
+        <div><span class="chip acc">🏋 ${e.carga}</span></div></td>
+      <td>${e.series}× ${e.reps}</td></tr>`).join('');
+  const fin = d.finalizador ? `<div class="fin"><b>${d.finalizador.tipo}</b><br>${d.finalizador.descricao}</div>` : '';
+  const viab = d.viabilidade?.ok ? `<span class="ok">✓ viável (grupos de ${d.viabilidade.tamanhoGrupo})</span>` : '';
+  return `<article class="card">
+    <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}</h3>
+    <div>${viab}</div>
+    <table><thead><tr><th>#</th><th>Exercício</th><th>Séries</th></tr></thead><tbody>${exs}</tbody></table>
+    ${fin}</article>`;
+}
+
+/** Relatório do box no mês: uma linha por semana salva. */
+export function renderRelatorioMes(rotulo, semanas) {
+  if (!semanas.length) return '<div class="empty">Nenhum treino salvo neste mês.</div>';
+  const linhas = semanas.map((s) => {
+    const grade = Object.entries(s.grade).map(([d, m]) => `${d.toUpperCase()} ${MODALIDADES[m]?.nome || m}`).join(' · ');
+    const ok = s.cenarios?.[3]?.atingeMinimo;
+    const total = Object.values(s.volPorDia).reduce((a, dia) => a + Object.values(dia).reduce((x, y) => x + y, 0), 0);
+    return `<tr><td><b>Semana ${s.semana}</b></td><td><small>${grade}</small></td><td>${ok ? '<span class="ok">✓</span>' : '—'}</td><td>${Math.round(total)}</td></tr>`;
+  }).join('');
+  return `<article class="card">
+    <h3>Relatório do box — ${rotulo}</h3>
+    <div class="mut" style="margin-bottom:8px">${semanas.length} semana(s) registrada(s). Selecione um aluno para ver o acumulado individual.</div>
+    <table><thead><tr><th>Semana</th><th>Grade</th><th>3× mín.</th><th>Séries (5 dias)</th></tr></thead><tbody>${linhas}</tbody></table>
+  </article>`;
+}
+
+/**
+ * Acumulado do mês de um aluno: soma os dias que ele treina em cada semana salva.
+ * @param {string} nome @param {string[]} dias  dias que o aluno frequenta
+ * @param {any[]} semanas  programas salvos do mês
+ * @param {string} rotulo  rótulo do mês
+ */
+export function renderAcumuladoAluno(nome, dias, semanas, rotulo) {
+  const acc = Object.fromEntries(PADROES.map((p) => [p, 0]));
+  let sessoes = 0;
+  const porSemana = semanas.map((s) => {
+    const diasTreino = dias.filter((d) => s.volPorDia[d]); // dias do aluno que têm treino na grade
+    sessoes += diasTreino.length;
+    let semTotal = 0;
+    diasTreino.forEach((d) => PADROES.forEach((p) => { const v = s.volPorDia[d][p] || 0; acc[p] += v; semTotal += v; }));
+    return `<tr><td>Semana ${s.semana}</td><td>${diasTreino.map((d) => d.toUpperCase()).join(', ') || '—'}</td><td>${Math.round(semTotal)}</td></tr>`;
+  }).join('');
+
+  const totalGeral = Math.round(Object.values(acc).reduce((a, b) => a + b, 0));
+  const linhasPad = PADROES.filter((p) => acc[p] > 0)
+    .map((p) => `<tr><td>${PADRAO_LABEL[p] || p}</td><td>${Math.round(acc[p])}</td></tr>`).join('');
+
+  return `<article class="card">
+    <h3>${nome} — acumulado de ${rotulo}</h3>
+    <div class="mut" style="margin-bottom:10px">Dias que treina: ${dias.map((d) => d.toUpperCase()).join(' / ')} · <b>${sessoes}</b> sessões no mês · <b>${totalGeral}</b> séries no total.</div>
+    <h4>Volume acumulado por padrão</h4>
+    <table><tbody>${linhasPad || '<tr><td class="mut">Sem dados ainda.</td></tr>'}</tbody></table>
+    <h4>Por semana</h4>
+    <table><thead><tr><th>Semana</th><th>Dias treinados</th><th>Séries</th></tr></thead><tbody>${porSemana}</tbody></table>
   </article>`;
 }
 

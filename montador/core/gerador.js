@@ -63,12 +63,14 @@ function tempoExercicio(ex, series, mod) {
  * @param {number} [opcoes.nAlunos]
  * @param {Partial<Record<Padrao, number>>} [opcoes.viesPadrao]  Viés de seleção por padrão
  *        (positivo = priorizar; negativo = desencorajar). Usado pelo balanceamento semanal.
+ * @param {string[]} [opcoes.idsEvitar]  IDs de exercícios a desencorajar (ex.: os da semana
+ *        anterior do mês), para variar o estímulo entre semanas.
  */
 export function gerarTreino(opcoes) {
   const {
     modalidade, nivel, dia,
     semana = 1, treinoAnterior = null, nAlunos = ALUNOS_POR_SESSAO,
-    viesPadrao = {},
+    viesPadrao = {}, idsEvitar = [],
   } = opcoes;
   const seed = opcoes.seed ?? hashSeed(`${modalidade}-${dia}-${semana}-${nivel}`);
   const rng = mulberry32(seed);
@@ -85,7 +87,10 @@ export function gerarTreino(opcoes) {
 
   // -------- pool elegível: modalidade + nível + não-mobilidade --------
   const nivelAluno = NIVEL_ORDEM[nivel];
-  const idsAnteriores = new Set((treinoAnterior?.principal ?? []).map((i) => i.exercicio.id));
+  const idsAnteriores = new Set([
+    ...(treinoAnterior?.principal ?? []).map((i) => i.exercicio.id),
+    ...idsEvitar,
+  ]);
   const pool = EXERCICIOS.filter(
     (e) =>
       e.categorias.includes(modalidade) &&

@@ -4,10 +4,11 @@ Gerador automático de treinos full body que respeita as **modalidades**, a **es
 real do box** (inventário de aparelhos), a **frequência semanal** do aluno e o
 **equilíbrio entre padrões de movimento**, calculando **volume semanal e mensal**.
 
-> **Status: Fase 3 concluída** — núcleo + app com 4 abas (Aula do dia, Semana do aluno,
-> **Mesociclo**, Alunos). Inclui **balanceamento de volume entre os dias da semana**,
-> **mesociclos com progressão de intensidade e deload automático**, troca de exercício
-> por alternativa viável e impressão/PDF (via diálogo do navegador).
+> **Status: fluxo mensal** — app com 4 abas (**Programa da semana**, **Mesociclo**,
+> **Histórico**, **Alunos**). O mês é a unidade: cada semana tem um programa salvo e travado
+> (regerar = substituir), o gerador varia exercícios entre semanas, o Histórico mostra o
+> relatório do mês e o acumulado por aluno. Inclui balanceamento de volume entre dias,
+> mesociclos com progressão/deload, sugestão de carga e impressão/PDF.
 
 ---
 
@@ -73,6 +74,16 @@ Força, Hipertrofia, HIIT, Hyrox, Híbrido e **GAP**. Notas:
   **Substitui o HIIT 1×/mês** — no mesociclo isso acontece na semana configurada (`semanaGap`, padrão 3).
 - **Cross** não é uma modalidade separada: é a parte **WOD do Híbrido** (academia + crosstraining),
   rotulada "Cross WOD" no finalizador.
+
+## Fluxo mensal (importante)
+
+O **mês** é a unidade. Cada **semana do mês** tem **um programa** (igual para todos), que é
+**gerado e salvo automaticamente** e fica **travado**: regerar pede confirmação
+(*"Deseja substituir o treino da semana X?"*). Ao montar uma semana, o gerador **varia os
+exercícios** em relação à semana anterior do mês (além de progredir pela periodização).
+O conjunto das semanas salvas é o **relatório do mês** (aba *Histórico*), e ao escolher um
+aluno vê-se o **acumulado dele** (soma só dos dias que ele treina em cada semana). Mês e
+semana são detectados pela data de hoje (`store.semanaDoMes`/`mesIdDe`), com troca manual.
 
 ## Modelo de frequência (importante)
 
