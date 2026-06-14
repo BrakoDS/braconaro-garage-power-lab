@@ -25,27 +25,43 @@ const ROTACAO_PADRAO = ['forca', 'hipertrofia', 'hyrox', 'hipertrofia', 'hibrido
 export function gerarPlanoSemanal(opcoes) {
   const { combinacao, nivel, semana = 1, modalidadesPorDia = {}, seed } = opcoes;
 
+  const meta = META_SERIES_SEMANAIS[combinacao.frequencia];
   const treinos = [];
   /** @type {import('./tipos.js').Treino|null} */
   let anterior = null;
+  /** volume por padrão acumulado na semana até aqui */
+  const acumulado = Object.fromEntries(Object.keys(meta).map((p) => [p, 0]));
 
   combinacao.dias.forEach((dia, i) => {
     const modalidade = /** @type {ModalidadeId} */ (
       modalidadesPorDia[dia] ?? ROTACAO_PADRAO[i % ROTACAO_PADRAO.length]
     );
+
+    // ---- balanceamento semanal: viés por déficit de volume ----
+    const diasRestantes = combinacao.dias.length - i;
+    const deficits = Object.fromEntries(
+      Object.entries(meta).map(([p, alvo]) => [p, (alvo - acumulado[p]) / diasRestantes])
+    );
+    const mediaDef = Object.values(deficits).reduce((a, b) => a + b, 0) / Object.keys(deficits).length;
+    const viesPadrao = {};
+    for (const [p, d] of Object.entries(deficits)) {
+      viesPadrao[p] = Math.max(-60, Math.min(60, (d - mediaDef) * 12)); // padrões atrasados ganham prioridade
+    }
+
     const treino = gerarTreino({
       modalidade, nivel, dia, semana,
       treinoAnterior: anterior,
+      viesPadrao,
       seed: seed != null ? seed + i : undefined,
     });
     treinos.push(treino);
     anterior = treino;
+    for (const [p, v] of Object.entries(treino.volume.porPadrao)) acumulado[p] = (acumulado[p] || 0) + v;
   });
 
   // -------- volume semanal e mensal --------
   const volumeSemanal = somarVolumes(treinos.map((t) => t.volume));
   const volumeMensal = projetarMensal(volumeSemanal);
-  const meta = META_SERIES_SEMANAIS[combinacao.frequencia];
 
   // confronto meta x realizado por padrão
   /** @type {Record<string, {meta:number, realizado:number, ok:boolean}>} */

@@ -39,3 +39,19 @@ export function seriesAjustadas(seriesBase, semana, nivel) {
   const bruto = seriesBase * fatorSemana(semana) * fatorNivel(nivel);
   return Math.max(2, Math.round(bruto));
 }
+
+/**
+ * Progressão de INTENSIDADE dentro do mesociclo (onda 1→4).
+ * Semana 1: base do range; 2: meio; 3: topo (pico); 4: deload (abaixo da base).
+ * @param {[number,number]} faixaPctRM  Faixa de % de 1RM da modalidade
+ * @param {number} semana
+ * @returns {{ pctRM: number, rotulo: string }}
+ */
+export function intensidadeSemana(faixaPctRM, semana) {
+  const [lo, hi] = faixaPctRM;
+  const s = ((semana - 1) % 4) + 1;
+  const t = { 1: 0.0, 2: 0.5, 3: 1.0, 4: -0.4 }[s] ?? 0;
+  const pctRM = Math.round(lo + (hi - lo) * t);
+  const rotulo = { 1: 'Introdução', 2: 'Acúmulo', 3: 'Pico', 4: 'Deload' }[s] ?? '';
+  return { pctRM, rotulo };
+}

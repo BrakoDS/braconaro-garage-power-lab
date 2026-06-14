@@ -81,6 +81,24 @@ export function renderAderencia(plano) {
   </article>`;
 }
 
+/** @param {ReturnType<import('../core/mesociclo.js').gerarMesociclo>} meso */
+export function renderMesociclo(meso) {
+  const maxSeries = Math.max(1, ...meso.semanas.map((s) => s.totalSeries));
+  const linhas = meso.semanas.map((s) => `
+    <tr class="${s.deload ? 'bad-row' : ''}">
+      <td><b>Semana ${s.semana}</b></td>
+      <td>${s.intensidade.rotulo}${s.deload ? ' 💤' : ''}</td>
+      <td>~${s.intensidade.pctRM}% 1RM</td>
+      <td>${s.totalSeries}</td>
+      <td><span class="bar" style="display:inline-block;width:140px;vertical-align:middle"><span style="width:${(s.totalSeries / maxSeries) * 100}%"></span></span></td>
+    </tr>`).join('');
+  return `<article class="card">
+    <h3>Mesociclo · ${meso.nSemanas} semanas · ${meso.combinacao.frequencia}× (${meso.combinacao.rotulo})</h3>
+    <div class="mut" style="margin-bottom:8px">Progressão de volume e intensidade com deload automático na semana 4 do ciclo.</div>
+    <table><thead><tr><th>Semana</th><th>Fase</th><th>Intensidade</th><th>Séries</th><th>Volume</th></tr></thead><tbody>${linhas}</tbody></table>
+  </article>`;
+}
+
 /** Delegação de cliques para os botões "trocar" e as alternativas. */
 export function ativarTrocas(raiz) {
   raiz.addEventListener('click', (ev) => {

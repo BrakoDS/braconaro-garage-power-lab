@@ -12,6 +12,7 @@
     <nav class="tabs">
       <button class="tab active" data-view="dia">Aula do dia</button>
       <button class="tab" data-view="semana">Semana do aluno</button>
+      <button class="tab" data-view="meso">Mesociclo</button>
       <button class="tab" data-view="alunos">Alunos</button>
     </nav>
   </header>
@@ -41,6 +42,19 @@
         <button class="btn ghost" id="s-imprimir">Imprimir</button>
       </div>
       <div class="grid" id="s-saida"></div>
+    </section>
+
+    <!-- ============ MESOCICLO ============ -->
+    <section class="view" id="view-meso">
+      <div class="panel">
+        <div class="field"><label>Aluno</label><select id="m-aluno"></select></div>
+        <div class="field"><label>ou Frequência avulsa</label><select id="m-combinacao"></select></div>
+        <div class="field"><label>Nível</label><select id="m-nivel"></select></div>
+        <div class="field"><label>Semanas</label><input id="m-semanas" type="number" min="2" max="8" value="4" style="min-width:90px" /></div>
+        <button class="btn" id="m-gerar">Gerar mesociclo</button>
+        <button class="btn ghost" id="m-imprimir">Imprimir</button>
+      </div>
+      <div class="grid" id="m-saida"></div>
     </section>
 
     <!-- ============ ALUNOS ============ -->

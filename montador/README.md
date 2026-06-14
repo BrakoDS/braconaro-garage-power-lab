@@ -4,9 +4,10 @@ Gerador automático de treinos full body que respeita as **modalidades**, a **es
 real do box** (inventário de aparelhos), a **frequência semanal** do aluno e o
 **equilíbrio entre padrões de movimento**, calculando **volume semanal e mensal**.
 
-> **Status: Fase 2 concluída** — núcleo (Fase 1) + **aplicação completa** (`index.html`)
-> com 3 abas: Aula do dia, Semana do aluno e cadastro de Alunos (localStorage),
-> troca de exercício por alternativa viável e impressão. Periodização avançada é a Fase 3.
+> **Status: Fase 3 concluída** — núcleo + app com 4 abas (Aula do dia, Semana do aluno,
+> **Mesociclo**, Alunos). Inclui **balanceamento de volume entre os dias da semana**,
+> **mesociclos com progressão de intensidade e deload automático**, troca de exercício
+> por alternativa viável e impressão/PDF (via diálogo do navegador).
 
 ---
 
@@ -47,9 +48,10 @@ montador/
 ├── core/
 │   ├── viabilidade.js    # Checagem de aparelhos p/ 8 alunos em circuito
 │   ├── volume.js         # Volume por músculo/padrão; semanal e mensal
-│   ├── periodizacao.js   # Progressão semanal + deload + ajuste por nível
-│   ├── gerador.js        # ALGORITMO de montagem (8 passos)
-│   ├── planoSemanal.js   # Gera a semana inteira e confere meta de volume
+│   ├── periodizacao.js   # Progressão de volume/intensidade + deload + nível
+│   ├── gerador.js        # ALGORITMO de montagem (8 passos) + troca de exercício
+│   ├── planoSemanal.js   # Semana inteira + BALANCEAMENTO de volume entre dias
+│   ├── mesociclo.js      # Encadeia N semanas com progressão e deload
 │   └── tipos.js          # Typedefs JSDoc compartilhados
 ├── ui/
 │   ├── store.js          # Persistência de alunos (localStorage)
@@ -130,8 +132,17 @@ Rodando 12 seeds por modalidade (nível intermediário), 100% dos treinos:
 
 - **Fase 2 — UI/UX (CONCLUÍDA):** app com 3 abas, cadastro de alunos (localStorage),
   cards de treino imprimíveis, gráficos de volume, troca de exercício por alternativa viável.
-- **Fase 3 — Periodização avançada:** mesociclos, autoregulação por nível,
-  balanceamento de volume entre dias da semana, deload inteligente, exportar PDF.
-- **Ajustes de tuning conhecidos:** metas de volume semanal para iniciante 3x são
-  agressivas; o balanceamento entre dias (evitar acúmulo de "puxar") será refinado
-  no planejador semanal.
+- **Fase 3 — Periodização avançada (CONCLUÍDA):** mesociclos com progressão de
+  intensidade e deload automático (semana 4 do ciclo), balanceamento de volume
+  entre os dias da semana (viés por déficit por padrão), contagem de exercícios
+  estável por template, export PDF via diálogo de impressão do navegador.
+  Validado: spread entre os 4 padrões grandes ~5 séries; progressão de volume e
+  intensidade monotônica 1→3 com deload em 5/5 seeds.
+- **Ajustes de tuning em aberto (do treinador):** os números de `META_SERIES_SEMANAIS`
+  em `config/frequencias.js` e os fatores de progressão em `core/periodizacao.js`
+  são pontos de calibração para a realidade do box.
+
+## Próximos passos possíveis (Fase 4+)
+
+Salvar/exportar histórico de treinos por aluno, biblioteca com vídeos/imagens dos
+exercícios, sugestão automática de carga (kg) por aluno, e integração com o site.

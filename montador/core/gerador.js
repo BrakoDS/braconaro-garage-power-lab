@@ -60,19 +60,26 @@ function tempoExercicio(ex, series, mod) {
  * @param {import('./tipos.js').Treino|null} [opcoes.treinoAnterior]
  * @param {number} [opcoes.seed]
  * @param {number} [opcoes.nAlunos]
+ * @param {Partial<Record<Padrao, number>>} [opcoes.viesPadrao]  Viés de seleção por padrão
+ *        (positivo = priorizar; negativo = desencorajar). Usado pelo balanceamento semanal.
  */
 export function gerarTreino(opcoes) {
   const {
     modalidade, nivel, dia,
     semana = 1, treinoAnterior = null, nAlunos = ALUNOS_POR_SESSAO,
+    viesPadrao = {},
   } = opcoes;
   const seed = opcoes.seed ?? hashSeed(`${modalidade}-${dia}-${semana}-${nivel}`);
   const rng = mulberry32(seed);
   const mod = MODALIDADES[modalidade];
 
   // -------- Passo 2: quantos exercícios (4, 5 ou 6) --------
+  // A contagem é estável por TEMPLATE (modalidade+dia+nível) para que um mesociclo
+  // mantenha o mesmo nº de exercícios entre semanas — a progressão vem de séries/carga,
+  // não de mudar quantos exercícios. A seleção dos exercícios em si continua variando.
   const [min, max] = mod.faixaExercicios;
-  let nExercicios = ehDeload(semana) ? min : min + Math.floor(rng() * (max - min + 1));
+  const rngContagem = mulberry32(hashSeed(`${modalidade}-${dia}-${nivel}`));
+  let nExercicios = ehDeload(semana) ? min : min + Math.floor(rngContagem() * (max - min + 1));
   nExercicios = Math.min(8, Math.max(4, nExercicios)); // regra do box: máx. 8
 
   // -------- pool elegível: modalidade + nível + não-mobilidade --------
@@ -105,6 +112,8 @@ export function gerarTreino(opcoes) {
       const usos = selecionados.filter((sel) => sel.equipamento.includes(equipId)).length;
       s -= usos * 18;
     }
+    // viés de balanceamento semanal (déficit/superávit de volume por padrão)
+    s += viesPadrao[ex.padrao] || 0;
     s += rng() * 10; // desempate aleatório controlado
     return s;
   };

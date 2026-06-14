@@ -1,10 +1,11 @@
 // @ts-check
 import { gerarTreino } from '../core/gerador.js';
 import { gerarPlanoSemanal } from '../core/planoSemanal.js';
+import { gerarMesociclo } from '../core/mesociclo.js';
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
 import { COMBINACOES, COMBINACAO_POR_ID } from '../config/frequencias.js';
 import * as store from './store.js';
-import { renderTreino, renderAderencia, ativarTrocas } from './render.js';
+import { renderTreino, renderAderencia, renderMesociclo, ativarTrocas } from './render.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -26,7 +27,8 @@ function popularSelects() {
   DIAS.forEach((d) => $('#d-dia').appendChild(opt(d, d.toUpperCase())));
   COMBINACOES.forEach((c) => $('#s-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
   COMBINACOES.forEach((c) => $('#al-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
-  ['#d-nivel', '#s-nivel', '#al-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
+  COMBINACOES.forEach((c) => $('#m-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
+  ['#d-nivel', '#s-nivel', '#al-nivel', '#m-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
 }
 
 // ---------- AULA DO DIA ----------
@@ -43,10 +45,12 @@ function gerarDia() {
 
 // ---------- SEMANA DO ALUNO ----------
 function atualizarSelectAlunos() {
-  const sel = $('#s-aluno');
-  sel.innerHTML = '';
-  sel.appendChild(opt('', '— frequência avulsa —'));
-  store.listarAlunos().forEach((a) => sel.appendChild(opt(a.id, `${a.nome} (${a.nivel})`)));
+  ['#s-aluno', '#m-aluno'].forEach((id) => {
+    const sel = $(id);
+    sel.innerHTML = '';
+    sel.appendChild(opt('', '— frequência avulsa —'));
+    store.listarAlunos().forEach((a) => sel.appendChild(opt(a.id, `${a.nome} (${a.nivel})`)));
+  });
 }
 
 function gerarSemana() {
@@ -61,6 +65,21 @@ function gerarSemana() {
     seed: Math.floor(Math.random() * 1e6),
   });
   $('#s-saida').innerHTML = renderAderencia(plano) + plano.treinos.map((t) => renderTreino(t)).join('');
+}
+
+// ---------- MESOCICLO ----------
+function gerarMeso() {
+  const alunoId = $('#m-aluno').value;
+  const aluno = store.listarAlunos().find((a) => a.id === alunoId);
+  const combinacao = aluno ? COMBINACAO_POR_ID[aluno.combinacaoId] : COMBINACAO_POR_ID[$('#m-combinacao').value];
+  const nivel = aluno ? aluno.nivel : $('#m-nivel').value;
+  const meso = gerarMesociclo({
+    combinacao, nivel,
+    nSemanas: Number($('#m-semanas').value) || 4,
+    modalidadesPorDia: aluno?.modalidadesPorDia || {},
+    seed: Math.floor(Math.random() * 1e6),
+  });
+  $('#m-saida').innerHTML = renderMesociclo(meso);
 }
 
 // ---------- ALUNOS ----------
@@ -116,7 +135,9 @@ renderAlunos();
 bindAlunos();
 $('#d-gerar').addEventListener('click', gerarDia);
 $('#s-gerar').addEventListener('click', gerarSemana);
+$('#m-gerar').addEventListener('click', gerarMeso);
 $('#d-imprimir').addEventListener('click', () => window.print());
 $('#s-imprimir').addEventListener('click', () => window.print());
+$('#m-imprimir').addEventListener('click', () => window.print());
 ativarTrocas($('main'));
 gerarDia();
