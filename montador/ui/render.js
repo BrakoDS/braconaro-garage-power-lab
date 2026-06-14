@@ -76,14 +76,50 @@ function corpoTreino(id) {
     ${renderVolume(t.volume)}`;
 }
 
-/** @param {ReturnType<import('../core/planoSemanal.js').gerarPlanoSemanal>} plano */
-export function renderAderencia(plano) {
-  const linhas = Object.entries(plano.aderencia).map(([p, a]) => `
-    <tr class="${a.ok ? '' : 'bad-row'}"><td>${PADRAO_LABEL[p] || p}</td><td>${a.realizado}</td><td>${a.meta}</td><td>${a.ok ? '✓' : '↓ abaixo'}</td></tr>`).join('');
+/**
+ * Cenários de frequência: prova que 3 dias batem o mínimo e 4–5 rendem mais,
+ * a partir do MESMO programa da semana.
+ * @param {ReturnType<import('../core/programaSemanal.js').gerarProgramaSemanal>} prog
+ * @param {number} [freqDestaque]  Frequência do aluno selecionado (para destacar)
+ */
+export function renderCenarios(prog, freqDestaque) {
+  const padroes = Object.keys(prog.minimo);
+  const freqs = [3, 4, 5].filter((f) => prog.cenarios[f]);
+
+  const linhasPadrao = padroes.map((p) => {
+    const cels = freqs.map((f) => {
+      const a = prog.cenarios[f].aderencia[p];
+      const min = prog.minimo[p];
+      const cls = min > 0 ? (a.ok ? 'ok' : 'bad') : 'mut';
+      return `<td class="${cls}">${a.volume}${min > 0 ? '' : ' '}</td>`;
+    }).join('');
+    return `<tr><td>${PADRAO_LABEL[p] || p}</td><td class="mut">${prog.minimo[p] || '—'}</td>${cels}</tr>`;
+  }).join('');
+
+  const cabFreq = freqs.map((f) => {
+    const c = prog.cenarios[f];
+    const destaque = f === freqDestaque ? ' style="color:var(--acc)"' : '';
+    return `<th${destaque}>${f}×${c.atingeMinimo ? ' ✓' : ''}</th>`;
+  }).join('');
+
+  const total = freqs.map((f) => `<td><b>${prog.cenarios[f].totalPior}</b></td>`).join('');
+  const min3 = prog.cenarios[3];
+  const g5 = prog.cenarios[5]?.totalPior, g3 = min3?.totalPior;
+  const ganho = g3 && g5 ? Math.round(((g5 - g3) / g3) * 100) : null;
+
   return `<article class="card">
-    <h3>Volume semanal vs. meta — ${plano.combinacao.frequencia}× (${plano.combinacao.rotulo})</h3>
-    <table><thead><tr><th>Padrão</th><th>Realizado</th><th>Meta</th><th></th></tr></thead><tbody>${linhas}</tbody></table>
-    <p><small>Total séries/semana: <b>${plano.volumeSemanal.totalSeries}</b> · projeção mensal: <b>${plano.volumeMensal.totalSeries}</b></small></p>
+    <h3>Cenários de frequência — mesmo programa para todos</h3>
+    <div class="mut" style="margin-bottom:10px">Volume semanal de séries (pior combinação de dias) que cada aluno recebe conforme quantos dias treina.</div>
+    <table>
+      <thead><tr><th>Padrão</th><th>Mínimo</th>${cabFreq}</tr></thead>
+      <tbody>${linhasPadrao}<tr><td><b>Total</b></td><td class="mut">—</td>${total}</tr></tbody>
+    </table>
+    <p style="margin-top:10px">
+      ${min3?.atingeMinimo
+        ? '<span class="chip" style="color:var(--ok);border-color:var(--ok)">✓ 3 dias já garante o mínimo para bons resultados</span>'
+        : '<span class="chip warn">⚠ 3 dias ainda não bate o mínimo — ajuste a grade ou os mínimos</span>'}
+      ${ganho != null ? `<span class="chip acc">5 dias = +${ganho}% de volume</span>` : ''}
+    </p>
   </article>`;
 }
 
@@ -98,10 +134,12 @@ export function renderMesociclo(meso) {
       <td>${s.totalSeries}</td>
       <td><span class="bar" style="display:inline-block;width:140px;vertical-align:middle"><span style="width:${(s.totalSeries / maxSeries) * 100}%"></span></span></td>
     </tr>`).join('');
+  const gradeTxt = Object.entries(meso.grade)
+    .map(([d, m]) => `${d.toUpperCase()} ${MODALIDADES[m]?.nome || m}`).join(' · ');
   return `<article class="card">
-    <h3>Mesociclo · ${meso.nSemanas} semanas · ${meso.combinacao.frequencia}× (${meso.combinacao.rotulo})</h3>
-    <div class="mut" style="margin-bottom:8px">Progressão de volume e intensidade com deload automático na semana 4 do ciclo.</div>
-    <table><thead><tr><th>Semana</th><th>Fase</th><th>Intensidade</th><th>Séries</th><th>Volume</th></tr></thead><tbody>${linhas}</tbody></table>
+    <h3>Mesociclo · ${meso.nSemanas} semanas</h3>
+    <div class="mut" style="margin-bottom:8px">Grade: ${gradeTxt}. Progressão de volume e intensidade com deload automático na semana 4 do ciclo.</div>
+    <table><thead><tr><th>Semana</th><th>Fase</th><th>Intensidade</th><th>Séries (5 dias)</th><th>Volume</th></tr></thead><tbody>${linhas}</tbody></table>
   </article>`;
 }
 

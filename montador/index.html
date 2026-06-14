@@ -11,7 +11,7 @@
     <div class="brand"><b>BRACONARO</b> · Montador<small>Garage Power Lab</small></div>
     <nav class="tabs">
       <button class="tab active" data-view="dia">Aula do dia</button>
-      <button class="tab" data-view="semana">Semana do aluno</button>
+      <button class="tab" data-view="semana">Programa da semana</button>
       <button class="tab" data-view="meso">Mesociclo</button>
       <button class="tab" data-view="historico">Histórico</button>
       <button class="tab" data-view="alunos">Alunos</button>
@@ -34,14 +34,17 @@
       <div class="grid" id="d-saida"></div>
     </section>
 
-    <!-- ============ SEMANA DO ALUNO ============ -->
+    <!-- ============ PROGRAMA DA SEMANA ============ -->
     <section class="view" id="view-semana">
       <div class="panel">
-        <div class="field"><label>Aluno</label><select id="s-aluno"></select></div>
-        <div class="field"><label>ou Frequência avulsa</label><select id="s-combinacao"></select></div>
-        <div class="field"><label>Nível</label><select id="s-nivel"></select></div>
-        <div class="field"><label>Semana</label><input id="s-semana" type="number" min="1" max="8" value="1" style="min-width:90px" /></div>
-        <button class="btn" id="s-gerar">Gerar semana</button>
+        <div class="field"><label>SEG</label><select id="g-seg" class="grade-sel"></select></div>
+        <div class="field"><label>TER</label><select id="g-ter" class="grade-sel"></select></div>
+        <div class="field"><label>QUA</label><select id="g-qua" class="grade-sel"></select></div>
+        <div class="field"><label>QUI</label><select id="g-qui" class="grade-sel"></select></div>
+        <div class="field"><label>SEX</label><select id="g-sex" class="grade-sel"></select></div>
+        <div class="field"><label>Nível de referência</label><select id="s-nivel"></select></div>
+        <div class="field"><label>Semana</label><input id="s-semana" type="number" min="1" max="8" value="1" style="min-width:80px" /></div>
+        <button class="btn" id="s-gerar">Gerar programa</button>
         <button class="btn ghost" id="s-imprimir">Imprimir</button>
       </div>
       <div class="grid" id="s-saida"></div>
@@ -50,13 +53,12 @@
     <!-- ============ MESOCICLO ============ -->
     <section class="view" id="view-meso">
       <div class="panel">
-        <div class="field"><label>Aluno</label><select id="m-aluno"></select></div>
-        <div class="field"><label>ou Frequência avulsa</label><select id="m-combinacao"></select></div>
-        <div class="field"><label>Nível</label><select id="m-nivel"></select></div>
+        <div class="field"><label>Nível de referência</label><select id="m-nivel"></select></div>
         <div class="field"><label>Semanas</label><input id="m-semanas" type="number" min="2" max="8" value="4" style="min-width:90px" /></div>
         <button class="btn" id="m-gerar">Gerar mesociclo</button>
         <button class="btn ghost" id="m-imprimir">Imprimir</button>
       </div>
+      <div class="mut" style="margin:0 0 12px">Usa a grade configurada na aba <b>Programa da semana</b>.</div>
       <div class="grid" id="m-saida"></div>
     </section>
 

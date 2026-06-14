@@ -50,8 +50,9 @@ montador/
 │   ├── volume.js         # Volume por músculo/padrão; semanal e mensal
 │   ├── periodizacao.js   # Progressão de volume/intensidade + deload + nível
 │   ├── gerador.js        # ALGORITMO de montagem (8 passos) + troca de exercício
-│   ├── planoSemanal.js   # Semana inteira + BALANCEAMENTO de volume entre dias
-│   ├── mesociclo.js      # Encadeia N semanas com progressão e deload
+│   ├── programaSemanal.js # PROGRAMA do box (1 treino/dia, igual p/ todos) + cenários 3/4/5
+│   ├── mesociclo.js      # Encadeia N semanas do programa com progressão e deload
+│   ├── cargas.js         # Sugestão de carga inicial (snap aos pesos do box)
 │   └── tipos.js          # Typedefs JSDoc compartilhados
 ├── ui/
 │   ├── store.js          # Persistência de alunos (localStorage)
@@ -63,6 +64,16 @@ montador/
 ```
 
 ---
+
+## Modelo de frequência (importante)
+
+O box roda **um treino por dia, igual para todos** — não há treino individual. A frequência
+(3/4/5×) define apenas **quantos dias** o aluno pega do mesmo programa. Como **todo dia é
+full body**, qualquer combinação de dias soma sessões completas. O coach configura a
+**grade fixa SEG–SEX** (modalidade de cada dia) na aba *Programa da semana*, e o sistema
+prova nos **cenários de frequência** que quem vem **3 dias (pior combinação) atinge o
+mínimo** para bons resultados e quem vem **4–5 dias rende mais** — tudo a partir do mesmo
+programa. O mínimo semanal por padrão fica em `MINIMO_SEMANAL` (`config/frequencias.js`).
 
 ## Modelo de dados (resumo)
 

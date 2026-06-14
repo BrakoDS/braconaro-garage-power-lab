@@ -1,17 +1,18 @@
 // @ts-check
 import { gerarTreino } from '../core/gerador.js';
-import { gerarPlanoSemanal } from '../core/planoSemanal.js';
+import { gerarProgramaSemanal, GRADE_PADRAO } from '../core/programaSemanal.js';
 import { gerarMesociclo } from '../core/mesociclo.js';
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
 import { COMBINACOES, COMBINACAO_POR_ID } from '../config/frequencias.js';
 import * as store from './store.js';
-import { renderTreino, renderAderencia, renderMesociclo, ativarTrocas } from './render.js';
+import { renderTreino, renderCenarios, renderMesociclo, ativarTrocas } from './render.js';
 import { sugerirCarga } from '../core/cargas.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const NIVEIS = ['iniciante', 'intermediario', 'avancado'];
 const DIAS = ['seg', 'ter', 'qua', 'qui', 'sex'];
+const GRADE_IDS = { seg: '#g-seg', ter: '#g-ter', qua: '#g-qua', qui: '#g-qui', sex: '#g-sex' };
 const opt = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; };
 
 // ---------- abas ----------
@@ -26,10 +27,23 @@ $$('.tab').forEach((tab) => tab.addEventListener('click', () => {
 function popularSelects() {
   MODALIDADE_IDS.forEach((id) => $('#d-modalidade').appendChild(opt(id, MODALIDADES[id].nome)));
   DIAS.forEach((d) => $('#d-dia').appendChild(opt(d, d.toUpperCase())));
-  COMBINACOES.forEach((c) => $('#s-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
   COMBINACOES.forEach((c) => $('#al-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
-  COMBINACOES.forEach((c) => $('#m-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
-  ['#d-nivel', '#s-nivel', '#al-nivel', '#m-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
+  ['#d-nivel', '#al-nivel', '#m-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
+  $('#d-nivel').value = 'intermediario';
+  $('#m-nivel').value = 'intermediario';
+
+  // grade da semana: cada dia escolhe uma modalidade (ou folga)
+  const cfg = store.getConfig();
+  const grade = cfg.grade || GRADE_PADRAO;
+  Object.entries(GRADE_IDS).forEach(([dia, sel]) => {
+    const el = $(sel);
+    el.appendChild(opt('', '— folga —'));
+    MODALIDADE_IDS.forEach((id) => el.appendChild(opt(id, MODALIDADES[id].nome)));
+    el.value = grade[dia] || '';
+  });
+  const nivelSel = $('#s-nivel');
+  NIVEIS.forEach((n) => nivelSel.appendChild(opt(n, n)));
+  nivelSel.value = cfg.nivelRef || 'intermediario';
 }
 
 // ---------- AULA DO DIA ----------
@@ -73,9 +87,9 @@ function salvarTreinoDia() {
   const txt = btn.textContent; btn.textContent = '✓ Salvo'; setTimeout(() => { btn.textContent = txt; }, 1500);
 }
 
-// ---------- SEMANA DO ALUNO ----------
+// ---------- PROGRAMA DA SEMANA ----------
 function atualizarSelectAlunos() {
-  const placeholders = { '#s-aluno': '— frequência avulsa —', '#m-aluno': '— frequência avulsa —', '#d-aluno': '— sem aluno —', '#h-aluno': '— selecione um aluno —' };
+  const placeholders = { '#d-aluno': '— sem aluno —', '#h-aluno': '— selecione um aluno —' };
   Object.entries(placeholders).forEach(([id, ph]) => {
     const sel = $(id);
     const atual = sel.value;
@@ -86,30 +100,33 @@ function atualizarSelectAlunos() {
   });
 }
 
-function gerarSemana() {
-  const alunoId = $('#s-aluno').value;
-  const aluno = store.listarAlunos().find((a) => a.id === alunoId);
-  const combinacao = aluno ? COMBINACAO_POR_ID[aluno.combinacaoId] : COMBINACAO_POR_ID[$('#s-combinacao').value];
-  const nivel = aluno ? aluno.nivel : $('#s-nivel').value;
-  const plano = gerarPlanoSemanal({
-    combinacao, nivel,
+/** Lê a grade configurada nos selects e persiste. */
+function lerGrade() {
+  const grade = {};
+  Object.entries(GRADE_IDS).forEach(([dia, sel]) => { const v = $(sel).value; if (v) grade[dia] = v; });
+  const nivelRef = $('#s-nivel').value;
+  store.setConfig({ grade, nivelRef });
+  return { grade, nivelRef };
+}
+
+function gerarPrograma(freqDestaque) {
+  const { grade, nivelRef } = lerGrade();
+  const prog = gerarProgramaSemanal({
+    grade, nivelRef,
     semana: Number($('#s-semana').value) || 1,
-    modalidadesPorDia: aluno?.modalidadesPorDia || {},
     seed: Math.floor(Math.random() * 1e6),
   });
-  $('#s-saida').innerHTML = renderAderencia(plano) + plano.treinos.map((t) => renderTreino(t)).join('');
+  $('#s-saida').innerHTML = renderCenarios(prog, freqDestaque) +
+    prog.treinos.map((t) => renderTreino(t)).join('');
 }
 
 // ---------- MESOCICLO ----------
 function gerarMeso() {
-  const alunoId = $('#m-aluno').value;
-  const aluno = store.listarAlunos().find((a) => a.id === alunoId);
-  const combinacao = aluno ? COMBINACAO_POR_ID[aluno.combinacaoId] : COMBINACAO_POR_ID[$('#m-combinacao').value];
-  const nivel = aluno ? aluno.nivel : $('#m-nivel').value;
+  const cfg = store.getConfig();
   const meso = gerarMesociclo({
-    combinacao, nivel,
+    grade: cfg.grade || GRADE_PADRAO,
+    nivelRef: $('#m-nivel').value || cfg.nivelRef || 'intermediario',
     nSemanas: Number($('#m-semanas').value) || 4,
-    modalidadesPorDia: aluno?.modalidadesPorDia || {},
     seed: Math.floor(Math.random() * 1e6),
   });
   $('#m-saida').innerHTML = renderMesociclo(meso);
@@ -150,7 +167,7 @@ function renderAlunos() {
         <div class="meta">${a.nivel} · ${c ? c.frequencia + '× ' + c.rotulo : '—'}</div>
       </div>
       <div class="acoes">
-        <button class="btn ghost sm" data-gerar="${a.id}">Gerar semana</button>
+        <button class="btn ghost sm" data-gerar="${a.id}">Ver programa</button>
         <button class="btn danger sm" data-del="${a.id}">Remover</button>
       </div>
     </div>`;
@@ -173,12 +190,13 @@ function bindAlunos() {
     if (del) { store.removerAluno(del.dataset.del); renderAlunos(); atualizarSelectAlunos(); return; }
     const ger = ev.target.closest('[data-gerar]');
     if (ger) {
-      $('#s-aluno').value = ger.dataset.gerar;
+      const aluno = store.listarAlunos().find((a) => a.id === ger.dataset.gerar);
+      const freq = COMBINACAO_POR_ID[aluno?.combinacaoId]?.frequencia;
       $$('.tab').forEach((t) => t.classList.remove('active'));
       $$('.view').forEach((v) => v.classList.remove('active'));
       document.querySelector('.tab[data-view="semana"]').classList.add('active');
       $('#view-semana').classList.add('active');
-      gerarSemana();
+      gerarPrograma(freq);
     }
   });
 }
@@ -190,7 +208,7 @@ renderAlunos();
 renderHistorico();
 bindAlunos();
 $('#d-gerar').addEventListener('click', gerarDia);
-$('#s-gerar').addEventListener('click', gerarSemana);
+$('#s-gerar').addEventListener('click', () => gerarPrograma());
 $('#m-gerar').addEventListener('click', gerarMeso);
 $('#d-salvar').addEventListener('click', salvarTreinoDia);
 $('#h-aluno').addEventListener('change', renderHistorico);

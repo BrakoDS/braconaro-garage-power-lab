@@ -21,21 +21,26 @@
 
 const CHAVE = 'braconaro_montador_v1';
 
-/** @returns {{ alunos: Aluno[] }} */
+/** @returns {{ alunos: Aluno[], config: { grade?: Object, nivelRef?: string } }} */
 export function carregar() {
   try {
     const raw = localStorage.getItem(CHAVE);
-    if (raw) return JSON.parse(raw);
+    if (raw) { const e = JSON.parse(raw); return { alunos: e.alunos || [], config: e.config || {} }; }
   } catch (e) { /* ignora */ }
-  return { alunos: [] };
+  return { alunos: [], config: {} };
 }
 
-/** @param {{ alunos: Aluno[] }} estado */
+/** @param {object} estado */
 export function salvar(estado) {
   localStorage.setItem(CHAVE, JSON.stringify(estado));
 }
 
 const estado = carregar();
+
+// ---------- configuração do box (grade da semana) ----------
+export function getConfig() { return estado.config; }
+/** @param {object} patch */
+export function setConfig(patch) { Object.assign(estado.config, patch); salvar(estado); }
 
 export function listarAlunos() { return estado.alunos; }
 

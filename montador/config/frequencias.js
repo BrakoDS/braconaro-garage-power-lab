@@ -29,18 +29,27 @@ export const COMBINACOES = [
 export const COMBINACAO_POR_ID = Object.fromEntries(COMBINACOES.map((c) => [c.id, c]));
 
 /**
- * Meta de SÉRIES semanais por padrão de movimento, por frequência.
- * Quem treina menos vezes recebe mais densidade por sessão para garantir
- * volume suficiente (full body sempre).
- * @type {Record<3|4|5, Record<import('./padroes.js').Padrao, number>>}
+ * MÍNIMO SEMANAL de séries por padrão para BONS RESULTADOS.
+ * O treino é o mesmo para todos; a frequência é só quantos dias o aluno pega.
+ * Como cada dia é full body, este piso é o que um aluno de 3 dias precisa atingir
+ * (pior caso). Quem vem 4–5 dias fica acima disso (resultado melhor).
+ * @type {Record<import('./padroes.js').Padrao, number>}
  */
-export const META_SERIES_SEMANAIS = {
-  3: { empurrar: 12, puxar: 12, quadriceps: 12, posterior_gluteo: 12, core: 9, estabilizadores: 6 },
-  4: { empurrar: 14, puxar: 14, quadriceps: 14, posterior_gluteo: 14, core: 10, estabilizadores: 8 },
-  5: { empurrar: 16, puxar: 16, quadriceps: 16, posterior_gluteo: 16, core: 12, estabilizadores: 10 },
+export const MINIMO_SEMANAL = {
+  empurrar: 9, puxar: 9, quadriceps: 9, posterior_gluteo: 9,
+  core: 3,            // complementado por aquecimento e trabalho secundário em vários lifts
+  estabilizadores: 0, // informativo: coberto por carries, aquecimento e estabilização secundária
 };
 
-const ORDEM_DIAS = ['seg', 'ter', 'qua', 'qui', 'sex'];
+export const ORDEM_DIAS = /** @type {Dia[]} */ (['seg', 'ter', 'qua', 'qui', 'sex']);
+
+/**
+ * Combinações de dias válidas para uma frequência.
+ * @param {3|4|5} frequencia
+ */
+export function combosPorFrequencia(frequencia) {
+  return COMBINACOES.filter((c) => c.frequencia === frequencia);
+}
 
 /**
  * Indica se dois dias são consecutivos (para evitar repetir padrão pesado).
