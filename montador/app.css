@@ -1,0 +1,92 @@
+/* Montador de Treinos — tema dark/gold (alinhado ao site) */
+:root {
+  --bg: #0c0d10; --bg2: #111318; --card: #16181d; --line: #262a32;
+  --txt: #e8eaed; --mut: #8b929d; --acc: #e8b339; --acc2: #ffd778;
+  --ok: #3ddc84; --bad: #ff5d5d; --warn: #ffb347;
+  --r: 14px; --shadow: 0 6px 24px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(1200px 600px at 80% -10%, #1a1c22 0%, var(--bg) 60%) fixed;
+  color: var(--txt); font: 15px/1.55 system-ui, "Segoe UI", Roboto, sans-serif;
+}
+a { color: var(--acc); }
+
+/* ---------- topo / abas ---------- */
+.topbar { display: flex; align-items: center; gap: 16px; padding: 16px 22px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: rgba(12,13,16,.85); backdrop-filter: blur(8px); z-index: 10; }
+.brand { font-weight: 800; letter-spacing: .5px; }
+.brand b { color: var(--acc); }
+.brand small { display: block; color: var(--mut); font-weight: 400; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; }
+.tabs { display: flex; gap: 6px; margin-left: auto; }
+.tab { background: transparent; color: var(--mut); border: 1px solid transparent; border-radius: 10px; padding: 8px 14px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.tab:hover { color: var(--txt); }
+.tab.active { color: #1a1300; background: var(--acc); }
+
+main { max-width: 1000px; margin: 0 auto; padding: 22px; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ---------- controles ---------- */
+.panel { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin-bottom: 18px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); }
+select, input[type=text], input[type=number] {
+  background: var(--bg2); color: var(--txt); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; font-size: 14px; min-width: 150px;
+}
+select:focus, input:focus { outline: none; border-color: var(--acc); }
+button.btn { background: var(--acc); color: #1a1300; border: 0; border-radius: 9px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+button.btn:hover { background: var(--acc2); }
+button.btn.ghost { background: transparent; color: var(--acc); border: 1px solid var(--acc); }
+button.btn.sm { padding: 5px 10px; font-size: 12px; }
+button.btn.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+
+/* ---------- cards de treino ---------- */
+.grid { display: grid; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; box-shadow: var(--shadow); }
+.card h3 { margin: 0 0 4px; font-size: 17px; }
+.card h4 { margin: 16px 0 7px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--mut); }
+.chip { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--mut); margin-right: 5px; }
+.chip.acc { color: var(--acc); border-color: var(--acc); }
+.chip.warn { color: var(--warn); border-color: var(--warn); }
+.tempos { color: var(--mut); font-size: 12.5px; margin-top: 8px; }
+.ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--mut); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; }
+small, .mut { color: var(--mut); }
+ul.aquec { margin: 0; padding-left: 18px; } ul.aquec li { margin: 3px 0; }
+.fin { margin-top: 12px; padding: 11px 13px; background: #1d1a10; border: 1px solid #3a3413; border-radius: 11px; }
+.fin b { color: var(--acc2); }
+
+.vol { display: grid; gap: 5px; }
+.bar-row { display: grid; grid-template-columns: 130px 1fr 34px; align-items: center; gap: 9px; }
+.bar-lbl { font-size: 12px; color: var(--mut); text-transform: capitalize; }
+.bar { background: #0a0b0e; border-radius: 6px; height: 12px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--acc), var(--acc2)); }
+.bar-val { font-size: 12px; text-align: right; }
+tr.bad-row td { color: var(--warn); }
+
+.ex-row { display: flex; align-items: flex-start; gap: 10px; }
+.ex-row .swap { margin-left: auto; }
+.alts { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+.empty { color: var(--mut); text-align: center; padding: 40px 20px; border: 1px dashed var(--line); border-radius: var(--r); }
+
+/* ---------- alunos ---------- */
+.aluno-card { display: flex; align-items: center; gap: 14px; }
+.aluno-card .nome { font-weight: 700; }
+.aluno-card .meta { color: var(--mut); font-size: 13px; }
+.aluno-card .acoes { margin-left: auto; display: flex; gap: 8px; }
+
+@media print {
+  .topbar, .panel, .tab, .swap, .alts, button { display: none !important; }
+  body { background: #fff; color: #000; }
+  .card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
+}
+@media (max-width: 640px) {
+  .bar-row { grid-template-columns: 100px 1fr 30px; }
+  .panel { gap: 10px; }
+  select, input { min-width: 120px; }
+}
