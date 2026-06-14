@@ -7,6 +7,8 @@ import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
 import { COMBINACOES, COMBINACAO_POR_ID } from '../config/frequencias.js';
 import * as store from './store.js';
 import { renderCenarios, renderDiaSalvo, renderRelatorioMes, renderAcumuladoAluno, renderMesociclo } from './render.js';
+import { alternativasPorIds } from '../core/gerador.js';
+import { EXERCICIO_POR_ID } from '../data/exercicios.js';
 import { sugerirCarga } from '../core/cargas.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
@@ -127,6 +129,50 @@ function gerarPrograma() {
   atualizarMesesSelects();
 }
 
+/**
+ * "Trocar" um exercício de uma semana salva (ajuste fino). Mantém padrão e séries,
+ * recalcula a carga e RE-SALVA o snapshot — a semana continua travada, só refinada.
+ */
+function ativarTrocaPrograma() {
+  $('#s-saida').addEventListener('click', (ev) => {
+    const mesId = $('#s-mes').value;
+    const semana = Number($('#s-semana').value);
+    const snap = store.getPrograma(mesId, semana);
+    if (!snap) return;
+
+    const btn = ev.target.closest('.swap-prog');
+    if (btn) {
+      const dia = btn.dataset.dia;
+      const idx = Number(btn.dataset.idx);
+      const box = document.getElementById(`alts-${dia}-${idx}`);
+      if (box.childElementCount) { box.innerHTML = ''; return; } // toggle
+      const d = snap.dias.find((x) => x.dia === dia);
+      const alts = alternativasPorIds(d.exercicios.map((e) => e.id), idx, d.modalidade, snap.nivelRef);
+      box.innerHTML = alts.length
+        ? alts.map((e) => `<button class="btn ghost sm alt-prog" data-dia="${dia}" data-idx="${idx}" data-ex="${e.id}">${e.nome}</button>`).join('')
+        : '<small>sem alternativas viáveis</small>';
+      return;
+    }
+
+    const alt = ev.target.closest('.alt-prog');
+    if (alt) {
+      const dia = alt.dataset.dia;
+      const idx = Number(alt.dataset.idx);
+      const novo = EXERCICIO_POR_ID[alt.dataset.ex];
+      const d = snap.dias.find((x) => x.dia === dia);
+      const antigo = d.exercicios[idx];
+      d.exercicios[idx] = {
+        id: novo.id, nome: novo.nome, padrao: novo.padrao, equipamento: novo.equipamento,
+        series: antigo.series, reps: antigo.reps,
+        carga: sugerirCarga(novo, snap.nivelRef, d.modalidade).texto,
+      };
+      // padrão e séries iguais → volPorDia e cenários permanecem válidos
+      store.salvarPrograma(mesId, semana, snap);
+      renderProgramaView(snap, true);
+    }
+  });
+}
+
 /** Ao trocar mês/semana, carrega o programa salvo (se houver) ou mostra dica. */
 function aoTrocarSemana() {
   const mesId = $('#s-mes').value;
@@ -224,5 +270,6 @@ $('#h-aluno').addEventListener('change', renderHistorico);
 $('#s-imprimir').addEventListener('click', () => window.print());
 $('#m-imprimir').addEventListener('click', () => window.print());
 $('#h-imprimir').addEventListener('click', () => window.print());
+ativarTrocaPrograma();
 aoTrocarSemana();
 renderHistorico();

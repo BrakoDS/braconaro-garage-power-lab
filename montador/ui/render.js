@@ -147,8 +147,16 @@ export function renderMesociclo(meso) {
 export function renderDiaSalvo(d) {
   const exs = d.exercicios.map((e, i) => `
     <tr><td>${i + 1}</td>
-      <td><b>${e.nome}</b><br><small>${PADRAO_LABEL[e.padrao] || e.padrao} · ${equipNomes(e.equipamento || [])}</small>
-        <div><span class="chip acc">🏋 ${e.carga}</span></div></td>
+      <td>
+        <div class="ex-row">
+          <div>
+            <b>${e.nome}</b><br><small>${PADRAO_LABEL[e.padrao] || e.padrao} · ${equipNomes(e.equipamento || [])}</small>
+            <div><span class="chip acc">🏋 ${e.carga}</span></div>
+          </div>
+          <button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>
+        </div>
+        <div class="alts" id="alts-${d.dia}-${i}"></div>
+      </td>
       <td>${e.series}× ${e.reps}</td></tr>`).join('');
   const fin = d.finalizador ? `<div class="fin"><b>${d.finalizador.tipo}</b><br>${d.finalizador.descricao}</div>` : '';
   const viab = d.viabilidade?.ok ? `<span class="ok">✓ viável (grupos de ${d.viabilidade.tamanhoGrupo})</span>` : '';

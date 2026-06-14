@@ -16,7 +16,7 @@
  * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
  * @typedef {import('../config/padroes.js').Padrao} Padrao
  */
-import { EXERCICIOS } from '../data/exercicios.js';
+import { EXERCICIOS, EXERCICIO_POR_ID } from '../data/exercicios.js';
 import { MODALIDADES } from '../config/modalidades.js';
 import { padroesObrigatorios, PADROES } from '../config/padroes.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
@@ -265,6 +265,32 @@ export function aplicarTroca(treino, indice, novoExercicio) {
     ...treino, principal, volume, viabilidade, tempoPrincipalSeg,
     tempoTotalSeg: treino.tempoAquecimentoSeg + tempoPrincipalSeg + treino.tempoFinalizadorSeg + 300,
   };
+}
+
+/**
+ * Alternativas viáveis para trocar um exercício a partir dos IDs de um dia salvo
+ * (snapshot). Mantém o mesmo padrão de movimento, o nível, a modalidade e a
+ * viabilidade de aparelhos. Usado pelo "trocar" da semana já salva.
+ * @param {string[]} ids        IDs dos exercícios do dia (na ordem)
+ * @param {number} indice
+ * @param {string} modalidade
+ * @param {string} nivel
+ * @param {number} [nAlunos]
+ * @returns {Exercicio[]}
+ */
+export function alternativasPorIds(ids, indice, modalidade, nivel, nAlunos = ALUNOS_POR_SESSAO) {
+  const alvo = EXERCICIO_POR_ID[ids[indice]];
+  if (!alvo) return [];
+  const nivelAluno = NIVEL_ORDEM[/** @type {keyof typeof NIVEL_ORDEM} */ (nivel)];
+  const usados = new Set(ids);
+  const outros = ids.filter((_, i) => i !== indice).map((id) => EXERCICIO_POR_ID[id]).filter(Boolean);
+  return EXERCICIOS.filter((e) => {
+    if (usados.has(e.id) || e.id === alvo.id) return false;
+    if (e.padrao !== alvo.padrao) return false;
+    if (!e.categorias.includes(/** @type {any} */ (modalidade))) return false;
+    if (NIVEL_ORDEM[e.nivel] > nivelAluno) return false;
+    return verificarViabilidade([...outros, e], nAlunos, ids.length).ok;
+  });
 }
 
 /** Aquecimento de 5–10 min com mobilidade. @param {() => number} rng */

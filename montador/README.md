@@ -84,6 +84,9 @@ exercícios** em relação à semana anterior do mês (além de progredir pela p
 O conjunto das semanas salvas é o **relatório do mês** (aba *Histórico*), e ao escolher um
 aluno vê-se o **acumulado dele** (soma só dos dias que ele treina em cada semana). Mês e
 semana são detectados pela data de hoje (`store.semanaDoMes`/`mesIdDe`), com troca manual.
+Dois níveis de edição: **trocar** um exercício (ajuste fino — mantém padrão e séries,
+recalcula a carga e re-salva; relatório segue íntegro) e **substituir a semana** (regeração
+completa, com confirmação).
 
 ## Modelo de frequência (importante)
 
