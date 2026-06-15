@@ -103,7 +103,7 @@ function renderProgramaView(snap, jaExistia) {
     <b>Semana ${snap.semana} — ${store.rotuloMes(snap.mesId)}</b> · salva ✓
     ${jaExistia ? '(visualizando o treino salvo desta semana)' : '(gerada e salva no histórico)'}.
     Para mudar, clique em <b>Gerar / ver semana</b> e confirme a substituição.</div>`;
-  $('#s-saida').innerHTML = aviso + renderCenarios(snap) + snap.dias.map(renderDiaSalvo).join('');
+  $('#s-saida').innerHTML = aviso + renderCenarios(snap) + snap.dias.map((d) => renderDiaSalvo(d, true)).join('');
 }
 
 function gerarPrograma() {

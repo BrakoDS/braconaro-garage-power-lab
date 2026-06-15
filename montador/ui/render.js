@@ -143,9 +143,17 @@ export function renderMesociclo(meso) {
   </article>`;
 }
 
-/** Card de um dia salvo (read-only, a partir do snapshot). */
-export function renderDiaSalvo(d) {
-  const exs = d.exercicios.map((e, i) => `
+/**
+ * Card de um dia salvo, a partir do snapshot.
+ * @param {any} d @param {boolean} [editavel]  Mostra o botão "trocar" (só na aba Programa)
+ */
+export function renderDiaSalvo(d, editavel = true) {
+  const exs = d.exercicios.map((e, i) => {
+    const acoes = editavel
+      ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>`
+      : '';
+    const alts = editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
+    return `
     <tr><td>${i + 1}</td>
       <td>
         <div class="ex-row">
@@ -153,11 +161,12 @@ export function renderDiaSalvo(d) {
             <b>${e.nome}</b><br><small>${PADRAO_LABEL[e.padrao] || e.padrao} · ${equipNomes(e.equipamento || [])}</small>
             <div><span class="chip acc">🏋 ${e.carga}</span></div>
           </div>
-          <button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>
+          ${acoes}
         </div>
-        <div class="alts" id="alts-${d.dia}-${i}"></div>
+        ${alts}
       </td>
-      <td>${e.series}× ${e.reps}</td></tr>`).join('');
+      <td>${e.series}× ${e.reps}</td></tr>`;
+  }).join('');
   const fin = d.finalizador ? `<div class="fin"><b>${d.finalizador.tipo}</b><br>${d.finalizador.descricao}</div>` : '';
   const viab = d.viabilidade?.ok ? `<span class="ok">✓ viável (grupos de ${d.viabilidade.tamanhoGrupo})</span>` : '';
   return `<article class="card">
@@ -167,20 +176,29 @@ export function renderDiaSalvo(d) {
     ${fin}</article>`;
 }
 
-/** Relatório do box no mês: uma linha por semana salva. */
+/** Relatório do box no mês: um card por semana salva, com o treino expansível. */
 export function renderRelatorioMes(rotulo, semanas) {
   if (!semanas.length) return '<div class="empty">Nenhum treino salvo neste mês.</div>';
-  const linhas = semanas.map((s) => {
+  const cards = semanas.map((s) => {
     const grade = Object.entries(s.grade).map(([d, m]) => `${d.toUpperCase()} ${MODALIDADES[m]?.nome || m}`).join(' · ');
     const ok = s.cenarios?.[3]?.atingeMinimo;
-    const total = Object.values(s.volPorDia).reduce((a, dia) => a + Object.values(dia).reduce((x, y) => x + y, 0), 0);
-    return `<tr><td><b>Semana ${s.semana}</b></td><td><small>${grade}</small></td><td>${ok ? '<span class="ok">✓</span>' : '—'}</td><td>${Math.round(total)}</td></tr>`;
+    const total = Math.round(Object.values(s.volPorDia).reduce((a, dia) => a + Object.values(dia).reduce((x, y) => x + y, 0), 0));
+    const quando = s.geradoEm ? new Date(s.geradoEm).toLocaleDateString('pt-BR') : '';
+    const dias = s.dias.map((d) => renderDiaSalvo(d, false)).join('');
+    return `<article class="card">
+      <h3>Semana ${s.semana} — ${rotulo}</h3>
+      <div class="mut" style="margin-bottom:6px">${grade}${quando ? ` · salvo em ${quando}` : ''}</div>
+      <div>${ok ? '<span class="chip" style="color:var(--ok);border-color:var(--ok)">✓ 3× mínimo</span>' : '<span class="chip warn">3× abaixo</span>'}<span class="chip acc">${total} séries (5 dias)</span></div>
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;color:var(--acc);font-weight:600">Ver treino realizado</summary>
+        <div class="grid" style="margin-top:10px">${dias}</div>
+      </details>
+    </article>`;
   }).join('');
   return `<article class="card">
     <h3>Relatório do box — ${rotulo}</h3>
-    <div class="mut" style="margin-bottom:8px">${semanas.length} semana(s) registrada(s). Selecione um aluno para ver o acumulado individual.</div>
-    <table><thead><tr><th>Semana</th><th>Grade</th><th>3× mín.</th><th>Séries (5 dias)</th></tr></thead><tbody>${linhas}</tbody></table>
-  </article>`;
+    <div class="mut">${semanas.length} semana(s) registrada(s). Expanda uma semana para ver o treino, ou selecione um aluno para o acumulado individual.</div>
+  </article>${cards}`;
 }
 
 /**

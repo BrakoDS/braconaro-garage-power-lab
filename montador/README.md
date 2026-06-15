@@ -81,8 +81,9 @@ O **mês** é a unidade. Cada **semana do mês** tem **um programa** (igual para
 **gerado e salvo automaticamente** e fica **travado**: regerar pede confirmação
 (*"Deseja substituir o treino da semana X?"*). Ao montar uma semana, o gerador **varia os
 exercícios** em relação à semana anterior do mês (além de progredir pela periodização).
-O conjunto das semanas salvas é o **relatório do mês** (aba *Histórico*), e ao escolher um
-aluno vê-se o **acumulado dele** (soma só dos dias que ele treina em cada semana). Mês e
+O conjunto das semanas salvas é o **relatório do mês** (aba *Histórico*): cada semana pode
+ser **expandida ("Ver treino realizado")** para mostrar os 5 dias com exercícios e cargas
+(em leitura). Ao escolher um aluno vê-se o **acumulado dele** (soma só dos dias que treina). Mês e
 semana são detectados pela data de hoje (`store.semanaDoMes`/`mesIdDe`), com troca manual.
 Dois níveis de edição: **trocar** um exercício (ajuste fino — mantém padrão e séries,
 recalcula a carga e re-salva; relatório segue íntegro) e **substituir a semana** (regeração
