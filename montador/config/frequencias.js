@@ -20,7 +20,7 @@ export const COMBINACOES = [
   { id: '3x-ter-qui-sex', frequencia: 3, dias: ['ter', 'qui', 'sex'], rotulo: 'TER / QUI / SEX' },
   // 4x
   { id: '4x-seg-ter-qua-qui', frequencia: 4, dias: ['seg', 'ter', 'qua', 'qui'], rotulo: 'SEG / TER / QUA / QUI' },
-  { id: '4x-seg-qua-qui-sex', frequencia: 4, dias: ['seg', 'qua', 'qui', 'sex'], rotulo: 'SEG / QUA / QUI / SEX' },
+  { id: '4x-seg-ter-qui-sex', frequencia: 4, dias: ['seg', 'ter', 'qui', 'sex'], rotulo: 'SEG / TER / QUI / SEX' },
   // 5x
   { id: '5x-seg-sex', frequencia: 5, dias: ['seg', 'ter', 'qua', 'qui', 'sex'], rotulo: 'SEG a SEX' },
 ];
