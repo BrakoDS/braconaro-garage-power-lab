@@ -80,6 +80,16 @@ tr.bad-row td { color: var(--warn); }
 .aluno-card .meta { color: var(--mut); font-size: 13px; }
 .aluno-card .acoes { margin-left: auto; display: flex; gap: 8px; }
 
+/* ---------- porta de acesso ---------- */
+#gate { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center;
+  background: radial-gradient(1200px 600px at 80% -10%, #1a1c22 0%, var(--bg) 60%); padding: 20px; }
+.gate-box { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 28px;
+  width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow); text-align: center; }
+.gate-box .brand { font-weight: 800; }
+.gate-box p { color: var(--mut); margin: 0; font-size: 14px; }
+.gate-box input { text-align: center; }
+.gate-erro { display: none; color: var(--bad); font-size: 13px; }
+
 @media print {
   .topbar, .panel, .tab, .swap, .alts, button { display: none !important; }
   body { background: #fff; color: #000; }

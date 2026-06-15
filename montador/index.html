@@ -7,7 +7,18 @@
   <link rel="stylesheet" href="./app.css" />
 </head>
 <body>
-  <header class="topbar">
+  <!-- Porta de acesso (dissuasor client-side) -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>BRACONARO</b> · Montador<small>Garage Power Lab</small></div>
+      <p>Acesso restrito ao coach.</p>
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div id="gate-erro" class="gate-erro">Senha incorreta.</div>
+    </form>
+  </div>
+
+  <header class="topbar" hidden>
     <div class="brand"><b>BRACONARO</b> · Montador<small>Garage Power Lab</small></div>
     <nav class="tabs">
       <button class="tab active" data-view="semana">Programa da semana</button>
@@ -17,7 +28,7 @@
     </nav>
   </header>
 
-  <main>
+  <main hidden>
     <!-- ============ PROGRAMA DA SEMANA ============ -->
     <section class="view active" id="view-semana">
       <div class="panel">
@@ -69,6 +80,6 @@
     </section>
   </main>
 
-  <script type="module" src="./ui/app.js"></script>
+  <script type="module" src="./ui/gate.js"></script>
 </body>
 </html>

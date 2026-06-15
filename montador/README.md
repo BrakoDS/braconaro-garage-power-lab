@@ -12,6 +12,15 @@ real do box** (inventário de aparelhos), a **frequência semanal** do aluno e o
 
 ---
 
+## Acesso (senha)
+
+O montador tem uma **trava de senha** no navegador (`ui/auth.js` + `ui/gate.js`) — um
+**dissuasor**, não segurança real (é client-side, site estático, repositório público).
+Guarda só o **hash SHA-256** da senha; libera por sessão. Senha inicial **`braconaro2026`**
+(troque assim que puder). Para trocar: abra `/montador/`, no console rode
+`await montadorHashSenha('NOVA_SENHA')`, cole o hash em `SENHA_HASH` (`ui/auth.js`) e commite.
+O link do montador foi **removido do rodapé do site** (acesso só por URL direta).
+
 ## Como rodar
 
 Não há build nem dependências (vanilla JS / ES Modules). Mas ES Modules exigem
