@@ -56,12 +56,31 @@ export async function login(email, senha) {
   return _user;
 }
 
-/** Puxa o estado da nuvem para o store (se existir documento). */
+/** Tem dados úteis (algum programa ou aluno)? @param {any} est */
+function temDados(est) {
+  return !!est && ((est.programas && Object.keys(est.programas).length) || (est.alunos && est.alunos.length));
+}
+
+/**
+ * Sincroniza no login, sem perder dados:
+ *  - nuvem com dados  → adota a nuvem (sobrescreve o local);
+ *  - nuvem vazia + local com dados → semeia a nuvem com o local;
+ *  - ambos vazios → nada.
+ */
 export async function carregarParaStore() {
   if (!_user) return false;
-  const snap = await _fns.getDoc(_fns.doc(_db, 'coaches', _user.uid));
-  if (snap.exists()) store.setEstado(snap.data());
-  return snap.exists();
+  const ref = _fns.doc(_db, 'coaches', _user.uid);
+  const snap = await _fns.getDoc(ref);
+  const nuvem = snap.exists() ? snap.data() : null;
+  if (temDados(nuvem)) {
+    store.setEstado(nuvem);
+    return true;
+  }
+  const local = store.getEstado();
+  if (temDados(local)) {
+    await _fns.setDoc(ref, JSON.parse(JSON.stringify(local))); // semeia a nuvem
+  }
+  return false;
 }
 
 let _timer = null;
