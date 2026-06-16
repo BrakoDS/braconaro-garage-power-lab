@@ -28,6 +28,7 @@ export async function iniciar() {
   _db = fsMod.getFirestore(app);
   _fns = {
     signIn: authMod.signInWithEmailAndPassword,
+    signUp: authMod.createUserWithEmailAndPassword,
     signOut: authMod.signOut,
     onAuth: authMod.onAuthStateChanged,
     doc: fsMod.doc, getDoc: fsMod.getDoc, setDoc: fsMod.setDoc,
@@ -52,6 +53,14 @@ export async function sair() {
 export async function login(email, senha) {
   await iniciar();
   const cred = await _fns.signIn(_auth, email, senha);
+  _user = cred.user;
+  return _user;
+}
+
+/** Cria a conta do coach (primeiro acesso). @param {string} email @param {string} senha */
+export async function criarConta(email, senha) {
+  await iniciar();
+  const cred = await _fns.signUp(_auth, email, senha);
   _user = cred.user;
   return _user;
 }
