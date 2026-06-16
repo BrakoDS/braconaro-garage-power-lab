@@ -6,7 +6,7 @@
  * Em ambos, o app (app.js) só é carregado após liberar.
  */
 import { estaLiberado, tentarLiberar } from './auth.js';
-import { cloudAtivo, sessaoAtual, login, criarConta, carregarParaStore, conectarStore } from './cloud.js';
+import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, carregarParaStore, conectarStore } from './cloud.js';
 
 const gate = document.getElementById('gate');
 const form = document.getElementById('gate-form');
@@ -20,7 +20,8 @@ function entrar() {
   import('./app.js');
 }
 
-function mostrarErro(msg) { if (erro) { erro.textContent = msg; erro.style.display = 'block'; } }
+function mostrarErro(msg) { if (erro) { erro.style.color = ''; erro.textContent = msg; erro.style.display = 'block'; } }
+function mostrarOk(msg) { if (erro) { erro.style.color = 'var(--ok)'; erro.textContent = msg; erro.style.display = 'block'; } }
 
 /** Mensagem amigável a partir do código de erro do Firebase Auth. */
 function msgErroAuth(e) {
@@ -67,6 +68,24 @@ if (cloudAtivo()) {
     if (erro) erro.style.display = 'none';
   });
   form?.appendChild(toggle);
+
+  // link "esqueci a senha"
+  const reset = document.createElement('a');
+  reset.href = '#'; reset.style.cssText = 'color:var(--mut);font-size:13px;cursor:pointer';
+  reset.textContent = 'Esqueci a senha';
+  reset.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const mail = email.value.trim();
+    if (!mail) { mostrarErro('Digite seu e-mail acima primeiro.'); email.focus(); return; }
+    try {
+      await resetarSenha(mail);
+      mostrarOk('Enviamos um link de redefinição para seu e-mail. Verifique a caixa (e o spam).');
+    } catch (err) {
+      mostrarErro(msgErroAuth(err));
+      console.error('Reset:', err?.code, err?.message);
+    }
+  });
+  form?.appendChild(reset);
 
   if (gate) gate.style.display = 'flex';
   sessaoAtual().then((u) => { if (u) entrarComNuvem(); else email.focus(); });

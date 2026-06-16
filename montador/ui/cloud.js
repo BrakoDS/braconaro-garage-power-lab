@@ -29,6 +29,7 @@ export async function iniciar() {
   _fns = {
     signIn: authMod.signInWithEmailAndPassword,
     signUp: authMod.createUserWithEmailAndPassword,
+    reset: authMod.sendPasswordResetEmail,
     signOut: authMod.signOut,
     onAuth: authMod.onAuthStateChanged,
     doc: fsMod.doc, getDoc: fsMod.getDoc, setDoc: fsMod.setDoc,
@@ -63,6 +64,12 @@ export async function criarConta(email, senha) {
   const cred = await _fns.signUp(_auth, email, senha);
   _user = cred.user;
   return _user;
+}
+
+/** Envia e-mail de redefinição de senha. @param {string} email */
+export async function resetarSenha(email) {
+  await iniciar();
+  await _fns.reset(_auth, email);
 }
 
 /** Tem dados úteis (algum programa ou aluno)? @param {any} est */
