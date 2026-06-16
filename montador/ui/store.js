@@ -34,10 +34,28 @@ export function carregar() {
   return { alunos: [], config: {}, programas: {} };
 }
 
-/** @param {object} estado */
-export function salvar(estado) { localStorage.setItem(CHAVE, JSON.stringify(estado)); }
+/** @param {object} est */
+export function salvar(est) {
+  localStorage.setItem(CHAVE, JSON.stringify(est));
+  if (_aoSalvar) _aoSalvar(est); // espelha na nuvem (se ativa)
+}
 
 const estado = carregar();
+
+// ---------- ponte com a nuvem (opcional) ----------
+/** @type {((est:object)=>void)|null} */
+let _aoSalvar = null;
+/** Registra um callback chamado a cada salvamento (usado pelo sync em nuvem). */
+export function aoSalvar(cb) { _aoSalvar = cb; }
+/** Substitui o estado local pelo vindo da nuvem (sem disparar push de volta). */
+export function setEstado(novo) {
+  estado.alunos = novo.alunos || [];
+  estado.config = novo.config || {};
+  estado.programas = novo.programas || {};
+  localStorage.setItem(CHAVE, JSON.stringify(estado)); // cache local, sem re-push
+}
+/** Snapshot do estado atual (para enviar à nuvem). */
+export function getEstado() { return estado; }
 
 // ---------- helpers de data ----------
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',

@@ -12,6 +12,19 @@ real do box** (inventário de aparelhos), a **frequência semanal** do aluno e o
 
 ---
 
+## Sincronização em nuvem (opcional)
+
+Por padrão o app é **local** (localStorage, por navegador/aparelho). Para salvar online e
+ver em qualquer aparelho, há integração com **Firebase** (Auth e-mail/senha + Firestore),
+desligada por padrão. Passo a passo completo em `cloud-config.js`. Resumo:
+1. Criar projeto Firebase (grátis), ativar **Authentication (e-mail/senha)** e criar o usuário coach.
+2. Ativar **Firestore** e colar as regras (em `cloud-config.js`).
+3. Copiar o `firebaseConfig` do app web, colar em `cloud-config.js` e pôr `CLOUD_ATIVO = true`.
+
+Com a nuvem ligada, a tela de entrada vira **login real** (e-mail/senha) e os dados
+(`alunos`, `config`, `programas`) sincronizam no documento `coaches/{uid}`. Arquivos:
+`ui/cloud.js` (Firebase), `ui/gate.js` (login/senha), `ui/store.js` (cache local + ponte).
+
 ## Acesso (senha)
 
 O montador tem uma **trava de senha** no navegador (`ui/auth.js` + `ui/gate.js`) — um
