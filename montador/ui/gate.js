@@ -36,6 +36,9 @@ function msgErroAuth(e) {
     'auth/operation-not-allowed': 'Ative "E-mail/senha" no Firebase (Authentication → Sign-in method).',
     'auth/network-request-failed': 'Sem conexão com a internet.',
     'auth/too-many-requests': 'Muitas tentativas. Aguarde um pouco e tente de novo.',
+    'permission-denied': 'Login OK, mas o banco está bloqueado. Publique as regras do Firestore (Firestore → Regras).',
+    'unavailable': 'Banco indisponível no momento. Verifique a conexão e tente de novo.',
+    'failed-precondition': 'Crie o banco em Firestore Database (ainda não foi criado).',
   };
   return mapa[c] || `Erro ao entrar (${c || 'desconhecido'}).`;
 }
