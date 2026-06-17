@@ -51,6 +51,7 @@ async function entrarComNuvem() {
 
 if (cloudAtivo()) {
   // ---- modo nuvem: login e-mail/senha ----
+  if (gate) gate.style.display = 'flex'; // mostra o login JÁ (evita tela branca se algo falhar)
   const email = document.createElement('input');
   email.type = 'email'; email.id = 'gate-email'; email.placeholder = 'E-mail'; email.autocomplete = 'username';
   input?.setAttribute('placeholder', 'Senha');
