@@ -1,0 +1,113 @@
+/* ============================================================
+   COACH — painel privado (hub de apps) · Braconaro Garage Power Lab
+   Página simples; refinar o design depois.
+   ============================================================ */
+:root{
+  --bg:#09090b; --bg-2:#101013; --card:#141417; --card-2:#1b1b20;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --txt:#f5f5f6; --mut:#a1a1aa; --mut-2:#71717a;
+  --accent:#f5c518; --accent-2:#ffd84d; --accent-ink:#0a0a0b;
+  --glow:rgba(245,197,24,.45); --ok:#3fb950;
+  --font-display:'Anton','Barlow Condensed',sans-serif;
+  --font-cond:'Barlow Condensed',sans-serif;
+  --font-body:'Barlow',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{
+  margin:0; min-height:100%; background:
+    radial-gradient(90% 60% at 80% 0%, rgba(245,197,24,.10), transparent 55%),
+    var(--bg);
+  color:var(--txt); font-family:var(--font-body); line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+
+.brand{font-family:var(--font-cond);font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  display:flex;align-items:baseline;gap:8px;font-size:1.05rem}
+.brand b{font-family:var(--font-display);font-weight:400;letter-spacing:.02em;color:var(--accent)}
+.brand small{font-size:.7rem;color:var(--mut-2);letter-spacing:.12em}
+
+/* ---------- Botões ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5em;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  font-size:.95rem;padding:.85em 1.5em;border:1px solid transparent;cursor:pointer;
+  background:var(--accent);color:var(--accent-ink);
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+  transition:transform .15s ease, background .2s ease, color .2s ease, border-color .2s ease;
+}
+.btn:hover{background:var(--accent-2);transform:translateY(-1px)}
+.btn.ghost{background:transparent;color:var(--txt);border-color:var(--line-2)}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:.55em 1em;font-size:.8rem}
+
+/* ============================================================
+   GATE (login)
+   ============================================================ */
+#gate{
+  position:fixed;inset:0;z-index:50;display:none;
+  align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(80% 60% at 50% 0%, rgba(245,197,24,.08), transparent 60%), var(--bg);
+}
+.gate-box{
+  width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;
+  background:var(--bg-2);border:1px solid var(--line);padding:28px 24px;
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
+  box-shadow:0 30px 70px -30px rgba(0,0,0,.8), 0 0 80px -40px var(--glow);
+}
+.gate-box .brand{margin-bottom:2px}
+.gate-sub{margin:0 0 6px;color:var(--mut);font-size:.95rem}
+.gate-box input{
+  width:100%;padding:.8em 1em;background:var(--card);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font-body);font-size:1rem;outline:none;
+  transition:border-color .2s ease;
+}
+.gate-box input:focus{border-color:var(--accent)}
+.gate-box .btn{width:100%;margin-top:4px}
+.gate-links{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.gate-links a{color:var(--mut);font-size:.85rem;cursor:pointer}
+.gate-links a:hover{color:var(--accent)}
+.gate-erro{display:none;color:#ff6b4a;font-size:.88rem;margin-top:2px}
+
+/* ============================================================
+   HUB
+   ============================================================ */
+.hub-top{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:18px clamp(20px,5vw,48px);border-bottom:1px solid var(--line);
+  background:rgba(9,9,11,.7);backdrop-filter:blur(10px);
+  position:sticky;top:0;z-index:10;
+}
+.hub-main{max-width:1000px;margin:0 auto;padding:clamp(32px,6vw,64px) clamp(20px,5vw,48px) 80px}
+.eyebrow{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.3em;
+  font-size:.78rem;color:var(--accent)}
+.hub-main h1{font-family:var(--font-display);font-weight:400;text-transform:uppercase;
+  font-size:clamp(2rem,5vw,3.2rem);line-height:1.05;letter-spacing:.01em;margin:.25em 0 .15em}
+.hub-sub{color:var(--mut);margin:0 0 32px}
+
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.app-card{
+  position:relative;display:flex;flex-direction:column;gap:10px;
+  background:var(--card);border:1px solid var(--line);padding:22px 22px 24px;min-height:160px;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.app-card:not(.soon):hover{transform:translateY(-4px);border-color:var(--accent);
+  box-shadow:0 24px 50px -28px rgba(0,0,0,.9),0 0 50px -30px var(--glow)}
+.app-ic{width:46px;height:46px;display:grid;place-items:center;color:var(--accent);
+  border:1px solid var(--line-2);background:var(--bg-2)}
+.app-ic svg{width:24px;height:24px}
+.app-name{font-family:var(--font-display);font-weight:400;text-transform:uppercase;
+  font-size:1.3rem;letter-spacing:.02em}
+.app-desc{color:var(--mut);font-size:.92rem;line-height:1.5;margin-top:-2px}
+.app-go{margin-top:auto;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.1em;font-size:.82rem;color:var(--accent);display:inline-flex;align-items:center;gap:6px}
+.app-card.soon{opacity:.55;border-style:dashed}
+.app-card.soon .app-ic{color:var(--mut-2)}
+.app-card .tag{position:absolute;top:14px;right:14px;font-family:var(--font-cond);font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;font-size:.62rem;color:var(--mut-2);
+  border:1px solid var(--line-2);padding:3px 8px}
+
+.hub-back{margin-top:36px;display:inline-flex;align-items:center;gap:8px;color:var(--mut);
+  font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.1em;font-size:.82rem}
+.hub-back:hover{color:var(--accent)}

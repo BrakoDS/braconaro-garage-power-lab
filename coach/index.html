@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Coach — Braconaro Garage Power Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./coach.css" />
+</head>
+<body>
+
+  <!-- ============ GATE (login) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>BRACONARO</b> · Coach<small>Garage Power Lab</small></div>
+      <p class="gate-sub">Área restrita ao coach.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links">
+        <a href="#" id="gate-toggle">Primeiro acesso? Criar conta</a>
+        <a href="#" id="gate-reset">Esqueci a senha</a>
+      </div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ HUB ============ -->
+  <div id="hub" hidden>
+    <header class="hub-top">
+      <div class="brand"><b>BRACONARO</b> · Coach<small>Garage Power Lab</small></div>
+      <button id="sair" class="btn ghost btn-sm" type="button">Sair</button>
+    </header>
+
+    <main class="hub-main">
+      <span class="eyebrow">Painel privado</span>
+      <h1>Suas ferramentas</h1>
+      <p class="hub-sub">Acesse seus apps. Novos serão adicionados aqui conforme forem criados.</p>
+
+      <div class="apps">
+        <!-- App ativo: Montador de treino -->
+        <a class="app-card" href="../montador/index.html">
+          <span class="app-ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 6.5 17.5 17.5"/><path d="M21 21l-1-1"/><path d="M3 3l1 1"/>
+              <rect x="2.5" y="7.5" width="4" height="9" rx="1" transform="rotate(-45 4.5 12)"/>
+              <rect x="17.5" y="7.5" width="4" height="9" rx="1" transform="rotate(-45 19.5 12)"/>
+            </svg>
+          </span>
+          <span class="app-name">Montador de treino</span>
+          <span class="app-desc">Gera o programa da semana, mesociclos, histórico e gerencia alunos.</span>
+          <span class="app-go">Abrir →</span>
+        </a>
+
+        <!-- Placeholders para apps futuros -->
+        <div class="app-card soon">
+          <span class="tag">Em breve</span>
+          <span class="app-ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </span>
+          <span class="app-name">Próximo app</span>
+          <span class="app-desc">Espaço reservado para a próxima ferramenta.</span>
+        </div>
+
+        <div class="app-card soon">
+          <span class="tag">Em breve</span>
+          <span class="app-ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </span>
+          <span class="app-name">Próximo app</span>
+          <span class="app-desc">Espaço reservado para a próxima ferramenta.</span>
+        </div>
+      </div>
+
+      <a class="hub-back" href="../index.html">← Voltar ao site</a>
+    </main>
+  </div>
+
+  <script type="module" src="./coach.js"></script>
+</body>
+</html>
