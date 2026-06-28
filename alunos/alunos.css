@@ -208,9 +208,32 @@ button{font-family:inherit}
 .kv dd{margin:0}
 .note{background:var(--bg-3);border:1px solid var(--line);padding:14px;color:var(--mut);font-size:.9rem}
 
+/* ---------- Formulário de avaliação ---------- */
+.modal.lg{max-width:760px}
+.grid-form.g3{grid-template-columns:repeat(3,1fr)}
+.chks{display:flex;flex-wrap:wrap;gap:10px 20px}
+.chk{display:inline-flex;align-items:center;gap:8px;font-size:.92rem;color:var(--mut);cursor:pointer}
+.chk input{width:auto;accent-color:var(--accent)}
+.resultados{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.res{background:var(--bg-2);border:1px solid var(--line);padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.res .rt{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.7rem;color:var(--mut)}
+.res .rv{font-family:var(--font-display);font-weight:400;font-size:1.5rem;line-height:1.05;color:var(--accent)}
+.res .rs{font-size:.76rem;color:var(--mut-2)}
+
+/* ---------- Gráficos (Progresso) ---------- */
+.chart{width:100%;height:auto;display:block;margin-top:4px}
+.chart .ax{stroke:var(--line-2);stroke-width:1}
+.chart .clbl{fill:var(--mut-2);font-family:var(--font-cond);font-size:12px}
+.insight.bom{border-color:rgba(63,185,80,.4)}
+.insight.bom .ic{color:var(--ok)}
+.insight.ruim{border-color:rgba(255,91,80,.4)}
+.insight.ruim .ic{color:var(--bad)}
+
 /* ---------- responsivo ---------- */
 @media (max-width:640px){
   .grid-form{grid-template-columns:1fr}
+  .grid-form.g3{grid-template-columns:repeat(2,1fr)}
+  .resultados{grid-template-columns:repeat(2,1fr)}
   .prog-grid{grid-template-columns:1fr}
   .tabs{overflow-x:auto}
   .fab{left:clamp(16px,4vw,40px);text-align:center}

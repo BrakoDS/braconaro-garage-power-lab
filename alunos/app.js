@@ -7,6 +7,7 @@
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../montador/ui/cloud.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
 import * as db from './db.js';
+import * as calc from './calc.js';
 
 /* ============================================================
    Helpers
@@ -174,6 +175,7 @@ function abrirPerfil(id) {
 function ativarAba(nome) {
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === nome));
   $$('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + nome));
+  if (nome === 'progresso') renderProgresso();
 }
 $$('.tab').forEach((t) => t.addEventListener('click', () => ativarAba(t.dataset.tab)));
 
@@ -191,11 +193,15 @@ function renderAvaliacoes() {
   const hj = hoje();
   lista.innerHTML = avs.map((av) => {
     const atrasada = av.dataProxima && av.dataProxima < hj;
+    const r = calc.calcular(av, a);
+    const resumo = [];
+    if (av.peso) resumo.push(`${(+av.peso).toLocaleString('pt-BR')} kg`);
+    if (r.perc != null) resumo.push(`${r.perc.toFixed(1)}% gordura`);
     return `
     <button class="aval-row" data-num="${av.num}" type="button">
       <span class="anum">Avaliação #${String(av.num).padStart(2, '0')}</span>
       <span class="adatas">
-        <span class="adata">Realizada: ${fmtData(av.dataRealizada)}</span>
+        <span class="adata">Realizada: ${fmtData(av.dataRealizada)}${resumo.length ? ' · ' + resumo.join(' · ') : ''}</span>
         <span class="aprox${atrasada ? ' atrasada' : ''}">Próxima: ${fmtData(av.dataProxima)}</span>
       </span>
       ${atrasada ? '<span class="badge-late">Atrasada</span>' : '<span class="badge-ok">Em dia</span>'}
@@ -204,15 +210,9 @@ function renderAvaliacoes() {
 }
 $('#aval-list').addEventListener('click', (e) => {
   const row = e.target.closest('.aval-row');
-  if (row) abrirAvaliacao(Number(row.dataset.num));
+  if (row) abrirFormAvaliacao(Number(row.dataset.num));
 });
-$('#btn-nova-aval').addEventListener('click', () => {
-  const a = alunoAtual; if (!a) return;
-  const nova = db.addAvaliacao(a.id, { dataRealizada: hoje(), dataProxima: addDias(hoje(), 30) });
-  alunoAtual = db.obter(a.id);
-  renderAvaliacoes();
-  abrirAvaliacao(nova.num);
-});
+$('#btn-nova-aval').addEventListener('click', () => abrirFormAvaliacao(null));
 
 /* ============================================================
    Modais
@@ -241,30 +241,101 @@ $('#form-novo').addEventListener('submit', (e) => {
   abrirPerfil(novo.id);
 });
 
-/* ---- Modal: detalhe da avaliação ---- */
+/* ---- Modal: formulário da avaliação ---- */
 let avalAberta = null;
-function abrirAvaliacao(num) {
+
+function fmtN(v, dec = 1) { return v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
+function fmtDataCurta(iso) { if (!iso) return ''; const [a, m, d] = iso.split('-'); return `${d}/${m}`; }
+
+function lerAval(form) {
+  const fd = new FormData(form);
+  const g = (k) => (fd.get(k) ?? '').toString().trim();
+  const av = {
+    dataRealizada: g('dataRealizada'), dataProxima: g('dataProxima'),
+    peso: g('peso'), estatura: g('estatura'), obs: g('obs'),
+    cond: { jejum: !!fd.get('cond_jejum'), semTreino: !!fd.get('cond_semTreino'), roupasLeves: !!fd.get('cond_roupasLeves'), bexiga: !!fd.get('cond_bexiga') },
+    dobras: {}, perimetros: {},
+  };
+  for (const k of ['peitoral', 'abdominal', 'coxa', 'triceps', 'suprailiaca']) { const v = g('dobra_' + k); if (v !== '') av.dobras[k] = v; }
+  for (const p of calc.PERIMETROS) { const v = g('perim_' + p.key); if (v !== '') av.perimetros[p.key] = v; }
+  return av;
+}
+
+function renderResultados(av, aluno) {
+  const r = calc.calcular(av, aluno);
+  const cards = [
+    { t: 'IMC', v: r.imc != null ? fmtN(r.imc, 1) : '—', s: r.imcClass },
+    { t: '% Gordura', v: r.perc != null ? fmtN(r.perc, 1) + '%' : '—', s: r.percClass },
+    { t: 'Massa gorda', v: r.massaGorda != null ? fmtN(r.massaGorda, 1) + ' kg' : '—', s: '' },
+    { t: 'Massa magra', v: r.massaMagra != null ? fmtN(r.massaMagra, 1) + ' kg' : '—', s: '' },
+    { t: 'RCQ', v: r.rcq != null ? fmtN(r.rcq, 2) : '—', s: r.rcqClass },
+    { t: 'Σ 3 dobras', v: r.soma != null ? fmtN(r.soma, 0) + ' mm' : '—', s: '' },
+  ];
+  $('#aval-resultados').innerHTML = cards.map((c) => `<div class="res"><span class="rt">${c.t}</span><span class="rv">${c.v}</span>${c.s ? `<span class="rs">${esc(c.s)}</span>` : ''}</div>`).join('');
+}
+
+function abrirFormAvaliacao(num) {
   const a = alunoAtual; if (!a) return;
-  const av = (a.avaliacoes || []).find((x) => x.num === num);
-  if (!av) return;
-  avalAberta = num;
-  $('#modal-aval-titulo').textContent = `Avaliação #${String(num).padStart(2, '0')}`;
+  const novo = num == null;
+  let av;
+  if (novo) av = { dataRealizada: hoje(), dataProxima: addDias(hoje(), 90), peso: a.peso || '', estatura: a.altura || '', cond: {}, dobras: {}, perimetros: {} };
+  else { av = (a.avaliacoes || []).find((x) => x.num === num); if (!av) return; }
+  avalAberta = novo ? null : num;
+  const cod = calc.sexoCod(a);
+  const dobras = calc.dobrasDoSexo(cod);
+  $('#modal-aval').querySelector('.modal').classList.add('lg');
+  $('#modal-aval-titulo').textContent = novo ? 'Nova avaliação' : `Avaliação #${String(num).padStart(2, '0')}`;
+  $('#btn-del-aval').style.display = novo ? 'none' : '';
+  const cond = av.cond || {}, dz = av.dobras || {}, pz = av.perimetros || {};
+  const chk = (k, l) => `<label class="chk"><input type="checkbox" name="cond_${k}"${cond[k] ? ' checked' : ''}/> ${l}</label>`;
+  const f = (name, val, ph = '', step = '0.1') => `<input name="${name}" type="number" inputmode="decimal" min="0" step="${step}" value="${esc(val ?? '')}" placeholder="${ph}"/>`;
+  const avisoSexo = cod ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Defina o <b>sexo</b> do aluno na aba <b>Dados</b> para calcular o % de gordura.</div>`;
+  const avisoIdade = (a.nascimento || a.idade) ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Informe a <b>data de nascimento</b> na aba Dados (a fórmula usa a idade).</div>`;
   $('#modal-aval-body').innerHTML = `
-    <div class="grid-form" style="grid-template-columns:1fr 1fr">
-      <div class="field"><label>Data realizada</label><input type="date" id="av-realizada" value="${esc(av.dataRealizada || '')}" /></div>
-      <div class="field"><label>Próxima avaliação</label><input type="date" id="av-proxima" value="${esc(av.dataProxima || '')}" /></div>
-    </div>
-    <div class="form-actions" style="margin-top:14px"><button class="btn btn-sm" id="av-salvar" type="button">Salvar datas</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
-    <div class="note" style="margin-top:18px"><b>Em breve:</b> os dados antropométricos e de bioimpedância desta avaliação (e os cálculos de evolução) serão adicionados aqui na próxima etapa.</div>`;
-  $('#av-salvar').addEventListener('click', () => {
-    av.dataRealizada = $('#av-realizada').value;
-    av.dataProxima = $('#av-proxima').value;
-    db.atualizar(a.id, { avaliacoes: a.avaliacoes });
+    <form id="form-aval">
+      <div class="form-sec"><h3>Datas</h3><div class="grid-form">
+        <div class="field"><label>Data realizada</label><input name="dataRealizada" type="date" value="${esc(av.dataRealizada || '')}"/></div>
+        <div class="field"><label>Próxima avaliação</label><input name="dataProxima" type="date" value="${esc(av.dataProxima || '')}"/></div>
+      </div></div>
+      <div class="form-sec"><h3>Condições do aluno</h3><div class="chks">${chk('jejum', 'Jejum 2–4h')}${chk('semTreino', 'Sem treino intenso 12h')}${chk('roupasLeves', 'Roupas leves')}${chk('bexiga', 'Bexiga vazia')}</div></div>
+      <div class="form-sec"><h3>Medidas básicas</h3><div class="grid-form">
+        <div class="field"><label>Peso (kg)</label>${f('peso', av.peso, '80')}</div>
+        <div class="field"><label>Estatura (cm)</label>${f('estatura', av.estatura, '175')}</div>
+      </div></div>
+      <div class="form-sec"><h3>Dobras cutâneas (mm) · Pollock 3${cod === 'F' ? ' · feminino' : cod === 'M' ? ' · masculino' : ''}</h3>${avisoSexo}${avisoIdade}
+        <div class="grid-form g3">${dobras.map((d) => `<div class="field"><label>${d.label}</label>${f('dobra_' + d.key, dz[d.key], '', '0.5')}</div>`).join('')}</div>
+      </div>
+      <div class="form-sec"><h3>Perímetros (cm)</h3>
+        <div class="grid-form g3">${calc.PERIMETROS.map((p) => `<div class="field"><label>${p.label}</label>${f('perim_' + p.key, pz[p.key], '', '0.1')}</div>`).join('')}</div>
+      </div>
+      <div class="form-sec"><h3>Resultados</h3><div id="aval-resultados" class="resultados"></div></div>
+      <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Observações desta avaliação…">${esc(av.obs || '')}</textarea></div>
+      <div class="form-actions" style="margin-top:14px"><button class="btn" type="submit">${novo ? 'Salvar avaliação' : 'Salvar alterações'}</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
+    </form>`;
+  const form = $('#form-aval');
+  const recalc = () => renderResultados(lerAval(form), a);
+  form.addEventListener('input', recalc);
+  recalc();
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const dados = lerAval(form);
+    if (avalAberta == null) {
+      const nv = db.addAvaliacao(a.id, dados);
+      avalAberta = nv.num;
+      $('#modal-aval-titulo').textContent = `Avaliação #${String(nv.num).padStart(2, '0')}`;
+      $('#btn-del-aval').style.display = '';
+    } else {
+      const cur = (a.avaliacoes || []).find((x) => x.num === avalAberta);
+      if (cur) Object.assign(cur, dados);
+      db.atualizar(a.id, { avaliacoes: a.avaliacoes });
+    }
+    alunoAtual = db.obter(a.id);
     renderAvaliacoes();
-    const flag = $('#modal-aval-body [data-saved]'); flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1500);
+    const flag = $('#form-aval [data-saved]'); flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1500);
   });
   abrirModal('modal-aval');
 }
+
 $('#btn-del-aval').addEventListener('click', () => {
   const a = alunoAtual; if (!a || avalAberta == null) return;
   if (confirm(`Excluir a Avaliação #${String(avalAberta).padStart(2, '0')}?`)) {
@@ -274,6 +345,82 @@ $('#btn-del-aval').addEventListener('click', () => {
     fecharModal('modal-aval');
   }
 });
+
+/* ============================================================
+   ABA 3 — Progresso (gráficos + insights)
+   ============================================================ */
+function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
+  const W = 600, H = 180, pad = { l: 46, r: 14, t: 16, b: 28 };
+  const ys = serie.map((p) => p.y);
+  let min = Math.min(...ys), max = Math.max(...ys);
+  if (min === max) { min -= 1; max += 1; }
+  const rng = max - min; min -= rng * 0.15; max += rng * 0.15;
+  const n = serie.length;
+  const X = (i) => pad.l + (n === 1 ? 0 : (i / (n - 1)) * (W - pad.l - pad.r));
+  const Y = (v) => pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b);
+  const pts = serie.map((p, i) => [X(i), Y(p.y)]);
+  const linha = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = linha + ` L ${pts[n - 1][0].toFixed(1)} ${H - pad.b} L ${pts[0][0].toFixed(1)} ${H - pad.b} Z`;
+  const dots = pts.map((p) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="${cor}"/>`).join('');
+  const yMax = Math.max(...ys), yMin = Math.min(...ys);
+  const gid = 'g' + Math.random().toString(36).slice(2, 7);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cor}" stop-opacity="0.25"/><stop offset="1" stop-color="${cor}" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H - pad.b}" class="ax"/>
+    <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" class="ax"/>
+    <text x="${pad.l - 6}" y="${(Y(yMax) + 4).toFixed(1)}" class="clbl" text-anchor="end">${fmtN(yMax, 1)}</text>
+    <text x="${pad.l - 6}" y="${(Y(yMin) + 4).toFixed(1)}" class="clbl" text-anchor="end">${fmtN(yMin, 1)}</text>
+    <path d="${area}" fill="url(#${gid})"/>
+    <path d="${linha}" fill="none" stroke="${cor}" stroke-width="2.5" stroke-linejoin="round"/>
+    ${dots}
+    <text x="${X(0).toFixed(1)}" y="${H - 9}" class="clbl" text-anchor="start">${fmtDataCurta(serie[0].d)}</text>
+    <text x="${X(n - 1).toFixed(1)}" y="${H - 9}" class="clbl" text-anchor="end">${fmtDataCurta(serie[n - 1].d)}</text>
+  </svg>`;
+}
+
+function insightsHTML(a, avs) {
+  if (avs.length < 2) return `<div class="note">Cadastre ao menos 2 avaliações para ver a evolução.</div>`;
+  const pri = avs[0], ult = avs[avs.length - 1];
+  const rp = calc.calcular(pri, a), ru = calc.calcular(ult, a);
+  const items = [];
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const push = (label, va, vb, unidade, melhorSe) => {
+    if (va == null || vb == null) return;
+    const d = vb - va; if (Math.abs(d) < 1e-9) return;
+    const bom = melhorSe === 'down' ? d < 0 : melhorSe === 'up' ? d > 0 : null;
+    const cls = bom === true ? 'bom' : bom === false ? 'ruim' : '';
+    items.push(`<div class="insight ${cls}"><span class="ic">${d < 0 ? '▼' : '▲'}</span><span><span class="it">${label}: ${d > 0 ? '+' : '−'}${fmtN(Math.abs(d), 1)} ${unidade}</span><br><span class="iv">de ${fmtN(va, 1)} para ${fmtN(vb, 1)} ${unidade}</span></span></div>`);
+  };
+  push('Peso', numf(pri.peso), numf(ult.peso), 'kg', null);
+  push('% Gordura', rp.perc, ru.perc, '%', 'down');
+  push('Massa magra', rp.massaMagra, ru.massaMagra, 'kg', 'up');
+  push('Cintura', numf(pri.perimetros?.cintura), numf(ult.perimetros?.cintura), 'cm', 'down');
+  push('Abdômen', numf(pri.perimetros?.abdomen), numf(ult.perimetros?.abdomen), 'cm', 'down');
+  if (!items.length) return `<div class="note">Ainda não há dados comparáveis entre as avaliações.</div>`;
+  return `<div class="note" style="margin-bottom:8px">Comparando a 1ª avaliação (${fmtDataCurta(pri.dataRealizada)}) com a última (${fmtDataCurta(ult.dataRealizada)}).</div>` + items.join('');
+}
+
+function renderProgresso() {
+  const a = alunoAtual; if (!a) return;
+  const panel = $('#tab-progresso');
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada).sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const serie = (fn) => avs.map((av) => ({ d: av.dataRealizada, y: fn(av) })).filter((p) => p.y != null && !isNaN(p.y));
+  const sPeso = serie((av) => numf(av.peso));
+  const sPerc = serie((av) => calc.calcular(av, a).perc);
+  const sMagra = serie((av) => calc.calcular(av, a).massaMagra);
+  const sCintura = serie((av) => numf(av.perimetros?.cintura));
+  const vazio = (s) => `<div class="prog-ph">${avs.length ? 'Cadastre ao menos 2 avaliações com este dado.' : 'Nenhuma avaliação cadastrada ainda.'}</div>`;
+  const chart = (s, opt) => (s.length >= 2 ? chartSVG(s, opt) : vazio(s));
+  panel.innerHTML = `
+    <div class="prog-grid">
+      <div class="prog-card full"><h4>Evolução do peso corporal</h4>${chart(sPeso, { cor: 'var(--accent)' })}</div>
+      <div class="prog-card"><h4>% Gordura corporal</h4>${chart(sPerc, { cor: '#ff5b50' })}</div>
+      <div class="prog-card"><h4>Massa magra</h4>${chart(sMagra, { cor: '#3fb950' })}</div>
+      <div class="prog-card full"><h4>Evolução da cintura</h4>${chart(sCintura, { cor: 'var(--accent-2)' })}</div>
+      <div class="prog-card full"><h4>Pontos que foram melhorados</h4><div class="insights">${insightsHTML(a, avs)}</div></div>
+    </div>`;
+}
 
 /* ============================================================
    GATE de acesso (mesmo login do Coach/Montador)
