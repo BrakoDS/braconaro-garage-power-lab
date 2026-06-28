@@ -283,7 +283,21 @@ const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-err
 const gToggle = $('#gate-toggle'), gReset = $('#gate-reset');
 const gBtn = gform.querySelector('button[type=submit]');
 
-function entrar() { gate.style.display = 'none'; $('#app').removeAttribute('hidden'); renderLista(); }
+function entrar(user) {
+  gate.style.display = 'none';
+  $('#app').removeAttribute('hidden');
+  renderLista();
+  // Sincroniza com a nuvem (se houver usuário logado). Não bloqueia a UI.
+  if (user && user.uid) {
+    db.iniciarSync(user.uid, () => {
+      renderLista();
+      if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
+        const a = db.obter(alunoAtual.id);
+        if (a) { alunoAtual = a; renderAvaliacoes(); }
+      }
+    });
+  }
+}
 function erroMsg(m) { gErro.style.color = ''; gErro.textContent = m; gErro.style.display = 'block'; }
 function okMsg(m) { gErro.style.color = 'var(--ok)'; gErro.textContent = m; gErro.style.display = 'block'; }
 function msgAuth(e) {
@@ -305,10 +319,13 @@ if (cloudAtivo()) {
   let criando = false;
   gToggle.addEventListener('click', (e) => { e.preventDefault(); criando = !criando; gBtn.textContent = criando ? 'Criar conta e entrar' : 'Entrar'; gToggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta'; gErro.style.display = 'none'; });
   gReset.addEventListener('click', async (e) => { e.preventDefault(); const m = gEmail.value.trim(); if (!m) { erroMsg('Digite seu e-mail acima primeiro.'); gEmail.focus(); return; } try { await resetarSenha(m); okMsg('Enviamos um link de redefinição para seu e-mail.'); } catch (err) { erroMsg(msgAuth(err)); } });
-  sessaoAtual().then((u) => { if (u) entrar(); else gEmail.focus(); });
+  sessaoAtual().then((u) => { if (u) entrar(u); else gEmail.focus(); });
   gform.addEventListener('submit', async (e) => {
     e.preventDefault(); gErro.style.display = 'none';
-    try { if (criando) await criarConta(gEmail.value.trim(), gSenha.value); else await login(gEmail.value.trim(), gSenha.value); entrar(); }
+    try {
+      const user = criando ? await criarConta(gEmail.value.trim(), gSenha.value) : await login(gEmail.value.trim(), gSenha.value);
+      entrar(user);
+    }
     catch (err) { erroMsg(msgAuth(err)); console.error('Auth:', err?.code, err?.message); }
   });
 } else if (estaLiberado()) {

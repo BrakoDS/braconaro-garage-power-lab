@@ -2,12 +2,14 @@
 /**
  * Camada de dados da Gestão de Alunos.
  *
- * Hoje persiste em localStorage (simples e offline). Toda a leitura/escrita
- * passa por aqui, então trocar por Firebase/Firestore depois é só reimplementar
- * estas funções — o resto do app não muda.
+ * Persistência local (localStorage) + sincronização opcional na nuvem
+ * (Firestore, documento gestao/{uid}). O app continua usando a API síncrona
+ * normalmente; cada escrita também é enviada à nuvem (debounced) e, no login,
+ * os dados da nuvem são carregados. Last-write-wins (igual ao montador).
  */
 const KEY = 'braconaro_gestao_alunos_v1';
 
+function setLocal(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 function ler() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || '');
@@ -15,8 +17,51 @@ function ler() {
   } catch {}
   return { seq: 0, alunos: [] };
 }
-function gravar(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 
+/* ---------- Sincronização na nuvem ---------- */
+let _uid = null, _push = null, _timer = null;
+
+function agendarEnvio() {
+  if (!_uid || !_push) return;
+  clearTimeout(_timer);
+  _timer = setTimeout(() => {
+    Promise.resolve(_push(_uid, ler()))
+      .catch((e) => console.warn('Falha ao salvar alunos na nuvem:', e?.code || e));
+  }, 800);
+}
+
+/** Grava local e (se conectado) agenda envio à nuvem. */
+function gravar(d) { setLocal(d); agendarEnvio(); }
+
+/**
+ * Liga a sincronização na nuvem — chamar após o login, com o uid do coach.
+ *  - nuvem com dados        → adota a nuvem (sobrescreve o local);
+ *  - nuvem vazia + local cheio → semeia a nuvem com o local;
+ *  - falha (regra não publicada / offline) → segue só no local, sem quebrar.
+ * @param {string} uid
+ * @param {() => void} [aoAtualizar] chamado quando os dados da nuvem chegam
+ */
+export async function iniciarSync(uid, aoAtualizar) {
+  try {
+    const cloud = await import('./cloud-alunos.js');
+    if (!cloud.cloudAtivo() || !uid) return;
+    _uid = uid;
+    _push = cloud.salvar;
+    const remoto = await cloud.carregar(uid);
+    const temRemoto = remoto && Array.isArray(remoto.alunos) && remoto.alunos.length;
+    if (temRemoto) {
+      setLocal(remoto);                       // adota a nuvem
+      if (aoAtualizar) aoAtualizar();
+    } else {
+      const local = ler();
+      if (local.alunos.length) await cloud.salvar(uid, local); // semeia a nuvem
+    }
+  } catch (e) {
+    console.warn('Sincronização na nuvem indisponível — usando dados locais.', e?.code || e);
+  }
+}
+
+/* ---------- API ---------- */
 /** @returns {any[]} todos os alunos (mais recentes primeiro) */
 export function listar() {
   return ler().alunos.slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
@@ -32,13 +77,7 @@ export function criar(dados) {
   const d = ler();
   d.seq += 1;
   const id = String(d.seq).padStart(3, '0');
-  const aluno = {
-    status: 'ativo',
-    avaliacoes: [],
-    criadoEm: Date.now(),
-    ...dados,
-    id, // garante que o id gerado não seja sobrescrito
-  };
+  const aluno = { status: 'ativo', avaliacoes: [], criadoEm: Date.now(), ...dados, id };
   d.alunos.push(aluno);
   gravar(d);
   return aluno;
