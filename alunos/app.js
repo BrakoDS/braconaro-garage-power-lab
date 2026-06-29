@@ -142,23 +142,62 @@ function lerForm(form) {
    ============================================================ */
 const elLista = $('#lista-alunos');
 let filtro = '';
+let filtroStatus = 'todos'; // 'todos' | 'atrasada' | 'avencer'
 
 function statusTag(s) { const k = (s || 'ativo').toLowerCase(); return `<span class="status ${k}">${STATUS_LABEL[k] || 'Ativo'}</span>`; }
 
+/** Situação da próxima avaliação do aluno (pela avaliação mais recente). */
+function statusAvaliacao(a) {
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
+  if (!avs.length) return { tipo: 'sem' };
+  const ultima = avs.reduce((m, x) => (x.dataRealizada > m.dataRealizada ? x : m), avs[0]);
+  if (!ultima.dataProxima) return { tipo: 'sem' };
+  const dias = Math.round((new Date(ultima.dataProxima + 'T00:00:00') - new Date(hoje() + 'T00:00:00')) / 86400000);
+  if (dias < 0) return { tipo: 'atrasada', dias: -dias };
+  if (dias <= 7) return { tipo: 'avencer', dias };
+  return { tipo: 'emdia', dias };
+}
+
+function avalBadge(s) {
+  if (s.tipo === 'atrasada') return `<span class="aval-tag atrasada">⚠ Atrasada ${s.dias}d</span>`;
+  if (s.tipo === 'avencer') return `<span class="aval-tag avencer">Reavaliar ${s.dias === 0 ? 'hoje' : 'em ' + s.dias + 'd'}</span>`;
+  return '';
+}
+
+function renderResumoAval(nAtr, nVenc) {
+  const el = $('#aval-resumo'); if (!el) return;
+  if (!nAtr && !nVenc) { el.innerHTML = ''; return; }
+  const chip = (f, cls, txt) => `<button class="filtro-chip ${cls}${filtroStatus === f ? ' on' : ''}" data-f="${f}" type="button">${txt}</button>`;
+  let html = chip('todos', '', 'Todos');
+  if (nAtr) html += chip('atrasada', 'atrasada', `${nAtr} atrasada${nAtr > 1 ? 's' : ''}`);
+  if (nVenc) html += chip('avencer', 'avencer', `${nVenc} a vencer`);
+  el.innerHTML = html;
+}
+
 function renderLista() {
-  const alunos = db.listar().filter((a) => {
+  const todos = db.listar();
+  let nAtr = 0, nVenc = 0;
+  todos.forEach((a) => { const t = statusAvaliacao(a).tipo; if (t === 'atrasada') nAtr++; else if (t === 'avencer') nVenc++; });
+  renderResumoAval(nAtr, nVenc);
+
+  const q = filtro.toLowerCase();
+  let alunos = todos.filter((a) => {
+    if (filtroStatus !== 'todos' && statusAvaliacao(a).tipo !== filtroStatus) return false;
     if (!filtro) return true;
-    const q = filtro.toLowerCase();
     return (a.nome || '').toLowerCase().includes(q) || (a.id || '').includes(q);
   });
+  // atrasadas no topo, depois a vencer
+  const prio = (a) => { const t = statusAvaliacao(a).tipo; return t === 'atrasada' ? 0 : t === 'avencer' ? 1 : 2; };
+  alunos = alunos.slice().sort((x, y) => prio(x) - prio(y));
+
   if (!alunos.length) {
-    elLista.innerHTML = `<div class="empty"><b>${db.listar().length ? 'Nenhum aluno encontrado' : 'Nenhum aluno cadastrado'}</b>${db.listar().length ? 'Tente outro nome ou ID.' : 'Use o botão “Cadastrar novo aluno” para começar.'}</div>`;
+    elLista.innerHTML = `<div class="empty"><b>${todos.length ? 'Nenhum aluno encontrado' : 'Nenhum aluno cadastrado'}</b>${todos.length ? 'Tente outro filtro, nome ou ID.' : 'Use o botão “Cadastrar novo aluno” para começar.'}</div>`;
     return;
   }
   elLista.innerHTML = alunos.map((a) => `
     <button class="aluno-row" data-id="${esc(a.id)}" type="button">
       <span class="rav">${a.fotoUrl ? `<img src="${esc(a.fotoUrl)}" alt="" />` : esc(iniciais(a.nome))}</span>
-      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">#${esc(a.id)} · ${esc(a.objetivo || 'Sem objetivo definido')}</span></span>
+      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">#${esc(a.id)} · ${esc(a.objetivo || 'Sem objetivo definido')}${avalBadge(statusAvaliacao(a))}</span></span>
       ${statusTag(a.status)}
     </button>`).join('');
 }
@@ -166,6 +205,10 @@ function renderLista() {
 elLista.addEventListener('click', (e) => {
   const row = e.target.closest('.aluno-row');
   if (row) abrirPerfil(row.dataset.id);
+});
+$('#aval-resumo').addEventListener('click', (e) => {
+  const chip = e.target.closest('.filtro-chip');
+  if (chip) { filtroStatus = chip.dataset.f; renderLista(); }
 });
 $('#busca').addEventListener('input', (e) => { filtro = e.target.value; renderLista(); });
 
