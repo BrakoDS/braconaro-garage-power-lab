@@ -93,6 +93,26 @@ export function classifRcq(v, cod) {
   return 'Risco alto';
 }
 
+/** Classificação da pressão arterial (diretriz tipo ACC/AHA). */
+export function classifPressao(sis, dia) {
+  const s = num(sis), d = num(dia);
+  if (s == null || d == null) return '';
+  if (s >= 180 || d >= 120) return 'Crise hipertensiva';
+  if (s >= 140 || d >= 90) return 'Hipertensão E2';
+  if (s >= 130 || d >= 80) return 'Hipertensão E1';
+  if (s >= 120) return 'Elevada';
+  return 'Normal';
+}
+
+/** Classificação da saturação de oxigênio (SpO2 %). */
+export function classifSpo2(v) {
+  const x = num(v);
+  if (x == null) return '';
+  if (x >= 95) return 'Normal';
+  if (x >= 91) return 'Levemente baixa';
+  return 'Baixa';
+}
+
 /** Calcula todos os resultados de uma avaliação (com o aluno para sexo/idade). */
 export function calcular(av, aluno) {
   const cod = sexoCod(aluno);

@@ -63,6 +63,7 @@ export function exportarAvaliacao(aluno, av) {
     </div>
     <h2>Medidas</h2>
     <table>${row('Peso', av.peso ? av.peso + ' kg' : '')}${row('Estatura', av.estatura ? av.estatura + ' cm' : '')}${row('Soma 3 dobras', r.soma != null ? r.soma + ' mm' : '')}</table>
+    ${(av.pas || av.fc || av.spo2) ? `<h2>Sinais vitais</h2><table>${row('Pressão arterial', av.pas && av.pad ? `${av.pas}/${av.pad} mmHg (${calc.classifPressao(av.pas, av.pad)})` : '')}${row('Freq. cardíaca', av.fc ? av.fc + ' bpm' : '')}${row('Saturação SpO₂', av.spo2 ? av.spo2 + '% (' + calc.classifSpo2(av.spo2) + ')' : '')}</table>` : ''}
     <h2>Dobras cutâneas</h2><div class="blk">${dobras || '—'}</div>
     <h2>Perímetros</h2><div class="blk">${perim || '—'}</div>
     <h2>Condições no dia</h2><div class="blk">${cond}</div>

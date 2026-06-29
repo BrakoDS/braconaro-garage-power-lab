@@ -293,6 +293,7 @@ function lerAval(form) {
   const av = {
     dataRealizada: g('dataRealizada'), dataProxima: g('dataProxima'),
     peso: g('peso'), estatura: g('estatura'), obs: g('obs'),
+    pas: g('pas'), pad: g('pad'), fc: g('fc'), spo2: g('spo2'),
     cond: { jejum: !!fd.get('cond_jejum'), semTreino: !!fd.get('cond_semTreino'), roupasLeves: !!fd.get('cond_roupasLeves'), bexiga: !!fd.get('cond_bexiga') },
     dobras: {}, perimetros: {},
   };
@@ -303,15 +304,20 @@ function lerAval(form) {
 
 function renderResultados(av, aluno) {
   const r = calc.calcular(av, aluno);
+  const percSub = r.perc != null ? r.percClass
+    : (r.faltaSexo ? 'Defina o sexo na aba Dados' : r.faltaIdade ? 'Informe a data de nascimento (aba Dados)' : 'Preencha as 3 dobras');
   const cards = [
+    { t: '% Gordura corporal', v: r.perc != null ? fmtN(r.perc, 1) + '%' : '—', s: percSub, hi: true },
     { t: 'IMC', v: r.imc != null ? fmtN(r.imc, 1) : '—', s: r.imcClass },
-    { t: '% Gordura', v: r.perc != null ? fmtN(r.perc, 1) + '%' : '—', s: r.percClass },
     { t: 'Massa gorda', v: r.massaGorda != null ? fmtN(r.massaGorda, 1) + ' kg' : '—', s: '' },
     { t: 'Massa magra', v: r.massaMagra != null ? fmtN(r.massaMagra, 1) + ' kg' : '—', s: '' },
     { t: 'RCQ', v: r.rcq != null ? fmtN(r.rcq, 2) : '—', s: r.rcqClass },
     { t: 'Σ 3 dobras', v: r.soma != null ? fmtN(r.soma, 0) + ' mm' : '—', s: '' },
   ];
-  $('#aval-resultados').innerHTML = cards.map((c) => `<div class="res"><span class="rt">${c.t}</span><span class="rv">${c.v}</span>${c.s ? `<span class="rs">${esc(c.s)}</span>` : ''}</div>`).join('');
+  if (av.pas && av.pad) cards.push({ t: 'Pressão arterial', v: `${av.pas}/${av.pad}`, s: 'mmHg · ' + calc.classifPressao(av.pas, av.pad) });
+  if (av.fc) cards.push({ t: 'Freq. cardíaca', v: `${av.fc}`, s: 'bpm' });
+  if (av.spo2) cards.push({ t: 'Saturação SpO₂', v: `${av.spo2}%`, s: calc.classifSpo2(av.spo2) });
+  $('#aval-resultados').innerHTML = cards.map((c) => `<div class="res${c.hi ? ' hi' : ''}"><span class="rt">${c.t}</span><span class="rv">${c.v}</span>${c.s ? `<span class="rs">${esc(c.s)}</span>` : ''}</div>`).join('');
 }
 
 function abrirFormAvaliacao(num) {
@@ -328,7 +334,7 @@ function abrirFormAvaliacao(num) {
   $('#btn-del-aval').style.display = novo ? 'none' : '';
   const cond = av.cond || {}, dz = av.dobras || {}, pz = av.perimetros || {};
   const chk = (k, l) => `<label class="chk"><input type="checkbox" name="cond_${k}"${cond[k] ? ' checked' : ''}/> ${l}</label>`;
-  const f = (name, val, ph = '', step = '0.1') => `<input name="${name}" type="number" inputmode="decimal" min="0" step="${step}" value="${esc(val ?? '')}" placeholder="${ph}"/>`;
+  const f = (name, val, ph = '') => `<input name="${name}" type="number" inputmode="decimal" min="0" step="any" value="${esc(val ?? '')}" placeholder="${ph}"/>`;
   const avisoSexo = cod ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Defina o <b>sexo</b> do aluno na aba <b>Dados</b> para calcular o % de gordura.</div>`;
   const avisoIdade = (a.nascimento || a.idade) ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Informe a <b>data de nascimento</b> na aba Dados (a fórmula usa a idade).</div>`;
   $('#modal-aval-body').innerHTML = `
@@ -341,6 +347,11 @@ function abrirFormAvaliacao(num) {
       <div class="form-sec"><h3>Medidas básicas</h3><div class="grid-form">
         <div class="field"><label>Peso (kg)</label>${f('peso', av.peso, '80')}</div>
         <div class="field"><label>Estatura (cm)</label>${f('estatura', av.estatura, '175')}</div>
+      </div></div>
+      <div class="form-sec"><h3>Sinais vitais</h3><div class="grid-form g3">
+        <div class="field"><label>Pressão arterial (mmHg)</label><div class="pa-row"><input name="pas" type="number" inputmode="numeric" min="0" step="any" value="${esc(av.pas ?? '')}" placeholder="120" /><span>/</span><input name="pad" type="number" inputmode="numeric" min="0" step="any" value="${esc(av.pad ?? '')}" placeholder="80" /></div></div>
+        <div class="field"><label>Freq. cardíaca (bpm)</label>${f('fc', av.fc, '70')}</div>
+        <div class="field"><label>Saturação SpO₂ (%)</label>${f('spo2', av.spo2, '98')}</div>
       </div></div>
       <div class="form-sec"><h3>Dobras cutâneas (mm) · Pollock 3${cod === 'F' ? ' · feminino' : cod === 'M' ? ' · masculino' : ''}</h3>${avisoSexo}${avisoIdade}
         <div class="grid-form g3">${dobras.map((d) => `<div class="field"><label>${d.label}</label>${f('dobra_' + d.key, dz[d.key], '', '0.5')}</div>`).join('')}</div>

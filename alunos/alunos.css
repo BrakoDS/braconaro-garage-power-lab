@@ -243,6 +243,11 @@ button{font-family:inherit}
 .res .rt{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.7rem;color:var(--mut)}
 .res .rv{font-family:var(--font-display);font-weight:400;font-size:1.5rem;line-height:1.05;color:var(--accent)}
 .res .rs{font-size:.76rem;color:var(--mut-2)}
+.res.hi{border-color:var(--accent);background:linear-gradient(180deg,rgba(245,197,24,.10),var(--bg-2) 60%)}
+.res.hi .rv{font-size:1.8rem}
+.pa-row{display:flex;align-items:center;gap:8px}
+.pa-row input{text-align:center}
+.pa-row span{color:var(--mut);font-size:1.2rem}
 
 /* ---------- Gráficos (Progresso) ---------- */
 .chart{width:100%;height:auto;display:block;margin-top:4px}
