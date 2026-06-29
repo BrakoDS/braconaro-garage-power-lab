@@ -27,6 +27,17 @@ export const DOBRAS_F = [
 ];
 export function dobrasDoSexo(cod) { return cod === 'F' ? DOBRAS_F : DOBRAS_M; }
 
+/** Pollock 7 dobras — mesmos 7 locais para ambos os sexos (a fórmula muda por sexo). */
+export const DOBRAS_7 = [
+  { key: 'peitoral', label: 'Peitoral' },
+  { key: 'axilarMedia', label: 'Axilar média' },
+  { key: 'triceps', label: 'Tríceps' },
+  { key: 'subescapular', label: 'Subescapular' },
+  { key: 'abdominal', label: 'Abdominal' },
+  { key: 'suprailiaca', label: 'Supra-ilíaca' },
+  { key: 'coxa', label: 'Coxa' },
+];
+
 /** Perímetros (conjunto essencial). */
 export const PERIMETROS = [
   { key: 'cintura', label: 'Cintura' },
@@ -67,6 +78,13 @@ export function densidade3(soma, idade, cod) {
   if (!soma || !idade || !cod) return null;
   if (cod === 'M') return 1.10938 - 0.0008267 * soma + 0.0000016 * soma * soma - 0.0002574 * idade;
   return 1.0994921 - 0.0009929 * soma + 0.0000023 * soma * soma - 0.0001392 * idade;
+}
+
+/** Densidade corporal — Pollock 7 dobras (J&P). soma em mm, idade em anos. */
+export function densidade7(soma, idade, cod) {
+  if (!soma || !idade || !cod) return null;
+  if (cod === 'M') return 1.112 - 0.00043499 * soma + 0.00000055 * soma * soma - 0.00028826 * idade;
+  return 1.097 - 0.00046971 * soma + 0.00000056 * soma * soma - 0.00012828 * idade;
 }
 /** % de gordura por Siri a partir da densidade. */
 export function siri(D) { return D ? 495 / D - 450 : null; }
@@ -131,10 +149,22 @@ export function calcular(av, aluno) {
   const cod = sexoCod(aluno);
   const idade = aluno?.nascimento ? idadeDe(aluno.nascimento) : num(aluno?.idade);
   const dobras = av?.dobras || {};
-  const vals = dobrasDoSexo(cod).map((d) => num(dobras[d.key]));
-  const completo = vals.length && vals.every((v) => v != null);
-  const soma = completo ? vals.reduce((s, v) => s + v, 0) : null;
-  const D = densidade3(soma, idade, cod);
+  // Pollock 7 quando as 7 dobras estão completas; senão cai no Pollock 3 (legado).
+  const v7 = DOBRAS_7.map((d) => num(dobras[d.key]));
+  const completo7 = v7.every((v) => v != null);
+  let soma = null, D = null, protocolo = null;
+  if (completo7) {
+    soma = v7.reduce((s, v) => s + v, 0);
+    D = densidade7(soma, idade, cod);
+    protocolo = 'Pollock 7';
+  } else {
+    const v3 = dobrasDoSexo(cod).map((d) => num(dobras[d.key]));
+    if (v3.length && v3.every((v) => v != null)) {
+      soma = v3.reduce((s, v) => s + v, 0);
+      D = densidade3(soma, idade, cod);
+      protocolo = 'Pollock 3';
+    }
+  }
   const perc = siri(D);
   const peso = num(av?.peso);
   const massaGorda = (perc != null && peso != null) ? peso * perc / 100 : null;
@@ -143,7 +173,7 @@ export function calcular(av, aluno) {
   const per = av?.perimetros || {};
   const r = rcq(per.cintura, per.quadril);
   return {
-    cod, idade, soma,
+    cod, idade, soma, protocolo,
     imc: bmi, imcClass: classifImc(bmi),
     perc, percClass: classifGordura(perc, cod),
     massaGorda, massaMagra,

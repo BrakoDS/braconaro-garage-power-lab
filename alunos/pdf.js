@@ -13,7 +13,7 @@ function row(k, v) { return v ? `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>` 
 
 export function exportarAvaliacao(aluno, av) {
   const r = calc.calcular(av, aluno);
-  const dobras = calc.dobrasDoSexo(r.cod).map((d) => `${d.label}: ${av.dobras?.[d.key] ? av.dobras[d.key] + ' mm' : '—'}`).join(' · ');
+  const dobras = calc.DOBRAS_7.filter((d) => av.dobras?.[d.key]).map((d) => `${d.label}: ${av.dobras[d.key]} mm`).join(' · ');
   const perim = calc.PERIMETROS.map((p) => (av.perimetros?.[p.key] ? `${p.label}: ${av.perimetros[p.key]} cm` : null)).filter(Boolean).join(' · ');
   const cond = [['jejum', 'Jejum 2–4h'], ['semTreino', 'Sem treino 12h'], ['roupasLeves', 'Roupas leves'], ['bexiga', 'Bexiga vazia']]
     .filter(([k]) => av.cond?.[k]).map(([, l]) => l).join(' · ') || '—';
@@ -68,7 +68,7 @@ export function exportarAvaliacao(aluno, av) {
       <div class="card"><div class="l">Cintura/estatura</div><div class="v">${rce != null ? fmt(rce, 2) : '—'}</div><div class="s">${esc(calc.classifRcest(rce))}</div></div>
     </div>
     <h2>Medidas</h2>
-    <table>${row('Peso', av.peso ? av.peso + ' kg' : '')}${row('Estatura', av.estatura ? av.estatura + ' cm' : '')}${row('Soma 3 dobras', r.soma != null ? r.soma + ' mm' : '')}</table>
+    <table>${row('Peso', av.peso ? av.peso + ' kg' : '')}${row('Estatura', av.estatura ? av.estatura + ' cm' : '')}${row('Soma das dobras' + (r.protocolo ? ' (' + r.protocolo + ')' : ''), r.soma != null ? r.soma + ' mm' : '')}</table>
     ${(av.pas || av.fc || av.spo2) ? `<h2>Sinais vitais</h2><table>${row('Pressão arterial', av.pas && av.pad ? `${av.pas}/${av.pad} mmHg (${calc.classifPressao(av.pas, av.pad)})` : '')}${row('Freq. cardíaca', av.fc ? av.fc + ' bpm' : '')}${row('Saturação SpO₂', av.spo2 ? av.spo2 + '% (' + calc.classifSpo2(av.spo2) + ')' : '')}</table>` : ''}
     <h2>Dobras cutâneas</h2><div class="blk">${dobras || '—'}</div>
     <h2>Perímetros</h2><div class="blk">${perim || '—'}</div>

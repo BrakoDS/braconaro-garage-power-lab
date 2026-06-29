@@ -316,7 +316,7 @@ function lerAval(form) {
     cond: { jejum: !!fd.get('cond_jejum'), semTreino: !!fd.get('cond_semTreino'), roupasLeves: !!fd.get('cond_roupasLeves'), bexiga: !!fd.get('cond_bexiga') },
     dobras: {}, perimetros: {},
   };
-  for (const k of ['peitoral', 'abdominal', 'coxa', 'triceps', 'suprailiaca']) { const v = g('dobra_' + k); if (v !== '') av.dobras[k] = v; }
+  for (const k of ['peitoral', 'axilarMedia', 'triceps', 'subescapular', 'abdominal', 'suprailiaca', 'coxa']) { const v = g('dobra_' + k); if (v !== '') av.dobras[k] = v; }
   for (const p of calc.PERIMETROS) { const v = g('perim_' + p.key); if (v !== '') av.perimetros[p.key] = v; }
   av.testes = {};
   for (const k of ['flexoes', 'prancha', 'agachamentos', 'abdominais']) { const v = g('teste_' + k); if (v !== '') av.testes[k] = v; }
@@ -337,7 +337,7 @@ function renderResultados(av, aluno) {
     { t: 'Massa magra', v: r.massaMagra != null ? fmtN(r.massaMagra, 1) + ' kg' : '—', s: '' },
     { t: 'RCQ', v: r.rcq != null ? fmtN(r.rcq, 2) : '—', s: r.rcqClass },
     { t: 'Cintura/estatura', v: rceVal != null ? fmtN(rceVal, 2) : '—', s: calc.classifRcest(rceVal) },
-    { t: 'Σ 3 dobras', v: r.soma != null ? fmtN(r.soma, 0) + ' mm' : '—', s: '' },
+    { t: 'Σ dobras', v: r.soma != null ? fmtN(r.soma, 0) + ' mm' : '—', s: r.protocolo || '' },
   ];
   if (av.pas && av.pad) cards.push({ t: 'Pressão arterial', v: `${av.pas}/${av.pad}`, s: 'mmHg · ' + calc.classifPressao(av.pas, av.pad) });
   if (av.fc) cards.push({ t: 'Freq. cardíaca', v: `${av.fc}`, s: 'bpm' });
@@ -353,7 +353,7 @@ function abrirFormAvaliacao(num) {
   else { av = (a.avaliacoes || []).find((x) => x.num === num); if (!av) return; }
   avalAberta = novo ? null : num;
   const cod = calc.sexoCod(a);
-  const dobras = calc.dobrasDoSexo(cod);
+  const dobras = calc.DOBRAS_7;
   $('#modal-aval').querySelector('.modal').classList.add('lg');
   $('#modal-aval-titulo').textContent = novo ? 'Nova avaliação' : `Avaliação #${String(num).padStart(2, '0')}`;
   $('#btn-del-aval').style.display = novo ? 'none' : '';
@@ -378,8 +378,8 @@ function abrirFormAvaliacao(num) {
         <div class="field"><label>Freq. cardíaca (bpm)</label>${f('fc', av.fc, '70')}</div>
         <div class="field"><label>Saturação SpO₂ (%)</label>${f('spo2', av.spo2, '98')}</div>
       </div></div>
-      <div class="form-sec"><h3>Dobras cutâneas (mm) · Pollock 3${cod === 'F' ? ' · feminino' : cod === 'M' ? ' · masculino' : ''}</h3>${avisoSexo}${avisoIdade}
-        <div class="grid-form g3">${dobras.map((d) => `<div class="field"><label>${d.label}</label>${f('dobra_' + d.key, dz[d.key], '', '0.5')}</div>`).join('')}</div>
+      <div class="form-sec"><h3>Dobras cutâneas (mm) · Pollock 7</h3>${avisoSexo}${avisoIdade}
+        <div class="grid-form g3">${dobras.map((d) => `<div class="field"><label>${d.label}</label>${f('dobra_' + d.key, dz[d.key])}</div>`).join('')}</div>
       </div>
       <div class="form-sec"><h3>Perímetros (cm)</h3>
         <div class="grid-form g3">${calc.PERIMETROS.map((p) => `<div class="field"><label>${p.label}</label>${f('perim_' + p.key, pz[p.key], '', '0.1')}</div>`).join('')}</div>
