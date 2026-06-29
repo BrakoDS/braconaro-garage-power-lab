@@ -8,6 +8,8 @@ import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
 import * as db from './db.js';
 import * as calc from './calc.js';
+import * as storage from './storage-alunos.js';
+import { exportarAvaliacao } from './pdf.js';
 
 /* ============================================================
    Helpers
@@ -21,6 +23,43 @@ function addDias(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.ge
 function calcIdade(iso) { if (!iso) return ''; const n = new Date(iso + 'T00:00:00'); const h = new Date(); let i = h.getFullYear() - n.getFullYear(); const mm = h.getMonth() - n.getMonth(); if (mm < 0 || (mm === 0 && h.getDate() < n.getDate())) i--; return i >= 0 && i < 130 ? String(i) : ''; }
 function waLink(tel) { const d = String(tel || '').replace(/\D/g, ''); if (!d) return ''; const full = d.startsWith('55') ? d : '55' + d; return `https://wa.me/${full}`; }
 const STATUS_LABEL = { ativo: 'Ativo', inativo: 'Inativo', pendente: 'Pendente' };
+
+/* ---- Fotos (Firebase Storage) ---- */
+let UID = null;
+function iniciais(nome) { return ((nome || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('') || '?').toUpperCase(); }
+/** Abre o seletor de arquivos de imagem e chama cb(file). */
+function escolherFoto(cb) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) cb(f); inp.remove(); });
+  document.body.appendChild(inp); inp.click();
+}
+async function uploadFoto(path, file, maxDim) {
+  if (!storage.storageAtivo() || !UID) throw new Error('storage-indisponivel');
+  const blob = await storage.comprimir(file, maxDim);
+  return await storage.enviar(path, blob);
+}
+function avisoStorage(e) {
+  console.warn('Falha no upload da foto:', e?.code || e);
+  alert('Não foi possível enviar a foto. Confirme que você está logado e que o Firebase Storage está ativado com as regras publicadas (ver storage.rules).');
+}
+function renderAvatar() {
+  const a = alunoAtual; const el = $('#p-avatar'); if (!a || !el) return;
+  el.innerHTML = a.fotoUrl ? `<img src="${esc(a.fotoUrl)}" alt="Foto de ${esc(a.nome)}" />` : `<span>${esc(iniciais(a.nome))}</span>`;
+}
+$('#p-avatar')?.addEventListener('click', () => {
+  const a = alunoAtual; if (!a) return;
+  escolherFoto(async (file) => {
+    const el = $('#p-avatar'); if (el) el.classList.add('loading');
+    try {
+      const url = await uploadFoto(`gestao/${UID}/${a.id}/avatar.webp`, file, 600);
+      db.atualizar(a.id, { fotoUrl: url });
+      alunoAtual = db.obter(a.id);
+      renderAvatar(); renderLista();
+    } catch (e) { avisoStorage(e); }
+    finally { const el2 = $('#p-avatar'); if (el2) el2.classList.remove('loading'); }
+  });
+});
 
 /* ============================================================
    Formulário de DADOS (reusado no cadastro e na aba 1)
@@ -103,8 +142,8 @@ function renderLista() {
   }
   elLista.innerHTML = alunos.map((a) => `
     <button class="aluno-row" data-id="${esc(a.id)}" type="button">
-      <span class="rid">#${esc(a.id)}</span>
-      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">${esc(a.objetivo || 'Sem objetivo definido')}</span></span>
+      <span class="rav">${a.fotoUrl ? `<img src="${esc(a.fotoUrl)}" alt="" />` : esc(iniciais(a.nome))}</span>
+      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">#${esc(a.id)} · ${esc(a.objetivo || 'Sem objetivo definido')}</span></span>
       ${statusTag(a.status)}
     </button>`).join('');
 }
@@ -138,6 +177,7 @@ function abrirPerfil(id) {
   const st = $('#p-status');
   st.className = 'status ' + (a.status || 'ativo');
   st.textContent = STATUS_LABEL[a.status] || 'Ativo';
+  renderAvatar();
   // aba dados
   $('#tab-dados').innerHTML = `
     <form id="form-dados">
@@ -309,13 +349,21 @@ function abrirFormAvaliacao(num) {
         <div class="grid-form g3">${calc.PERIMETROS.map((p) => `<div class="field"><label>${p.label}</label>${f('perim_' + p.key, pz[p.key], '', '0.1')}</div>`).join('')}</div>
       </div>
       <div class="form-sec"><h3>Resultados</h3><div id="aval-resultados" class="resultados"></div></div>
+      <div class="form-sec"><h3>Fotos de progresso</h3><div id="aval-fotos" class="fotos-grid"></div></div>
       <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Observações desta avaliação…">${esc(av.obs || '')}</textarea></div>
-      <div class="form-actions" style="margin-top:14px"><button class="btn" type="submit">${novo ? 'Salvar avaliação' : 'Salvar alterações'}</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
+      <div class="form-actions" style="margin-top:14px"><button class="btn" type="submit">${novo ? 'Salvar avaliação' : 'Salvar alterações'}</button><button class="btn ghost" type="button" id="btn-pdf">Exportar PDF</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
     </form>`;
   const form = $('#form-aval');
   const recalc = () => renderResultados(lerAval(form), a);
   form.addEventListener('input', recalc);
   recalc();
+  renderFotosAval();
+  $('#aval-fotos').addEventListener('click', onFotoAvalClick);
+  $('#btn-pdf').addEventListener('click', () => {
+    if (avalAberta == null) { alert('Salve a avaliação primeiro para exportar o PDF.'); return; }
+    const cur = (alunoAtual.avaliacoes || []).find((x) => x.num === avalAberta);
+    if (cur) exportarAvaliacao(alunoAtual, cur);
+  });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const dados = lerAval(form);
@@ -331,9 +379,50 @@ function abrirFormAvaliacao(num) {
     }
     alunoAtual = db.obter(a.id);
     renderAvaliacoes();
+    renderFotosAval();
     const flag = $('#form-aval [data-saved]'); flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1500);
   });
   abrirModal('modal-aval');
+}
+
+/* ---- Fotos de progresso da avaliação ---- */
+const FOTO_SLOTS = [['frente', 'Frente'], ['lado', 'Lado'], ['costas', 'Costas']];
+function avalAtual() { return alunoAtual && avalAberta != null ? (alunoAtual.avaliacoes || []).find((x) => x.num === avalAberta) : null; }
+function renderFotosAval() {
+  const cont = $('#aval-fotos'); if (!cont) return;
+  if (avalAberta == null) { cont.innerHTML = `<div class="note">Salve a avaliação para anexar fotos de progresso (frente, lado e costas).</div>`; return; }
+  const av = avalAtual(); const fotos = (av && av.fotos) || {};
+  cont.innerHTML = FOTO_SLOTS.map(([k, l]) => `
+    <div class="foto-slot" data-slot="${k}">
+      ${fotos[k] ? `<img src="${esc(fotos[k])}" alt="${l}" /><button class="foto-del" data-del="${k}" type="button" title="Remover">×</button>` : `<span class="foto-add">+ ${l}</span>`}
+      <span class="foto-cap">${l}</span>
+    </div>`).join('');
+}
+function onFotoAvalClick(e) {
+  const del = e.target.closest('[data-del]');
+  if (del) { removerFotoAval(del.dataset.del); return; }
+  const slotEl = e.target.closest('.foto-slot');
+  if (slotEl) escolherFoto((file) => adicionarFotoAval(slotEl.dataset.slot, file));
+}
+async function adicionarFotoAval(slot, file) {
+  const a = alunoAtual, av = avalAtual(); if (!a || !av) return;
+  const slotEl = $(`#aval-fotos .foto-slot[data-slot=${slot}]`); if (slotEl) slotEl.classList.add('loading');
+  try {
+    const url = await uploadFoto(`gestao/${UID}/${a.id}/aval-${av.num}-${slot}.webp`, file, 1200);
+    av.fotos = av.fotos || {}; av.fotos[slot] = url;
+    db.atualizar(a.id, { avaliacoes: a.avaliacoes });
+    alunoAtual = db.obter(a.id);
+    renderFotosAval();
+  } catch (e) { avisoStorage(e); if (slotEl) slotEl.classList.remove('loading'); }
+}
+async function removerFotoAval(slot) {
+  const a = alunoAtual, av = avalAtual(); if (!a || !av || !av.fotos) return;
+  if (!confirm('Remover esta foto?')) return;
+  delete av.fotos[slot];
+  db.atualizar(a.id, { avaliacoes: a.avaliacoes });
+  alunoAtual = db.obter(a.id);
+  renderFotosAval();
+  storage.apagar(`gestao/${UID}/${a.id}/aval-${av.num}-${slot}.webp`).catch(() => {});
 }
 
 $('#btn-del-aval').addEventListener('click', () => {
@@ -431,6 +520,7 @@ const gToggle = $('#gate-toggle'), gReset = $('#gate-reset');
 const gBtn = gform.querySelector('button[type=submit]');
 
 function entrar(user) {
+  UID = user?.uid || null;
   gate.style.display = 'none';
   $('#app').removeAttribute('hidden');
   renderLista();
