@@ -9,7 +9,7 @@ import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
 import * as db from './db.js';
 import * as calc from './calc.js';
 import * as storage from './storage-alunos.js';
-import { exportarAvaliacao } from './pdf.js';
+import { exportarAvaliacao, exportarFicha } from './pdf.js';
 
 /* ============================================================
    Helpers
@@ -177,6 +177,7 @@ function mostrarTela(id) {
   window.scrollTo(0, 0);
 }
 $('#btn-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#btn-ficha-pdf').addEventListener('click', () => { if (alunoAtual) exportarFicha(alunoAtual); });
 
 /* ============================================================
    TELA 2 — Perfil
