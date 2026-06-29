@@ -91,7 +91,10 @@
         <div class="tab-panel" id="tab-avaliacoes">
           <div class="aval-head">
             <span class="eyebrow" style="font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.2em;font-size:.74rem;color:var(--accent)">Histórico de avaliações</span>
-            <button class="btn" id="btn-nova-aval" type="button">+ Nova avaliação</button>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn ghost" id="btn-comparar" type="button">Comparar</button>
+              <button class="btn" id="btn-nova-aval" type="button">+ Nova avaliação</button>
+            </div>
           </div>
           <div id="aval-list" class="aval-list"></div>
         </div>
@@ -146,6 +149,20 @@
           <button class="btn" type="submit">Salvar aluno</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: comparar avaliações ============ -->
+  <div class="modal-bg" id="modal-comparar">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3>Comparar avaliações</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-bd" id="modal-comparar-body"></div>
+      <div class="modal-ft">
+        <button class="btn ghost" data-close type="button">Fechar</button>
+      </div>
     </div>
   </div>
 

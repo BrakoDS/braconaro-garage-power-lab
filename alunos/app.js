@@ -487,6 +487,106 @@ $('#btn-del-aval').addEventListener('click', () => {
 });
 
 /* ============================================================
+   Comparar duas avaliações
+   ============================================================ */
+$('#btn-comparar').addEventListener('click', abrirComparar);
+
+function abrirComparar() {
+  const a = alunoAtual; if (!a) return;
+  const avs = (a.avaliacoes || []).slice().sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
+  if (avs.length < 2) { alert('Cadastre ao menos 2 avaliações para comparar.'); return; }
+  const opts = (sel) => avs.map((av) => `<option value="${av.num}"${av.num === sel ? ' selected' : ''}>#${String(av.num).padStart(2, '0')} · ${fmtData(av.dataRealizada)}</option>`).join('');
+  const aNum = avs[0].num, bNum = avs[avs.length - 1].num;
+  $('#modal-comparar').querySelector('.modal').classList.add('lg');
+  $('#modal-comparar-body').innerHTML = `
+    <div class="cmp-selects">
+      <select id="cmp-a">${opts(aNum)}</select>
+      <span class="cmp-x">→</span>
+      <select id="cmp-b">${opts(bNum)}</select>
+    </div>
+    <div id="cmp-resultado"></div>`;
+  const upd = () => renderComparacao(Number($('#cmp-a').value), Number($('#cmp-b').value));
+  $('#cmp-a').addEventListener('change', upd);
+  $('#cmp-b').addEventListener('change', upd);
+  upd();
+  abrirModal('modal-comparar');
+}
+
+function renderComparacao(numA, numB) {
+  const a = alunoAtual; if (!a) return;
+  const avA = (a.avaliacoes || []).find((x) => x.num === numA);
+  const avB = (a.avaliacoes || []).find((x) => x.num === numB);
+  if (!avA || !avB) return;
+  const rA = calc.calcular(avA, a), rB = calc.calcular(avB, a);
+  const nf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const rows = [];
+  const sec = (t) => rows.push(`<tr class="cmp-sec"><td colspan="4">${t}</td></tr>`);
+  const lin = (label, va, vb, un, dec, melhorSe) => {
+    if (va == null && vb == null) return;
+    let d = '—', cls = '';
+    if (va != null && vb != null) {
+      const dd = vb - va;
+      if (Math.abs(dd) < Math.pow(10, -dec) / 2) { d = '='; }
+      else {
+        const bom = melhorSe === 'down' ? dd < 0 : melhorSe === 'up' ? dd > 0 : null;
+        cls = bom === true ? 'bom' : bom === false ? 'ruim' : '';
+        d = `${dd > 0 ? '+' : '−'}${fmtN(Math.abs(dd), dec)}${un ? ' ' + un : ''}`;
+      }
+    }
+    const cel = (v) => (v != null ? fmtN(v, dec) + (un ? ' ' + un : '') : '—');
+    rows.push(`<tr><td>${label}</td><td>${cel(va)}</td><td>${cel(vb)}</td><td class="${cls}">${d}</td></tr>`);
+  };
+
+  sec('Composição corporal');
+  lin('Peso', nf(avA.peso), nf(avB.peso), 'kg', 1, null);
+  lin('IMC', rA.imc, rB.imc, '', 1, null);
+  lin('% Gordura', rA.perc, rB.perc, '%', 1, 'down');
+  lin('Massa gorda', rA.massaGorda, rB.massaGorda, 'kg', 1, 'down');
+  lin('Massa magra', rA.massaMagra, rB.massaMagra, 'kg', 1, 'up');
+  lin('RCQ', rA.rcq, rB.rcq, '', 2, 'down');
+  lin('Cintura/estatura', calc.rcest(avA.perimetros?.cintura, avA.estatura), calc.rcest(avB.perimetros?.cintura, avB.estatura), '', 2, 'down');
+  lin('Σ dobras', rA.soma, rB.soma, 'mm', 0, 'down');
+
+  sec('Perímetros (cm)');
+  const perimMelhor = { cintura: 'down', abdomen: 'down', quadril: null, bracoContraido: null, coxa: null, panturrilha: null };
+  calc.PERIMETROS.forEach((p) => lin(p.label, nf(avA.perimetros?.[p.key]), nf(avB.perimetros?.[p.key]), 'cm', 1, perimMelhor[p.key]));
+
+  if (avA.pas || avB.pas || avA.fc || avB.fc || avA.spo2 || avB.spo2) {
+    sec('Sinais vitais');
+    if (avA.pas || avB.pas) rows.push(`<tr><td>Pressão arterial</td><td>${avA.pas && avA.pad ? esc(avA.pas + '/' + avA.pad) : '—'}</td><td>${avB.pas && avB.pad ? esc(avB.pas + '/' + avB.pad) : '—'}</td><td></td></tr>`);
+    lin('Freq. cardíaca', nf(avA.fc), nf(avB.fc), 'bpm', 0, 'down');
+    lin('Saturação SpO₂', nf(avA.spo2), nf(avB.spo2), '%', 0, 'up');
+  }
+
+  sec('Testes físicos');
+  lin('Flexões', nf(avA.testes?.flexoes), nf(avB.testes?.flexoes), '', 0, 'up');
+  lin('Prancha', nf(avA.testes?.prancha), nf(avB.testes?.prancha), 's', 0, 'up');
+  lin('Agachamentos', nf(avA.testes?.agachamentos), nf(avB.testes?.agachamentos), '', 0, 'up');
+  lin('Abdominais', nf(avA.testes?.abdominais), nf(avB.testes?.abdominais), '', 0, 'up');
+
+  sec('Mobilidade (cm)');
+  lin('Tornozelo dir.', nf(avA.mobilidade?.tornozeloD), nf(avB.mobilidade?.tornozeloD), 'cm', 1, null);
+  lin('Tornozelo esq.', nf(avA.mobilidade?.tornozeloE), nf(avB.mobilidade?.tornozeloE), 'cm', 1, null);
+  lin('Ombro dir.', nf(avA.mobilidade?.ombroD), nf(avB.mobilidade?.ombroD), 'cm', 1, null);
+  lin('Ombro esq.', nf(avA.mobilidade?.ombroE), nf(avB.mobilidade?.ombroE), 'cm', 1, null);
+  lin('Sentar-e-alcançar', nf(avA.mobilidade?.sentarAlcancar), nf(avB.mobilidade?.sentarAlcancar), 'cm', 1, 'up');
+
+  const fotos = [['frente', 'Frente'], ['lado', 'Lado'], ['costas', 'Costas']].map(([k, l]) => {
+    const fa = avA.fotos?.[k], fb = avB.fotos?.[k];
+    if (!fa && !fb) return '';
+    const cel = (u) => (u ? `<img src="${esc(u)}" alt="${l}" />` : '<span class="cmp-foto-vazio">sem foto</span>');
+    return `<div class="cmp-foto-row"><span class="cmp-foto-cap">${l}</span><div class="cmp-foto-par"><div>${cel(fa)}</div><div>${cel(fb)}</div></div></div>`;
+  }).join('');
+
+  $('#cmp-resultado').innerHTML = `
+    <table class="cmp-table">
+      <tr class="cmp-head"><th>Métrica</th><th>#${String(numA).padStart(2, '0')} · ${fmtData(avA.dataRealizada)}</th><th>#${String(numB).padStart(2, '0')} · ${fmtData(avB.dataRealizada)}</th><th>Δ</th></tr>
+      ${rows.join('')}
+    </table>
+    ${fotos ? `<h4 class="cmp-fotos-titulo">Fotos de progresso</h4>${fotos}` : ''}`;
+}
+
+/* ============================================================
    ABA 3 — Progresso (gráficos + insights)
    ============================================================ */
 function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
