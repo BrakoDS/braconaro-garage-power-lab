@@ -75,8 +75,13 @@ export function obter(id) {
 /** Cria um aluno e retorna o registro (com ID gerado). @param {any} dados */
 export function criar(dados) {
   const d = ler();
-  d.seq += 1;
-  const id = String(d.seq).padStart(3, '0');
+  let id = (dados.id || '').toString().trim();
+  if (id) {
+    if (d.alunos.some((a) => a.id === id)) return null; // ID já existe
+  } else {
+    d.seq += 1;
+    id = String(d.seq).padStart(3, '0');
+  }
   const aluno = { status: 'ativo', avaliacoes: [], criadoEm: Date.now(), ...dados, id };
   d.alunos.push(aluno);
   gravar(d);

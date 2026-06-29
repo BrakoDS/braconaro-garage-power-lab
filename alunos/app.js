@@ -43,6 +43,17 @@ function avisoStorage(e) {
   console.warn('Falha no upload da foto:', e?.code || e);
   alert('Não foi possível enviar a foto. Confirme que você está logado e que o Firebase Storage está ativado com as regras publicadas (ver storage.rules).');
 }
+/** Apaga do Storage as fotos de uma avaliação. */
+function apagarFotosDaAvaliacao(id, av) {
+  if (!UID || !storage.storageAtivo() || !av) return;
+  Object.keys(av.fotos || {}).forEach((slot) => storage.apagar(`gestao/${UID}/${id}/aval-${av.num}-${slot}.webp`).catch(() => {}));
+}
+/** Apaga do Storage o avatar + todas as fotos de avaliação de um aluno. */
+function apagarFotosDoAluno(a) {
+  if (!UID || !storage.storageAtivo() || !a) return;
+  if (a.fotoUrl) storage.apagar(`gestao/${UID}/${a.id}/avatar.webp`).catch(() => {});
+  (a.avaliacoes || []).forEach((av) => apagarFotosDaAvaliacao(a.id, av));
+}
 function renderAvatar() {
   const a = alunoAtual; const el = $('#p-avatar'); if (!a || !el) return;
   el.innerHTML = a.fotoUrl ? `<img src="${esc(a.fotoUrl)}" alt="Foto de ${esc(a.nome)}" />` : `<span>${esc(iniciais(a.nome))}</span>`;
@@ -69,15 +80,19 @@ const SEXOS = ['Masculino', 'Feminino', 'Outro'];
 
 function opt(val, atual) { return `<option value="${esc(val)}"${val === atual ? ' selected' : ''}>${esc(val)}</option>`; }
 
-function formDadosHTML(a = {}) {
+function formDadosHTML(a = {}, opts = {}) {
   const sexoOpts = `<option value="">—</option>` + SEXOS.map((s) => opt(s, a.sexo)).join('');
   const objOpts = `<option value="">—</option>` + OBJETIVOS.map((s) => opt(s, a.objetivo)).join('');
   const freqOpts = `<option value="">—</option>` + [1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${String(n) === String(a.freqVezes) ? ' selected' : ''}>${n}x por semana</option>`).join('');
   const stOpts = ['ativo', 'inativo', 'pendente'].map((s) => `<option value="${s}"${(a.status || 'ativo') === s ? ' selected' : ''}>${STATUS_LABEL[s]}</option>`).join('');
+  const idField = opts.idEditavel
+    ? `<div class="field full"><label>ID do aluno</label><input name="id" type="text" value="${esc(a.id)}" placeholder="Use o seu padrão de ID — ou deixe vazio para gerar (001, 002…)" /><span class="hint">Precisa ser único. Vazio = numeração automática.</span></div>`
+    : `<div class="field full"><label>ID do aluno</label><input type="text" value="${esc(a.id)}" disabled /><span class="hint">O ID é definido no cadastro e não muda (mantém as fotos no lugar).</span></div>`;
   return `
   <div class="form-sec">
     <h3>Dados pessoais</h3>
     <div class="grid-form">
+      ${idField}
       <div class="field full"><label>Nome completo *</label><input name="nome" type="text" required value="${esc(a.nome)}" placeholder="Nome do aluno" /></div>
       <div class="field"><label>Data de nascimento</label><input name="nascimento" type="date" value="${esc(a.nascimento)}" /><span class="hint" data-idade>${a.nascimento ? 'Idade: ' + calcIdade(a.nascimento) + ' anos' : ''}</span></div>
       <div class="field"><label>Sexo</label><select name="sexo">${sexoOpts}</select></div>
@@ -201,6 +216,7 @@ function abrirPerfil(id) {
   });
   $('#btn-excluir-aluno').addEventListener('click', () => {
     if (confirm(`Excluir o aluno "${a.nome || a.id}"? Esta ação não pode ser desfeita.`)) {
+      apagarFotosDoAluno(a);
       db.remover(a.id); renderLista(); mostrarTela('tela-lista');
     }
   });
@@ -266,16 +282,17 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal
 
 /* ---- Modal: novo aluno ---- */
 $('#fab-novo').addEventListener('click', () => {
-  $('#modal-aluno-body').innerHTML = formDadosHTML({});
+  $('#modal-aluno-body').innerHTML = formDadosHTML({}, { idEditavel: true });
   wireForm($('#modal-aluno-body'));
   abrirModal('modal-aluno');
-  setTimeout(() => $('input[name=nome]', $('#modal-aluno-body'))?.focus(), 50);
+  setTimeout(() => $('input[name=id]', $('#modal-aluno-body'))?.focus(), 50);
 });
 $('#form-novo').addEventListener('submit', (e) => {
   e.preventDefault();
   const dados = lerForm(e.target);
   if (!dados.nome) { alert('Informe o nome do aluno.'); return; }
   const novo = db.criar(dados);
+  if (!novo) { alert('Já existe um aluno com esse ID. Escolha outro.'); return; }
   fecharModal('modal-aluno');
   renderLista();
   abrirPerfil(novo.id);
@@ -439,6 +456,7 @@ async function removerFotoAval(slot) {
 $('#btn-del-aval').addEventListener('click', () => {
   const a = alunoAtual; if (!a || avalAberta == null) return;
   if (confirm(`Excluir a Avaliação #${String(avalAberta).padStart(2, '0')}?`)) {
+    apagarFotosDaAvaliacao(a.id, (a.avaliacoes || []).find((x) => x.num === avalAberta));
     db.removerAvaliacao(a.id, avalAberta);
     alunoAtual = db.obter(a.id);
     renderAvaliacoes();
