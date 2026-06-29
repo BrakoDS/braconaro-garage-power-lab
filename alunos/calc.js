@@ -113,6 +113,19 @@ export function classifSpo2(v) {
   return 'Baixa';
 }
 
+/** Relação cintura-estatura (cintura/estatura, ambos em cm). */
+export function rcest(cintura, estaturaCm) {
+  const c = num(cintura), e = num(estaturaCm);
+  if (!c || !e) return null;
+  return c / e;
+}
+export function classifRcest(v) {
+  if (v == null) return '';
+  if (v < 0.5) return 'Saudável';
+  if (v < 0.6) return 'Risco aumentado';
+  return 'Risco alto';
+}
+
 /** Calcula todos os resultados de uma avaliação (com o aluno para sexo/idade). */
 export function calcular(av, aluno) {
   const cod = sexoCod(aluno);

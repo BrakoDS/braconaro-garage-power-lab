@@ -232,6 +232,8 @@ function ativarAba(nome) {
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === nome));
   $$('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + nome));
   if (nome === 'progresso') renderProgresso();
+  else if (nome === 'anamnese') renderAnamnese();
+  else if (nome === 'parq') renderParq();
 }
 $$('.tab').forEach((t) => t.addEventListener('click', () => ativarAba(t.dataset.tab)));
 
@@ -316,11 +318,16 @@ function lerAval(form) {
   };
   for (const k of ['peitoral', 'abdominal', 'coxa', 'triceps', 'suprailiaca']) { const v = g('dobra_' + k); if (v !== '') av.dobras[k] = v; }
   for (const p of calc.PERIMETROS) { const v = g('perim_' + p.key); if (v !== '') av.perimetros[p.key] = v; }
+  av.testes = {};
+  for (const k of ['flexoes', 'prancha', 'agachamentos', 'abdominais']) { const v = g('teste_' + k); if (v !== '') av.testes[k] = v; }
+  av.mobilidade = {};
+  for (const k of ['tornozeloD', 'tornozeloE', 'ombroD', 'ombroE', 'sentarAlcancar']) { const v = g('mob_' + k); if (v !== '') av.mobilidade[k] = v; }
   return av;
 }
 
 function renderResultados(av, aluno) {
   const r = calc.calcular(av, aluno);
+  const rceVal = calc.rcest(av.perimetros?.cintura, av.estatura);
   const percSub = r.perc != null ? r.percClass
     : (r.faltaSexo ? 'Defina o sexo na aba Dados' : r.faltaIdade ? 'Informe a data de nascimento (aba Dados)' : 'Preencha as 3 dobras');
   const cards = [
@@ -329,6 +336,7 @@ function renderResultados(av, aluno) {
     { t: 'Massa gorda', v: r.massaGorda != null ? fmtN(r.massaGorda, 1) + ' kg' : '—', s: '' },
     { t: 'Massa magra', v: r.massaMagra != null ? fmtN(r.massaMagra, 1) + ' kg' : '—', s: '' },
     { t: 'RCQ', v: r.rcq != null ? fmtN(r.rcq, 2) : '—', s: r.rcqClass },
+    { t: 'Cintura/estatura', v: rceVal != null ? fmtN(rceVal, 2) : '—', s: calc.classifRcest(rceVal) },
     { t: 'Σ 3 dobras', v: r.soma != null ? fmtN(r.soma, 0) + ' mm' : '—', s: '' },
   ];
   if (av.pas && av.pad) cards.push({ t: 'Pressão arterial', v: `${av.pas}/${av.pad}`, s: 'mmHg · ' + calc.classifPressao(av.pas, av.pad) });
@@ -349,7 +357,7 @@ function abrirFormAvaliacao(num) {
   $('#modal-aval').querySelector('.modal').classList.add('lg');
   $('#modal-aval-titulo').textContent = novo ? 'Nova avaliação' : `Avaliação #${String(num).padStart(2, '0')}`;
   $('#btn-del-aval').style.display = novo ? 'none' : '';
-  const cond = av.cond || {}, dz = av.dobras || {}, pz = av.perimetros || {};
+  const cond = av.cond || {}, dz = av.dobras || {}, pz = av.perimetros || {}, tz = av.testes || {}, mz = av.mobilidade || {};
   const chk = (k, l) => `<label class="chk"><input type="checkbox" name="cond_${k}"${cond[k] ? ' checked' : ''}/> ${l}</label>`;
   const f = (name, val, ph = '') => `<input name="${name}" type="number" inputmode="decimal" min="0" step="any" value="${esc(val ?? '')}" placeholder="${ph}"/>`;
   const avisoSexo = cod ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Defina o <b>sexo</b> do aluno na aba <b>Dados</b> para calcular o % de gordura.</div>`;
@@ -376,6 +384,19 @@ function abrirFormAvaliacao(num) {
       <div class="form-sec"><h3>Perímetros (cm)</h3>
         <div class="grid-form g3">${calc.PERIMETROS.map((p) => `<div class="field"><label>${p.label}</label>${f('perim_' + p.key, pz[p.key], '', '0.1')}</div>`).join('')}</div>
       </div>
+      <div class="form-sec"><h3>Testes físicos</h3><div class="grid-form g3">
+        <div class="field"><label>Flexões (máx.)</label>${f('teste_flexoes', tz.flexoes)}</div>
+        <div class="field"><label>Prancha (segundos)</label>${f('teste_prancha', tz.prancha)}</div>
+        <div class="field"><label>Agachamentos (1 min)</label>${f('teste_agachamentos', tz.agachamentos)}</div>
+        <div class="field"><label>Abdominais (1 min)</label>${f('teste_abdominais', tz.abdominais)}</div>
+      </div></div>
+      <div class="form-sec"><h3>Mobilidade (cm)</h3><div class="grid-form g3">
+        <div class="field"><label>Tornozelo dir.</label>${f('mob_tornozeloD', mz.tornozeloD)}</div>
+        <div class="field"><label>Tornozelo esq.</label>${f('mob_tornozeloE', mz.tornozeloE)}</div>
+        <div class="field"><label>Ombro dir.</label>${f('mob_ombroD', mz.ombroD)}</div>
+        <div class="field"><label>Ombro esq.</label>${f('mob_ombroE', mz.ombroE)}</div>
+        <div class="field"><label>Sentar-e-alcançar</label>${f('mob_sentarAlcancar', mz.sentarAlcancar)}</div>
+      </div></div>
       <div class="form-sec"><h3>Resultados</h3><div id="aval-resultados" class="resultados"></div></div>
       <div class="form-sec"><h3>Fotos de progresso</h3><div id="aval-fotos" class="fotos-grid"></div></div>
       <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Observações desta avaliação…">${esc(av.obs || '')}</textarea></div>
@@ -528,16 +549,123 @@ function renderProgresso() {
   const sPerc = serie((av) => calc.calcular(av, a).perc);
   const sMagra = serie((av) => calc.calcular(av, a).massaMagra);
   const sCintura = serie((av) => numf(av.perimetros?.cintura));
+  const sFlex = serie((av) => numf(av.testes?.flexoes));
+  const sPrancha = serie((av) => numf(av.testes?.prancha));
+  const sAgach = serie((av) => numf(av.testes?.agachamentos));
+  const sAbd = serie((av) => numf(av.testes?.abdominais));
   const vazio = (s) => `<div class="prog-ph">${avs.length ? 'Cadastre ao menos 2 avaliações com este dado.' : 'Nenhuma avaliação cadastrada ainda.'}</div>`;
   const chart = (s, opt) => (s.length >= 2 ? chartSVG(s, opt) : vazio(s));
+  const temDesempenho = [sFlex, sPrancha, sAgach, sAbd].some((s) => s.length >= 2);
   panel.innerHTML = `
     <div class="prog-grid">
       <div class="prog-card full"><h4>Evolução do peso corporal</h4>${chart(sPeso, { cor: 'var(--accent)' })}</div>
       <div class="prog-card"><h4>% Gordura corporal</h4>${chart(sPerc, { cor: '#ff5b50' })}</div>
       <div class="prog-card"><h4>Massa magra</h4>${chart(sMagra, { cor: '#3fb950' })}</div>
       <div class="prog-card full"><h4>Evolução da cintura</h4>${chart(sCintura, { cor: 'var(--accent-2)' })}</div>
+      ${temDesempenho ? `
+      <div class="prog-card"><h4>Flexões (máx.)</h4>${chart(sFlex, { cor: 'var(--accent)' })}</div>
+      <div class="prog-card"><h4>Prancha (s)</h4>${chart(sPrancha, { cor: '#3fb950' })}</div>
+      <div class="prog-card"><h4>Agachamentos (1 min)</h4>${chart(sAgach, { cor: 'var(--accent-2)' })}</div>
+      <div class="prog-card"><h4>Abdominais (1 min)</h4>${chart(sAbd, { cor: '#ff5b50' })}</div>` : ''}
       <div class="prog-card full"><h4>Pontos que foram melhorados</h4><div class="insights">${insightsHTML(a, avs)}</div></div>
     </div>`;
+}
+
+/* ============================================================
+   ABA — Anamnese
+   ============================================================ */
+function optsSelect(arr, atual) { return `<option value="">—</option>` + arr.map((s) => opt(s, atual)).join(''); }
+
+function renderAnamnese() {
+  const a = alunoAtual; if (!a) return;
+  const an = a.anamnese || {};
+  $('#tab-anamnese').innerHTML = `
+    <form id="form-anamnese">
+      <div class="form-sec"><h3>Treino & rotina</h3><div class="grid-form">
+        <div class="field"><label>Experiência com treino</label><select name="experiencia">${optsSelect(['Iniciante', 'Intermediário', 'Avançado', 'Retornando'], an.experiencia)}</select></div>
+        <div class="field"><label>Histórico de treino (tempo, modalidades)</label><input name="historicoTreino" value="${esc(an.historicoTreino)}" /></div>
+        <div class="field"><label>Profissão / rotina de trabalho</label><input name="rotina" value="${esc(an.rotina)}" /></div>
+        <div class="field"><label>Horas de sono / noite</label><input name="sono" type="number" step="any" value="${esc(an.sono)}" /></div>
+        <div class="field"><label>Nível de estresse</label><select name="estresse">${optsSelect(['Baixo', 'Moderado', 'Alto'], an.estresse)}</select></div>
+      </div></div>
+      <div class="form-sec"><h3>Hábitos</h3><div class="grid-form">
+        <div class="field"><label>Refeições por dia</label><input name="refeicoes" type="number" step="any" value="${esc(an.refeicoes)}" /></div>
+        <div class="field"><label>Hidratação (L/dia)</label><input name="hidratacao" type="number" step="any" value="${esc(an.hidratacao)}" /></div>
+        <div class="field"><label>Tabagismo</label><select name="tabagismo">${optsSelect(['Não', 'Sim', 'Ex-fumante'], an.tabagismo)}</select></div>
+        <div class="field"><label>Álcool</label><select name="alcool">${optsSelect(['Não', 'Socialmente', 'Frequente'], an.alcool)}</select></div>
+      </div></div>
+      <div class="form-sec"><h3>Saúde</h3><div class="grid-form">
+        <div class="field full"><label>Doenças / condições / cirurgias prévias</label><textarea name="doencas">${esc(an.doencas)}</textarea></div>
+        <div class="field full"><label>Medicamentos em uso</label><textarea name="medicamentos">${esc(an.medicamentos)}</textarea></div>
+        <div class="field full"><label>Histórico familiar (cardíaco, diabetes, hipertensão…)</label><textarea name="histFamiliar">${esc(an.histFamiliar)}</textarea></div>
+        <div class="field full"><label>Dores ou lesões atuais</label><textarea name="doresLesoes">${esc(an.doresLesoes)}</textarea></div>
+      </div></div>
+      <div class="form-sec"><h3>Objetivo</h3><div class="grid-form">
+        <div class="field full"><label>Objetivo detalhado / expectativas</label><textarea name="objetivoDetalhe">${esc(an.objetivoDetalhe)}</textarea></div>
+      </div></div>
+      <div class="form-actions"><button class="btn" type="submit">Salvar anamnese</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
+    </form>`;
+  $('#form-anamnese').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target); const o = {};
+    for (const [k, v] of fd.entries()) o[k] = typeof v === 'string' ? v.trim() : v;
+    db.atualizar(a.id, { anamnese: o }); alunoAtual = db.obter(a.id);
+    const fl = $('#form-anamnese [data-saved]'); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
+  });
+}
+
+/* ============================================================
+   ABA — PAR-Q
+   ============================================================ */
+const PARQ = [
+  'Algum médico já disse que você possui um problema cardíaco e que só deveria praticar atividade física sob supervisão médica?',
+  'Você sente dor no peito quando pratica atividade física?',
+  'No último mês, você sentiu dor no peito sem estar praticando atividade física?',
+  'Você perde o equilíbrio por tontura ou já perdeu a consciência?',
+  'Você tem algum problema ósseo ou articular que poderia piorar com a mudança na atividade física?',
+  'Você toma atualmente algum medicamento para pressão arterial ou problema cardíaco?',
+  'Você sabe de alguma outra razão pela qual não deveria praticar atividade física?',
+];
+function renderParq() {
+  const a = alunoAtual; if (!a) return;
+  const p = a.parq || {}; const resp = p.respostas || {};
+  const linhas = PARQ.map((q, i) => `
+    <div class="parq-q">
+      <span class="parq-txt">${i + 1}. ${q}</span>
+      <div class="parq-opts">
+        <label class="chk"><input type="radio" name="q${i}" value="sim"${resp['q' + i] === 'sim' ? ' checked' : ''}/> Sim</label>
+        <label class="chk"><input type="radio" name="q${i}" value="nao"${resp['q' + i] === 'nao' ? ' checked' : ''}/> Não</label>
+      </div>
+    </div>`).join('');
+  $('#tab-parq').innerHTML = `
+    <form id="form-parq">
+      <div id="parq-result"></div>
+      <div class="form-sec"><h3>Questionário de prontidão para atividade física (PAR-Q)</h3><div class="parq-list">${linhas}</div></div>
+      <div class="form-sec"><div class="grid-form">
+        <div class="field"><label>Data da triagem</label><input name="data" type="date" value="${esc(p.data || '')}" /></div>
+        <div class="field full"><label>Observações</label><textarea name="obs">${esc(p.obs)}</textarea></div>
+      </div></div>
+      <div class="form-actions"><button class="btn" type="submit">Salvar PAR-Q</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
+    </form>`;
+  const form = $('#form-parq');
+  const avaliar = () => {
+    const fd = new FormData(form); let algumSim = false, faltam = 0;
+    for (let i = 0; i < PARQ.length; i++) { const v = fd.get('q' + i); if (!v) faltam++; else if (v === 'sim') algumSim = true; }
+    const el = $('#parq-result');
+    if (faltam === PARQ.length) { el.innerHTML = ''; return; }
+    if (algumSim) el.innerHTML = `<div class="parq-banner alerta">⚠️ Há resposta "Sim" — recomende avaliação médica antes de iniciar ou intensificar a atividade física.</div>`;
+    else if (faltam === 0) el.innerHTML = `<div class="parq-banner ok">✓ Todas as respostas "Não" — apto a iniciar atividade física com bom senso. Reavalie periodicamente.</div>`;
+    else el.innerHTML = `<div class="parq-banner">Responda todas as ${PARQ.length} perguntas para concluir a triagem.</div>`;
+  };
+  form.addEventListener('change', avaliar); avaliar();
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(form); const respostas = {};
+    for (let i = 0; i < PARQ.length; i++) { const v = fd.get('q' + i); if (v) respostas['q' + i] = v; }
+    db.atualizar(a.id, { parq: { respostas, data: fd.get('data') || '', obs: (fd.get('obs') || '').toString().trim() } });
+    alunoAtual = db.obter(a.id);
+    const fl = $('#form-parq [data-saved]'); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
+  });
 }
 
 /* ============================================================

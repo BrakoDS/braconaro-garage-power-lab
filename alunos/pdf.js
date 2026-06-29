@@ -17,6 +17,11 @@ export function exportarAvaliacao(aluno, av) {
   const perim = calc.PERIMETROS.map((p) => (av.perimetros?.[p.key] ? `${p.label}: ${av.perimetros[p.key]} cm` : null)).filter(Boolean).join(' · ');
   const cond = [['jejum', 'Jejum 2–4h'], ['semTreino', 'Sem treino 12h'], ['roupasLeves', 'Roupas leves'], ['bexiga', 'Bexiga vazia']]
     .filter(([k]) => av.cond?.[k]).map(([, l]) => l).join(' · ') || '—';
+  const rce = calc.rcest(av.perimetros?.cintura, av.estatura);
+  const testes = [['flexoes', 'Flexões'], ['prancha', 'Prancha (s)'], ['agachamentos', 'Agachamentos 1min'], ['abdominais', 'Abdominais 1min']]
+    .filter(([k]) => av.testes?.[k]).map(([k, l]) => `${l}: ${av.testes[k]}`).join(' · ');
+  const mob = [['tornozeloD', 'Tornozelo D'], ['tornozeloE', 'Tornozelo E'], ['ombroD', 'Ombro D'], ['ombroE', 'Ombro E'], ['sentarAlcancar', 'Sentar-e-alcançar']]
+    .filter(([k]) => av.mobilidade?.[k]).map(([k, l]) => `${l}: ${av.mobilidade[k]} cm`).join(' · ');
   const fotos = av.fotos || {};
   const fotoTags = ['frente', 'lado', 'costas'].filter((s) => fotos[s])
     .map((s) => `<figure><img src="${esc(fotos[s])}"/><figcaption>${s[0].toUpperCase() + s.slice(1)}</figcaption></figure>`).join('');
@@ -60,12 +65,15 @@ export function exportarAvaliacao(aluno, av) {
       <div class="card"><div class="l">Massa gorda</div><div class="v">${r.massaGorda != null ? fmt(r.massaGorda) : '—'}</div><div class="s">kg</div></div>
       <div class="card"><div class="l">Massa magra</div><div class="v">${r.massaMagra != null ? fmt(r.massaMagra) : '—'}</div><div class="s">kg</div></div>
       <div class="card"><div class="l">RCQ</div><div class="v">${r.rcq != null ? fmt(r.rcq, 2) : '—'}</div><div class="s">${esc(r.rcqClass)}</div></div>
+      <div class="card"><div class="l">Cintura/estatura</div><div class="v">${rce != null ? fmt(rce, 2) : '—'}</div><div class="s">${esc(calc.classifRcest(rce))}</div></div>
     </div>
     <h2>Medidas</h2>
     <table>${row('Peso', av.peso ? av.peso + ' kg' : '')}${row('Estatura', av.estatura ? av.estatura + ' cm' : '')}${row('Soma 3 dobras', r.soma != null ? r.soma + ' mm' : '')}</table>
     ${(av.pas || av.fc || av.spo2) ? `<h2>Sinais vitais</h2><table>${row('Pressão arterial', av.pas && av.pad ? `${av.pas}/${av.pad} mmHg (${calc.classifPressao(av.pas, av.pad)})` : '')}${row('Freq. cardíaca', av.fc ? av.fc + ' bpm' : '')}${row('Saturação SpO₂', av.spo2 ? av.spo2 + '% (' + calc.classifSpo2(av.spo2) + ')' : '')}</table>` : ''}
     <h2>Dobras cutâneas</h2><div class="blk">${dobras || '—'}</div>
     <h2>Perímetros</h2><div class="blk">${perim || '—'}</div>
+    ${testes ? `<h2>Testes físicos</h2><div class="blk">${testes}</div>` : ''}
+    ${mob ? `<h2>Mobilidade</h2><div class="blk">${mob}</div>` : ''}
     <h2>Condições no dia</h2><div class="blk">${cond}</div>
     ${av.obs ? `<h2>Observações</h2><div class="blk">${esc(av.obs)}</div>` : ''}
     ${fotoTags ? `<h2>Fotos de progresso</h2><div class="fotos">${fotoTags}</div>` : ''}
