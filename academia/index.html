@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Academia — Braconaro Garage Power Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./academia.css" />
+</head>
+<body>
+
+  <!-- ============ GATE (login) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>BRACONARO</b> · Academia<small>Garage Power Lab</small></div>
+      <p class="gate-sub">Área restrita ao coach.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links">
+        <a href="#" id="gate-toggle">Primeiro acesso? Criar conta</a>
+        <a href="#" id="gate-reset">Esqueci a senha</a>
+      </div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <h1>Academia</h1>
+      <div style="display:flex;gap:10px">
+        <a class="btn ghost btn-sm" href="../coach/index.html">Coach</a>
+        <a class="btn ghost btn-sm" href="../index.html">Voltar ao site</a>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="inventario" type="button" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 17.5 17.5"/><rect x="2" y="7.5" width="4" height="9" rx="1" transform="rotate(-45 4 12)"/><rect x="18" y="7.5" width="4" height="9" rx="1" transform="rotate(-45 20 12)"/></svg>
+        Inventário
+      </button>
+      <button class="tab" data-tab="exercicios" type="button" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        Exercícios
+      </button>
+    </nav>
+
+    <div class="wrap">
+      <!-- ABA 1: INVENTÁRIO -->
+      <section class="tab-panel active" id="tab-inventario">
+        <div class="head"><span class="eyebrow">Inventário da academia</span><span class="count" id="count-inv"></span></div>
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="busca-inv" type="search" placeholder="Buscar equipamento…" />
+        </label>
+        <div class="filtros" id="filtros-cat"></div>
+        <div class="lista" id="lista-inv"></div>
+      </section>
+
+      <!-- ABA 2: EXERCÍCIOS -->
+      <section class="tab-panel" id="tab-exercicios">
+        <div class="head"><span class="eyebrow">Catálogo de exercícios</span><span class="count" id="count-ex"></span></div>
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="busca-ex" type="search" placeholder="Buscar exercício…" />
+        </label>
+        <div class="filtros" id="filtros-tags"></div>
+        <div class="filtros">
+          <button class="chip toggle on" id="chip-disp" type="button">Só disponíveis</button>
+          <span class="sep"></span>
+          <select id="filtro-equip" aria-label="Filtrar por equipamento"></select>
+        </div>
+        <div class="lista" id="lista-ex"></div>
+      </section>
+    </div>
+
+    <button id="fab" class="btn fab" type="button">+ Adicionar</button>
+  </div>
+
+  <!-- ============ MODAL: equipamento ============ -->
+  <div class="modal-bg" id="modal-equip">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3 id="modal-equip-titulo">Novo equipamento</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="form-equip">
+        <div class="modal-bd">
+          <div class="grid">
+            <div class="field full"><label>Nome do equipamento</label><input name="nome" required placeholder="Ex.: Halteres, Leg Press, Polia" /></div>
+            <div class="field"><label>Categoria</label><select name="categoria" id="sel-cat"></select></div>
+            <div class="field"><label>Quantidade</label><input name="quantidade" type="number" min="0" step="1" value="1" /></div>
+            <div class="field full"><label>Área / espaço disponível</label><input name="area" placeholder="Ex.: Sala de pesos 40 m², canto do cardio…" /></div>
+            <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Cargas disponíveis, estado, etc. (opcional)"></textarea></div>
+          </div>
+        </div>
+        <div class="modal-ft">
+          <button class="btn danger btn-sm" id="btn-del-equip" type="button" hidden>Excluir</button>
+          <span style="flex:1"></span>
+          <button class="btn ghost" data-close type="button">Cancelar</button>
+          <button class="btn" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: exercício ============ -->
+  <div class="modal-bg" id="modal-exerc">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3 id="modal-exerc-titulo">Novo exercício</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="form-exerc">
+        <div class="modal-bd">
+          <div class="field full" style="margin-bottom:16px"><label>Nome do exercício</label><input name="nome" required placeholder="Ex.: Agachamento Taça, Supino Reto" /></div>
+          <div class="field full" style="margin-bottom:16px">
+            <label>Equipamento necessário <span class="hint">(puxa do inventário)</span></label>
+            <div class="pick" id="pick-equip"></div>
+          </div>
+          <div class="field full" style="margin-bottom:16px">
+            <label>Modalidades / tags de treino</label>
+            <div class="pick" id="pick-tags"></div>
+          </div>
+          <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Execução, dicas, etc. (opcional)"></textarea></div>
+          <div class="erro-form" id="erro-exerc"></div>
+        </div>
+        <div class="modal-ft">
+          <button class="btn danger btn-sm" id="btn-del-exerc" type="button" hidden>Excluir</button>
+          <span style="flex:1"></span>
+          <button class="btn ghost" data-close type="button">Cancelar</button>
+          <button class="btn" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
