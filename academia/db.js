@@ -14,6 +14,11 @@ const KEY = 'braconaro_academia_v1';
 /** Rótulos fixos de categoria de equipamento e tags de treino. */
 export const CATEGORIAS = ['Peso livre', 'Máquina', 'Cardio', 'Acessório', 'Estação', 'Corporal'];
 export const TAGS = ['HYROX', 'GAP', 'FORÇA', 'HIPERTROFIA', 'CARDIO'];
+export const MUSCULOS = [
+  'Peito', 'Costas', 'Ombro', 'Trapézio', 'Bíceps', 'Tríceps', 'Antebraço',
+  'Core/Abdômen', 'Lombar', 'Quadríceps', 'Posterior de coxa', 'Glúteo',
+  'Panturrilha', 'Estabilizadores',
+];
 
 function vazio() { return { inventario: [], exercicios: [], seeded: false }; }
 function setLocal(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
@@ -33,7 +38,26 @@ function garantirSeed() {
     setLocal({ inventario: s.inventario, exercicios: s.exercicios, seeded: true });
   }
 }
+
+/** Mapa id→músculos da semente, para retrocompatibilidade. */
+let _seedMusc = null;
+function seedMuscMap() {
+  if (!_seedMusc) { _seedMusc = {}; for (const x of seedData().exercicios) _seedMusc[x.id] = x.musculos || []; }
+  return _seedMusc;
+}
+/** Preenche `musculos` em exercícios antigos (que foram semeados antes deste campo). */
+function backfillMusculos() {
+  const d = ler();
+  const map = seedMuscMap();
+  let mudou = false;
+  for (const x of d.exercicios) {
+    if ((!x.musculos || !x.musculos.length) && map[x.id] && map[x.id].length) { x.musculos = map[x.id].slice(); mudou = true; }
+  }
+  if (mudou) setLocal(d);
+  return mudou;
+}
 garantirSeed();
+backfillMusculos();
 
 /* ---------- Sincronização na nuvem ---------- */
 let _uid = null, _push = null, _timer = null;
@@ -63,6 +87,7 @@ export async function iniciarSync(uid, aoAtualizar) {
     const temRemoto = remoto && Array.isArray(remoto.inventario) && (remoto.inventario.length || remoto.exercicios.length);
     if (temRemoto) {
       setLocal({ inventario: remoto.inventario, exercicios: remoto.exercicios || [], seeded: true });
+      if (backfillMusculos()) await cloud.salvar(uid, ler()); // retrocompat na nuvem
       if (aoAtualizar) aoAtualizar();
     } else {
       await cloud.salvar(uid, ler()); // semeia a nuvem com o local (incl. seed)
@@ -125,7 +150,7 @@ export function salvarExerc(dados) {
     gravar(d); return x;
   }
   const id = idUnico(dados.id || dados.nome, d.exercicios.map((x) => x.id));
-  const x = { id, nome: '', equipamentoIds: [], tags: [], obs: '', ...dados, id };
+  const x = { id, nome: '', equipamentoIds: [], tags: [], musculos: [], obs: '', ...dados, id };
   d.exercicios.push(x);
   gravar(d); return x;
 }

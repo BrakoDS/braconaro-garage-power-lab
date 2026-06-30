@@ -21,7 +21,7 @@ let UID = null;
    Estado dos filtros
    ============================================================ */
 let abaAtiva = 'inventario';
-const F = { invBusca: '', invCat: 'todos', exBusca: '', exTag: 'todos', exEquip: 'todos', soDisp: true };
+const F = { invBusca: '', invCat: 'todos', exBusca: '', exTag: 'todos', exMusc: 'todos', exEquip: 'todos', soDisp: true };
 
 /* ============================================================
    Abas
@@ -79,6 +79,14 @@ function renderFiltroEquip() {
   $('#filtro-equip').innerHTML = `<option value="todos"${sel === 'todos' ? ' selected' : ''}>Equipamento: todos</option>` +
     inv.map((e) => `<option value="${esc(e.id)}"${sel === e.id ? ' selected' : ''}>${esc(e.nome)}</option>`).join('');
 }
+function renderFiltroMusc() {
+  // só mostra músculos que aparecem em pelo menos um exercício
+  const usados = new Set(db.listarExercicios().flatMap((x) => x.musculos || []));
+  const lista = db.MUSCULOS.filter((m) => usados.has(m));
+  const sel = F.exMusc;
+  $('#filtro-musc').innerHTML = `<option value="todos"${sel === 'todos' ? ' selected' : ''}>Músculo: todos</option>` +
+    lista.map((m) => `<option value="${esc(m)}"${sel === m ? ' selected' : ''}>${esc(m)}</option>`).join('');
+}
 
 function nomesEquip(ids) {
   const inv = db.listarInventario();
@@ -90,6 +98,7 @@ function renderExercicios() {
   let itens = db.listarExercicios().map((x) => ({ x, d: db.disponibilidade(x) }));
   itens = itens.filter(({ x, d }) => {
     if (F.exTag !== 'todos' && !(x.tags || []).includes(F.exTag)) return false;
+    if (F.exMusc !== 'todos' && !(x.musculos || []).includes(F.exMusc)) return false;
     if (F.exEquip !== 'todos' && !(x.equipamentoIds || []).includes(F.exEquip)) return false;
     if (F.soDisp && !d.disponivel) return false;
     return !q || norm(x.nome).includes(q);
@@ -104,7 +113,8 @@ function renderExercicios() {
     <button class="row${d.disponivel ? '' : ' indisp'}" data-id="${esc(x.id)}" type="button">
       <div>
         <div class="nome">${esc(x.nome)}</div>
-        <div class="sub">${(x.tags || []).map((t) => `<span class="tag ${esc(t)}">${esc(t)}</span>`).join('')}<span>${esc(nomesEquip(x.equipamentoIds).join(', ') || 'sem equipamento')}</span></div>
+        <div class="sub">${(x.tags || []).map((t) => `<span class="tag ${esc(t)}">${esc(t)}</span>`).join('')}${(x.musculos || []).map((m) => `<span class="musc">${esc(m)}</span>`).join('')}</div>
+        <div class="sub2">${esc(nomesEquip(x.equipamentoIds).join(', ') || 'sem equipamento')}</div>
         ${d.disponivel ? '' : `<div class="alerta">⚠ Indisponível — falta: ${esc(d.falta.join(', '))}</div>`}
       </div>
       <div class="qtd" style="font-size:1.3rem;color:${d.disponivel ? 'var(--ok)' : 'var(--bad)'}">${d.disponivel ? '●' : '○'}</div>
@@ -116,7 +126,7 @@ function renderExercicios() {
    ============================================================ */
 function renderTudo() {
   renderFiltrosCat(); renderInventario();
-  renderFiltrosTags(); renderFiltroEquip(); renderExercicios();
+  renderFiltrosTags(); renderFiltroMusc(); renderFiltroEquip(); renderExercicios();
 }
 
 /* ============================================================
@@ -126,6 +136,7 @@ $('#busca-inv').addEventListener('input', (e) => { F.invBusca = e.target.value; 
 $('#filtros-cat').addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (c) { F.invCat = c.dataset.cat; renderFiltrosCat(); renderInventario(); } });
 $('#busca-ex').addEventListener('input', (e) => { F.exBusca = e.target.value; renderExercicios(); });
 $('#filtros-tags').addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (c) { F.exTag = c.dataset.tag; renderFiltrosTags(); renderExercicios(); } });
+$('#filtro-musc').addEventListener('change', (e) => { F.exMusc = e.target.value; renderExercicios(); });
 $('#filtro-equip').addEventListener('change', (e) => { F.exEquip = e.target.value; renderExercicios(); });
 $('#chip-disp').addEventListener('click', () => { F.soDisp = !F.soDisp; $('#chip-disp').classList.toggle('on', F.soDisp); renderExercicios(); });
 
@@ -209,6 +220,12 @@ function abrirExerc(item = null) {
   $('#pick-tags').className = 'pick';
   $('#pick-tags').innerHTML = db.TAGS.map((t) => `<input type="checkbox" id="tg_${esc(t)}" value="${esc(t)}"${selT.has(t) ? ' checked' : ''}/><label for="tg_${esc(t)}">${esc(t)}</label>`).join('');
 
+  // Músculos
+  const selM = new Set(item?.musculos || []);
+  const muscId = (m) => 'mu_' + m.replace(/[^A-Za-z]/g, '');
+  $('#pick-musc').className = 'pick';
+  $('#pick-musc').innerHTML = db.MUSCULOS.map((m) => `<input type="checkbox" id="${muscId(m)}" value="${esc(m)}"${selM.has(m) ? ' checked' : ''}/><label for="${muscId(m)}">${esc(m)}</label>`).join('');
+
   $('#btn-del-exerc').hidden = !item;
   abrirModal('modal-exerc');
   setTimeout(() => f.nome.focus(), 50);
@@ -219,6 +236,7 @@ $('#form-exerc').addEventListener('submit', (e) => {
   const nome = f.nome.value.trim();
   const equipamentoIds = $$('#pick-equip input:checked').map((i) => i.value);
   const tags = $$('#pick-tags input:checked').map((i) => i.value);
+  const musculos = $$('#pick-musc input:checked').map((i) => i.value);
   const err = $('#erro-exerc');
   if (!nome) return;
   // Regra de negócio: exercício exige ao menos 1 equipamento do inventário
@@ -229,7 +247,7 @@ $('#form-exerc').addEventListener('submit', (e) => {
     err.classList.add('show');
     return;
   }
-  const dados = { nome, equipamentoIds, tags, obs: f.obs.value.trim() };
+  const dados = { nome, equipamentoIds, tags, musculos, obs: f.obs.value.trim() };
   if (exercEdit) dados.id = exercEdit.id;
   db.salvarExerc(dados);
   fecharModal('modal-exerc');

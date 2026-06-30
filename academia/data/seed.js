@@ -19,6 +19,15 @@ const CAT_MAP = {
   corporal: 'Corporal',
 };
 
+/** Músculos internos do montador → rótulos legíveis desta app. */
+const MUSC_MAP = {
+  peito: 'Peito', costas: 'Costas', ombro: 'Ombro', trapezio: 'Trapézio',
+  biceps: 'Bíceps', triceps: 'Tríceps', antebraco: 'Antebraço',
+  core: 'Core/Abdômen', lombar: 'Lombar',
+  quadriceps: 'Quadríceps', posterior_coxa: 'Posterior de coxa',
+  gluteo: 'Glúteo', panturrilha: 'Panturrilha', estabilizadores: 'Estabilizadores',
+};
+
 /** Categorias do montador → tags de treino desta app (HYROX, GAP, FORÇA, HIPERTROFIA, CARDIO). */
 const TAG_MAP = {
   forca: 'FORÇA',
@@ -47,6 +56,7 @@ export function seedData() {
     nome: x.nome,
     equipamentoIds: Array.isArray(x.equipamento) ? x.equipamento.slice() : [],
     tags: [...new Set((x.categorias || []).map((c) => TAG_MAP[c]).filter(Boolean))],
+    musculos: [...new Set([...(x.musculosPrimarios || []), ...(x.musculosSecundarios || [])].map((m) => MUSC_MAP[m]).filter(Boolean))],
     obs: x.descricao || '',
   }));
 

@@ -122,6 +122,9 @@ button{font-family:inherit}
   font-size:.64rem;padding:2px 7px;border:1px solid currentColor;white-space:nowrap}
 .tag.HYROX{color:#ff5b50} .tag.GAP{color:#c084fc} .tag.FORÇA{color:#f5c518}
 .tag.HIPERTROFIA{color:#4ea1ff} .tag.CARDIO{color:#3fb950}
+.musc{display:inline-block;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  font-size:.62rem;padding:2px 7px;border:1px solid var(--line);color:var(--mut);white-space:nowrap;border-radius:2px}
+.row .sub2{color:var(--mut-2);font-size:.78rem;margin-top:4px}
 
 .empty{border:1px dashed var(--line-2);padding:40px 24px;text-align:center;color:var(--mut)}
 .empty b{display:block;color:var(--txt);font-family:var(--font-display);font-weight:400;text-transform:uppercase;

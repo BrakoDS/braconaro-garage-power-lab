@@ -72,6 +72,7 @@
         <div class="filtros">
           <button class="chip toggle on" id="chip-disp" type="button">Só disponíveis</button>
           <span class="sep"></span>
+          <select id="filtro-musc" aria-label="Filtrar por músculo"></select>
           <select id="filtro-equip" aria-label="Filtrar por equipamento"></select>
         </div>
         <div class="lista" id="lista-ex"></div>
@@ -125,6 +126,10 @@
           <div class="field full" style="margin-bottom:16px">
             <label>Modalidades / tags de treino</label>
             <div class="pick" id="pick-tags"></div>
+          </div>
+          <div class="field full" style="margin-bottom:16px">
+            <label>Músculos trabalhados</label>
+            <div class="pick" id="pick-musc"></div>
           </div>
           <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Execução, dicas, etc. (opcional)"></textarea></div>
           <div class="erro-form" id="erro-exerc"></div>
