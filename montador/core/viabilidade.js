@@ -9,7 +9,7 @@
  *
  * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
  */
-import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesNecessarias } from '../data/equipamentos.js';
+import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesNecessarias, unidadesDe } from '../data/equipamentos.js';
 
 /**
  * @param {Exercicio[]} exercicios  Estações do treino
@@ -34,7 +34,7 @@ export function verificarViabilidade(exercicios, nAlunos = ALUNOS_POR_SESSAO, nu
   const conflitos = [];
   for (const [equipId, precisa] of Object.entries(demanda)) {
     const eq = EQUIP_POR_ID[equipId];
-    const tem = eq ? eq.unidades : 0;
+    const tem = unidadesDe(equipId);
     if (precisa > tem) {
       conflitos.push(
         `${eq ? eq.nome : equipId}: precisa de ${precisa} unidade(s), box tem ${tem}.`

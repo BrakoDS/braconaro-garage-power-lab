@@ -215,3 +215,29 @@ export function unidadesNecessarias(equipId, nAlunos) {
   if (!eq) return Infinity;
   return eq.compartilhavelDupla ? Math.ceil(nAlunos / 2) : nAlunos;
 }
+
+/* ------------------------------------------------------------------
+   Disponibilidade dinâmica (inventário da Academia).
+   Por padrão usamos as `unidades` deste catálogo. Quando o app de Academia
+   estiver conectado, `aplicarDisponibilidade()` sobrescreve as quantidades
+   com o inventário real do coach — assim o gerador só monta o que existe.
+   ------------------------------------------------------------------ */
+/** @type {Record<string, number>|null} */
+let _disponibilidade = null;
+
+/**
+ * Define as quantidades disponíveis por equipamento (id → unidades).
+ * Passe `null` para voltar ao catálogo estático. IDs ausentes no mapa são
+ * tratados como indisponíveis (0 unidades).
+ * @param {Record<string, number>|null} map
+ */
+export function aplicarDisponibilidade(map) {
+  _disponibilidade = map && typeof map === 'object' ? map : null;
+}
+
+/** Unidades disponíveis de um equipamento (respeita o inventário, se aplicado). @param {string} equipId */
+export function unidadesDe(equipId) {
+  if (_disponibilidade) return Math.max(0, Number(_disponibilidade[equipId]) || 0);
+  const eq = EQUIP_POR_ID[equipId];
+  return eq ? eq.unidades : 0;
+}
