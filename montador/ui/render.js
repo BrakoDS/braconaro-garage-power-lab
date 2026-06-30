@@ -11,6 +11,8 @@ let _uid = 0;
 
 /** registro de treinos vivos p/ permitir troca de exercício */
 const vivos = new Map();
+/** opções de render por card (preservadas entre trocas) */
+const cardOpts = new Map();
 
 function badgeViab(v) {
   return v.ok
@@ -27,14 +29,16 @@ function renderVolume(vol) {
 }
 
 /** @param {import('../core/tipos.js').Treino} t */
-export function renderTreino(t, { comTroca = true } = {}) {
+export function renderTreino(t, { comTroca = true, mostrarDiaSemana = true } = {}) {
   const id = 'tr' + (_uid++);
   vivos.set(id, t);
+  cardOpts.set(id, { comTroca, mostrarDiaSemana });
   return `<article class="card" id="${id}">${corpoTreino(id)}</article>`;
 }
 
 function corpoTreino(id) {
   const t = vivos.get(id);
+  const { mostrarDiaSemana = true } = cardOpts.get(id) || {};
   const mod = MODALIDADES[t.modalidade];
   const aquec = t.aquecimento.map((a) => `<li>${a.exercicio.nome} — ${mmss(a.duracaoSeg)}</li>`).join('');
   const main = t.principal.map((p, i) => {
@@ -59,8 +63,11 @@ function corpoTreino(id) {
     </tr>`;
   }).join('');
   const fin = t.finalizador ? `<div class="fin"><b>Finalizador — ${t.finalizador.tipo}</b><br>${t.finalizador.descricao}</div>` : '';
+  const cab = mostrarDiaSemana
+    ? `${mod.nome} · ${t.dia.toUpperCase()} · semana ${t.semana}`
+    : `${mod.nome} · nível ${t.nivel}`;
   return `
-    <h3>${mod.nome} · ${t.dia.toUpperCase()} · semana ${t.semana}</h3>
+    <h3>${cab}</h3>
     <div>${badgeViab(t.viabilidade)}
       ${t.deload ? '<span class="chip warn">DELOAD</span>' : ''}
       <span class="chip acc">${t.principal.length} exercícios</span>

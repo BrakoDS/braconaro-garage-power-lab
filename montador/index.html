@@ -22,6 +22,7 @@
     <div class="brand"><b>BRACONARO</b> · Montador<small>Garage Power Lab</small></div>
     <nav class="tabs">
       <button class="tab active" data-view="semana">Programa da semana</button>
+      <button class="tab" data-view="unico">Treino único</button>
       <button class="tab" data-view="meso">Mesociclo</button>
       <button class="tab" data-view="historico">Histórico</button>
       <button class="tab" data-view="alunos">Alunos</button>
@@ -44,6 +45,19 @@
         <button class="btn ghost" id="s-imprimir">Imprimir</button>
       </div>
       <div class="grid" id="s-saida"></div>
+    </section>
+
+    <!-- ============ TREINO ÚNICO ============ -->
+    <section class="view" id="view-unico">
+      <div class="panel">
+        <div class="field"><label>Modalidade</label><select id="u-modalidade"></select></div>
+        <div class="field"><label>Nível</label><select id="u-nivel"></select></div>
+        <div class="field"><label>Nº de alunos</label><input id="u-alunos" type="number" min="1" max="20" value="8" style="min-width:90px" /></div>
+        <button class="btn" id="u-gerar">Gerar treino</button>
+        <button class="btn ghost" id="u-imprimir">Imprimir</button>
+      </div>
+      <div class="mut" style="margin:0 0 12px">Gera um treino avulso (não salva no histórico). Use “trocar” para ajustar exercícios. Respeita o inventário da Academia.</div>
+      <div class="grid" id="u-saida"></div>
     </section>
 
     <!-- ============ MESOCICLO ============ -->

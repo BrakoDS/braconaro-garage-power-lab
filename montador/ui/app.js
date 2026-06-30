@@ -6,8 +6,8 @@ import { gerarMesociclo } from '../core/mesociclo.js';
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
 import { COMBINACOES, COMBINACAO_POR_ID } from '../config/frequencias.js';
 import * as store from './store.js';
-import { renderCenarios, renderDiaSalvo, renderRelatorioMes, renderAcumuladoAluno, renderMesociclo } from './render.js';
-import { alternativasPorIds } from '../core/gerador.js';
+import { renderCenarios, renderDiaSalvo, renderRelatorioMes, renderAcumuladoAluno, renderMesociclo, renderTreino, ativarTrocas } from './render.js';
+import { alternativasPorIds, gerarTreino } from '../core/gerador.js';
 import { EXERCICIO_POR_ID } from '../data/exercicios.js';
 import { sugerirCarga } from '../core/cargas.js';
 
@@ -36,7 +36,9 @@ function popularSelects() {
     MODALIDADE_IDS.forEach((id) => el.appendChild(opt(id, MODALIDADES[id].nome)));
     el.value = grade[dia] || '';
   });
-  ['#s-nivel', '#m-nivel', '#al-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
+  ['#s-nivel', '#m-nivel', '#al-nivel', '#u-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
+  MODALIDADE_IDS.forEach((id) => $('#u-modalidade').appendChild(opt(id, MODALIDADES[id].nome)));
+  $('#u-nivel').value = cfg.nivelRef || 'intermediario';
   $('#s-nivel').value = cfg.nivelRef || 'intermediario';
   $('#m-nivel').value = cfg.nivelRef || 'intermediario';
   COMBINACOES.forEach((c) => $('#al-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
@@ -199,6 +201,15 @@ function gerarMeso() {
   $('#m-saida').innerHTML = renderMesociclo(meso);
 }
 
+// ---------- TREINO ÚNICO ----------
+function gerarUnico() {
+  const modalidade = $('#u-modalidade').value;
+  const nivel = $('#u-nivel').value || 'intermediario';
+  const nAlunos = Math.min(20, Math.max(1, Number($('#u-alunos').value) || 8));
+  const treino = gerarTreino({ modalidade, nivel, dia: 'unico', semana: 1, nAlunos, seed: Math.floor(Math.random() * 1e6) });
+  $('#u-saida').innerHTML = renderTreino(treino, { mostrarDiaSemana: false });
+}
+
 // ---------- HISTÓRICO ----------
 function renderHistorico() {
   const mesId = $('#h-mes').value || store.mesIdDe();
@@ -265,6 +276,9 @@ $('#s-gerar').addEventListener('click', gerarPrograma);
 $('#s-mes').addEventListener('change', () => { atualizarMesesSelects(); aoTrocarSemana(); });
 $('#s-semana').addEventListener('change', aoTrocarSemana);
 $('#m-gerar').addEventListener('click', gerarMeso);
+$('#u-gerar').addEventListener('click', gerarUnico);
+$('#u-imprimir').addEventListener('click', () => window.print());
+ativarTrocas($('#u-saida'));
 $('#h-mes').addEventListener('change', renderHistorico);
 $('#h-aluno').addEventListener('change', renderHistorico);
 $('#s-imprimir').addEventListener('click', () => window.print());
