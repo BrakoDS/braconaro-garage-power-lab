@@ -1,4 +1,5 @@
 // @ts-check
+// cache-bust 2026-06-30 (forca o CDN da Hostinger a rebaixar este arquivo)
 /**
  * Cálculos antropométricos da avaliação.
  * % de gordura: Pollock 3 dobras (Jackson & Pollock) → densidade → Siri.

@@ -5,7 +5,7 @@ AddType text/javascript .js
 
 <IfModule mod_headers.c>
   # Service worker, manifestos e HTML: sempre revalidar (pega a versão nova no deploy).
-  <FilesMatch "(sw\.js|\.webmanifest|\.html)$">
+  <FilesMatch "(\.js|\.css|\.webmanifest|\.html)$">
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
 </IfModule>
