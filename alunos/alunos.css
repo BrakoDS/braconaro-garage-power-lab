@@ -107,7 +107,7 @@ button{font-family:inherit}
 .aval-tag.atrasada{color:var(--bad);border-color:rgba(255,91,80,.5)}
 .aval-tag.avencer{color:var(--warn);border-color:rgba(255,158,27,.5)}
 
-.dias-treino{display:flex;flex-wrap:wrap;gap:8px}
+.dias-treino{display:flex;flex-wrap:wrap;gap:8px;width:100%}
 .dias-treino label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;
   font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:.82rem;
   color:var(--mut);border:1px solid var(--line-2);background:var(--card);padding:7px 11px}
@@ -142,11 +142,11 @@ button{font-family:inherit}
 /* ---------- Avatares e fotos ---------- */
 .rav{width:46px;height:46px;border-radius:50%;overflow:hidden;background:var(--bg-3);border:1px solid var(--line-2);
   display:grid;place-items:center;color:var(--mut);font-family:var(--font-cond);font-weight:700;font-size:.95rem;flex:0 0 auto}
-.rav img{width:100%;height:100%;object-fit:cover}
+.rav img{width:46px;height:46px;object-fit:cover;display:block}
 .avatar{width:56px;height:56px;border-radius:50%;overflow:hidden;background:var(--bg-3);border:1px solid var(--line-2);
   display:grid;place-items:center;color:var(--mut);font-family:var(--font-cond);font-weight:700;font-size:1.15rem;
   cursor:pointer;padding:0;flex:0 0 auto;transition:border-color .2s ease}
-.avatar img{width:100%;height:100%;object-fit:cover}
+.avatar img{width:56px;height:56px;object-fit:cover;display:block}
 .avatar:hover{border-color:var(--accent)}
 .avatar.loading{opacity:.5}
 
