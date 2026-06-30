@@ -1,0 +1,4 @@
+# Hostinger/Apache — tipos MIME corretos para o PWA.
+# (O GitHub Pages ignora este arquivo; serve só no domínio próprio.)
+AddType application/manifest+json .webmanifest
+AddType text/javascript .js
