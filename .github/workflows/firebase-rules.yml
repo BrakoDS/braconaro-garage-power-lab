@@ -49,8 +49,12 @@ jobs:
         if: env.SA != ''
         run: printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
 
-      - name: Publicar regras (Firestore + Storage)
+      # Publica só as regras do Firestore: o alvo `storage` exige a permissão
+      # serviceusage.services.get na conta de serviço (para checar a API do
+      # Storage), que a conta padrão do Firebase Admin não tem. As regras de
+      # Storage mudam muito raramente e podem ser publicadas à parte.
+      - name: Publicar regras do Firestore
         if: env.SA != ''
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: firebase deploy --only firestore:rules,storage --project projeto-garage-f0a2f --non-interactive
+        run: firebase deploy --only firestore:rules --project projeto-garage-f0a2f --non-interactive
