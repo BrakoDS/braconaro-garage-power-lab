@@ -1,0 +1,56 @@
+name: Deploy Firebase Rules
+
+# Publica as regras do Firestore e do Storage automaticamente quando elas
+# (ou a config) mudam na master — eliminando o passo manual no console.
+#
+# SETUP (uma vez): crie o secret FIREBASE_SERVICE_ACCOUNT no repositório com o
+# conteúdo do JSON da conta de serviço:
+#   Firebase Console → ⚙ Configurações do projeto → Contas de serviço →
+#   "Gerar nova chave privada" → baixa um .json → cole TODO o conteúdo em
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret
+#   (nome: FIREBASE_SERVICE_ACCOUNT).
+# Enquanto o secret não existir, o workflow apenas avisa e não falha.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'firestore.rules'
+      - 'storage.rules'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/firebase-rules.yml'
+  workflow_dispatch:
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    env:
+      SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Aviso se o secret não estiver configurado
+        if: env.SA == ''
+        run: echo "::warning::FIREBASE_SERVICE_ACCOUNT não configurado — pulando o deploy das regras. Veja as instruções no topo deste workflow."
+
+      - name: Setup Node
+        if: env.SA != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Firebase CLI
+        if: env.SA != ''
+        run: npm install -g firebase-tools
+
+      - name: Gravar credencial da conta de serviço
+        if: env.SA != ''
+        run: printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+
+      - name: Publicar regras (Firestore + Storage)
+        if: env.SA != ''
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: firebase deploy --only firestore:rules,storage --project projeto-garage-f0a2f --non-interactive
