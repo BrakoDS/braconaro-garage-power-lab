@@ -107,6 +107,14 @@ button{font-family:inherit}
 .aval-tag.atrasada{color:var(--bad);border-color:rgba(255,91,80,.5)}
 .aval-tag.avencer{color:var(--warn);border-color:rgba(255,158,27,.5)}
 
+.dias-treino{display:flex;flex-wrap:wrap;gap:8px}
+.dias-treino label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:.82rem;
+  color:var(--mut);border:1px solid var(--line-2);background:var(--card);padding:7px 11px}
+.dias-treino label:hover{border-color:var(--accent);color:var(--txt)}
+.dias-treino input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.dias-treino input:checked + *{color:var(--accent)}
+
 .aluno-list{display:flex;flex-direction:column;gap:10px}
 .aluno-row{display:grid;grid-template-columns:46px 1fr auto;align-items:center;gap:14px;
   background:var(--card);border:1px solid var(--line);padding:14px 18px;cursor:pointer;text-align:left;

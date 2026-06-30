@@ -8,6 +8,7 @@
 import { estaLiberado, tentarLiberar } from './auth.js';
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, carregarParaStore, conectarStore, usuario } from './cloud.js';
 import { aplicarInventarioAcademia, sincronizarInventarioAcademia } from './inventario.js';
+import { sincronizarAlunos } from './gestao.js';
 
 const gate = document.getElementById('gate');
 const form = document.getElementById('gate-form');
@@ -48,7 +49,9 @@ function msgErroAuth(e) {
 async function entrarComNuvem() {
   await carregarParaStore();
   conectarStore();
-  await sincronizarInventarioAcademia(usuario()?.uid); // puxa o inventário da nuvem antes de aplicar
+  const uid = usuario()?.uid;
+  await sincronizarInventarioAcademia(uid); // inventário da Academia (nuvem → local)
+  await sincronizarAlunos(uid);             // alunos da Gestão (nuvem → local)
   entrar();
 }
 

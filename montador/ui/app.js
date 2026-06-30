@@ -4,8 +4,8 @@
 import { gerarProgramaSemanal, GRADE_PADRAO } from '../core/programaSemanal.js';
 import { gerarMesociclo } from '../core/mesociclo.js';
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
-import { COMBINACOES, COMBINACAO_POR_ID } from '../config/frequencias.js';
 import * as store from './store.js';
+import * as gestao from './gestao.js';
 import { renderCenarios, renderDiaSalvo, renderRelatorioMes, renderAcumuladoAluno, renderMesociclo, renderTreino, ativarTrocas } from './render.js';
 import { alternativasPorIds, gerarTreino } from '../core/gerador.js';
 import { EXERCICIO_POR_ID } from '../data/exercicios.js';
@@ -36,12 +36,11 @@ function popularSelects() {
     MODALIDADE_IDS.forEach((id) => el.appendChild(opt(id, MODALIDADES[id].nome)));
     el.value = grade[dia] || '';
   });
-  ['#s-nivel', '#m-nivel', '#al-nivel', '#u-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
+  ['#s-nivel', '#m-nivel', '#u-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
   MODALIDADE_IDS.forEach((id) => $('#u-modalidade').appendChild(opt(id, MODALIDADES[id].nome)));
   $('#u-nivel').value = cfg.nivelRef || 'intermediario';
   $('#s-nivel').value = cfg.nivelRef || 'intermediario';
   $('#m-nivel').value = cfg.nivelRef || 'intermediario';
-  COMBINACOES.forEach((c) => $('#al-combinacao').appendChild(opt(c.id, `${c.frequencia}× — ${c.rotulo}`)));
 
   // semana do mês (1..5)
   for (let n = 1; n <= 5; n++) $('#s-semana').appendChild(opt(String(n), `Semana ${n}`));
@@ -65,7 +64,7 @@ function atualizarSelectAlunos() {
   const atual = sel.value;
   sel.innerHTML = '';
   sel.appendChild(opt('', '— relatório do box —'));
-  store.listarAlunos().forEach((a) => sel.appendChild(opt(a.id, `${a.nome} (${a.nivel})`)));
+  gestao.listarAlunos().forEach((a) => sel.appendChild(opt(a.id, a.nivel ? `${a.nome} (${a.nivel})` : a.nome)));
   sel.value = atual;
 }
 
@@ -217,61 +216,20 @@ function renderHistorico() {
   const semanas = store.listarProgramasDoMes(mesId);
   const rotulo = store.rotuloMes(mesId);
   if (!alunoId) { $('#h-saida').innerHTML = renderRelatorioMes(rotulo, semanas); return; }
-  const aluno = store.listarAlunos().find((a) => a.id === alunoId);
-  const dias = COMBINACAO_POR_ID[aluno?.combinacaoId]?.dias || [];
+  const aluno = gestao.listarAlunos().find((a) => a.id === alunoId);
+  if (!aluno) { $('#h-saida').innerHTML = '<div class="empty">Aluno não encontrado na Gestão de Alunos.</div>'; return; }
+  const dias = Array.isArray(aluno.diasTreino) ? aluno.diasTreino : [];
+  if (!dias.length) {
+    $('#h-saida').innerHTML = `<div class="empty"><b>${aluno.nome}</b> ainda não tem <b>dias de treino</b> definidos.<br>Defina os dias no cadastro do aluno em <b>Gestão de Alunos</b> para ver o acumulado mensal.</div>`;
+    return;
+  }
   $('#h-saida').innerHTML = renderAcumuladoAluno(aluno.nome, dias, semanas, rotulo);
-}
-
-// ---------- ALUNOS ----------
-function renderAlunos() {
-  const lista = store.listarAlunos();
-  const el = $('#al-lista');
-  if (!lista.length) { el.innerHTML = '<div class="empty">Nenhum aluno cadastrado ainda.</div>'; return; }
-  el.innerHTML = lista.map((a) => {
-    const c = COMBINACAO_POR_ID[a.combinacaoId];
-    return `<div class="card aluno-card">
-      <div>
-        <div class="nome">${a.nome}</div>
-        <div class="meta">${a.nivel} · ${c ? c.frequencia + '× ' + c.rotulo : '—'}</div>
-      </div>
-      <div class="acoes">
-        <button class="btn ghost sm" data-acum="${a.id}">Ver acumulado</button>
-        <button class="btn danger sm" data-del="${a.id}">Remover</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function bindAlunos() {
-  $('#al-add').addEventListener('click', () => {
-    const nome = $('#al-nome').value.trim();
-    if (!nome) { $('#al-nome').focus(); return; }
-    store.adicionarAluno({ nome, nivel: $('#al-nivel').value, combinacaoId: $('#al-combinacao').value, modalidadesPorDia: {} });
-    $('#al-nome').value = '';
-    renderAlunos();
-    atualizarSelectAlunos();
-  });
-  $('#al-lista').addEventListener('click', (ev) => {
-    const del = ev.target.closest('[data-del]');
-    if (del) { store.removerAluno(del.dataset.del); renderAlunos(); atualizarSelectAlunos(); return; }
-    const acum = ev.target.closest('[data-acum]');
-    if (acum) {
-      $$('.tab').forEach((t) => t.classList.remove('active'));
-      $$('.view').forEach((v) => v.classList.remove('active'));
-      document.querySelector('.tab[data-view="historico"]').classList.add('active');
-      $('#view-historico').classList.add('active');
-      $('#h-aluno').value = acum.dataset.acum;
-      renderHistorico();
-    }
-  });
 }
 
 // ---------- init ----------
 popularSelects();
 atualizarMesesSelects();
 atualizarSelectAlunos();
-renderAlunos();
-bindAlunos();
 $('#s-gerar').addEventListener('click', gerarPrograma);
 $('#s-mes').addEventListener('change', () => { atualizarMesesSelects(); aoTrocarSemana(); });
 $('#s-semana').addEventListener('change', aoTrocarSemana);

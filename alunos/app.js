@@ -84,6 +84,9 @@ function formDadosHTML(a = {}, opts = {}) {
   const sexoOpts = `<option value="">—</option>` + SEXOS.map((s) => opt(s, a.sexo)).join('');
   const objOpts = `<option value="">—</option>` + OBJETIVOS.map((s) => opt(s, a.objetivo)).join('');
   const freqOpts = `<option value="">—</option>` + [1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${String(n) === String(a.freqVezes) ? ' selected' : ''}>${n}x por semana</option>`).join('');
+  const nivelOpts = `<option value="">—</option>` + [['iniciante', 'Iniciante'], ['intermediario', 'Intermediário'], ['avancado', 'Avançado']].map(([v, l]) => `<option value="${v}"${a.nivel === v ? ' selected' : ''}>${l}</option>`).join('');
+  const diasSel = new Set(a.diasTreino || []);
+  const diasHTML = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb']].map(([v, l]) => `<label><input type="checkbox" name="diasTreino" value="${v}"${diasSel.has(v) ? ' checked' : ''}/>${l}</label>`).join('');
   const stOpts = ['ativo', 'inativo', 'pendente'].map((s) => `<option value="${s}"${(a.status || 'ativo') === s ? ' selected' : ''}>${STATUS_LABEL[s]}</option>`).join('');
   const idField = opts.idEditavel
     ? `<div class="field full"><label>ID do aluno</label><input name="id" type="text" value="${esc(a.id)}" placeholder="Use o seu padrão de ID — ou deixe vazio para gerar (001, 002…)" /><span class="hint">Precisa ser único. Vazio = numeração automática.</span></div>`
@@ -108,8 +111,10 @@ function formDadosHTML(a = {}, opts = {}) {
       <div class="field"><label>Altura (cm)</label><input name="altura" type="number" min="0" step="0.1" value="${esc(a.altura)}" placeholder="175" /></div>
       <div class="field"><label>Peso atual (kg)</label><input name="peso" type="number" min="0" step="0.1" value="${esc(a.peso)}" placeholder="80" /></div>
       <div class="field"><label>Objetivo</label><select name="objetivo">${objOpts}</select></div>
+      <div class="field"><label>Nível de treino</label><select name="nivel">${nivelOpts}</select></div>
       <div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select></div>
       <div class="field"><label>Horário do treino</label><input name="freqHorario" type="text" value="${esc(a.freqHorario)}" placeholder="Ex.: 18h–19h" /></div>
+      <div class="field full"><label>Dias de treino na semana</label><div class="dias-treino">${diasHTML}</div><span class="hint">Usado pelo Montador para o acumulado mensal do aluno.</span></div>
       <div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>
     </div>
   </div>`;
@@ -133,6 +138,7 @@ function lerForm(form) {
   const fd = new FormData(form);
   const o = {};
   for (const [k, v] of fd.entries()) o[k] = typeof v === 'string' ? v.trim() : v;
+  o.diasTreino = fd.getAll('diasTreino'); // checkboxes múltiplos
   if (o.nascimento) o.idade = calcIdade(o.nascimento);
   return o;
 }
