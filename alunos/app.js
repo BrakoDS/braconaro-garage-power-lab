@@ -7,7 +7,7 @@
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../montador/ui/cloud.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
 import * as db from './db.js';
-import * as calc from './calc.js';
+import * as calc from './calc.js?v=2';
 import * as storage from './storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js';
 

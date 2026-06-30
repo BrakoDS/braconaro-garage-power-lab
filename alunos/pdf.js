@@ -4,7 +4,7 @@
  *  - exportarAvaliacao(aluno, av): relatório de uma avaliação.
  *  - exportarFicha(aluno): ficha completa (dados + anamnese + PAR-Q + histórico).
  */
-import * as calc from './calc.js';
+import * as calc from './calc.js?v=2';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (v, d = 1) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
