@@ -1,4 +1,4 @@
-# Hostinger/Apache — tipos MIME e cache do PWA.
+# Hostinger/Apache — tipos MIME, cache e CHARSET do PWA/apps.
 # (O GitHub Pages ignora este arquivo; serve só no domínio próprio.)
 AddType application/manifest+json .webmanifest
 AddType text/javascript .js
@@ -9,3 +9,12 @@ AddType text/javascript .js
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
 </IfModule>
+
+# CORREÇÃO DE ACENTOS: o servidor estava lendo os arquivos UTF-8 como Latin-1 e
+# re-encodando (dupla codificação), corrompendo acentos e quebrando o JS.
+# Forçar a origem como UTF-8 desliga essa transcodificação.
+<IfModule mod_charset_lite.c>
+  CharsetSourceEnc UTF-8
+  CharsetDefault UTF-8
+</IfModule>
+AddDefaultCharset UTF-8
