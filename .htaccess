@@ -1,4 +1,11 @@
-# Hostinger/Apache — tipos MIME corretos para o PWA.
+# Hostinger/Apache — tipos MIME e cache do PWA.
 # (O GitHub Pages ignora este arquivo; serve só no domínio próprio.)
 AddType application/manifest+json .webmanifest
 AddType text/javascript .js
+
+<IfModule mod_headers.c>
+  # Service worker, manifestos e HTML: sempre revalidar (pega a versão nova no deploy).
+  <FilesMatch "(sw\.js|\.webmanifest|\.html)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
