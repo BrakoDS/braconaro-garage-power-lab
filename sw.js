@@ -1,11 +1,13 @@
 /* Service Worker — Braconaro Garage Power Lab (PWA dos apps do Coach).
  * Estratégia:
- *  - navegação (páginas): rede primeiro, cai pro cache quando offline;
- *  - estáticos (js/css/imagens/fontes/SDK): stale-while-revalidate
- *    (serve do cache na hora e atualiza em segundo plano).
- * Bumpar CACHE invalida o cache antigo no próximo carregamento online.
+ *  - navegação + código do app (MESMA ORIGEM): REDE PRIMEIRO — sempre pega a
+ *    versão nova quando online; cai pro cache só quando offline. (Evita servir
+ *    app.js/HTML antigos depois de um deploy.)
+ *  - recursos externos (fontes, SDK do Firebase): cache primeiro (são estáveis
+ *    e versionados) → garantem o funcionamento offline.
+ * Bumpar CACHE invalida o cache antigo no activate.
  */
-const CACHE = 'bgpl-v1';
+const CACHE = 'bgpl-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -20,29 +22,32 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  const sameOrigin = new URL(req.url).origin === self.location.origin;
 
-  // Páginas: rede primeiro (pega deploy novo), cache como reserva offline.
-  if (req.mode === 'navigate') {
+  // Navegação e código próprio (mesma origem): rede primeiro, cache offline.
+  if (req.mode === 'navigate' || sameOrigin) {
     e.respondWith((async () => {
       try {
         const fresh = await fetch(req);
-        const c = await caches.open(CACHE);
-        c.put(req, fresh.clone());
+        if (fresh && fresh.ok) {
+          const copy = fresh.clone();
+          e.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)));
+        }
         return fresh;
       } catch {
         const cached = await caches.match(req);
-        return cached || (await caches.match('/coach/index.html')) || Response.error();
+        return cached || (req.mode === 'navigate' ? caches.match('/coach/index.html') : Response.error());
       }
     })());
     return;
   }
 
-  // Demais GET: stale-while-revalidate.
+  // Externos (fontes, SDK Firebase): cache primeiro, atualiza em 2º plano.
   e.respondWith((async () => {
     const cached = await caches.match(req);
     const network = fetch(req).then((res) => {
       if (res && (res.ok || res.type === 'opaque')) {
-        const copy = res.clone(); // clona ANTES de devolver à página (senão o corpo já foi consumido)
+        const copy = res.clone();
         e.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)));
       }
       return res;
