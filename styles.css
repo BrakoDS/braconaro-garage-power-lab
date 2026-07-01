@@ -616,3 +616,26 @@ html.reveal-instant .reveal,
 .exp-form .btn-wa { width: 100%; justify-content: center; }
 .exp-hint { text-align: center; color: var(--muted-2); font-size: .84rem; margin: 12px 0 0; }
 @media (max-width: 560px) { .exp-grid { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   Depoimentos
+   ============================================================ */
+.dep-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px; }
+.dep-card {
+  margin: 0; background: var(--card); border: 1px solid var(--line); padding: 26px 24px;
+  display: flex; flex-direction: column; gap: 14px;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+.dep-stars { color: var(--accent); letter-spacing: 3px; font-size: 1.05rem; }
+.dep-card blockquote { margin: 0; color: var(--txt); font-size: 1.02rem; line-height: 1.55; flex: 1; }
+.dep-card blockquote::before { content: "\201C"; color: var(--accent); font-size: 1.4em; line-height: 0; margin-right: 2px; }
+.dep-card figcaption { display: flex; align-items: center; gap: 12px; }
+.dep-ini {
+  width: 46px; height: 46px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%;
+  background: var(--bg-3); border: 1px solid var(--line-2); color: var(--accent);
+  font-family: var(--font-cond); font-weight: 700; font-size: .95rem;
+}
+.dep-quem { display: flex; flex-direction: column; line-height: 1.25; }
+.dep-quem b { font-family: var(--font-cond); font-weight: 700; letter-spacing: .01em; }
+.dep-quem small { color: var(--muted-2); font-size: .82rem; }
+@media (max-width: 900px) { .dep-grid { grid-template-columns: 1fr; max-width: 520px; margin-left: auto; margin-right: auto; } }
