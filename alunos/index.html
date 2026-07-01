@@ -50,6 +50,7 @@
           <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
             <span class="eyebrow">Banco de dados de alunos</span>
             <button class="btn ghost btn-sm" id="btn-checkin" type="button">Check-in</button>
+            <button class="btn ghost btn-sm" id="btn-agenda" type="button">Agenda</button>
             <button class="btn ghost btn-sm" id="btn-financeiro" type="button">Financeiro</button>
             <button class="btn ghost btn-sm" id="btn-aviso" type="button">Avisar (WhatsApp)</button>
           </div>
@@ -78,6 +79,26 @@
         </div>
         <div class="fin-tot" id="fin-tot"></div>
         <div class="fin-list" id="fin-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: AGENDA ----------- -->
+    <section id="tela-agenda" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="ag-voltar" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head">
+          <span class="eyebrow">Agenda</span>
+          <div class="fin-mes">
+            <button class="fin-nav" id="ag-prev" type="button" aria-label="Mês anterior">‹</button>
+            <span id="ag-mes-lbl">—</span>
+            <button class="fin-nav" id="ag-next" type="button" aria-label="Próximo mês">›</button>
+          </div>
+        </div>
+        <div class="ag-legenda">
+          <span class="ag-leg"><span class="ag-dot reav"></span>🔄 Reavaliação</span>
+          <span class="ag-leg"><span class="ag-dot aniv"></span>🎂 Aniversário</span>
+        </div>
+        <div id="ag-cal"></div>
       </div>
     </section>
 

@@ -404,6 +404,56 @@ $('#chk-next').addEventListener('click', () => { chkData = addDias(chkData, 1); 
 $('#chk-list').addEventListener('click', (e) => { const b = e.target.closest('.chk-toggle'); if (b) toggleCheckin(b.dataset.id); });
 
 /* ============================================================
+   TELA — Agenda (calendário: reavaliações + aniversários)
+   ============================================================ */
+let agMes = mesIdAtual();
+
+/** Próxima reavaliação (dataProxima da avaliação mais recente) ou null. */
+function proxReav(a) {
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
+  if (!avs.length) return null;
+  const ult = avs.reduce((m, x) => (x.dataRealizada > m.dataRealizada ? x : m), avs[0]);
+  return ult.dataProxima || null;
+}
+
+function renderAgenda() {
+  $('#ag-mes-lbl').textContent = rotuloMesFin(agMes);
+  const [ano, mes] = agMes.split('-').map(Number);
+  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+
+  /** @type {Record<number, {tipo:string, nome:string}[]>} */
+  const evs = {};
+  const add = (dia, tipo, nome) => { (evs[dia] = evs[dia] || []).push({ tipo, nome }); };
+  for (const a of alunos) {
+    const prox = proxReav(a);
+    if (prox) { const [pa, pm, pd] = prox.split('-').map(Number); if (pa === ano && pm === mes) add(pd, 'reav', a.nome); }
+    if (a.nascimento) { const [, nm, nd] = a.nascimento.split('-').map(Number); if (nm === mes) add(nd, 'aniv', a.nome); }
+  }
+
+  const primeiroDiaSem = new Date(ano, mes - 1, 1).getDay();
+  const totalDias = new Date(ano, mes, 0).getDate();
+  const hojeIso = hoje();
+
+  let html = `<div class="ag-grid ag-hdr">${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d) => `<div class="ag-wd">${d}</div>`).join('')}</div><div class="ag-grid">`;
+  for (let i = 0; i < primeiroDiaSem; i++) html += '<div class="ag-cell vazio"></div>';
+  for (let d = 1; d <= totalDias; d++) {
+    const iso = `${ano}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayEvs = evs[d] || [];
+    const chips = dayEvs.slice(0, 2).map((e) =>
+      `<span class="ag-chip ${e.tipo}" title="${esc((e.tipo === 'reav' ? 'Reavaliação: ' : 'Aniversário: ') + e.nome)}">${e.tipo === 'reav' ? '🔄' : '🎂'} ${esc(e.nome.split(' ')[0])}</span>`).join('');
+    const mais = dayEvs.length > 2 ? `<span class="ag-mais">+${dayEvs.length - 2}</span>` : '';
+    html += `<div class="ag-cell${iso === hojeIso ? ' hoje' : ''}"><span class="ag-dia">${d}</span>${chips}${mais}</div>`;
+  }
+  html += '</div>';
+  $('#ag-cal').innerHTML = html;
+}
+
+$('#btn-agenda').addEventListener('click', () => { agMes = mesIdAtual(); renderAgenda(); mostrarTela('tela-agenda'); });
+$('#ag-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#ag-prev').addEventListener('click', () => { agMes = addMesFin(agMes, -1); renderAgenda(); });
+$('#ag-next').addEventListener('click', () => { agMes = addMesFin(agMes, 1); renderAgenda(); });
+
+/* ============================================================
    TELA 2 — Perfil
    ============================================================ */
 let alunoAtual = null;
