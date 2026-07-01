@@ -357,3 +357,24 @@ button{font-family:inherit}
   .fin-row{grid-template-columns:1fr auto;grid-template-areas:'info badge' 'btn btn';gap:8px 12px}
   .fin-info{grid-area:info} .fin-badge{grid-area:badge} .fin-row .fin-toggle{grid-area:btn;justify-self:start}
 }
+
+/* ============================================================
+   Aviso em massa (WhatsApp)
+   ============================================================ */
+.aviso-tpls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 12px}
+.aviso-tpl{font-family:var(--font-cond);font-weight:600;font-size:.82rem;padding:6px 12px;
+  border:1px solid var(--line-2);background:var(--card);color:var(--mut);cursor:pointer;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:.15s}
+.aviso-tpl:hover{border-color:var(--accent);color:var(--accent)}
+#aviso-msg{width:100%;min-height:92px;padding:.8em 1em;background:var(--card);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font-body);font-size:1rem;outline:none;resize:vertical}
+#aviso-msg:focus{border-color:var(--accent)}
+.aviso-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 4px;flex-wrap:wrap}
+.aviso-count{color:var(--mut);font-family:var(--font-cond);letter-spacing:.05em;font-size:.85rem}
+.aviso-list{display:flex;flex-direction:column;gap:10px}
+.aviso-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:14px;
+  background:var(--card);border:1px solid var(--line);padding:12px 16px}
+.aviso-row.enviado{border-color:rgba(63,185,80,.35)}
+.aviso-info{min-width:0}
+.aviso-ok{color:var(--ok);font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;font-size:.72rem;white-space:nowrap}

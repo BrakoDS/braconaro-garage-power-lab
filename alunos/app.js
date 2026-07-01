@@ -298,6 +298,57 @@ $('#fin-next').addEventListener('click', () => { finMes = addMesFin(finMes, 1); 
 $('#fin-list').addEventListener('click', (e) => { const b = e.target.closest('.fin-toggle'); if (b) toggleFin(b.dataset.id, b.dataset.op === '1'); });
 
 /* ============================================================
+   TELA — Aviso em massa (WhatsApp)
+   ============================================================ */
+const AVISO_TPLS = [
+  'Amanhã não tem aula! ⚠️',
+  'Bom treino a todos! 💪',
+  'Lembrete: sua mensalidade vence esta semana. 🙏',
+  'Atenção: novo horário a partir de segunda-feira.',
+];
+const avisoEnviados = new Set();
+
+function waMsg(tel, msg) {
+  const d = String(tel || '').replace(/\D/g, '');
+  if (!d) return '';
+  const full = d.startsWith('55') ? d : '55' + d;
+  return `https://wa.me/${full}${msg ? '?text=' + encodeURIComponent(msg) : ''}`;
+}
+function avisoDestinatarios() {
+  return db.listar().filter((a) => (a.status || 'ativo') !== 'inativo' && String(a.telefone || '').replace(/\D/g, '').length >= 10);
+}
+function renderAviso() {
+  $('#aviso-tpls').innerHTML = AVISO_TPLS.map((t) => `<button class="aviso-tpl" type="button" data-t="${esc(t)}">${esc(t)}</button>`).join('');
+  const alunos = avisoDestinatarios();
+  $('#aviso-count').textContent = `${avisoEnviados.size} de ${alunos.length} enviados`;
+  $('#aviso-list').innerHTML = alunos.length ? alunos.map((a) => {
+    const env = avisoEnviados.has(a.id);
+    return `<div class="aviso-row${env ? ' enviado' : ''}">
+      <div class="aviso-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">${esc(a.telefone)}</div></div>
+      ${env ? '<span class="aviso-ok">Enviado ✓</span>' : ''}
+      <button class="btn ${env ? 'ghost ' : ''}btn-sm aviso-send" data-id="${esc(a.id)}" data-tel="${esc(a.telefone)}" type="button">${env ? 'Reenviar' : 'Enviar'}</button>
+    </div>`;
+  }).join('') : `<div class="empty"><b>Nenhum destinatário</b>Cadastre alunos ativos com telefone/WhatsApp para avisar aqui.</div>`;
+}
+
+$('#btn-aviso').addEventListener('click', () => { renderAviso(); mostrarTela('tela-aviso'); });
+$('#aviso-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#aviso-tpls').addEventListener('click', (e) => { const c = e.target.closest('.aviso-tpl'); if (c) { $('#aviso-msg').value = c.dataset.t; $('#aviso-msg').focus(); } });
+$('#aviso-copiar').addEventListener('click', async () => {
+  const m = $('#aviso-msg').value.trim(); if (!m) return;
+  try { await navigator.clipboard.writeText(m); const b = $('#aviso-copiar'), t = b.textContent; b.textContent = 'Copiado ✓'; setTimeout(() => (b.textContent = t), 1500); } catch {}
+});
+$('#aviso-list').addEventListener('click', (e) => {
+  const b = e.target.closest('.aviso-send'); if (!b) return;
+  const msg = $('#aviso-msg').value.trim();
+  if (!msg) { alert('Escreva a mensagem primeiro.'); $('#aviso-msg').focus(); return; }
+  const link = waMsg(b.dataset.tel, msg);
+  if (link) window.open(link, '_blank');
+  avisoEnviados.add(b.dataset.id);
+  renderAviso();
+});
+
+/* ============================================================
    TELA 2 — Perfil
    ============================================================ */
 let alunoAtual = null;

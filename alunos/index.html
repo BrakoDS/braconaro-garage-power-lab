@@ -50,6 +50,7 @@
           <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
             <span class="eyebrow">Banco de dados de alunos</span>
             <button class="btn ghost btn-sm" id="btn-financeiro" type="button">Financeiro</button>
+            <button class="btn ghost btn-sm" id="btn-aviso" type="button">Avisar (WhatsApp)</button>
           </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -76,6 +77,22 @@
         </div>
         <div class="fin-tot" id="fin-tot"></div>
         <div class="fin-list" id="fin-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: AVISO (WhatsApp) ----------- -->
+    <section id="tela-aviso" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="aviso-voltar" type="button">← Voltar para a listagem</button></div>
+        <span class="eyebrow">Aviso em massa · WhatsApp</span>
+        <div class="aviso-tpls" id="aviso-tpls"></div>
+        <textarea id="aviso-msg" placeholder="Escreva a mensagem… (ex.: Amanhã não tem aula!)"></textarea>
+        <div class="aviso-actions">
+          <button class="btn ghost btn-sm" id="aviso-copiar" type="button">Copiar mensagem</button>
+          <span class="aviso-count" id="aviso-count"></span>
+        </div>
+        <p class="hint" style="margin:0 0 12px">Toque em <b>Enviar</b> em cada aluno — abre a conversa já com a mensagem. É um por vez (limitação do WhatsApp).</p>
+        <div class="aviso-list" id="aviso-list"></div>
       </div>
     </section>
 
