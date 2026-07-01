@@ -47,7 +47,10 @@
     <section id="tela-lista" class="screen active">
       <div class="wrap">
         <div class="lista-head">
-          <span class="eyebrow">Banco de dados de alunos</span>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <span class="eyebrow">Banco de dados de alunos</span>
+            <button class="btn ghost btn-sm" id="btn-financeiro" type="button">Financeiro</button>
+          </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             <input id="busca" type="search" placeholder="Buscar por nome ou ID…" />
@@ -57,6 +60,23 @@
         <div id="lista-alunos" class="aluno-list"></div>
       </div>
       <button id="fab-novo" class="btn fab" type="button">+ Cadastrar novo aluno</button>
+    </section>
+
+    <!-- ----------- TELA: FINANCEIRO ----------- -->
+    <section id="tela-financeiro" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="fin-voltar" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head">
+          <span class="eyebrow">Financeiro</span>
+          <div class="fin-mes">
+            <button class="fin-nav" id="fin-prev" type="button" aria-label="Mês anterior">‹</button>
+            <span id="fin-mes-lbl">—</span>
+            <button class="fin-nav" id="fin-next" type="button" aria-label="Próximo mês">›</button>
+          </div>
+        </div>
+        <div class="fin-tot" id="fin-tot"></div>
+        <div class="fin-list" id="fin-list"></div>
+      </div>
     </section>
 
     <!-- ----------- TELA 2: PERFIL ----------- -->

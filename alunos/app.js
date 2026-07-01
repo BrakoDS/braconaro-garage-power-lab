@@ -117,6 +117,13 @@ function formDadosHTML(a = {}, opts = {}) {
       <div class="field full"><label>Dias de treino na semana</label><div class="dias-treino">${diasHTML}</div><span class="hint">Usado pelo Montador para o acumulado mensal do aluno.</span></div>
       <div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>
     </div>
+  </div>
+  <div class="form-sec">
+    <h3>Financeiro</h3>
+    <div class="grid-form">
+      <div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /></div>
+      <div class="field"><label>Dia de vencimento</label><input name="vencimento" type="number" min="1" max="31" value="${esc(a.vencimento)}" placeholder="10" /><span class="hint">Dia do mês (1–31) em que a mensalidade vence.</span></div>
+    </div>
   </div>`;
 }
 
@@ -227,6 +234,68 @@ function mostrarTela(id) {
 }
 $('#btn-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
 $('#btn-ficha-pdf').addEventListener('click', () => { if (alunoAtual) exportarFicha(alunoAtual); });
+
+/* ============================================================
+   TELA — Financeiro (mensalidades)
+   ============================================================ */
+const MESES_FIN = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const brl = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const numMoney = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+function mesIdAtual() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+function rotuloMesFin(mesId) { const [a, m] = mesId.split('-').map(Number); return `${MESES_FIN[m - 1]} / ${a}`; }
+function addMesFin(mesId, n) { const [a, m] = mesId.split('-').map(Number); const d = new Date(a, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+
+let finMes = mesIdAtual();
+
+/** 'pago' | 'vencido' | 'pendente' para um aluno num mês. */
+function statusFin(a, mesId) {
+  if (a.pagamentos && a.pagamentos[mesId]) return 'pago';
+  const [ano, m] = mesId.split('-').map(Number);
+  const ultimoDia = new Date(ano, m, 0).getDate();
+  const dia = Math.min(Math.max(1, parseInt(a.vencimento, 10) || 10), ultimoDia);
+  const venc = `${ano}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  return hoje() > venc ? 'vencido' : 'pendente';
+}
+
+function renderFinanceiro() {
+  $('#fin-mes-lbl').textContent = rotuloMesFin(finMes);
+  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo' && numMoney(a.mensalidade) > 0);
+  let previsto = 0, recebido = 0;
+  const linhas = alunos.map((a) => {
+    const valor = numMoney(a.mensalidade);
+    previsto += valor;
+    const st = statusFin(a, finMes);
+    if (st === 'pago') recebido += valor;
+    const lbl = st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
+    const btn = st === 'pago'
+      ? `<button class="btn ghost btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="0" type="button">Desfazer</button>`
+      : `<button class="btn btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="1" type="button">Marcar pago</button>`;
+    return `<div class="fin-row">
+      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${brl(valor)}</div></div>
+      <span class="fin-badge ${st}">${lbl}</span>
+      ${btn}
+    </div>`;
+  }).join('');
+  $('#fin-tot').innerHTML = `
+    <div class="fin-card"><span class="fin-card-l">Recebido</span><span class="fin-card-v ok">${brl(recebido)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">A receber</span><span class="fin-card-v${previsto - recebido > 0 ? ' bad' : ''}">${brl(previsto - recebido)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Previsto no mês</span><span class="fin-card-v">${brl(previsto)}</span></div>`;
+  $('#fin-list').innerHTML = linhas || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade no perfil do aluno (aba Dados → Financeiro).</div>`;
+}
+
+function toggleFin(id, pago) {
+  const a = db.obter(id); if (!a) return;
+  const pg = { ...(a.pagamentos || {}) };
+  if (pago) pg[finMes] = true; else delete pg[finMes];
+  db.atualizar(id, { pagamentos: pg });
+  renderFinanceiro();
+}
+
+$('#btn-financeiro').addEventListener('click', () => { finMes = mesIdAtual(); renderFinanceiro(); mostrarTela('tela-financeiro'); });
+$('#fin-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#fin-prev').addEventListener('click', () => { finMes = addMesFin(finMes, -1); renderFinanceiro(); });
+$('#fin-next').addEventListener('click', () => { finMes = addMesFin(finMes, 1); renderFinanceiro(); });
+$('#fin-list').addEventListener('click', (e) => { const b = e.target.closest('.fin-toggle'); if (b) toggleFin(b.dataset.id, b.dataset.op === '1'); });
 
 /* ============================================================
    TELA 2 — Perfil
