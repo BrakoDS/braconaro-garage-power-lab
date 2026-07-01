@@ -378,3 +378,14 @@ button{font-family:inherit}
 .aviso-info{min-width:0}
 .aviso-ok{color:var(--ok);font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
   letter-spacing:.05em;font-size:.72rem;white-space:nowrap}
+
+/* ============================================================
+   Check-in / frequência
+   ============================================================ */
+.fin-row.chk-pres{border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.06)}
+.chk-titulo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  font-size:.86rem;color:var(--bad);margin:24px 0 10px}
+.chk-sumido{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--card);border:1px solid var(--line);padding:10px 16px;margin-bottom:8px}
+.chk-sumido .li-nome{font-family:var(--font-cond);font-weight:600;font-size:1rem;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

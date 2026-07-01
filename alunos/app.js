@@ -349,6 +349,61 @@ $('#aviso-list').addEventListener('click', (e) => {
 });
 
 /* ============================================================
+   TELA — Check-in / frequência
+   ============================================================ */
+const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const SUMIDO_DIAS = 7;
+let chkData = hoje();
+
+const diasDesde = (iso) => Math.round((new Date(hoje() + 'T00:00:00') - new Date(iso + 'T00:00:00')) / 86400000);
+function labelDia(iso) { const d = new Date(iso + 'T00:00:00'); return `${DIAS_SEM[d.getDay()]} · ${fmtData(iso)}`; }
+function ultimaPresenca(a) { const p = (a.presencas || []).slice().sort(); return p.length ? p[p.length - 1] : null; }
+
+function renderCheckin() {
+  $('#chk-data-lbl').textContent = labelDia(chkData);
+  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  const presentes = alunos.filter((a) => (a.presencas || []).includes(chkData)).length;
+  $('#chk-resumo').innerHTML =
+    `<div class="fin-card"><span class="fin-card-l">Presentes no dia</span><span class="fin-card-v ok">${presentes}</span></div>` +
+    `<div class="fin-card"><span class="fin-card-l">Alunos ativos</span><span class="fin-card-v">${alunos.length}</span></div>` +
+    `<div class="fin-card"><span class="fin-card-l">Sumidos (${SUMIDO_DIAS}+ dias)</span><span class="fin-card-v${alunos.some((a) => { const u = ultimaPresenca(a); return !u || diasDesde(u) >= SUMIDO_DIAS; }) ? ' bad' : ''}">${alunos.filter((a) => { const u = ultimaPresenca(a); return !u || diasDesde(u) >= SUMIDO_DIAS; }).length}</span></div>`;
+
+  $('#chk-list').innerHTML = alunos.length ? alunos.map((a) => {
+    const pres = (a.presencas || []).includes(chkData);
+    const u = ultimaPresenca(a);
+    const sub = u ? `última presença: ${fmtData(u)}` : 'sem check-in ainda';
+    return `<div class="fin-row${pres ? ' chk-pres' : ''}">
+      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">${sub}</div></div>
+      <button class="btn ${pres ? '' : 'ghost '}btn-sm chk-toggle" data-id="${esc(a.id)}" type="button">${pres ? '✓ Presente' : 'Marcar presente'}</button>
+    </div>`;
+  }).join('') : `<div class="empty"><b>Nenhum aluno ativo</b>Cadastre alunos para registrar presença.</div>`;
+
+  const sumidos = alunos
+    .map((a) => ({ nome: a.nome, u: ultimaPresenca(a) }))
+    .filter((s) => !s.u || diasDesde(s.u) >= SUMIDO_DIAS)
+    .map((s) => ({ nome: s.nome, dias: s.u ? diasDesde(s.u) : null }))
+    .sort((x, y) => (y.dias ?? 99999) - (x.dias ?? 99999));
+  $('#chk-sumidos').innerHTML = sumidos.length
+    ? `<h4 class="chk-titulo">Quem sumiu (${SUMIDO_DIAS}+ dias sem vir)</h4>` +
+      sumidos.map((s) => `<div class="chk-sumido"><span class="li-nome">${esc(s.nome)}</span><span class="aval-tag atrasada">${s.dias == null ? 'nunca veio' : 'há ' + s.dias + 'd'}</span></div>`).join('')
+    : '';
+}
+
+function toggleCheckin(id) {
+  const a = db.obter(id); if (!a) return;
+  const set = new Set(a.presencas || []);
+  if (set.has(chkData)) set.delete(chkData); else set.add(chkData);
+  db.atualizar(id, { presencas: [...set].sort() });
+  renderCheckin();
+}
+
+$('#btn-checkin').addEventListener('click', () => { chkData = hoje(); renderCheckin(); mostrarTela('tela-checkin'); });
+$('#chk-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#chk-prev').addEventListener('click', () => { chkData = addDias(chkData, -1); renderCheckin(); });
+$('#chk-next').addEventListener('click', () => { chkData = addDias(chkData, 1); renderCheckin(); });
+$('#chk-list').addEventListener('click', (e) => { const b = e.target.closest('.chk-toggle'); if (b) toggleCheckin(b.dataset.id); });
+
+/* ============================================================
    TELA 2 — Perfil
    ============================================================ */
 let alunoAtual = null;

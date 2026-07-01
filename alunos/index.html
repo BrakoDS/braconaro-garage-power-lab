@@ -49,6 +49,7 @@
         <div class="lista-head">
           <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
             <span class="eyebrow">Banco de dados de alunos</span>
+            <button class="btn ghost btn-sm" id="btn-checkin" type="button">Check-in</button>
             <button class="btn ghost btn-sm" id="btn-financeiro" type="button">Financeiro</button>
             <button class="btn ghost btn-sm" id="btn-aviso" type="button">Avisar (WhatsApp)</button>
           </div>
@@ -77,6 +78,24 @@
         </div>
         <div class="fin-tot" id="fin-tot"></div>
         <div class="fin-list" id="fin-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: CHECK-IN ----------- -->
+    <section id="tela-checkin" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="chk-voltar" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head">
+          <span class="eyebrow">Check-in / frequência</span>
+          <div class="fin-mes">
+            <button class="fin-nav" id="chk-prev" type="button" aria-label="Dia anterior">‹</button>
+            <span id="chk-data-lbl">—</span>
+            <button class="fin-nav" id="chk-next" type="button" aria-label="Próximo dia">›</button>
+          </div>
+        </div>
+        <div class="fin-tot" id="chk-resumo"></div>
+        <div class="fin-list" id="chk-list"></div>
+        <div id="chk-sumidos"></div>
       </div>
     </section>
 
