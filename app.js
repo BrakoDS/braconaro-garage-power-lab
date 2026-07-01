@@ -148,3 +148,27 @@
   setTimeout(function () { forceInstant(); revealAll(); }, 1500);
   window.addEventListener('load', revealInView);
 })();
+
+/* ============================================================
+   Aula experimental — envia o lead para o WhatsApp do coach
+   ============================================================ */
+(function () {
+  var form = document.getElementById('exp-form');
+  if (!form) return;
+  var COACH = '5514998660352';
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = new FormData(form);
+    var nome = (d.get('nome') || '').toString().trim();
+    var whats = (d.get('whats') || '').toString().trim();
+    if (!nome || !whats) return;
+    var obj = (d.get('objetivo') || '').toString().trim();
+    var hor = (d.get('horario') || '').toString().trim();
+    var msg = 'Olá! Quero agendar uma AULA EXPERIMENTAL grátis no Braconaro Garage Power Lab.\n\n'
+      + 'Nome: ' + nome + '\n'
+      + 'Meu WhatsApp: ' + whats
+      + (obj ? '\nObjetivo: ' + obj : '')
+      + (hor ? '\nMelhor horário: ' + hor : '');
+    window.open('https://wa.me/' + COACH + '?text=' + encodeURIComponent(msg), '_blank');
+  });
+})();

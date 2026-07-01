@@ -598,3 +598,21 @@ html.reveal-instant .reveal,
 }
 .twk-fab:hover { background: var(--accent-2); transform: translateY(-2px); }
 .twk-fab svg { width: 16px; height: 16px; }
+
+/* ============================================================
+   Aula experimental (captação de lead)
+   ============================================================ */
+.experimental .cta-sub { max-width: 620px; margin-left: auto; margin-right: auto; }
+.center { text-align: center; }
+.exp-form { max-width: 680px; margin: 32px auto 0; }
+.exp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.exp-form input, .exp-form select {
+  width: 100%; padding: .9em 1em; background: var(--card); border: 1px solid var(--line-2);
+  color: var(--txt); font-family: var(--font-body); font-size: 1rem; outline: none;
+  transition: border-color .2s ease;
+}
+.exp-form input::placeholder { color: var(--muted-2); }
+.exp-form input:focus, .exp-form select:focus { border-color: var(--accent); }
+.exp-form .btn-wa { width: 100%; justify-content: center; }
+.exp-hint { text-align: center; color: var(--muted-2); font-size: .84rem; margin: 12px 0 0; }
+@media (max-width: 560px) { .exp-grid { grid-template-columns: 1fr; } }
