@@ -10,6 +10,12 @@ import * as db from './db.js';
 import * as calc from './calc.js?v=2';
 import * as storage from './storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js';
+import { publicarPortal } from './portal-sync.js';
+
+/* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
+let _portalTimer = null;
+function agendarPublicarPortal() { clearTimeout(_portalTimer); _portalTimer = setTimeout(() => publicarPortal(db.listar()), 1500); }
+db.aoGravar(agendarPublicarPortal);
 
 /* ============================================================
    Helpers
@@ -1064,7 +1070,7 @@ function entrar(user) {
         const a = db.obter(alunoAtual.id);
         if (a) { alunoAtual = a; renderAvaliacoes(); }
       }
-    });
+    }).then(() => publicarPortal(db.listar())); // publica o Portal do Aluno após sincronizar
   }
 }
 function erroMsg(m) { gErro.style.color = ''; gErro.textContent = m; gErro.style.display = 'block'; }

@@ -20,6 +20,9 @@ function ler() {
 
 /* ---------- Sincronização na nuvem ---------- */
 let _uid = null, _push = null, _timer = null;
+let _aoGravar = null;
+/** Registra um callback chamado a cada gravação local (ex.: publicar o Portal do Aluno). */
+export function aoGravar(cb) { _aoGravar = cb; }
 
 function agendarEnvio() {
   if (!_uid || !_push) return;
@@ -31,7 +34,7 @@ function agendarEnvio() {
 }
 
 /** Grava local e (se conectado) agenda envio à nuvem. */
-function gravar(d) { setLocal(d); agendarEnvio(); }
+function gravar(d) { setLocal(d); agendarEnvio(); if (_aoGravar) { try { _aoGravar(d); } catch {} } }
 
 /**
  * Liga a sincronização na nuvem — chamar após o login, com o uid do coach.

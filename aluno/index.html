@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Portal do Aluno — Braconaro Garage Power Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./aluno.css" />
+</head>
+<body>
+
+  <!-- ============ GATE (login do aluno) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>BRACONARO</b> · Portal<small>Garage Power Lab</small></div>
+      <p class="gate-sub">Área do aluno. Entre com o e-mail cadastrado no box.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links">
+        <a href="#" id="gate-toggle">Primeiro acesso? Criar conta</a>
+        <a href="#" id="gate-reset">Esqueci a senha</a>
+      </div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><b>BRACONARO</b> · Portal<small>Garage Power Lab</small></div>
+      <button id="sair" class="btn ghost btn-sm" type="button">Sair</button>
+    </header>
+
+    <main class="wrap">
+      <!-- Boas-vindas / perfil -->
+      <section class="welcome" id="welcome"></section>
+
+      <!-- Aviso quando o portal ainda não foi liberado -->
+      <div id="sem-dados" hidden class="empty">
+        <b>Seu portal ainda não foi liberado</b>
+        Seu coach ainda não publicou seus dados para este e-mail. Fale com ele para liberar o acesso.
+      </div>
+
+      <!-- Progresso -->
+      <section id="sec-progresso" hidden>
+        <h3 class="sec-titulo">Seu progresso</h3>
+        <div class="cards" id="progresso"></div>
+      </section>
+
+      <!-- Financeiro -->
+      <section id="sec-financeiro" hidden>
+        <h3 class="sec-titulo">Financeiro</h3>
+        <div id="financeiro"></div>
+      </section>
+
+      <!-- Avaliações -->
+      <section id="sec-avaliacoes" hidden>
+        <div class="av-head">
+          <h3 class="sec-titulo">Suas avaliações</h3>
+          <button class="btn" id="btn-comparar" type="button">Comparar avaliações</button>
+        </div>
+        <div class="av-list" id="avaliacoes"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============ MODAL: comparar avaliações ============ -->
+  <div class="modal-bg" id="modal-comparar">
+    <div class="modal">
+      <div class="modal-hd">
+        <h3>Comparar avaliações</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-bd" id="modal-comparar-body"></div>
+      <div class="modal-ft"><button class="btn ghost" data-close type="button">Fechar</button></div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js?v=1"></script>
+</body>
+</html>
