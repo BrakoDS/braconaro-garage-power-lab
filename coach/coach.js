@@ -22,9 +22,10 @@ const btnEntrar = form?.querySelector('button[type=submit]');
 const hub   = document.getElementById('hub');
 const btnSair = document.getElementById('sair');
 
-function entrar() {
+function entrar(user) {
   if (gate) gate.style.display = 'none';
   hub?.removeAttribute('hidden');
+  montarPainel(user);
 }
 function mostrarErro(msg) { if (erro) { erro.style.color = ''; erro.textContent = msg; erro.style.display = 'block'; } }
 function mostrarOk(msg)  { if (erro) { erro.style.color = 'var(--ok)'; erro.textContent = msg; erro.style.display = 'block'; } }
@@ -78,15 +79,14 @@ if (cloudAtivo()) {
   });
 
   // Sessão já ativa? Entra direto.
-  sessaoAtual().then((u) => { if (u) entrar(); else email.focus(); });
+  sessaoAtual().then((u) => { if (u) entrar(u); else email.focus(); });
 
   form?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     if (erro) erro.style.display = 'none';
     try {
-      if (criando) await criarConta(email.value.trim(), senha.value);
-      else await login(email.value.trim(), senha.value);
-      entrar();
+      const u = criando ? await criarConta(email.value.trim(), senha.value) : await login(email.value.trim(), senha.value);
+      entrar(u);
     } catch (e) { mostrarErro(msgErroAuth(e)); console.error('Auth:', e?.code, e?.message); }
   });
 } else if (estaLiberado()) {
@@ -106,4 +106,91 @@ if (cloudAtivo()) {
     if (ok) entrar();
     else { mostrarErro('Senha incorreta.'); senha.value = ''; senha.focus(); }
   });
+}
+
+/* ============================================================
+   Painel do Coach — resumo do dia (dados da Gestão de Alunos)
+   ============================================================ */
+const $ = (s) => document.querySelector(s);
+const escP = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const hojeISO = () => new Date().toISOString().slice(0, 10);
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+/** Data da próxima reavaliação (da avaliação mais recente do aluno). */
+function proxReav(a) {
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
+  if (!avs.length) return null;
+  const ult = avs.reduce((m, x) => (x.dataRealizada > m.dataRealizada ? x : m), avs[0]);
+  return ult.dataProxima || null;
+}
+const diasAte = (iso) => Math.round((new Date(iso + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 86400000);
+const fmtBr = (iso) => { const [a, m, d] = iso.split('-'); return `${d}/${m}`; };
+
+async function montarPainel(user) {
+  let db;
+  try { db = await import('../alunos/db.js'); } catch { return; } // painel é opcional
+  const render = () => renderPainel(db.listar());
+  render();
+  if (user?.uid) { try { await db.iniciarSync(user.uid, render); } catch { /* offline/regra: usa local */ } }
+}
+
+function renderPainel(alunos) {
+  const painel = $('#painel'); if (!painel) return;
+  painel.removeAttribute('hidden');
+  const hoje = new Date();
+  const mesAtual = hoje.getMonth() + 1;
+
+  const ativos = alunos.filter((a) => (a.status || 'ativo') === 'ativo').length;
+
+  let atrasadas = 0, aVencer = 0;
+  const agenda = [];
+  for (const a of alunos) {
+    const prox = proxReav(a);
+    if (!prox) continue;
+    const d = diasAte(prox);
+    if (d < 0) atrasadas++; else if (d <= 7) aVencer++;
+    agenda.push({ nome: a.nome, prox, d });
+  }
+  agenda.sort((x, y) => x.d - y.d);
+
+  const aniv = [];
+  for (const a of alunos) {
+    if (!a.nascimento) continue;
+    const [ano, mes, dia] = a.nascimento.split('-').map(Number);
+    if (mes === mesAtual) aniv.push({ nome: a.nome, dia, idade: hoje.getFullYear() - ano });
+  }
+  aniv.sort((x, y) => x.dia - y.dia);
+
+  const stat = (label, valor, sub, cls = '') =>
+    `<div class="stat ${cls}"><span class="stat-v">${valor}</span><span class="stat-l">${label}</span>${sub ? `<span class="stat-s">${sub}</span>` : ''}</div>`;
+  $('#painel-stats').innerHTML =
+    stat('Alunos ativos', ativos, `de ${alunos.length}`) +
+    stat('Avaliações atrasadas', atrasadas, atrasadas ? 'precisam reavaliar' : 'tudo em dia', atrasadas ? 'bad' : '') +
+    stat('A vencer (7 dias)', aVencer, 'reavaliações próximas', aVencer ? 'warn' : '') +
+    stat(`Aniversários de ${MESES[mesAtual - 1].slice(0, 3)}`, aniv.length, 'este mês');
+
+  if (!alunos.length) {
+    $('#painel-cols').innerHTML = `<div class="painel-vazio">Nenhum aluno cadastrado ainda. Abra a <a href="../alunos/index.html">Gestão de Alunos</a> para começar — o resumo aparece aqui.</div>`;
+    return;
+  }
+
+  const itensAgenda = agenda.slice(0, 6).map((x) => {
+    const cls = x.d < 0 ? 'bad' : x.d <= 7 ? 'warn' : 'mut';
+    const txt = x.d < 0 ? `atrasada ${-x.d}d` : x.d === 0 ? 'hoje' : x.d <= 7 ? `em ${x.d}d` : fmtBr(x.prox);
+    return `<li><span class="li-nome">${escP(x.nome)}</span><span class="li-tag ${cls}">${txt}</span></li>`;
+  }).join('') || '<li class="vazio">Sem reavaliações registradas.</li>';
+
+  const itensAniv = aniv.map((x) =>
+    `<li><span class="li-nome">${escP(x.nome)}</span><span class="li-tag mut">dia ${x.dia} · faz ${x.idade}</span></li>`
+  ).join('') || '<li class="vazio">Ninguém faz aniversário este mês.</li>';
+
+  $('#painel-cols').innerHTML = `
+    <div class="painel-card">
+      <div class="pc-head"><h3>Agenda de reavaliações</h3><a href="../alunos/index.html">ver alunos →</a></div>
+      <ul class="pc-list">${itensAgenda}</ul>
+    </div>
+    <div class="painel-card">
+      <div class="pc-head"><h3>Aniversariantes de ${MESES[mesAtual - 1]}</h3></div>
+      <ul class="pc-list">${itensAniv}</ul>
+    </div>`;
 }
