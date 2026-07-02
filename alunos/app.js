@@ -11,6 +11,7 @@ import * as calc from './calc.js?v=2';
 import * as storage from './storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js';
 import { publicarPortal } from './portal-sync.js';
+import { mergarInboxes } from './portal-merge.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -949,7 +950,28 @@ function renderProgresso() {
       <div class="prog-card"><h4>Agachamentos (1 min)</h4>${chart(sAgach, { cor: 'var(--accent-2)' })}</div>
       <div class="prog-card"><h4>Abdominais (1 min)</h4>${chart(sAbd, { cor: '#ff5b50' })}</div>` : ''}
       <div class="prog-card full"><h4>Pontos que foram melhorados</h4><div class="insights">${insightsHTML(a, avs)}</div></div>
+      <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
     </div>`;
+}
+
+/** Lista os feedbacks pós-treino enviados pelo aluno no Portal (mais recentes primeiro). */
+function feedbacksHTML(a) {
+  const fbs = (Array.isArray(a.feedbacks) ? a.feedbacks : []).slice().sort((x, y) => (y.criadoEm || 0) - (x.criadoEm || 0));
+  if (!fbs.length) return `<div class="prog-ph">Nenhum feedback ainda. O aluno pode enviar pelo Portal do Aluno.</div>`;
+  const DOR = { nenhuma: ['Sem dor', 'ok'], leve: ['Dor leve', 'ok'], moderada: ['Dor moderada', 'warn'], forte: ['Dor forte', 'bad'] };
+  const fmtD = (iso) => { if (!iso) return ''; const [an, m, d] = String(iso).split('-'); return `${d}/${m}/${an}`; };
+  return `<ul class="fb-list">` + fbs.map((f) => {
+    const [dl, dc] = DOR[f.dor] || ['—', ''];
+    const rpe = Math.max(0, Math.min(10, Number(f.esforco) || 0));
+    return `<li class="fb-item">
+      <div class="fb-top">
+        <span class="fb-data">${fmtD(f.data)}</span>
+        <span class="fb-rpe">Esforço <b>${rpe}</b>/10</span>
+        <span class="fb-dor ${dc}">${dl}</span>
+      </div>
+      ${f.obs ? `<p class="fb-obs">${String(f.obs).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</p>` : ''}
+    </li>`;
+  }).join('') + `</ul>`;
 }
 
 /* ============================================================
@@ -1070,7 +1092,19 @@ function entrar(user) {
         const a = db.obter(alunoAtual.id);
         if (a) { alunoAtual = a; renderAvaliacoes(); }
       }
-    }).then(() => publicarPortal(db.listar())); // publica o Portal do Aluno após sincronizar
+    }).then(async () => {
+      // 1) puxa o que os alunos enviaram (foto/feedback) e mescla no coach
+      const n = await mergarInboxes(db.listar(), (id, patch) => db.atualizar(id, patch));
+      if (n) {
+        renderLista();
+        if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
+          const a = db.obter(alunoAtual.id);
+          if (a) { alunoAtual = a; if ($('#tab-progresso').classList.contains('active')) renderProgresso(); }
+        }
+      }
+      // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
+      publicarPortal(db.listar());
+    });
   }
 }
 function erroMsg(m) { gErro.style.color = ''; gErro.textContent = m; gErro.style.display = 'block'; }

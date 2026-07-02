@@ -6,5 +6,11 @@ service firebase.storage {
     match /gestao/{uid}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Foto de perfil enviada pelo próprio aluno (Portal do Aluno).
+    // Só o aluno cujo e-mail logado bate com a pasta pode ler/gravar.
+    match /portal/{email}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.token.email == email;
+    }
   }
 }

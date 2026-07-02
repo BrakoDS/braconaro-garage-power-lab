@@ -7,6 +7,7 @@
  */
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario } from '../montador/ui/cloud.js';
 import { carregarPortal } from './portal-db.js';
+import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import * as calc from '../alunos/calc.js?v=2';
 
 /* ---------- Helpers ---------- */
@@ -24,6 +25,8 @@ function sinal(v, d = 1) { return v == null ? '—' : (v > 0 ? '+' : v < 0 ? '�
 
 /** @type {any} */
 let PORTAL = null;
+/** E-mail do aluno logado (usa a fatia como fallback se a sessão ainda não resolveu). */
+const emailAluno = () => (usuario()?.email || PORTAL?.email || '').toLowerCase();
 
 /* ---------- Pagamento via Pix (dados do box) ---------- */
 const PIX = {
@@ -95,21 +98,57 @@ function avaliacoesOrdenadas() {
 function render() {
   const temDados = !!PORTAL;
   $('#sem-dados').hidden = temDados;
-  ['sec-progresso', 'sec-financeiro', 'sec-avaliacoes'].forEach((id) => { $('#' + id).hidden = !temDados; });
+  ['sec-progresso', 'sec-financeiro', 'sec-avaliacoes', 'sec-feedback'].forEach((id) => { $('#' + id).hidden = !temDados; });
 
-  // Boas-vindas (sempre, com nome do que tiver)
+  // Boas-vindas (sempre, com nome do que tiver) — avatar com botão "Alterar foto"
   const nome = PORTAL?.nome || (usuario()?.email || '').split('@')[0];
   const foto = PORTAL?.fotoUrl;
   const subt = PORTAL ? [PORTAL.objetivo, PORTAL.nivel].filter(Boolean).join(' · ') : 'Bem-vindo(a) ao seu portal.';
   $('#welcome').innerHTML = `
-    <div class="wel-avatar">${foto ? `<img src="${esc(foto)}" alt="Foto de ${esc(nome)}" />` : esc(iniciais(nome))}</div>
-    <div class="wel-txt"><h1>Olá, ${esc(primeiroNome(nome))}! 👋</h1><p>${esc(subt || 'Acompanhe sua evolução.')}</p></div>`;
+    <div class="wel-avatar" id="wel-avatar">${foto ? `<img src="${esc(foto)}" alt="Foto de ${esc(nome)}" />` : esc(iniciais(nome))}
+      <button class="wel-foto-btn" id="btn-foto" type="button" title="Alterar foto" aria-label="Alterar foto">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 3 7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+      </button>
+      <input type="file" id="foto-input" accept="image/*" hidden />
+    </div>
+    <div class="wel-txt"><h1>Olá, ${esc(primeiroNome(nome))}! 👋</h1><p>${esc(subt || 'Acompanhe sua evolução.')}</p>
+      <span class="wel-foto-msg" id="foto-msg" hidden></span>
+    </div>`;
 
   if (!temDados) return;
+  wireFoto();
   renderProgresso();
   renderEvolucao();
   renderFinanceiro();
+  renderFotos();
+  renderFeedback();
   renderAvaliacoes();
+}
+
+/* ---------- Alterar foto de perfil ---------- */
+function wireFoto() {
+  const btn = $('#btn-foto'), input = $('#foto-input'), msg = $('#foto-msg');
+  if (!btn || !input) return;
+  const email = emailAluno();
+  if (!email) { btn.hidden = true; return; }
+  const diz = (t, erro) => { msg.hidden = false; msg.textContent = t; msg.classList.toggle('erro', !!erro); };
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    btn.classList.add('carregando'); diz('Enviando foto…', false);
+    try {
+      const url = await enviarFotoPerfil(email, file);
+      PORTAL.fotoUrl = url;
+      const av = $('#wel-avatar');
+      if (av) av.querySelector('img')?.remove(), av.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`);
+      diz('Foto atualizada ✓', false);
+    } catch (e) {
+      console.warn('Foto:', e?.code || e);
+      diz('Não foi possível enviar a foto agora.', true);
+    } finally { btn.classList.remove('carregando'); }
+  });
 }
 
 const fmtDataCurta = (iso) => { if (!iso) return ''; const [, m, d] = iso.split('-'); return `${d}/${m}`; };
@@ -267,6 +306,65 @@ async function copiarTexto(btn, texto, label) {
   }
   const orig = btn.textContent; btn.textContent = 'Copiado ✓';
   setTimeout(() => { btn.textContent = label || orig; }, 1800);
+}
+
+/* ---------- Fotos de progresso (antes/depois) ---------- */
+const temFotos = (av) => { const f = av.fotos || {}; return !!(f.frente || f.lado || f.costas); };
+function renderFotos() {
+  const sec = $('#sec-fotos');
+  const avs = avaliacoesOrdenadas().filter(temFotos);
+  if (avs.length < 1) { sec.hidden = true; return; }
+  const pri = avs[0], ult = avs[avs.length - 1];
+  const umSo = avs.length === 1;
+  const slots = [['frente', 'Frente'], ['lado', 'Perfil'], ['costas', 'Costas']];
+  const cel = (url, quando) => url
+    ? `<a class="foto-cel" href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="" loading="lazy"/><span class="foto-cap">${quando}</span></a>`
+    : `<div class="foto-cel vazia"><span>—</span><span class="foto-cap">${quando}</span></div>`;
+  const linhas = slots.map(([k, l]) => {
+    const a = pri.fotos?.[k], b = ult.fotos?.[k];
+    if (!a && !b) return '';
+    return `<div class="foto-linha"><span class="foto-lbl">${l}</span>
+      <div class="foto-par">${cel(a, 'Antes · ' + fmtData(pri.dataRealizada))}${umSo ? '' : cel(b, 'Agora · ' + fmtData(ult.dataRealizada))}</div></div>`;
+  }).filter(Boolean).join('');
+  sec.hidden = !linhas;
+  $('#fotos').innerHTML = linhas + (umSo ? '' : '');
+  $('#fotos-sub').textContent = umSo
+    ? 'Sua primeira foto de progresso. As próximas avaliações vão render a comparação.'
+    : `Comparando sua 1ª avaliação com fotos (${fmtData(pri.dataRealizada)}) e a mais recente (${fmtData(ult.dataRealizada)}).`;
+}
+
+/* ---------- Feedback pós-treino (aluno → coach) ---------- */
+function renderFeedback() {
+  const sec = $('#sec-feedback');
+  const email = emailAluno();
+  if (!email) { sec.hidden = true; return; }
+  const hj = new Date().toISOString().slice(0, 10);
+  const dorOpts = [['nenhuma', 'Nenhuma'], ['leve', 'Leve'], ['moderada', 'Moderada'], ['forte', 'Forte']];
+  $('#feedback').innerHTML = `
+    <form id="fb-form" class="fb-form" novalidate>
+      <p class="fb-intro">Acabou de treinar? Conta pro coach como foi — ele acompanha e ajusta seu treino.</p>
+      <label class="fb-field"><span>Data do treino</span><input type="date" id="fb-data" value="${hj}" max="${hj}" required></label>
+      <div class="fb-field"><span>Nível de esforço (RPE): <b id="fb-rpe-v">7</b>/10</span><input type="range" id="fb-rpe" min="1" max="10" value="7"></div>
+      <div class="fb-field"><span>Sentiu dor?</span><div class="fb-dor-opts" id="fb-dor">
+        ${dorOpts.map(([v, l], i) => `<button type="button" class="fb-chip${i === 0 ? ' on' : ''}" data-v="${v}">${l}</button>`).join('')}
+      </div></div>
+      <label class="fb-field"><span>Observações (opcional)</span><textarea id="fb-obs" rows="2" maxlength="400" placeholder="Ex.: costas travando no agachamento, energia baixa hoje…"></textarea></label>
+      <button class="btn" type="submit" id="fb-enviar">Enviar feedback</button>
+      <span class="fb-status" id="fb-status" hidden></span>
+    </form>`;
+  const rpe = $('#fb-rpe');
+  rpe.addEventListener('input', () => { $('#fb-rpe-v').textContent = rpe.value; });
+  let dor = 'nenhuma';
+  $$('#fb-dor .fb-chip').forEach((b) => b.addEventListener('click', () => { dor = b.dataset.v; $$('#fb-dor .fb-chip').forEach((x) => x.classList.toggle('on', x === b)); }));
+  $('#fb-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const st = $('#fb-status'), btn = $('#fb-enviar');
+    const fb = { id: 'fb' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), data: $('#fb-data').value || hj, esforco: Number(rpe.value), dor, obs: $('#fb-obs').value.trim(), criadoEm: Date.now() };
+    btn.disabled = true; st.hidden = false; st.classList.remove('erro'); st.textContent = 'Enviando…';
+    try { await enviarFeedback(email, fb); st.textContent = 'Enviado ao coach ✓'; $('#fb-obs').value = ''; }
+    catch (err) { console.warn('Feedback:', err?.code || err); st.classList.add('erro'); st.textContent = 'Não foi possível enviar agora.'; }
+    finally { btn.disabled = false; }
+  });
 }
 
 function renderAvaliacoes() {

@@ -226,6 +226,16 @@ button{font-family:inherit}
 .prog-ph{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   border:1px dashed var(--line-2);color:var(--mut-2);text-align:center;padding:24px;font-size:.9rem}
 .prog-ph svg{width:34px;height:34px;opacity:.5}
+.fb-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.fb-item{background:var(--bg-2);border:1px solid var(--line);padding:12px 14px}
+.fb-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:.9rem}
+.fb-data{font-weight:700}
+.fb-rpe{color:var(--mut)}.fb-rpe b{color:var(--txt)}
+.fb-dor{margin-left:auto;font-size:.78rem;padding:2px 9px;border:1px solid var(--line-2);border-radius:999px;color:var(--mut)}
+.fb-dor.ok{color:#3fb950;border-color:#3fb95055}
+.fb-dor.warn{color:#e3b341;border-color:#e3b34155}
+.fb-dor.bad{color:#ff5b50;border-color:#ff5b5055}
+.fb-obs{margin:8px 0 0;font-size:.88rem;color:var(--mut);line-height:1.45}
 .insights{display:flex;flex-direction:column;gap:10px}
 .insight{display:flex;align-items:center;gap:12px;background:var(--bg-2);border:1px solid var(--line);padding:12px 14px}
 .insight .ic{width:34px;height:34px;display:grid;place-items:center;color:var(--accent);border:1px solid var(--line-2)}
