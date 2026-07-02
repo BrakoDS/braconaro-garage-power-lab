@@ -26,6 +26,15 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
     }
 
+    // Avisos da Academia — mural único, publicado pelo coach e lido por todos.
+    //  - qualquer aluno autenticado LÊ;
+    //  - só o COACH (dono de gestao/{uid}) publica.
+    match /avisosPortal/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+    }
+
     // Caixa de entrada do aluno → coach (foto nova + feedbacks pós-treino).
     //  - o ALUNO lê/escreve apenas a própria caixa (id == e-mail logado);
     //  - o COACH (dono de gestao/{uid}) lê e limpa (merge para gestao/{uid}).

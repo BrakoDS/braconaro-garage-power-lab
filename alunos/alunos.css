@@ -226,6 +226,24 @@ button{font-family:inherit}
 .prog-ph{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   border:1px dashed var(--line-2);color:var(--mut-2);text-align:center;padding:24px;font-size:.9rem}
 .prog-ph svg{width:34px;height:34px;opacity:.5}
+/* ---------- Mural de avisos do Portal ---------- */
+.mural-form{background:var(--bg-2);border:1px solid var(--line);padding:16px;margin-bottom:20px;display:flex;flex-direction:column;gap:12px}
+.mural-actions{display:flex;align-items:center;gap:10px}
+.mural-list{display:flex;flex-direction:column;gap:12px}
+.mural-item{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--mut-2);padding:14px 16px}
+.mural-item.tipo-importante{border-left-color:#ff5b50}
+.mural-item.tipo-evento{border-left-color:var(--accent-2)}
+.mural-item.tipo-info{border-left-color:var(--accent)}
+.mural-item.off{opacity:.55}
+.mural-item h4{margin:8px 0 4px;font-size:1rem}
+.mural-item p{margin:0;color:var(--mut);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
+.mural-item-head{display:flex;align-items:center;gap:10px;font-size:.75rem}
+.mural-tag{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--txt)}
+.mural-data{color:var(--mut-2)}
+.mural-estado{margin-left:auto;color:var(--mut-2);text-transform:uppercase;letter-spacing:.08em;font-size:.68rem}
+.mural-item.off .mural-estado{color:#e3b341}
+.mural-item-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+
 .fb-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .fb-item{background:var(--bg-2);border:1px solid var(--line);padding:12px 14px}
 .fb-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:.9rem}

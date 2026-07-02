@@ -83,6 +83,18 @@ button{font-family:inherit}
 .wel-foto-msg{display:inline-block;margin-top:6px;font-size:.82rem;color:var(--accent-2)}
 .wel-foto-msg.erro{color:#ff5b50}
 
+/* ---------- Avisos da Academia ---------- */
+.avisos-grid{display:flex;flex-direction:column;gap:12px}
+.aviso-card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 16px}
+.aviso-card.tipo-importante{border-left-color:#ff5b50}
+.aviso-card.tipo-evento{border-left-color:var(--accent-2)}
+.aviso-card-head{display:flex;align-items:center;gap:10px;font-size:.74rem}
+.aviso-tag{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--txt)}
+.aviso-card.tipo-importante .aviso-tag{color:#ff5b50}
+.aviso-dt{color:var(--mut-2);margin-left:auto}
+.aviso-card h4{margin:8px 0 4px;font-size:1.02rem}
+.aviso-card p{margin:0;color:var(--mut);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
+
 /* ---------- Fotos de progresso (antes/depois) ---------- */
 .sec-sub{color:var(--mut);margin:-6px 0 14px;font-size:.9rem}
 .fotos-grid{display:flex;flex-direction:column;gap:18px}

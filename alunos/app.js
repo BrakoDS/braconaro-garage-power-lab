@@ -12,6 +12,7 @@ import * as storage from './storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js';
 import { publicarPortal } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
+import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -353,6 +354,83 @@ $('#aviso-list').addEventListener('click', (e) => {
   if (link) window.open(link, '_blank');
   avisoEnviados.add(b.dataset.id);
   renderAviso();
+});
+
+/* ============================================================
+   TELA — Mural de Avisos do Portal do Aluno
+   ============================================================ */
+const MURAL_TIPO = { info: 'Informativo', importante: 'Importante', evento: 'Evento' };
+let muralEdit = null; // id em edição, ou null
+
+function renderMural() {
+  const avisos = avisos_listar().slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  const list = $('#mural-list');
+  if (!avisos.length) {
+    list.innerHTML = `<div class="empty"><b>Nenhum aviso</b>Publique o primeiro recado — ele aparece no Portal do Aluno.</div>`;
+    return;
+  }
+  list.innerHTML = avisos.map((av) => {
+    const d = av.criadoEm ? new Date(av.criadoEm).toLocaleDateString('pt-BR') : '';
+    return `<div class="mural-item tipo-${esc(av.tipo || 'info')}${av.ativo === false ? ' off' : ''}">
+      <div class="mural-item-head">
+        <span class="mural-tag">${esc(MURAL_TIPO[av.tipo] || 'Informativo')}</span>
+        <span class="mural-data">${d}</span>
+        <span class="mural-estado">${av.ativo === false ? 'Oculto' : 'No ar'}</span>
+      </div>
+      <h4>${esc(av.titulo || '')}</h4>
+      <p>${esc(av.texto || '')}</p>
+      <div class="mural-item-actions">
+        <button class="btn ghost btn-sm mural-toggle" data-id="${esc(av.id)}" type="button">${av.ativo === false ? 'Reativar' : 'Ocultar'}</button>
+        <button class="btn ghost btn-sm mural-editar" data-id="${esc(av.id)}" type="button">Editar</button>
+        <button class="btn ghost btn-sm mural-excluir" data-id="${esc(av.id)}" type="button">Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function muralReset() {
+  muralEdit = null;
+  $('#mural-titulo').value = ''; $('#mural-texto').value = ''; $('#mural-tipo').value = 'info';
+  $('#mural-add').textContent = 'Publicar aviso';
+  $('#mural-cancelar').hidden = true;
+}
+
+$('#btn-mural').addEventListener('click', () => { muralReset(); renderMural(); mostrarTela('tela-mural'); });
+$('#mural-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#mural-cancelar').addEventListener('click', muralReset);
+
+$('#mural-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const titulo = $('#mural-titulo').value.trim(), texto = $('#mural-texto').value.trim();
+  if (!titulo || !texto) return;
+  const tipo = $('#mural-tipo').value;
+  const arr = avisos_listar();
+  if (muralEdit) {
+    const av = arr.find((x) => x.id === muralEdit);
+    if (av) { av.titulo = titulo; av.texto = texto; av.tipo = tipo; }
+  } else {
+    arr.push({ id: 'av' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), titulo, texto, tipo, ativo: true, criadoEm: Date.now() });
+  }
+  await avisos_salvar(arr);
+  muralReset(); renderMural();
+});
+
+$('#mural-list').addEventListener('click', async (e) => {
+  const id = e.target.closest('[data-id]')?.dataset.id; if (!id) return;
+  const arr = avisos_listar();
+  if (e.target.closest('.mural-toggle')) {
+    const av = arr.find((x) => x.id === id); if (av) av.ativo = av.ativo === false;
+    await avisos_salvar(arr); renderMural();
+  } else if (e.target.closest('.mural-editar')) {
+    const av = arr.find((x) => x.id === id); if (!av) return;
+    muralEdit = id; $('#mural-titulo').value = av.titulo || ''; $('#mural-texto').value = av.texto || ''; $('#mural-tipo').value = av.tipo || 'info';
+    $('#mural-add').textContent = 'Salvar alteração'; $('#mural-cancelar').hidden = false; $('#mural-titulo').focus();
+  } else if (e.target.closest('.mural-excluir')) {
+    if (!confirm('Excluir este aviso? Ele sai do Portal do Aluno.')) return;
+    await avisos_salvar(arr.filter((x) => x.id !== id));
+    if (muralEdit === id) muralReset();
+    renderMural();
+  }
 });
 
 /* ============================================================
@@ -1104,6 +1182,8 @@ function entrar(user) {
       }
       // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
       publicarPortal(db.listar());
+      // 3) puxa o mural de avisos da nuvem (para editar no mesmo estado em qualquer aparelho)
+      sincronizarAvisos();
     });
   }
 }

@@ -8,6 +8,7 @@
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario } from '../montador/ui/cloud.js';
 import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
+import { carregarAvisos } from './avisos-db.js';
 import * as calc from '../alunos/calc.js?v=2';
 
 /* ---------- Helpers ---------- */
@@ -436,6 +437,23 @@ async function entrar(user) {
   try { PORTAL = email ? await carregarPortal(email) : null; }
   catch (e) { PORTAL = null; console.warn('Portal:', e?.code || e); }
   render();
+  carregarAvisos().then(renderAvisos); // mural da academia (independe da fatia do aluno)
+}
+
+/* ---------- Avisos da Academia ---------- */
+const AVISO_TAG = { info: 'Informativo', importante: 'Importante', evento: 'Evento' };
+function renderAvisos(avisos) {
+  const sec = $('#sec-avisos');
+  if (!avisos || !avisos.length) { sec.hidden = true; return; }
+  sec.hidden = false;
+  $('#avisos').innerHTML = avisos.map((av) => {
+    const d = av.criadoEm ? new Date(av.criadoEm).toLocaleDateString('pt-BR') : '';
+    return `<article class="aviso-card tipo-${esc(av.tipo || 'info')}">
+      <div class="aviso-card-head"><span class="aviso-tag">${esc(AVISO_TAG[av.tipo] || 'Informativo')}</span><span class="aviso-dt">${d}</span></div>
+      <h4>${esc(av.titulo || '')}</h4>
+      <p>${esc(av.texto || '')}</p>
+    </article>`;
+  }).join('');
 }
 function erroMsg(m) { gErro.style.color = ''; gErro.textContent = m; gErro.style.display = 'block'; }
 function okMsg(m) { gErro.style.color = 'var(--ok)'; gErro.textContent = m; gErro.style.display = 'block'; }
