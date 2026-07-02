@@ -4,7 +4,7 @@
  *  - exportarAvaliacao(aluno, av): relatório de uma avaliação.
  *  - exportarFicha(aluno): ficha completa (dados + anamnese + PAR-Q + histórico).
  */
-import * as calc from './calc.js?v=2';
+import * as calc from './calc.js?v=3';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (v, d = 1) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -58,7 +58,43 @@ const STYLE = `
   figure img{width:100%;border:1px solid #ccc;border-radius:8px}
   figcaption{font-size:11px;color:#666;margin-top:4px}
   .ft{margin-top:26px;border-top:1px solid #e3e3e3;padding-top:10px;font-size:11px;color:#999;display:flex;justify-content:space-between}
-  @media print{body{padding:0 6px}}
+  @media print{body{padding:0 6px} .pagebreak{page-break-before:always}}
+
+  /* ---------- Relatório visual (avaliação) ---------- */
+  .hd2{display:flex;align-items:center;gap:14px;border-bottom:4px solid #f5c518;padding-bottom:14px;margin-bottom:18px}
+  .hd2 .hd-logo{width:46px;height:46px;border-radius:9px;flex:0 0 auto;display:block}
+  .hd2 .hd-brand{flex:1}
+  .hd2 .t1{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#777}
+  .hd2 .t2{font-size:20px;font-weight:800;margin-top:2px}
+  .hd2 .meta{text-align:right;font-size:12px;color:#444;line-height:1.55}
+  .stu-card{display:flex;justify-content:space-between;align-items:center;background:#fafafa;border:1px solid #eee;border-radius:10px;padding:14px 18px;margin-bottom:14px}
+  .stu-card .nm{font-size:16px;font-weight:800}
+  .stu-card .sub{font-size:12px;color:#666;margin-top:2px}
+  .peso-row{display:flex;align-items:center;justify-content:space-between;border-top:1px dashed #ddd;border-bottom:1px dashed #ddd;padding:12px 4px;margin:0 0 18px}
+  .peso-row .lbl{font-size:13px;color:#666;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .peso-row .val{font-size:24px;font-weight:800}
+  .sec-tt{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin:0 0 2px}
+  .comp-wrap{display:flex;align-items:center;gap:24px;margin:10px 0 22px}
+  .comp-legend{flex:1;font-size:13px;line-height:2.1}
+  .comp-legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
+  .comp-legend .dot.gorda{background:#ff5b50}
+  .comp-legend .dot.magra{background:#3fb950}
+  .comp-proto{font-size:11px;color:#999;margin-top:4px}
+  .gauge-card{border:1px solid #eee;border-radius:10px;padding:16px 18px 12px;margin-bottom:14px}
+  .gc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+  .gc-title{font-size:13px;font-weight:800}
+  .gc-sub{font-size:11px;color:#888;margin-top:1px}
+  .gc-pill{font-size:11px;font-weight:700;padding:4px 13px;border-radius:20px;color:#fff;white-space:nowrap}
+  .gauge{position:relative;margin-top:28px;padding-bottom:16px}
+  .g-bar{position:relative;display:flex;height:10px;border-radius:6px;overflow:hidden}
+  .g-bar span{height:100%}
+  .g-line{position:absolute;top:0;bottom:0;width:2px;background:#111;transform:translateX(-50%)}
+  .g-marker{position:absolute;top:-24px;transform:translateX(-50%);text-align:center;z-index:2}
+  .g-marker .g-val{display:inline-block;font-size:11px;font-weight:800;background:#111;color:#fff;padding:2px 7px;border-radius:4px;white-space:nowrap}
+  .g-marker .g-tri{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #111;margin:1px auto 0}
+  .g-ticks{position:relative;height:14px;margin-top:2px}
+  .g-tick{position:absolute;top:0;transform:translateX(-50%);font-size:9.5px;color:#999}
+  .refs{font-size:10.5px;color:#999;line-height:1.6;margin-top:6px}
 `;
 
 function abrirImpressao(title, inner) {
@@ -69,6 +105,63 @@ function abrirImpressao(title, inner) {
   const w = window.open('', '_blank');
   if (!w) { alert('Permita pop-ups para exportar o PDF.'); return; }
   w.document.open(); w.document.write(html); w.document.close();
+}
+
+/* ============================================================
+   Gauges e gráfico de composição (relatório visual)
+   ============================================================ */
+const LOGO_URL = new URL('../icons/icon-512.png', import.meta.url).href;
+
+/** Zona de classificação atual (cor + nome) a partir de uma faixa [limite, cor, nome][]. */
+function zonaAtual(valor, faixas) {
+  for (const [lim, cor, nome] of faixas) if (valor < lim) return { cor, nome };
+  return null;
+}
+
+/** Barra de faixas coloridas com marcador na posição do valor atual + ticks nos limites. */
+function gaugeHTML(valor, faixas, { min, max, dec = 1 } = {}) {
+  if (valor == null || !faixas?.length) return '<div class="gauge"></div>';
+  const bounds = faixas.map(([lim]) => (lim === Infinity ? max : lim));
+  let prev = min;
+  const segs = faixas.map(([, cor], i) => {
+    const to = Math.min(bounds[i], max);
+    const w = Math.max(0, ((to - Math.max(prev, min)) / (max - min)) * 100);
+    prev = bounds[i];
+    return `<span style="width:${w}%;background:${cor}"></span>`;
+  }).join('');
+  const val = Math.min(max, Math.max(min, valor));
+  const pct = ((val - min) / (max - min)) * 100;
+  const ticks = bounds.slice(0, -1).map((b) => `<span class="g-tick" style="left:${(((b - min) / (max - min)) * 100).toFixed(1)}%">${fmt(b, dec)}</span>`).join('');
+  return `<div class="gauge">
+    <div class="g-marker" style="left:${pct.toFixed(1)}%"><span class="g-val">${fmt(valor, dec)}</span><div class="g-tri"></div></div>
+    <div class="g-bar">${segs}<div class="g-line" style="left:${pct.toFixed(1)}%"></div></div>
+    <div class="g-ticks">${ticks}</div>
+  </div>`;
+}
+
+/** Cartão de indicador: título, faixa e selo de classificação colorido. */
+function gaugeCard(titulo, subtitulo, valor, faixas, opts) {
+  if (valor == null) return '';
+  const zona = zonaAtual(valor, faixas);
+  return `<div class="gauge-card">
+    <div class="gc-head">
+      <div><div class="gc-title">${esc(titulo)}</div><div class="gc-sub">${esc(subtitulo)}</div></div>
+      ${zona ? `<span class="gc-pill" style="background:${zona.cor}">${esc(zona.nome)}</span>` : ''}
+    </div>
+    ${gaugeHTML(valor, faixas, opts)}
+  </div>`;
+}
+
+/** Anel de composição corporal: vermelho = % gordura, verde = % massa magra. */
+function donutSVG(percGorda) {
+  const raio = 44, circ = 2 * Math.PI * raio;
+  const p = Math.min(100, Math.max(0, percGorda));
+  const len = (circ * p) / 100;
+  return `<svg width="112" height="112" viewBox="0 0 112 112">
+    <circle cx="56" cy="56" r="${raio}" fill="none" stroke="#3fb950" stroke-width="14"/>
+    <circle cx="56" cy="56" r="${raio}" fill="none" stroke="#ff5b50" stroke-width="14"
+      stroke-dasharray="${len.toFixed(1)} ${(circ - len).toFixed(1)}" transform="rotate(-90 56 56)"/>
+  </svg>`;
 }
 
 /* ============================================================
@@ -89,22 +182,45 @@ export function exportarAvaliacao(aluno, av) {
   const fotoTags = ['frente', 'lado', 'costas'].filter((s) => fotos[s])
     .map((s) => `<figure><img src="${esc(fotos[s])}"/><figcaption>${s[0].toUpperCase() + s.slice(1)}</figcaption></figure>`).join('');
 
-  const inner = `
-    <div class="hd">
-      <div><div class="t1">Braconaro Garage Power Lab</div><div class="t2">Avaliação Física</div></div>
+  // ---------- Página 1: relatório visual ----------
+  const temComposicao = r.perc != null && r.massaGorda != null && r.massaMagra != null;
+  const composicao = temComposicao ? `
+    <div class="sec-tt">Composição Corporal</div>
+    <div class="comp-proto">${esc(r.protocolo || 'Pollock')} · Jackson &amp; Pollock (1978/1980)</div>
+    <div class="comp-wrap">
+      ${donutSVG(r.perc)}
+      <div class="comp-legend">
+        <div><span class="dot gorda"></span>${fmt(r.perc)}% / ${fmt(r.massaGorda)} kg — Massa gorda</div>
+        <div><span class="dot magra"></span>${fmt(100 - r.perc)}% / ${fmt(r.massaMagra)} kg — Massa magra</div>
+      </div>
+    </div>` : '';
+
+  const gauges = [
+    r.perc != null ? gaugeCard('% de Gordura Corporal', 'Classificação por sexo (ACSM/ACE)', r.perc, calc.faixaGordura(r.cod), { min: 0, max: r.cod === 'F' ? 38 : 32, dec: 1 }) : '',
+    r.imc != null ? gaugeCard('IMC', 'Índice de Massa Corporal', r.imc, calc.FAIXA_IMC, { min: 14, max: 42, dec: 1 }) : '',
+    (r.rcq != null && r.cod) ? gaugeCard('RCQ', 'Relação Cintura-Quadril', r.rcq, calc.faixaRcq(r.cod), { min: 0.65, max: 1.05, dec: 2 }) : '',
+    rce != null ? gaugeCard('RCEst', 'Relação Cintura-Estatura', rce, calc.FAIXA_RCEST, { min: 0.35, max: 0.75, dec: 2 }) : '',
+  ].filter(Boolean).join('');
+
+  const pagina1 = `
+    <div class="hd2">
+      <img class="hd-logo" src="${LOGO_URL}" alt="" />
+      <div class="hd-brand"><div class="t1">Braconaro Garage Power Lab</div><div class="t2">Relatório de Avaliação Física</div></div>
       <div class="meta">Avaliação #${String(av.num).padStart(2, '0')}<br/>Realizada: ${fmtData(av.dataRealizada)}<br/>Próxima: ${fmtData(av.dataProxima)}</div>
     </div>
-    <h2>Aluno</h2>
-    <table>${row('Nome', aluno.nome)}${row('ID', '#' + aluno.id)}${row('Sexo', aluno.sexo)}${row('Idade', r.idade ? r.idade + ' anos' : '')}${row('Objetivo', aluno.objetivo)}</table>
-    <h2>Resultados</h2>
-    <div class="cards">
-      <div class="card"><div class="l">% Gordura</div><div class="v">${r.perc != null ? fmt(r.perc) + '%' : '—'}</div><div class="s">${esc(r.percClass)}${r.protocolo ? ' · ' + r.protocolo : ''}</div></div>
-      <div class="card"><div class="l">IMC</div><div class="v">${fmt(r.imc)}</div><div class="s">${esc(r.imcClass)}</div></div>
-      <div class="card"><div class="l">Massa gorda</div><div class="v">${r.massaGorda != null ? fmt(r.massaGorda) : '—'}</div><div class="s">kg</div></div>
-      <div class="card"><div class="l">Massa magra</div><div class="v">${r.massaMagra != null ? fmt(r.massaMagra) : '—'}</div><div class="s">kg</div></div>
-      <div class="card"><div class="l">RCQ</div><div class="v">${r.rcq != null ? fmt(r.rcq, 2) : '—'}</div><div class="s">${esc(r.rcqClass)}</div></div>
-      <div class="card"><div class="l">Cintura/estatura</div><div class="v">${rce != null ? fmt(rce, 2) : '—'}</div><div class="s">${esc(calc.classifRcest(rce))}</div></div>
+    <div class="stu-card">
+      <div><div class="nm">${esc(aluno.nome || '')}</div><div class="sub">${[aluno.objetivo, r.idade ? r.idade + ' anos' : '', aluno.sexo].filter(Boolean).join(' · ') || '—'}</div></div>
+      <div class="sub">#${esc(aluno.id)}</div>
     </div>
+    <div class="peso-row"><span class="lbl">Peso</span><span class="val">${av.peso ? fmt(numf(av.peso), 1) + ' kg' : '—'}</span></div>
+    ${composicao}
+    ${gauges}
+    <div class="refs">Referências: % de gordura (ACSM/ACE) e IMC (OMS), por faixa etária/sexo · RCQ e RCEst (OMS/IDF) — risco cardiometabólico.
+    Os valores desta avaliação são estimativas antropométricas e não substituem avaliação médica.</div>`;
+
+  // ---------- Página 2: detalhes técnicos ----------
+  const pagina2 = `
+    <div class="pagebreak"></div>
     <h2>Medidas</h2>
     <table>${row('Peso', av.peso ? av.peso + ' kg' : '')}${row('Estatura', av.estatura ? av.estatura + ' cm' : '')}${row('Soma das dobras' + (r.protocolo ? ' (' + r.protocolo + ')' : ''), r.soma != null ? r.soma + ' mm' : '')}</table>
     ${(av.pas || av.fc || av.spo2) ? `<h2>Sinais vitais</h2><table>${row('Pressão arterial', av.pas && av.pad ? `${av.pas}/${av.pad} mmHg (${calc.classifPressao(av.pas, av.pad)})` : '')}${row('Freq. cardíaca', av.fc ? av.fc + ' bpm' : '')}${row('Saturação SpO₂', av.spo2 ? av.spo2 + '% (' + calc.classifSpo2(av.spo2) + ')' : '')}</table>` : ''}
@@ -115,7 +231,8 @@ export function exportarAvaliacao(aluno, av) {
     <h2>Condições no dia</h2><div class="blk">${cond}</div>
     ${av.obs ? `<h2>Observações</h2><div class="blk">${esc(av.obs)}</div>` : ''}
     ${fotoTags ? `<h2>Fotos de progresso</h2><div class="fotos">${fotoTags}</div>` : ''}`;
-  abrirImpressao(`Avaliação ${aluno.nome} #${String(av.num).padStart(2, '0')}`, inner);
+
+  abrirImpressao(`Avaliação ${aluno.nome} #${String(av.num).padStart(2, '0')}`, pagina1 + pagina2);
 }
 
 /* ============================================================

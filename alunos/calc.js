@@ -64,14 +64,19 @@ export function imc(peso, estaturaCm) {
   const m = e / 100;
   return p / (m * m);
 }
+/** Faixas de IMC: [limite superior (exclusivo), cor, classificação]. Fonte única — usada no cálculo e no PDF. */
+export const FAIXA_IMC = [
+  [18.5, '#4aa8ff', 'Abaixo do peso'],
+  [25, '#3fb950', 'Peso normal'],
+  [30, '#e3b341', 'Sobrepeso'],
+  [35, '#ff9f43', 'Obesidade I'],
+  [40, '#ff5b50', 'Obesidade II'],
+  [Infinity, '#b3261e', 'Obesidade III'],
+];
 export function classifImc(v) {
   if (v == null) return '';
-  if (v < 18.5) return 'Abaixo do peso';
-  if (v < 25) return 'Peso normal';
-  if (v < 30) return 'Sobrepeso';
-  if (v < 35) return 'Obesidade I';
-  if (v < 40) return 'Obesidade II';
-  return 'Obesidade III';
+  for (const [lim, , nome] of FAIXA_IMC) if (v < lim) return nome;
+  return '';
 }
 
 /** Densidade corporal — Pollock 3 dobras (J&P). soma em mm, idade em anos. */
@@ -90,12 +95,20 @@ export function densidade7(soma, idade, cod) {
 /** % de gordura por Siri a partir da densidade. */
 export function siri(D) { return D ? 495 / D - 450 : null; }
 
+/** Faixas de % de gordura (ACSM/ACE) por sexo: [limite superior, cor, classificação]. */
+export const FAIXA_GORDURA_M = [
+  [6, '#4aa8ff', 'Essencial'], [14, '#3fb950', 'Atletas'], [18, '#8bc34a', 'Bom'],
+  [25, '#e3b341', 'Aceitável'], [Infinity, '#ff5b50', 'Acima do ideal'],
+];
+export const FAIXA_GORDURA_F = [
+  [14, '#4aa8ff', 'Essencial'], [21, '#3fb950', 'Atletas'], [25, '#8bc34a', 'Bom'],
+  [32, '#e3b341', 'Aceitável'], [Infinity, '#ff5b50', 'Acima do ideal'],
+];
+export function faixaGordura(cod) { return cod === 'F' ? FAIXA_GORDURA_F : FAIXA_GORDURA_M; }
 /** Classificação geral do % de gordura (faixas ACSM/ACE), por sexo. */
 export function classifGordura(perc, cod) {
   if (perc == null || !cod) return '';
-  const M = [[6, 'Essencial'], [14, 'Atletas'], [18, 'Bom'], [25, 'Aceitável'], [Infinity, 'Acima do ideal']];
-  const F = [[14, 'Essencial'], [21, 'Atletas'], [25, 'Bom'], [32, 'Aceitável'], [Infinity, 'Acima do ideal']];
-  for (const [lim, nome] of (cod === 'F' ? F : M)) if (perc < lim) return nome;
+  for (const [lim, , nome] of faixaGordura(cod)) if (perc < lim) return nome;
   return '';
 }
 
@@ -104,12 +117,15 @@ export function rcq(cintura, quadril) {
   if (!c || !q) return null;
   return c / q;
 }
+/** Faixas de RCQ por sexo: [limite superior, cor, classificação]. */
+export function faixaRcq(cod) {
+  const lim = cod === 'F' ? 0.85 : 0.90;
+  return [[lim, '#3fb950', 'Risco baixo'], [lim + 0.10, '#e3b341', 'Risco moderado'], [Infinity, '#ff5b50', 'Risco alto']];
+}
 export function classifRcq(v, cod) {
   if (v == null || !cod) return '';
-  const lim = cod === 'F' ? 0.85 : 0.90;
-  if (v < lim) return 'Risco baixo';
-  if (v < lim + 0.10) return 'Risco moderado';
-  return 'Risco alto';
+  for (const [lim, , nome] of faixaRcq(cod)) if (v < lim) return nome;
+  return '';
 }
 
 /** Classificação da pressão arterial (diretriz tipo ACC/AHA). */
@@ -138,11 +154,12 @@ export function rcest(cintura, estaturaCm) {
   if (!c || !e) return null;
   return c / e;
 }
+/** Faixas de Relação Cintura-Estatura: [limite superior, cor, classificação]. */
+export const FAIXA_RCEST = [[0.5, '#3fb950', 'Saudável'], [0.6, '#e3b341', 'Risco aumentado'], [Infinity, '#ff5b50', 'Risco alto']];
 export function classifRcest(v) {
   if (v == null) return '';
-  if (v < 0.5) return 'Saudável';
-  if (v < 0.6) return 'Risco aumentado';
-  return 'Risco alto';
+  for (const [lim, , nome] of FAIXA_RCEST) if (v < lim) return nome;
+  return '';
 }
 
 /** Calcula todos os resultados de uma avaliação (com o aluno para sexo/idade). */
