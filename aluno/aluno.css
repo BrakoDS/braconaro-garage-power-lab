@@ -128,3 +128,7 @@ button{font-family:inherit}
 .cmp-table td:first-child{color:var(--mut)}
 .cmp-table td:not(:first-child){font-family:var(--font-cond);font-weight:600}
 .cmp-sec td{font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;color:var(--accent);padding-top:14px;border-bottom:1px solid var(--line-2)}
+
+.gate-voltar{display:block;text-align:center;margin-top:10px;color:var(--mut-2);font-size:.82rem;
+  font-family:var(--font-cond);letter-spacing:.04em;text-transform:uppercase}
+.gate-voltar:hover{color:var(--accent)}
