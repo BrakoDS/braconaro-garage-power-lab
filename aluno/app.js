@@ -25,6 +25,16 @@ function sinal(v, d = 1) { return v == null ? '—' : (v > 0 ? '+' : v < 0 ? '�
 /** @type {any} */
 let PORTAL = null;
 
+/* ---------- Pagamento via Pix (dados do box) ---------- */
+const PIX = {
+  chave: '66567011000166',              // o que é copiado (CNPJ sem pontuação)
+  chaveFmt: '66.567.011/0001-66',       // como é exibida
+  tipo: 'CNPJ',
+  recebedor: '66.567.011 Guilherme Braconaro da Silva',
+  banco: 'Mercado Pago IP Ltda.',
+  whatsapp: '5514998660352',
+};
+
 /* ============================================================
    Render do dashboard
    ============================================================ */
@@ -134,15 +144,53 @@ function renderFinanceiro() {
   const st = statusFin(mesId);
   const lbl = st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
   const M = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const mesNome = M[Number(mesId.split('-')[1]) - 1];
+
+  // Painel Pix — só quando ainda não está pago
+  const pixHtml = st === 'pago' ? '' : `
+    <button class="btn pix-btn" id="btn-pix" type="button">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 2 12l10 10 10-10L12 2zm0 3.2L18.8 12 12 18.8 5.2 12 12 5.2z"/></svg>
+      Pagar com Pix
+    </button>
+    <div class="pix-panel" id="pix-panel" hidden>
+      <div class="pix-head"><span class="pix-titulo">Pague com Pix</span><span class="pix-valor">${brl(valor)}</span></div>
+      <div class="pix-chave-box">
+        <div>
+          <span class="pix-cap">Chave Pix (${PIX.tipo})</span>
+          <span class="pix-chave">${esc(PIX.chaveFmt)}</span>
+        </div>
+        <button class="btn btn-sm" id="pix-copiar" type="button">Copiar chave</button>
+      </div>
+      <div class="pix-dados">
+        <div><span class="pix-cap">Recebedor</span><span>${esc(PIX.recebedor)}</span></div>
+        <div><span class="pix-cap">Instituição</span><span>${esc(PIX.banco)}</span></div>
+      </div>
+      <p class="pix-hint">Confira o nome do recebedor no seu banco antes de confirmar. Depois de pagar, envie o comprovante:</p>
+      <a class="btn ghost pix-wa" href="https://wa.me/${PIX.whatsapp}?text=${encodeURIComponent(`Olá! Fiz o Pix da mensalidade de ${mesNome}. Segue o comprovante:`)}" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.86 9.86 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.91-7.02z"/></svg>
+        Enviar comprovante no WhatsApp
+      </a>
+    </div>`;
+
   $('#financeiro').innerHTML = `
     <div class="fin-box">
       <div>
-        <div class="fin-cap">Mensalidade · ${M[Number(mesId.split('-')[1]) - 1]}</div>
+        <div class="fin-cap">Mensalidade · ${mesNome}</div>
         <div class="fin-val">${brl(valor)}</div>
         ${PORTAL.vencimento ? `<div class="av-sub">vence dia ${esc(PORTAL.vencimento)}</div>` : ''}
       </div>
       <span class="fin-badge ${st}">${lbl}</span>
-    </div>`;
+    </div>
+    ${pixHtml}`;
+
+  const btnPix = $('#btn-pix');
+  if (btnPix) btnPix.addEventListener('click', () => { const p = $('#pix-panel'); p.hidden = !p.hidden; });
+  const btnCopiar = $('#pix-copiar');
+  if (btnCopiar) btnCopiar.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(PIX.chave); } catch { /* fallback abaixo */ }
+    btnCopiar.textContent = 'Copiado ✓';
+    setTimeout(() => { btnCopiar.textContent = 'Copiar chave'; }, 1800);
+  });
 }
 
 function renderAvaliacoes() {

@@ -142,3 +142,24 @@ button{font-family:inherit}
 .chart .ax{stroke:var(--line-2);stroke-width:1}
 .chart .clbl{fill:var(--mut-2);font-family:var(--font-cond);font-size:12px}
 @media(max-width:640px){ .prog-grid{grid-template-columns:1fr} }
+
+/* ---------- Pagamento via Pix ---------- */
+.pix-btn{margin-top:12px;width:100%}
+.pix-btn svg{width:18px;height:18px}
+.pix-panel{margin-top:12px;background:var(--bg-2);border:1px solid rgba(245,197,24,.35);padding:18px 20px;
+  clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
+  box-shadow:0 18px 50px -30px var(--glow)}
+.pix-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
+.pix-titulo{font-family:var(--font-display);font-weight:400;text-transform:uppercase;letter-spacing:.02em;font-size:1.1rem}
+.pix-valor{font-family:var(--font-display);font-size:1.3rem;color:var(--accent)}
+.pix-cap{display:block;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+  font-size:.68rem;color:var(--mut-2);margin-bottom:2px}
+.pix-chave-box{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  background:var(--card);border:1px dashed var(--line-2);padding:12px 14px;margin-bottom:12px}
+.pix-chave{font-family:var(--font-cond);font-weight:700;font-size:1.25rem;letter-spacing:.06em;color:var(--txt)}
+.pix-dados{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:12px}
+.pix-dados span:not(.pix-cap){font-size:.9rem;color:var(--txt)}
+.pix-hint{color:var(--mut);font-size:.82rem;margin:0 0 12px;line-height:1.5}
+.pix-wa{width:100%;justify-content:center}
+.pix-wa svg{width:17px;height:17px}
+@media(max-width:560px){ .pix-dados{grid-template-columns:1fr} }
