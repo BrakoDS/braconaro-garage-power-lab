@@ -132,3 +132,13 @@ button{font-family:inherit}
 .gate-voltar{display:block;text-align:center;margin-top:10px;color:var(--mut-2);font-size:.82rem;
   font-family:var(--font-cond);letter-spacing:.04em;text-transform:uppercase}
 .gate-voltar:hover{color:var(--accent)}
+
+/* ---------- Evolução (gráficos) ---------- */
+.prog-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.prog-card{background:var(--card);border:1px solid var(--line);padding:20px}
+.prog-card h4{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  font-size:.86rem;color:var(--txt);margin:0 0 10px}
+.chart{width:100%;height:auto;display:block;margin-top:4px}
+.chart .ax{stroke:var(--line-2);stroke-width:1}
+.chart .clbl{fill:var(--mut-2);font-family:var(--font-cond);font-size:12px}
+@media(max-width:640px){ .prog-grid{grid-template-columns:1fr} }

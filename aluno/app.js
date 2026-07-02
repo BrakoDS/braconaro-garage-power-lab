@@ -48,8 +48,56 @@ function render() {
 
   if (!temDados) return;
   renderProgresso();
+  renderEvolucao();
   renderFinanceiro();
   renderAvaliacoes();
+}
+
+const fmtDataCurta = (iso) => { if (!iso) return ''; const [, m, d] = iso.split('-'); return `${d}/${m}`; };
+
+/** Gráfico SVG de uma série [{d:isoDate, y:number}]. */
+function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
+  const W = 600, H = 180, pad = { l: 46, r: 14, t: 16, b: 28 };
+  const ys = serie.map((p) => p.y);
+  let min = Math.min(...ys), max = Math.max(...ys);
+  if (min === max) { min -= 1; max += 1; }
+  const rng = max - min; min -= rng * 0.15; max += rng * 0.15;
+  const n = serie.length;
+  const X = (i) => pad.l + (n === 1 ? 0 : (i / (n - 1)) * (W - pad.l - pad.r));
+  const Y = (v) => pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b);
+  const pts = serie.map((p, i) => [X(i), Y(p.y)]);
+  const linha = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = linha + ` L ${pts[n - 1][0].toFixed(1)} ${H - pad.b} L ${pts[0][0].toFixed(1)} ${H - pad.b} Z`;
+  const dots = pts.map((p) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="${cor}"/>`).join('');
+  const yMax = Math.max(...ys), yMin = Math.min(...ys);
+  const gid = 'g' + Math.random().toString(36).slice(2, 7);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cor}" stop-opacity="0.25"/><stop offset="1" stop-color="${cor}" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H - pad.b}" class="ax"/>
+    <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" class="ax"/>
+    <text x="${pad.l - 6}" y="${(Y(yMax) + 4).toFixed(1)}" class="clbl" text-anchor="end">${fmt(yMax, 1)}</text>
+    <text x="${pad.l - 6}" y="${(Y(yMin) + 4).toFixed(1)}" class="clbl" text-anchor="end">${fmt(yMin, 1)}</text>
+    <path d="${area}" fill="url(#${gid})"/>
+    <path d="${linha}" fill="none" stroke="${cor}" stroke-width="2.5" stroke-linejoin="round"/>
+    ${dots}
+    <text x="${X(0).toFixed(1)}" y="${H - 9}" class="clbl" text-anchor="start">${fmtDataCurta(serie[0].d)}</text>
+    <text x="${X(n - 1).toFixed(1)}" y="${H - 9}" class="clbl" text-anchor="end">${fmtDataCurta(serie[n - 1].d)}</text>
+  </svg>`;
+}
+
+function renderEvolucao() {
+  const avs = avaliacoesOrdenadas();
+  const serie = (getY) => avs.map((av) => ({ d: av.dataRealizada, y: getY(av) })).filter((p) => p.y != null && !isNaN(p.y));
+  const sPeso = serie((av) => numf(av.peso));
+  const sPerc = serie((av) => calc.calcular(av, alunoLike()).perc);
+  const sCintura = serie((av) => numf(av.perimetros?.cintura));
+  const card = (titulo, s, cor) => `<div class="prog-card"><h4>${titulo}</h4>${chartSVG(s, { cor })}</div>`;
+  const cards = [];
+  if (sPeso.length >= 2) cards.push(card('Evolução do peso (kg)', sPeso, 'var(--accent)'));
+  if (sPerc.length >= 2) cards.push(card('% Gordura corporal', sPerc, '#ff5b50'));
+  if (sCintura.length >= 2) cards.push(card('Cintura (cm)', sCintura, 'var(--accent-2)'));
+  $('#sec-evolucao').hidden = cards.length === 0;
+  $('#evolucao').innerHTML = cards.join('');
 }
 
 function renderProgresso() {
