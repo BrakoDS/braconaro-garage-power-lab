@@ -29,7 +29,7 @@ const ANAMNESE_LABELS = [
 ];
 
 const STYLE = `
-  *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
+  *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}
   body{margin:0;color:#111;background:#fff;padding:34px}
   .hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #f5c518;padding-bottom:12px;margin-bottom:18px}
   .hd .t1{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#777}
@@ -58,7 +58,10 @@ const STYLE = `
   figure img{width:100%;border:1px solid #ccc;border-radius:8px}
   figcaption{font-size:11px;color:#666;margin-top:4px}
   .ft{margin-top:26px;border-top:1px solid #e3e3e3;padding-top:10px;font-size:11px;color:#999;display:flex;justify-content:space-between}
-  @media print{body{padding:0 6px} .pagebreak{page-break-before:always}}
+  @media print{
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
+    body{padding:0 6px} .pagebreak{page-break-before:always}
+  }
 
   /* ---------- Relatório visual (avaliação) ---------- */
   .hd2{display:flex;align-items:center;gap:14px;border-bottom:4px solid #f5c518;padding-bottom:14px;margin-bottom:18px}
