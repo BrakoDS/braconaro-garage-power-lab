@@ -33,7 +33,56 @@ const PIX = {
   recebedor: '66.567.011 Guilherme Braconaro da Silva',
   banco: 'Mercado Pago IP Ltda.',
   whatsapp: '5514998660352',
+  nomeQr: 'GUILHERME BRACONARO',        // p/ o BR Code (máx. 25 chars, sem acento)
+  cidadeQr: 'AGUDOS',                   // p/ o BR Code (máx. 15 chars)
 };
+
+/* ---------- BR Code (Pix copia e cola) ---------- */
+/** CRC16-CCITT (0xFFFF / 0x1021), exigido no fim do payload Pix. */
+function pixCrc16(payload) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= payload.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) { crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1); crc &= 0xFFFF; }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+/** Campo TLV do EMV: id + tamanho (2 díg.) + valor. */
+const tlv = (id, v) => id + String(v.length).padStart(2, '0') + v;
+/** Payload estático do Pix com valor embutido (padrão BR Code / Banco Central). */
+function pixCopiaECola(valor) {
+  const mai = tlv('00', 'br.gov.bcb.pix') + tlv('01', PIX.chave);
+  let p = tlv('00', '01') + tlv('26', mai) + tlv('52', '0000') + tlv('53', '986');
+  if (valor > 0) p += tlv('54', valor.toFixed(2));
+  p += tlv('58', 'BR') + tlv('59', PIX.nomeQr) + tlv('60', PIX.cidadeQr) + tlv('62', tlv('05', '***')) + '6304';
+  return p + pixCrc16(p);
+}
+
+/* ---------- QR Code (lib carregada sob demanda) ---------- */
+let _qrLibP = null;
+function qrLib() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  if (!_qrLibP) {
+    _qrLibP = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+      s.onload = () => res(window.qrcode);
+      s.onerror = () => { _qrLibP = null; rej(new Error('qr-lib')); };
+      document.head.appendChild(s);
+    });
+  }
+  return _qrLibP;
+}
+/** Desenha o QR do payload dentro de `el` (SVG). Silencioso se a lib falhar. */
+async function desenharQr(el, payload) {
+  try {
+    const lib = await qrLib();
+    const qr = lib(0, 'M');
+    qr.addData(payload);
+    qr.make();
+    el.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  } catch { el.closest('.pix-qr-wrap')?.setAttribute('hidden', ''); }
+}
 
 /* ============================================================
    Render do dashboard
@@ -147,6 +196,7 @@ function renderFinanceiro() {
   const mesNome = M[Number(mesId.split('-')[1]) - 1];
 
   // Painel Pix — só quando ainda não está pago
+  const payload = pixCopiaECola(valor);
   const pixHtml = st === 'pago' ? '' : `
     <button class="btn pix-btn" id="btn-pix" type="button">
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 2 12l10 10 10-10L12 2zm0 3.2L18.8 12 12 18.8 5.2 12 12 5.2z"/></svg>
@@ -154,13 +204,23 @@ function renderFinanceiro() {
     </button>
     <div class="pix-panel" id="pix-panel" hidden>
       <div class="pix-head"><span class="pix-titulo">Pague com Pix</span><span class="pix-valor">${brl(valor)}</span></div>
-      <div class="pix-chave-box">
-        <div>
-          <span class="pix-cap">Chave Pix (${PIX.tipo})</span>
-          <span class="pix-chave">${esc(PIX.chaveFmt)}</span>
-        </div>
-        <button class="btn btn-sm" id="pix-copiar" type="button">Copiar chave</button>
+
+      <div class="pix-qr-wrap">
+        <div class="pix-qr" id="pix-qr"></div>
+        <span class="pix-qr-cap">Abra o app do seu banco → <b>Pix</b> → <b>Ler QR Code</b><br>O valor já vem preenchido.</span>
       </div>
+
+      <div class="pix-cec">
+        <span class="pix-cap">Pix copia e cola</span>
+        <div class="pix-cec-box"><code id="pix-payload">${esc(payload)}</code></div>
+        <button class="btn btn-sm pix-cec-btn" id="pix-copiar-cec" type="button">Copiar código Pix</button>
+      </div>
+
+      <div class="pix-chave-box">
+        <div><span class="pix-cap">Ou use a chave (${PIX.tipo})</span><span class="pix-chave">${esc(PIX.chaveFmt)}</span></div>
+        <button class="btn ghost btn-sm" id="pix-copiar" type="button">Copiar chave</button>
+      </div>
+
       <div class="pix-dados">
         <div><span class="pix-cap">Recebedor</span><span>${esc(PIX.recebedor)}</span></div>
         <div><span class="pix-cap">Instituição</span><span>${esc(PIX.banco)}</span></div>
@@ -184,13 +244,29 @@ function renderFinanceiro() {
     ${pixHtml}`;
 
   const btnPix = $('#btn-pix');
-  if (btnPix) btnPix.addEventListener('click', () => { const p = $('#pix-panel'); p.hidden = !p.hidden; });
-  const btnCopiar = $('#pix-copiar');
-  if (btnCopiar) btnCopiar.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(PIX.chave); } catch { /* fallback abaixo */ }
-    btnCopiar.textContent = 'Copiado ✓';
-    setTimeout(() => { btnCopiar.textContent = 'Copiar chave'; }, 1800);
+  let qrFeito = false;
+  if (btnPix) btnPix.addEventListener('click', () => {
+    const p = $('#pix-panel'); p.hidden = !p.hidden;
+    if (!p.hidden && !qrFeito) { qrFeito = true; desenharQr($('#pix-qr'), payload); }
   });
+  const btnChave = $('#pix-copiar');
+  if (btnChave) btnChave.addEventListener('click', () => copiarTexto(btnChave, PIX.chave, 'Copiar chave'));
+  const btnCec = $('#pix-copiar-cec');
+  if (btnCec) btnCec.addEventListener('click', () => copiarTexto(btnCec, payload, 'Copiar código Pix'));
+}
+
+/** Copia texto para a área de transferência com fallback (execCommand). */
+async function copiarTexto(btn, texto, label) {
+  try { await navigator.clipboard.writeText(texto); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); } catch {}
+    ta.remove();
+  }
+  const orig = btn.textContent; btn.textContent = 'Copiado ✓';
+  setTimeout(() => { btn.textContent = label || orig; }, 1800);
 }
 
 function renderAvaliacoes() {

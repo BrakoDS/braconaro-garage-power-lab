@@ -163,3 +163,15 @@ button{font-family:inherit}
 .pix-wa{width:100%;justify-content:center}
 .pix-wa svg{width:17px;height:17px}
 @media(max-width:560px){ .pix-dados{grid-template-columns:1fr} }
+
+/* ---------- Pix: QR Code + copia e cola ---------- */
+.pix-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:16px}
+.pix-qr{width:200px;height:200px;background:#fff;padding:10px;border-radius:6px}
+.pix-qr svg{width:100%;height:100%;display:block}
+.pix-qr-cap{text-align:center;color:var(--mut);font-size:.8rem;line-height:1.5}
+.pix-qr-cap b{color:var(--txt)}
+.pix-cec{margin-bottom:12px}
+.pix-cec-box{background:var(--card);border:1px dashed var(--line-2);padding:10px 12px;margin:4px 0 8px;overflow:hidden}
+.pix-cec-box code{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem;
+  color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pix-cec-btn{width:100%}
