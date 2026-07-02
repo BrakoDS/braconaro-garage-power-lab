@@ -162,6 +162,25 @@ export function classifRcest(v) {
   return '';
 }
 
+/** Faixas de água corporal (% do peso) por sexo — referência 45-60% (mulheres) / 50-65% (homens). */
+export function faixaAgua(cod) {
+  const [lo, hi] = cod === 'F' ? [45, 60] : [50, 65];
+  return [[lo, '#e3b341', 'Baixo'], [hi, '#3fb950', 'Ideal'], [Infinity, '#e3b341', 'Alto']];
+}
+export function classifAgua(v, cod) {
+  if (v == null || !cod) return '';
+  for (const [lim, , nome] of faixaAgua(cod)) if (v < lim) return nome;
+  return '';
+}
+
+/** Faixas de gordura visceral (nível 1-30, escala comum de balanças de bioimpedância). */
+export const FAIXA_VISCERAL = [[10, '#3fb950', 'Normal'], [15, '#e3b341', 'Alto'], [Infinity, '#ff5b50', 'Muito alto']];
+export function classifVisceral(v) {
+  if (v == null) return '';
+  for (const [lim, , nome] of FAIXA_VISCERAL) if (v < lim) return nome;
+  return '';
+}
+
 /** Calcula todos os resultados de uma avaliação (com o aluno para sexo/idade). */
 export function calcular(av, aluno) {
   const cod = sexoCod(aluno);

@@ -4,7 +4,7 @@
  *  - exportarAvaliacao(aluno, av): relatório de uma avaliação.
  *  - exportarFicha(aluno): ficha completa (dados + anamnese + PAR-Q + histórico).
  */
-import * as calc from './calc.js?v=3';
+import * as calc from './calc.js?v=4';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (v, d = 1) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -80,20 +80,28 @@ const STYLE = `
   .comp-legend .dot.gorda{background:#ff5b50}
   .comp-legend .dot.magra{background:#3fb950}
   .comp-proto{font-size:11px;color:#999;margin-top:4px}
-  .gauge-card{border:1px solid #eee;border-radius:10px;padding:16px 18px 12px;margin-bottom:14px}
-  .gc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
-  .gc-title{font-size:13px;font-weight:800}
-  .gc-sub{font-size:11px;color:#888;margin-top:1px}
-  .gc-pill{font-size:11px;font-weight:700;padding:4px 13px;border-radius:20px;color:#fff;white-space:nowrap}
-  .gauge{position:relative;margin-top:28px;padding-bottom:16px}
-  .g-bar{position:relative;display:flex;height:10px;border-radius:6px;overflow:hidden}
+
+  /* Cartão de indicador: ícone | régua+ticks | legenda de faixas */
+  .ga-row{display:flex;gap:16px;align-items:center;border:1px solid #eee;border-radius:10px;padding:14px 18px;margin-bottom:12px}
+  .ga-icon{width:52px;height:52px;border-radius:50%;background:#12203a;color:#f5c518;flex:0 0 auto;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:13px;line-height:1.1}
+  .ga-icon span{font-size:8.5px;color:#cbd5e1;font-weight:600;margin-top:1px;text-transform:uppercase;letter-spacing:.03em}
+  .ga-mid{flex:1;min-width:0}
+  .ga-title-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;gap:8px}
+  .ga-title{font-size:13px;font-weight:800;white-space:nowrap}
+  .ga-sub{font-size:10.5px;color:#999}
+  .ga-badge{font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;color:#fff;white-space:nowrap}
+  .gauge{position:relative;margin-top:8px;padding-bottom:14px}
+  .g-bar{position:relative;display:flex;height:20px;border-radius:10px;overflow:visible}
   .g-bar span{height:100%}
-  .g-line{position:absolute;top:0;bottom:0;width:2px;background:#111;transform:translateX(-50%)}
-  .g-marker{position:absolute;top:-24px;transform:translateX(-50%);text-align:center;z-index:2}
-  .g-marker .g-val{display:inline-block;font-size:11px;font-weight:800;background:#111;color:#fff;padding:2px 7px;border-radius:4px;white-space:nowrap}
-  .g-marker .g-tri{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #111;margin:1px auto 0}
-  .g-ticks{position:relative;height:14px;margin-top:2px}
-  .g-tick{position:absolute;top:0;transform:translateX(-50%);font-size:9.5px;color:#999}
+  .g-bar span:first-child{border-radius:10px 0 0 10px}
+  .g-bar span:last-child{border-radius:0 10px 10px 0}
+  .g-val{position:absolute;top:50%;transform:translate(-50%,-50%);background:#12203a;color:#fff;
+    font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:8px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .g-ticks{position:relative;height:13px;margin-top:3px}
+  .g-tick{position:absolute;top:0;transform:translateX(-50%);font-size:9px;color:#999}
+  .ga-legend{flex:0 0 132px;font-size:9.5px;line-height:1.85;border-left:1px solid #eee;padding-left:12px;color:#555}
+  .ga-legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
   .refs{font-size:10.5px;color:#999;line-height:1.6;margin-top:6px}
 `;
 
@@ -118,7 +126,7 @@ function zonaAtual(valor, faixas) {
   return null;
 }
 
-/** Barra de faixas coloridas com marcador na posição do valor atual + ticks nos limites. */
+/** Régua de faixas coloridas com o valor atual flutuando sobre a barra + ticks nos limites. */
 function gaugeHTML(valor, faixas, { min, max, dec = 1 } = {}) {
   if (valor == null || !faixas?.length) return '<div class="gauge"></div>';
   const bounds = faixas.map(([lim]) => (lim === Infinity ? max : lim));
@@ -133,22 +141,26 @@ function gaugeHTML(valor, faixas, { min, max, dec = 1 } = {}) {
   const pct = ((val - min) / (max - min)) * 100;
   const ticks = bounds.slice(0, -1).map((b) => `<span class="g-tick" style="left:${(((b - min) / (max - min)) * 100).toFixed(1)}%">${fmt(b, dec)}</span>`).join('');
   return `<div class="gauge">
-    <div class="g-marker" style="left:${pct.toFixed(1)}%"><span class="g-val">${fmt(valor, dec)}</span><div class="g-tri"></div></div>
-    <div class="g-bar">${segs}<div class="g-line" style="left:${pct.toFixed(1)}%"></div></div>
+    <div class="g-bar">${segs}<span class="g-val" style="left:${pct.toFixed(1)}%">${fmt(valor, dec)}</span></div>
     <div class="g-ticks">${ticks}</div>
   </div>`;
 }
 
-/** Cartão de indicador: título, faixa e selo de classificação colorido. */
-function gaugeCard(titulo, subtitulo, valor, faixas, opts) {
+/** Cartão de indicador no estilo "ícone + régua + legenda de faixas". */
+function gaugeCard({ icone, unidadeIcone, titulo, subtitulo, valor, faixas, opts }) {
   if (valor == null) return '';
   const zona = zonaAtual(valor, faixas);
-  return `<div class="gauge-card">
-    <div class="gc-head">
-      <div><div class="gc-title">${esc(titulo)}</div><div class="gc-sub">${esc(subtitulo)}</div></div>
-      ${zona ? `<span class="gc-pill" style="background:${zona.cor}">${esc(zona.nome)}</span>` : ''}
+  const legenda = faixas.map(([, cor, nome]) => `<div><span class="dot" style="background:${cor}"></span>${esc(nome)}</div>`).join('');
+  return `<div class="ga-row">
+    <div class="ga-icon">${esc(icone)}${unidadeIcone ? `<span>${esc(unidadeIcone)}</span>` : ''}</div>
+    <div class="ga-mid">
+      <div class="ga-title-row">
+        <div><span class="ga-title">${esc(titulo)}</span> <span class="ga-sub">${esc(subtitulo)}</span></div>
+        ${zona ? `<span class="ga-badge" style="background:${zona.cor}">${esc(zona.nome)}</span>` : ''}
+      </div>
+      ${gaugeHTML(valor, faixas, opts)}
     </div>
-    ${gaugeHTML(valor, faixas, opts)}
+    <div class="ga-legend">${legenda}</div>
   </div>`;
 }
 
@@ -195,11 +207,20 @@ export function exportarAvaliacao(aluno, av) {
       </div>
     </div>` : '';
 
+  const agua = numf(av.aguaCorporal), visceral = numf(av.gorduraVisceral);
   const gauges = [
-    r.perc != null ? gaugeCard('% de Gordura Corporal', 'Classificação por sexo (ACSM/ACE)', r.perc, calc.faixaGordura(r.cod), { min: 0, max: r.cod === 'F' ? 38 : 32, dec: 1 }) : '',
-    r.imc != null ? gaugeCard('IMC', 'Índice de Massa Corporal', r.imc, calc.FAIXA_IMC, { min: 14, max: 42, dec: 1 }) : '',
-    (r.rcq != null && r.cod) ? gaugeCard('RCQ', 'Relação Cintura-Quadril', r.rcq, calc.faixaRcq(r.cod), { min: 0.65, max: 1.05, dec: 2 }) : '',
-    rce != null ? gaugeCard('RCEst', 'Relação Cintura-Estatura', rce, calc.FAIXA_RCEST, { min: 0.35, max: 0.75, dec: 2 }) : '',
+    r.perc != null && gaugeCard({ icone: '%', unidadeIcone: 'gordura', titulo: '% de Gordura Corporal', subtitulo: 'ACSM/ACE, por sexo',
+      valor: r.perc, faixas: calc.faixaGordura(r.cod), opts: { min: 0, max: r.cod === 'F' ? 38 : 32, dec: 1 } }),
+    r.imc != null && gaugeCard({ icone: 'IMC', unidadeIcone: 'kg/m²', titulo: 'IMC', subtitulo: 'Índice de Massa Corporal',
+      valor: r.imc, faixas: calc.FAIXA_IMC, opts: { min: 14, max: 42, dec: 1 } }),
+    (r.rcq != null && r.cod) && gaugeCard({ icone: 'RCQ', unidadeIcone: 'cintura/quadril', titulo: 'RCQ', subtitulo: 'Relação Cintura-Quadril',
+      valor: r.rcq, faixas: calc.faixaRcq(r.cod), opts: { min: 0.65, max: 1.05, dec: 2 } }),
+    rce != null && gaugeCard({ icone: 'C/E', unidadeIcone: 'cintura/altura', titulo: 'RCEst', subtitulo: 'Relação Cintura-Estatura',
+      valor: rce, faixas: calc.FAIXA_RCEST, opts: { min: 0.35, max: 0.75, dec: 2 } }),
+    (agua != null && r.cod) && gaugeCard({ icone: 'H₂O', unidadeIcone: '% do peso', titulo: 'Água Corporal', subtitulo: 'Bioimpedância',
+      valor: agua, faixas: calc.faixaAgua(r.cod), opts: { min: r.cod === 'F' ? 35 : 40, max: r.cod === 'F' ? 70 : 75, dec: 1 } }),
+    visceral != null && gaugeCard({ icone: 'GV', unidadeIcone: 'nível', titulo: 'Gordura Visceral', subtitulo: 'Bioimpedância',
+      valor: visceral, faixas: calc.FAIXA_VISCERAL, opts: { min: 1, max: 20, dec: 0 } }),
   ].filter(Boolean).join('');
 
   const pagina1 = `
@@ -213,9 +234,11 @@ export function exportarAvaliacao(aluno, av) {
       <div class="sub">#${esc(aluno.id)}</div>
     </div>
     <div class="peso-row"><span class="lbl">Peso</span><span class="val">${av.peso ? fmt(numf(av.peso), 1) + ' kg' : '—'}</span></div>
+    ${av.massaOssea ? `<div class="peso-row"><span class="lbl">Massa óssea</span><span class="val">${fmt(numf(av.massaOssea), 2)} kg</span></div>` : ''}
     ${composicao}
     ${gauges}
-    <div class="refs">Referências: % de gordura (ACSM/ACE) e IMC (OMS), por faixa etária/sexo · RCQ e RCEst (OMS/IDF) — risco cardiometabólico.
+    <div class="refs">Referências: % de gordura (ACSM/ACE) e IMC (OMS), por faixa etária/sexo · RCQ e RCEst (OMS/IDF) — risco cardiometabólico ·
+    Água corporal e gordura visceral seguem escalas usuais de balanças de bioimpedância, quando informadas.
     Os valores desta avaliação são estimativas antropométricas e não substituem avaliação médica.</div>`;
 
   // ---------- Página 2: detalhes técnicos ----------
@@ -224,6 +247,7 @@ export function exportarAvaliacao(aluno, av) {
     <h2>Medidas</h2>
     <table>${row('Peso', av.peso ? av.peso + ' kg' : '')}${row('Estatura', av.estatura ? av.estatura + ' cm' : '')}${row('Soma das dobras' + (r.protocolo ? ' (' + r.protocolo + ')' : ''), r.soma != null ? r.soma + ' mm' : '')}</table>
     ${(av.pas || av.fc || av.spo2) ? `<h2>Sinais vitais</h2><table>${row('Pressão arterial', av.pas && av.pad ? `${av.pas}/${av.pad} mmHg (${calc.classifPressao(av.pas, av.pad)})` : '')}${row('Freq. cardíaca', av.fc ? av.fc + ' bpm' : '')}${row('Saturação SpO₂', av.spo2 ? av.spo2 + '% (' + calc.classifSpo2(av.spo2) + ')' : '')}</table>` : ''}
+    ${(av.aguaCorporal || av.gorduraVisceral || av.massaOssea) ? `<h2>Bioimpedância</h2><table>${row('Água corporal', av.aguaCorporal ? av.aguaCorporal + '% (' + calc.classifAgua(numf(av.aguaCorporal), r.cod) + ')' : '')}${row('Gordura visceral', av.gorduraVisceral ? 'Nível ' + av.gorduraVisceral + ' (' + calc.classifVisceral(numf(av.gorduraVisceral)) + ')' : '')}${row('Massa óssea', av.massaOssea ? av.massaOssea + ' kg' : '')}</table>` : ''}
     <h2>Dobras cutâneas</h2><div class="blk">${dobras || '—'}</div>
     <h2>Perímetros</h2><div class="blk">${perim || '—'}</div>
     ${testes ? `<h2>Testes físicos</h2><div class="blk">${testes}</div>` : ''}

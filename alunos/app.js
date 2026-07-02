@@ -7,9 +7,9 @@
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../montador/ui/cloud.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
 import * as db from './db.js';
-import * as calc from './calc.js?v=3';
+import * as calc from './calc.js?v=4';
 import * as storage from './storage-alunos.js';
-import { exportarAvaliacao, exportarFicha } from './pdf.js';
+import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
@@ -25,6 +25,7 @@ db.aoGravar(agendarPublicarPortal);
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
 const hoje = () => new Date().toISOString().slice(0, 10);
 function fmtData(iso) { if (!iso) return '—'; const [a, m, d] = iso.split('-'); return `${d}/${m}/${a}`; }
 function addDias(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
@@ -673,6 +674,7 @@ function lerAval(form) {
     dataRealizada: g('dataRealizada'), dataProxima: g('dataProxima'),
     peso: g('peso'), estatura: g('estatura'), obs: g('obs'),
     pas: g('pas'), pad: g('pad'), fc: g('fc'), spo2: g('spo2'),
+    aguaCorporal: g('aguaCorporal'), gorduraVisceral: g('gorduraVisceral'), massaOssea: g('massaOssea'),
     cond: { jejum: !!fd.get('cond_jejum'), semTreino: !!fd.get('cond_semTreino'), roupasLeves: !!fd.get('cond_roupasLeves'), bexiga: !!fd.get('cond_bexiga') },
     dobras: {}, perimetros: {},
   };
@@ -702,6 +704,9 @@ function renderResultados(av, aluno) {
   if (av.pas && av.pad) cards.push({ t: 'Pressão arterial', v: `${av.pas}/${av.pad}`, s: 'mmHg · ' + calc.classifPressao(av.pas, av.pad) });
   if (av.fc) cards.push({ t: 'Freq. cardíaca', v: `${av.fc}`, s: 'bpm' });
   if (av.spo2) cards.push({ t: 'Saturação SpO₂', v: `${av.spo2}%`, s: calc.classifSpo2(av.spo2) });
+  if (av.aguaCorporal) cards.push({ t: 'Água corporal', v: `${av.aguaCorporal}%`, s: calc.classifAgua(numf(av.aguaCorporal), r.cod) });
+  if (av.gorduraVisceral) cards.push({ t: 'Gordura visceral', v: `Nível ${av.gorduraVisceral}`, s: calc.classifVisceral(numf(av.gorduraVisceral)) });
+  if (av.massaOssea) cards.push({ t: 'Massa óssea', v: `${av.massaOssea} kg`, s: '' });
   $('#aval-resultados').innerHTML = cards.map((c) => `<div class="res${c.hi ? ' hi' : ''}"><span class="rt">${c.t}</span><span class="rv">${c.v}</span>${c.s ? `<span class="rs">${esc(c.s)}</span>` : ''}</div>`).join('');
 }
 
@@ -737,6 +742,11 @@ function abrirFormAvaliacao(num) {
         <div class="field"><label>Pressão arterial (mmHg)</label><div class="pa-row"><input name="pas" type="number" inputmode="numeric" min="0" step="any" value="${esc(av.pas ?? '')}" placeholder="120" /><span>/</span><input name="pad" type="number" inputmode="numeric" min="0" step="any" value="${esc(av.pad ?? '')}" placeholder="80" /></div></div>
         <div class="field"><label>Freq. cardíaca (bpm)</label>${f('fc', av.fc, '70')}</div>
         <div class="field"><label>Saturação SpO₂ (%)</label>${f('spo2', av.spo2, '98')}</div>
+      </div></div>
+      <div class="form-sec"><h3>Bioimpedância (opcional)</h3><p class="hint" style="margin:0 0 10px">Preencha se tiver os dados de uma balança de bioimpedância. Sem ela, deixe em branco.</p><div class="grid-form g3">
+        <div class="field"><label>Água corporal (%)</label>${f('aguaCorporal', av.aguaCorporal, '55')}</div>
+        <div class="field"><label>Gordura visceral (nível)</label>${f('gorduraVisceral', av.gorduraVisceral, '4')}</div>
+        <div class="field"><label>Massa óssea (kg)</label>${f('massaOssea', av.massaOssea, '2.5')}</div>
       </div></div>
       <div class="form-sec"><h3>Dobras cutâneas (mm) · Pollock 7</h3>${avisoSexo}${avisoIdade}
         <div class="grid-form g3">${dobras.map((d) => `<div class="field"><label>${d.label}</label>${f('dobra_' + d.key, dz[d.key])}</div>`).join('')}</div>
@@ -915,6 +925,13 @@ function renderComparacao(numA, numB) {
     if (avA.pas || avB.pas) rows.push(`<tr><td>Pressão arterial</td><td>${avA.pas && avA.pad ? esc(avA.pas + '/' + avA.pad) : '—'}</td><td>${avB.pas && avB.pad ? esc(avB.pas + '/' + avB.pad) : '—'}</td><td></td></tr>`);
     lin('Freq. cardíaca', nf(avA.fc), nf(avB.fc), 'bpm', 0, 'down');
     lin('Saturação SpO₂', nf(avA.spo2), nf(avB.spo2), '%', 0, 'up');
+  }
+
+  if (avA.aguaCorporal || avB.aguaCorporal || avA.gorduraVisceral || avB.gorduraVisceral || avA.massaOssea || avB.massaOssea) {
+    sec('Bioimpedância');
+    lin('Água corporal', nf(avA.aguaCorporal), nf(avB.aguaCorporal), '%', 1, null);
+    lin('Gordura visceral', nf(avA.gorduraVisceral), nf(avB.gorduraVisceral), '', 0, 'down');
+    lin('Massa óssea', nf(avA.massaOssea), nf(avB.massaOssea), 'kg', 2, null);
   }
 
   sec('Testes físicos');

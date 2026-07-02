@@ -9,7 +9,7 @@ import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario
 import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
-import * as calc from '../alunos/calc.js?v=3';
+import * as calc from '../alunos/calc.js?v=4';
 
 /* ---------- Helpers ---------- */
 const $ = (s, r = document) => r.querySelector(s);
