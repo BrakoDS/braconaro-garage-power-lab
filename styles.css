@@ -416,6 +416,8 @@ section.block { padding-block: var(--section-y); position: relative; }
 .tbene b { font-family: var(--font-cond); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 1.12rem; }
 .tbene p { color: var(--muted); margin: 3px 0 0; font-size: 0.95rem; line-height: 1.5; }
 
+.tv-foto { display: flex; justify-content: center; }
+.tv-foto img { width: 100%; max-width: 460px; height: auto; display: block; filter: drop-shadow(0 26px 55px rgba(0,0,0,0.6)); }
 .tv-mock { background: linear-gradient(180deg, #111114, #0b0b0d); border: 1px solid var(--line-2); border-radius: 14px; padding: 18px 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
 .tv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .tv-title { font-family: var(--font-display); letter-spacing: 0.05em; font-size: 1.15rem; }
