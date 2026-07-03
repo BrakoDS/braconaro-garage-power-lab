@@ -10,6 +10,8 @@ import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js';
+import { carregarRanking } from './ranking-db.js';
+import * as game from './gamificacao.js';
 import * as calc from '../alunos/calc.js?v=4';
 
 /* ---------- Helpers ---------- */
@@ -578,6 +580,90 @@ function desenharNutricao() {
 
 $('#ir-nutricao')?.addEventListener('click', abrirNutricao);
 $('#nut-voltar')?.addEventListener('click', fecharNutricao);
+
+/* ============================================================
+   Conquistas (gamificação)
+   ============================================================ */
+let CONQ_RANKING = null;
+
+async function abrirConquistas() {
+  $('#view-dashboard').hidden = true;
+  $('#view-conquistas').hidden = false;
+  window.scrollTo(0, 0);
+  $('#conq-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
+  if (NUT == null) {
+    try { NUT = await carregarNutricao(emailAluno()); }
+    catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [] }; }
+  }
+  if (CONQ_RANKING == null) CONQ_RANKING = (await carregarRanking()) || { mes: '', itens: [] };
+  desenharConquistas();
+}
+function fecharConquistas() {
+  $('#view-conquistas').hidden = true;
+  $('#view-dashboard').hidden = false;
+  window.scrollTo(0, 0);
+}
+
+function desenharConquistas() {
+  const dias = game.diasTreino(PORTAL?.presencas, NUT?.gastos);
+  const streak = game.streakSemanas(dias);
+  const c = game.contadores(dias);
+  const nAval = avaliacoesOrdenadas().length;
+  const meds = game.medalhas({ total: c.total, mes: c.mes, semana: c.semana, streak, nAvaliacoes: nAval });
+  const conquistadas = meds.filter((m) => m.ok).length;
+  const prs = game.recordes(PORTAL?.avaliacoes);
+
+  const heroStreak = `
+    <div class="cq-hero">
+      <div class="cq-streak"><span class="cq-fogo">🔥</span><span class="cq-num">${streak}</span><span class="cq-lbl">${streak === 1 ? 'semana' : 'semanas'} seguidas</span></div>
+      <div class="cq-mini">
+        <div><b>${c.semana}</b><span>esta semana</span></div>
+        <div><b>${c.mes}</b><span>no mês</span></div>
+        <div><b>${c.total}</b><span>no total</span></div>
+      </div>
+    </div>
+    ${streak === 0 ? '<p class="cq-dica">Treinou essa semana? Registre na <b>Nutrição</b> ou peça o check-in — sua sequência começa no 1º treino. 💪</p>' : ''}`;
+
+  const medHtml = `<div class="cq-medalhas">${meds.map((m) => `
+    <div class="cq-med ${m.ok ? 'on' : 'off'}" title="${esc(m.desc)}">
+      <span class="cq-med-ic">${m.ic}</span><span class="cq-med-nm">${esc(m.nome)}</span><span class="cq-med-ds">${esc(m.desc)}</span>
+    </div>`).join('')}</div>`;
+
+  const prHtml = prs.length ? `<div class="cq-prs">${prs.map((r) => `
+    <div class="cq-pr"><span class="cq-pr-ic">${r.ic}</span><span class="cq-pr-v">${fmt(r.valor, 0)}${r.un ? ' ' + r.un : ''}</span><span class="cq-pr-l">${esc(r.label)}</span>${r.quando ? `<span class="cq-pr-d">${fmtData(r.quando)}</span>` : ''}</div>`).join('')}</div>`
+    : `<div class="empty">Seus recordes aparecem aqui conforme você faz os testes físicos nas avaliações (flexões, prancha, agachamentos, abdominais).</div>`;
+
+  const rk = CONQ_RANKING || { mes: '', itens: [] };
+  const M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const mesLbl = rk.mes ? M[Number(rk.mes.split('-')[1]) - 1] : '';
+  const medalhaPos = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`);
+  const rankHtml = rk.itens.length ? `<div class="cq-rank">${rk.itens.map((it, i) => `
+    <div class="cq-rk-row${it.id === PORTAL?.id ? ' eu' : ''}">
+      <span class="cq-rk-pos">${medalhaPos(i)}</span>
+      <span class="cq-rk-nome">${esc(it.nome)}${it.id === PORTAL?.id ? ' <b>(você)</b>' : ''}</span>
+      <span class="cq-rk-n">${it.treinos} treino${it.treinos === 1 ? '' : 's'}</span>
+    </div>`).join('')}</div>`
+    : `<div class="empty">O ranking do mês aparece aqui assim que os treinos começarem a ser registrados.</div>`;
+
+  $('#conq-conteudo').innerHTML = `
+    <section class="nut-sec">${heroStreak}</section>
+    <section class="nut-sec">
+      <h3 class="sec-titulo">Medalhas <span class="cq-cont">${conquistadas}/${meds.length}</span></h3>
+      ${medHtml}
+    </section>
+    <section class="nut-sec">
+      <h3 class="sec-titulo">Seus recordes</h3>
+      ${prHtml}
+    </section>
+    <section class="nut-sec">
+      <h3 class="sec-titulo">Ranking do box${mesLbl ? ' · ' + mesLbl : ''}</h3>
+      <p class="sec-sub">Treinos registrados no mês (check-in + treinos lançados). Bora subir! 🚀</p>
+      ${rankHtml}
+    </section>`;
+}
+
+$('#ir-conquistas')?.addEventListener('click', abrirConquistas);
+$('#conq-voltar')?.addEventListener('click', fecharConquistas);
 
 /* ============================================================
    GATE de acesso (login do aluno)

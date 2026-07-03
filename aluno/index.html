@@ -53,6 +53,11 @@
       <!-- Atalhos (funcionalidades da área do aluno) -->
       <section id="sec-atalhos" hidden>
         <div class="atalhos">
+          <button class="atalho-card" id="ir-conquistas" type="button">
+            <span class="atalho-ic" aria-hidden="true">🏆</span>
+            <span class="atalho-tx"><b>Conquistas</b><small>Sua sequência, medalhas, recordes e o ranking do box</small></span>
+            <span class="atalho-seta" aria-hidden="true">›</span>
+          </button>
           <button class="atalho-card" id="ir-nutricao" type="button">
             <span class="atalho-ic" aria-hidden="true">🍎</span>
             <span class="atalho-tx"><b>Nutrição Básica</b><small>Metas de calorias e macros + gasto dos treinos</small></span>
@@ -114,6 +119,13 @@
         <h2 class="nut-h1">Nutrição Básica</h2>
         <div id="nut-conteudo"></div>
       </section>
+
+      <!-- View: Conquistas (gamificação) -->
+      <section id="view-conquistas" hidden>
+        <button class="nut-voltar" id="conq-voltar" type="button">← Voltar ao início</button>
+        <h2 class="nut-h1">Conquistas</h2>
+        <div id="conq-conteudo"></div>
+      </section>
     </main>
   </div>
 
@@ -129,6 +141,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=5"></script>
+  <script type="module" src="./app.js?v=6"></script>
 </body>
 </html>

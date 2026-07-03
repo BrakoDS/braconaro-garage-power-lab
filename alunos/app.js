@@ -14,6 +14,7 @@ import { publicarPortal } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
+import { publicarRanking } from './ranking-sync.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -247,6 +248,7 @@ async function atualizarGastoSemana() {
     });
     gastoSemanaMap = m;
     if ($('#tela-lista').classList.contains('active')) renderLista();
+    publicarRanking(db.listar(), bruto); // publica o ranking do box (mesmo mapa)
   } catch (e) { console.warn('Nutrição (lista):', e?.code || e); }
 }
 
