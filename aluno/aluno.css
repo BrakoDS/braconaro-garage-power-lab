@@ -140,6 +140,15 @@ button{font-family:inherit}
 .nl-x:hover{color:#ff5b50}
 @media(max-width:560px){.nut-metas{grid-template-columns:1fr}}
 
+/* ---------- Lembrete de mensalidade (banner) ---------- */
+.pag-banner{display:flex;align-items:center;gap:12px;padding:13px 16px;margin-top:14px;border:1px solid var(--line-2);flex-wrap:wrap}
+.pag-banner.pendente{background:rgba(227,179,65,.1);border-color:#e3b34155}
+.pag-banner.vencido{background:rgba(255,91,80,.1);border-color:#ff5b5055}
+.pag-banner .pb-ic{font-size:1.3rem;line-height:1}
+.pag-banner .pb-tx{flex:1;min-width:180px;font-size:.92rem}
+.pag-banner .pb-tx b{color:var(--txt)}
+.pag-banner .btn{flex:0 0 auto}
+
 /* ---------- Metas / objetivo ---------- */
 .metas-grid{display:flex;flex-direction:column;gap:12px}
 .meta-card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);padding:16px 18px}

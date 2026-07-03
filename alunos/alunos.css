@@ -245,6 +245,18 @@ button{font-family:inherit}
 .mural-item-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 
 .rkcal{color:var(--accent);font-weight:600;white-space:nowrap}
+/* Cobranças */
+.cob-grupo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:.78rem;color:var(--mut);margin:18px 0 8px}
+.cob-row{display:flex;align-items:center;gap:12px;background:var(--bg-2);border:1px solid var(--line);padding:11px 14px;margin-bottom:8px;flex-wrap:wrap}
+.cob-row.lembrado{opacity:.72}
+.cob-info{flex:1;min-width:150px}
+.cob-ok{color:#3fb950;font-size:.78rem;font-weight:600}
+.cob-badge{font-size:.75rem;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.cob-badge.vencido{background:#ff5b5022;color:#ff5b50}
+.cob-badge.hoje{background:#e3b34122;color:#e3b341}
+.cob-badge.breve{background:var(--bg-3);color:var(--mut)}
+.cob-wa{background:#25d366;border-color:#25d366;color:#0a2e17}
+.cob-semtel{font-size:.8rem;color:var(--mut-2)}
 /* Metas do aluno (coach) */
 .meta-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .meta-form select,.meta-form input{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:8px 10px;font:inherit;font-size:.9rem}

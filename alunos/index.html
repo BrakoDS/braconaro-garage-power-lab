@@ -52,6 +52,7 @@
             <button class="btn ghost btn-sm" id="btn-checkin" type="button">Check-in</button>
             <button class="btn ghost btn-sm" id="btn-agenda" type="button">Agenda</button>
             <button class="btn ghost btn-sm" id="btn-financeiro" type="button">Financeiro</button>
+            <button class="btn ghost btn-sm" id="btn-cobrancas" type="button">Cobranças</button>
             <button class="btn ghost btn-sm" id="btn-aviso" type="button">Avisar (WhatsApp)</button>
             <button class="btn ghost btn-sm" id="btn-mural" type="button">Avisos do Portal</button>
           </div>
@@ -80,6 +81,17 @@
         </div>
         <div class="fin-tot" id="fin-tot"></div>
         <div class="fin-list" id="fin-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: COBRANÇAS ----------- -->
+    <section id="tela-cobrancas" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="cob-voltar" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head"><span class="eyebrow">Cobranças · <span id="cob-mes-lbl">—</span></span></div>
+        <p class="hint" style="margin:6px 0 14px">Quem ainda não pagou este mês, do mais urgente ao menos. Toque em <b>WhatsApp</b> para enviar o lembrete já com o Pix.</p>
+        <div class="fin-tot" id="cob-tot"></div>
+        <div id="cob-list"></div>
       </div>
     </section>
 
@@ -288,6 +300,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=6"></script>
+  <script type="module" src="./app.js?v=7"></script>
 </body>
 </html>

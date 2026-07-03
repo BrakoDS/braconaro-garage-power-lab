@@ -126,6 +126,7 @@ function render() {
   renderMetas();
   renderEvolucao();
   renderFinanceiro();
+  renderPagLembrete();
   renderFotos();
   renderFeedback();
   renderAvaliacoes();
@@ -217,6 +218,29 @@ function renderProgresso() {
     card((PORTAL.presencas || []).length, 'Check-ins', 'presenças registradas') +
     card(ult?.peso ? fmt(numf(ult.peso), 1) : '—', 'Peso atual (kg)', avs.length >= 2 && dPeso != null ? `${sinal(dPeso)} kg desde a 1ª` : '') +
     card(rUlt?.perc != null ? fmt(rUlt.perc, 1) + '%' : '—', '% Gordura', avs.length >= 2 && dPerc != null ? `${sinal(dPerc)}% desde a 1ª` : '');
+}
+
+/* ---------- Lembrete de mensalidade (banner no topo) ---------- */
+function renderPagLembrete() {
+  const banner = $('#pag-banner');
+  const valor = numf(PORTAL?.mensalidade) || 0;
+  if (!valor) { banner.hidden = true; return; }
+  const mesId = new Date().toISOString().slice(0, 7);
+  const st = statusFin(mesId);
+  if (st === 'pago') { banner.hidden = true; return; }
+  const M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const mesNome = M[Number(mesId.split('-')[1]) - 1];
+  const txt = st === 'vencido'
+    ? `Sua mensalidade de ${mesNome} está <b>vencida</b>.`
+    : `Sua mensalidade de ${mesNome}${PORTAL.vencimento ? ` vence dia <b>${esc(String(PORTAL.vencimento))}</b>` : ' está em aberto'}.`;
+  banner.hidden = false;
+  banner.className = 'pag-banner ' + st;
+  banner.innerHTML = `<span class="pb-ic" aria-hidden="true">💳</span><span class="pb-tx">${txt} Pague em segundos pelo Pix.</span><button class="btn btn-sm" id="pb-pix" type="button">Pagar com Pix</button>`;
+  $('#pb-pix').addEventListener('click', () => {
+    $('#sec-financeiro')?.scrollIntoView({ behavior: 'smooth' });
+    const p = $('#pix-panel');
+    if (p && p.hidden) $('#btn-pix')?.click();
+  });
 }
 
 /* ---------- Metas / objetivo (read-only, definidas pelo coach) ---------- */

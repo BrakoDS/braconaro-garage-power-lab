@@ -335,6 +335,75 @@ $('#fin-next').addEventListener('click', () => { finMes = addMesFin(finMes, 1); 
 $('#fin-list').addEventListener('click', (e) => { const b = e.target.closest('.fin-toggle'); if (b) toggleFin(b.dataset.id, b.dataset.op === '1'); });
 
 /* ============================================================
+   TELA — Cobranças (lembrete de mensalidade)
+   ============================================================ */
+const PIX_CHAVE_FMT = '66.567.011/0001-66';   // CNPJ do box (para o lembrete)
+const PIX_NOME = 'Guilherme Braconaro';
+const cobLembrados = new Set();               // ids já avisados nesta sessão
+
+/** Dias até o vencimento no mês (negativo = atrasado). */
+function diasAteVenc(a, mesId) {
+  const [ano, m] = mesId.split('-').map(Number);
+  const ultimoDia = new Date(ano, m, 0).getDate();
+  const dia = Math.min(Math.max(1, parseInt(a.vencimento, 10) || 10), ultimoDia);
+  const venc = new Date(ano, m - 1, dia); venc.setHours(0, 0, 0, 0);
+  const h = new Date(); h.setHours(0, 0, 0, 0);
+  return Math.round((venc - h) / 86400000);
+}
+function msgCobranca(a, mesId) {
+  const nome = (a.nome || '').trim().split(/\s+/)[0] || '';
+  const mesNome = MESES_FIN[Number(mesId.split('-')[1]) - 1];
+  const valor = brl(numMoney(a.mensalidade));
+  const d = diasAteVenc(a, mesId);
+  const quando = d < 0 ? `venceu dia ${a.vencimento}` : d === 0 ? 'vence hoje' : `vence dia ${a.vencimento}`;
+  return `Olá, ${nome}! 😊 Passando pra lembrar da mensalidade de ${mesNome} (${valor}), que ${quando}. Pra facilitar, o Pix é a chave CNPJ ${PIX_CHAVE_FMT} (${PIX_NOME}) — dá pra pagar direto pelo Portal do Aluno também. Qualquer dúvida é só chamar! 💪`;
+}
+
+function renderCobrancas() {
+  const mesId = mesIdAtual();
+  $('#cob-mes-lbl').textContent = rotuloMesFin(mesId);
+  const pend = db.listar()
+    .filter((a) => (a.status || 'ativo') !== 'inativo' && numMoney(a.mensalidade) > 0 && statusFin(a, mesId) !== 'pago')
+    .map((a) => ({ a, d: diasAteVenc(a, mesId) }))
+    .sort((x, y) => x.d - y.d);
+  const vencidas = pend.filter((x) => x.d < 0);
+  const totalAtraso = vencidas.reduce((s, x) => s + numMoney(x.a.mensalidade), 0);
+  const totalPend = pend.reduce((s, x) => s + numMoney(x.a.mensalidade), 0);
+  $('#cob-tot').innerHTML = `
+    <div class="fin-card"><span class="fin-card-l">Vencidas</span><span class="fin-card-v${vencidas.length ? ' bad' : ''}">${vencidas.length}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Em atraso (R$)</span><span class="fin-card-v${totalAtraso > 0 ? ' bad' : ''}">${brl(totalAtraso)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">A receber no mês</span><span class="fin-card-v">${brl(totalPend)}</span></div>`;
+
+  const row = ({ a, d }) => {
+    const tel = String(a.telefone || '').replace(/\D/g, '');
+    const urg = d < 0 ? `<span class="cob-badge vencido">Atrasada ${Math.abs(d)}d</span>`
+      : d === 0 ? `<span class="cob-badge hoje">Vence hoje</span>`
+        : `<span class="cob-badge breve">Em ${d}d</span>`;
+    const feito = cobLembrados.has(a.id);
+    const wa = tel.length >= 10
+      ? `<a class="btn btn-sm cob-wa" href="${waMsg(a.telefone, msgCobranca(a, mesId))}" target="_blank" rel="noopener" data-id="${esc(a.id)}">${feito ? 'Reenviar' : 'WhatsApp'}</a>`
+      : `<span class="cob-semtel">sem telefone</span>`;
+    return `<div class="cob-row${feito ? ' lembrado' : ''}">
+      <div class="cob-info"><div class="fin-nome">${esc(a.nome)}${feito ? ' <span class="cob-ok">avisado ✓</span>' : ''}</div><div class="fin-sub">${brl(numMoney(a.mensalidade))} · vence dia ${esc(a.vencimento || '—')}</div></div>
+      ${urg}${wa}
+      <button class="btn ghost btn-sm cob-pago" data-id="${esc(a.id)}" type="button">Pago</button>
+    </div>`;
+  };
+  const grupo = (titulo, arr) => (arr.length ? `<h4 class="cob-grupo">${titulo}</h4>${arr.map(row).join('')}` : '');
+  const html = grupo('Vencidas', vencidas) + grupo('Vencem em breve (até 5 dias)', pend.filter((x) => x.d >= 0 && x.d <= 5)) + grupo('A vencer', pend.filter((x) => x.d > 5));
+  $('#cob-list').innerHTML = html || `<div class="empty"><b>Tudo em dia! 🎉</b>Nenhuma mensalidade pendente neste mês.</div>`;
+}
+
+$('#btn-cobrancas').addEventListener('click', () => { renderCobrancas(); mostrarTela('tela-cobrancas'); });
+$('#cob-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#cob-list').addEventListener('click', (e) => {
+  const wa = e.target.closest('.cob-wa');
+  if (wa) { cobLembrados.add(wa.dataset.id); setTimeout(renderCobrancas, 100); return; }
+  const pg = e.target.closest('.cob-pago');
+  if (pg) { const a = db.obter(pg.dataset.id); if (a) { const p = { ...(a.pagamentos || {}) }; p[mesIdAtual()] = true; db.atualizar(pg.dataset.id, { pagamentos: p }); renderCobrancas(); } }
+});
+
+/* ============================================================
    TELA — Aviso em massa (WhatsApp)
    ============================================================ */
 const AVISO_TPLS = [
