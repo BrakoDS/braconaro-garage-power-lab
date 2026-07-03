@@ -185,6 +185,11 @@
           <div class="field"><label>Ícone</label><div class="des-emojis" id="des-emojis"></div></div>
           <div class="grid-form">
             <div class="field"><label>Título</label><input id="des-titulo" type="text" maxlength="60" placeholder="Ex.: Semana da hidratação" required /></div>
+            <div class="field"><label>Categoria</label><select id="des-categoria">
+              <option value="geral">Geral</option>
+              <option value="agua">Água / hidratação</option>
+              <option value="acucar">Sem açúcar</option>
+            </select></div>
             <div class="field"><label>Meta (dias na semana)</label><input id="des-meta" type="number" min="1" max="7" value="5" required /></div>
           </div>
           <div class="field"><label>Descrição</label><textarea id="des-texto" rows="2" maxlength="240" placeholder="Ex.: Beba pelo menos 3 litros de água por dia." required></textarea></div>
@@ -323,6 +328,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=9"></script>
+  <script type="module" src="./app.js?v=10"></script>
 </body>
 </html>

@@ -660,13 +660,34 @@ function fecharConquistas() {
   window.scrollTo(0, 0);
 }
 
+/** Início do treino (ms): o mais antigo entre cadastro, 1ª presença e 1ª avaliação. */
+function inicioTreinoTs() {
+  const cands = [];
+  if (PORTAL?.criadoEm) cands.push(PORTAL.criadoEm);
+  const pres = (PORTAL?.presencas || []).slice().sort();
+  if (pres[0]) cands.push(new Date(pres[0] + 'T00:00:00').getTime());
+  const avs = avaliacoesOrdenadas();
+  if (avs[0]?.dataRealizada) cands.push(new Date(avs[0].dataRealizada + 'T00:00:00').getTime());
+  return cands.length ? Math.min(...cands) : null;
+}
+
 function desenharConquistas() {
   const dias = game.diasTreino(PORTAL?.presencas, NUT?.gastos);
   const streak = game.streakSemanas(dias);
   const c = game.contadores(dias);
   const nAval = avaliacoesOrdenadas().length;
-  const nDesafios = (DES_PROG?.concluidos || []).length;
-  const meds = game.medalhas({ total: c.total, mes: c.mes, semana: c.semana, streak, nAvaliacoes: nAval, desafios: nDesafios });
+  const concl = DES_PROG?.concluidos || [];
+  const gastos = NUT?.gastos || [];
+  const meds = game.medalhas({
+    total: c.total, mes: c.mes, semana: c.semana, streak, nAvaliacoes: nAval,
+    desafios: concl.length,
+    desAgua: concl.filter((x) => x.categoria === 'agua').length,
+    desAcucar: concl.filter((x) => x.categoria === 'acucar').length,
+    meses: game.mesesDesde(inicioTreinoTs()),
+    calMaxTreino: game.maxCaloriasTreino(gastos),
+    calMaxSemana: game.maxCaloriasSemana(gastos),
+    feedbacks: numf(PORTAL?.feedbacksCount) || 0,
+  });
   const conquistadas = meds.filter((m) => m.ok).length;
   const prs = game.recordes(PORTAL?.avaliacoes);
   const desafiosHtml = montarDesafiosHTML();
@@ -766,7 +787,7 @@ async function toggleDesafioDia(id, iso) {
     const meta = Math.max(1, d.metaDias || 5);
     DES_PROG.concluidos = DES_PROG.concluidos || [];
     const jaTem = DES_PROG.concluidos.some((c) => c.id === id && c.semana === seg);
-    if (feitos >= meta && !jaTem) DES_PROG.concluidos.push({ id, semana: seg, em: Date.now() });
+    if (feitos >= meta && !jaTem) DES_PROG.concluidos.push({ id, semana: seg, categoria: d.categoria || 'geral', em: Date.now() });
     if (feitos < meta && jaTem) DES_PROG.concluidos = DES_PROG.concluidos.filter((c) => !(c.id === id && c.semana === seg));
   }
   desenharConquistas();

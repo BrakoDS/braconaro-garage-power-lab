@@ -37,6 +37,8 @@ function fatia(a) {
     presencas: a.presencas || [],
     avaliacoes: a.avaliacoes || [],
     metas: a.metas || [],
+    criadoEm: a.criadoEm || null,
+    feedbacksCount: Array.isArray(a.feedbacks) ? a.feedbacks.length : 0,
     atualizadoEm: Date.now(),
   };
 }

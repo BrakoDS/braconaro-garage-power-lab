@@ -559,7 +559,7 @@ function renderDesafios() {
 }
 function desReset() {
   desEdit = null; desEmoji = '💧';
-  $('#des-titulo').value = ''; $('#des-texto').value = ''; $('#des-meta').value = '5';
+  $('#des-titulo').value = ''; $('#des-texto').value = ''; $('#des-meta').value = '5'; $('#des-categoria').value = 'geral';
   $('#des-add').textContent = 'Publicar desafio'; $('#des-cancelar').hidden = true;
   renderDesEmojis();
 }
@@ -573,13 +573,14 @@ $('#des-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const titulo = $('#des-titulo').value.trim(), descricao = $('#des-texto').value.trim();
   const metaDias = Math.min(7, Math.max(1, parseInt($('#des-meta').value, 10) || 5));
+  const categoria = $('#des-categoria').value || 'geral';
   if (!titulo || !descricao) return;
   const arr = des_listar();
   if (desEdit) {
     const d = arr.find((x) => x.id === desEdit);
-    if (d) { d.titulo = titulo; d.descricao = descricao; d.icone = desEmoji; d.metaDias = metaDias; }
+    if (d) { d.titulo = titulo; d.descricao = descricao; d.icone = desEmoji; d.metaDias = metaDias; d.categoria = categoria; }
   } else {
-    arr.push({ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), icone: desEmoji, titulo, descricao, metaDias, ativo: true, criadoEm: Date.now() });
+    arr.push({ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), icone: desEmoji, titulo, descricao, metaDias, categoria, ativo: true, criadoEm: Date.now() });
   }
   await des_salvar(arr);
   desReset(); renderDesafios();
@@ -593,7 +594,7 @@ $('#des-list').addEventListener('click', async (e) => {
   } else if (e.target.closest('.des-editar')) {
     const d = arr.find((x) => x.id === id); if (!d) return;
     desEdit = id; desEmoji = d.icone || '💧';
-    $('#des-titulo').value = d.titulo || ''; $('#des-texto').value = d.descricao || ''; $('#des-meta').value = String(d.metaDias || 5);
+    $('#des-titulo').value = d.titulo || ''; $('#des-texto').value = d.descricao || ''; $('#des-meta').value = String(d.metaDias || 5); $('#des-categoria').value = d.categoria || 'geral';
     $('#des-add').textContent = 'Salvar alteração'; $('#des-cancelar').hidden = false; renderDesEmojis(); $('#des-titulo').focus();
   } else if (e.target.closest('.des-excluir')) {
     if (!confirm('Excluir este desafio? Ele sai do Portal do Aluno.')) return;
