@@ -407,6 +407,39 @@ section.block { padding-block: var(--section-y); position: relative; }
 .mode-body p { color: var(--muted); font-size: 0.96rem; margin: 0; line-height: 1.5; }
 
 /* ============================================================
+   TECNOLOGIA / TREINO MONITORADO (uGym · Team Pulse)
+   ============================================================ */
+.tech-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center; margin-top: 40px; }
+.tech-benes { display: flex; flex-direction: column; gap: 18px; }
+.tbene { display: flex; gap: 14px; align-items: flex-start; }
+.tbene-ic { font-size: 1.7rem; line-height: 1; flex: 0 0 auto; }
+.tbene b { font-family: var(--font-cond); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 1.12rem; }
+.tbene p { color: var(--muted); margin: 3px 0 0; font-size: 0.95rem; line-height: 1.5; }
+
+.tv-mock { background: linear-gradient(180deg, #111114, #0b0b0d); border: 1px solid var(--line-2); border-radius: 14px; padding: 18px 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+.tv-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.tv-title { font-family: var(--font-display); letter-spacing: 0.05em; font-size: 1.15rem; }
+.tv-live { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-cond); font-weight: 700; letter-spacing: 0.14em; font-size: 0.75rem; color: #ff5b50; }
+.tv-live i { width: 9px; height: 9px; border-radius: 50%; background: #ff5b50; animation: tvpulse 1.2s ease-in-out infinite; }
+@keyframes tvpulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.65); } }
+.tv-rows { display: flex; flex-direction: column; gap: 10px; }
+.tv-row { display: grid; grid-template-columns: 18px 64px 1fr max-content max-content; align-items: center; gap: 10px; }
+.tv-pos { font-family: var(--font-cond); font-weight: 700; color: var(--muted-2); text-align: center; }
+.tv-nome { font-weight: 600; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-bar { height: 9px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
+.tv-bar i { display: block; height: 100%; border-radius: 5px; }
+.tv-bpm, .tv-kcal { font-family: var(--font-cond); font-weight: 700; font-size: 0.98rem; text-align: right; white-space: nowrap; }
+.tv-bpm small, .tv-kcal small { color: var(--muted-2); font-weight: 500; font-size: 0.72rem; }
+.tv-zonas { display: flex; flex-wrap: wrap; gap: 9px 16px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 0.72rem; color: var(--muted); }
+.tv-zonas span { display: inline-flex; align-items: center; gap: 6px; }
+.tv-zonas i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+.tech-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); }
+.tech-selo { font-family: var(--font-cond); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-size: 0.92rem; }
+.tech-selo b { color: var(--accent); }
+@media (max-width: 820px) { .tech-grid { grid-template-columns: 1fr; } }
+
+/* ============================================================
    PLANOS
    ============================================================ */
 .plans-toggle {
