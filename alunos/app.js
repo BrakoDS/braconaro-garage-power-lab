@@ -13,6 +13,7 @@ import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
+import { carregarGastoTreino } from './nutricao-read.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -1045,8 +1046,57 @@ function renderProgresso() {
       <div class="prog-card"><h4>Agachamentos (1 min)</h4>${chart(sAgach, { cor: 'var(--accent-2)' })}</div>
       <div class="prog-card"><h4>Abdominais (1 min)</h4>${chart(sAbd, { cor: '#ff5b50' })}</div>` : ''}
       <div class="prog-card full"><h4>Pontos que foram melhorados</h4><div class="insights">${insightsHTML(a, avs)}</div></div>
+      <div class="prog-card full"><h4>Gasto calórico de treino (semana)</h4><div id="prog-nutri"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
     </div>`;
+  carregarGastoSemana(a);
+}
+
+/* ---- Gasto calórico de treino (semana, vindo do Portal do Aluno) ---- */
+function semanaSegSab() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dow = hoje.getDay();
+  const mon = new Date(hoje); mon.setDate(hoje.getDate() + (dow === 0 ? -6 : 1 - dow));
+  return Array.from({ length: 6 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
+}
+function isoLocal(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+/** Gráfico de barras Seg–Sáb (kcal), no mesmo estilo dos gráficos do progresso. */
+function barrasNutri(valores, labels, hojeIso, dias) {
+  const W = 600, H = 190, pad = { l: 16, r: 12, t: 22, b: 28 };
+  const max = Math.max(1, ...valores);
+  const n = valores.length, areaW = W - pad.l - pad.r, step = areaW / n, bw = step * 0.56;
+  const Y = (v) => pad.t + (1 - v / max) * (H - pad.t - pad.b);
+  const bars = valores.map((v, i) => {
+    const x = pad.l + step * i + (step - bw) / 2, y = Y(v), h = (H - pad.b) - y;
+    const ehHoje = isoLocal(dias[i]) === hojeIso;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="4" fill="${ehHoje ? 'var(--accent)' : 'var(--accent-2)'}"/>
+      ${v > 0 ? `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" class="clbl" text-anchor="middle">${fmtN(v, 0)}</text>` : ''}
+      <text x="${(x + bw / 2).toFixed(1)}" y="${H - 9}" class="clbl" text-anchor="middle">${labels[i]}</text>`;
+  }).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gasto calórico por dia">
+    <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" class="ax"/>${bars}</svg>`;
+}
+
+async function carregarGastoSemana(a) {
+  const alvoId = a.id;
+  const el = $('#prog-nutri'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  if (!email) { el.innerHTML = `<div class="prog-ph">Aluno sem e-mail cadastrado — sem dados do Portal.</div>`; return; }
+  let dados;
+  try { dados = await carregarGastoTreino(email); }
+  catch (e) { console.warn('Nutrição:', e?.code || e); if ($('#prog-nutri') && alunoAtual?.id === alvoId) $('#prog-nutri').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`; return; }
+  if (!$('#prog-nutri') || alunoAtual?.id !== alvoId) return; // trocou de aluno enquanto carregava
+  const gastos = (dados && dados.gastos) || [];
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const dias = semanaSegSab();
+  const somaDia = dias.map((d) => { const iso = isoLocal(d); return gastos.filter((g) => g.data === iso).reduce((s, g) => s + (numf(g.calorias) || 0), 0); });
+  const total = somaDia.reduce((s, v) => s + v, 0);
+  if (!gastos.length) { $('#prog-nutri').innerHTML = `<div class="prog-ph">O aluno ainda não registrou treinos no Portal.</div>`; return; }
+  const hj = isoLocal(new Date());
+  $('#prog-nutri').innerHTML = `
+    <div class="nutri-total"><span>Total queimado (Seg–Sáb)</span><b>${fmtN(total, 0)} kcal</b></div>
+    ${barrasNutri(somaDia, ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], hj, dias)}`;
 }
 
 /** Lista os feedbacks pós-treino enviados pelo aluno no Portal (mais recentes primeiro). */
