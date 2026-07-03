@@ -83,6 +83,63 @@ button{font-family:inherit}
 .wel-foto-msg{display:inline-block;margin-top:6px;font-size:.82rem;color:var(--accent-2)}
 .wel-foto-msg.erro{color:#ff5b50}
 
+/* ---------- Atalho (card de navegação) ---------- */
+.atalhos{display:grid;grid-template-columns:1fr;gap:12px;margin-top:6px}
+.atalho-card{display:flex;align-items:center;gap:16px;width:100%;text-align:left;cursor:pointer;
+  background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);padding:16px 18px;
+  color:var(--txt);font:inherit;transition:.15s}
+.atalho-card:hover{border-color:var(--line-2);transform:translateY(-1px)}
+.atalho-ic{font-size:1.7rem;line-height:1;flex:0 0 auto}
+.atalho-tx{flex:1;display:flex;flex-direction:column;gap:2px}
+.atalho-tx b{font-size:1.02rem}
+.atalho-tx small{color:var(--mut);font-size:.85rem}
+.atalho-seta{font-size:1.6rem;color:var(--mut-2);flex:0 0 auto}
+
+/* ---------- Nutrição Básica (view) ---------- */
+.nut-voltar{background:none;border:0;color:var(--mut);cursor:pointer;font:inherit;font-size:.9rem;padding:4px 0;margin-top:6px}
+.nut-voltar:hover{color:var(--txt)}
+.nut-h1{font-family:var(--font-display);font-weight:400;text-transform:uppercase;letter-spacing:.02em;
+  font-size:clamp(1.5rem,5vw,2rem);margin:6px 0 4px}
+.nut-sec{margin-bottom:6px}
+.nut-nivel{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.nut-nivel label{font-size:.85rem;color:var(--mut)}
+.nut-nivel select{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:10px 12px;font:inherit;font-size:.92rem}
+.nut-metas{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.nut-card{background:var(--card);border:1px solid var(--line);padding:16px 18px;display:flex;flex-direction:column;gap:3px}
+.nut-card.accent{border-left:3px solid var(--accent)}
+.nm-l{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+.nm-v{font-family:var(--font-cond);font-weight:700;font-size:2rem;line-height:1}
+.nm-v i{font-style:normal;font-size:.9rem;color:var(--mut);margin-left:6px;font-weight:500}
+.nm-s{font-size:.8rem;color:var(--mut-2)}
+.nut-macros{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.macro{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--mut-2);padding:14px;display:flex;flex-direction:column;gap:3px;text-align:center}
+.macro.prot{border-top-color:#ff5b50}
+.macro.carb{border-top-color:var(--accent)}
+.macro.gord{border-top-color:var(--accent-2)}
+.mc-l{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+.mc-g{font-family:var(--font-cond);font-weight:700;font-size:1.5rem;line-height:1.05}
+.mc-k{font-size:.8rem;color:var(--mut-2)}
+.nut-nota{font-size:.82rem;color:var(--mut-2);line-height:1.5;margin:12px 0 0}
+.nut-form{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);padding:16px 18px}
+.nut-field{display:flex;flex-direction:column;gap:7px;flex:1;min-width:140px}
+.nut-field span{font-size:.85rem;color:var(--mut)}
+.nut-field input{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:10px 12px;font:inherit;font-size:.92rem;width:100%}
+.nut-form .btn{flex:0 0 auto}
+.nut-msg{display:inline-block;margin-top:8px;font-size:.85rem;color:var(--accent-2)}
+.nut-msg.erro{color:#ff5b50}
+.nut-total{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin-bottom:14px}
+.nt-l{font-size:.85rem;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.nt-v{font-family:var(--font-cond);font-weight:700;font-size:1.7rem;line-height:1}
+.nt-v i{font-style:normal;font-size:.85rem;color:var(--mut);font-weight:500}
+.nut-chart{width:100%;height:auto;background:var(--card);border:1px solid var(--line);padding:10px}
+.nut-lanc{display:flex;flex-direction:column;gap:1px;margin-top:12px}
+.nl-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);padding:9px 14px}
+.nl-d{flex:1;font-size:.9rem}
+.nl-k{font-weight:700;color:var(--accent)}
+.nl-x{background:none;border:0;color:var(--mut-2);cursor:pointer;font-size:1.2rem;line-height:1;padding:0 4px}
+.nl-x:hover{color:#ff5b50}
+@media(max-width:560px){.nut-metas{grid-template-columns:1fr}}
+
 /* ---------- Avisos da Academia ---------- */
 .avisos-grid{display:flex;flex-direction:column;gap:12px}
 .aviso-card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 16px}

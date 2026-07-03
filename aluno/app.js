@@ -9,6 +9,7 @@ import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario
 import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
+import { carregarNutricao, salvarNutricao } from './nutricao-db.js';
 import * as calc from '../alunos/calc.js?v=4';
 
 /* ---------- Helpers ---------- */
@@ -99,7 +100,7 @@ function avaliacoesOrdenadas() {
 function render() {
   const temDados = !!PORTAL;
   $('#sem-dados').hidden = temDados;
-  ['sec-progresso', 'sec-financeiro', 'sec-avaliacoes', 'sec-feedback'].forEach((id) => { $('#' + id).hidden = !temDados; });
+  ['sec-atalhos', 'sec-progresso', 'sec-financeiro', 'sec-avaliacoes', 'sec-feedback'].forEach((id) => { $('#' + id).hidden = !temDados; });
 
   // Boas-vindas (sempre, com nome do que tiver) — avatar com botão "Alterar foto"
   const nome = PORTAL?.nome || (usuario()?.email || '').split('@')[0];
@@ -421,6 +422,162 @@ function abrirComparar() {
 }
 $('#btn-comparar').addEventListener('click', abrirComparar);
 $$('.modal-bg').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('open'); }));
+
+/* ============================================================
+   Nutrição Básica
+   ============================================================ */
+const ATIVIDADE = [
+  ['1.2', 'Sedentário', 'pouco ou nenhum exercício'],
+  ['1.375', 'Leve', '1–3 treinos/semana'],
+  ['1.55', 'Moderado', '3–5 treinos/semana'],
+  ['1.725', 'Intenso', '6–7 treinos/semana'],
+  ['1.9', 'Muito intenso', 'treino pesado + trabalho físico'],
+];
+/** @type {any} */
+let NUT = null; // { nivelAtividade, gastos:[] } — carregado sob demanda
+
+/** Peso/altura/idade/sexo a partir da última avaliação + cadastro. */
+function baseNutri() {
+  const avs = avaliacoesOrdenadas();
+  const ult = avs[avs.length - 1];
+  return {
+    peso: numf(ult?.peso),
+    altura: numf(ult?.estatura) || numf(PORTAL?.altura),
+    idade: calc.idadeDe(PORTAL?.nascimento),
+    cod: calc.sexoCod({ sexo: PORTAL?.sexo }),
+    dataAval: ult?.dataRealizada,
+  };
+}
+/** TMB por Mifflin-St Jeor (kcal/dia). */
+function tmbMifflin(peso, altura, idade, cod) {
+  if (!peso || !altura || !idade || !cod) return null;
+  const b = 10 * peso + 6.25 * altura - 5 * idade;
+  return cod === 'F' ? b - 161 : b + 5;
+}
+/** Segunda a sábado da semana corrente (Date[]). */
+function semanaSegSab() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dow = hoje.getDay(); // 0=Dom..6=Sáb
+  const mon = new Date(hoje); mon.setDate(hoje.getDate() + (dow === 0 ? -6 : 1 - dow));
+  return Array.from({ length: 6 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
+}
+/** ISO local yyyy-mm-dd (sem deslocar por fuso). */
+function isoLocal(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+/** Gráfico de barras Seg–Sáb (SVG, padrão do projeto). Destaca o dia de hoje. */
+function barrasSemana(valores, labels, hojeIso, dias) {
+  const W = 600, H = 210, pad = { l: 16, r: 12, t: 22, b: 30 };
+  const max = Math.max(1, ...valores);
+  const n = valores.length, area = W - pad.l - pad.r, step = area / n, bw = step * 0.56;
+  const Y = (v) => pad.t + (1 - v / max) * (H - pad.t - pad.b);
+  const bars = valores.map((v, i) => {
+    const x = pad.l + step * i + (step - bw) / 2, y = Y(v), h = (H - pad.b) - y;
+    const ehHoje = isoLocal(dias[i]) === hojeIso;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="4" fill="${ehHoje ? 'var(--accent)' : 'var(--accent-2)'}"/>
+      ${v > 0 ? `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" class="clbl" text-anchor="middle">${fmt(v, 0)}</text>` : ''}
+      <text x="${(x + bw / 2).toFixed(1)}" y="${H - 10}" class="clbl" text-anchor="middle">${labels[i]}</text>`;
+  }).join('');
+  return `<svg class="chart nut-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gasto calórico por dia">
+    <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" class="ax"/>${bars}</svg>`;
+}
+
+async function abrirNutricao() {
+  $('#view-dashboard').hidden = true;
+  $('#view-nutricao').hidden = false;
+  window.scrollTo(0, 0);
+  if (NUT == null) {
+    $('#nut-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
+    try { NUT = await carregarNutricao(emailAluno()); }
+    catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [] }; }
+  }
+  desenharNutricao();
+}
+function fecharNutricao() {
+  $('#view-nutricao').hidden = true;
+  $('#view-dashboard').hidden = false;
+  window.scrollTo(0, 0);
+}
+async function persistirNutricao() {
+  try { await salvarNutricao(emailAluno(), NUT); }
+  catch (e) { console.warn('Nutrição:', e?.code || e); }
+}
+
+function desenharNutricao() {
+  const b = baseNutri();
+  const tmb = tmbMifflin(b.peso, b.altura, b.idade, b.cod);
+  const fator = parseFloat(NUT.nivelAtividade) || 1.55;
+  const tdee = tmb != null ? tmb * fator : null;
+
+  let macros = null;
+  if (tdee != null && b.peso) {
+    const protG = b.peso * 2, protK = protG * 4;
+    const gordK = tdee * 0.25, gordG = gordK / 9;
+    const carbK = Math.max(0, tdee - protK - gordK), carbG = carbK / 4;
+    macros = { protG, protK, gordG, gordK, carbG, carbK };
+  }
+
+  const selAtiv = `<select id="nut-ativ">${ATIVIDADE.map(([v, l, d]) => `<option value="${v}"${v === NUT.nivelAtividade ? ' selected' : ''}>${l} — ${d}</option>`).join('')}</select>`;
+  const metasHtml = tmb == null ? `
+    <div class="empty"><b>Faltam dados da avaliação</b>
+    Para calcular suas metas precisamos de peso, altura, sexo e data de nascimento. Fale com seu coach para registrar sua avaliação física.</div>`
+    : `
+    <div class="nut-nivel"><label for="nut-ativ">Seu nível de atividade</label>${selAtiv}</div>
+    <div class="nut-metas">
+      <div class="nut-card"><span class="nm-l">TMB · Taxa Metabólica Basal</span><span class="nm-v">${fmt(tmb, 0)}<i>kcal/dia</i></span><span class="nm-s">energia em repouso</span></div>
+      <div class="nut-card accent"><span class="nm-l">TDEE · Gasto Calórico Total</span><span class="nm-v">${fmt(tdee, 0)}<i>kcal/dia</i></span><span class="nm-s">com seu nível de atividade</span></div>
+    </div>
+    ${macros ? `<div class="nut-macros">
+      <div class="macro prot"><span class="mc-l">Proteínas</span><span class="mc-g">${fmt(macros.protG, 0)} g</span><span class="mc-k">${fmt(macros.protK, 0)} kcal</span></div>
+      <div class="macro carb"><span class="mc-l">Carboidratos</span><span class="mc-g">${fmt(macros.carbG, 0)} g</span><span class="mc-k">${fmt(macros.carbK, 0)} kcal</span></div>
+      <div class="macro gord"><span class="mc-l">Gorduras</span><span class="mc-g">${fmt(macros.gordG, 0)} g</span><span class="mc-k">${fmt(macros.gordK, 0)} kcal</span></div>
+    </div>` : ''}
+    <p class="nut-nota">Estimativa por Mifflin-St Jeor (${fmt(b.peso, 0)} kg · ${b.altura} cm · ${b.idade} anos${b.dataAval ? ' · avaliação de ' + fmtData(b.dataAval) : ''}). Meta de manutenção: proteína 2 g/kg, gordura 25% das calorias, carboidrato o restante. Não substitui orientação de nutricionista.</p>`;
+
+  const dias = semanaSegSab();
+  const somaDia = dias.map((d) => { const iso = isoLocal(d); return NUT.gastos.filter((g) => g.data === iso).reduce((s, g) => s + (numf(g.calorias) || 0), 0); });
+  const totalSemana = somaDia.reduce((s, v) => s + v, 0);
+  const hj = isoLocal(new Date());
+  const isoIni = isoLocal(dias[0]), isoFim = isoLocal(dias[5]);
+  const lanc = NUT.gastos.filter((g) => g.data >= isoIni && g.data <= isoFim).sort((a, b) => (a.data < b.data ? 1 : -1));
+
+  $('#nut-conteudo').innerHTML = `
+    <section class="nut-sec">
+      <h3 class="sec-titulo">Suas metas diárias</h3>
+      ${metasHtml}
+    </section>
+    <section class="nut-sec">
+      <h3 class="sec-titulo">Registrar gasto do treino</h3>
+      <form class="nut-form" id="nut-form" novalidate>
+        <label class="nut-field"><span>Data</span><input type="date" id="nut-data" value="${hj}" max="${hj}" required></label>
+        <label class="nut-field"><span>Calorias gastas (kcal)</span><input type="number" id="nut-kcal" min="1" step="any" placeholder="Ex.: 450" required></label>
+        <button class="btn" type="submit">Registrar</button>
+      </form>
+      <span class="nut-msg" id="nut-msg" hidden></span>
+    </section>
+    <section class="nut-sec">
+      <h3 class="sec-titulo">Sua semana (Seg a Sáb)</h3>
+      <div class="nut-total"><span class="nt-l">Total queimado na semana</span><span class="nt-v">${fmt(totalSemana, 0)} <i>kcal</i></span></div>
+      ${barrasSemana(somaDia, ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], hj, dias)}
+      ${lanc.length ? `<div class="nut-lanc">${lanc.map((g) => `<div class="nl-row"><span class="nl-d">${fmtData(g.data)}</span><span class="nl-k">${fmt(numf(g.calorias), 0)} kcal</span><button class="nl-x" data-id="${esc(g.id)}" type="button" aria-label="Remover lançamento">×</button></div>`).join('')}</div>` : '<p class="nut-nota">Nenhum treino registrado nesta semana ainda.</p>'}
+    </section>`;
+
+  $('#nut-ativ')?.addEventListener('change', (e) => { NUT.nivelAtividade = e.target.value; desenharNutricao(); persistirNutricao(); });
+  $('#nut-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const data = $('#nut-data').value || hj;
+    const kcal = numf($('#nut-kcal').value), msg = $('#nut-msg');
+    if (!kcal || kcal <= 0) { msg.hidden = false; msg.classList.add('erro'); msg.textContent = 'Informe um valor de calorias.'; return; }
+    NUT.gastos.push({ id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), data, calorias: kcal, criadoEm: Date.now() });
+    desenharNutricao(); persistirNutricao();
+  });
+  $$('#nut-conteudo .nl-x').forEach((btn) => btn.addEventListener('click', () => {
+    NUT.gastos = NUT.gastos.filter((g) => g.id !== btn.dataset.id);
+    desenharNutricao(); persistirNutricao();
+  }));
+}
+
+$('#ir-nutricao')?.addEventListener('click', abrirNutricao);
+$('#nut-voltar')?.addEventListener('click', fecharNutricao);
 
 /* ============================================================
    GATE de acesso (login do aluno)
