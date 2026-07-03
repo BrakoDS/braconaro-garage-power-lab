@@ -11,6 +11,7 @@ import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js';
 import { carregarRanking } from './ranking-db.js';
+import { carregarCargas, salvarCargas } from './cargas-db.js';
 import * as game from './gamificacao.js';
 import * as calc from '../alunos/calc.js?v=5';
 
@@ -714,6 +715,103 @@ function desenharConquistas() {
 
 $('#ir-conquistas')?.addEventListener('click', abrirConquistas);
 $('#conq-voltar')?.addEventListener('click', fecharConquistas);
+
+/* ============================================================
+   Registro de Cargas (evolução de força)
+   ============================================================ */
+/** @type {any} */
+let CARGAS = null;
+const normEx = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const epley1rm = (carga, reps) => (carga > 0 && reps > 0 ? carga * (1 + reps / 30) : null);
+
+async function abrirCargas() {
+  $('#view-dashboard').hidden = true;
+  $('#view-cargas').hidden = false;
+  window.scrollTo(0, 0);
+  if (CARGAS == null) {
+    $('#cargas-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
+    try { CARGAS = await carregarCargas(emailAluno()); }
+    catch (e) { console.warn('Cargas:', e?.code || e); CARGAS = { registros: [] }; }
+  }
+  desenharCargas();
+}
+function fecharCargas() {
+  $('#view-cargas').hidden = true;
+  $('#view-dashboard').hidden = false;
+  window.scrollTo(0, 0);
+}
+async function persistirCargas() {
+  try { await salvarCargas(emailAluno(), CARGAS); }
+  catch (e) { console.warn('Cargas:', e?.code || e); }
+}
+
+function desenharCargas() {
+  const regs = CARGAS.registros || [];
+  const grupos = new Map();
+  regs.forEach((r) => { const k = normEx(r.exercicio); if (!grupos.has(k)) grupos.set(k, { nome: r.exercicio, itens: [] }); grupos.get(k).itens.push(r); });
+  const lista = [...grupos.values()].map((g) => {
+    g.itens.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : (a.criadoEm || 0) - (b.criadoEm || 0)));
+    return g;
+  }).sort((a, b) => (b.itens[b.itens.length - 1].criadoEm || 0) - (a.itens[a.itens.length - 1].criadoEm || 0));
+
+  const hj = new Date().toISOString().slice(0, 10);
+  const form = `
+    <form class="cargas-form" id="cargas-form">
+      <input list="dl-exercicios" id="cg-ex" placeholder="Exercício (ex.: Supino reto)" required>
+      <input type="number" id="cg-carga" min="0" step="any" placeholder="Carga (kg)" required>
+      <input type="number" id="cg-reps" min="1" step="1" placeholder="Reps" required>
+      <input type="date" id="cg-data" value="${hj}" max="${hj}" required>
+      <button class="btn" type="submit">Registrar</button>
+      <span class="cargas-msg" id="cargas-msg" hidden></span>
+    </form>`;
+
+  const cards = lista.map((g) => {
+    const itens = g.itens;
+    const ult = itens[itens.length - 1];
+    const melhorCarga = Math.max(...itens.map((x) => numf(x.cargaKg) || 0));
+    const melhor1rm = Math.max(...itens.map((x) => epley1rm(numf(x.cargaKg), numf(x.reps)) || 0));
+    // série: melhor carga por dia
+    const porDia = new Map();
+    itens.forEach((x) => { const c = numf(x.cargaKg); if (c != null) porDia.set(x.data, Math.max(porDia.get(x.data) || 0, c)); });
+    const serie = [...porDia.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([d, y]) => ({ d, y }));
+    const grafico = serie.length >= 2 ? chartSVG(serie, { cor: 'var(--accent)' }) : '<div class="cargas-semgraf">Registre em mais de um dia para ver a curva de evolução. 📈</div>';
+    const prog = serie.length >= 2 ? serie[serie.length - 1].y - serie[0].y : null;
+    const hist = itens.slice().reverse().slice(0, 6).map((x) => `<div class="cg-hist-row"><span>${fmtData(x.data)}</span><b>${fmt(numf(x.cargaKg), 1)} kg × ${esc(String(x.reps))}</b><button class="cg-del" data-id="${esc(x.id)}" type="button" aria-label="Remover">×</button></div>`).join('');
+    return `<div class="cargas-card">
+      <div class="cargas-head"><h3>${esc(g.nome)}</h3>${prog != null ? `<span class="cargas-prog ${prog >= 0 ? 'up' : 'down'}">${prog >= 0 ? '+' : '−'}${fmt(Math.abs(prog), 1)} kg</span>` : ''}</div>
+      <div class="cargas-kpis">
+        <div><b>${fmt(numf(ult.cargaKg), 1)} kg × ${esc(String(ult.reps))}</b><span>último</span></div>
+        <div><b>${fmt(melhorCarga, 1)} kg</b><span>recorde</span></div>
+        <div><b>${melhor1rm ? fmt(melhor1rm, 0) + ' kg' : '—'}</b><span>1RM estim.</span></div>
+      </div>
+      ${grafico}
+      <div class="cg-hist">${hist}</div>
+    </div>`;
+  }).join('');
+
+  $('#cargas-conteudo').innerHTML = `
+    <p class="sec-sub">Anote suas séries e acompanhe a força subir. O 1RM é uma estimativa (fórmula de Epley).</p>
+    ${form}
+    ${cards || '<div class="empty"><b>Nenhum registro ainda</b>Comece anotando seu primeiro exercício acima. 💪</div>'}`;
+
+  $('#cargas-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const ex = $('#cg-ex').value.trim();
+    const carga = numf($('#cg-carga').value), reps = parseInt($('#cg-reps').value, 10);
+    const data = $('#cg-data').value || hj;
+    const msg = $('#cargas-msg');
+    if (!ex || carga == null || carga < 0 || !reps || reps < 1) { msg.hidden = false; msg.classList.add('erro'); msg.textContent = 'Preencha exercício, carga e reps.'; return; }
+    CARGAS.registros.push({ id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), exercicio: ex, cargaKg: carga, reps, data, criadoEm: Date.now() });
+    desenharCargas(); persistirCargas();
+  });
+  $$('#cargas-conteudo .cg-del').forEach((b) => b.addEventListener('click', () => {
+    CARGAS.registros = CARGAS.registros.filter((x) => x.id !== b.dataset.id);
+    desenharCargas(); persistirCargas();
+  }));
+}
+
+$('#ir-cargas')?.addEventListener('click', abrirCargas);
+$('#cargas-voltar')?.addEventListener('click', fecharCargas);
 
 /* ============================================================
    GATE de acesso (login do aluno)

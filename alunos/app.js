@@ -15,6 +15,7 @@ import { mergarInboxes } from './portal-merge.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
 import { publicarRanking } from './ranking-sync.js';
+import { carregarCargasAluno } from './cargas-read.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -1144,10 +1145,38 @@ function renderProgresso() {
       <div class="prog-card"><h4>Abdominais (1 min)</h4>${chart(sAbd, { cor: '#ff5b50' })}</div>` : ''}
       <div class="prog-card full"><h4>Pontos que foram melhorados</h4><div class="insights">${insightsHTML(a, avs)}</div></div>
       <div class="prog-card full"><h4>Gasto calórico de treino (semana)</h4><div id="prog-nutri"><div class="prog-ph">Carregando…</div></div></div>
+      <div class="prog-card full"><h4>Evolução de força (registro de cargas)</h4><div id="prog-cargas"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
     </div>`;
   renderMetasCoach(a);
   carregarGastoSemana(a);
+  carregarCargasForca(a);
+}
+
+/** Card read-only de evolução de força (registro de cargas do Portal). */
+async function carregarCargasForca(a) {
+  const alvoId = a.id;
+  const el = $('#prog-cargas'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  if (!email) { el.innerHTML = `<div class="prog-ph">Aluno sem e-mail — sem registro de cargas.</div>`; return; }
+  let regs;
+  try { regs = await carregarCargasAluno(email); }
+  catch (e) { console.warn('Cargas:', e?.code || e); if ($('#prog-cargas') && alunoAtual?.id === alvoId) $('#prog-cargas').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`; return; }
+  if (!$('#prog-cargas') || alunoAtual?.id !== alvoId) return;
+  if (!regs.length) { $('#prog-cargas').innerHTML = `<div class="prog-ph">O aluno ainda não registrou cargas no Portal.</div>`; return; }
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const grupos = new Map();
+  regs.forEach((r) => { const k = norm(r.exercicio); if (!grupos.has(k)) grupos.set(k, { nome: r.exercicio, itens: [] }); grupos.get(k).itens.push(r); });
+  const lista = [...grupos.values()].sort((x, y) => (Math.max(...y.itens.map((i) => i.criadoEm || 0)) - Math.max(...x.itens.map((i) => i.criadoEm || 0))));
+  $('#prog-cargas').innerHTML = lista.map((g) => {
+    const porDia = new Map();
+    g.itens.forEach((x) => { const c = numf(x.cargaKg); if (c != null) porDia.set(x.data, Math.max(porDia.get(x.data) || 0, c)); });
+    const serie = [...porDia.entries()].sort((p, q) => (p[0] < q[0] ? -1 : 1)).map(([d, y]) => ({ d, y }));
+    const melhor = Math.max(...g.itens.map((x) => numf(x.cargaKg) || 0));
+    const graf = serie.length >= 2 ? chartSVG(serie, { cor: 'var(--accent)' }) : `<div class="prog-ph" style="padding:14px">Só um dia registrado até agora.</div>`;
+    return `<div class="forca-item"><div class="forca-top"><b>${esc(g.nome)}</b><span>recorde ${fmtN(melhor, 1)} kg</span></div>${graf}</div>`;
+  }).join('');
 }
 
 /** Card de metas do aluno (definir/remover + barra de progresso). Publica no Portal ao salvar. */

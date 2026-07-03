@@ -61,6 +61,11 @@
             <span class="atalho-tx"><b>Conquistas</b><small>Sua sequência, medalhas, recordes e o ranking do box</small></span>
             <span class="atalho-seta" aria-hidden="true">›</span>
           </button>
+          <button class="atalho-card" id="ir-cargas" type="button">
+            <span class="atalho-ic" aria-hidden="true">🏋️</span>
+            <span class="atalho-tx"><b>Registro de Cargas</b><small>Anote carga × reps e veja sua evolução de força</small></span>
+            <span class="atalho-seta" aria-hidden="true">›</span>
+          </button>
           <button class="atalho-card" id="ir-nutricao" type="button">
             <span class="atalho-ic" aria-hidden="true">🍎</span>
             <span class="atalho-tx"><b>Nutrição Básica</b><small>Metas de calorias e macros + gasto dos treinos</small></span>
@@ -135,6 +140,13 @@
         <h2 class="nut-h1">Conquistas</h2>
         <div id="conq-conteudo"></div>
       </section>
+
+      <!-- View: Registro de Cargas -->
+      <section id="view-cargas" hidden>
+        <button class="nut-voltar" id="cargas-voltar" type="button">← Voltar ao início</button>
+        <h2 class="nut-h1">Registro de Cargas</h2>
+        <div id="cargas-conteudo"></div>
+      </section>
     </main>
   </div>
 
@@ -150,6 +162,13 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=8"></script>
+  <datalist id="dl-exercicios">
+    <option>Supino reto</option><option>Supino inclinado</option><option>Agachamento livre</option>
+    <option>Levantamento terra</option><option>Leg press</option><option>Desenvolvimento</option>
+    <option>Remada curvada</option><option>Puxada alta</option><option>Rosca direta</option>
+    <option>Tríceps testa</option><option>Cadeira extensora</option><option>Mesa flexora</option>
+    <option>Elevação pélvica</option><option>Panturrilha</option>
+  </datalist>
+  <script type="module" src="./app.js?v=9"></script>
 </body>
 </html>

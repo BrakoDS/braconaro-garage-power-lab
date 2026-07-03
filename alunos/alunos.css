@@ -245,6 +245,12 @@ button{font-family:inherit}
 .mural-item-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 
 .rkcal{color:var(--accent);font-weight:600;white-space:nowrap}
+/* Evolução de força (coach, read-only) */
+.forca-item{margin-bottom:14px}
+.forca-item:last-child{margin-bottom:0}
+.forca-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
+.forca-top b{font-size:.95rem}
+.forca-top span{font-size:.8rem;color:var(--mut)}
 /* Cobranças */
 .cob-grupo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:.78rem;color:var(--mut);margin:18px 0 8px}
 .cob-row{display:flex;align-items:center;gap:12px;background:var(--bg-2);border:1px solid var(--line);padding:11px 14px;margin-bottom:8px;flex-wrap:wrap}
