@@ -55,6 +55,7 @@
             <button class="btn ghost btn-sm" id="btn-cobrancas" type="button">Cobranças</button>
             <button class="btn ghost btn-sm" id="btn-aviso" type="button">Avisar (WhatsApp)</button>
             <button class="btn ghost btn-sm" id="btn-mural" type="button">Avisos do Portal</button>
+            <button class="btn ghost btn-sm" id="btn-desafios" type="button">Desafios</button>
           </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -171,6 +172,28 @@
           </div>
         </form>
         <div class="mural-list" id="mural-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: DESAFIOS DA SEMANA ----------- -->
+    <section id="tela-desafios" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="des-voltar" type="button">← Voltar para a listagem</button></div>
+        <span class="eyebrow">Desafios da Semana · Portal do Aluno</span>
+        <p class="hint" style="margin:6px 0 16px">Lance desafios (ex.: beber 3L de água, sem açúcar). No Portal, o aluno marca os dias que cumpriu e ganha medalha ao concluir. Desative para esconder sem apagar.</p>
+        <form id="des-form" class="mural-form">
+          <div class="field"><label>Ícone</label><div class="des-emojis" id="des-emojis"></div></div>
+          <div class="grid-form">
+            <div class="field"><label>Título</label><input id="des-titulo" type="text" maxlength="60" placeholder="Ex.: Semana da hidratação" required /></div>
+            <div class="field"><label>Meta (dias na semana)</label><input id="des-meta" type="number" min="1" max="7" value="5" required /></div>
+          </div>
+          <div class="field"><label>Descrição</label><textarea id="des-texto" rows="2" maxlength="240" placeholder="Ex.: Beba pelo menos 3 litros de água por dia." required></textarea></div>
+          <div class="mural-actions">
+            <button class="btn" id="des-add" type="submit">Publicar desafio</button>
+            <button class="btn ghost btn-sm" id="des-cancelar" type="button" hidden>Cancelar edição</button>
+          </div>
+        </form>
+        <div class="mural-list" id="des-list"></div>
       </div>
     </section>
 
@@ -300,6 +323,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=8"></script>
+  <script type="module" src="./app.js?v=9"></script>
 </body>
 </html>

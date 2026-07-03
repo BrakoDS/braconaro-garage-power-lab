@@ -37,6 +37,15 @@ export function streakSemanas(dias, meta = 1) {
   return streak;
 }
 
+/** Segunda a domingo (7 Date) da semana corrente — para os desafios. */
+export function diasDaSemana() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dow = hoje.getDay();
+  const mon = new Date(hoje); mon.setDate(hoje.getDate() + (dow === 0 ? -6 : 1 - dow));
+  return Array.from({ length: 7 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
+}
+export const isoDia = (d) => isoLocal(d);
+
 /** Contadores de treino (semana atual, mês atual, total). */
 export function contadores(dias) {
   const hoje = new Date();
@@ -67,11 +76,13 @@ export function recordes(avaliacoes) {
 
 /**
  * Catálogo de medalhas com estado (conquistada ou não).
- * @param {{total:number, mes:number, semana:number, streak:number, nAvaliacoes:number}} ctx
+ * @param {{total:number, mes:number, semana:number, streak:number, nAvaliacoes:number, desafios?:number}} ctx
  */
 export function medalhas(ctx) {
   const defs = [
     { id: 'primeiro', ic: '🎯', nome: 'Começou!', desc: '1º treino registrado', ok: ctx.total >= 1 },
+    { id: 'desafio1', ic: '🎖️', nome: 'Desafio aceito', desc: '1 desafio concluído', ok: (ctx.desafios || 0) >= 1 },
+    { id: 'desafio5', ic: '🏅', nome: 'Disciplina', desc: '5 desafios concluídos', ok: (ctx.desafios || 0) >= 5 },
     { id: 'semana3', ic: '⚡', nome: 'Ritmo bom', desc: '3 treinos numa semana', ok: ctx.semana >= 3 },
     { id: 'semana5', ic: '🚀', nome: 'Semana cheia', desc: '5 treinos numa semana', ok: ctx.semana >= 5 },
     { id: 'mes10', ic: '📅', nome: '10 no mês', desc: '10 treinos no mês', ok: ctx.mes >= 10 },

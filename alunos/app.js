@@ -13,6 +13,7 @@ import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
+import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizarDesafios } from './desafios.js';
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
 import { publicarRanking } from './ranking-sync.js';
 import { carregarCargasAluno } from './cargas-read.js';
@@ -529,6 +530,76 @@ $('#mural-list').addEventListener('click', async (e) => {
     await avisos_salvar(arr.filter((x) => x.id !== id));
     if (muralEdit === id) muralReset();
     renderMural();
+  }
+});
+
+/* ============================================================
+   TELA — Desafios da Semana
+   ============================================================ */
+const DES_EMOJIS = ['💧', '🚫🍬', '🥗', '😴', '🏃', '🔥', '🧘', '⭐', '🥦', '🚭'];
+let desEmoji = '💧', desEdit = null;
+
+function renderDesEmojis() {
+  $('#des-emojis').innerHTML = DES_EMOJIS.map((e) => `<button type="button" class="des-emoji${e === desEmoji ? ' on' : ''}" data-e="${e}">${e}</button>`).join('');
+}
+function renderDesafios() {
+  const arr = des_listar().slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  const list = $('#des-list');
+  if (!arr.length) { list.innerHTML = `<div class="empty"><b>Nenhum desafio</b>Lance o primeiro — ele aparece nas Conquistas do aluno.</div>`; return; }
+  list.innerHTML = arr.map((d) => `
+    <div class="mural-item${d.ativo === false ? ' off' : ''}">
+      <div class="mural-item-head"><span class="mural-tag">${esc(d.icone || '⭐')} ${esc(d.titulo || '')}</span><span class="mural-estado">${d.ativo === false ? 'Oculto' : 'No ar'} · meta ${esc(String(d.metaDias || 5))} dias</span></div>
+      <p>${esc(d.descricao || '')}</p>
+      <div class="mural-item-actions">
+        <button class="btn ghost btn-sm des-toggle" data-id="${esc(d.id)}" type="button">${d.ativo === false ? 'Reativar' : 'Ocultar'}</button>
+        <button class="btn ghost btn-sm des-editar" data-id="${esc(d.id)}" type="button">Editar</button>
+        <button class="btn ghost btn-sm des-excluir" data-id="${esc(d.id)}" type="button">Excluir</button>
+      </div>
+    </div>`).join('');
+}
+function desReset() {
+  desEdit = null; desEmoji = '💧';
+  $('#des-titulo').value = ''; $('#des-texto').value = ''; $('#des-meta').value = '5';
+  $('#des-add').textContent = 'Publicar desafio'; $('#des-cancelar').hidden = true;
+  renderDesEmojis();
+}
+
+$('#btn-desafios').addEventListener('click', () => { desReset(); renderDesafios(); mostrarTela('tela-desafios'); });
+$('#des-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#des-cancelar').addEventListener('click', desReset);
+$('#des-emojis').addEventListener('click', (e) => { const b = e.target.closest('.des-emoji'); if (b) { desEmoji = b.dataset.e; renderDesEmojis(); } });
+
+$('#des-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const titulo = $('#des-titulo').value.trim(), descricao = $('#des-texto').value.trim();
+  const metaDias = Math.min(7, Math.max(1, parseInt($('#des-meta').value, 10) || 5));
+  if (!titulo || !descricao) return;
+  const arr = des_listar();
+  if (desEdit) {
+    const d = arr.find((x) => x.id === desEdit);
+    if (d) { d.titulo = titulo; d.descricao = descricao; d.icone = desEmoji; d.metaDias = metaDias; }
+  } else {
+    arr.push({ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), icone: desEmoji, titulo, descricao, metaDias, ativo: true, criadoEm: Date.now() });
+  }
+  await des_salvar(arr);
+  desReset(); renderDesafios();
+});
+$('#des-list').addEventListener('click', async (e) => {
+  const id = e.target.closest('[data-id]')?.dataset.id; if (!id) return;
+  const arr = des_listar();
+  if (e.target.closest('.des-toggle')) {
+    const d = arr.find((x) => x.id === id); if (d) d.ativo = d.ativo === false;
+    await des_salvar(arr); renderDesafios();
+  } else if (e.target.closest('.des-editar')) {
+    const d = arr.find((x) => x.id === id); if (!d) return;
+    desEdit = id; desEmoji = d.icone || '💧';
+    $('#des-titulo').value = d.titulo || ''; $('#des-texto').value = d.descricao || ''; $('#des-meta').value = String(d.metaDias || 5);
+    $('#des-add').textContent = 'Salvar alteração'; $('#des-cancelar').hidden = false; renderDesEmojis(); $('#des-titulo').focus();
+  } else if (e.target.closest('.des-excluir')) {
+    if (!confirm('Excluir este desafio? Ele sai do Portal do Aluno.')) return;
+    await des_salvar(arr.filter((x) => x.id !== id));
+    if (desEdit === id) desReset();
+    renderDesafios();
   }
 });
 
@@ -1418,8 +1489,9 @@ function entrar(user) {
       }
       // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
       publicarPortal(db.listar());
-      // 3) puxa o mural de avisos da nuvem (para editar no mesmo estado em qualquer aparelho)
+      // 3) puxa o mural de avisos + desafios da nuvem (para editar no mesmo estado em qualquer aparelho)
       sincronizarAvisos();
+      sincronizarDesafios();
       // 4) total de treino queimado na semana, por aluno (selo na listagem)
       atualizarGastoSemana();
     });

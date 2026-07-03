@@ -12,6 +12,7 @@ import { carregarAvisos } from './avisos-db.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js';
 import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
+import { carregarDesafios, carregarProgressoDesafios, salvarProgressoDesafios } from './desafios-db.js';
 import * as game from './gamificacao.js';
 import * as calc from '../alunos/calc.js?v=5';
 
@@ -636,6 +637,8 @@ $('#nut-voltar')?.addEventListener('click', fecharNutricao);
    Conquistas (gamificação)
    ============================================================ */
 let CONQ_RANKING = null;
+/** @type {any} */ let DES_LISTA = null; // desafios ativos (coach)
+/** @type {any} */ let DES_PROG = null;  // progresso do aluno { checks, concluidos }
 
 async function abrirConquistas() {
   $('#view-dashboard').hidden = true;
@@ -647,6 +650,8 @@ async function abrirConquistas() {
     catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [] }; }
   }
   if (CONQ_RANKING == null) CONQ_RANKING = (await carregarRanking()) || { mes: '', itens: [] };
+  if (DES_LISTA == null) { try { DES_LISTA = await carregarDesafios(); } catch { DES_LISTA = []; } }
+  if (DES_PROG == null) { try { DES_PROG = await carregarProgressoDesafios(emailAluno()); } catch { DES_PROG = { checks: {}, concluidos: [] }; } }
   desenharConquistas();
 }
 function fecharConquistas() {
@@ -660,9 +665,11 @@ function desenharConquistas() {
   const streak = game.streakSemanas(dias);
   const c = game.contadores(dias);
   const nAval = avaliacoesOrdenadas().length;
-  const meds = game.medalhas({ total: c.total, mes: c.mes, semana: c.semana, streak, nAvaliacoes: nAval });
+  const nDesafios = (DES_PROG?.concluidos || []).length;
+  const meds = game.medalhas({ total: c.total, mes: c.mes, semana: c.semana, streak, nAvaliacoes: nAval, desafios: nDesafios });
   const conquistadas = meds.filter((m) => m.ok).length;
   const prs = game.recordes(PORTAL?.avaliacoes);
+  const desafiosHtml = montarDesafiosHTML();
 
   const heroStreak = `
     <div class="cq-hero">
@@ -698,6 +705,7 @@ function desenharConquistas() {
 
   $('#conq-conteudo').innerHTML = `
     <section class="nut-sec">${heroStreak}</section>
+    ${desafiosHtml}
     <section class="nut-sec">
       <h3 class="sec-titulo">Medalhas <span class="cq-cont">${conquistadas}/${meds.length}</span></h3>
       ${medHtml}
@@ -711,6 +719,58 @@ function desenharConquistas() {
       <p class="sec-sub">Treinos registrados no mês (check-in + treinos lançados). Bora subir! 🚀</p>
       ${rankHtml}
     </section>`;
+  $$('#conq-conteudo .des-dia').forEach((b) => b.addEventListener('click', () => toggleDesafioDia(b.dataset.id, b.dataset.iso)));
+}
+
+/** Seção "Desafios da semana" (vazio se não há desafios ativos). */
+function montarDesafiosHTML() {
+  const lista = DES_LISTA || [];
+  if (!lista.length) return '';
+  const dias = game.diasDaSemana();
+  const semanaIsos = dias.map(game.isoDia);
+  const hojeIso = game.isoDia(new Date());
+  const labels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+  const checks = (DES_PROG && DES_PROG.checks) || {};
+  const cards = lista.map((d) => {
+    const marc = new Set(checks[d.id] || []);
+    const feitos = semanaIsos.filter((x) => marc.has(x)).length;
+    const meta = Math.max(1, d.metaDias || 5);
+    const pct = Math.min(100, Math.round((feitos / meta) * 100));
+    const concl = feitos >= meta;
+    const chips = dias.map((dt, i) => {
+      const iso = game.isoDia(dt), fut = iso > hojeIso, on = marc.has(iso);
+      return `<button class="des-dia${on ? ' on' : ''}${fut ? ' fut' : ''}" data-id="${esc(d.id)}" data-iso="${iso}"${fut ? ' disabled' : ''} type="button" title="${fmtData(iso)}">${labels[i]}</button>`;
+    }).join('');
+    return `<div class="des-card${concl ? ' ok' : ''}">
+      <div class="des-card-head"><span class="des-ic">${esc(d.icone || '⭐')}</span><div class="des-card-tx"><b>${esc(d.titulo)}</b><p>${esc(d.descricao)}</p></div></div>
+      <div class="des-dias">${chips}</div>
+      <div class="des-bar"><div class="des-fill${concl ? ' ok' : ''}" style="width:${pct}%"></div></div>
+      <div class="des-foot">${concl ? '<span class="des-ok">Concluído! ✓</span>' : `${feitos} de ${meta} dias`}</div>
+    </div>`;
+  }).join('');
+  return `<section class="nut-sec"><h3 class="sec-titulo">Desafios da semana</h3><p class="sec-sub">Marque os dias que você cumpriu. Bateu a meta = medalha. 🎯</p>${cards}</section>`;
+}
+
+/** Marca/desmarca um dia de um desafio, recomputa conclusão e persiste. */
+async function toggleDesafioDia(id, iso) {
+  if (!DES_PROG) DES_PROG = { checks: {}, concluidos: [] };
+  const s = new Set(DES_PROG.checks[id] || []);
+  if (s.has(iso)) s.delete(iso); else s.add(iso);
+  DES_PROG.checks[id] = [...s];
+  // recomputa conclusão da semana corrente para este desafio
+  const d = (DES_LISTA || []).find((x) => x.id === id);
+  if (d) {
+    const semanaIsos = game.diasDaSemana().map(game.isoDia);
+    const seg = semanaIsos[0];
+    const feitos = (DES_PROG.checks[id] || []).filter((x) => semanaIsos.includes(x)).length;
+    const meta = Math.max(1, d.metaDias || 5);
+    DES_PROG.concluidos = DES_PROG.concluidos || [];
+    const jaTem = DES_PROG.concluidos.some((c) => c.id === id && c.semana === seg);
+    if (feitos >= meta && !jaTem) DES_PROG.concluidos.push({ id, semana: seg, em: Date.now() });
+    if (feitos < meta && jaTem) DES_PROG.concluidos = DES_PROG.concluidos.filter((c) => !(c.id === id && c.semana === seg));
+  }
+  desenharConquistas();
+  try { await salvarProgressoDesafios(emailAluno(), DES_PROG); } catch (e) { console.warn('Desafios:', e?.code || e); }
 }
 
 $('#ir-conquistas')?.addEventListener('click', abrirConquistas);
