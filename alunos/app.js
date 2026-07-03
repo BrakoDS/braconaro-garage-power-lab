@@ -17,7 +17,7 @@ import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizar
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
 import { publicarRanking } from './ranking-sync.js';
 import { carregarCargasAluno } from './cargas-read.js';
-import { carregarConclusoesDesafios } from './desafios-read.js';
+import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
 import * as game from '../aluno/gamificacao.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
@@ -225,7 +225,7 @@ function renderLista() {
   elLista.innerHTML = alunos.map((a) => `
     <button class="aluno-row" data-id="${esc(a.id)}" type="button">
       <span class="rav">${a.fotoUrl ? `<img src="${esc(a.fotoUrl)}" alt="" />` : esc(iniciais(a.nome))}</span>
-      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">#${esc(a.id)} · ${esc(a.objetivo || 'Sem objetivo definido')}${avalBadge(statusAvaliacao(a))}${nutriChip(a)}</span></span>
+      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">#${esc(a.id)} · ${esc(a.objetivo || 'Sem objetivo definido')}${avalBadge(statusAvaliacao(a))}${nutriChip(a)}${medalChip(a)}</span></span>
       ${statusTag(a.status)}
     </button>`).join('');
 }
@@ -253,7 +253,45 @@ async function atualizarGastoSemana() {
     gastoSemanaMap = m;
     if ($('#tela-lista').classList.contains('active')) renderLista();
     publicarRanking(db.listar(), bruto); // publica o ranking do box (mesmo mapa)
+    atualizarMedalhasLista(bruto); // selo de medalhas na listagem (reaproveita o mapa de gastos)
   } catch (e) { console.warn('Nutrição (lista):', e?.code || e); }
+}
+
+/* Selo do total de medalhas conquistadas, na listagem. */
+let medalhasMap = new Map(); // aluno.id → nº de medalhas
+function medalChip(a) {
+  const n = medalhasMap.get(a.id);
+  if (!n) return '';
+  return ` <span class="rmed" title="Medalhas conquistadas">🏅 ${n}</span>`;
+}
+/** Conta as medalhas de cada aluno (mesma lógica do Portal) e atualiza a listagem. */
+async function atualizarMedalhasLista(mapaGastos) {
+  try {
+    const conclMap = await carregarTodasConclusoes(); // Map(email → concluidos[])
+    const mm = new Map();
+    db.listar().forEach((a) => {
+      const email = (a.email || '').trim().toLowerCase();
+      const gastos = email ? (mapaGastos.get(email) || []) : [];
+      const concl = email ? (conclMap.get(email) || []) : [];
+      const dias = game.diasTreino(a.presencas, gastos);
+      const c = game.contadores(dias);
+      const meds = game.medalhas({
+        total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias),
+        nAvaliacoes: (a.avaliacoes || []).filter((x) => x.dataRealizada).length,
+        desafios: concl.length,
+        desAgua: concl.filter((x) => x.categoria === 'agua').length,
+        desAcucar: concl.filter((x) => x.categoria === 'acucar').length,
+        meses: Object.values(a.pagamentos || {}).filter(Boolean).length,
+        calMaxTreino: game.maxCaloriasTreino(gastos),
+        calMaxSemana: game.maxCaloriasSemana(gastos),
+        feedbacks: Array.isArray(a.feedbacks) ? a.feedbacks.length : 0,
+      });
+      const n = meds.filter((m) => m.ok).length;
+      if (n > 0) mm.set(a.id, n);
+    });
+    medalhasMap = mm;
+    if ($('#tela-lista').classList.contains('active')) renderLista();
+  } catch (e) { console.warn('Medalhas (lista):', e?.code || e); }
 }
 
 elLista.addEventListener('click', (e) => {
