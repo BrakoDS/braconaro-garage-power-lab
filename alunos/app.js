@@ -13,7 +13,7 @@ import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
-import { carregarGastoTreino } from './nutricao-read.js';
+import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -220,9 +220,34 @@ function renderLista() {
   elLista.innerHTML = alunos.map((a) => `
     <button class="aluno-row" data-id="${esc(a.id)}" type="button">
       <span class="rav">${a.fotoUrl ? `<img src="${esc(a.fotoUrl)}" alt="" />` : esc(iniciais(a.nome))}</span>
-      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">#${esc(a.id)} · ${esc(a.objetivo || 'Sem objetivo definido')}${avalBadge(statusAvaliacao(a))}</span></span>
+      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">#${esc(a.id)} · ${esc(a.objetivo || 'Sem objetivo definido')}${avalBadge(statusAvaliacao(a))}${nutriChip(a)}</span></span>
       ${statusTag(a.status)}
     </button>`).join('');
+}
+
+/* Selo do total de treino queimado na semana (Seg–Sáb), vindo do Portal do Aluno. */
+let gastoSemanaMap = new Map(); // emailKey → total kcal da semana
+function nutriChip(a) {
+  const email = (a.email || '').trim().toLowerCase();
+  const total = email ? gastoSemanaMap.get(email) : 0;
+  if (!total) return '';
+  return ` <span class="rkcal" title="Treino queimado nesta semana (Seg–Sáb)">🔥 ${fmtN(total, 0)} kcal</span>`;
+}
+/** Busca todos os gastos numa consulta, soma a semana corrente por aluno e atualiza a listagem. */
+async function atualizarGastoSemana() {
+  try {
+    const bruto = await carregarTodosGastos(); // Map(email → gastos[])
+    const dias = semanaSegSab().map(isoLocal);
+    const ini = dias[0], fim = dias[5];
+    const nf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+    const m = new Map();
+    bruto.forEach((gastos, email) => {
+      const total = (gastos || []).filter((g) => g.data >= ini && g.data <= fim).reduce((s, g) => s + nf(g.calorias), 0);
+      if (total > 0) m.set(email, total);
+    });
+    gastoSemanaMap = m;
+    if ($('#tela-lista').classList.contains('active')) renderLista();
+  } catch (e) { console.warn('Nutrição (lista):', e?.code || e); }
 }
 
 elLista.addEventListener('click', (e) => {
@@ -1251,6 +1276,8 @@ function entrar(user) {
       publicarPortal(db.listar());
       // 3) puxa o mural de avisos da nuvem (para editar no mesmo estado em qualquer aparelho)
       sincronizarAvisos();
+      // 4) total de treino queimado na semana, por aluno (selo na listagem)
+      atualizarGastoSemana();
     });
   }
 }

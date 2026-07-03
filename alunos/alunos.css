@@ -244,6 +244,7 @@ button{font-family:inherit}
 .mural-item.off .mural-estado{color:#e3b341}
 .mural-item-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 
+.rkcal{color:var(--accent);font-weight:600;white-space:nowrap}
 .nutri-total{display:flex;align-items:center;justify-content:space-between;background:var(--bg-2);
   border:1px solid var(--line);border-left:3px solid var(--accent);padding:11px 14px;margin-bottom:12px;font-size:.9rem}
 .nutri-total span{color:var(--mut);text-transform:uppercase;letter-spacing:.04em;font-size:.8rem}
