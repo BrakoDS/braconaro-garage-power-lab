@@ -17,6 +17,8 @@ import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizar
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
 import { publicarRanking } from './ranking-sync.js';
 import { carregarCargasAluno } from './cargas-read.js';
+import { carregarConclusoesDesafios } from './desafios-read.js';
+import * as game from '../aluno/gamificacao.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -1205,6 +1207,7 @@ function renderProgresso() {
   const temDesempenho = [sFlex, sPrancha, sAgach, sAbd].some((s) => s.length >= 2);
   panel.innerHTML = `
     <div class="prog-grid">
+      <div class="prog-card full"><h4>Medalhas do aluno</h4><div id="prog-medalhas"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Metas do aluno</h4><div id="prog-metas"></div></div>
       <div class="prog-card full"><h4>Evolução do peso corporal</h4>${chart(sPeso, { cor: 'var(--accent)' })}</div>
       <div class="prog-card"><h4>% Gordura corporal</h4>${chart(sPerc, { cor: '#ff5b50' })}</div>
@@ -1221,8 +1224,47 @@ function renderProgresso() {
       <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
     </div>`;
   renderMetasCoach(a);
+  carregarMedalhasAluno(a);
   carregarGastoSemana(a);
   carregarCargasForca(a);
+}
+
+/** Resumo das medalhas do aluno (mesma lógica do Portal) — para parabenizar. */
+async function carregarMedalhasAluno(a) {
+  const alvoId = a.id;
+  const el = $('#prog-medalhas'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  let gastos = [], concl = [];
+  if (email) {
+    try { const g = await carregarGastoTreino(email); gastos = (g && g.gastos) || []; } catch (e) { console.warn('Medalhas:', e?.code || e); }
+    try { concl = await carregarConclusoesDesafios(email); } catch (e) { console.warn('Medalhas:', e?.code || e); }
+  }
+  if (!$('#prog-medalhas') || alunoAtual?.id !== alvoId) return;
+  const dias = game.diasTreino(a.presencas, gastos);
+  const c = game.contadores(dias);
+  const meds = game.medalhas({
+    total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias),
+    nAvaliacoes: (a.avaliacoes || []).filter((x) => x.dataRealizada).length,
+    desafios: concl.length,
+    desAgua: concl.filter((x) => x.categoria === 'agua').length,
+    desAcucar: concl.filter((x) => x.categoria === 'acucar').length,
+    meses: Object.values(a.pagamentos || {}).filter(Boolean).length,
+    calMaxTreino: game.maxCaloriasTreino(gastos),
+    calMaxSemana: game.maxCaloriasSemana(gastos),
+    feedbacks: Array.isArray(a.feedbacks) ? a.feedbacks.length : 0,
+  });
+  const ok = meds.filter((m) => m.ok);
+  const prox = meds.find((m) => !m.ok);
+  const nome1 = (a.nome || '').trim().split(/\s+/)[0] || 'o aluno';
+  const wa = String(a.telefone || '').replace(/\D/g, '');
+  el.innerHTML = `
+    <div class="med-resumo">
+      <span class="med-cont">${ok.length}<small>/${meds.length}</small></span>
+      <span class="med-cont-l">medalhas conquistadas</span>
+      ${wa.length >= 10 && ok.length ? `<a class="btn btn-sm med-wa" href="${waMsg(a.telefone, `Parabéns, ${nome1}! 🏅 Você já desbloqueou ${ok.length} de ${meds.length} medalhas no Portal do Aluno. Bora pra próxima! 💪`)}" target="_blank" rel="noopener">Parabenizar no WhatsApp</a>` : ''}
+    </div>
+    ${ok.length ? `<div class="med-grid">${ok.map((m) => `<div class="med-chip" title="${esc(m.desc)}"><span>${m.ic}</span>${esc(m.nome)}</div>`).join('')}</div>` : '<div class="prog-ph">Ainda sem medalhas. Conforme treina, avalia e cumpre desafios, elas aparecem aqui.</div>'}
+    ${prox ? `<div class="med-prox">Próxima: <b>${prox.ic} ${esc(prox.nome)}</b> — ${esc(prox.desc)}</div>` : ''}`;
 }
 
 /** Card read-only de evolução de força (registro de cargas do Portal). */

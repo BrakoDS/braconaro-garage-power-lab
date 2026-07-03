@@ -660,17 +660,6 @@ function fecharConquistas() {
   window.scrollTo(0, 0);
 }
 
-/** Início do treino (ms): o mais antigo entre cadastro, 1ª presença e 1ª avaliação. */
-function inicioTreinoTs() {
-  const cands = [];
-  if (PORTAL?.criadoEm) cands.push(PORTAL.criadoEm);
-  const pres = (PORTAL?.presencas || []).slice().sort();
-  if (pres[0]) cands.push(new Date(pres[0] + 'T00:00:00').getTime());
-  const avs = avaliacoesOrdenadas();
-  if (avs[0]?.dataRealizada) cands.push(new Date(avs[0].dataRealizada + 'T00:00:00').getTime());
-  return cands.length ? Math.min(...cands) : null;
-}
-
 function desenharConquistas() {
   const dias = game.diasTreino(PORTAL?.presencas, NUT?.gastos);
   const streak = game.streakSemanas(dias);
@@ -683,7 +672,7 @@ function desenharConquistas() {
     desafios: concl.length,
     desAgua: concl.filter((x) => x.categoria === 'agua').length,
     desAcucar: concl.filter((x) => x.categoria === 'acucar').length,
-    meses: game.mesesDesde(inicioTreinoTs()),
+    meses: Object.values(PORTAL?.pagamentos || {}).filter(Boolean).length,
     calMaxTreino: game.maxCaloriasTreino(gastos),
     calMaxSemana: game.maxCaloriasSemana(gastos),
     feedbacks: numf(PORTAL?.feedbacksCount) || 0,

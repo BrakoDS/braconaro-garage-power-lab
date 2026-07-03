@@ -268,6 +268,19 @@ button{font-family:inherit}
 .cob-badge.breve{background:var(--bg-3);color:var(--mut)}
 .cob-wa{background:#25d366;border-color:#25d366;color:#0a2e17}
 .cob-semtel{font-size:.8rem;color:var(--mut-2)}
+/* Medalhas do aluno (coach) */
+.med-resumo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.med-cont{font-family:var(--font-cond);font-weight:700;font-size:2rem;line-height:1;color:var(--accent)}
+.med-cont small{font-size:1rem;color:var(--mut-2)}
+.med-cont-l{color:var(--mut);font-size:.9rem}
+.med-wa{margin-left:auto;background:#25d366;border-color:#25d366;color:#0a2e17}
+.med-grid{display:flex;flex-wrap:wrap;gap:8px}
+.med-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg-2);border:1px solid var(--line-2);
+  border-radius:999px;padding:6px 12px;font-size:.86rem;font-weight:600}
+.med-chip span{font-size:1.05rem}
+.med-prox{margin-top:12px;font-size:.86rem;color:var(--mut)}
+.med-prox b{color:var(--txt)}
+
 /* Metas do aluno (coach) */
 .meta-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .meta-form select,.meta-form input{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:8px 10px;font:inherit;font-size:.9rem}
