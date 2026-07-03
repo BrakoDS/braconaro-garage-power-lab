@@ -12,7 +12,7 @@ import { carregarAvisos } from './avisos-db.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js';
 import { carregarRanking } from './ranking-db.js';
 import * as game from './gamificacao.js';
-import * as calc from '../alunos/calc.js?v=4';
+import * as calc from '../alunos/calc.js?v=5';
 
 /* ---------- Helpers ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -103,6 +103,7 @@ function render() {
   const temDados = !!PORTAL;
   $('#sem-dados').hidden = temDados;
   ['sec-atalhos', 'sec-progresso', 'sec-financeiro', 'sec-avaliacoes', 'sec-feedback'].forEach((id) => { $('#' + id).hidden = !temDados; });
+  // sec-metas: só quando há metas definidas (controlado em renderMetas)
 
   // Boas-vindas (sempre, com nome do que tiver) — avatar com botão "Alterar foto"
   const nome = PORTAL?.nome || (usuario()?.email || '').split('@')[0];
@@ -122,6 +123,7 @@ function render() {
   if (!temDados) return;
   wireFoto();
   renderProgresso();
+  renderMetas();
   renderEvolucao();
   renderFinanceiro();
   renderFotos();
@@ -215,6 +217,30 @@ function renderProgresso() {
     card((PORTAL.presencas || []).length, 'Check-ins', 'presenças registradas') +
     card(ult?.peso ? fmt(numf(ult.peso), 1) : '—', 'Peso atual (kg)', avs.length >= 2 && dPeso != null ? `${sinal(dPeso)} kg desde a 1ª` : '') +
     card(rUlt?.perc != null ? fmt(rUlt.perc, 1) + '%' : '—', '% Gordura', avs.length >= 2 && dPerc != null ? `${sinal(dPerc)}% desde a 1ª` : '');
+}
+
+/* ---------- Metas / objetivo (read-only, definidas pelo coach) ---------- */
+function renderMetas() {
+  const metas = Array.isArray(PORTAL?.metas) ? PORTAL.metas : [];
+  const sec = $('#sec-metas');
+  if (!metas.length) { sec.hidden = true; return; }
+  const avs = PORTAL?.avaliacoes || [];
+  const html = metas.map((m) => {
+    const p = calc.progressoMeta(m, avs, alunoLike());
+    const t = calc.META_TIPOS[m.tipo] || { label: m.tipo, unidade: '', dec: 1 };
+    const pct = p.pct != null ? Math.round(p.pct) : null;
+    return `<div class="meta-card${p.atingida ? ' atingida' : ''}">
+      <div class="meta-card-top"><span class="meta-card-nome">${esc(t.label)}</span>${p.atingida ? '<span class="meta-card-ok">Meta atingida ✓</span>' : pct != null ? `<span class="meta-card-pct">${pct}%</span>` : ''}</div>
+      <div class="meta-card-bar"><div class="meta-card-fill${p.atingida ? ' ok' : ''}" style="width:${p.pct != null ? p.pct.toFixed(0) : 0}%"></div></div>
+      <div class="meta-card-vals">
+        <div><span>Início</span><b>${p.base != null ? fmt(p.base, t.dec) : '—'}</b></div>
+        <div class="mc-atual"><span>Você está em</span><b>${p.atual != null ? fmt(p.atual, t.dec) : '—'}${t.unidade ? ' ' + t.unidade : ''}</b></div>
+        <div><span>Meta</span><b>${p.alvo != null ? fmt(p.alvo, t.dec) : '—'}</b></div>
+      </div>
+    </div>`;
+  }).join('');
+  sec.hidden = false;
+  $('#metas').innerHTML = html;
 }
 
 function statusFin(mesId) {

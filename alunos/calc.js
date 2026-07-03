@@ -218,3 +218,34 @@ export function calcular(av, aluno) {
     faltaSexo: !cod, faltaIdade: !idade,
   };
 }
+
+/* ---------- Metas e acompanhamento de objetivo ---------- */
+/** Tipos de meta suportados (métricas que já saem da avaliação). */
+export const META_TIPOS = {
+  peso: { label: 'Peso', unidade: 'kg', dec: 1 },
+  gordura: { label: '% de gordura', unidade: '%', dec: 1 },
+  cintura: { label: 'Cintura', unidade: 'cm', dec: 1 },
+};
+/** Valor de uma métrica numa avaliação (gordura usa o cálculo com sexo/idade). */
+export function valorMetrica(tipo, av, aluno) {
+  if (!av) return null;
+  if (tipo === 'peso') return num(av.peso);
+  if (tipo === 'cintura') return num(av.perimetros?.cintura);
+  if (tipo === 'gordura') return calcular(av, aluno).perc;
+  return null;
+}
+/**
+ * Progresso de uma meta a partir das avaliações do aluno.
+ * base = valor registrado ao criar a meta (fallback: 1ª avaliação); atual = última avaliação.
+ * @returns {{base:number|null, atual:number|null, alvo:number|null, pct:number|null, atingida:boolean}}
+ */
+export function progressoMeta(meta, avaliacoes, aluno) {
+  const avs = (avaliacoes || []).filter((a) => a.dataRealizada).slice().sort((a, b) => (a.dataRealizada < b.dataRealizada ? -1 : 1));
+  const atual = valorMetrica(meta.tipo, avs[avs.length - 1], aluno);
+  const base = (meta.base != null && meta.base !== '') ? num(meta.base) : valorMetrica(meta.tipo, avs[0], aluno);
+  const alvo = num(meta.alvo);
+  if (atual == null || base == null || alvo == null) return { base, atual, alvo, pct: null, atingida: false };
+  const pct = Math.abs(alvo - base) < 1e-9 ? 100 : Math.max(0, Math.min(100, ((atual - base) / (alvo - base)) * 100));
+  const atingida = alvo >= base ? atual >= alvo : atual <= alvo;
+  return { base, atual, alvo, pct, atingida };
+}

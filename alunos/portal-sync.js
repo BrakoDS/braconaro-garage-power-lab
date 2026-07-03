@@ -36,6 +36,7 @@ function fatia(a) {
     mensalidade: a.mensalidade || '', vencimento: a.vencimento || '', pagamentos: a.pagamentos || {},
     presencas: a.presencas || [],
     avaliacoes: a.avaliacoes || [],
+    metas: a.metas || [],
     atualizadoEm: Date.now(),
   };
 }

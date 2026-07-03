@@ -245,6 +245,22 @@ button{font-family:inherit}
 .mural-item-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 
 .rkcal{color:var(--accent);font-weight:600;white-space:nowrap}
+/* Metas do aluno (coach) */
+.meta-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.meta-form select,.meta-form input{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:8px 10px;font:inherit;font-size:.9rem}
+.meta-form input{flex:1;min-width:120px}
+.meta-row{background:var(--bg-2);border:1px solid var(--line);padding:12px 14px;margin-bottom:10px}
+.meta-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.meta-nome{font-weight:700}
+.meta-ok{color:#3fb950;font-weight:600;font-size:.8rem}
+.meta-x{background:none;border:0;color:var(--mut-2);cursor:pointer;font-size:1.2rem;line-height:1;padding:0 4px}
+.meta-x:hover{color:#ff5b50}
+.meta-bar{height:10px;background:var(--bg-3);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.meta-fill{height:100%;background:var(--accent);transition:width .3s}
+.meta-fill.ok{background:#3fb950}
+.meta-vals{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:7px;font-size:.82rem;color:var(--mut-2)}
+.meta-vals b{color:var(--txt);font-size:.95rem}
+.meta-foot{font-size:.78rem;color:var(--mut);margin-top:3px}
 .nutri-total{display:flex;align-items:center;justify-content:space-between;background:var(--bg-2);
   border:1px solid var(--line);border-left:3px solid var(--accent);padding:11px 14px;margin-bottom:12px;font-size:.9rem}
 .nutri-total span{color:var(--mut);text-transform:uppercase;letter-spacing:.04em;font-size:.8rem}

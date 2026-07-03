@@ -7,7 +7,7 @@
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../montador/ui/cloud.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
 import * as db from './db.js';
-import * as calc from './calc.js?v=4';
+import * as calc from './calc.js?v=5';
 import * as storage from './storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal } from './portal-sync.js';
@@ -1063,6 +1063,7 @@ function renderProgresso() {
   const temDesempenho = [sFlex, sPrancha, sAgach, sAbd].some((s) => s.length >= 2);
   panel.innerHTML = `
     <div class="prog-grid">
+      <div class="prog-card full"><h4>Metas do aluno</h4><div id="prog-metas"></div></div>
       <div class="prog-card full"><h4>Evolução do peso corporal</h4>${chart(sPeso, { cor: 'var(--accent)' })}</div>
       <div class="prog-card"><h4>% Gordura corporal</h4>${chart(sPerc, { cor: '#ff5b50' })}</div>
       <div class="prog-card"><h4>Massa magra</h4>${chart(sMagra, { cor: '#3fb950' })}</div>
@@ -1076,7 +1077,50 @@ function renderProgresso() {
       <div class="prog-card full"><h4>Gasto calórico de treino (semana)</h4><div id="prog-nutri"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
     </div>`;
+  renderMetasCoach(a);
   carregarGastoSemana(a);
+}
+
+/** Card de metas do aluno (definir/remover + barra de progresso). Publica no Portal ao salvar. */
+function renderMetasCoach(a) {
+  const el = $('#prog-metas'); if (!el) return;
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
+  const avsOrd = avs.slice().sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
+  const metas = Array.isArray(a.metas) ? a.metas : [];
+  const barras = metas.map((m) => {
+    const p = calc.progressoMeta(m, avs, a);
+    const t = calc.META_TIPOS[m.tipo] || { label: m.tipo, unidade: '', dec: 1 };
+    const pctTxt = p.pct != null ? Math.round(p.pct) + '% do caminho' : 'sem avaliação ainda';
+    return `<div class="meta-row">
+      <div class="meta-top"><span class="meta-nome">${esc(t.label)}${p.atingida ? ' <span class="meta-ok">✓ atingida</span>' : ''}</span><button class="meta-x" data-id="${esc(m.id)}" type="button" title="Remover meta">×</button></div>
+      <div class="meta-bar"><div class="meta-fill${p.atingida ? ' ok' : ''}" style="width:${p.pct != null ? p.pct.toFixed(0) : 0}%"></div></div>
+      <div class="meta-vals"><span>Início ${p.base != null ? fmtN(p.base, t.dec) : '—'}</span><b>Atual ${p.atual != null ? fmtN(p.atual, t.dec) : '—'} ${esc(t.unidade)}</b><span>Meta ${p.alvo != null ? fmtN(p.alvo, t.dec) : '—'}</span></div>
+      <div class="meta-foot">${pctTxt}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <form id="meta-form" class="meta-form">
+      <select id="meta-tipo">${Object.entries(calc.META_TIPOS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+      <input id="meta-alvo" type="number" step="any" min="0" placeholder="Valor da meta" required>
+      <button class="btn btn-sm" type="submit">Definir meta</button>
+    </form>
+    ${barras || '<div class="prog-ph">Nenhuma meta ainda. Combine um objetivo com o aluno (peso, % de gordura ou cintura) — ele acompanha a barra no Portal.</div>'}`;
+  $('#meta-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const tipo = $('#meta-tipo').value;
+    const alvo = numf($('#meta-alvo').value);
+    if (alvo == null) return;
+    const base = calc.valorMetrica(tipo, avsOrd[avsOrd.length - 1], a);
+    const nova = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), tipo, alvo, base, baseData: avsOrd[avsOrd.length - 1]?.dataRealizada || null, criadoEm: Date.now() };
+    db.atualizar(a.id, { metas: [...metas, nova] });
+    alunoAtual = db.obter(a.id);
+    renderMetasCoach(alunoAtual);
+  });
+  $$('#prog-metas .meta-x').forEach((b) => b.addEventListener('click', () => {
+    db.atualizar(a.id, { metas: metas.filter((m) => m.id !== b.dataset.id) });
+    alunoAtual = db.obter(a.id);
+    renderMetasCoach(alunoAtual);
+  }));
 }
 
 /* ---- Gasto calórico de treino (semana, vindo do Portal do Aluno) ---- */
