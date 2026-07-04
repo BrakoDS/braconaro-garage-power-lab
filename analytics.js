@@ -5,7 +5,7 @@
 // Enquanto estiverem com os valores de exemplo, nada é carregado (sem erro,
 // sem custo, sem enviar dado nenhum).
 (function () {
-  var GA4_ID = 'G-XXXXXXX';            // Google Analytics 4 → Measurement ID
+  var GA4_ID = 'G-XYBDBTS8DW';         // Google Analytics 4 → Measurement ID
   var META_PIXEL_ID = '0000000000000'; // Meta (Facebook/Instagram) → Pixel ID
 
   var temGA4 = GA4_ID.indexOf('XXXXXXX') === -1;
