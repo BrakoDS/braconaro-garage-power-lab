@@ -6,6 +6,7 @@
  */
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../montador/ui/cloud.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
+import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
 import * as db from './db.js';
 import * as calc from './calc.js?v=5';
 import * as storage from './storage-alunos.js';
@@ -1545,7 +1546,8 @@ const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-err
 const gToggle = $('#gate-toggle'), gReset = $('#gate-reset');
 const gBtn = gform.querySelector('button[type=submit]');
 
-function entrar(user) {
+async function entrar(user) {
+  if (user && cloudAtivo() && await bloquearSeNaoCoach(user)) return; // barra contas de aluno
   UID = user?.uid || null;
   gate.style.display = 'none';
   $('#app').removeAttribute('hidden');

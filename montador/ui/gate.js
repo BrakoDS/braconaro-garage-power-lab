@@ -7,6 +7,7 @@
  */
 import { estaLiberado, tentarLiberar } from './auth.js';
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, carregarParaStore, conectarStore, usuario } from './cloud.js';
+import { bloquearSeNaoCoach } from './coach-guard.js';
 import { aplicarInventarioAcademia, sincronizarInventarioAcademia } from './inventario.js';
 import { sincronizarAlunos } from './gestao.js';
 
@@ -47,6 +48,8 @@ function msgErroAuth(e) {
 }
 
 async function entrarComNuvem() {
+  const u = usuario();
+  if (u && await bloquearSeNaoCoach(u)) return; // barra contas de aluno
   await carregarParaStore();
   conectarStore();
   const uid = usuario()?.uid;

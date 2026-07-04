@@ -10,6 +10,7 @@
  */
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../montador/ui/cloud.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
+import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
 
 const gate  = document.getElementById('gate');
 const form  = document.getElementById('gate-form');
@@ -22,7 +23,8 @@ const btnEntrar = form?.querySelector('button[type=submit]');
 const hub   = document.getElementById('hub');
 const btnSair = document.getElementById('sair');
 
-function entrar(user) {
+async function entrar(user) {
+  if (user && cloudAtivo() && await bloquearSeNaoCoach(user)) return; // barra contas de aluno
   if (gate) gate.style.display = 'none';
   hub?.removeAttribute('hidden');
   montarPainel(user);

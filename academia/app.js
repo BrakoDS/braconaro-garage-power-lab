@@ -4,6 +4,7 @@
  * Mesmo login do Coach/Montador (Firebase). Dados via ./db.js (local + nuvem).
  */
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha } from '../montador/ui/cloud.js';
+import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
 import * as db from './db.js';
 
@@ -273,7 +274,8 @@ const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-err
 const gToggle = $('#gate-toggle'), gReset = $('#gate-reset');
 const gBtn = gform.querySelector('button[type=submit]');
 
-function entrar(user) {
+async function entrar(user) {
+  if (user && cloudAtivo() && await bloquearSeNaoCoach(user)) return; // barra contas de aluno
   UID = user?.uid || null;
   gate.style.display = 'none';
   $('#app').removeAttribute('hidden');
