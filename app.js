@@ -69,7 +69,7 @@
           '<div class="freq">' + r.freq + '<small>' + r.sub + '</small></div>' +
           '<div class="price"><span class="cur">R$</span><span class="val">' + r.price + '</span><span class="per">' + p.per + '</span></div>' +
           '<div class="obs">' + r.obs + '</div>' +
-          '<a class="btn ' + (r.featured ? 'btn-primary' : 'btn-ghost') + '" href="' + WA + '?text=' + msg + '" target="_blank" rel="noopener">Quero esse plano</a>' +
+          '<a class="btn ' + (r.featured ? 'btn-primary' : 'btn-ghost') + '" href="' + WA + '?text=' + msg + '" target="_blank" rel="noopener" data-track="clique_plano_' + key + '_' + r.freq + '" data-track-meta="Lead">Quero esse plano</a>' +
         '</div>';
     }).join('');
     if (noteEl) noteEl.textContent = p.note;
@@ -169,6 +169,7 @@
       + 'Meu WhatsApp: ' + whats
       + (obj ? '\nObjetivo: ' + obj : '')
       + (hor ? '\nMelhor horário: ' + hor : '');
+    if (window.trackEvento) window.trackEvento('envio_aula_gratis', { local: 'exp-form' }, 'Lead');
     window.open('https://wa.me/' + COACH + '?text=' + encodeURIComponent(msg), '_blank');
   });
 })();
