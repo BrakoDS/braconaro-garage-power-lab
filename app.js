@@ -170,6 +170,7 @@
       + (obj ? '\nObjetivo: ' + obj : '')
       + (hor ? '\nMelhor horário: ' + hor : '');
     if (window.trackEvento) window.trackEvento('envio_aula_gratis', { local: 'exp-form' }, 'Lead');
+    if (window.enviarLeadFirestore) window.enviarLeadFirestore({ nome: nome, whatsapp: whats, objetivo: obj, horario: hor, origem: 'aula-experimental' });
     window.open('https://wa.me/' + COACH + '?text=' + encodeURIComponent(msg), '_blank');
   });
 })();

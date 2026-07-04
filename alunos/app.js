@@ -20,6 +20,7 @@ import { publicarRanking } from './ranking-sync.js';
 import { carregarCargasAluno } from './cargas-read.js';
 import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
 import { carregarConsentimentoLGPD } from './consentimento-read.js';
+import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../aluno/gamificacao.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
@@ -644,6 +645,63 @@ $('#des-list').addEventListener('click', async (e) => {
     if (desEdit === id) desReset();
     renderDesafios();
   }
+});
+
+/* ============================================================
+   TELA — Leads (formulário de aula experimental)
+   ============================================================ */
+const LEAD_STATUS_LABEL = { novo: 'Novo', contatado: 'Contatado', convertido: 'Convertido', descartado: 'Descartado' };
+let LEADS_CACHE = [];
+
+async function renderLeads() {
+  $('#leads-list').innerHTML = `<div class="prog-ph">Carregando…</div>`;
+  try { LEADS_CACHE = await carregarLeads(); }
+  catch (e) { console.warn('Leads:', e?.code || e); $('#leads-list').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`; return; }
+  desenharLeads();
+}
+
+function desenharLeads() {
+  const ativos = LEADS_CACHE.filter((l) => l.status !== 'descartado');
+  const novos = ativos.filter((l) => l.status === 'novo' || !l.status);
+  const contatados = ativos.filter((l) => l.status === 'contatado');
+  const convertidos = ativos.filter((l) => l.status === 'convertido');
+  $('#leads-tot').innerHTML = `
+    <div class="fin-card"><span class="fin-card-l">Novos</span><span class="fin-card-v${novos.length ? ' bad' : ''}">${novos.length}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Contatados</span><span class="fin-card-v">${contatados.length}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Convertidos em aluno</span><span class="fin-card-v ok">${convertidos.length}</span></div>`;
+
+  if (!ativos.length) { $('#leads-list').innerHTML = `<div class="empty"><b>Nenhum lead ainda</b>Assim que alguém preencher o formulário de aula grátis no site, aparece aqui.</div>`; return; }
+
+  const row = (l) => {
+    const d = l.criadoEm ? new Date(l.criadoEm).toLocaleDateString('pt-BR') : '—';
+    const st = l.status || 'novo';
+    const sub = [l.objetivo, l.horario ? 'prefere ' + l.horario : ''].filter(Boolean).join(' · ');
+    return `<div class="cob-row">
+      <div class="cob-info"><div class="fin-nome">${esc(l.nome || 'Sem nome')} <span class="lead-badge ${st}">${LEAD_STATUS_LABEL[st] || st}</span></div><div class="fin-sub">${d}${sub ? ' · ' + esc(sub) : ''}</div></div>
+      <a class="btn btn-sm cob-wa" href="${waMsg(l.whatsapp, 'Olá, ' + (l.nome || '').split(' ')[0] + '! Vi seu interesse na aula experimental do Braconaro Garage Power Lab. Vamos agendar? 💪')}" target="_blank" rel="noopener">WhatsApp</a>
+      <select class="lead-status" data-id="${esc(l.id)}">
+        ${Object.entries(LEAD_STATUS_LABEL).map(([v, l2]) => `<option value="${v}"${v === st ? ' selected' : ''}>${l2}</option>`).join('')}
+      </select>
+      <button class="btn ghost btn-sm lead-excluir" data-id="${esc(l.id)}" type="button">Excluir</button>
+    </div>`;
+  };
+  $('#leads-list').innerHTML = ativos.map(row).join('');
+}
+
+$('#btn-leads').addEventListener('click', () => { renderLeads(); mostrarTela('tela-leads'); });
+$('#leads-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#leads-list').addEventListener('change', async (e) => {
+  const sel = e.target.closest('.lead-status'); if (!sel) return;
+  try { await atualizarStatusLead(sel.dataset.id, sel.value); } catch (err) { console.warn('Leads:', err?.code || err); }
+  const l = LEADS_CACHE.find((x) => x.id === sel.dataset.id); if (l) l.status = sel.value;
+  desenharLeads();
+});
+$('#leads-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.lead-excluir'); if (!btn) return;
+  if (!confirm('Excluir este lead?')) return;
+  try { await excluirLead(btn.dataset.id); } catch (err) { console.warn('Leads:', err?.code || err); }
+  LEADS_CACHE = LEADS_CACHE.filter((x) => x.id !== btn.dataset.id);
+  desenharLeads();
 });
 
 /* ============================================================

@@ -56,6 +56,7 @@
             <button class="btn ghost btn-sm" id="btn-aviso" type="button">Avisar (WhatsApp)</button>
             <button class="btn ghost btn-sm" id="btn-mural" type="button">Avisos do Portal</button>
             <button class="btn ghost btn-sm" id="btn-desafios" type="button">Desafios</button>
+            <button class="btn ghost btn-sm" id="btn-leads" type="button">Leads</button>
           </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -202,6 +203,17 @@
       </div>
     </section>
 
+    <!-- ----------- TELA: LEADS (aula experimental) ----------- -->
+    <section id="tela-leads" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="leads-voltar" type="button">← Voltar para a listagem</button></div>
+        <span class="eyebrow">Leads · Formulário de aula experimental</span>
+        <p class="hint" style="margin:6px 0 16px">Toda vez que alguém preenche o formulário de aula grátis no site, o interessado cai aqui — mesmo que desista de mandar a mensagem no WhatsApp.</p>
+        <div class="fin-tot" id="leads-tot"></div>
+        <div id="leads-list"></div>
+      </div>
+    </section>
+
     <!-- ----------- TELA 2: PERFIL ----------- -->
     <section id="tela-perfil" class="screen">
       <div class="wrap">
@@ -328,6 +340,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=14"></script>
+  <script type="module" src="./app.js?v=15"></script>
 </body>
 </html>

@@ -274,6 +274,13 @@ button{font-family:inherit}
 .cob-badge.breve{background:var(--bg-3);color:var(--mut)}
 .cob-wa{background:#25d366;border-color:#25d366;color:#0a2e17}
 .cob-semtel{font-size:.8rem;color:var(--mut-2)}
+/* Leads */
+.lead-badge{font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:999px;margin-left:8px;white-space:nowrap}
+.lead-badge.novo{background:#ff5b5022;color:#ff5b50}
+.lead-badge.contatado{background:#e3b34122;color:#e3b341}
+.lead-badge.convertido{background:#3fb95022;color:#3fb950}
+.lead-badge.descartado{background:var(--bg-3);color:var(--mut-2)}
+.lead-status{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:7px 10px;font:inherit;font-size:.85rem}
 /* Medalhas do aluno (coach) */
 .med-resumo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .med-cont{font-family:var(--font-cond);font-weight:700;font-size:2rem;line-height:1;color:var(--accent)}
