@@ -66,6 +66,14 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
     }
 
+    // Consentimento LGPD (termo de adesão) — um doc por aluno.
+    //  - o ALUNO lê/grava o seu; o COACH (dono de gestao/{uid}) lê (auditoria).
+    match /consentimentos/{email} {
+      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read: if request.auth != null
+        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+    }
+
     // Registro de cargas (carga × reps por exercício) — um doc por aluno.
     //  - o ALUNO lê/grava o seu; o COACH (dono de gestao/{uid}) lê e grava (registrar por ele).
     match /cargas/{email} {

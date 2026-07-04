@@ -19,6 +19,10 @@
       <p class="gate-sub">Área do aluno. Entre com o e-mail cadastrado no box.</p>
       <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
       <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <label class="gate-lgpd" id="gate-lgpd-wrap" hidden>
+        <input type="checkbox" id="gate-lgpd" />
+        <span>Li e aceito o <a href="./termos.html" target="_blank" rel="noopener">Termo de Consentimento e Uso de Dados</a>.</span>
+      </label>
       <button class="btn" type="submit">Entrar</button>
       <div class="gate-links">
         <a href="#" id="gate-toggle">Primeiro acesso? Criar conta</a>
@@ -162,6 +166,21 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: consentimento LGPD (bloqueante, sem botão de fechar) ============ -->
+  <div class="modal-bg" id="modal-lgpd">
+    <div class="modal">
+      <div class="modal-hd"><h3>Antes de continuar</h3></div>
+      <div class="modal-bd">
+        <p style="color:var(--mut);line-height:1.55;margin:0 0 14px">Para acessar seus dados de avaliação, treino e financeiro, precisamos do seu consentimento para coletar e usar essas informações — inclusive dados de saúde e foto, quando enviada.</p>
+        <label class="gate-lgpd">
+          <input type="checkbox" id="lgpd-check" />
+          <span>Li e aceito o <a href="./termos.html" target="_blank" rel="noopener">Termo de Consentimento e Uso de Dados</a>.</span>
+        </label>
+      </div>
+      <div class="modal-ft"><button class="btn" id="lgpd-continuar" type="button" disabled>Continuar</button></div>
+    </div>
+  </div>
+
   <datalist id="dl-exercicios">
     <option>Supino reto</option><option>Supino inclinado</option><option>Agachamento livre</option>
     <option>Levantamento terra</option><option>Leg press</option><option>Desenvolvimento</option>
@@ -169,6 +188,6 @@
     <option>Tríceps testa</option><option>Cadeira extensora</option><option>Mesa flexora</option>
     <option>Elevação pélvica</option><option>Panturrilha</option>
   </datalist>
-  <script type="module" src="./app.js?v=12"></script>
+  <script type="module" src="./app.js?v=13"></script>
 </body>
 </html>

@@ -19,6 +19,7 @@ import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
 import { publicarRanking } from './ranking-sync.js';
 import { carregarCargasAluno } from './cargas-read.js';
 import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
+import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import * as game from '../aluno/gamificacao.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
@@ -767,6 +768,7 @@ function abrirPerfil(id) {
   renderAvatar();
   // aba dados
   $('#tab-dados').innerHTML = `
+    <div class="lgpd-tag" id="lgpd-tag">Consentimento LGPD: <span>verificando…</span></div>
     <form id="form-dados">
       ${formDadosHTML(a)}
       <div class="form-actions">
@@ -776,6 +778,7 @@ function abrirPerfil(id) {
         <button class="btn danger btn-sm" type="button" id="btn-excluir-aluno">Excluir aluno</button>
       </div>
     </form>`;
+  carregarConsentimentoAluno(a);
   const form = $('#form-dados');
   wireForm(form);
   form.addEventListener('submit', (e) => {
@@ -797,6 +800,23 @@ function abrirPerfil(id) {
   // volta sempre para a aba Dados ao abrir
   ativarAba('dados');
   mostrarTela('tela-perfil');
+}
+
+/** Indicador (read-only) de consentimento LGPD do aluno, na aba Dados. */
+async function carregarConsentimentoAluno(a) {
+  const alvoId = a.id;
+  const el = $('#lgpd-tag'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  if (!email) { el.innerHTML = 'Consentimento LGPD: <span class="semdado">sem e-mail cadastrado</span>'; return; }
+  let c = null;
+  try { c = await carregarConsentimentoLGPD(email); } catch (e) { console.warn('LGPD:', e?.code || e); }
+  if (!$('#lgpd-tag') || alunoAtual?.id !== alvoId) return; // trocou de aluno enquanto carregava
+  if (c && c.aceitoEm) {
+    const d = new Date(c.aceitoEm).toLocaleDateString('pt-BR');
+    $('#lgpd-tag').innerHTML = `Consentimento LGPD: <span class="ok">✓ aceito em ${d}</span>`;
+  } else {
+    $('#lgpd-tag').innerHTML = 'Consentimento LGPD: <span class="pendente">⚠ ainda não aceito</span>';
+  }
 }
 
 /* ---- Abas ---- */

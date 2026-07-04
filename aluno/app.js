@@ -13,6 +13,7 @@ import { carregarNutricao, salvarNutricao } from './nutricao-db.js';
 import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
 import { carregarDesafios, carregarProgressoDesafios, salvarProgressoDesafios } from './desafios-db.js';
+import { carregarConsentimento, registrarAceite, precisaAceitar } from './consentimento-db.js';
 import * as game from './gamificacao.js';
 import * as calc from '../alunos/calc.js?v=5';
 
@@ -475,7 +476,7 @@ function abrirComparar() {
   $('#modal-comparar').classList.add('open');
 }
 $('#btn-comparar').addEventListener('click', abrirComparar);
-$$('.modal-bg').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('open'); }));
+$$('.modal-bg:not(#modal-lgpd)').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('open'); }));
 
 /* ============================================================
    Nutrição Básica
@@ -890,6 +891,22 @@ const gate = $('#gate'), gform = $('#gate-form');
 const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-erro');
 const gToggle = $('#gate-toggle'), gReset = $('#gate-reset');
 const gBtn = gform.querySelector('button[type=submit]');
+const gLgpdWrap = $('#gate-lgpd-wrap'), gLgpd = $('#gate-lgpd');
+
+/** Mostra o modal bloqueante de consentimento; só libera o dashboard ao aceitar. */
+function pedirConsentimento(email) {
+  const modal = $('#modal-lgpd'), chk = $('#lgpd-check'), btn = $('#lgpd-continuar');
+  chk.checked = false; btn.disabled = true;
+  modal.classList.add('open');
+  chk.onchange = () => { btn.disabled = !chk.checked; };
+  btn.onclick = async () => {
+    if (!chk.checked) return;
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    try { await registrarAceite(email); } catch (e) { console.warn('LGPD:', e?.code || e); }
+    modal.classList.remove('open');
+    btn.disabled = false; btn.textContent = 'Continuar';
+  };
+}
 
 async function entrar(user) {
   gate.style.display = 'none';
@@ -899,6 +916,10 @@ async function entrar(user) {
   catch (e) { PORTAL = null; console.warn('Portal:', e?.code || e); }
   render();
   carregarAvisos().then(renderAvisos); // mural da academia (independe da fatia do aluno)
+  if (email) {
+    try { const c = await carregarConsentimento(email); if (precisaAceitar(c)) pedirConsentimento(email); }
+    catch (e) { console.warn('LGPD:', e?.code || e); }
+  }
 }
 
 /* ---------- Avisos da Academia ---------- */
@@ -936,13 +957,15 @@ $('#sair').addEventListener('click', async () => { try { await sair(); } catch {
 if (cloudAtivo()) {
   gate.style.display = 'flex';
   let criando = false;
-  gToggle.addEventListener('click', (e) => { e.preventDefault(); criando = !criando; gBtn.textContent = criando ? 'Criar conta e entrar' : 'Entrar'; gToggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta'; gErro.style.display = 'none'; });
+  gToggle.addEventListener('click', (e) => { e.preventDefault(); criando = !criando; gBtn.textContent = criando ? 'Criar conta e entrar' : 'Entrar'; gToggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta'; gLgpdWrap.hidden = !criando; gErro.style.display = 'none'; });
   gReset.addEventListener('click', async (e) => { e.preventDefault(); const m = gEmail.value.trim(); if (!m) { erroMsg('Digite seu e-mail acima primeiro.'); gEmail.focus(); return; } try { await resetarSenha(m); okMsg('Enviamos um link de redefinição para seu e-mail.'); } catch (err) { erroMsg(msgAuth(err)); } });
   sessaoAtual().then((u) => { if (u) entrar(u); else gEmail.focus(); });
   gform.addEventListener('submit', async (e) => {
     e.preventDefault(); gErro.style.display = 'none';
+    if (criando && !gLgpd.checked) { erroMsg('Você precisa aceitar o Termo de Consentimento e Uso de Dados para criar sua conta.'); return; }
     try {
       const user = criando ? await criarConta(gEmail.value.trim(), gSenha.value) : await login(gEmail.value.trim(), gSenha.value);
+      if (criando) { try { await registrarAceite(gEmail.value.trim()); } catch (er) { console.warn('LGPD:', er?.code || er); } }
       entrar(user);
     } catch (err) { erroMsg(msgAuth(err)); }
   });
@@ -950,3 +973,4 @@ if (cloudAtivo()) {
   gate.style.display = 'flex';
   erroMsg('O Portal do Aluno precisa da nuvem (Firebase) ativa.');
 }
+

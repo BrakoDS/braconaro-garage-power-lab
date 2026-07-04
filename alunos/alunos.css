@@ -198,6 +198,11 @@ button{font-family:inherit}
 .saved-flag{color:var(--ok);font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.08em;
   font-size:.8rem;align-self:center;opacity:0;transition:opacity .2s}
 .saved-flag.show{opacity:1}
+.lgpd-tag{display:inline-block;font-size:.82rem;color:var(--mut);margin-bottom:14px;padding:6px 12px;
+  border:1px solid var(--line-2);border-radius:20px}
+.lgpd-tag span.ok{color:var(--ok);font-weight:600}
+.lgpd-tag span.pendente{color:var(--bad);font-weight:600}
+.lgpd-tag span.semdado{color:var(--mut-2)}
 
 /* ---------- Aba 2: Avaliações (timeline) ---------- */
 .aval-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
