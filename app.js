@@ -35,7 +35,7 @@
   /* ---------- PLANS ---------- */
   var PLANS = {
     mensal: {
-      note: 'Mês = 4 semanas. Quando houver 5 semanas, a 5ª é por nossa conta.',
+      note: 'Mês de 4 semanas. Quando houver 5 semanas, a 5ª não será cobrada.',
       per: '/mês',
       rows: [
         { freq: '3x', sub: 'por semana', price: '130', obs: '4 semanas' },
@@ -44,7 +44,7 @@
       ]
     },
     tri: {
-      note: 'Valores reduzidos por fidelidade (plano trimestral). Mesma regra das 4 semanas + 5ª de brinde.',
+      note: 'Valores reduzidos por fidelidade (plano trimestral). Mesma regra das 4 semanas, com a 5ª semana não cobrada.',
       per: '/mês no trimestral',
       rows: [
         { freq: '3x', sub: 'por semana', price: '125', obs: 'Economia por fidelidade' },
