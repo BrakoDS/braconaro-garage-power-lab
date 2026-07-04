@@ -436,6 +436,15 @@ section.block { padding-block: var(--section-y); position: relative; }
 .tv-zonas span { display: inline-flex; align-items: center; gap: 6px; }
 .tv-zonas i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 
+.tech-hardware { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 32px; margin-top: 40px; padding-top: 34px; border-top: 1px solid var(--line); }
+.tech-hw-imgs { display: flex; align-items: center; flex: 0 0 auto; }
+.tech-hw-imgs img { width: 132px; height: auto; display: block; filter: drop-shadow(0 16px 28px rgba(0,0,0,0.55)); }
+.tech-hw-imgs img:first-child { transform: rotate(-5deg); z-index: 1; }
+.tech-hw-imgs img:last-child { transform: rotate(5deg); margin-left: -22px; }
+.tech-hw-tx h3 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.3rem, 3vw, 1.85rem); text-transform: uppercase; letter-spacing: 0.01em; margin: 0 0 8px; }
+.tech-hw-tx p { color: var(--muted); margin: 0; max-width: 54ch; line-height: 1.6; }
+@media (max-width: 640px) { .tech-hardware { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 18px; } .tech-hw-imgs img { width: 116px; } }
+
 .tech-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); }
 .tech-selo { font-family: var(--font-cond); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-size: 0.92rem; }
 .tech-selo b { color: var(--accent); }
