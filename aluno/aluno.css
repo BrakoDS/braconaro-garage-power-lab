@@ -100,6 +100,15 @@ button{font-family:inherit}
 .atalho-tx small{color:var(--mut);font-size:.85rem}
 .atalho-seta{font-size:1.6rem;color:var(--mut-2);flex:0 0 auto}
 
+/* ---------- Indique um amigo ---------- */
+.indique-card{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:var(--card);
+  border:1px solid var(--line);border-left:3px solid var(--accent-2);padding:18px 20px;margin-top:6px}
+.indique-tx{display:flex;align-items:flex-start;gap:14px;flex:1;min-width:220px}
+.indique-ic{font-size:1.8rem;line-height:1;flex:0 0 auto}
+.indique-tx b{font-size:1.02rem;display:block;margin-bottom:2px}
+.indique-tx p{margin:0;color:var(--mut);font-size:.88rem;line-height:1.45}
+.indique-actions{display:flex;gap:10px;flex-wrap:wrap;flex:0 0 auto}
+
 /* ---------- Nutrição Básica (view) ---------- */
 .nut-voltar{background:none;border:0;color:var(--mut);cursor:pointer;font:inherit;font-size:.9rem;padding:4px 0;margin-top:6px}
 .nut-voltar:hover{color:var(--txt)}

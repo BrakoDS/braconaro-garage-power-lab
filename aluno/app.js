@@ -105,7 +105,7 @@ function avaliacoesOrdenadas() {
 function render() {
   const temDados = !!PORTAL;
   $('#sem-dados').hidden = temDados;
-  ['sec-atalhos', 'sec-progresso', 'sec-financeiro', 'sec-avaliacoes', 'sec-feedback'].forEach((id) => { $('#' + id).hidden = !temDados; });
+  ['sec-atalhos', 'sec-indique', 'sec-progresso', 'sec-financeiro', 'sec-avaliacoes', 'sec-feedback'].forEach((id) => { $('#' + id).hidden = !temDados; });
   // sec-metas: só quando há metas definidas (controlado em renderMetas)
 
   // Boas-vindas (sempre, com nome do que tiver) — avatar com botão "Alterar foto"
@@ -125,6 +125,7 @@ function render() {
 
   if (!temDados) return;
   wireFoto();
+  renderIndique();
   renderProgresso();
   renderMetas();
   renderEvolucao();
@@ -159,6 +160,16 @@ function wireFoto() {
       diz('Não foi possível enviar a foto agora.', true);
     } finally { btn.classList.remove('carregando'); }
   });
+}
+
+/* ---------- Indique um amigo ---------- */
+function renderIndique() {
+  const nome1 = primeiroNome(PORTAL?.nome);
+  const msg = `Oi! Eu treino no Braconaro Garage Power Lab e recomendo muito. 💪 Eles têm uma aula experimental grátis — dá uma olhada: https://garagepowerlab.com.br/#experimental (fala que foi indicação de ${nome1})`;
+  const waLink = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  const wa = $('#indique-wa'); if (wa) wa.href = waLink;
+  const btnCopiar = $('#indique-copiar');
+  if (btnCopiar) btnCopiar.onclick = () => copiarTexto(btnCopiar, msg, 'Copiar mensagem');
 }
 
 const fmtDataCurta = (iso) => { if (!iso) return ''; const [, m, d] = iso.split('-'); return `${d}/${m}`; };

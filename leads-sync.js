@@ -24,11 +24,11 @@
     return _promise;
   }
 
-  /** @param {{nome:string, whatsapp:string, objetivo?:string, horario?:string, origem?:string}} dados */
+  /** @param {{nome:string, whatsapp:string, objetivo?:string, horario?:string, indicadoPor?:string, origem?:string}} dados */
   window.enviarLeadFirestore = function (dados) {
     initFirebase().then(function (ctx) {
       var id = 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      return ctx.fns.setDoc(ctx.fns.doc(ctx.db, 'leads', id), {
+      var doc = {
         nome: dados.nome || '',
         whatsapp: dados.whatsapp || '',
         objetivo: dados.objetivo || '',
@@ -36,7 +36,9 @@
         origem: dados.origem || 'landing',
         status: 'novo',
         criadoEm: Date.now(),
-      });
+      };
+      if (dados.indicadoPor) doc.indicadoPor = dados.indicadoPor;
+      return ctx.fns.setDoc(ctx.fns.doc(ctx.db, 'leads', id), doc);
     }).catch(function (e) { console.warn('Lead:', e && e.message); });
   };
 })();

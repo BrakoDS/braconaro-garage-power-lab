@@ -675,7 +675,7 @@ function desenharLeads() {
   const row = (l) => {
     const d = l.criadoEm ? new Date(l.criadoEm).toLocaleDateString('pt-BR') : '—';
     const st = l.status || 'novo';
-    const sub = [l.objetivo, l.horario ? 'prefere ' + l.horario : ''].filter(Boolean).join(' · ');
+    const sub = [l.objetivo, l.horario ? 'prefere ' + l.horario : '', l.indicadoPor ? 'indicado por ' + l.indicadoPor : ''].filter(Boolean).join(' · ');
     return `<div class="cob-row">
       <div class="cob-info"><div class="fin-nome">${esc(l.nome || 'Sem nome')} <span class="lead-badge ${st}">${LEAD_STATUS_LABEL[st] || st}</span></div><div class="fin-sub">${d}${sub ? ' · ' + esc(sub) : ''}</div></div>
       <a class="btn btn-sm cob-wa" href="${waMsg(l.whatsapp, 'Olá, ' + (l.nome || '').split(' ')[0] + '! Vi seu interesse na aula experimental do Braconaro Garage Power Lab. Vamos agendar? 💪')}" target="_blank" rel="noopener">WhatsApp</a>

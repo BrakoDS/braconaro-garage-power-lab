@@ -88,10 +88,11 @@ service cloud.firestore {
     //  - ninguém de fora LÊ, EDITA ou APAGA (nem o próprio autor);
     //  - só o COACH (dono de gestao/{uid}) lê/atualiza/apaga (acompanhar funil).
     match /leads/{id} {
-      allow create: if request.resource.data.keys().hasOnly(['nome', 'whatsapp', 'objetivo', 'horario', 'origem', 'status', 'criadoEm'])
+      allow create: if request.resource.data.keys().hasOnly(['nome', 'whatsapp', 'objetivo', 'horario', 'origem', 'status', 'criadoEm', 'indicadoPor'])
         && request.resource.data.nome is string && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() < 100
         && request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() > 0 && request.resource.data.whatsapp.size() < 30
-        && request.resource.data.status == 'novo';
+        && request.resource.data.status == 'novo'
+        && (!('indicadoPor' in request.resource.data) || (request.resource.data.indicadoPor is string && request.resource.data.indicadoPor.size() < 100));
       allow read, update, delete: if request.auth != null
         && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
     }

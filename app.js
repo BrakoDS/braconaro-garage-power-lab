@@ -164,13 +164,15 @@
     if (!nome || !whats) return;
     var obj = (d.get('objetivo') || '').toString().trim();
     var hor = (d.get('horario') || '').toString().trim();
+    var ind = (d.get('indicadoPor') || '').toString().trim();
     var msg = 'Olá! Quero agendar uma AULA EXPERIMENTAL grátis no Braconaro Garage Power Lab.\n\n'
       + 'Nome: ' + nome + '\n'
       + 'Meu WhatsApp: ' + whats
       + (obj ? '\nObjetivo: ' + obj : '')
-      + (hor ? '\nMelhor horário: ' + hor : '');
+      + (hor ? '\nMelhor horário: ' + hor : '')
+      + (ind ? '\nIndicado por: ' + ind : '');
     if (window.trackEvento) window.trackEvento('envio_aula_gratis', { local: 'exp-form' }, 'Lead');
-    if (window.enviarLeadFirestore) window.enviarLeadFirestore({ nome: nome, whatsapp: whats, objetivo: obj, horario: hor, origem: 'aula-experimental' });
+    if (window.enviarLeadFirestore) window.enviarLeadFirestore({ nome: nome, whatsapp: whats, objetivo: obj, horario: hor, indicadoPor: ind, origem: 'aula-experimental' });
     window.open('https://wa.me/' + COACH + '?text=' + encodeURIComponent(msg), '_blank');
   });
 })();

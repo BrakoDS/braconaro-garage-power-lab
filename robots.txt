@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /aluno/
+Disallow: /alunos/
+Disallow: /coach/
+Disallow: /montador/
+Disallow: /academia/
+
+Sitemap: https://garagepowerlab.com.br/sitemap.xml
