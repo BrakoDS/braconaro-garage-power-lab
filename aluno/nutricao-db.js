@@ -22,20 +22,22 @@ async function init() {
 
 const emailKey = (e) => String(e || '').trim().toLowerCase();
 
-/** Carrega { nivelAtividade, gastos:[] } do aluno (defaults se ainda não existe). @param {string} email */
+/** Carrega { nivelAtividade, gastos:[], creatina:{checks:[]} } do aluno (defaults se ainda não existe). @param {string} email */
 export async function carregarNutricao(email) {
   await init();
   const snap = await _fns.getDoc(_fns.doc(_db, 'gastoTreinos', emailKey(email)));
   const d = snap.exists() ? snap.data() : {};
-  return { nivelAtividade: d.nivelAtividade || '1.55', gastos: Array.isArray(d.gastos) ? d.gastos : [] };
+  const checks = d.creatina && Array.isArray(d.creatina.checks) ? d.creatina.checks : [];
+  return { nivelAtividade: d.nivelAtividade || '1.55', gastos: Array.isArray(d.gastos) ? d.gastos : [], creatina: { checks } };
 }
 
-/** Grava o documento inteiro (nível + lançamentos). @param {string} email @param {{nivelAtividade:string, gastos:any[]}} dados */
+/** Grava o documento inteiro (nível + lançamentos + creatina). @param {string} email @param {{nivelAtividade:string, gastos:any[], creatina?:{checks:string[]}}} dados */
 export async function salvarNutricao(email, dados) {
   await init();
   await _fns.setDoc(_fns.doc(_db, 'gastoTreinos', emailKey(email)), {
     nivelAtividade: dados.nivelAtividade || '1.55',
     gastos: JSON.parse(JSON.stringify(dados.gastos || [])),
+    creatina: { checks: Array.isArray(dados.creatina?.checks) ? dados.creatina.checks.slice() : [] },
     atualizadoEm: Date.now(),
   });
 }

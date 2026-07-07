@@ -554,7 +554,7 @@ async function abrirNutricao() {
   if (NUT == null) {
     $('#nut-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
     try { NUT = await carregarNutricao(emailAluno()); }
-    catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [] }; }
+    catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [], creatina: { checks: [] } }; }
   }
   desenharNutricao();
 }
@@ -569,6 +569,7 @@ async function persistirNutricao() {
 }
 
 function desenharNutricao() {
+  if (!NUT.creatina || !Array.isArray(NUT.creatina.checks)) NUT.creatina = { checks: [] };
   const b = baseNutri();
   const tmb = tmbMifflin(b.peso, b.altura, b.idade, b.cod);
   const fator = parseFloat(NUT.nivelAtividade) || 1.55;
@@ -581,6 +582,33 @@ function desenharNutricao() {
     const carbK = Math.max(0, tdee - protK - gordK), carbG = carbK / 4;
     macros = { protG, protK, gordG, gordK, carbG, carbK };
   }
+
+  // Creatina: dose de manutenção baseada no peso (~0,04 g/kg, entre 3 e 5 g),
+  // arredondada a 0,5 g. Só aparece quando há peso da avaliação.
+  const doseCreat = b.peso ? Math.min(5, Math.max(3, Math.round(b.peso * 0.04 * 2) / 2)) : null;
+  const doseTxt = doseCreat == null ? '' : (Number.isInteger(doseCreat) ? String(doseCreat) : doseCreat.toFixed(1)).replace('.', ',');
+  const creatDias = game.diasDaSemana();
+  const creatHoje = game.isoDia(new Date());
+  const creatLabels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+  const creatMarc = new Set(NUT.creatina.checks);
+  const creatFeitos = creatDias.map(game.isoDia).filter((x) => creatMarc.has(x)).length;
+  const creatPct = Math.round((creatFeitos / 7) * 100);
+  const creatChips = creatDias.map((dt, i) => {
+    const iso = game.isoDia(dt), fut = iso > creatHoje, on = creatMarc.has(iso);
+    return `<button class="des-dia${on ? ' on' : ''}${fut ? ' fut' : ''}" data-creat-iso="${iso}"${fut ? ' disabled' : ''} type="button" title="${fmtData(iso)}">${creatLabels[i]}</button>`;
+  }).join('');
+  const creatinaHtml = doseCreat == null ? '' : `
+    <section class="nut-sec">
+      <h3 class="sec-titulo">Creatina</h3>
+      <div class="nut-metas">
+        <div class="nut-card accent"><span class="nm-l">Sua dose diária</span><span class="nm-v">${doseTxt}<i>g/dia</i></span><span class="nm-s">creatina monohidratada</span></div>
+      </div>
+      <p class="sec-sub">Tome <b>todos os dias</b> (inclusive nos sem treino), com bastante água. Marque os dias que tomou:</p>
+      <div class="des-dias">${creatChips}</div>
+      <div class="des-bar"><div class="des-fill${creatFeitos >= 7 ? ' ok' : ''}" style="width:${creatPct}%"></div></div>
+      <div class="des-foot">${creatFeitos} de 7 dias esta semana</div>
+      <p class="nut-nota">Dose de manutenção estimada pelo seu peso (~0,04 g/kg, entre 3 e 5 g). Orientação geral — não substitui um nutricionista.</p>
+    </section>`;
 
   const selAtiv = `<select id="nut-ativ">${ATIVIDADE.map(([v, l, d]) => `<option value="${v}"${v === NUT.nivelAtividade ? ' selected' : ''}>${l} — ${d}</option>`).join('')}</select>`;
   const metasHtml = tmb == null ? `
@@ -611,6 +639,7 @@ function desenharNutricao() {
       <h3 class="sec-titulo">Suas metas diárias</h3>
       ${metasHtml}
     </section>
+    ${creatinaHtml}
     <section class="nut-sec">
       <h3 class="sec-titulo">Registrar gasto do treino</h3>
       <form class="nut-form" id="nut-form" novalidate>
@@ -640,6 +669,13 @@ function desenharNutricao() {
     NUT.gastos = NUT.gastos.filter((g) => g.id !== btn.dataset.id);
     desenharNutricao(); persistirNutricao();
   }));
+  $$('#nut-conteudo [data-creat-iso]').forEach((btn) => btn.addEventListener('click', () => {
+    const iso = btn.dataset.creatIso;
+    const s = new Set(NUT.creatina.checks);
+    if (s.has(iso)) s.delete(iso); else s.add(iso);
+    NUT.creatina.checks = [...s];
+    desenharNutricao(); persistirNutricao();
+  }));
 }
 
 $('#ir-nutricao')?.addEventListener('click', abrirNutricao);
@@ -659,7 +695,7 @@ async function abrirConquistas() {
   $('#conq-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
   if (NUT == null) {
     try { NUT = await carregarNutricao(emailAluno()); }
-    catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [] }; }
+    catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [], creatina: { checks: [] } }; }
   }
   if (CONQ_RANKING == null) CONQ_RANKING = (await carregarRanking()) || { mes: '', itens: [] };
   if (DES_LISTA == null) { try { DES_LISTA = await carregarDesafios(); } catch { DES_LISTA = []; } }
@@ -984,4 +1020,3 @@ if (cloudAtivo()) {
   gate.style.display = 'flex';
   erroMsg('O Portal do Aluno precisa da nuvem (Firebase) ativa.');
 }
-
