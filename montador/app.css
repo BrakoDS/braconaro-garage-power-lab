@@ -72,6 +72,17 @@ tr.bad-row td { color: var(--warn); }
 .ex-row .swap { margin-left: auto; }
 .alts { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
 
+/* ---------- tabela de 3 níveis ---------- */
+.tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.t-niveis { min-width: 520px; }
+.t-niveis th.nv, .t-niveis td.nv { text-align: center; white-space: nowrap; border-left: 1px solid var(--line); }
+.t-niveis td.nv { font-size: 13px; }
+.t-niveis .nv-series { font-weight: 700; }
+.t-niveis .nv-carga { color: var(--mut); font-size: 12px; }
+/* coluna do intermediário (referência) destacada */
+.t-niveis th.nv-intermediario, .t-niveis td.nv-intermediario { background: rgba(245, 197, 24, .06); }
+.t-niveis th.nv-intermediario { color: var(--acc); }
+
 .empty { color: var(--mut); text-align: center; padding: 40px 20px; border: 1px dashed var(--line); border-radius: var(--r); }
 
 /* ---------- alunos ---------- */

@@ -3,11 +3,45 @@ import { MODALIDADES } from '../config/modalidades.js';
 import { PADRAO_LABEL, PADROES } from '../config/padroes.js';
 import { EQUIP_POR_ID } from '../data/equipamentos.js';
 import { alternativasViaveis, aplicarTroca } from '../core/gerador.js';
-import { sugerirCarga } from '../core/cargas.js';
+import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
 
 const mmss = (s) => `${Math.round(s / 60)}min`;
 const equipNomes = (ids) => ids.map((i) => (EQUIP_POR_ID[i]?.nome || i)).join(', ');
 let _uid = 0;
+
+/** Célula de um nível: séries + carga. @param {{series:number,carga:string}} v */
+const celNivel = (v) => `<span class="nv-series">${v.series}×</span> <span class="nv-carga">${v.carga}</span>`;
+
+/**
+ * Uma linha (<tr>) da tabela de 3 níveis para um exercício já normalizado.
+ * @param {number} i @param {{nome:string,padrao:string,equipamento:string[],reps:string,descansoSeg?:number,niveis:Record<string,{series:number,carga:string}>}} item
+ * @param {string} acoesHTML  botão "trocar" (ou '') @param {string} altsHTML  container de alternativas (ou '')
+ */
+function linhaNiveis(i, item, acoesHTML, altsHTML) {
+  const desc = item.descansoSeg != null ? ` · ${item.descansoSeg}s desc.` : '';
+  return `<tr>
+    <td>${i + 1}</td>
+    <td>
+      <div class="ex-row">
+        <div>
+          <b>${item.nome}</b><br>
+          <small>${PADRAO_LABEL[item.padrao] || item.padrao} · ${equipNomes(item.equipamento || [])}</small><br>
+          <small class="mut">${item.reps}${desc}</small>
+        </div>
+        ${acoesHTML}
+      </div>
+      ${altsHTML}
+    </td>
+    ${NIVEIS.map((n) => `<td class="nv nv-${n}">${celNivel(item.niveis[n])}</td>`).join('')}
+  </tr>`;
+}
+
+/** Envolve as linhas numa tabela de 3 níveis (com scroll horizontal no mobile). */
+function tabelaNiveis(linhasHTML) {
+  return `<div class="tbl-scroll"><table class="t-niveis">
+    <thead><tr><th>#</th><th>Exercício</th>${NIVEIS.map((n) => `<th class="nv nv-${n}">${NIVEL_LABEL[n]}</th>`).join('')}</tr></thead>
+    <tbody>${linhasHTML}</tbody></table></div>`;
+}
 
 /** registro de treinos vivos p/ permitir troca de exercício */
 const vivos = new Map();
@@ -42,41 +76,29 @@ function corpoTreino(id) {
   const mod = MODALIDADES[t.modalidade];
   const aquec = t.aquecimento.map((a) => `<li>${a.exercicio.nome} — ${mmss(a.duracaoSeg)}</li>`).join('');
   const main = t.principal.map((p, i) => {
-    const carga = sugerirCarga(p.exercicio, t.nivel, t.modalidade);
-    return `
-    <tr>
-      <td>${i + 1}</td>
-      <td>
-        <div class="ex-row">
-          <div>
-            <b>${p.exercicio.nome}</b><br>
-            <small>${PADRAO_LABEL[p.exercicio.padrao]} · ${equipNomes(p.exercicio.equipamento)}</small>
-            <div><span class="chip acc">🏋 ${carga.texto}</span></div>
-          </div>
-          <button class="btn ghost sm swap" data-card="${id}" data-idx="${i}">trocar</button>
-        </div>
-        <div class="alts" id="${id}-alts-${i}"></div>
-      </td>
-      <td>${p.series}× ${p.reps}</td>
-      <td>${p.descansoSeg}s</td>
-      <td>${mmss(p.tempoSeg)}</td>
-    </tr>`;
+    const item = {
+      nome: p.exercicio.nome, padrao: p.exercicio.padrao, equipamento: p.exercicio.equipamento,
+      reps: p.reps, descansoSeg: p.descansoSeg,
+      niveis: variantesNivel(p.exercicio, p.series, t.modalidade),
+    };
+    const acoes = `<button class="btn ghost sm swap" data-card="${id}" data-idx="${i}">trocar</button>`;
+    return linhaNiveis(i, item, acoes, `<div class="alts" id="${id}-alts-${i}"></div>`);
   }).join('');
   const fin = t.finalizador ? `<div class="fin"><b>Finalizador — ${t.finalizador.tipo}</b><br>${t.finalizador.descricao}</div>` : '';
   const cab = mostrarDiaSemana
     ? `${mod.nome} · ${t.dia.toUpperCase()} · semana ${t.semana}`
-    : `${mod.nome} · nível ${t.nivel}`;
+    : `${mod.nome}`;
   return `
     <h3>${cab}</h3>
     <div>${badgeViab(t.viabilidade)}
       ${t.deload ? '<span class="chip warn">DELOAD</span>' : ''}
       <span class="chip acc">${t.principal.length} exercícios</span>
     </div>
-    <div class="tempos">🔥 aquec ${mmss(t.tempoAquecimentoSeg)} · 🏋️ principal ${mmss(t.tempoPrincipalSeg)}${t.finalizador ? ` · 🎯 final ${mmss(t.tempoFinalizadorSeg)}` : ''} · ⏱ total ~${mmss(t.tempoTotalSeg)}</div>
+    <div class="tempos">🔥 aquec ${mmss(t.tempoAquecimentoSeg)} · 🏋️ principal ${mmss(t.tempoPrincipalSeg)}${t.finalizador ? ` · 🎯 final ${mmss(t.tempoFinalizadorSeg)}` : ''} · ⏱ total ~${mmss(t.tempoTotalSeg)} <span class="mut">(ref. intermediário)</span></div>
     <h4>Aquecimento / Mobilidade</h4>
     <ul class="aquec">${aquec}</ul>
-    <h4>Bloco principal</h4>
-    <table><thead><tr><th>#</th><th>Exercício</th><th>Séries</th><th>Desc.</th><th>Tempo</th></tr></thead><tbody>${main}</tbody></table>
+    <h4>Bloco principal <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— séries × carga por nível</span></h4>
+    ${tabelaNiveis(main)}
     <small class="mut">🏋 Cargas são um <b>ponto de partida</b> (nível + modalidade + pesos do box) — ajuste pelo aluno.</small>
     ${fin}
     <h4>Volume por músculo (séries equivalentes)</h4>
@@ -157,31 +179,33 @@ export function renderMesociclo(meso) {
  * @param {any} d @param {boolean} [editavel]  Mostra o botão "trocar" (só na aba Programa)
  */
 export function renderDiaSalvo(d, editavel = true) {
-  const exs = d.exercicios.map((e, i) => {
-    const acoes = editavel
-      ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>`
-      : '';
-    const alts = editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
-    return `
-    <tr><td>${i + 1}</td>
-      <td>
-        <div class="ex-row">
-          <div>
-            <b>${e.nome}</b><br><small>${PADRAO_LABEL[e.padrao] || e.padrao} · ${equipNomes(e.equipamento || [])}</small>
-            <div><span class="chip acc">🏋 ${e.carga}</span></div>
+  const acoesDe = (i) => editavel ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>` : '';
+  const altsDe = (i) => editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
+  // snapshot antigo (sem níveis) → render legado de coluna única
+  const legado = d.exercicios.length && !d.exercicios[0].niveis;
+  let corpo;
+  if (legado) {
+    const exs = d.exercicios.map((e, i) => `
+      <tr><td>${i + 1}</td>
+        <td>
+          <div class="ex-row">
+            <div><b>${e.nome}</b><br><small>${PADRAO_LABEL[e.padrao] || e.padrao} · ${equipNomes(e.equipamento || [])}</small>
+              <div><span class="chip acc">🏋 ${e.carga}</span></div></div>
+            ${acoesDe(i)}
           </div>
-          ${acoes}
-        </div>
-        ${alts}
-      </td>
-      <td>${e.series}× ${e.reps}</td></tr>`;
-  }).join('');
+          ${altsDe(i)}
+        </td>
+        <td>${e.series}× ${e.reps}</td></tr>`).join('');
+    corpo = `<table><thead><tr><th>#</th><th>Exercício</th><th>Séries</th></tr></thead><tbody>${exs}</tbody></table>`;
+  } else {
+    corpo = tabelaNiveis(d.exercicios.map((e, i) => linhaNiveis(i, e, acoesDe(i), altsDe(i))).join(''));
+  }
   const fin = d.finalizador ? `<div class="fin"><b>${d.finalizador.tipo}</b><br>${d.finalizador.descricao}</div>` : '';
   const viab = d.viabilidade?.ok ? `<span class="ok">✓ viável (grupos de ${d.viabilidade.tamanhoGrupo})</span>` : '';
   return `<article class="card">
     <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}</h3>
     <div>${viab}</div>
-    <table><thead><tr><th>#</th><th>Exercício</th><th>Séries</th></tr></thead><tbody>${exs}</tbody></table>
+    ${corpo}
     ${fin}</article>`;
 }
 

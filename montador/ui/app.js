@@ -9,11 +9,13 @@ import * as gestao from './gestao.js';
 import { renderCenarios, renderDiaSalvo, renderRelatorioMes, renderAcumuladoAluno, renderMesociclo, renderTreino, ativarTrocas } from './render.js';
 import { alternativasPorIds, gerarTreino } from '../core/gerador.js';
 import { EXERCICIO_POR_ID } from '../data/exercicios.js';
-import { sugerirCarga } from '../core/cargas.js';
+import { variantesNivel, NIVEIS } from '../core/niveis.js';
+
+/** A geração ancora no intermediário; as colunas iniciante/avançado derivam dele. */
+const NIVEL_ANCORA = 'intermediario';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const $$ = (s) => Array.from(document.querySelectorAll(s));
-const NIVEIS = ['iniciante', 'intermediario', 'avancado'];
 const GRADE_IDS = { seg: '#g-seg', ter: '#g-ter', qua: '#g-qua', qui: '#g-qui', sex: '#g-sex' };
 const opt = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; };
 
@@ -36,10 +38,9 @@ function popularSelects() {
     MODALIDADE_IDS.forEach((id) => el.appendChild(opt(id, MODALIDADES[id].nome)));
     el.value = grade[dia] || '';
   });
-  ['#s-nivel', '#m-nivel', '#u-nivel'].forEach((sel) => NIVEIS.forEach((n) => $(sel).appendChild(opt(n, n))));
+  // Só o Mesociclo mantém seletor de nível; Programa da semana e Treino único mostram os 3 níveis em colunas.
+  NIVEIS.forEach((n) => $('#m-nivel').appendChild(opt(n, n)));
   MODALIDADE_IDS.forEach((id) => $('#u-modalidade').appendChild(opt(id, MODALIDADES[id].nome)));
-  $('#u-nivel').value = cfg.nivelRef || 'intermediario';
-  $('#s-nivel').value = cfg.nivelRef || 'intermediario';
   $('#m-nivel').value = cfg.nivelRef || 'intermediario';
 
   // semana do mês (1..5)
@@ -72,7 +73,7 @@ function atualizarSelectAlunos() {
 function lerGrade() {
   const grade = {};
   Object.entries(GRADE_IDS).forEach(([dia, sel]) => { const v = $(sel).value; if (v) grade[dia] = v; });
-  const nivelRef = $('#s-nivel').value;
+  const nivelRef = NIVEL_ANCORA; // âncora fixa; os 3 níveis aparecem em colunas
   store.setConfig({ grade, nivelRef });
   return { grade, nivelRef };
 }
@@ -91,8 +92,9 @@ function montarSnapshot(prog, mesId, semana, grade, nivelRef) {
       viabilidade: { ok: t.viabilidade.ok, tamanhoGrupo: t.viabilidade.tamanhoGrupo },
       exercicios: t.principal.map((p) => ({
         id: p.exercicio.id, nome: p.exercicio.nome, padrao: p.exercicio.padrao,
-        equipamento: p.exercicio.equipamento, series: p.series, reps: p.reps,
-        carga: sugerirCarga(p.exercicio, nivelRef, t.modalidade).texto,
+        equipamento: p.exercicio.equipamento, reps: p.reps, descansoSeg: p.descansoSeg,
+        seriesRef: p.series, // séries do intermediário (âncora) — base das colunas e da troca
+        niveis: variantesNivel(p.exercicio, p.series, t.modalidade),
       })),
       finalizador: t.finalizador ? { tipo: t.finalizador.tipo, descricao: t.finalizador.descricao } : null,
     })),
@@ -162,10 +164,11 @@ function ativarTrocaPrograma() {
       const novo = EXERCICIO_POR_ID[alt.dataset.ex];
       const d = snap.dias.find((x) => x.dia === dia);
       const antigo = d.exercicios[idx];
+      const seriesRef = antigo.seriesRef ?? antigo.series ?? 3; // compat c/ snapshot antigo
       d.exercicios[idx] = {
         id: novo.id, nome: novo.nome, padrao: novo.padrao, equipamento: novo.equipamento,
-        series: antigo.series, reps: antigo.reps,
-        carga: sugerirCarga(novo, snap.nivelRef, d.modalidade).texto,
+        reps: antigo.reps, descansoSeg: antigo.descansoSeg,
+        seriesRef, niveis: variantesNivel(novo, seriesRef, d.modalidade),
       };
       // padrão e séries iguais → volPorDia e cenários permanecem válidos
       store.salvarPrograma(mesId, semana, snap);
@@ -181,7 +184,6 @@ function aoTrocarSemana() {
   const ex = store.getPrograma(mesId, semana);
   if (ex) {
     aplicarGradeNosSelects(ex.grade);
-    $('#s-nivel').value = ex.nivelRef;
     renderProgramaView(ex, true);
   } else {
     $('#s-saida').innerHTML = `<div class="empty">Sem treino salvo para a Semana ${semana} — ${store.rotuloMes(mesId)}.<br>Configure a grade e clique em <b>Gerar / ver semana</b>.</div>`;
@@ -203,9 +205,8 @@ function gerarMeso() {
 // ---------- TREINO ÚNICO ----------
 function gerarUnico() {
   const modalidade = $('#u-modalidade').value;
-  const nivel = $('#u-nivel').value || 'intermediario';
   const nAlunos = Math.min(20, Math.max(1, Number($('#u-alunos').value) || 8));
-  const treino = gerarTreino({ modalidade, nivel, dia: 'unico', semana: 1, nAlunos, seed: Math.floor(Math.random() * 1e6) });
+  const treino = gerarTreino({ modalidade, nivel: NIVEL_ANCORA, dia: 'unico', semana: 1, nAlunos, seed: Math.floor(Math.random() * 1e6) });
   $('#u-saida').innerHTML = renderTreino(treino, { mostrarDiaSemana: false });
 }
 
