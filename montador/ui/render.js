@@ -124,7 +124,9 @@ export function renderCenarios(prog, freqDestaque) {
     <p style="margin-top:10px">
       ${min3?.atingeMinimo
         ? '<span class="chip" style="color:var(--ok);border-color:var(--ok)">✓ 3 dias já garante o mínimo para bons resultados</span>'
-        : '<span class="chip warn">⚠ 3 dias ainda não bate o mínimo — ajuste a grade ou os mínimos</span>'}
+        : (((prog.semana - 1) % 4) + 1 === 4
+          ? '<span class="chip warn">💤 Semana de deload — volume reduzido de propósito (recuperação)</span>'
+          : '<span class="chip warn">⚠ 3 dias ainda não bate o mínimo — ajuste a grade ou os mínimos</span>')}
       ${ganho != null ? `<span class="chip acc">5 dias = +${ganho}% de volume</span>` : ''}
     </p>
   </article>`;

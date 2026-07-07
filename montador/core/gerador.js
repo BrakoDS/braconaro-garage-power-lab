@@ -91,13 +91,17 @@ export function gerarTreino(opcoes) {
     ...(treinoAnterior?.principal ?? []).map((i) => i.exercicio.id),
     ...idsEvitar,
   ]);
+  const naoMobilidadePura = (/** @type {Exercicio} */ e) => !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade');
+  const naModalidade = (/** @type {Exercicio} */ e) => e.categorias.includes(modalidade) && (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao));
   const pool = EXERCICIOS.filter(
-    (e) =>
-      e.categorias.includes(modalidade) &&
-      NIVEL_ORDEM[e.nivel] <= nivelAluno &&
-      !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade') &&
-      (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao)) // GAP: só trem inferior + core
+    (e) => naModalidade(e) && NIVEL_ORDEM[e.nivel] <= nivelAluno && naoMobilidadePura(e)
   );
+  // Pool AMPLO: mesmo filtro SEM o teto de nível. Rede de segurança quando a turma
+  // não tem exercício do nível para um padrão OBRIGATÓRIO (ex.: turma iniciante, mas o
+  // único core de hipertrofia é intermediário). Sem isso o dia perderia o padrão e
+  // dobraria outro — quebrando o full body. O box roda UM treino p/ todos; o nível
+  // escala a CARGA (ver sugerirCarga), não remove o movimento essencial.
+  const poolAmplo = EXERCICIOS.filter((e) => naModalidade(e) && naoMobilidadePura(e));
 
   /** @type {Exercicio[]} */
   const selecionados = [];
@@ -133,17 +137,29 @@ export function gerarTreino(opcoes) {
     for (const m of ex.musculosSecundarios) seriesPorMusculo[m] = (seriesPorMusculo[m] || 0) + seriesBase * 0.5;
   };
 
+  /**
+   * Melhores candidatos de uma fonte, pontuados e ordenados.
+   * @param {Exercicio[]} fonte @param {Padrao|null} filtroPadrao @param {Set<Padrao>} faltantes
+   */
+  const candidatosDe = (fonte, filtroPadrao, faltantes) => fonte
+    .filter((e) => !selecionados.includes(e) && (filtroPadrao ? e.padrao === filtroPadrao : true))
+    .map((e) => ({ e, score: pontuar(e, faltantes) }))
+    .sort((a, b) => b.score - a.score);
+  const temViavel = (/** @type {{score:number}[]} */ c) => c.length && c[0].score > -500;
+
   // -------- Passo 3+6: preencher padrões obrigatórios (full body equilibrado) --------
   const obrigatorios = mod.padroesAlvo
     ? mod.padroesAlvo
     : padroesObrigatorios(/** @type {4|5|6} */ (Math.min(6, nExercicios)));
   for (const padrao of obrigatorios) {
     const faltantes = new Set(obrigatorios.filter((p) => !selecionados.some((s) => s.padrao === p)));
-    const candidatos = pool
-      .filter((e) => e.padrao === padrao && !selecionados.includes(e))
-      .map((e) => ({ e, score: pontuar(e, faltantes) }))
-      .sort((a, b) => b.score - a.score);
-    if (candidatos.length && candidatos[0].score > -500) adicionar(candidatos[0].e);
+    let candidatos = candidatosDe(pool, padrao, faltantes);
+    // padrão obrigatório sem opção no nível da turma → amplia o nível (não deixa o dia sem o movimento)
+    if (!temViavel(candidatos)) {
+      const ampliados = candidatosDe(poolAmplo, padrao, faltantes);
+      if (temViavel(ampliados)) candidatos = ampliados;
+    }
+    if (temViavel(candidatos)) adicionar(candidatos[0].e);
   }
 
   // -------- preencher slots restantes equilibrando volume --------
@@ -154,11 +170,9 @@ export function gerarTreino(opcoes) {
     const faltantes = new Set(
       [...PADROES].sort((a, b) => volPorPadrao[a] - volPorPadrao[b])
     );
-    const candidatos = pool
-      .filter((e) => !selecionados.includes(e))
-      .map((e) => ({ e, score: pontuar(e, faltantes) }))
-      .sort((a, b) => b.score - a.score);
-    if (!candidatos.length || candidatos[0].score <= -500) break; // nada viável
+    let candidatos = candidatosDe(pool, null, faltantes);
+    if (!temViavel(candidatos)) candidatos = candidatosDe(poolAmplo, null, faltantes); // completa o treino se o nível esgotou
+    if (!temViavel(candidatos)) break; // nada viável
     adicionar(candidatos[0].e);
   }
 

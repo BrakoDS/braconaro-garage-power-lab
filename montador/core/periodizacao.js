@@ -23,10 +23,13 @@ export function ehDeload(semana) {
 
 /**
  * Ajuste de séries por nível do aluno.
+ * Iniciante em 0.85 (não 0.8): com 0.8, as modalidades de base 3 séries (Hyrox/Híbrido)
+ * arredondavam para 2 (3×0.8=2.4) e o aluno de 3 dias não batia o mínimo semanal na
+ * semana-base; 0.85 (3×0.85=2.55→3) mantém o piso sem apagar a diferença p/ o intermediário.
  * @param {Nivel} nivel
  */
 export function fatorNivel(nivel) {
-  return { iniciante: 0.8, intermediario: 1.0, avancado: 1.15 }[nivel] ?? 1.0;
+  return { iniciante: 0.85, intermediario: 1.0, avancado: 1.15 }[nivel] ?? 1.0;
 }
 
 /**
