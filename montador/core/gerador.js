@@ -23,6 +23,7 @@ import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
 import { calcularVolume } from './volume.js';
 import { seriesAjustadas, ehDeload } from './periodizacao.js';
 import { ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
+import { gerarHyrox, volumeHyrox, estimarDuracaoSeg } from './hyrox.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const TETO_SERIES_POR_MUSCULO = 10; // teto por sessão para evitar sobrecarga
@@ -75,6 +76,9 @@ export function gerarTreino(opcoes) {
   const seed = opcoes.seed ?? hashSeed(`${modalidade}-${dia}-${semana}-${nivel}`);
   const rng = mulberry32(seed);
   const mod = MODALIDADES[modalidade];
+
+  // -------- Hyrox: template FIXO (formato da competição), não a geração genérica --------
+  if (modalidade === 'hyrox') return montarHyrox({ dia, semana, nivel, nAlunos });
 
   // -------- Passo 2: quantos exercícios (4, 5 ou 6) --------
   // A contagem é estável por TEMPLATE (modalidade+dia+nível) para que um mesociclo
@@ -224,6 +228,32 @@ export function gerarTreino(opcoes) {
     tempoPrincipalSeg,
     tempoFinalizadorSeg,
     tempoTotalSeg: tempoAquecimentoSeg + tempoPrincipalSeg + tempoFinalizadorSeg + 300, // +5min tolerância
+  };
+}
+
+/**
+ * Monta o treino Hyrox (template fixo). Mantém a forma de `Treino` esperada pelo
+ * render/snapshot/mesociclo, mas o conteúdo vive em `hyrox`; `principal` fica vazio
+ * e o `volume` é nominal (condicionamento). O tempo é a estimativa do intermediário.
+ * @param {{dia:string, semana:number, nivel:string, nAlunos:number}} o
+ */
+function montarHyrox({ dia, semana, nivel, nAlunos }) {
+  const hyrox = gerarHyrox({ nAlunos });
+  const tempoTotalSeg = estimarDuracaoSeg('intermediario');
+  return {
+    modalidade: 'hyrox', dia, semana, nivel, nAlunos,
+    tamanhoGrupo: nAlunos,
+    deload: ehDeload(semana),
+    hyrox,
+    aquecimento: [],
+    principal: [],
+    finalizador: null,
+    volume: volumeHyrox(),
+    viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'for-time', nota: hyrox.viabilidade.nota },
+    tempoAquecimentoSeg: 0,
+    tempoPrincipalSeg: tempoTotalSeg,
+    tempoFinalizadorSeg: 0,
+    tempoTotalSeg,
   };
 }
 

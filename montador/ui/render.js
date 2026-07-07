@@ -43,6 +43,38 @@ function tabelaNiveis(linhasHTML) {
     <tbody>${linhasHTML}</tbody></table></div>`;
 }
 
+/**
+ * Card do treino HYROX estruturado (formato da competição): 8 rodadas de
+ * corrida + estação, com prescrição por nível e duração estimada.
+ * @param {any} hx  estrutura de core/hyrox.js (corrida, estacoes, duracaoSeg, viabilidade)
+ * @param {string} [dia]
+ */
+export function renderHyrox(hx, dia) {
+  const corridaLinha = NIVEIS.map((n) => `${NIVEL_LABEL[n]}: <b>${hx.corrida[n].metros} m</b> (${hx.corrida[n].voltas}×50 m)`).join(' · ');
+  const linhas = hx.estacoes.map((e) => {
+    const unidade = (v) => e.tipo === 'distancia' ? `${v} m` : `${v} reps`;
+    return `<tr>
+      <td>${e.n}</td>
+      <td>
+        <b>${e.nome}</b><br>
+        <small>${e.base} · ${equipNomes(e.equipamento)}</small><br>
+        <small class="mut">${e.carga}${e.nota ? ` — ${e.nota}` : ''}</small>
+      </td>
+      ${NIVEIS.map((n) => `<td class="nv nv-${n}"><span class="nv-series">${unidade(e.prescricao[n])}</span></td>`).join('')}
+    </tr>`;
+  }).join('');
+  const durLinha = NIVEIS.map((n) => `${NIVEL_LABEL[n]} <b>~${mmss(hx.duracaoSeg[n])}</b>`).join(' · ');
+  return `<article class="card">
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Hyrox — formato da competição</h3>
+    <div class="hyrox-fmt">8 rodadas de <b>corrida + estação</b>, na ordem da prova. Antes de CADA estação, a corrida — ${corridaLinha}.</div>
+    ${hx.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${hx.viabilidade.nota}</div>` : ''}
+    <div class="tbl-scroll"><table class="t-niveis">
+      <thead><tr><th>#</th><th>Estação</th>${NIVEIS.map((n) => `<th class="nv nv-${n}">${NIVEL_LABEL[n]}</th>`).join('')}</tr></thead>
+      <tbody>${linhas}</tbody></table></div>
+    <div class="hyrox-dur">⏱ Duração estimada: ${durLinha} <span class="mut">(estimativa — ajuste na prática)</span></div>
+  </article>`;
+}
+
 /** registro de treinos vivos p/ permitir troca de exercício */
 const vivos = new Map();
 /** opções de render por card (preservadas entre trocas) */
@@ -64,6 +96,7 @@ function renderVolume(vol) {
 
 /** @param {import('../core/tipos.js').Treino} t */
 export function renderTreino(t, { comTroca = true, mostrarDiaSemana = true } = {}) {
+  if (t.hyrox) return renderHyrox(t.hyrox, mostrarDiaSemana ? t.dia : undefined);
   const id = 'tr' + (_uid++);
   vivos.set(id, t);
   cardOpts.set(id, { comTroca, mostrarDiaSemana });
@@ -179,6 +212,7 @@ export function renderMesociclo(meso) {
  * @param {any} d @param {boolean} [editavel]  Mostra o botão "trocar" (só na aba Programa)
  */
 export function renderDiaSalvo(d, editavel = true) {
+  if (d.hyrox) return renderHyrox(d.hyrox, d.dia); // Hyrox é template fixo (sem "trocar")
   const acoesDe = (i) => editavel ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>` : '';
   const altsDe = (i) => editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
   // snapshot antigo (sem níveis) → render legado de coluna única

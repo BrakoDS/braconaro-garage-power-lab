@@ -87,7 +87,11 @@ function montarSnapshot(prog, mesId, semana, grade, nivelRef) {
   return {
     mesId, semana, geradoEm: new Date().toISOString(), grade, nivelRef,
     minimo: prog.minimo, cenarios: prog.cenarios, volPorDia: prog.volPorDia,
-    dias: prog.treinos.map((t) => ({
+    dias: prog.treinos.map((t) => t.hyrox ? ({
+      dia: t.dia, modalidade: t.modalidade,
+      viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo },
+      hyrox: t.hyrox, // template Hyrox estruturado (formato da competição)
+    }) : ({
       dia: t.dia, modalidade: t.modalidade,
       viabilidade: { ok: t.viabilidade.ok, tamanhoGrupo: t.viabilidade.tamanhoGrupo },
       exercicios: t.principal.map((p) => ({

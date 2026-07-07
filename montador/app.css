@@ -83,6 +83,10 @@ tr.bad-row td { color: var(--warn); }
 .t-niveis th.nv-intermediario, .t-niveis td.nv-intermediario { background: rgba(245, 197, 24, .06); }
 .t-niveis th.nv-intermediario { color: var(--acc); }
 
+/* ---------- Hyrox (formato da competição) ---------- */
+.hyrox-fmt { font-size: 13.5px; color: var(--txt); margin: 6px 0 4px; }
+.hyrox-dur { margin-top: 12px; padding: 10px 12px; background: #1d1a10; border: 1px solid #3a3413; border-radius: 11px; font-size: 13.5px; }
+
 .empty { color: var(--mut); text-align: center; padding: 40px 20px; border: 1px dashed var(--line); border-radius: var(--r); }
 
 /* ---------- alunos ---------- */
