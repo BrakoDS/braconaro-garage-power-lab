@@ -6,6 +6,7 @@
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha } from '../montador/ui/cloud.js';
 import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
+import { PADROES, PADRAO_LABEL } from '../montador/config/padroes.js';
 import * as db from './db.js';
 
 /* ============================================================
@@ -116,6 +117,7 @@ function renderExercicios() {
         <div class="nome">${esc(x.nome)}</div>
         <div class="sub">${(x.tags || []).map((t) => `<span class="tag ${esc(t)}">${esc(t)}</span>`).join('')}${(x.musculos || []).map((m) => `<span class="musc">${esc(m)}</span>`).join('')}</div>
         <div class="sub2">${esc(nomesEquip(x.equipamentoIds).join(', ') || 'sem equipamento')}</div>
+        ${x.padrao ? `<div class="sub2" style="color:var(--mut-2)">Padrão: ${esc(PADRAO_LABEL[x.padrao] || x.padrao)}</div>` : '<div class="alerta">⚠ Sem padrão de movimento — não entra na montagem de treino</div>'}
         ${d.disponivel ? '' : `<div class="alerta">⚠ Indisponível — falta: ${esc(d.falta.join(', '))}</div>`}
       </div>
       <div class="qtd" style="font-size:1.3rem;color:${d.disponivel ? 'var(--ok)' : 'var(--bad)'}">${d.disponivel ? '●' : '○'}</div>
@@ -216,6 +218,12 @@ function abrirExerc(item = null) {
     pe.innerHTML = inv.map((eq) => `<input type="checkbox" id="eq_${esc(eq.id)}" value="${esc(eq.id)}"${sel.has(eq.id) ? ' checked' : ''}/><label for="eq_${esc(eq.id)}">${esc(eq.nome)}</label>`).join('');
   }
 
+  // Padrão de movimento (o que o gerador do montador usa p/ equilibrar o full body) + nível
+  $('#ex-padrao').innerHTML = ['<option value="">— selecione —</option>',
+    ...PADROES.map((p) => `<option value="${esc(p)}">${esc(PADRAO_LABEL[p] || p)}</option>`)].join('');
+  $('#ex-padrao').value = item?.padrao || '';
+  $('#ex-nivel').value = item?.nivel || 'intermediario';
+
   // Tags
   const selT = new Set(item?.tags || []);
   $('#pick-tags').className = 'pick';
@@ -248,7 +256,11 @@ $('#form-exerc').addEventListener('submit', (e) => {
     err.classList.add('show');
     return;
   }
-  const dados = { nome, equipamentoIds, tags, musculos, obs: f.obs.value.trim() };
+  const dados = {
+    nome, equipamentoIds, tags, musculos,
+    padrao: f.padrao.value, nivel: f.nivel.value || 'intermediario',
+    obs: f.obs.value.trim(),
+  };
   if (exercEdit) dados.id = exercEdit.id;
   db.salvarExerc(dados);
   fecharModal('modal-exerc');

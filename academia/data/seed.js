@@ -11,7 +11,7 @@ import { EQUIPAMENTOS } from '../../montador/data/equipamentos.js';
 import { EXERCICIOS } from '../../montador/data/exercicios.js';
 
 /** Categorias do montador → rótulos do inventário desta app. */
-const CAT_MAP = {
+export const CAT_MAP = {
   peso_livre: 'Peso livre',
   estacao: 'Máquina',
   cardio: 'Cardio',
@@ -20,7 +20,7 @@ const CAT_MAP = {
 };
 
 /** Músculos internos do montador → rótulos legíveis desta app. */
-const MUSC_MAP = {
+export const MUSC_MAP = {
   peito: 'Peito', costas: 'Costas', ombro: 'Ombro', trapezio: 'Trapézio',
   biceps: 'Bíceps', triceps: 'Tríceps', antebraco: 'Antebraço',
   core: 'Core/Abdômen', lombar: 'Lombar',
@@ -29,7 +29,7 @@ const MUSC_MAP = {
 };
 
 /** Categorias do montador → tags de treino desta app (HYROX, GAP, FORÇA, HIPERTROFIA, CARDIO). */
-const TAG_MAP = {
+export const TAG_MAP = {
   forca: 'FORÇA',
   hipertrofia: 'HIPERTROFIA',
   hyrox: 'HYROX',
@@ -57,6 +57,12 @@ export function seedData() {
     equipamentoIds: Array.isArray(x.equipamento) ? x.equipamento.slice() : [],
     tags: [...new Set((x.categorias || []).map((c) => TAG_MAP[c]).filter(Boolean))],
     musculos: [...new Set([...(x.musculosPrimarios || []), ...(x.musculosSecundarios || [])].map((m) => MUSC_MAP[m]).filter(Boolean))],
+    // Campos que o gerador do montador precisa (padrão de movimento, nível e tempo).
+    // Ficam salvos na Academia para que o coach possa editá-los e para que exercícios
+    // criados aqui também alimentem a geração full body.
+    padrao: x.padrao || '',
+    nivel: x.nivel || 'intermediario',
+    tempoMedioSeg: Number.isFinite(x.tempoMedioSeg) ? x.tempoMedioSeg : 35,
     obs: x.descricao || '',
   }));
 

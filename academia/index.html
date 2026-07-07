@@ -126,6 +126,20 @@
             <label>Equipamento necessário <span class="hint">(puxa do inventário)</span></label>
             <div class="pick" id="pick-equip"></div>
           </div>
+          <div class="grid" style="margin-bottom:16px">
+            <div class="field">
+              <label>Padrão de movimento <span class="hint">(usado para montar o treino)</span></label>
+              <select name="padrao" id="ex-padrao"></select>
+            </div>
+            <div class="field">
+              <label>Nível</label>
+              <select name="nivel" id="ex-nivel">
+                <option value="iniciante">Iniciante</option>
+                <option value="intermediario">Intermediário</option>
+                <option value="avancado">Avançado</option>
+              </select>
+            </div>
+          </div>
           <div class="field full" style="margin-bottom:16px">
             <label>Modalidades / tags de treino</label>
             <div class="pick" id="pick-tags"></div>
@@ -147,6 +161,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=3"></script>
+  <script type="module" src="./app.js?v=4"></script>
 </body>
 </html>

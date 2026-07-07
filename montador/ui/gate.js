@@ -9,6 +9,7 @@ import { estaLiberado, tentarLiberar } from './auth.js';
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, carregarParaStore, conectarStore, usuario } from './cloud.js';
 import { bloquearSeNaoCoach } from './coach-guard.js';
 import { aplicarInventarioAcademia, sincronizarInventarioAcademia } from './inventario.js';
+import { construirCatalogoEfetivo } from './catalogo.js';
 import { sincronizarAlunos } from './gestao.js';
 
 const gate = document.getElementById('gate');
@@ -21,6 +22,7 @@ function entrar() {
   document.querySelector('main')?.removeAttribute('hidden');
   document.querySelector('.topbar')?.removeAttribute('hidden');
   try { aplicarInventarioAcademia(); } catch (e) { console.warn('Inventário da Academia indisponível:', e); }
+  try { construirCatalogoEfetivo(); } catch (e) { console.warn('Catálogo da Academia indisponível:', e); }
   import('./app.js');
 }
 

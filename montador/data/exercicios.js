@@ -321,3 +321,28 @@ export const EXERCICIOS = [
 
 /** @type {Record<string, Exercicio>} */
 export const EXERCICIO_POR_ID = Object.fromEntries(EXERCICIOS.map((e) => [e.id, e]));
+
+/**
+ * Catálogo BASE (imutável) — os 40 exercícios reais do box, com o schema completo
+ * (padrão de movimento, nível, tempo, músculos primários/secundários). Serve de
+ * fallback offline e de fonte desses campos para o catálogo efetivo (ver ui/catalogo.js).
+ * @type {Exercicio[]}
+ */
+export const EXERCICIOS_BASE = EXERCICIOS.slice();
+/** @type {Record<string, Exercicio>} */
+export const EXERCICIO_BASE_POR_ID = { ...EXERCICIO_POR_ID };
+
+/**
+ * Substitui o catálogo em uso (em memória) pelo `lista`, mantendo as MESMAS
+ * referências de `EXERCICIOS` e `EXERCICIO_POR_ID` — assim quem já importou esses
+ * bindings (gerador.js, ui/app.js) passa a enxergar o catálogo novo sem re-importar.
+ * Passar lista vazia/inválida restaura o catálogo base (segurança offline).
+ * @param {Exercicio[]} lista
+ */
+export function aplicarCatalogo(lista) {
+  const fonte = Array.isArray(lista) && lista.length ? lista : EXERCICIOS_BASE;
+  EXERCICIOS.length = 0;
+  EXERCICIOS.push(...fonte);
+  for (const k of Object.keys(EXERCICIO_POR_ID)) delete EXERCICIO_POR_ID[k];
+  for (const e of EXERCICIOS) EXERCICIO_POR_ID[e.id] = e;
+}

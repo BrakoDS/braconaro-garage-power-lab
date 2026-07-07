@@ -56,8 +56,34 @@ function backfillMusculos() {
   if (mudou) setLocal(d);
   return mudou;
 }
+
+/** Mapa id→{padrao,nivel,tempoMedioSeg} da semente, para retrocompatibilidade. */
+let _seedPadrao = null;
+function seedPadraoMap() {
+  if (!_seedPadrao) {
+    _seedPadrao = {};
+    for (const x of seedData().exercicios) _seedPadrao[x.id] = { padrao: x.padrao || '', nivel: x.nivel || 'intermediario', tempoMedioSeg: x.tempoMedioSeg || 35 };
+  }
+  return _seedPadrao;
+}
+/** Preenche padrão de movimento/nível/tempo em exercícios semeados antes destes campos. */
+function backfillPadrao() {
+  const d = ler();
+  const map = seedPadraoMap();
+  let mudou = false;
+  for (const x of d.exercicios) {
+    const s = map[x.id];
+    if (!s) continue; // exercício criado pelo coach: só ele define esses campos
+    if (!x.padrao && s.padrao) { x.padrao = s.padrao; mudou = true; }
+    if (!x.nivel) { x.nivel = s.nivel; mudou = true; }
+    if (!Number.isFinite(x.tempoMedioSeg)) { x.tempoMedioSeg = s.tempoMedioSeg; mudou = true; }
+  }
+  if (mudou) setLocal(d);
+  return mudou;
+}
 garantirSeed();
 backfillMusculos();
+backfillPadrao();
 
 /* ---------- Sincronização na nuvem ---------- */
 let _uid = null, _push = null, _timer = null;
@@ -87,7 +113,8 @@ export async function iniciarSync(uid, aoAtualizar) {
     const temRemoto = remoto && Array.isArray(remoto.inventario) && (remoto.inventario.length || remoto.exercicios.length);
     if (temRemoto) {
       setLocal({ inventario: remoto.inventario, exercicios: remoto.exercicios || [], seeded: true });
-      if (backfillMusculos()) await cloud.salvar(uid, ler()); // retrocompat na nuvem
+      const mudou = backfillMusculos() | backfillPadrao(); // retrocompat na nuvem (bitwise p/ rodar os dois)
+      if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
     } else {
       await cloud.salvar(uid, ler()); // semeia a nuvem com o local (incl. seed)
@@ -150,7 +177,7 @@ export function salvarExerc(dados) {
     gravar(d); return x;
   }
   const id = idUnico(dados.id || dados.nome, d.exercicios.map((x) => x.id));
-  const x = { id, nome: '', equipamentoIds: [], tags: [], musculos: [], obs: '', ...dados, id };
+  const x = { id, nome: '', equipamentoIds: [], tags: [], musculos: [], padrao: '', nivel: 'intermediario', tempoMedioSeg: 35, obs: '', ...dados, id };
   d.exercicios.push(x);
   gravar(d); return x;
 }
