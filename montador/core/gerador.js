@@ -24,6 +24,7 @@ import { calcularVolume } from './volume.js';
 import { seriesAjustadas, ehDeload } from './periodizacao.js';
 import { ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
 import { gerarHyrox, volumeHyrox, estimarDuracaoSeg } from './hyrox.js';
+import { gerarHiitTabata, volumeHiit, estimarDuracaoSeg as estimarDuracaoHiitSeg } from './hiitTabata.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const TETO_SERIES_POR_MUSCULO = 10; // teto por sessão para evitar sobrecarga
@@ -79,6 +80,8 @@ export function gerarTreino(opcoes) {
 
   // -------- Hyrox: template FIXO (formato da competição), não a geração genérica --------
   if (modalidade === 'hyrox') return montarHyrox({ dia, semana, nivel, nAlunos });
+  // -------- HIIT: template TABATA em 4 estações --------
+  if (modalidade === 'hiit') return montarHiit({ dia, semana, nivel, nAlunos, seed });
 
   // -------- Passo 2: quantos exercícios (4, 5 ou 6) --------
   // A contagem é estável por TEMPLATE (modalidade+dia+nível) para que um mesociclo
@@ -250,6 +253,31 @@ function montarHyrox({ dia, semana, nivel, nAlunos }) {
     finalizador: null,
     volume: volumeHyrox(),
     viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'for-time', nota: hyrox.viabilidade.nota },
+    tempoAquecimentoSeg: 0,
+    tempoPrincipalSeg: tempoTotalSeg,
+    tempoFinalizadorSeg: 0,
+    tempoTotalSeg,
+  };
+}
+
+/**
+ * Monta o treino HIIT (4 estações TABATA). Como o Hyrox: conteúdo em `hiit`,
+ * `principal` vazio, `volume` nominal, tempo = estimativa.
+ * @param {{dia:string, semana:number, nivel:string, nAlunos:number, seed:number}} o
+ */
+function montarHiit({ dia, semana, nivel, nAlunos, seed }) {
+  const hiit = gerarHiitTabata({ nAlunos, seed });
+  const tempoTotalSeg = estimarDuracaoHiitSeg();
+  return {
+    modalidade: 'hiit', dia, semana, nivel, nAlunos,
+    tamanhoGrupo: nAlunos,
+    deload: ehDeload(semana),
+    hiit,
+    aquecimento: [],
+    principal: [],
+    finalizador: null,
+    volume: volumeHiit(hiit.estacoes),
+    viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'tabata', nota: hiit.viabilidade.nota },
     tempoAquecimentoSeg: 0,
     tempoPrincipalSeg: tempoTotalSeg,
     tempoFinalizadorSeg: 0,

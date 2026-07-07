@@ -54,13 +54,13 @@ export const MODALIDADES = {
     nome: 'HIIT',
     faixaExercicios: [5, 6],
     series: 4, // rounds
-    reps: '30s on / 15s off',
-    descansoSeg: 15,
+    reps: 'TABATA 20s on / 10s off',
+    descansoSeg: 10,
     intensidadePctRM: [50, 65],
     segPorRepMedia: 0, // baseado em tempo
     formato: 'circuito',
     finalizador: false,
-    estimulo: 'Intervalado de alta intensidade. Cardiovascular + resistência muscular.',
+    estimulo: '4 estações TABATA (Inferiores · Core · Superiores · Cardio), 16 rounds cada.',
   },
   hyrox: {
     id: 'hyrox',

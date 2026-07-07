@@ -81,9 +81,29 @@ function backfillPadrao() {
   if (mudou) setLocal(d);
   return mudou;
 }
+
+/**
+ * Adiciona ao catálogo do coach os exercícios da SEMENTE que faltam por id
+ * (ex.: novos cardios de peso corporal). Roda uma única vez por versão de semente
+ * (`d.seedVersion`), então não re-adiciona exercícios que o coach apagou depois.
+ */
+const SEED_VERSION = 2;
+function backfillNovosSeed() {
+  const d = ler();
+  if ((d.seedVersion || 0) >= SEED_VERSION) return false;
+  const existentes = new Set(d.exercicios.map((x) => x.id));
+  let mudou = false;
+  for (const x of seedData().exercicios) {
+    if (!existentes.has(x.id)) { d.exercicios.push({ ...x }); mudou = true; }
+  }
+  d.seedVersion = SEED_VERSION;
+  setLocal(d); // grava a versão mesmo sem novos, p/ não reprocessar
+  return mudou;
+}
 garantirSeed();
 backfillMusculos();
 backfillPadrao();
+backfillNovosSeed();
 
 /* ---------- Sincronização na nuvem ---------- */
 let _uid = null, _push = null, _timer = null;
@@ -113,7 +133,7 @@ export async function iniciarSync(uid, aoAtualizar) {
     const temRemoto = remoto && Array.isArray(remoto.inventario) && (remoto.inventario.length || remoto.exercicios.length);
     if (temRemoto) {
       setLocal({ inventario: remoto.inventario, exercicios: remoto.exercicios || [], seeded: true });
-      const mudou = backfillMusculos() | backfillPadrao(); // retrocompat na nuvem (bitwise p/ rodar os dois)
+      const mudou = backfillMusculos() | backfillPadrao() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
       if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
     } else {

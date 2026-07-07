@@ -17,6 +17,8 @@
  * @property {string[]} equipamento           IDs de equipamentos.js
  * @property {'iniciante'|'intermediario'|'avancado'} nivel
  * @property {number} tempoMedioSeg           Tempo médio de execução de 1 série/rodada
+ * @property {boolean} [unilateral]           Trabalha um lado por vez (conta como 2 no TABATA)
+ * @property {boolean} [cardio]               Movimento metabólico p/ a estação CARDIO do HIIT
  * @property {string} [obs]
  */
 
@@ -56,7 +58,7 @@ export const EXERCICIOS = [
     descricao: 'Empurrar a barra apoiada no suporte de cavalinho, unilateral.',
     padrao: 'empurrar', musculosPrimarios: ['ombro', 'peito'], musculosSecundarios: ['triceps', 'core'],
     categorias: ['forca', 'hipertrofia', 'hyrox'], equipamento: ['cavalinho', 'barra_livre'],
-    nivel: 'intermediario', tempoMedioSeg: 35,
+    nivel: 'intermediario', tempoMedioSeg: 35, unilateral: true,
   },
   {
     id: 'flexao', nome: 'Flexão de braço',
@@ -100,7 +102,7 @@ export const EXERCICIOS = [
     descricao: 'Apoio no banco, puxar halter ao lado do tronco.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'core'],
     categorias: ['hipertrofia', 'hibrido', 'hiit', 'hyrox'], equipamento: ['halter', 'banco'],
-    nivel: 'iniciante', tempoMedioSeg: 40,
+    nivel: 'iniciante', tempoMedioSeg: 40, unilateral: true,
   },
   {
     id: 'remada_curvada_barra', nome: 'Remada curvada com barra',
@@ -144,14 +146,14 @@ export const EXERCICIOS = [
     descricao: 'Pé de trás apoiado no caixote, agachar unilateral.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['estabilizadores'],
     categorias: ['hipertrofia'], equipamento: ['caixote', 'halter'],
-    nivel: 'avancado', tempoMedioSeg: 45,
+    nivel: 'avancado', tempoMedioSeg: 45, unilateral: true,
   },
   {
     id: 'box_step_up', nome: 'Step-up no caixote',
     descricao: 'Subir no caixote de 30 cm alternando as pernas, com ou sem carga.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha'],
     categorias: ['hiit', 'hyrox', 'wod', 'gap'], equipamento: ['caixote'],
-    nivel: 'iniciante', tempoMedioSeg: 35,
+    nivel: 'iniciante', tempoMedioSeg: 35, unilateral: true,
   },
   {
     id: 'agachamento_livre', nome: 'Agachamento livre (peso corporal)',
@@ -241,7 +243,7 @@ export const EXERCICIOS = [
     descricao: 'Caminhar com carga em uma mão só — anti-flexão lateral.',
     padrao: 'estabilizadores', musculosPrimarios: ['estabilizadores', 'core'], musculosSecundarios: ['antebraco'],
     categorias: ['hyrox', 'wod'], equipamento: ['kettlebell'],
-    nivel: 'intermediario', tempoMedioSeg: 40,
+    nivel: 'intermediario', tempoMedioSeg: 40, unilateral: true,
   },
   {
     id: 'prancha_lateral', nome: 'Prancha lateral',
@@ -271,28 +273,63 @@ export const EXERCICIOS = [
     descricao: 'Tiro de calorias na bike de ar.',
     padrao: 'estabilizadores', musculosPrimarios: ['quadriceps', 'core'], musculosSecundarios: ['ombro', 'costas'],
     categorias: ['hiit', 'hyrox', 'wod'], equipamento: ['air_bike'],
-    nivel: 'iniciante', tempoMedioSeg: 30, obs: 'Só 2 bikes — no máximo 1 estação de bike por treino.',
+    nivel: 'iniciante', tempoMedioSeg: 30, cardio: true, obs: 'Só 2 bikes — no máximo 1 estação de bike por treino.',
   },
   {
     id: 'corrida_100m', nome: 'Corrida 100 m (rua)',
     descricao: 'Trecho de corrida intercalado entre estações (estilo Hyrox).',
     padrao: 'estabilizadores', musculosPrimarios: ['quadriceps', 'posterior_coxa'], musculosSecundarios: ['panturrilha', 'gluteo'],
     categorias: ['hyrox', 'hiit'], equipamento: ['corrida'],
-    nivel: 'iniciante', tempoMedioSeg: 35,
+    nivel: 'iniciante', tempoMedioSeg: 35, cardio: true,
   },
   {
     id: 'corda_naval', nome: 'Battle ropes (corda naval)',
     descricao: 'Ondas alternadas/duplas para condicionamento de ombro e core.',
     padrao: 'estabilizadores', musculosPrimarios: ['ombro', 'core'], musculosSecundarios: ['antebraco'],
     categorias: ['hiit', 'wod'], equipamento: ['corda_naval'],
-    nivel: 'iniciante', tempoMedioSeg: 30, obs: 'Só 2 — gargalo de estação.',
+    nivel: 'iniciante', tempoMedioSeg: 30, cardio: true, obs: 'Só 2 — gargalo de estação.',
   },
   {
     id: 'burpee', nome: 'Burpee',
     descricao: 'Flexão + salto, corpo inteiro. Clássico de WOD.',
     padrao: 'empurrar', musculosPrimarios: ['peito', 'quadriceps'], musculosSecundarios: ['core', 'ombro'],
     categorias: ['hiit', 'hyrox', 'wod'], equipamento: ['corporal'],
-    nivel: 'intermediario', tempoMedioSeg: 30,
+    nivel: 'intermediario', tempoMedioSeg: 30, cardio: true,
+  },
+  {
+    id: 'mountain_climber', nome: 'Mountain climber (escalador)',
+    descricao: 'Em prancha alta, levar os joelhos ao peito alternadamente, ritmo acelerado.',
+    padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: ['ombro', 'quadriceps'],
+    categorias: ['hiit', 'wod'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30, cardio: true,
+  },
+  {
+    id: 'polichinelo', nome: 'Polichinelo (jumping jacks)',
+    descricao: 'Saltos abrindo e fechando pernas e braços, ritmo contínuo.',
+    padrao: 'estabilizadores', musculosPrimarios: ['panturrilha', 'ombro'], musculosSecundarios: ['quadriceps', 'core'],
+    categorias: ['hiit', 'wod'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30, cardio: true,
+  },
+  {
+    id: 'high_knees', nome: 'High knees (joelho alto)',
+    descricao: 'Corrida estacionária levando os joelhos à altura do quadril, rápido.',
+    padrao: 'estabilizadores', musculosPrimarios: ['quadriceps', 'core'], musculosSecundarios: ['panturrilha'],
+    categorias: ['hiit', 'wod'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30, cardio: true,
+  },
+  {
+    id: 'skater', nome: 'Skater (saltos laterais)',
+    descricao: 'Saltos laterais de uma perna à outra, como patinador.',
+    padrao: 'quadriceps', musculosPrimarios: ['gluteo', 'quadriceps'], musculosSecundarios: ['panturrilha', 'estabilizadores'],
+    categorias: ['hiit', 'wod'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30, cardio: true,
+  },
+  {
+    id: 'agachamento_salto', nome: 'Agachamento com salto (squat jump)',
+    descricao: 'Agachar e saltar explosivamente, aterrissando suave.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha'],
+    categorias: ['hiit', 'wod', 'gap'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30, cardio: true,
   },
   {
     id: 'wall_ball_shot', nome: 'Wall ball shot',

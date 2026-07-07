@@ -64,6 +64,8 @@ function converter(a) {
     equipamento: Array.isArray(a.equipamentoIds) ? a.equipamentoIds.slice() : (base?.equipamento || []),
     nivel: a.nivel || base?.nivel || 'intermediario',
     tempoMedioSeg: Number.isFinite(a.tempoMedioSeg) ? a.tempoMedioSeg : (base?.tempoMedioSeg ?? 35),
+    unilateral: a.unilateral ?? base?.unilateral ?? false,
+    cardio: a.cardio ?? base?.cardio ?? false,
     obs: base?.obs,
   };
 }

@@ -91,6 +91,10 @@ function montarSnapshot(prog, mesId, semana, grade, nivelRef) {
       dia: t.dia, modalidade: t.modalidade,
       viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo },
       hyrox: t.hyrox, // template Hyrox estruturado (formato da competição)
+    }) : t.hiit ? ({
+      dia: t.dia, modalidade: t.modalidade,
+      viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo },
+      hiit: t.hiit, // template HIIT em 4 estações TABATA
     }) : ({
       dia: t.dia, modalidade: t.modalidade,
       viabilidade: { ok: t.viabilidade.ok, tamanhoGrupo: t.viabilidade.tamanhoGrupo },

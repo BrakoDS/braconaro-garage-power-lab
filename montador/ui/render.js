@@ -75,6 +75,35 @@ export function renderHyrox(hx, dia) {
   </article>`;
 }
 
+/**
+ * Card do treino HIIT — 4 estações TABATA (Inferiores · Core · Superiores · Cardio).
+ * Prescrição única (TABATA é por tempo). Cada estação: 4 slots em 16 rounds cíclicos.
+ * @param {any} h  estrutura de core/hiitTabata.js
+ * @param {string} [dia]
+ */
+export function renderHiit(h, dia) {
+  const p = h.protocolo;
+  const estacoes = h.estacoes.map((est, i) => {
+    const slots = est.slots.map((s, j) => {
+      const lado = s.lado ? ` <span class="hiit-lado">(perna/lado ${s.lado})</span>` : '';
+      return `<li><b>${j + 1}.</b> ${s.nome}${lado} <small class="mut">· ${s.carga}</small></li>`;
+    }).join('');
+    return `<div class="hiit-est">
+      <div class="hiit-est-h"><span class="hiit-badge">Estação ${i + 1}</span> <b>${est.titulo.toUpperCase()}</b>
+        <span class="mut">· ${est.rounds} rounds (4 voltas cíclicas)</span></div>
+      <ol class="hiit-slots">${slots}</ol>
+    </div>`;
+  }).join('');
+  const durMin = Math.round(h.duracaoSeg / 60);
+  return `<article class="card">
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}HIIT — 4 estações TABATA</h3>
+    <div class="hyrox-fmt">Protocolo <b>TABATA ${p.trabalhoSeg}s on / ${p.descansoSeg}s off</b> · cada estação tem 4 exercícios rodados em <b>${p.roundsPorEstacao} rounds</b> (4 por exercício, de forma cíclica). Exercício unilateral entra como 2 (um lado por vez).</div>
+    ${h.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${h.viabilidade.nota}</div>` : ''}
+    <div class="hiit-grid">${estacoes}</div>
+    <div class="hyrox-dur">⏱ Duração estimada: <b>~${durMin}min</b> <span class="mut">(4 estações + descansos + aquecimento — ajuste na prática)</span></div>
+  </article>`;
+}
+
 /** registro de treinos vivos p/ permitir troca de exercício */
 const vivos = new Map();
 /** opções de render por card (preservadas entre trocas) */
@@ -97,6 +126,7 @@ function renderVolume(vol) {
 /** @param {import('../core/tipos.js').Treino} t */
 export function renderTreino(t, { comTroca = true, mostrarDiaSemana = true } = {}) {
   if (t.hyrox) return renderHyrox(t.hyrox, mostrarDiaSemana ? t.dia : undefined);
+  if (t.hiit) return renderHiit(t.hiit, mostrarDiaSemana ? t.dia : undefined);
   const id = 'tr' + (_uid++);
   vivos.set(id, t);
   cardOpts.set(id, { comTroca, mostrarDiaSemana });
@@ -213,6 +243,7 @@ export function renderMesociclo(meso) {
  */
 export function renderDiaSalvo(d, editavel = true) {
   if (d.hyrox) return renderHyrox(d.hyrox, d.dia); // Hyrox é template fixo (sem "trocar")
+  if (d.hiit) return renderHiit(d.hiit, d.dia);    // HIIT é template TABATA (sem "trocar")
   const acoesDe = (i) => editavel ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>` : '';
   const altsDe = (i) => editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
   // snapshot antigo (sem níveis) → render legado de coluna única
