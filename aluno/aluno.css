@@ -47,11 +47,17 @@ button{font-family:inherit}
   color:var(--txt);font-family:var(--font-body);font-size:1rem;outline:none;transition:border-color .2s}
 .gate-box input:focus{border-color:var(--accent)}
 .gate-box .btn{width:100%;margin-top:4px}
-.gate-links{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.gate-divider{display:flex;align-items:center;gap:10px;margin:2px 0;
+  color:var(--mut-2);font-family:var(--font-cond);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em}
+.gate-divider::before,.gate-divider::after{content:"";flex:1;height:1px;background:var(--line-2)}
+.btn.gate-toggle-btn{text-decoration:none;border-color:var(--accent);color:var(--accent)}
+.btn.gate-toggle-btn:hover{background:var(--accent);color:var(--accent-ink)}
+.gate-links{display:flex;flex-direction:column;gap:6px;margin-top:2px;align-items:center}
 .gate-links a{color:var(--mut);font-size:.85rem;cursor:pointer}
 .gate-links a:hover{color:var(--accent)}
 .gate-erro{display:none;color:var(--bad);font-size:.88rem;margin-top:2px}
 .gate-lgpd{display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin:2px 0}
+.gate-lgpd[hidden]{display:none}
 .gate-lgpd input[type=checkbox]{width:auto;flex:0 0 auto;margin-top:3px;accent-color:var(--accent)}
 .gate-lgpd span{font-size:.85rem;color:var(--mut);line-height:1.4}
 .gate-lgpd a{color:var(--accent)}
