@@ -98,6 +98,16 @@ tr.bad-row td { color: var(--warn); }
 .hiit-lado { color: var(--acc2, #e8b339); font-weight: 600; }
 @media (max-width: 640px) { .hiit-grid { grid-template-columns: 1fr; } }
 
+/* ---------- GAP (aula TABATA, Siga o Mestre) ---------- */
+.gap-parte { margin-top: 14px; }
+.gap-parte-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.gap-musicas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.gap-musica { background: var(--bg-2, #16171b); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.gap-musica-h { font-size: 13px; margin-bottom: 6px; }
+.gap-rounds { margin: 0; padding-left: 4px; list-style: none; display: grid; gap: 3px; }
+.gap-rounds li { font-size: 13.5px; }
+@media (max-width: 720px) { .gap-musicas { grid-template-columns: 1fr; } }
+
 .empty { color: var(--mut); text-align: center; padding: 40px 20px; border: 1px dashed var(--line); border-radius: var(--r); }
 
 /* ---------- alunos ---------- */

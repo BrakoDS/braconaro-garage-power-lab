@@ -95,6 +95,10 @@ function montarSnapshot(prog, mesId, semana, grade, nivelRef) {
       dia: t.dia, modalidade: t.modalidade,
       viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo },
       hiit: t.hiit, // template HIIT em 4 estações TABATA
+    }) : t.gap ? ({
+      dia: t.dia, modalidade: t.modalidade,
+      viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo },
+      gap: t.gap, // aula GAP estruturada TABATA
     }) : ({
       dia: t.dia, modalidade: t.modalidade,
       viabilidade: { ok: t.viabilidade.ok, tamanhoGrupo: t.viabilidade.tamanhoGrupo },

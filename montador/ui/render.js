@@ -104,6 +104,34 @@ export function renderHiit(h, dia) {
   </article>`;
 }
 
+/**
+ * Card da aula GAP — TABATA "Siga o Mestre", 4 partes (Aquecimento · Pernas · Glúteo ·
+ * Abdômen) com músicas de 8 rounds cada, listadas round a round.
+ * @param {any} g  estrutura de core/gap.js
+ * @param {string} [dia]
+ */
+export function renderGap(g, dia) {
+  const p = g.protocolo;
+  const partes = g.partes.map((parte) => {
+    const musicas = parte.musicas.map((m, i) => {
+      const rounds = m.rounds.map((r) => `<li>${r.n} — ${r.nome}</li>`).join('');
+      return `<div class="gap-musica">
+        <div class="gap-musica-h">🎵 <b>${parte.nome}${parte.musicas.length > 1 ? ' ' + (i + 1) : ''}</b> <span class="mut">· 8 rounds</span></div>
+        <ol class="gap-rounds">${rounds}</ol>
+      </div>`;
+    }).join('');
+    return `<div class="gap-parte"><div class="gap-parte-h"><span class="hiit-badge">${parte.nome}</span> <span class="mut">${parte.musicas.length} música${parte.musicas.length > 1 ? 's' : ''}</span></div><div class="gap-musicas">${musicas}</div></div>`;
+  }).join('');
+  const durMin = Math.round(g.duracaoSeg / 60);
+  return `<article class="card">
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}GAP — aula TABATA (Siga o Mestre)</h3>
+    <div class="hyrox-fmt">Protocolo <b>TABATA ${p.trabalhoSeg}s on / ${p.descansoSeg}s off</b> · <b>${g.totalMusicas} músicas</b> (${g.totalRounds} rounds). Cada música = 8 rounds com 3 exercícios cíclicos (1,2,3,1,2,3,1,2). O professor executa à frente; a turma acompanha.</div>
+    ${g.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${g.viabilidade.nota}</div>` : ''}
+    ${partes}
+    <div class="hyrox-dur">⏱ Duração estimada: <b>~${durMin}min</b> <span class="mut">(9 músicas + descansos — ajuste na prática)</span></div>
+  </article>`;
+}
+
 /** registro de treinos vivos p/ permitir troca de exercício */
 const vivos = new Map();
 /** opções de render por card (preservadas entre trocas) */
@@ -127,6 +155,7 @@ function renderVolume(vol) {
 export function renderTreino(t, { comTroca = true, mostrarDiaSemana = true } = {}) {
   if (t.hyrox) return renderHyrox(t.hyrox, mostrarDiaSemana ? t.dia : undefined);
   if (t.hiit) return renderHiit(t.hiit, mostrarDiaSemana ? t.dia : undefined);
+  if (t.gap) return renderGap(t.gap, mostrarDiaSemana ? t.dia : undefined);
   const id = 'tr' + (_uid++);
   vivos.set(id, t);
   cardOpts.set(id, { comTroca, mostrarDiaSemana });
@@ -244,6 +273,7 @@ export function renderMesociclo(meso) {
 export function renderDiaSalvo(d, editavel = true) {
   if (d.hyrox) return renderHyrox(d.hyrox, d.dia); // Hyrox é template fixo (sem "trocar")
   if (d.hiit) return renderHiit(d.hiit, d.dia);    // HIIT é template TABATA (sem "trocar")
+  if (d.gap) return renderGap(d.gap, d.dia);       // GAP é aula estruturada (sem "trocar")
   const acoesDe = (i) => editavel ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>` : '';
   const altsDe = (i) => editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
   // snapshot antigo (sem níveis) → render legado de coluna única

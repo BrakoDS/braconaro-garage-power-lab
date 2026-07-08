@@ -86,7 +86,7 @@ export const MODALIDADES = {
     segPorRepMedia: 0, // baseado em tempo
     formato: 'circuito',
     finalizador: false,
-    estimulo: 'TABATA intenso de trem inferior e core. Alto gasto calórico, pouca carga.',
+    estimulo: 'Aula TABATA "Siga o Mestre": Aquecimento + Pernas, Glúteo e Abdômen (9 músicas).',
     padroesAlvo: ['quadriceps', 'posterior_gluteo', 'core'],
   },
   hibrido: {

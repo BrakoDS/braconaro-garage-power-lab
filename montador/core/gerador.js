@@ -25,6 +25,7 @@ import { seriesAjustadas, ehDeload } from './periodizacao.js';
 import { ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
 import { gerarHyrox, volumeHyrox, estimarDuracaoSeg } from './hyrox.js';
 import { gerarHiitTabata, volumeHiit, estimarDuracaoSeg as estimarDuracaoHiitSeg } from './hiitTabata.js';
+import { gerarGap, volumeGap, estimarDuracaoSeg as estimarDuracaoGapSeg } from './gap.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const TETO_SERIES_POR_MUSCULO = 10; // teto por sessão para evitar sobrecarga
@@ -82,6 +83,8 @@ export function gerarTreino(opcoes) {
   if (modalidade === 'hyrox') return montarHyrox({ dia, semana, nivel, nAlunos });
   // -------- HIIT: template TABATA em 4 estações --------
   if (modalidade === 'hiit') return montarHiit({ dia, semana, nivel, nAlunos, seed });
+  // -------- GAP: aula estruturada TABATA (Aquecimento + Pernas/Glúteo/Abdômen) --------
+  if (modalidade === 'gap') return montarGap({ dia, semana, nivel, nAlunos, seed });
 
   // -------- Passo 2: quantos exercícios (4, 5 ou 6) --------
   // A contagem é estável por TEMPLATE (modalidade+dia+nível) para que um mesociclo
@@ -278,6 +281,31 @@ function montarHiit({ dia, semana, nivel, nAlunos, seed }) {
     finalizador: null,
     volume: volumeHiit(hiit.estacoes),
     viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'tabata', nota: hiit.viabilidade.nota },
+    tempoAquecimentoSeg: 0,
+    tempoPrincipalSeg: tempoTotalSeg,
+    tempoFinalizadorSeg: 0,
+    tempoTotalSeg,
+  };
+}
+
+/**
+ * Monta a aula GAP estruturada (TABATA, Siga o Mestre). Como Hyrox/HIIT: conteúdo em
+ * `gap`, `principal` vazio, `volume` nominal, tempo = estimativa.
+ * @param {{dia:string, semana:number, nivel:string, nAlunos:number, seed:number}} o
+ */
+function montarGap({ dia, semana, nivel, nAlunos, seed }) {
+  const gap = gerarGap({ nAlunos, seed });
+  const tempoTotalSeg = estimarDuracaoGapSeg();
+  return {
+    modalidade: 'gap', dia, semana, nivel, nAlunos,
+    tamanhoGrupo: nAlunos,
+    deload: ehDeload(semana),
+    gap,
+    aquecimento: [],
+    principal: [],
+    finalizador: null,
+    volume: volumeGap(),
+    viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'tabata', nota: gap.viabilidade.nota },
     tempoAquecimentoSeg: 0,
     tempoPrincipalSeg: tempoTotalSeg,
     tempoFinalizadorSeg: 0,
