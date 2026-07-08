@@ -100,7 +100,7 @@ export const MODALIDADES = {
     segPorRepMedia: 3,
     formato: 'blocos',
     finalizador: true,
-    estimulo: 'Bloco de hipertrofia seguido de WOD curto (AMRAP/EMOM).',
+    estimulo: 'Mobilidade (6min) + Hipertrofia em split Superiores/Inferiores (10-12 reps, técnicas avançadas) + WOD (10-20min, ~20% do estímulo).',
   },
 };
 

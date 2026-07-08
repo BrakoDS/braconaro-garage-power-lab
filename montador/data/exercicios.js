@@ -19,6 +19,8 @@
  * @property {number} tempoMedioSeg           Tempo médio de execução de 1 série/rodada
  * @property {boolean} [unilateral]           Trabalha um lado por vez (conta como 2 no TABATA)
  * @property {boolean} [cardio]               Movimento metabólico p/ a estação CARDIO do HIIT
+ * @property {boolean} [multiarticular]       Composto (vários grupos/articulações)? default true —
+ *           só marcar `false` explicitamente nos isolados (usado pelo Híbrido p/ misturar os dois)
  * @property {string} [obs]
  */
 
@@ -74,6 +76,20 @@ export const EXERCICIOS = [
     categorias: ['hiit', 'hyrox', 'wod'], equipamento: ['wall_ball'],
     nivel: 'intermediario', tempoMedioSeg: 30,
   },
+  {
+    id: 'triceps_corda_monocross', nome: 'Tríceps corda (monocross)',
+    descricao: 'Cotovelos fixos ao tronco, estender a corda na polia alta.',
+    padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
+    categorias: ['hipertrofia', 'hibrido'], equipamento: ['monocross'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
+  },
+  {
+    id: 'elevacao_lateral_halter', nome: 'Elevação lateral com halteres',
+    descricao: 'Braços quase estendidos, elevar os halteres até a linha do ombro.',
+    padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: [],
+    categorias: ['hipertrofia', 'hibrido'], equipamento: ['halter'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
+  },
 
   // ===================== PUXAR =====================
   {
@@ -94,7 +110,7 @@ export const EXERCICIOS = [
     id: 'remada_baixa_monocross', nome: 'Remada baixa no monocross (triângulo)',
     descricao: 'Puxar o triângulo em direção ao abdômen, sentado.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'antebraco'],
-    categorias: ['hipertrofia', 'forca', 'hiit', 'hyrox'], equipamento: ['monocross'],
+    categorias: ['hipertrofia', 'forca', 'hiit', 'hyrox', 'wod'], equipamento: ['monocross'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
@@ -117,6 +133,13 @@ export const EXERCICIOS = [
     padrao: 'puxar', musculosPrimarios: ['ombro', 'costas'], musculosSecundarios: ['estabilizadores'],
     categorias: ['hipertrofia', 'mobilidade'], equipamento: ['monocross'],
     nivel: 'iniciante', tempoMedioSeg: 30,
+  },
+  {
+    id: 'rosca_direta_halter', nome: 'Rosca direta com halteres',
+    descricao: 'Cotovelos fixos ao tronco, flexionar os halteres até o ombro.',
+    padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: [],
+    categorias: ['hipertrofia', 'hibrido'], equipamento: ['halter'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
 
   // ===================== QUADRÍCEPS =====================
@@ -161,6 +184,13 @@ export const EXERCICIOS = [
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: ['gluteo'],
     categorias: ['hiit', 'wod', 'mobilidade', 'gap'], equipamento: ['corporal'],
     nivel: 'iniciante', tempoMedioSeg: 30,
+  },
+  {
+    id: 'panturrilha_smith', nome: 'Elevação de panturrilha (Smith)',
+    descricao: 'Em pé na barra guiada, subir na ponta dos pés em amplitude total.',
+    padrao: 'quadriceps', musculosPrimarios: ['panturrilha'], musculosSecundarios: [],
+    categorias: ['hipertrofia', 'hibrido'], equipamento: ['smith'],
+    nivel: 'iniciante', tempoMedioSeg: 25, multiarticular: false,
   },
 
   // ===================== POSTERIOR / GLÚTEO =====================
@@ -352,6 +382,27 @@ export const EXERCICIOS = [
     descricao: 'Rotações e overhead com o bastão.',
     padrao: 'estabilizadores', musculosPrimarios: ['core', 'ombro'], musculosSecundarios: [],
     categorias: ['mobilidade'], equipamento: ['bastao'],
+    nivel: 'iniciante', tempoMedioSeg: 60,
+  },
+  {
+    id: 'mob_quadril_90_90', nome: 'Mobilidade de quadril 90/90',
+    descricao: 'Sentado no chão, rotação interna/externa de quadril alternando os lados.',
+    padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: [],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 60,
+  },
+  {
+    id: 'mob_agachamento_cossaco', nome: 'Agachamento cossaco (mobilidade)',
+    descricao: 'Agachamento lateral profundo alternando o lado, mobiliza quadril e adutor.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: [],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 60,
+  },
+  {
+    id: 'mob_tornozelo', nome: 'Mobilidade de tornozelo (ankle rock)',
+    descricao: 'Joelho à frente do pé apoiado na parede, balanço controlado no tornozelo.',
+    padrao: 'quadriceps', musculosPrimarios: ['panturrilha'], musculosSecundarios: [],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
     nivel: 'iniciante', tempoMedioSeg: 60,
   },
 ];

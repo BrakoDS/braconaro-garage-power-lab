@@ -12,9 +12,16 @@ let _uid = 0;
 /** Célula de um nível: séries + carga. @param {{series:number,carga:string}} v */
 const celNivel = (v) => `<span class="nv-series">${v.series}×</span> <span class="nv-carga">${v.carga}</span>`;
 
+/** Selo de técnica avançada (Híbrido) — bi-set/drop-set/isometria/tempo. */
+const TECNICA_LABEL = { biset: 'Bi-set', dropset: 'Drop-set', isometria: 'Isometria', tempo: 'Tempo 2-1-2' };
+function seloTecnica(tecnica) {
+  if (!tecnica) return '';
+  return `<span class="tec-badge tec-${tecnica.tipo}" title="${tecnica.detalhe}">${TECNICA_LABEL[tecnica.tipo] || tecnica.tipo}</span>`;
+}
+
 /**
  * Uma linha (<tr>) da tabela de 3 níveis para um exercício já normalizado.
- * @param {number} i @param {{nome:string,padrao:string,equipamento:string[],reps:string,descansoSeg?:number,niveis:Record<string,{series:number,carga:string}>}} item
+ * @param {number} i @param {{nome:string,padrao:string,equipamento:string[],reps:string,descansoSeg?:number,niveis:Record<string,{series:number,carga:string}>,tecnica?:any}} item
  * @param {string} acoesHTML  botão "trocar" (ou '') @param {string} altsHTML  container de alternativas (ou '')
  */
 function linhaNiveis(i, item, acoesHTML, altsHTML) {
@@ -24,7 +31,7 @@ function linhaNiveis(i, item, acoesHTML, altsHTML) {
     <td>
       <div class="ex-row">
         <div>
-          <b>${item.nome}</b><br>
+          <b>${item.nome}</b> ${seloTecnica(item.tecnica)}<br>
           <small>${PADRAO_LABEL[item.padrao] || item.padrao} · ${equipNomes(item.equipamento || [])}</small><br>
           <small class="mut">${item.reps}${desc}</small>
         </div>
@@ -132,6 +139,48 @@ export function renderGap(g, dia) {
   </article>`;
 }
 
+const WOD_GRUPO_LABEL = { peso: '🏋 Peso', corporal: '🤸 Corporal', monoestrutural: '🏃 Monoestrutural' };
+
+/**
+ * Card do treino HÍBRIDO — Mobilidade → Hipertrofia (split) → WOD, gerado
+ * dinamicamente a cada geração (sem exercícios fixos).
+ * @param {any} h  estrutura de core/hibrido.js (split, mobilidade, hipertrofia, wod, duracaoSeg)
+ * @param {string} [dia]
+ */
+export function renderHibrido(h, dia) {
+  const mob = h.mobilidade.map((m) => `<li>${m.nome} — ${mmss(m.duracaoSeg)}</li>`).join('');
+  // Vem "ao vivo" do gerador (item.exercicio + series, sem niveis calculado ainda — como
+  // t.principal da Força) OU já normalizado do snapshot salvo (item.nome/niveis prontos).
+  const hiperItens = h.hipertrofia.map((item) => item.exercicio ? {
+    nome: item.exercicio.nome, padrao: item.exercicio.padrao, equipamento: item.exercicio.equipamento,
+    reps: item.reps, descansoSeg: item.descansoSeg, tecnica: item.tecnica,
+    niveis: variantesNivel(item.exercicio, item.series, 'hibrido'),
+  } : item);
+  const hiperRows = hiperItens.map((item, i) => linhaNiveis(i, item, '', '')).join('');
+  const wodMovs = h.wod.movimentos.map((m) => `<li><b>${m.nome}</b> <span class="mut">${WOD_GRUPO_LABEL[m.grupo] || m.grupo}</span> — ${m.prescricao}</li>`).join('');
+  const durMin = Math.round(h.duracaoSeg / 60);
+  return `<article class="card">
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido — ${h.splitLabel}</h3>
+    <div class="hyrox-fmt">Split de hoje: <b>${h.splitLabel}</b>. 3 blocos: Mobilidade (6min) → Hipertrofia (10–12 reps) → WOD (${h.wod.duracaoMin}min).</div>
+    ${h.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${h.viabilidade.nota}</div>` : ''}
+
+    <h4>Mobilidade <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— 6 min</span></h4>
+    <ul class="aquec">${mob}</ul>
+
+    <h4>Parte 1 — Hipertrofia <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${h.splitLabel} · série × carga por nível</span></h4>
+    ${tabelaNiveis(hiperRows)}
+
+    <h4>Parte 2 — WOD <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${h.wod.formato}</span></h4>
+    <div class="hib-wod">
+      <div class="hib-wod-h"><span class="hiit-badge">${h.wod.formato}</span> <b>${h.wod.duracaoMin} min</b></div>
+      <div class="mut" style="margin:4px 0 8px">${h.wod.descricaoFormato}</div>
+      <ul class="hib-wod-list">${wodMovs}</ul>
+    </div>
+
+    <div class="hyrox-dur">⏱ Duração total estimada: <b>~${durMin}min</b> <span class="mut">(mobilidade + hipertrofia + WOD — ajuste na prática)</span></div>
+  </article>`;
+}
+
 /** registro de treinos vivos p/ permitir troca de exercício */
 const vivos = new Map();
 /** opções de render por card (preservadas entre trocas) */
@@ -156,6 +205,7 @@ export function renderTreino(t, { comTroca = true, mostrarDiaSemana = true } = {
   if (t.hyrox) return renderHyrox(t.hyrox, mostrarDiaSemana ? t.dia : undefined);
   if (t.hiit) return renderHiit(t.hiit, mostrarDiaSemana ? t.dia : undefined);
   if (t.gap) return renderGap(t.gap, mostrarDiaSemana ? t.dia : undefined);
+  if (t.hibrido) return renderHibrido(t.hibrido, mostrarDiaSemana ? t.dia : undefined);
   const id = 'tr' + (_uid++);
   vivos.set(id, t);
   cardOpts.set(id, { comTroca, mostrarDiaSemana });
@@ -274,6 +324,7 @@ export function renderDiaSalvo(d, editavel = true) {
   if (d.hyrox) return renderHyrox(d.hyrox, d.dia); // Hyrox é template fixo (sem "trocar")
   if (d.hiit) return renderHiit(d.hiit, d.dia);    // HIIT é template TABATA (sem "trocar")
   if (d.gap) return renderGap(d.gap, d.dia);       // GAP é aula estruturada (sem "trocar")
+  if (d.hibrido) return renderHibrido(d.hibrido, d.dia); // Híbrido é gerado (sem "trocar" nesta leva)
   const acoesDe = (i) => editavel ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>` : '';
   const altsDe = (i) => editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
   // snapshot antigo (sem níveis) → render legado de coluna única

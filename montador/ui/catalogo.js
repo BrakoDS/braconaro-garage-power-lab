@@ -66,6 +66,7 @@ function converter(a) {
     tempoMedioSeg: Number.isFinite(a.tempoMedioSeg) ? a.tempoMedioSeg : (base?.tempoMedioSeg ?? 35),
     unilateral: a.unilateral ?? base?.unilateral ?? false,
     cardio: a.cardio ?? base?.cardio ?? false,
+    multiarticular: a.multiarticular ?? base?.multiarticular ?? true,
     obs: base?.obs,
   };
 }

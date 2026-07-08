@@ -27,6 +27,7 @@ function diaEnxuto(d) {
   if (d.hyrox) return { ...base, hyrox: d.hyrox };
   if (d.hiit) return { ...base, hiit: d.hiit };
   if (d.gap) return { ...base, gap: d.gap };
+  if (d.hibrido) return { ...base, hibrido: d.hibrido };
   return {
     ...base,
     exercicios: (d.exercicios || []).map((e) => ({

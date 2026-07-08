@@ -72,9 +72,35 @@ function corpoGap(g) {
   return `<div class="td-nota">TABATA ${p.trabalhoSeg || 20}s/${p.descansoSeg || 10}s — Siga o Mestre.</div>${partes}`;
 }
 
+const TECNICA_LABEL = { biset: 'Bi-set', dropset: 'Drop-set', isometria: 'Isometria', tempo: 'Tempo 2-1-2' };
+
+/** Híbrido: Mobilidade + Hipertrofia (nível do aluno) + WOD. */
+function corpoHibrido(h, nivel) {
+  const mob = (h.mobilidade || []).map((m) => `<li>${esc(m.nome)}</li>`).join('');
+  const linhas = (h.hipertrofia || []).map((e, i) => {
+    const v = e.niveis && e.niveis[nivel];
+    const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}` : esc(e.reps || '');
+    const tec = e.tecnica ? ` · <i>${esc(TECNICA_LABEL[e.tecnica.tipo] || e.tecnica.tipo)}</i>` : '';
+    return `<li class="td-ex">
+      <span class="td-ex-nome">${i + 1}. ${esc(e.nome)}</span>
+      <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}${tec}</span>
+      <span class="td-ex-presc">${prescricao}</span>
+    </li>`;
+  }).join('');
+  const wod = h.wod || {};
+  const movs = (wod.movimentos || []).map((m) => `<li>${esc(m.nome)} — ${esc(m.prescricao)}</li>`).join('');
+  return `<div class="td-nota">Split de hoje: <b>${esc(h.splitLabel || '')}</b>.</div>
+    <div class="td-parte-h">Mobilidade — 6 min</div>
+    <ul class="td-lista">${mob}</ul>
+    <div class="td-parte-h">Hipertrofia — 10–12 reps</div>
+    <ul class="td-lista">${linhas}</ul>
+    <div class="td-parte-h">WOD — ${esc(wod.formato || '')} · ${wod.duracaoMin || ''} min</div>
+    <ul class="td-lista">${movs}</ul>`;
+}
+
 /**
  * Card do treino de hoje.
- * @param {any} treino  dia (exercicios/hyrox/hiit/gap)
+ * @param {any} treino  dia (exercicios/hyrox/hiit/gap/hibrido)
  * @param {string} nivel  nível do aluno
  */
 export function renderTreinoDia(treino, nivel) {
@@ -85,6 +111,7 @@ export function renderTreinoDia(treino, nivel) {
   if (treino.hyrox) { corpo = corpoHyrox(treino.hyrox, n); porNivel = true; }
   else if (treino.hiit) { corpo = corpoHiit(treino.hiit); porNivel = false; }
   else if (treino.gap) { corpo = corpoGap(treino.gap); porNivel = false; }
+  else if (treino.hibrido) { corpo = corpoHibrido(treino.hibrido, n); porNivel = true; }
   else { corpo = corpoExercicios(treino, n); porNivel = true; }
   // só mostra o "seu nível" nos formatos que variam por nível (força/hyrox)
   const badgeNivel = porNivel ? `<span class="td-nivel">seu nível: ${esc(NIVEL_LABEL[n] || n)}</span>` : '';

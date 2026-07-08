@@ -36,5 +36,9 @@
  * @property {number} tempoPrincipalSeg
  * @property {number} tempoFinalizadorSeg
  * @property {number} tempoTotalSeg
+ * @property {ReturnType<import('./hyrox.js')['gerarHyrox']>} [hyrox]         Presente só quando modalidade==='hyrox'
+ * @property {ReturnType<import('./hiitTabata.js')['gerarHiitTabata']>} [hiit]  Presente só quando modalidade==='hiit'
+ * @property {ReturnType<import('./gap.js')['gerarGap']>} [gap]                Presente só quando modalidade==='gap'
+ * @property {import('./hibrido.js').Hibrido} [hibrido] Presente só quando modalidade==='hibrido'
  */
 export {};

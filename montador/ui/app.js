@@ -106,6 +106,22 @@ function montarSnapshot(prog, mesId, semana, grade, nivelRef) {
       dia: t.dia, modalidade: t.modalidade,
       viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo },
       gap: t.gap, // aula GAP estruturada TABATA
+    }) : t.hibrido ? ({
+      dia: t.dia, modalidade: t.modalidade,
+      viabilidade: { ok: t.hibrido.viabilidade.ok, tamanhoGrupo: t.tamanhoGrupo },
+      hibrido: {
+        split: t.hibrido.split, splitLabel: t.hibrido.splitLabel,
+        mobilidade: t.hibrido.mobilidade,
+        hipertrofia: t.hibrido.hipertrofia.map((p) => ({
+          nome: p.exercicio.nome, padrao: p.exercicio.padrao, equipamento: p.exercicio.equipamento,
+          reps: p.reps, descansoSeg: p.descansoSeg, seriesRef: p.series,
+          niveis: variantesNivel(p.exercicio, p.series, t.modalidade),
+          multiarticular: p.exercicio.multiarticular !== false,
+          tecnica: p.tecnica,
+        })),
+        wod: t.hibrido.wod,
+        duracaoSeg: t.hibrido.duracaoSeg,
+      },
     }) : ({
       dia: t.dia, modalidade: t.modalidade,
       viabilidade: { ok: t.viabilidade.ok, tamanhoGrupo: t.viabilidade.tamanhoGrupo },

@@ -26,6 +26,7 @@ import { ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
 import { gerarHyrox, volumeHyrox, estimarDuracaoSeg } from './hyrox.js';
 import { gerarHiitTabata, volumeHiit, estimarDuracaoSeg as estimarDuracaoHiitSeg } from './hiitTabata.js';
 import { gerarGap, volumeGap, estimarDuracaoSeg as estimarDuracaoGapSeg } from './gap.js';
+import { gerarHibrido, volumeHibrido } from './hibrido.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const TETO_SERIES_POR_MUSCULO = 10; // teto por sessão para evitar sobrecarga
@@ -85,6 +86,8 @@ export function gerarTreino(opcoes) {
   if (modalidade === 'hiit') return montarHiit({ dia, semana, nivel, nAlunos, seed });
   // -------- GAP: aula estruturada TABATA (Aquecimento + Pernas/Glúteo/Abdômen) --------
   if (modalidade === 'gap') return montarGap({ dia, semana, nivel, nAlunos, seed });
+  // -------- Híbrido: Mobilidade + Hipertrofia (split) + WOD, gerado dinamicamente --------
+  if (modalidade === 'hibrido') return montarHibrido({ dia, semana, nivel, nAlunos, seed, idsEvitar });
 
   // -------- Passo 2: quantos exercícios (4, 5 ou 6) --------
   // A contagem é estável por TEMPLATE (modalidade+dia+nível) para que um mesociclo
@@ -212,7 +215,7 @@ export function gerarTreino(opcoes) {
   }));
 
   const aquecimento = montarAquecimento(rng);
-  const finalizador = mod.finalizador ? montarFinalizador(pool, selecionados, rng, modalidade) : null;
+  const finalizador = mod.finalizador ? montarFinalizador(pool, selecionados, rng) : null;
 
   const volume = calcularVolume(principal.map((p) => ({ exercicio: p.exercicio, series: p.series })));
   const viabilidade = verificarViabilidade(selecionados, nAlunos, selecionados.length);
@@ -314,6 +317,31 @@ function montarGap({ dia, semana, nivel, nAlunos, seed }) {
 }
 
 /**
+ * Monta o treino Híbrido (Mobilidade + Hipertrofia em split + WOD). Como os demais
+ * templates: conteúdo em `hibrido`, `principal` vazio — mas aqui o volume é REAL
+ * (a hipertrofia usa o catálogo/equipamento de verdade, não é nominal).
+ * @param {{dia:string, semana:number, nivel:string, nAlunos:number, seed:number, idsEvitar:string[]}} o
+ */
+function montarHibrido({ dia, semana, nivel, nAlunos, seed, idsEvitar }) {
+  const hibrido = gerarHibrido({ dia, semana, nivel, nAlunos, seed, idsEvitar });
+  return {
+    modalidade: 'hibrido', dia, semana, nivel, nAlunos,
+    tamanhoGrupo: hibrido.viabilidade.ok ? nAlunos : hibrido.hipertrofia.length,
+    deload: ehDeload(semana),
+    hibrido,
+    aquecimento: [],
+    principal: [],
+    finalizador: null,
+    volume: volumeHibrido(hibrido.hipertrofia, hibrido.wod),
+    viabilidade: { ok: hibrido.viabilidade.ok, conflitos: [], demanda: {}, formato: 'blocos', nota: hibrido.viabilidade.nota },
+    tempoAquecimentoSeg: 0,
+    tempoPrincipalSeg: hibrido.duracaoSeg,
+    tempoFinalizadorSeg: 0,
+    tempoTotalSeg: hibrido.duracaoSeg,
+  };
+}
+
+/**
  * Alternativas viáveis para trocar UM exercício do bloco principal, mantendo
  * o mesmo padrão de movimento, o nível do aluno, a modalidade e a viabilidade
  * de aparelhos para os 8 alunos. Usado pelo botão "trocar exercício" da UI.
@@ -401,18 +429,17 @@ function montarAquecimento(rng) {
 }
 
 /**
- * Finalizador (WOD curto) para modalidades híbridas/hyrox.
- * No Híbrido o WOD é a parte "Cross" do treino (academia + crosstraining).
+ * Finalizador genérico (WOD curto) — reservado p/ alguma modalidade full-body futura
+ * que queira um fechamento leve. Hyrox/Híbrido têm blocos de WOD PRÓPRIOS e mais ricos
+ * (ver hyrox.js/hibrido.js) e nem passam por aqui (curto-circuito no início do gerador).
  * @param {Exercicio[]} pool @param {Exercicio[]} jaUsados @param {() => number} rng
- * @param {string} modalidade
  */
-function montarFinalizador(pool, jaUsados, rng, modalidade) {
+function montarFinalizador(pool, jaUsados, rng) {
   const wod = pool.filter((e) => e.categorias.includes('wod') && !jaUsados.includes(e));
   const itens = embaralhar(wod, rng).slice(0, 3);
   if (!itens.length) return null;
-  const tipo = modalidade === 'hibrido' ? 'Cross WOD · AMRAP 6 min' : 'AMRAP 6 min';
   return {
-    tipo,
+    tipo: 'AMRAP 6 min',
     descricao: `Maior número de rodadas em 6 min: ${itens.map((e) => `10x ${e.nome}`).join(' + ')}`,
     itens,
     tempoSeg: 360,
