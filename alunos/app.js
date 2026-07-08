@@ -653,6 +653,35 @@ $('#des-list').addEventListener('click', async (e) => {
 const LEAD_STATUS_LABEL = { novo: 'Novo', contatado: 'Contatado', convertido: 'Convertido', descartado: 'Descartado' };
 let LEADS_CACHE = [];
 
+// Follow-up: lead "novo" há ≥2 dias (nunca contatado) ou "contatado" há ≥4 dias
+// (sem retorno). Objetivo: não deixar lead esfriar sem ação.
+const LEAD_DIA = 86400000;
+const LEAD_LIMIAR_NOVO = 2, LEAD_LIMIAR_CONTATADO = 4;
+function leadDiasDesde(ts) { return ts ? Math.floor((Date.now() - ts) / LEAD_DIA) : null; }
+/** @returns {{precisa:boolean, dias:number, motivo:string}} */
+function followUpLead(l) {
+  const st = l.status || 'novo';
+  if (st === 'novo') { const d = leadDiasDesde(l.criadoEm); if (d != null && d >= LEAD_LIMIAR_NOVO) return { precisa: true, dias: d, motivo: 'sem contato' }; }
+  else if (st === 'contatado') { const d = leadDiasDesde(l.statusEm || l.criadoEm); if (d != null && d >= LEAD_LIMIAR_CONTATADO) return { precisa: true, dias: d, motivo: 'sem retorno' }; }
+  return { precisa: false, dias: 0, motivo: '' };
+}
+
+/** Atualiza o selo de follow-up no botão "Leads" da listagem (lembrete sem abrir a tela). */
+function atualizarBadgeLeads() {
+  const btn = $('#btn-leads'); if (!btn) return;
+  const n = LEADS_CACHE.filter((l) => l.status !== 'descartado' && followUpLead(l).precisa).length;
+  let badge = btn.querySelector('.btn-badge');
+  if (!n) { if (badge) badge.remove(); return; }
+  if (!badge) { badge = document.createElement('span'); badge.className = 'btn-badge'; btn.appendChild(badge); }
+  badge.textContent = String(n);
+  badge.title = `${n} lead(s) precisam de follow-up`;
+}
+
+/** Carrega os leads em cache (para o selo do botão) — silencioso. */
+async function carregarBadgeLeads() {
+  try { LEADS_CACHE = await carregarLeads(); atualizarBadgeLeads(); } catch (e) { console.warn('Leads badge:', e?.code || e); }
+}
+
 async function renderLeads() {
   $('#leads-list').innerHTML = `<div class="prog-ph">Carregando…</div>`;
   try { LEADS_CACHE = await carregarLeads(); }
@@ -665,19 +694,23 @@ function desenharLeads() {
   const novos = ativos.filter((l) => l.status === 'novo' || !l.status);
   const contatados = ativos.filter((l) => l.status === 'contatado');
   const convertidos = ativos.filter((l) => l.status === 'convertido');
+  const precisam = ativos.filter((l) => followUpLead(l).precisa).length;
   $('#leads-tot').innerHTML = `
     <div class="fin-card"><span class="fin-card-l">Novos</span><span class="fin-card-v${novos.length ? ' bad' : ''}">${novos.length}</span></div>
     <div class="fin-card"><span class="fin-card-l">Contatados</span><span class="fin-card-v">${contatados.length}</span></div>
-    <div class="fin-card"><span class="fin-card-l">Convertidos em aluno</span><span class="fin-card-v ok">${convertidos.length}</span></div>`;
+    <div class="fin-card"><span class="fin-card-l">Convertidos em aluno</span><span class="fin-card-v ok">${convertidos.length}</span></div>
+    <div class="fin-card"><span class="fin-card-l">⏰ Follow-up</span><span class="fin-card-v${precisam ? ' bad' : ' ok'}">${precisam}</span></div>`;
 
   if (!ativos.length) { $('#leads-list').innerHTML = `<div class="empty"><b>Nenhum lead ainda</b>Assim que alguém preencher o formulário de aula grátis no site, aparece aqui.</div>`; return; }
 
   const row = (l) => {
     const d = l.criadoEm ? new Date(l.criadoEm).toLocaleDateString('pt-BR') : '—';
     const st = l.status || 'novo';
+    const fu = followUpLead(l);
     const sub = [l.objetivo, l.horario ? 'prefere ' + l.horario : '', l.indicadoPor ? 'indicado por ' + l.indicadoPor : ''].filter(Boolean).join(' · ');
-    return `<div class="cob-row">
-      <div class="cob-info"><div class="fin-nome">${esc(l.nome || 'Sem nome')} <span class="lead-badge ${st}">${LEAD_STATUS_LABEL[st] || st}</span></div><div class="fin-sub">${d}${sub ? ' · ' + esc(sub) : ''}</div></div>
+    const alerta = fu.precisa ? `<span class="lead-followup">⏰ ${fu.motivo} há ${fu.dias}d</span>` : '';
+    return `<div class="cob-row${fu.precisa ? ' lead-parado' : ''}">
+      <div class="cob-info"><div class="fin-nome">${esc(l.nome || 'Sem nome')} <span class="lead-badge ${st}">${LEAD_STATUS_LABEL[st] || st}</span>${alerta}</div><div class="fin-sub">${d}${sub ? ' · ' + esc(sub) : ''}</div></div>
       <a class="btn btn-sm cob-wa" href="${waMsg(l.whatsapp, 'Olá, ' + (l.nome || '').split(' ')[0] + '! Vi seu interesse na aula experimental do Braconaro Garage Power Lab. Vamos agendar? 💪')}" target="_blank" rel="noopener">WhatsApp</a>
       <select class="lead-status" data-id="${esc(l.id)}">
         ${Object.entries(LEAD_STATUS_LABEL).map(([v, l2]) => `<option value="${v}"${v === st ? ' selected' : ''}>${l2}</option>`).join('')}
@@ -685,7 +718,15 @@ function desenharLeads() {
       <button class="btn ghost btn-sm lead-excluir" data-id="${esc(l.id)}" type="button">Excluir</button>
     </div>`;
   };
-  $('#leads-list').innerHTML = ativos.map(row).join('');
+  // quem precisa de follow-up primeiro (mais atrasado no topo), depois o resto por recência
+  const ordenados = ativos.slice().sort((a, b) => {
+    const fa = followUpLead(a), fb = followUpLead(b);
+    if (fa.precisa !== fb.precisa) return fa.precisa ? -1 : 1;
+    if (fa.precisa && fb.precisa) return fb.dias - fa.dias;
+    return (b.criadoEm || 0) - (a.criadoEm || 0);
+  });
+  $('#leads-list').innerHTML = ordenados.map(row).join('');
+  atualizarBadgeLeads();
 }
 
 $('#btn-leads').addEventListener('click', () => { renderLeads(); mostrarTela('tela-leads'); });
@@ -1655,6 +1696,8 @@ async function entrar(user) {
       sincronizarDesafios();
       // 4) total de treino queimado na semana, por aluno (selo na listagem)
       atualizarGastoSemana();
+      // 5) leads que precisam de follow-up (selo no botão "Leads")
+      carregarBadgeLeads();
     });
   }
 }

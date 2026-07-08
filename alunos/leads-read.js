@@ -32,10 +32,11 @@ export async function carregarLeads() {
   return arr.sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
 }
 
-/** Atualiza o status de um lead: novo | contatado | convertido | descartado. */
+/** Atualiza o status de um lead: novo | contatado | convertido | descartado.
+ * Grava também `statusEm` (quando mudou) — usado p/ detectar follow-up atrasado. */
 export async function atualizarStatusLead(id, status) {
   await init();
-  await _fns.updateDoc(_fns.doc(_db, 'leads', id), { status });
+  await _fns.updateDoc(_fns.doc(_db, 'leads', id), { status, statusEm: Date.now() });
 }
 
 /** Apaga um lead. */

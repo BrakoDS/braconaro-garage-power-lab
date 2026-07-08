@@ -280,7 +280,15 @@ button{font-family:inherit}
 .lead-badge.contatado{background:#e3b34122;color:#e3b341}
 .lead-badge.convertido{background:#3fb95022;color:#3fb950}
 .lead-badge.descartado{background:var(--bg-3);color:var(--mut-2)}
+.lead-followup{display:inline-block;margin-left:8px;font-size:.72rem;font-weight:700;color:var(--bad);
+  background:#ff5b5015;border:1px solid rgba(255,91,80,.4);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.cob-row.lead-parado{border-left:3px solid var(--bad)}
 .lead-status{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:7px 10px;font:inherit;font-size:.85rem}
+/* selo de contagem no botão "Leads" da listagem (lembrete de follow-up) */
+#btn-leads{position:relative}
+.btn-badge{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;
+  background:var(--bad);color:#fff;font-size:.7rem;font-weight:700;line-height:18px;text-align:center;
+  box-shadow:0 0 0 2px var(--bg)}
 /* Medalhas do aluno (coach) */
 .med-resumo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .med-cont{font-family:var(--font-cond);font-weight:700;font-size:2rem;line-height:1;color:var(--accent)}
