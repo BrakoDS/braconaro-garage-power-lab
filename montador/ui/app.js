@@ -10,9 +10,16 @@ import { renderCenarios, renderDiaSalvo, renderRelatorioMes, renderAcumuladoAlun
 import { alternativasPorIds, gerarTreino } from '../core/gerador.js';
 import { EXERCICIO_POR_ID } from '../data/exercicios.js';
 import { variantesNivel, NIVEIS } from '../core/niveis.js';
+import { publicarTreinoDoMes } from './portal-treino.js';
 
 /** A geração ancora no intermediário; as colunas iniciante/avançado derivam dele. */
 const NIVEL_ANCORA = 'intermediario';
+
+/** Publica o mês atual no Portal do Aluno (treino do dia). Silencioso em falha. */
+function publicarTreinoAtual() {
+  const mesId = store.mesIdDe();
+  try { publicarTreinoDoMes(mesId, store.listarProgramasDoMes(mesId)); } catch (e) { console.warn('Portal treino:', e); }
+}
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -135,13 +142,14 @@ function gerarPrograma() {
   // usa a última semana salva do mês para variar os exercícios
   const ant = store.programasAnteriores(mesId, semana).slice(-1)[0];
   const evitarPorDia = {};
-  if (ant) ant.dias.forEach((d) => { evitarPorDia[d.dia] = d.exercicios.map((e) => e.id); });
+  if (ant) ant.dias.forEach((d) => { evitarPorDia[d.dia] = (d.exercicios || []).map((e) => e.id); });
 
   const prog = gerarProgramaSemanal({ grade, nivelRef, semana, evitarPorDia, seed: Math.floor(Math.random() * 1e6) });
   const snap = montarSnapshot(prog, mesId, semana, grade, nivelRef);
   store.salvarPrograma(mesId, semana, snap);
   renderProgramaView(snap, false);
   atualizarMesesSelects();
+  publicarTreinoAtual();
 }
 
 /**
@@ -185,6 +193,7 @@ function ativarTrocaPrograma() {
       // padrão e séries iguais → volPorDia e cenários permanecem válidos
       store.salvarPrograma(mesId, semana, snap);
       renderProgramaView(snap, true);
+      publicarTreinoAtual();
     }
   });
 }

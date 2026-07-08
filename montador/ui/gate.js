@@ -11,6 +11,7 @@ import { bloquearSeNaoCoach } from './coach-guard.js';
 import { aplicarInventarioAcademia, sincronizarInventarioAcademia } from './inventario.js';
 import { construirCatalogoEfetivo } from './catalogo.js';
 import { sincronizarAlunos } from './gestao.js';
+import * as store from './store.js';
 
 const gate = document.getElementById('gate');
 const form = document.getElementById('gate-form');
@@ -57,6 +58,11 @@ async function entrarComNuvem() {
   const uid = usuario()?.uid;
   await sincronizarInventarioAcademia(uid); // inventário da Academia (nuvem → local)
   await sincronizarAlunos(uid);             // alunos da Gestão (nuvem → local)
+  // rede de segurança: republica o treino do mês atual p/ o Portal do Aluno
+  try {
+    const { publicarTreinoDoMes } = await import('./portal-treino.js');
+    publicarTreinoDoMes(store.mesIdDe(), store.listarProgramasDoMes(store.mesIdDe()));
+  } catch (e) { console.warn('Portal treino (boot):', e); }
   entrar();
 }
 

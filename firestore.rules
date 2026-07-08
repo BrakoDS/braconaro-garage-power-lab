@@ -42,6 +42,16 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
     }
 
+    // Treino da semana (Montador) — um doc por mês, publicado pelo coach, lido por
+    // qualquer aluno autenticado. O coach do Montador tem coaches/{uid}; o da Gestão,
+    // gestao/{uid} — aceitar os dois.
+    match /treinoPortal/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && (exists(/databases/$(database)/documents/coaches/$(request.auth.uid))
+          || exists(/databases/$(database)/documents/gestao/$(request.auth.uid)));
+    }
+
     // Desafios da semana — lista única publicada pelo coach, lida por todos.
     match /desafiosPortal/{doc} {
       allow read: if request.auth != null;

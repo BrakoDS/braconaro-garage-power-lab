@@ -413,3 +413,38 @@ button{font-family:inherit}
 .pix-cec-box code{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem;
   color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pix-cec-btn{width:100%}
+
+/* ---------- Treino do dia ---------- */
+.td-card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);padding:16px 18px}
+.td-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.td-head h3{margin:0;font-family:var(--font-cond,inherit);font-size:1.4rem;text-transform:uppercase;letter-spacing:.02em}
+.td-dia{font-size:.78rem;color:var(--mut-2);text-transform:uppercase;letter-spacing:.08em}
+.td-nivel{margin-left:auto;font-size:.75rem;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:1px 8px;white-space:nowrap}
+.td-nota{font-size:.85rem;color:var(--mut);margin:0 0 10px}
+.td-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.td-ex{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:baseline;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.td-ex:last-child{border-bottom:0;padding-bottom:0}
+.td-ex-nome{font-weight:600;font-size:.98rem}
+.td-ex-sub{grid-row:2;font-size:.78rem;color:var(--mut-2)}
+.td-ex-presc{grid-column:2;grid-row:1/3;align-self:center;text-align:right;font-size:.92rem;color:var(--txt);white-space:nowrap}
+.td-ex-presc b{color:var(--accent)}
+.td-fin{margin-top:12px;padding:10px 12px;background:var(--bg-3);border:1px solid var(--line);border-radius:10px;font-size:.9rem}
+.td-fin b{color:var(--accent-2)}
+.td-blocos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.td-bloco{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.td-bloco-h{font-weight:700;font-size:.9rem;margin-bottom:5px}
+.td-mut{color:var(--mut-2);font-weight:400}
+.td-slots{margin:0;padding-left:2px;list-style:none;display:grid;gap:3px;font-size:.88rem}
+.td-slots i{color:var(--accent-2);font-style:normal}
+.td-parte{margin-top:12px}
+.td-parte-h{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:6px}
+.td-descanso{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);padding:16px 18px}
+.td-descanso-ic{font-size:1.8rem}
+.td-descanso p{margin:2px 0 0;color:var(--mut);font-size:.9rem}
+.td-faixa{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.td-fx-cel{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:8px 4px;text-align:center}
+.td-fx-cel.on{border-color:var(--accent);background:rgba(245,197,24,.08)}
+.td-fx-dia{display:block;font-size:.7rem;color:var(--mut-2);letter-spacing:.06em}
+.td-fx-mod{display:block;font-size:.82rem;font-weight:600;margin-top:2px}
+.td-fx-cel.on .td-fx-mod{color:var(--accent)}
+@media(max-width:560px){.td-blocos{grid-template-columns:1fr}.td-faixa{grid-template-columns:repeat(5,1fr);gap:3px}.td-fx-mod{font-size:.72rem}}

@@ -9,6 +9,8 @@ import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario
 import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
+import { carregarTreinoDoMes, resolverHoje } from './treino-db.js';
+import { renderTreinoDia, renderFaixaSemana } from './treino-dia.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js';
 import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
@@ -963,6 +965,7 @@ async function entrar(user) {
   catch (e) { PORTAL = null; console.warn('Portal:', e?.code || e); }
   render();
   carregarAvisos().then(renderAvisos); // mural da academia (independe da fatia do aluno)
+  carregarTreinoDoMes().then(renderTreinoDoDia); // treino do dia (publicado pelo Montador)
   if (email) {
     try { const c = await carregarConsentimento(email); if (precisaAceitar(c)) pedirConsentimento(email); }
     catch (e) { console.warn('LGPD:', e?.code || e); }
@@ -984,6 +987,24 @@ function renderAvisos(avisos) {
     </article>`;
   }).join('');
 }
+/* ---------- Treino do dia ---------- */
+function renderTreinoDoDia(doc) {
+  const sec = $('#sec-treino-dia'), box = $('#treino-dia-conteudo');
+  if (!sec || !box) return;
+  const hoje = resolverHoje(doc);
+  if (!hoje) { sec.hidden = true; return; } // sem programa publicado neste mês
+  sec.hidden = false;
+  const nivel = PORTAL?.nivel || 'intermediario';
+  if (hoje.treino) {
+    box.innerHTML = renderTreinoDia(hoje.treino, nivel);
+  } else {
+    // dia de descanso (fim de semana ou folga) → mensagem + faixa da semana
+    box.innerHTML = `<div class="td-descanso"><span class="td-descanso-ic">💤</span>
+      <div><b>Hoje é dia de descanso.</b><p>Aproveite para recuperar. Veja como fica a sua semana:</p></div></div>
+      ${renderFaixaSemana(hoje.grade, hoje.diaHoje)}`;
+  }
+}
+
 function erroMsg(m) { gErro.style.color = ''; gErro.textContent = m; gErro.style.display = 'block'; }
 function okMsg(m) { gErro.style.color = 'var(--ok)'; gErro.textContent = m; gErro.style.display = 'block'; }
 function msgAuth(e) {
