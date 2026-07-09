@@ -18,7 +18,7 @@ async function init() {
   const fsMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
   const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
   _db = fsMod.getFirestore(app);
-  _fns = { doc: fsMod.doc, setDoc: fsMod.setDoc };
+  _fns = { doc: fsMod.doc, setDoc: fsMod.setDoc, deleteDoc: fsMod.deleteDoc };
 }
 
 /** Enxuga um dia salvo para o que o Portal precisa (mantém o formato do dia). */
@@ -54,5 +54,20 @@ export async function publicarTreinoDoMes(mesId, programasDoMes) {
     });
   } catch (e) {
     console.warn('Publicar treino no portal:', e?.code || e);
+  }
+}
+
+/**
+ * Remove o doc do mês em `treinoPortal/{mesId}` — usado quando o coach exclui o
+ * último treino salvo do mês, p/ o "Treino do dia" sumir do Portal do Aluno.
+ * @param {string} mesId
+ */
+export async function limparTreinoDoMes(mesId) {
+  if (!CLOUD_ATIVO || !firebaseConfig?.apiKey || !mesId) return;
+  try {
+    await init();
+    await _fns.deleteDoc(_fns.doc(_db, 'treinoPortal', mesId));
+  } catch (e) {
+    console.warn('Limpar treino no portal:', e?.code || e);
   }
 }

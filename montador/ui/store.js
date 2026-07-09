@@ -118,7 +118,11 @@ export function programasAnteriores(mesId, semana) {
 }
 /** @param {string} mesId @param {number} semana */
 export function removerPrograma(mesId, semana) {
-  if (estado.programas[mesId]) { delete estado.programas[mesId][semana]; salvar(estado); }
+  if (estado.programas[mesId]) {
+    delete estado.programas[mesId][semana];
+    if (!Object.keys(estado.programas[mesId]).length) delete estado.programas[mesId]; // mês sem semanas some da lista
+    salvar(estado);
+  }
 }
 /** Lista os mesIds que têm programas salvos (mais recente primeiro). */
 export function listarMeses() {

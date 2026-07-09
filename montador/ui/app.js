@@ -10,7 +10,7 @@ import { renderCenarios, renderDiaSalvo, renderRelatorioMes, renderAcumuladoAlun
 import { alternativasPorIds, gerarTreino } from '../core/gerador.js';
 import { EXERCICIO_POR_ID } from '../data/exercicios.js';
 import { variantesNivel, NIVEIS } from '../core/niveis.js';
-import { publicarTreinoDoMes } from './portal-treino.js';
+import { publicarTreinoDoMes, limparTreinoDoMes } from './portal-treino.js';
 
 /** A geração ancora no intermediário; as colunas iniciante/avançado derivam dele. */
 const NIVEL_ANCORA = 'intermediario';
@@ -140,7 +140,9 @@ function renderProgramaView(snap, jaExistia) {
   const aviso = `<div class="card" style="border-color:var(--acc)">
     <b>Semana ${snap.semana} — ${store.rotuloMes(snap.mesId)}</b> · salva ✓
     ${jaExistia ? '(visualizando o treino salvo desta semana)' : '(gerada e salva no histórico)'}.
-    Para mudar, clique em <b>Gerar / ver semana</b> e confirme a substituição.</div>`;
+    Para mudar, clique em <b>Gerar / ver semana</b> e confirme a substituição.
+    <div style="margin-top:10px"><button class="btn danger sm excluir-semana" type="button">Excluir treino desta semana</button></div>
+  </div>`;
   $('#s-saida').innerHTML = aviso + renderCenarios(snap) + snap.dias.map((d) => renderDiaSalvo(d, true)).join('');
 }
 
@@ -178,6 +180,19 @@ function ativarTrocaPrograma() {
     const semana = Number($('#s-semana').value);
     const snap = store.getPrograma(mesId, semana);
     if (!snap) return;
+
+    const del = ev.target.closest('.excluir-semana');
+    if (del) {
+      if (!confirm(`Excluir o treino salvo da Semana ${semana} — ${store.rotuloMes(mesId)}?\n\nEle sai do histórico e também do "Treino do dia" dos alunos.`)) return;
+      store.removerPrograma(mesId, semana);
+      atualizarMesesSelects();
+      aoTrocarSemana(); // volta ao estado vazio da semana
+      // Portal do Aluno: re-publica o mês sem essa semana, ou limpa o doc se ficou vazio
+      const progs = store.listarProgramasDoMes(mesId);
+      if (progs.length) publicarTreinoDoMes(mesId, progs);
+      else limparTreinoDoMes(mesId);
+      return;
+    }
 
     const btn = ev.target.closest('.swap-prog');
     if (btn) {
