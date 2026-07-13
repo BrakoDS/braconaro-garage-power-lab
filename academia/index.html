@@ -74,6 +74,7 @@
         <div class="filtros" id="filtros-tags"></div>
         <div class="filtros">
           <button class="chip toggle on" id="chip-disp" type="button">Só disponíveis</button>
+          <button class="chip toggle" id="chip-desat" type="button">Desativados</button>
           <span class="sep"></span>
           <select id="filtro-musc" aria-label="Filtrar por músculo"></select>
           <select id="filtro-equip" aria-label="Filtrar por equipamento"></select>
@@ -148,6 +149,12 @@
             <label>Músculos trabalhados</label>
             <div class="pick" id="pick-musc"></div>
           </div>
+          <div class="field full" style="margin-bottom:16px">
+            <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:.9rem">
+              <input type="checkbox" name="ativo" style="width:auto" checked />
+              Exercício ativo <span class="hint">(desmarque para tirar da montagem de treino sem apagar)</span>
+            </label>
+          </div>
           <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Execução, dicas, etc. (opcional)"></textarea></div>
           <div class="erro-form" id="erro-exerc"></div>
         </div>
@@ -161,6 +168,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=6"></script>
+  <script type="module" src="./app.js?v=7"></script>
 </body>
 </html>

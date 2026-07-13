@@ -199,8 +199,21 @@ export function salvarExerc(dados) {
     gravar(d); return x;
   }
   const id = idUnico(dados.id || dados.nome, d.exercicios.map((x) => x.id));
-  const x = { id, nome: '', equipamentoIds: [], tags: [], musculos: [], padrao: '', nivel: 'intermediario', tempoMedioSeg: 35, obs: '', ...dados, id };
+  const x = { id, nome: '', equipamentoIds: [], tags: [], musculos: [], padrao: '', nivel: 'intermediario', tempoMedioSeg: 35, ativo: true, obs: '', ...dados, id };
   d.exercicios.push(x);
+  gravar(d); return x;
+}
+
+/**
+ * Ativa/desativa um exercício sem apagá-lo. Desativado: some da montagem de treino
+ * (ver `montador/ui/catalogo.js`), mas continua no catálogo da Academia p/ reativar.
+ * @param {string} id @param {boolean} ativo
+ */
+export function definirAtivoExerc(id, ativo) {
+  const d = ler();
+  const x = d.exercicios.find((e) => e.id === id);
+  if (!x) return null;
+  x.ativo = !!ativo;
   gravar(d); return x;
 }
 

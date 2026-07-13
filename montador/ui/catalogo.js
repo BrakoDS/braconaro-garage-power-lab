@@ -76,8 +76,10 @@ function converter(a) {
  * @returns {number} nº de exercícios aplicados (0 = manteve o catálogo base)
  */
 export function construirCatalogoEfetivo() {
-  const lista = academia.listarExercicios();
-  if (!lista.length) { aplicarCatalogo([]); return 0; } // vazio: mantém o base estático
+  const todos = academia.listarExercicios();
+  if (!todos.length) { aplicarCatalogo([]); return 0; } // vazio: mantém o base estático
+  // Exercício desativado na Academia (ativo:false) some da montagem, sem ser apagado.
+  const lista = todos.filter((a) => a.ativo !== false);
   const efetivo = lista.map(converter).filter(Boolean);
   aplicarCatalogo(/** @type {Exercicio[]} */ (efetivo));
   return efetivo.length;

@@ -23,7 +23,7 @@ let UID = null;
    Estado dos filtros
    ============================================================ */
 let abaAtiva = 'inventario';
-const F = { invBusca: '', invCat: 'todos', exBusca: '', exTag: 'todos', exMusc: 'todos', exEquip: 'todos', soDisp: true };
+const F = { invBusca: '', invCat: 'todos', exBusca: '', exTag: 'todos', exMusc: 'todos', exEquip: 'todos', soDisp: true, soDesat: false };
 
 /* ============================================================
    Abas
@@ -97,30 +97,32 @@ function nomesEquip(ids) {
 
 function renderExercicios() {
   const q = norm(F.exBusca);
-  let itens = db.listarExercicios().map((x) => ({ x, d: db.disponibilidade(x) }));
-  itens = itens.filter(({ x, d }) => {
+  let itens = db.listarExercicios().map((x) => ({ x, d: db.disponibilidade(x), ativo: x.ativo !== false }));
+  itens = itens.filter(({ x, d, ativo }) => {
     if (F.exTag !== 'todos' && !(x.tags || []).includes(F.exTag)) return false;
     if (F.exMusc !== 'todos' && !(x.musculos || []).includes(F.exMusc)) return false;
     if (F.exEquip !== 'todos' && !(x.equipamentoIds || []).includes(F.exEquip)) return false;
+    if (F.soDesat) return !ativo && (!q || norm(x.nome).includes(q));
     if (F.soDisp && !d.disponivel) return false;
     return !q || norm(x.nome).includes(q);
   });
   itens.sort((a, b) => Number(a.d.disponivel) - Number(b.d.disponivel) || a.x.nome.localeCompare(b.x.nome, 'pt'));
   $('#count-ex').textContent = `${itens.length} ${itens.length === 1 ? 'exercício' : 'exercícios'}`;
   if (!itens.length) {
-    $('#lista-ex').innerHTML = `<div class="empty"><b>Nenhum exercício</b>${db.listarExercicios().length ? 'Ajuste os filtros — talvez estejam ocultos por “Só disponíveis”.' : 'Toque em “+ Exercício” para começar.'}</div>`;
+    $('#lista-ex').innerHTML = `<div class="empty"><b>Nenhum exercício</b>${db.listarExercicios().length ? 'Ajuste os filtros — talvez estejam ocultos por “Só disponíveis” ou “Desativados”.' : 'Toque em “+ Exercício” para começar.'}</div>`;
     return;
   }
-  $('#lista-ex').innerHTML = itens.map(({ x, d }) => `
-    <button class="row${d.disponivel ? '' : ' indisp'}" data-id="${esc(x.id)}" type="button">
+  $('#lista-ex').innerHTML = itens.map(({ x, d, ativo }) => `
+    <button class="row${d.disponivel ? '' : ' indisp'}${ativo ? '' : ' indisp'}" data-id="${esc(x.id)}" type="button">
       <div>
-        <div class="nome">${esc(x.nome)}</div>
+        <div class="nome">${esc(x.nome)}${ativo ? '' : ' <span class="badge" style="color:var(--bad);border-color:var(--bad)">Desativado</span>'}</div>
         <div class="sub">${(x.tags || []).map((t) => `<span class="tag ${esc(t)}">${esc(t)}</span>`).join('')}${(x.musculos || []).map((m) => `<span class="musc">${esc(m)}</span>`).join('')}</div>
         <div class="sub2">${esc(nomesEquip(x.equipamentoIds).join(', ') || 'sem equipamento')}</div>
         ${x.padrao ? `<div class="sub2" style="color:var(--mut-2)">Padrão: ${esc(PADRAO_LABEL[x.padrao] || x.padrao)}</div>` : '<div class="alerta">⚠ Sem padrão de movimento — não entra na montagem de treino</div>'}
         ${d.disponivel ? '' : `<div class="alerta">⚠ Indisponível — falta: ${esc(d.falta.join(', '))}</div>`}
+        ${ativo ? '' : '<div class="alerta">⚠ Desativado — não entra na montagem de treino</div>'}
       </div>
-      <div class="qtd" style="font-size:1.3rem;color:${d.disponivel ? 'var(--ok)' : 'var(--bad)'}">${d.disponivel ? '●' : '○'}</div>
+      <div class="qtd" style="font-size:1.3rem;color:${d.disponivel && ativo ? 'var(--ok)' : 'var(--bad)'}">${d.disponivel && ativo ? '●' : '○'}</div>
     </button>`).join('');
 }
 
@@ -142,6 +144,7 @@ $('#filtros-tags').addEventListener('click', (e) => { const c = e.target.closest
 $('#filtro-musc').addEventListener('change', (e) => { F.exMusc = e.target.value; renderExercicios(); });
 $('#filtro-equip').addEventListener('change', (e) => { F.exEquip = e.target.value; renderExercicios(); });
 $('#chip-disp').addEventListener('click', () => { F.soDisp = !F.soDisp; $('#chip-disp').classList.toggle('on', F.soDisp); renderExercicios(); });
+$('#chip-desat').addEventListener('click', () => { F.soDesat = !F.soDesat; $('#chip-desat').classList.toggle('on', F.soDesat); renderExercicios(); });
 
 /* ============================================================
    Modais — abrir/fechar
@@ -223,6 +226,7 @@ function abrirExerc(item = null) {
     ...PADROES.map((p) => `<option value="${esc(p)}">${esc(PADRAO_LABEL[p] || p)}</option>`)].join('');
   $('#ex-padrao').value = item?.padrao || '';
   $('#ex-nivel').value = item?.nivel || 'intermediario';
+  f.ativo.checked = item ? item.ativo !== false : true;
 
   // Tags
   const selT = new Set(item?.tags || []);
@@ -259,6 +263,7 @@ $('#form-exerc').addEventListener('submit', (e) => {
   const dados = {
     nome, equipamentoIds, tags, musculos,
     padrao: f.padrao.value, nivel: f.nivel.value || 'intermediario',
+    ativo: f.ativo.checked,
     obs: f.obs.value.trim(),
   };
   if (exercEdit) dados.id = exercEdit.id;
