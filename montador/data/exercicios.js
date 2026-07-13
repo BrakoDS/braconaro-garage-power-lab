@@ -313,6 +313,13 @@ export const EXERCICIOS = [
     nivel: 'intermediario', tempoMedioSeg: 35, obs: 'Só 1 trenó — gargalo, organizar rodízio.',
   },
   {
+    id: 'sandbag_lunges', nome: 'Sandbag Lunges (avanço com saco de areia)',
+    descricao: 'Passada/afundo à frente com o saco de areia apoiado nos ombros e pescoço; o joelho de trás toca o chão a cada repetição.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['posterior_coxa', 'core', 'estabilizadores'],
+    categorias: ['hyrox', 'wod'], equipamento: ['sandbag'],
+    nivel: 'intermediario', tempoMedioSeg: 35, obs: 'Só 1 sandbag — gargalo, organizar rodízio.',
+  },
+  {
     id: 'air_bike_sprint', nome: 'Air bike (sprint/cals)',
     descricao: 'Tiro de calorias na bike de ar.',
     padrao: 'estabilizadores', musculosPrimarios: ['quadriceps', 'core'], musculosSecundarios: ['ombro', 'costas'],

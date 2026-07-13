@@ -56,9 +56,9 @@ export const HYROX_ESTACOES = [
   { n: 6, nome: 'Farmer’s carry (halteres pesados)', base: 'Farmers Carry', equipamento: ['halter_pesado'], padrao: 'estabilizadores', padraoSec: 'posterior_gluteo',
     tipo: 'distancia', prescricao: { iniciante: 80, intermediario: 100, avancado: 100 },
     carga: 'halteres pesados (12,5–17,5 kg)', nota: 'Tronco firme, ombros para trás, passos curtos.' },
-  { n: 7, nome: 'Walking lunges com halteres', base: 'Sandbag Lunges', equipamento: ['halter'], padrao: 'quadriceps', padraoSec: 'posterior_gluteo',
+  { n: 7, nome: 'Sandbag Lunges (avanço com saco de areia)', base: 'Sandbag Lunges', equipamento: ['sandbag'], padrao: 'quadriceps', padraoSec: 'posterior_gluteo',
     tipo: 'distancia', prescricao: { iniciante: 30, intermediario: 40, avancado: 40 },
-    carga: 'halteres 5–8 kg cada', nota: 'Joelho de trás quase ao chão, tronco ereto.' },
+    carga: 'sandbag 20 kg nos ombros', nota: 'Saco apoiado nos ombros/pescoço; joelho de trás toca o chão, tronco ereto.' },
   { n: 8, nome: 'Wall ball', base: 'Wall Balls', equipamento: ['wall_ball'], padrao: 'quadriceps', padraoSec: 'empurrar',
     tipo: 'reps', prescricao: { iniciante: 30, intermediario: 50, avancado: 50 },
     carga: 'bola 4–6 kg', nota: 'Agachou → arremessou ao alvo; recebe já agachando.' },
@@ -123,12 +123,12 @@ export function gerarHyrox(opcoes = {}) {
       avancado: estimarDuracaoSeg('avancado'),
     },
     // Hyrox é for-time: a turma faz o mesmo percurso em rodízio, não é um circuito
-    // de K estações simultâneas. O gargalo prático é o TRENÓ (só 1) e o monocross
-    // (2 estações de polia).
+    // de K estações simultâneas. Os gargalos práticos são o TRENÓ (só 1), a SANDBAG
+    // (só 1) e o monocross (2 estações de polia).
     viabilidade: {
       ok: true,
       formato: 'for-time',
-      nota: `Formato for-time: turma de até ${nAlunos} em rodízio. Só ${sled?.unidades ?? 1} trenó (Sled Push/Pull) e ${EQUIP_POR_ID.monocross?.unidades ?? 2} monocross — organize o revezamento nessas estações.`,
+      nota: `Formato for-time: turma de até ${nAlunos} em rodízio. Gargalos: só ${sled?.unidades ?? 1} trenó (Sled Push/Pull), ${EQUIP_POR_ID.sandbag?.unidades ?? 1} sandbag (Lunges) e ${EQUIP_POR_ID.monocross?.unidades ?? 2} monocross — organize o revezamento nessas estações.`,
     },
   };
 }
