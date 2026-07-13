@@ -83,19 +83,21 @@ function backfillPadrao() {
 }
 
 /**
- * Adiciona ao catálogo do coach os exercícios da SEMENTE que faltam por id
- * (ex.: novos cardios de peso corporal). Roda uma única vez por versão de semente
- * (`d.seedVersion`), então não re-adiciona exercícios que o coach apagou depois.
+ * Adiciona ao catálogo do coach os EXERCÍCIOS e EQUIPAMENTOS da SEMENTE que faltam
+ * por id (ex.: novos cardios de peso corporal, aparelhos de Hyrox). Roda uma única
+ * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
+ * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 function backfillNovosSeed() {
   const d = ler();
   if ((d.seedVersion || 0) >= SEED_VERSION) return false;
-  const existentes = new Set(d.exercicios.map((x) => x.id));
+  const s = seedData();
+  const exIds = new Set(d.exercicios.map((x) => x.id));
+  const invIds = new Set(d.inventario.map((x) => x.id));
   let mudou = false;
-  for (const x of seedData().exercicios) {
-    if (!existentes.has(x.id)) { d.exercicios.push({ ...x }); mudou = true; }
-  }
+  for (const x of s.exercicios) { if (!exIds.has(x.id)) { d.exercicios.push({ ...x }); mudou = true; } }
+  for (const e of s.inventario) { if (!invIds.has(e.id)) { d.inventario.push({ ...e }); mudou = true; } }
   d.seedVersion = SEED_VERSION;
   setLocal(d); // grava a versão mesmo sem novos, p/ não reprocessar
   return mudou;

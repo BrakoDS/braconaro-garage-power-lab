@@ -299,6 +299,20 @@ export const EXERCICIOS = [
 
   // ===================== CARDIO / CONDICIONAMENTO (Hyrox/HIIT/WOD) =====================
   {
+    id: 'sled_push', nome: 'Sled Push (empurrar trenó)',
+    descricao: 'Empurrar o trenó carregado por uma distância no turf. Passos curtos e potentes, trenó baixo.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['ombro', 'triceps', 'core'],
+    categorias: ['hyrox', 'wod'], equipamento: ['sled', 'turf', 'anilha_olimpica_15'],
+    nivel: 'intermediario', tempoMedioSeg: 35, obs: 'Só 1 trenó — gargalo, organizar rodízio.',
+  },
+  {
+    id: 'sled_pull', nome: 'Sled Pull (puxar trenó)',
+    descricao: 'Puxar o trenó carregado pela corda grossa, mão sobre mão, tronco firme.',
+    padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'core', 'posterior_coxa'],
+    categorias: ['hyrox', 'wod'], equipamento: ['sled', 'turf', 'anilha_olimpica_15', 'corda_naval_4m'],
+    nivel: 'intermediario', tempoMedioSeg: 35, obs: 'Só 1 trenó — gargalo, organizar rodízio.',
+  },
+  {
     id: 'air_bike_sprint', nome: 'Air bike (sprint/cals)',
     descricao: 'Tiro de calorias na bike de ar.',
     padrao: 'estabilizadores', musculosPrimarios: ['quadriceps', 'core'], musculosSecundarios: ['ombro', 'costas'],

@@ -129,6 +129,42 @@ export const EQUIPAMENTOS = [
     obs: 'Step-up leve, elevação de quadril apoiada, drills de aquecimento.',
   },
 
+  // ---------------- FUNCIONAL / HYROX ----------------
+  {
+    id: 'sled',
+    nome: 'Trenó (Sled)',
+    categoria: 'estacao',
+    unidades: 1,
+    compartilhavelDupla: false,
+    obs: 'Sled push/pull no turf. Só 1 — gargalo, organizar rodízio.',
+  },
+  {
+    id: 'turf',
+    nome: 'Turf 5 m (grama de treino)',
+    categoria: 'estacao',
+    unidades: 2,
+    compartilhavelDupla: true,
+    obs: 'Faixa de 5 m para sled push/pull, arrastos e deslocamentos.',
+  },
+  {
+    id: 'anilha_olimpica_15',
+    nome: 'Anilhas olímpicas 15 kg',
+    categoria: 'peso_livre',
+    unidades: 3,
+    compartilhavelDupla: true,
+    cargasKg: [15, 15, 15],
+    obs: 'Carga do trenó (1 a 3 anilhas = 15 / 30 / 45 kg).',
+  },
+  {
+    id: 'sandbag',
+    nome: 'Sandbag 20 kg',
+    categoria: 'peso_livre',
+    unidades: 1,
+    compartilhavelDupla: false,
+    cargasKg: [20],
+    obs: 'Carregada, agachamento, clean, avanço. Só 1 — gargalo.',
+  },
+
   // ---------------- ACESSÓRIOS / CORPORAL ----------------
   {
     id: 'corda_naval',
@@ -137,6 +173,14 @@ export const EQUIPAMENTOS = [
     unidades: 2,
     compartilhavelDupla: false,
     obs: 'Condicionamento de ombro/core. Gargalo: só 2.',
+  },
+  {
+    id: 'corda_naval_4m',
+    nome: 'Corda naval 4 m (sled pull)',
+    categoria: 'acessorio',
+    unidades: 2,
+    compartilhavelDupla: false,
+    obs: 'Corda grossa de 4 m para puxar o trenó (Sled Pull).',
   },
   {
     id: 'elastico',

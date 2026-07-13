@@ -41,12 +41,12 @@ export const HYROX_ESTACOES = [
   { n: 1, nome: 'Puxada alta no monocross', base: 'SkiErg', equipamento: ['monocross'], padrao: 'puxar',
     tipo: 'reps', prescricao: { iniciante: 200, intermediario: 250, avancado: 250 },
     carga: 'carga moderada (polia)', nota: 'Ritmo de esqui: puxada explosiva, tronco à frente.' },
-  { n: 2, nome: 'Dumbbell Thrusters', base: 'Sled Push', equipamento: ['halter'], padrao: 'empurrar', padraoSec: 'quadriceps',
-    tipo: 'reps', prescricao: { iniciante: 20, intermediario: 30, avancado: 30 },
-    carga: 'halteres 7–10 kg (total)', nota: 'Agachou → empurrou acima da cabeça, sem pausa.' },
-  { n: 3, nome: 'Remada sentada no monocross', base: 'Sled Pull', equipamento: ['monocross'], padrao: 'puxar',
-    tipo: 'reps', prescricao: { iniciante: 30, intermediario: 50, avancado: 50 },
-    carga: 'carga moderada/pesada (polia)', nota: 'Puxada forte até o abdômen, controla a volta.' },
+  { n: 2, nome: 'Sled Push (empurrar trenó)', base: 'Sled Push', equipamento: ['sled', 'turf', 'anilha_olimpica_15'], padrao: 'quadriceps', padraoSec: 'empurrar',
+    tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40 },
+    carga: 'trenó + 15–45 kg (1 a 3 anilhas por nível)', nota: 'Trenó baixo, tronco firme, passos curtos e potentes no turf de 5 m.' },
+  { n: 3, nome: 'Sled Pull (puxar trenó)', base: 'Sled Pull', equipamento: ['sled', 'turf', 'anilha_olimpica_15', 'corda_naval_4m'], padrao: 'puxar', padraoSec: 'estabilizadores',
+    tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40 },
+    carga: 'trenó + 15–45 kg, puxar pela corda', nota: 'Puxe a corda mão sobre mão, quadril baixo e tronco estável.' },
   { n: 4, nome: 'Burpee over bar', base: 'Burpee Broad Jump', equipamento: ['corporal', 'barra_livre'], padrao: 'empurrar',
     tipo: 'reps', prescricao: { iniciante: 15, intermediario: 30, avancado: 30 },
     carga: 'peso corporal', nota: 'Pode passar a perna uma de cada vez se o salto for complexo.' },
@@ -67,7 +67,8 @@ export const HYROX_ESTACOES = [
 /** Estimativas de esforço p/ a duração (segundos). São aproximações — rótulo "~". */
 const SEG_POR_METRO_CORRIDA = 0.34;      // ~10,5 km/h com penalidade de tiros de 50 m
 const SEG_POR_METRO_CARRY = 0.9;         // farmer/lunge carregados
-const SEG_POR_REP = { 1: 1.3, 2: 3.2, 3: 1.6, 4: 4.5, 5: 1.1, 8: 3.0 }; // por nº de estação
+const SEG_POR_METRO_SLED = 1.8;          // trenó carregado é lento e grindy
+const SEG_POR_REP = { 1: 1.3, 4: 4.5, 5: 1.1, 8: 3.0 }; // reps por nº de estação (2 e 3 viraram distância/sled)
 const TRANSICAO_SEG = 15;                // troca corrida↔estação
 
 /**
@@ -76,7 +77,10 @@ const TRANSICAO_SEG = 15;                // troca corrida↔estação
  */
 function duracaoEstacaoSeg(est, nivel) {
   const q = est.prescricao[nivel];
-  if (est.tipo === 'distancia') return Math.round(q * SEG_POR_METRO_CARRY);
+  if (est.tipo === 'distancia') {
+    const rate = (est.n === 2 || est.n === 3) ? SEG_POR_METRO_SLED : SEG_POR_METRO_CARRY;
+    return Math.round(q * rate);
+  }
   return Math.round(q * (SEG_POR_REP[est.n] ?? 2));
 }
 
@@ -109,7 +113,7 @@ export function volumeHyrox() {
  */
 export function gerarHyrox(opcoes = {}) {
   const nAlunos = opcoes.nAlunos ?? ALUNOS_POR_SESSAO;
-  const monocross = EQUIP_POR_ID.monocross;
+  const sled = EQUIP_POR_ID.sled;
   return {
     corrida: HYROX_CORRIDA,
     estacoes: HYROX_ESTACOES,
@@ -119,11 +123,12 @@ export function gerarHyrox(opcoes = {}) {
       avancado: estimarDuracaoSeg('avancado'),
     },
     // Hyrox é for-time: a turma faz o mesmo percurso em rodízio, não é um circuito
-    // de K estações simultâneas. O gargalo prático é o monocross (3 estações usam).
+    // de K estações simultâneas. O gargalo prático é o TRENÓ (só 1) e o monocross
+    // (2 estações de polia).
     viabilidade: {
       ok: true,
       formato: 'for-time',
-      nota: `Formato for-time: turma de até ${nAlunos} em rodízio. ${monocross?.unidades ?? 2} estações de monocross — organize revezamento nas rodadas de polia.`,
+      nota: `Formato for-time: turma de até ${nAlunos} em rodízio. Só ${sled?.unidades ?? 1} trenó (Sled Push/Pull) e ${EQUIP_POR_ID.monocross?.unidades ?? 2} monocross — organize o revezamento nessas estações.`,
     },
   };
 }
