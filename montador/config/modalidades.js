@@ -28,13 +28,13 @@ export const MODALIDADES = {
     nome: 'Força',
     faixaExercicios: [4, 5],
     series: 4,
-    reps: '3–5 reps',
-    descansoSeg: 120,
-    intensidadePctRM: [80, 90],
-    segPorRepMedia: 4,
+    reps: '1–6 reps',
+    descansoSeg: 150, // 2–3 min (ressíntese de ATP-CP / recuperação do SNC)
+    intensidadePctRM: [80, 95],
+    segPorRepMedia: 5,
     formato: 'estacoes',
     finalizador: false,
-    estimulo: 'Cargas altas, poucas reps, descanso longo. Foco em força máxima.',
+    estimulo: 'Cargas altas (RPE 8–10), poucas reps, descanso longo (2–3 min). Foco em força máxima.',
   },
   hipertrofia: {
     id: 'hipertrofia',

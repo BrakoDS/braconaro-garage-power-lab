@@ -30,7 +30,14 @@ import { gerarHibrido, volumeHibrido } from './hibrido.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const TETO_SERIES_POR_MUSCULO = 10; // teto por sessão para evitar sobrecarga
-const BUDGET_PRINCIPAL = [2700, 3000]; // 45–50 min em segundos
+// Teto do bloco principal (seg). Aula inteira (mobilidade + principal) deve caber em
+// 55 min, +5 min de tolerância = 60 min teto estrito. Força tem mobilidade maior
+// (7,5 min) e descanso mais longo entre séries, então seu teto de principal é mais
+// justo para não estourar a janela; as demais seguem o teto padrão de 45–50 min.
+const BUDGET_PRINCIPAL = {
+  forca: [2400, 2850],  // 40–47,5 min — deixa a mobilidade (7,5 min) caber em 55 min
+  default: [2700, 3000], // 45–50 min
+};
 
 // -------- RNG determinístico (seed reproduzível) --------
 function mulberry32(seed) {
@@ -189,18 +196,19 @@ export function gerarTreino(opcoes) {
     adicionar(candidatos[0].e);
   }
 
-  // -------- Passo 7: ajuste de tempo para caber em 45–50 min --------
+  // -------- Passo 7: ajuste de tempo para caber no teto do bloco principal --------
+  const budget = BUDGET_PRINCIPAL[modalidade] ?? BUDGET_PRINCIPAL.default;
   let series = selecionados.map(() => seriesBase);
   const tempoPrincipal = () =>
     selecionados.reduce((acc, ex, i) => acc + tempoExercicio(ex, series[i], mod), 0);
 
   // reduz séries (até mín. 2) enquanto estourar o teto
-  while (tempoPrincipal() > BUDGET_PRINCIPAL[1] && Math.max(...series) > 2) {
+  while (tempoPrincipal() > budget[1] && Math.max(...series) > 2) {
     const idx = series.indexOf(Math.max(...series));
     series[idx] -= 1;
   }
   // se ainda estourar, remove o último exercício (mantém ≥ 4)
-  while (tempoPrincipal() > BUDGET_PRINCIPAL[1] && selecionados.length > 4) {
+  while (tempoPrincipal() > budget[1] && selecionados.length > 4) {
     selecionados.pop();
     series.pop();
   }
@@ -214,7 +222,7 @@ export function gerarTreino(opcoes) {
     tempoSeg: tempoExercicio(ex, series[i], mod),
   }));
 
-  const aquecimento = montarAquecimento(rng);
+  const aquecimento = montarAquecimento(rng, modalidade);
   const finalizador = mod.finalizador ? montarFinalizador(pool, selecionados, rng) : null;
 
   const volume = calcularVolume(principal.map((p) => ({ exercicio: p.exercicio, series: p.series })));
@@ -421,11 +429,17 @@ export function alternativasPorIds(ids, indice, modalidade, nivel, nAlunos = ALU
   });
 }
 
-/** Aquecimento de 5–10 min com mobilidade. @param {() => number} rng */
-function montarAquecimento(rng) {
+/**
+ * Aquecimento de 5–10 min com mobilidade (preparação articular para os padrões do dia).
+ * Força pede o bloco cheio (3 exercícios × 150s ≈ 7,5 min); as demais modalidades
+ * seguem o padrão mais curto já validado (2 × 120s ≈ 4 min).
+ * @param {() => number} rng @param {import('../config/modalidades.js').ModalidadeId} [modalidade]
+ */
+function montarAquecimento(rng, modalidade) {
   const mob = EXERCICIOS.filter((e) => e.categorias.includes('mobilidade'));
-  const escolhidos = embaralhar(mob, rng).slice(0, 2);
-  return escolhidos.map((ex) => ({ exercicio: ex, duracaoSeg: 120 }));
+  const [n, duracaoSeg] = modalidade === 'forca' ? [3, 150] : [2, 120];
+  const escolhidos = embaralhar(mob, rng).slice(0, n);
+  return escolhidos.map((ex) => ({ exercicio: ex, duracaoSeg }));
 }
 
 /**
