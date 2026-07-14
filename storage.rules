@@ -2,15 +2,29 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // Só imagens e no máximo 5 MB por arquivo. `request.resource == null` é uma
+    // EXCLUSÃO (delete não envia recurso) — liberada; o limite vale só no upload.
+    // Evita que uma conta autenticada suba arquivos gigantes/de qualquer tipo
+    // (proteção de custo no plano Blaze). Todos os uploads do app são WebP.
+    function uploadImagemValido() {
+      return request.resource == null
+        || (request.resource.size < 5 * 1024 * 1024
+          && request.resource.contentType.matches('image/.*'));
+    }
+
     // Fotos da Gestão de Alunos — cada coach só acessa a própria pasta
     match /gestao/{uid}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && uploadImagemValido();
     }
 
     // Foto de perfil enviada pelo próprio aluno (Portal do Aluno).
     // Só o aluno cujo e-mail logado bate com a pasta pode ler/gravar.
     match /portal/{email}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read: if request.auth != null && request.auth.token.email == email;
+      allow write: if request.auth != null && request.auth.token.email == email
+        && uploadImagemValido();
     }
   }
 }
