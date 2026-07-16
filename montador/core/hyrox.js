@@ -47,9 +47,9 @@ export const HYROX_ESTACOES = [
   { n: 3, nome: 'Sled Pull (puxar trenó)', base: 'Sled Pull', equipamento: ['sled', 'turf', 'anilha_olimpica_15', 'corda_naval_4m'], padrao: 'puxar', padraoSec: 'estabilizadores',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40 },
     carga: 'trenó + 15–45 kg, puxar pela corda', nota: 'Puxe a corda mão sobre mão, quadril baixo e tronco estável.' },
-  { n: 4, nome: 'Burpee', base: 'Burpee Broad Jump', equipamento: ['corporal'], padrao: 'empurrar',
-    tipo: 'reps', prescricao: { iniciante: 15, intermediario: 30, avancado: 30 },
-    carga: 'peso corporal', nota: 'Burpee da prova (Broad Jump): flexão com peito ao chão + salto avançando à frente. Só peso corporal, como no catálogo da Academia.' },
+  { n: 4, nome: 'Burpee Broad Jump', base: 'Burpee Broad Jump', equipamento: ['corporal'], padrao: 'empurrar',
+    tipo: 'distancia', prescricao: { iniciante: 40, intermediario: 60, avancado: 80 },
+    carga: 'peso corporal', nota: 'Como na prova (avança em metros): a cada rep, flexão com o peito ao chão + salto para a frente. Avançado = 80 m, como no Hyrox.' },
   { n: 5, nome: 'Remada baixa rápida no monocross', base: 'Rowing', equipamento: ['monocross'], padrao: 'puxar',
     tipo: 'reps', prescricao: { iniciante: 200, intermediario: 250, avancado: 250 },
     carga: 'carga leve/moderada (polia)', nota: 'Cadência de remo: rápido e ritmado.' },
@@ -68,7 +68,8 @@ export const HYROX_ESTACOES = [
 const SEG_POR_METRO_CORRIDA = 0.34;      // ~10,5 km/h com penalidade de tiros de 50 m
 const SEG_POR_METRO_CARRY = 0.9;         // farmer/lunge carregados
 const SEG_POR_METRO_SLED = 1.8;          // trenó carregado é lento e grindy
-const SEG_POR_REP = { 1: 1.3, 4: 4.5, 5: 1.1, 8: 3.0 }; // reps por nº de estação (2 e 3 viraram distância/sled)
+const SEG_POR_METRO_BURPEE = 2.8;        // burpee broad jump: avança pouco por rep, bem lento
+const SEG_POR_REP = { 1: 1.3, 5: 1.1, 8: 3.0 }; // reps por nº de estação (2/3 = sled, 4 = burpee broad jump: distância)
 const TRANSICAO_SEG = 15;                // troca corrida↔estação
 
 /**
@@ -78,7 +79,9 @@ const TRANSICAO_SEG = 15;                // troca corrida↔estação
 function duracaoEstacaoSeg(est, nivel) {
   const q = est.prescricao[nivel];
   if (est.tipo === 'distancia') {
-    const rate = (est.n === 2 || est.n === 3) ? SEG_POR_METRO_SLED : SEG_POR_METRO_CARRY;
+    const rate = (est.n === 2 || est.n === 3) ? SEG_POR_METRO_SLED
+      : est.n === 4 ? SEG_POR_METRO_BURPEE
+      : SEG_POR_METRO_CARRY;
     return Math.round(q * rate);
   }
   return Math.round(q * (SEG_POR_REP[est.n] ?? 2));
