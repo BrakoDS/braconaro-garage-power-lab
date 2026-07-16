@@ -119,9 +119,14 @@ button{font-family:inherit}
   font-size:.66rem;padding:2px 8px;border:1px solid var(--line-2);color:var(--mut);white-space:nowrap}
 .badge.cat{color:var(--accent);border-color:rgba(245,197,24,.4)}
 .tag{display:inline-block;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.04em;
-  font-size:.64rem;padding:2px 7px;border:1px solid currentColor;white-space:nowrap}
-.tag.HYROX{color:#ff5b50} .tag.GAP{color:#c084fc} .tag.FORÇA{color:#f5c518}
-.tag.HIPERTROFIA{color:#4ea1ff} .tag.CARDIO{color:#3fb950}
+  font-size:.64rem;padding:2px 7px;border:1px solid var(--line-2);color:var(--mut);white-space:nowrap;border-radius:3px}
+/* Cores das tags seguem o calendário do Montador (COR_MODALIDADE) — preenchidas */
+.tag.FORÇA{background:#FF0000;border-color:#FF0000;color:#fff}
+.tag.HIPERTROFIA{background:#FFA500;border-color:#FFA500;color:#1a1300}
+.tag.HYROX{background:#FFFF00;border-color:#FFFF00;color:#1a1300}
+.tag.HIIT{background:#3DDC84;border-color:#3DDC84;color:#06210f}
+.tag.CROSS{background:#800080;border-color:#800080;color:#fff}
+.tag.GAP{background:#FFC0CB;border-color:#FFC0CB;color:#3a0d16}
 .musc{display:inline-block;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.04em;
   font-size:.62rem;padding:2px 7px;border:1px solid var(--line);color:var(--mut);white-space:nowrap;border-radius:2px}
 .row .sub2{color:var(--mut-2);font-size:.78rem;margin-top:4px}
