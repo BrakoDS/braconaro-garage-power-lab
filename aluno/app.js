@@ -1001,7 +1001,7 @@ function renderTreinoDoDia(doc) {
     // dia de descanso (fim de semana ou folga) → mensagem + faixa da semana
     box.innerHTML = `<div class="td-descanso"><span class="td-descanso-ic">💤</span>
       <div><b>Hoje é dia de descanso.</b><p>Aproveite para recuperar. Veja como fica a sua semana:</p></div></div>
-      ${renderFaixaSemana(hoje.grade, hoje.diaHoje)}`;
+      ${renderFaixaSemana(hoje.semanaMods, hoje.diaHoje)}`;
   }
 }
 

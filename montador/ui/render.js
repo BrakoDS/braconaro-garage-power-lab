@@ -1,9 +1,20 @@
 // @ts-check
 import { MODALIDADES } from '../config/modalidades.js';
 import { PADRAO_LABEL, PADROES } from '../config/padroes.js';
+import { MINIMO_SEMANAL } from '../config/frequencias.js';
 import { EQUIP_POR_ID } from '../data/equipamentos.js';
 import { alternativasViaveis, aplicarTroca } from '../core/gerador.js';
 import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
+
+/** Cor de fundo + texto por modalidade (calendário do histórico). */
+export const COR_MODALIDADE = {
+  forca:       { bg: '#FF0000', fg: '#fff', nome: 'Força' },
+  hipertrofia: { bg: '#FFA500', fg: '#1a1300', nome: 'Hipertrofia' },
+  hyrox:       { bg: '#FFFF00', fg: '#1a1300', nome: 'HYROX' },
+  gap:         { bg: '#FFC0CB', fg: '#3a0d16', nome: 'GAP' },
+  hibrido:     { bg: '#800080', fg: '#fff', nome: 'Híbrido' },
+  hiit:        { bg: '#3DDC84', fg: '#06210f', nome: 'HIIT' },
+};
 
 const mmss = (s) => `${Math.round(s / 60)}min`;
 const equipNomes = (ids) => ids.map((i) => (EQUIP_POR_ID[i]?.nome || i)).join(', ');
@@ -248,75 +259,6 @@ function corpoTreino(id) {
 }
 
 /**
- * Cenários de frequência: prova que 3 dias batem o mínimo e 4–5 rendem mais,
- * a partir do MESMO programa da semana.
- * @param {ReturnType<import('../core/programaSemanal.js').gerarProgramaSemanal>} prog
- * @param {number} [freqDestaque]  Frequência do aluno selecionado (para destacar)
- */
-export function renderCenarios(prog, freqDestaque) {
-  const padroes = Object.keys(prog.minimo);
-  const freqs = [3, 4, 5].filter((f) => prog.cenarios[f]);
-
-  const linhasPadrao = padroes.map((p) => {
-    const cels = freqs.map((f) => {
-      const a = prog.cenarios[f].aderencia[p];
-      const min = prog.minimo[p];
-      const cls = min > 0 ? (a.ok ? 'ok' : 'bad') : 'mut';
-      return `<td class="${cls}">${a.volume}${min > 0 ? '' : ' '}</td>`;
-    }).join('');
-    return `<tr><td>${PADRAO_LABEL[p] || p}</td><td class="mut">${prog.minimo[p] || '—'}</td>${cels}</tr>`;
-  }).join('');
-
-  const cabFreq = freqs.map((f) => {
-    const c = prog.cenarios[f];
-    const destaque = f === freqDestaque ? ' style="color:var(--acc)"' : '';
-    return `<th${destaque}>${f}×${c.atingeMinimo ? ' ✓' : ''}</th>`;
-  }).join('');
-
-  const total = freqs.map((f) => `<td><b>${prog.cenarios[f].totalPior}</b></td>`).join('');
-  const min3 = prog.cenarios[3];
-  const g5 = prog.cenarios[5]?.totalPior, g3 = min3?.totalPior;
-  const ganho = g3 && g5 ? Math.round(((g5 - g3) / g3) * 100) : null;
-
-  return `<article class="card">
-    <h3>Cenários de frequência — mesmo programa para todos</h3>
-    <div class="mut" style="margin-bottom:10px">Volume semanal de séries (pior combinação de dias) que cada aluno recebe conforme quantos dias treina.</div>
-    <table>
-      <thead><tr><th>Padrão</th><th>Mínimo</th>${cabFreq}</tr></thead>
-      <tbody>${linhasPadrao}<tr><td><b>Total</b></td><td class="mut">—</td>${total}</tr></tbody>
-    </table>
-    <p style="margin-top:10px">
-      ${min3?.atingeMinimo
-        ? '<span class="chip" style="color:var(--ok);border-color:var(--ok)">✓ 3 dias já garante o mínimo para bons resultados</span>'
-        : (((prog.semana - 1) % 4) + 1 === 4
-          ? '<span class="chip warn">💤 Semana de deload — volume reduzido de propósito (recuperação)</span>'
-          : '<span class="chip warn">⚠ 3 dias ainda não bate o mínimo — ajuste a grade ou os mínimos</span>')}
-      ${ganho != null ? `<span class="chip acc">5 dias = +${ganho}% de volume</span>` : ''}
-    </p>
-  </article>`;
-}
-
-/** @param {ReturnType<import('../core/mesociclo.js').gerarMesociclo>} meso */
-export function renderMesociclo(meso) {
-  const maxSeries = Math.max(1, ...meso.semanas.map((s) => s.totalSeries));
-  const linhas = meso.semanas.map((s) => `
-    <tr class="${s.deload ? 'bad-row' : ''}">
-      <td><b>Semana ${s.semana}</b></td>
-      <td>${s.intensidade.rotulo}${s.deload ? ' 💤' : ''}${s.gap ? ' · HIIT→GAP' : ''}</td>
-      <td>~${s.intensidade.pctRM}% 1RM</td>
-      <td>${s.totalSeries}</td>
-      <td><span class="bar" style="display:inline-block;width:140px;vertical-align:middle"><span style="width:${(s.totalSeries / maxSeries) * 100}%"></span></span></td>
-    </tr>`).join('');
-  const gradeTxt = Object.entries(meso.grade)
-    .map(([d, m]) => `${d.toUpperCase()} ${MODALIDADES[m]?.nome || m}`).join(' · ');
-  return `<article class="card">
-    <h3>Mesociclo · ${meso.nSemanas} semanas</h3>
-    <div class="mut" style="margin-bottom:8px">Grade: ${gradeTxt}. Progressão de volume e intensidade com deload automático na semana 4 do ciclo.</div>
-    <table><thead><tr><th>Semana</th><th>Fase</th><th>Intensidade</th><th>Séries (5 dias)</th><th>Volume</th></tr></thead><tbody>${linhas}</tbody></table>
-  </article>`;
-}
-
-/**
  * Card de um dia salvo, a partir do snapshot.
  * @param {any} d @param {boolean} [editavel]  Mostra o botão "trocar" (só na aba Programa)
  */
@@ -355,59 +297,83 @@ export function renderDiaSalvo(d, editavel = true) {
     ${fin}</article>`;
 }
 
-/** Relatório do box no mês: um card por semana salva, com o treino expansível. */
-export function renderRelatorioMes(rotulo, semanas) {
-  if (!semanas.length) return '<div class="empty">Nenhum treino salvo neste mês.</div>';
-  const cards = semanas.map((s) => {
-    const grade = Object.entries(s.grade).map(([d, m]) => `${d.toUpperCase()} ${MODALIDADES[m]?.nome || m}`).join(' · ');
-    const ok = s.cenarios?.[3]?.atingeMinimo;
-    const total = Math.round(Object.values(s.volPorDia).reduce((a, dia) => a + Object.values(dia).reduce((x, y) => x + y, 0), 0));
-    const quando = s.geradoEm ? new Date(s.geradoEm).toLocaleDateString('pt-BR') : '';
-    const dias = s.dias.map((d) => renderDiaSalvo(d, false)).join('');
-    return `<article class="card">
-      <h3>Semana ${s.semana} — ${rotulo}</h3>
-      <div class="mut" style="margin-bottom:6px">${grade}${quando ? ` · salvo em ${quando}` : ''}</div>
-      <div>${ok ? '<span class="chip" style="color:var(--ok);border-color:var(--ok)">✓ 3× mínimo</span>' : '<span class="chip warn">3× abaixo</span>'}<span class="chip acc">${total} séries (5 dias)</span></div>
-      <details style="margin-top:10px">
-        <summary style="cursor:pointer;color:var(--acc);font-weight:600">Ver treino realizado</summary>
-        <div class="grid" style="margin-top:10px">${dias}</div>
-      </details>
-    </article>`;
+/**
+ * Meta de volume da SEMANA do calendário: soma o volume por padrão dos treinos já
+ * salvos na semana + (opcional) o treino recém-gerado, comparado a MINIMO_SEMANAL.
+ * @param {Array<Record<string, number>>} volsPorPadraoSalvos  volPorPadrao de cada treino salvo na semana
+ * @param {Record<string, number>|null} volGerado  volume.porPadrao do treino recém-gerado (ou null)
+ */
+export function renderMetaVolume(volsPorPadraoSalvos, volGerado) {
+  const acc = Object.fromEntries(PADROES.map((p) => [p, 0]));
+  for (const v of volsPorPadraoSalvos) for (const p of PADROES) acc[p] += (v?.[p] || 0);
+  if (volGerado) for (const p of PADROES) acc[p] += (volGerado[p] || 0);
+
+  const linhas = PADROES.filter((p) => (MINIMO_SEMANAL[p] || 0) > 0).map((p) => {
+    const meta = MINIMO_SEMANAL[p];
+    const val = Math.round(acc[p]);
+    const ok = val >= meta;
+    const pct = Math.min(100, (val / meta) * 100);
+    return `<div class="meta-row">
+      <span class="meta-lbl">${PADRAO_LABEL[p] || p}</span>
+      <span class="meta-bar"><span class="${ok ? 'ok' : ''}" style="width:${pct}%"></span></span>
+      <span class="meta-val ${ok ? 'ok' : 'bad'}">${val}/${meta}${ok ? ' ✓' : ` · faltam ${meta - val}`}</span>
+    </div>`;
   }).join('');
-  return `<article class="card">
-    <h3>Relatório do box — ${rotulo}</h3>
-    <div class="mut">${semanas.length} semana(s) registrada(s). Expanda uma semana para ver o treino, ou selecione um aluno para o acumulado individual.</div>
-  </article>${cards}`;
+  const tudoOk = PADROES.every((p) => !(MINIMO_SEMANAL[p] > 0) || acc[p] >= MINIMO_SEMANAL[p]);
+
+  return `<div class="meta-card">
+    <div class="meta-h">Meta de volume da semana ${tudoOk ? '<span class="chip" style="color:var(--ok);border-color:var(--ok)">✓ meta atingida</span>' : '<span class="chip warn">em andamento</span>'}</div>
+    <div class="mut" style="margin-bottom:8px;font-size:.82rem">Séries por padrão nos treinos desta semana (seg–dom)${volGerado ? ' + o treino gerado' : ''} vs. o mínimo semanal.</div>
+    ${linhas}
+  </div>`;
 }
 
 /**
- * Acumulado do mês de um aluno: soma os dias que ele treina em cada semana salva.
- * @param {string} nome @param {string[]} dias  dias que o aluno frequenta
- * @param {any[]} semanas  programas salvos do mês
- * @param {string} rotulo  rótulo do mês
+ * Calendário mensal do histórico. Cada dia com treino recebe a cor da modalidade.
+ * @param {string} mesId 'YYYY-MM'
+ * @param {Array<{dateId:string, modalidade:string}>} treinos  treinos salvos do mês
+ * @param {string} rotulo  rótulo do mês (ex.: 'Julho/2026')
  */
-export function renderAcumuladoAluno(nome, dias, semanas, rotulo) {
-  const acc = Object.fromEntries(PADROES.map((p) => [p, 0]));
-  let sessoes = 0;
-  const porSemana = semanas.map((s) => {
-    const diasTreino = dias.filter((d) => s.volPorDia[d]); // dias do aluno que têm treino na grade
-    sessoes += diasTreino.length;
-    let semTotal = 0;
-    diasTreino.forEach((d) => PADROES.forEach((p) => { const v = s.volPorDia[d][p] || 0; acc[p] += v; semTotal += v; }));
-    return `<tr><td>Semana ${s.semana}</td><td>${diasTreino.map((d) => d.toUpperCase()).join(', ') || '—'}</td><td>${Math.round(semTotal)}</td></tr>`;
-  }).join('');
+export function renderCalendario(mesId, treinos, rotulo) {
+  const [ano, mes] = mesId.split('-').map(Number);
+  const porDia = {};
+  for (const t of treinos) porDia[t.dateId] = t;
 
-  const totalGeral = Math.round(Object.values(acc).reduce((a, b) => a + b, 0));
-  const linhasPad = PADROES.filter((p) => acc[p] > 0)
-    .map((p) => `<tr><td>${PADRAO_LABEL[p] || p}</td><td>${Math.round(acc[p])}</td></tr>`).join('');
+  const primeiro = new Date(ano, mes - 1, 1);
+  const nDias = new Date(ano, mes, 0).getDate();
+  const inicioDow = primeiro.getDay(); // 0=dom..6=sab
+  const CAB = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
 
-  return `<article class="card">
-    <h3>${nome} — acumulado de ${rotulo}</h3>
-    <div class="mut" style="margin-bottom:10px">Dias que treina: ${dias.map((d) => d.toUpperCase()).join(' / ')} · <b>${sessoes}</b> sessões no mês · <b>${totalGeral}</b> séries no total.</div>
-    <h4>Volume acumulado por padrão</h4>
-    <table><tbody>${linhasPad || '<tr><td class="mut">Sem dados ainda.</td></tr>'}</tbody></table>
-    <h4>Por semana</h4>
-    <table><thead><tr><th>Semana</th><th>Dias treinados</th><th>Séries</th></tr></thead><tbody>${porSemana}</tbody></table>
+  const celulas = [];
+  for (let i = 0; i < inicioDow; i++) celulas.push('<div class="cal-cel vazia"></div>');
+  for (let dia = 1; dia <= nDias; dia++) {
+    const dateId = `${mesId}-${String(dia).padStart(2, '0')}`;
+    const t = porDia[dateId];
+    if (t) {
+      const c = COR_MODALIDADE[t.modalidade] || { bg: '#555', fg: '#fff' };
+      celulas.push(`<button class="cal-cel tem" data-date="${dateId}" type="button"
+        style="background:${c.bg};color:${c.fg}" title="${(COR_MODALIDADE[t.modalidade]?.nome) || t.modalidade}">
+        <span class="cal-num">${dia}</span></button>`);
+    } else {
+      celulas.push(`<div class="cal-cel"><span class="cal-num">${dia}</span></div>`);
+    }
+  }
+
+  const legenda = Object.entries(COR_MODALIDADE)
+    .map(([, c]) => `<span class="cal-leg-item"><span class="cal-leg-cor" style="background:${c.bg}"></span>${c.nome}</span>`).join('');
+
+  return `<article class="card cal-card">
+    <div class="cal-topo">
+      <button class="btn ghost sm cal-nav" data-nav="-1" type="button">◀</button>
+      <h3 class="cal-titulo">${rotulo}</h3>
+      <button class="btn ghost sm cal-nav" data-nav="1" type="button">▶</button>
+    </div>
+    <div class="cal-grade">
+      ${CAB.map((d) => `<div class="cal-cab">${d}</div>`).join('')}
+      ${celulas.join('')}
+    </div>
+    <div class="cal-legenda">${legenda}</div>
+    <div class="mut" style="margin-top:6px;font-size:.8rem">Toque num dia colorido para ver o treino e, se quiser, excluí-lo.</div>
   </article>`;
 }
 

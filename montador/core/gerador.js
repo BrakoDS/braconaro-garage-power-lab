@@ -107,6 +107,10 @@ export function gerarTreino(opcoes) {
 
   // -------- pool elegível: modalidade + nível + não-mobilidade --------
   const nivelAluno = NIVEL_ORDEM[nivel];
+  // `idsEvitar` (ex.: exercícios já usados nesta semana) são EXCLUÍDOS do pool
+  // primário (não-repetição forte). O `poolAmplo` abaixo ignora essa exclusão e
+  // serve de rede de segurança p/ nunca deixar um padrão obrigatório descoberto.
+  const idsEvitarSet = new Set(idsEvitar);
   const idsAnteriores = new Set([
     ...(treinoAnterior?.principal ?? []).map((i) => i.exercicio.id),
     ...idsEvitar,
@@ -114,7 +118,7 @@ export function gerarTreino(opcoes) {
   const naoMobilidadePura = (/** @type {Exercicio} */ e) => !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade');
   const naModalidade = (/** @type {Exercicio} */ e) => e.categorias.includes(modalidade) && (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao));
   const pool = EXERCICIOS.filter(
-    (e) => naModalidade(e) && NIVEL_ORDEM[e.nivel] <= nivelAluno && naoMobilidadePura(e)
+    (e) => naModalidade(e) && NIVEL_ORDEM[e.nivel] <= nivelAluno && naoMobilidadePura(e) && !idsEvitarSet.has(e.id)
   );
   // Pool AMPLO: mesmo filtro SEM o teto de nível. Rede de segurança quando a turma
   // não tem exercício do nível para um padrão OBRIGATÓRIO (ex.: turma iniciante, mas o

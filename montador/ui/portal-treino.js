@@ -1,11 +1,12 @@
 // @ts-check
 /**
- * Publicação do programa da semana para o Portal do Aluno.
+ * Publicação do treino do dia para o Portal do Aluno.
  *
- * O programa é IGUAL para todos os alunos, então vira um doc COMPARTILHADO
- * `treinoPortal/{mesId}` (padrão dos murais avisosPortal/rankingPortal). O aluno
- * autenticado lê o doc do mês atual e mostra o treino de hoje no seu nível.
- * Reusa o app Firebase já inicializado pelo cloud.js (login do coach).
+ * O treino é IGUAL para todos os alunos, então vira um doc COMPARTILHADO
+ * `treinoPortal/{mesId}` (padrão dos murais avisosPortal/rankingPortal). Cada
+ * treino salvo entra em `dias[dateId]` ('YYYY-MM-DD'); o aluno autenticado lê o
+ * doc do mês atual e mostra o treino da data de hoje no seu nível. Reusa o app
+ * Firebase já inicializado pelo cloud.js (login do coach).
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../cloud-config.js';
 
@@ -18,7 +19,7 @@ async function init() {
   const fsMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
   const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
   _db = fsMod.getFirestore(app);
-  _fns = { doc: fsMod.doc, setDoc: fsMod.setDoc, deleteDoc: fsMod.deleteDoc };
+  _fns = { doc: fsMod.doc, setDoc: fsMod.setDoc, updateDoc: fsMod.updateDoc, deleteField: fsMod.deleteField };
 }
 
 /** Enxuga um dia salvo para o que o Portal precisa (mantém o formato do dia). */
@@ -38,36 +39,35 @@ function diaEnxuto(d) {
 }
 
 /**
- * Publica os programas de um mês em `treinoPortal/{mesId}`.
- * @param {string} mesId @param {Array<any>} programasDoMes  (de store.listarProgramasDoMes)
+ * Publica UM treino numa data em `treinoPortal/{mesId}.dias[dateId]` (merge — não
+ * mexe nos outros dias do mês). @param {string} dateId 'YYYY-MM-DD' @param {any} diaSnap
  */
-export async function publicarTreinoDoMes(mesId, programasDoMes) {
-  if (!CLOUD_ATIVO || !firebaseConfig?.apiKey || !mesId || !programasDoMes?.length) return;
+export async function publicarTreino(dateId, diaSnap) {
+  if (!CLOUD_ATIVO || !firebaseConfig?.apiKey || !dateId || !diaSnap) return;
+  const mesId = dateId.slice(0, 7);
   try {
     await init();
-    const semanas = {};
-    for (const p of programasDoMes) {
-      semanas[p.semana] = { grade: p.grade || {}, dias: (p.dias || []).map(diaEnxuto) };
-    }
     await _fns.setDoc(_fns.doc(_db, 'treinoPortal', mesId), {
-      mesId, semanas, atualizadoEm: Date.now(),
-    });
+      mesId, dias: { [dateId]: diaEnxuto(diaSnap) }, atualizadoEm: Date.now(),
+    }, { merge: true });
   } catch (e) {
     console.warn('Publicar treino no portal:', e?.code || e);
   }
 }
 
 /**
- * Remove o doc do mês em `treinoPortal/{mesId}` — usado quando o coach exclui o
- * último treino salvo do mês, p/ o "Treino do dia" sumir do Portal do Aluno.
- * @param {string} mesId
+ * Remove um treino de uma data em `treinoPortal/{mesId}` (apaga só aquele dia).
+ * @param {string} dateId 'YYYY-MM-DD'
  */
-export async function limparTreinoDoMes(mesId) {
-  if (!CLOUD_ATIVO || !firebaseConfig?.apiKey || !mesId) return;
+export async function removerTreinoPortal(dateId) {
+  if (!CLOUD_ATIVO || !firebaseConfig?.apiKey || !dateId) return;
+  const mesId = dateId.slice(0, 7);
   try {
     await init();
-    await _fns.deleteDoc(_fns.doc(_db, 'treinoPortal', mesId));
+    await _fns.updateDoc(_fns.doc(_db, 'treinoPortal', mesId), {
+      [`dias.${dateId}`]: _fns.deleteField(), atualizadoEm: Date.now(),
+    });
   } catch (e) {
-    console.warn('Limpar treino no portal:', e?.code || e);
+    console.warn('Remover treino no portal:', e?.code || e);
   }
 }

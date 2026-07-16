@@ -24,66 +24,34 @@
   <header class="topbar" hidden>
     <div class="brand"><b>BRACONARO</b> · Montador<small>Garage Power Lab</small></div>
     <nav class="tabs">
-      <button class="tab active" data-view="semana">Programa da semana</button>
-      <button class="tab" data-view="unico">Treino único</button>
-      <button class="tab" data-view="meso">Mesociclo</button>
+      <button class="tab active" data-view="unico">Treino</button>
       <button class="tab" data-view="historico">Histórico</button>
     </nav>
   </header>
 
   <main hidden>
-    <!-- ============ PROGRAMA DA SEMANA ============ -->
-    <section class="view active" id="view-semana">
-      <div class="panel">
-        <div class="field"><label>Mês</label><select id="s-mes"></select></div>
-        <div class="field"><label>Semana do mês</label><select id="s-semana"></select></div>
-        <div class="field"><label>SEG</label><select id="g-seg" class="grade-sel"></select></div>
-        <div class="field"><label>TER</label><select id="g-ter" class="grade-sel"></select></div>
-        <div class="field"><label>QUA</label><select id="g-qua" class="grade-sel"></select></div>
-        <div class="field"><label>QUI</label><select id="g-qui" class="grade-sel"></select></div>
-        <div class="field"><label>SEX</label><select id="g-sex" class="grade-sel"></select></div>
-        <button class="btn" id="s-gerar">Gerar / ver semana</button>
-        <button class="btn ghost" id="s-imprimir">Imprimir</button>
-      </div>
-      <div class="grid" id="s-saida"></div>
-    </section>
-
-    <!-- ============ TREINO ÚNICO ============ -->
-    <section class="view" id="view-unico">
+    <!-- ============ TREINO (gerador único) ============ -->
+    <section class="view active" id="view-unico">
       <div class="panel">
         <div class="field"><label>Modalidade</label><select id="u-modalidade"></select></div>
         <div class="field"><label>Nº de alunos</label><input id="u-alunos" type="number" min="1" max="20" value="8" style="min-width:90px" /></div>
+        <div class="field"><label>Data do treino</label><input id="u-data" type="date" style="min-width:150px" /></div>
         <button class="btn" id="u-gerar">Gerar treino</button>
         <button class="btn ghost" id="u-imprimir">Imprimir</button>
       </div>
-      <div class="mut" style="margin:0 0 12px">Gera um treino avulso (não salva no histórico). Use “trocar” para ajustar exercícios. Respeita o inventário da Academia.</div>
+      <div class="mut" style="margin:0 0 12px">Gera o treino da modalidade, mostra a <b>meta de volume da semana</b> e permite <b>salvar na data</b> escolhida (publica no Portal do Aluno). Não repete exercícios já usados na mesma semana. Use “trocar” para ajustar Força/Hipertrofia.</div>
+      <div id="u-meta"></div>
       <div class="grid" id="u-saida"></div>
+      <div id="u-salvar"></div>
     </section>
 
-    <!-- ============ MESOCICLO ============ -->
-    <section class="view" id="view-meso">
-      <div class="panel">
-        <div class="field"><label>Nível de referência</label><select id="m-nivel"></select></div>
-        <div class="field"><label>Semanas</label><input id="m-semanas" type="number" min="2" max="8" value="4" style="min-width:90px" /></div>
-        <button class="btn" id="m-gerar">Gerar mesociclo</button>
-        <button class="btn ghost" id="m-imprimir">Imprimir</button>
-      </div>
-      <div class="mut" style="margin:0 0 12px">Usa a grade configurada na aba <b>Programa da semana</b>.</div>
-      <div class="grid" id="m-saida"></div>
-    </section>
-
-    <!-- ============ HISTÓRICO ============ -->
+    <!-- ============ HISTÓRICO (calendário) ============ -->
     <section class="view" id="view-historico">
-      <div class="panel">
-        <div class="field"><label>Mês</label><select id="h-mes"></select></div>
-        <div class="field"><label>Aluno (acumulado do mês)</label><select id="h-aluno"></select></div>
-        <button class="btn ghost" id="h-imprimir">Imprimir</button>
-      </div>
       <div class="grid" id="h-saida"></div>
     </section>
 
   </main>
 
-  <script type="module" src="./ui/gate.js?v=15"></script>
+  <script type="module" src="./ui/gate.js?v=16"></script>
 </body>
 </html>

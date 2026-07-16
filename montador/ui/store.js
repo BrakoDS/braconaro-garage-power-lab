@@ -2,9 +2,10 @@
 /**
  * Estado persistente em localStorage. Sem backend.
  *
- * Organização: o MÊS é a unidade. Cada SEMANA do mês tem UM programa (igual para
- * todos os alunos), salvo e "travado" — regerar só substituindo. O acumulado do
- * aluno no mês sai da soma dos dias que ele treina em cada semana salva.
+ * Organização: cada TREINO é salvo numa DATA específica ('YYYY-MM-DD') em
+ * `treinos[dateId]`. Um treino por dia, igual para todos os alunos. Regerar/salvar
+ * na mesma data substitui (com confirmação na UI). O calendário do histórico lê
+ * `listarTreinosDoMes`; a meta de volume lê `treinosDaSemana`.
  *
  * @typedef {Object} Aluno
  * @property {string} id
@@ -13,15 +14,15 @@
  * @property {string} combinacaoId
  * @property {Partial<Record<string, import('../config/modalidades.js').ModalidadeId>>} modalidadesPorDia
  *
- * @typedef {Object} ProgramaSalvo
- * @property {string} mesId            'YYYY-MM'
- * @property {number} semana           semana do mês (1..5)
+ * @typedef {Object} TreinoSalvo
+ * @property {string} dateId           'YYYY-MM-DD'
+ * @property {string} dia              dia da semana ('seg'..'dom')
+ * @property {string} modalidade
  * @property {string} geradoEm         ISO
- * @property {Object} grade
- * @property {string} nivelRef
- * @property {Array<{dia:string, modalidade:string, exercicios:Array, finalizador:any}>} dias
- * @property {Record<string, Record<string, number>>} volPorDia  volume por padrão por dia
- * @property {any} cenarios
+ * @property {Object} viabilidade
+ * @property {Array=} exercicios       (Força/Hipertrofia) ou hyrox/hiit/gap/hibrido
+ * @property {any=} finalizador
+ * @property {Record<string, number>} volPorPadrao  volume por padrão de movimento
  */
 
 const CHAVE = 'braconaro_montador_v2';
@@ -29,9 +30,14 @@ const CHAVE = 'braconaro_montador_v2';
 export function carregar() {
   try {
     const raw = localStorage.getItem(CHAVE);
-    if (raw) { const e = JSON.parse(raw); return { alunos: e.alunos || [], config: e.config || {}, programas: e.programas || {} }; }
+    if (raw) {
+      const e = JSON.parse(raw);
+      // `programas` (formato semanal antigo) fica preservado no cru p/ não apagar
+      // dados legados, mas não é mais exposto por funções — o fluxo novo usa `treinos`.
+      return { alunos: e.alunos || [], config: e.config || {}, treinos: e.treinos || {}, programas: e.programas || {} };
+    }
   } catch (e) { /* ignora */ }
-  return { alunos: [], config: {}, programas: {} };
+  return { alunos: [], config: {}, treinos: {}, programas: {} };
 }
 
 /** @param {object} est */
@@ -51,7 +57,8 @@ export function aoSalvar(cb) { _aoSalvar = cb; }
 export function setEstado(novo) {
   estado.alunos = novo.alunos || [];
   estado.config = novo.config || {};
-  estado.programas = novo.programas || {};
+  estado.treinos = novo.treinos || {};
+  estado.programas = novo.programas || {}; // legado preservado
   localStorage.setItem(CHAVE, JSON.stringify(estado)); // cache local, sem re-push
 }
 /** Snapshot do estado atual (para enviar à nuvem). */
@@ -96,35 +103,68 @@ export function removerAluno(id) {
   if (i >= 0) { estado.alunos.splice(i, 1); salvar(estado); }
 }
 
-// ---------- programas por mês/semana ----------
-/** @param {string} mesId @param {number} semana @returns {ProgramaSalvo|null} */
-export function getPrograma(mesId, semana) {
-  return estado.programas[mesId]?.[semana] ?? null;
+// ---------- helpers de data (por dia) ----------
+/** 'YYYY-MM-DD' de uma data (local, sem UTC shift). @param {Date} d */
+export function dateIdDe(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-/** @param {string} mesId @param {number} semana @param {ProgramaSalvo} programa */
-export function salvarPrograma(mesId, semana, programa) {
-  if (!estado.programas[mesId]) estado.programas[mesId] = {};
-  estado.programas[mesId][semana] = programa;
+/** Date (meia-noite local) a partir de 'YYYY-MM-DD'. @param {string} dateId */
+export function dataDe(dateId) {
+  const [a, m, d] = dateId.split('-').map(Number);
+  return new Date(a, m - 1, d);
+}
+/** Chave 'seg'..'dom' de um dateId. */
+const DOW_KEY = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+export function diaSemanaDe(dateId) { return DOW_KEY[dataDe(dateId).getDay()]; }
+
+/** Segunda-feira (ISO) da semana de um dateId. @param {string} dateId @returns {Date} */
+function segundaDaSemana(dateId) {
+  const d = dataDe(dateId);
+  const dow = d.getDay(); // 0=dom..6=sab
+  const offset = dow === 0 ? -6 : 1 - dow; // volta até a segunda
+  d.setDate(d.getDate() + offset);
+  return d;
+}
+
+// ---------- treinos por data ----------
+/** @param {string} dateId @returns {TreinoSalvo|null} */
+export function getTreino(dateId) { return estado.treinos[dateId] ?? null; }
+
+/** @param {string} dateId @param {TreinoSalvo} treino */
+export function salvarTreino(dateId, treino) {
+  estado.treinos[dateId] = { ...treino, dateId };
   salvar(estado);
 }
-/** @param {string} mesId @returns {ProgramaSalvo[]} ordenado por semana */
-export function listarProgramasDoMes(mesId) {
-  const mes = estado.programas[mesId] || {};
-  return Object.values(mes).sort((a, b) => a.semana - b.semana);
+
+/** @param {string} dateId */
+export function removerTreino(dateId) {
+  if (estado.treinos[dateId]) { delete estado.treinos[dateId]; salvar(estado); }
 }
-/** Semanas anteriores a `semana` no mês (para o gerador usar histórico). */
-export function programasAnteriores(mesId, semana) {
-  return listarProgramasDoMes(mesId).filter((p) => p.semana < semana);
+
+/** Treinos de um mês ('YYYY-MM'), ordenados por data. @param {string} mesId */
+export function listarTreinosDoMes(mesId) {
+  return Object.entries(estado.treinos)
+    .filter(([dateId]) => dateId.startsWith(mesId + '-'))
+    .map(([dateId, t]) => ({ ...t, dateId }))
+    .sort((a, b) => a.dateId.localeCompare(b.dateId));
 }
-/** @param {string} mesId @param {number} semana */
-export function removerPrograma(mesId, semana) {
-  if (estado.programas[mesId]) {
-    delete estado.programas[mesId][semana];
-    if (!Object.keys(estado.programas[mesId]).length) delete estado.programas[mesId]; // mês sem semanas some da lista
-    salvar(estado);
-  }
+
+/**
+ * Treinos salvos na MESMA semana (seg–dom) de `dateId`. Usado pela não-repetição
+ * e pela meta de volume semanal. @param {string} dateId @returns {TreinoSalvo[]}
+ */
+export function treinosDaSemana(dateId) {
+  const seg = segundaDaSemana(dateId);
+  const ini = dateIdDe(seg);
+  const domD = new Date(seg); domD.setDate(domD.getDate() + 6);
+  const fim = dateIdDe(domD);
+  return Object.entries(estado.treinos)
+    .filter(([d]) => d >= ini && d <= fim)
+    .map(([d, t]) => ({ ...t, dateId: d }))
+    .sort((a, b) => a.dateId.localeCompare(b.dateId));
 }
-/** Lista os mesIds que têm programas salvos (mais recente primeiro). */
+
+/** Lista os mesIds ('YYYY-MM') que têm treinos salvos (mais recente primeiro). */
 export function listarMeses() {
-  return Object.keys(estado.programas).sort().reverse();
+  return [...new Set(Object.keys(estado.treinos).map((d) => d.slice(0, 7)))].sort().reverse();
 }

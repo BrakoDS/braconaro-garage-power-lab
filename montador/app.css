@@ -137,8 +137,38 @@ tr.bad-row td { color: var(--warn); }
 .gate-box input { text-align: center; }
 .gate-erro { display: none; color: var(--bad); font-size: 13px; }
 
+/* ---------- Meta de volume da semana ---------- */
+.meta-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; margin-bottom: 16px; }
+.meta-h { font-weight: 700; margin-bottom: 4px; }
+.meta-row { display: grid; grid-template-columns: 150px 1fr auto; align-items: center; gap: 10px; margin: 5px 0; }
+.meta-lbl { font-size: 12.5px; color: var(--mut); }
+.meta-bar { height: 9px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); overflow: hidden; }
+.meta-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--warn), var(--acc2)); }
+.meta-bar > span.ok { background: linear-gradient(90deg, #2fae67, var(--ok)); }
+.meta-val { font-size: 12px; white-space: nowrap; }
+
+/* ---------- Barra de salvar ---------- */
+.salvar-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+
+/* ---------- Calendário do histórico ---------- */
+.cal-card { max-width: 760px; margin: 0 auto; }
+.cal-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.cal-titulo { margin: 0; text-transform: capitalize; }
+.cal-nav { min-width: 44px; }
+.cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-cab { text-align: center; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); padding-bottom: 4px; }
+.cal-cel { position: relative; aspect-ratio: 1 / 1; border: 1px solid var(--line); border-radius: 8px; background: var(--bg2); display: flex; align-items: flex-start; justify-content: flex-end; padding: 5px 7px; color: var(--txt); font: inherit; }
+.cal-cel.vazia { border-color: transparent; background: transparent; }
+.cal-cel .cal-num { font-size: 12.5px; font-weight: 600; }
+.cal-cel.tem { cursor: pointer; border-color: transparent; font-weight: 700; }
+.cal-cel.tem:hover { outline: 2px solid var(--acc); }
+.cal-legenda { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 14px; }
+.cal-leg-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mut); }
+.cal-leg-cor { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.cal-det-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 8px; }
+
 @media print {
-  .topbar, .panel, .tab, .swap, .alts, button { display: none !important; }
+  .topbar, .panel, .tab, .swap, .alts, button, .cal-nav, .salvar-bar { display: none !important; }
   body { background: #fff; color: #000; }
   .card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
 }
@@ -146,4 +176,8 @@ tr.bad-row td { color: var(--warn); }
   .bar-row { grid-template-columns: 100px 1fr 30px; }
   .panel { gap: 10px; }
   select, input { min-width: 120px; }
+  .meta-row { grid-template-columns: 110px 1fr auto; }
+  .cal-grade { gap: 4px; }
+  .cal-cel { padding: 3px 5px; border-radius: 6px; }
+  .cal-cel .cal-num { font-size: 11px; }
 }
