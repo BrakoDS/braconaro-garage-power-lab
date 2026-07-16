@@ -44,11 +44,17 @@ function converter(a) {
   const padrao = a.padrao || base?.padrao || '';
   if (!padrao) return null;
 
-  // Categorias: exercício semeado mantém as ricas da base (preserva mobilidade/wod/
-  // hiit/hibrido que as tags MAIÚSCULAS não expressam); novo do coach traduz as tags.
+  // Categorias: as TAGS da Academia MANDAM na classificação por modalidade (força/
+  // hipertrofia/hyrox/hiit/cross/gap) — inclusive nos exercícios semeados. Assim o
+  // que o coach marca/desmarca na Academia vale de verdade na geração (ex.: tirar o
+  // CROSS de um exercício o remove do WOD). As categorias ESTRUTURAIS (mobilidade/
+  // técnica/híbrido) não têm tag na Academia, então são preservadas do catálogo base
+  // p/ não quebrar aquecimento/mobilidade.
+  const ESTRUTURAIS = ['mobilidade', 'tecnica', 'hibrido'];
+  const doTags = [...new Set((a.tags || []).map((t) => TAG_INV[t]).filter(Boolean))];
   const categorias = base
-    ? base.categorias.slice()
-    : [...new Set((a.tags || []).map((t) => TAG_INV[t]).filter(Boolean))];
+    ? [...new Set([...base.categorias.filter((c) => ESTRUTURAIS.includes(c)), ...doTags])]
+    : doTags;
 
   const musculosPrimarios = base
     ? base.musculosPrimarios.slice()
