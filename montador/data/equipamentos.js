@@ -49,6 +49,14 @@ export const EQUIPAMENTOS = [
     obs: 'Puxadores: 2 cordas, 2 triângulos, 2 barras 40cm, 2 barras 1,20m, 2 caneleiras, 1 puxador aberto neutro.',
   },
   {
+    id: 'mesa_flexora',
+    nome: 'Mesa flexora',
+    categoria: 'estacao',
+    unidades: 1,
+    compartilhavelDupla: false,
+    obs: 'Isolamento de posterior de coxa (flexão de joelho). Só 1 — organizar rodízio.',
+  },
+  {
     id: 'cavalinho',
     nome: 'Suporte de remada cavalinho (landmine)',
     categoria: 'estacao',

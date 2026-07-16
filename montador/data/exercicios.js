@@ -192,6 +192,20 @@ export const EXERCICIOS = [
     categorias: ['hipertrofia', 'hibrido'], equipamento: ['smith'],
     nivel: 'iniciante', tempoMedioSeg: 25, multiarticular: false,
   },
+  {
+    id: 'panturrilha_em_pe', nome: 'Panturrilha em pé (livre/step)',
+    descricao: 'Ponta dos pés na borda do step, subir e descer em amplitude total (pode segurar halter).',
+    padrao: 'quadriceps', musculosPrimarios: ['panturrilha'], musculosSecundarios: [],
+    categorias: ['hipertrofia'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 25, multiarticular: false,
+  },
+  {
+    id: 'sissy_squat', nome: 'Sissy squat',
+    descricao: 'Joelhos à frente e tronco inclinado para trás, descer flexionando só os joelhos — isola o quadríceps.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: [],
+    categorias: ['hipertrofia'], equipamento: ['corporal'],
+    nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
+  },
 
   // ===================== POSTERIOR / GLÚTEO =====================
   {
@@ -228,6 +242,34 @@ export const EXERCICIOS = [
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa'], musculosSecundarios: ['gluteo', 'core'],
     categorias: ['forca', 'hipertrofia', 'tecnica'], equipamento: ['barra_livre'],
     nivel: 'intermediario', tempoMedioSeg: 35,
+  },
+  {
+    id: 'mesa_flexora', nome: 'Mesa flexora',
+    descricao: 'Sentado/deitado, flexionar os joelhos contra o rolo — isolamento de posterior de coxa.',
+    padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa'], musculosSecundarios: [],
+    categorias: ['hipertrofia'], equipamento: ['mesa_flexora'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
+  },
+  {
+    id: 'flexora_nordica', nome: 'Flexora nórdica (nordic curl)',
+    descricao: 'Ajoelhado com pés presos, descer o tronco freando com o posterior e voltar.',
+    padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa'], musculosSecundarios: ['gluteo'],
+    categorias: ['hipertrofia'], equipamento: ['colchonete'],
+    nivel: 'avancado', tempoMedioSeg: 30, multiarticular: false,
+  },
+  {
+    id: 'abducao_quadril_polia', nome: 'Abdução de quadril na polia',
+    descricao: 'Caneleira na polia baixa, afastar a perna para o lado — isolamento de glúteo médio.',
+    padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: [],
+    categorias: ['hipertrofia'], equipamento: ['monocross'],
+    nivel: 'iniciante', tempoMedioSeg: 30, unilateral: true, multiarticular: false,
+  },
+  {
+    id: 'coice_gluteo_polia', nome: 'Coice de glúteo na polia (kickback)',
+    descricao: 'Caneleira na polia baixa, estender o quadril para trás — isolamento de glúteo máximo.',
+    padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: ['posterior_coxa'],
+    categorias: ['hipertrofia'], equipamento: ['monocross'],
+    nivel: 'iniciante', tempoMedioSeg: 30, unilateral: true, multiarticular: false,
   },
 
   // ===================== CORE =====================
