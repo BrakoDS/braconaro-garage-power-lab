@@ -27,7 +27,9 @@ const TAG_INV = {
   'HIPERTROFIA': 'hipertrofia',
   'HYROX': 'hyrox',
   'GAP': 'gap',
-  'CARDIO': 'hiit', // CARDIO agrega hiit/wod/cardio; hiit é a modalidade representativa
+  'HIIT': 'hiit',
+  'CROSS': 'cross',
+  'CARDIO': 'hiit', // legado: dados antigos com a tag CARDIO (hoje separada em HIIT/CROSS)
 };
 
 /**

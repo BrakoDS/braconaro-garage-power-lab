@@ -148,7 +148,10 @@ export function gerarHiitTabata(opcoes = {}) {
   const nAlunos = opcoes.nAlunos ?? ALUNOS_POR_SESSAO;
   const rng = mulberry32(opcoes.seed ?? hashSeed('hiit-tabata'));
 
-  const disponiveis = EXERCICIOS.filter(disponivel);
+  // Só exercícios classificados como HIIT (tag 'hiit') — antes o pool era só por
+  // grupo muscular, então vazava qualquer exercício (hipertrofia, hyrox-only) cujo
+  // padrão batesse. Agora o dia de HIIT só usa o que está marcado para HIIT.
+  const disponiveis = EXERCICIOS.filter((e) => disponivel(e) && e.categorias.includes('hiit'));
   const estacoes = HIIT_ESTACOES.map(({ grupo, titulo }) => {
     const pool = disponiveis.filter((e) => grupoTabata(e) === grupo);
     return { grupo, titulo, slots: preencherEstacao(grupo, pool, rng), rounds: TABATA.roundsPorEstacao };

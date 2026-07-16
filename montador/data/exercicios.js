@@ -13,7 +13,7 @@
  * @property {Padrao} padrao                  Padrão principal de movimento
  * @property {string[]} musculosPrimarios
  * @property {string[]} musculosSecundarios
- * @property {Array<'forca'|'hipertrofia'|'hiit'|'hyrox'|'hibrido'|'gap'|'mobilidade'|'tecnica'|'wod'>} categorias
+ * @property {Array<'forca'|'hipertrofia'|'hiit'|'hyrox'|'hibrido'|'gap'|'mobilidade'|'tecnica'|'wod'|'cross'>} categorias  ('cross' = cross-training/WOD; nos built-in o token é 'wod', exibido como CROSS na Academia)
  * @property {string[]} equipamento           IDs de equipamentos.js
  * @property {'iniciante'|'intermediario'|'avancado'} nivel
  * @property {number} tempoMedioSeg           Tempo médio de execução de 1 série/rodada

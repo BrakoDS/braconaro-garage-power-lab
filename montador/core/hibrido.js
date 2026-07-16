@@ -303,7 +303,10 @@ function prescricaoWod(ex, rng) {
  */
 export function montarWod({ split, tempoHipertrofiaSeg, nAlunos, rng }) {
   const formato = FORMATOS_WOD[Math.floor(rng() * FORMATOS_WOD.length)];
-  const wodPool = EXERCICIOS.filter((e) => e.categorias.includes('wod') && e.equipamento.every((id) => unidadesDe(id) >= 1));
+  // Só exercícios de Cross/WOD: built-in carregam a tag 'wod'; exercícios que o coach
+  // cria e classifica como CROSS na Academia chegam com 'cross'. Aceita os dois.
+  const ehCross = (e) => e.categorias.includes('cross') || e.categorias.includes('wod');
+  const wodPool = EXERCICIOS.filter((e) => ehCross(e) && e.equipamento.every((id) => unidadesDe(id) >= 1));
   const padroesOpostos = new Set(SPLIT_PADROES[split === 'superiores' ? 'inferiores' : 'superiores']);
 
   const pontuar = (ex) => {

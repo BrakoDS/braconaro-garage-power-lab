@@ -13,7 +13,7 @@ const KEY = 'braconaro_academia_v1';
 
 /** Rótulos fixos de categoria de equipamento e tags de treino. */
 export const CATEGORIAS = ['Peso livre', 'Máquina', 'Cardio', 'Acessório', 'Estação', 'Corporal'];
-export const TAGS = ['HYROX', 'GAP', 'FORÇA', 'HIPERTROFIA', 'CARDIO'];
+export const TAGS = ['FORÇA', 'HIPERTROFIA', 'HYROX', 'HIIT', 'CROSS', 'GAP'];
 export const MUSCULOS = [
   'Peito', 'Costas', 'Ombro', 'Trapézio', 'Bíceps', 'Tríceps', 'Antebraço',
   'Core/Abdômen', 'Lombar', 'Quadríceps', 'Posterior de coxa', 'Glúteo',
@@ -52,6 +52,34 @@ function backfillMusculos() {
   let mudou = false;
   for (const x of d.exercicios) {
     if ((!x.musculos || !x.musculos.length) && map[x.id] && map[x.id].length) { x.musculos = map[x.id].slice(); mudou = true; }
+  }
+  if (mudou) setLocal(d);
+  return mudou;
+}
+
+/** Mapa id→tags da semente (esquema novo FORÇA/HIPERTROFIA/HYROX/HIIT/CROSS/GAP). */
+let _seedTags = null;
+function seedTagsMap() {
+  if (!_seedTags) { _seedTags = {}; for (const x of seedData().exercicios) _seedTags[x.id] = x.tags || []; }
+  return _seedTags;
+}
+/**
+ * Migra a tag obsoleta 'CARDIO' (que juntava HIIT/WOD/Cardio) para o esquema novo
+ * HIIT/CROSS. Condicional (roda enquanto houver 'CARDIO'), idempotente. Só mexe na
+ * tag CARDIO — preserva as demais tags que o coach tenha ajustado.
+ */
+function backfillTags() {
+  const d = ler();
+  if (!d.exercicios.some((x) => (x.tags || []).includes('CARDIO'))) return false;
+  const map = seedTagsMap();
+  let mudou = false;
+  for (const x of d.exercicios) {
+    if (!(x.tags || []).includes('CARDIO')) continue;
+    const semCardio = x.tags.filter((t) => t !== 'CARDIO');
+    // exercício semeado: usa HIIT/CROSS do seed novo; criado pelo coach: CARDIO→HIIT
+    const novas = map[x.id] ? map[x.id].filter((t) => t === 'HIIT' || t === 'CROSS') : ['HIIT'];
+    x.tags = [...new Set([...semCardio, ...novas])];
+    mudou = true;
   }
   if (mudou) setLocal(d);
   return mudou;
@@ -105,6 +133,7 @@ function backfillNovosSeed() {
 garantirSeed();
 backfillMusculos();
 backfillPadrao();
+backfillTags();
 backfillNovosSeed();
 
 /* ---------- Sincronização na nuvem ---------- */
@@ -135,7 +164,7 @@ export async function iniciarSync(uid, aoAtualizar) {
     const temRemoto = remoto && Array.isArray(remoto.inventario) && (remoto.inventario.length || remoto.exercicios.length);
     if (temRemoto) {
       setLocal({ inventario: remoto.inventario, exercicios: remoto.exercicios || [], seeded: true });
-      const mudou = backfillMusculos() | backfillPadrao() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
+      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
       if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
     } else {
