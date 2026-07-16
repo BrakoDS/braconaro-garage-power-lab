@@ -156,9 +156,14 @@ export function montarHipertrofia({ split, nivel, semana, nAlunos, idsEvitar, rn
   // Exclui exercícios SÓ de mobilidade (isometria/prep articular) — não são hipertrofia de
   // verdade, mesmo quando padrao bate (mesmo filtro que o motor genérico usa).
   const naoMobilidadePura = (e) => !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade');
-  const elegivel = (e) => padroesDoSplit.includes(e.padrao) && NIVEL_ORDEM[e.nivel] <= nivelAluno && naoMobilidadePura(e);
+  // O bloco 2 é HIPERTROFIA — só exercícios marcados como hipertrofia/força entram. Sem
+  // isto, movimentos de cross/WOD (thruster, burpee, sled, kb swing, wall ball, sandbag
+  // lunges...) cujo padrão bate com o split vazavam pra cá. O cross fica no bloco 3 (WOD),
+  // montado à parte por `montarWod` (categorias 'wod').
+  const ehHipertrofia = (e) => e.categorias.includes('hipertrofia') || e.categorias.includes('forca');
+  const elegivel = (e) => padroesDoSplit.includes(e.padrao) && NIVEL_ORDEM[e.nivel] <= nivelAluno && naoMobilidadePura(e) && ehHipertrofia(e);
   const pool = EXERCICIOS.filter(elegivel);
-  const poolAmplo = EXERCICIOS.filter((e) => padroesDoSplit.includes(e.padrao) && naoMobilidadePura(e)); // sem teto de nível — rede de segurança
+  const poolAmplo = EXERCICIOS.filter((e) => padroesDoSplit.includes(e.padrao) && naoMobilidadePura(e) && ehHipertrofia(e)); // sem teto de nível — rede de segurança
 
   const nExercicios = 4 + Math.floor(rng() * 3); // 4..6
   const idsAnteriores = new Set(idsEvitar);
