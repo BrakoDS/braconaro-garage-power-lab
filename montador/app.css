@@ -181,3 +181,19 @@ tr.bad-row td { color: var(--warn); }
   .cal-cel { padding: 3px 5px; border-radius: 6px; }
   .cal-cel .cal-num { font-size: 11px; }
 }
+
+/* ---------- Treino Manual (montagem por seleção) ---------- */
+.man-head { display: grid; grid-template-columns: 26px minmax(180px, 1fr) 84px 96px 130px; gap: 8px; padding: 4px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); }
+.man-row { display: grid; grid-template-columns: 26px minmax(180px, 1fr) 84px 96px 130px; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.man-row.man-aquec { grid-template-columns: 26px 1fr; }
+.man-row:last-of-type { border-bottom: none; }
+.man-n { color: var(--mut); font-size: 12px; text-align: right; }
+.man-sel { background: var(--bg2); color: var(--txt); border: 1px solid var(--line); border-radius: 9px; padding: 8px 9px; font-size: 13px; width: 100%; min-width: 0; }
+@media (max-width: 640px) {
+  .man-head { display: none; }
+  .man-row { grid-template-columns: 20px 1fr 1fr; }
+  .man-row .man-ex { grid-column: 2 / -1; }
+  .man-row .man-series { grid-column: 2; }
+  .man-row .man-reps { grid-column: 3; }
+  .man-row .man-tec { grid-column: 2 / -1; }
+}

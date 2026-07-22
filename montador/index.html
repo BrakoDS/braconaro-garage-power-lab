@@ -24,7 +24,8 @@
   <header class="topbar" hidden>
     <div class="brand"><b>BRACONARO</b> · Montador<small>Garage Power Lab</small></div>
     <nav class="tabs">
-      <button class="tab active" data-view="unico">Treino</button>
+      <button class="tab active" data-view="unico">Treino Automático</button>
+      <button class="tab" data-view="manual">Treino Manual</button>
       <button class="tab" data-view="historico">Histórico</button>
     </nav>
   </header>
@@ -45,6 +46,20 @@
       <div id="u-salvar"></div>
     </section>
 
+    <!-- ============ TREINO MANUAL (montagem por seleção) ============ -->
+    <section class="view" id="view-manual">
+      <div class="panel">
+        <div class="field"><label>Classificação / Objetivo</label><select id="m-modalidade"></select></div>
+        <div class="field"><label>Data do treino</label><input id="m-data" type="date" style="min-width:150px" /></div>
+        <button class="btn ghost" id="m-limpar" type="button">Limpar</button>
+      </div>
+      <div class="mut" style="margin:0 0 12px">Monte o treino <b>escolhendo nas listas</b> (sem digitar): a classificação filtra os exercícios do banco da Academia. A meta de volume da semana atualiza a cada seleção; salvar publica no Portal do Aluno, igual ao automático.</div>
+      <div id="m-editor"></div>
+      <div id="m-meta"></div>
+      <div id="m-vol"></div>
+      <div id="m-salvar"></div>
+    </section>
+
     <!-- ============ HISTÓRICO (calendário) ============ -->
     <section class="view" id="view-historico">
       <div class="grid" id="h-saida"></div>
@@ -52,6 +67,6 @@
 
   </main>
 
-  <script type="module" src="./ui/gate.js?v=23"></script>
+  <script type="module" src="./ui/gate.js?v=24"></script>
 </body>
 </html>

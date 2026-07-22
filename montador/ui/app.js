@@ -9,6 +9,7 @@ import { renderDiaSalvo, renderTreino, ativarTrocas, renderCalendario, renderMet
 import { gerarTreino } from '../core/gerador.js';
 import { variantesNivel } from '../core/niveis.js';
 import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
+import { initManual } from './manual.js';
 
 /** A geração ancora no intermediário; as colunas iniciante/avançado derivam dele. */
 const NIVEL_ANCORA = 'intermediario';
@@ -181,3 +182,4 @@ ativarTrocas($('#u-saida'));
 $('#view-unico').addEventListener('click', (ev) => { if (ev.target.closest('#btn-salvar-treino')) salvarTreinoAtual(); });
 ativarCalendario();
 renderHistorico();
+initManual();

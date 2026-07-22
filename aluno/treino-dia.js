@@ -22,19 +22,24 @@ function nivelEfetivo(nivel) {
   return NIV_OK[n] ? n : 'intermediario';
 }
 
-/** Força/Hipertrofia: exercícios no nível do aluno. */
+/** Força/Hipertrofia (e Treino Manual): exercícios no nível do aluno. */
 function corpoExercicios(d, nivel) {
+  // Aquecimento persistido no snapshot (Treino Manual do coach)
+  const aquec = (d.aquecimento || []).length
+    ? `<div class="td-parte-h">Aquecimento / Mobilidade</div><ul class="td-lista">${d.aquecimento.map((a) => `<li>${esc(a.nome)}</li>`).join('')}</ul>`
+    : '';
   const linhas = (d.exercicios || []).map((e, i) => {
     const v = e.niveis && e.niveis[nivel];
     const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}` : esc(e.reps || '');
+    const tec = e.tecnica ? ` · <i>${esc(TECNICA_LABEL[e.tecnica.tipo] || e.tecnica.tipo)}</i>` : '';
     return `<li class="td-ex">
       <span class="td-ex-nome">${i + 1}. ${esc(e.nome)}</span>
-      <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}</span>
+      <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}${tec}</span>
       <span class="td-ex-presc">${prescricao}</span>
     </li>`;
   }).join('');
   const fin = d.finalizador ? `<div class="td-fin"><b>${esc(d.finalizador.tipo)}</b> — ${esc(d.finalizador.descricao)}</div>` : '';
-  return `<ul class="td-lista">${linhas}</ul>${fin}`;
+  return `${aquec}<ul class="td-lista">${linhas}</ul>${fin}`;
 }
 
 /** Hyrox no nível do aluno. */

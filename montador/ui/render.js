@@ -203,7 +203,8 @@ function badgeViab(v) {
     : `<span class="bad">⚠ ${v.conflitos.join(' ')}</span>`;
 }
 
-function renderVolume(vol) {
+/** Barras de volume por músculo (séries equivalentes) — usado pelo card gerado e pelo Treino Manual. */
+export function renderVolume(vol) {
   const max = Math.max(1, ...Object.values(vol.porMusculo));
   return `<div class="vol">${Object.entries(vol.porMusculo).sort((a, b) => b[1] - a[1]).map(([m, v]) => `
     <div class="bar-row"><span class="bar-lbl">${m.replace('_', ' ')}</span>
@@ -290,9 +291,14 @@ export function renderDiaSalvo(d, editavel = true) {
   }
   const fin = d.finalizador ? `<div class="fin"><b>${d.finalizador.tipo}</b><br>${d.finalizador.descricao}</div>` : '';
   const viab = d.viabilidade?.ok ? `<span class="ok">✓ viável (grupos de ${d.viabilidade.tamanhoGrupo})</span>` : '';
+  // Aquecimento salvo no snapshot (Treino Manual) — o automático não persiste o aquecimento.
+  const aquec = d.aquecimento?.length
+    ? `<h4>Aquecimento / Mobilidade</h4><ul class="aquec">${d.aquecimento.map((a) => `<li>${a.nome} — ${mmss(a.duracaoSeg)}</li>`).join('')}</ul>`
+    : '';
   return `<article class="card">
-    <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}</h3>
+    <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}${d.manual ? ' <span class="chip acc">manual</span>' : ''}</h3>
     <div>${viab}</div>
+    ${aquec}
     ${corpo}
     ${fin}</article>`;
 }
