@@ -57,6 +57,14 @@ export const EQUIPAMENTOS = [
     obs: 'Isolamento de posterior de coxa (flexão de joelho). Só 1 — organizar rodízio.',
   },
   {
+    id: 'cadeira_extensora',
+    nome: 'Cadeira extensora',
+    categoria: 'estacao',
+    unidades: 1,
+    compartilhavelDupla: false,
+    obs: 'Isolamento de quadríceps (extensão de joelho). Só 1 — organizar rodízio.',
+  },
+  {
     id: 'cavalinho',
     nome: 'Suporte de remada cavalinho (landmine)',
     categoria: 'estacao',

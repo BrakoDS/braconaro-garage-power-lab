@@ -116,7 +116,7 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 7;
+const SEED_VERSION = 8;
 function backfillNovosSeed() {
   const d = ler();
   if ((d.seedVersion || 0) >= SEED_VERSION) return false;

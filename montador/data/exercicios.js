@@ -304,6 +304,13 @@ export const EXERCICIOS = [
     categorias: ['hipertrofia'], equipamento: ['corporal'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
+  {
+    id: 'cadeira_extensora', nome: 'Cadeira extensora',
+    descricao: 'Sentado, estender os joelhos contra o rolo — isolamento de quadríceps.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: [],
+    categorias: ['hipertrofia'], equipamento: ['cadeira_extensora'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
+  },
 
   // ===================== POSTERIOR / GLÚTEO =====================
   {
