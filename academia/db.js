@@ -228,7 +228,9 @@ export async function iniciarSync(uid, aoAtualizar) {
     const remoto = await cloud.carregar(uid);
     const temRemoto = remoto && Array.isArray(remoto.inventario) && (remoto.inventario.length || remoto.exercicios.length);
     if (temRemoto) {
-      setLocal({ inventario: remoto.inventario, exercicios: remoto.exercicios || [], seeded: true });
+      // `seedVersion` vem junto da nuvem de propósito: é o que impede as migrações de
+      // semente de rodarem outra vez a cada login (e de reverterem edições do coach).
+      setLocal({ inventario: remoto.inventario, exercicios: remoto.exercicios || [], seeded: true, seedVersion: remoto.seedVersion || 0 });
       const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
       if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
