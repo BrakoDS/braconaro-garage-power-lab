@@ -28,7 +28,7 @@ export const MUSC_MAP = {
   gluteo: 'Glúteo', panturrilha: 'Panturrilha', estabilizadores: 'Estabilizadores',
 };
 
-/** Categorias do montador → tags de treino desta app (FORÇA, HIPERTROFIA, HYROX, HIIT, CROSS, GAP). */
+/** Categorias do montador → tags de treino desta app (FORÇA, HIPERTROFIA, HYROX, HIIT, CROSS, GAP, MOBILIDADE). */
 export const TAG_MAP = {
   forca: 'FORÇA',
   hipertrofia: 'HIPERTROFIA',
@@ -38,7 +38,8 @@ export const TAG_MAP = {
   wod: 'CROSS',     // cross-training (WOD) — built-in usam o token 'wod'
   cross: 'CROSS',   // cross-training classificado pelo coach
   cardio: 'HIIT',
-  // mobilidade, tecnica, hibrido → sem tag direta (ficam sem tag até o coach classificar)
+  mobilidade: 'MOBILIDADE', // alimenta o Aquecimento/Mobilidade (aba própria na Academia)
+  // tecnica, hibrido → sem tag direta (são estruturais, não aparecem como filtro)
 };
 
 /** @returns {{inventario: any[], exercicios: any[]}} */

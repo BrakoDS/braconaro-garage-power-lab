@@ -29,6 +29,7 @@ const TAG_INV = {
   'GAP': 'gap',
   'HIIT': 'hiit',
   'CROSS': 'cross',
+  'MOBILIDADE': 'mobilidade',
   'CARDIO': 'hiit', // legado: dados antigos com a tag CARDIO (hoje separada em HIIT/CROSS)
 };
 
@@ -45,12 +46,12 @@ function converter(a) {
   if (!padrao) return null;
 
   // Categorias: as TAGS da Academia MANDAM na classificação por modalidade (força/
-  // hipertrofia/hyrox/hiit/cross/gap) — inclusive nos exercícios semeados. Assim o
-  // que o coach marca/desmarca na Academia vale de verdade na geração (ex.: tirar o
-  // CROSS de um exercício o remove do WOD). As categorias ESTRUTURAIS (mobilidade/
-  // técnica/híbrido) não têm tag na Academia, então são preservadas do catálogo base
-  // p/ não quebrar aquecimento/mobilidade.
-  const ESTRUTURAIS = ['mobilidade', 'tecnica', 'hibrido'];
+  // hipertrofia/hyrox/hiit/cross/gap/mobilidade) — inclusive nos exercícios semeados.
+  // Assim o que o coach marca/desmarca na Academia vale de verdade na geração (ex.:
+  // tirar o CROSS de um exercício o remove do WOD; tirar o MOBILIDADE o tira do
+  // aquecimento). Só 'tecnica' e 'hibrido' seguem vindo do catálogo base — são
+  // estruturais, não têm tag na Academia e ninguém as edita por lá.
+  const ESTRUTURAIS = ['tecnica', 'hibrido'];
   const doTags = [...new Set((a.tags || []).map((t) => TAG_INV[t]).filter(Boolean))];
   const categorias = base
     ? [...new Set([...base.categorias.filter((c) => ESTRUTURAIS.includes(c)), ...doTags])]

@@ -18,7 +18,23 @@ const chave = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀
 
 /** Rótulos fixos de categoria de equipamento e tags de treino. */
 export const CATEGORIAS = ['Peso livre', 'Máquina', 'Cardio', 'Acessório', 'Estação', 'Corporal'];
-export const TAGS = ['FORÇA', 'HIPERTROFIA', 'HYROX', 'HIIT', 'CROSS', 'GAP'];
+export const TAGS = ['FORÇA', 'HIPERTROFIA', 'HYROX', 'HIIT', 'CROSS', 'GAP', 'MOBILIDADE'];
+
+/**
+ * Tag que marca o banco de Mobilidade/Aquecimento: exercício com ela aparece na aba
+ * "Mobilidades e Aquecimento" e alimenta o aquecimento do montador.
+ *
+ * As duas abas NÃO são exclusivas de propósito: prancha, agachamento livre e face
+ * pull são aquecimento E exercício de treino, então aparecem nas duas. O que some
+ * do catálogo de treino é só o que serve exclusivamente ao aquecimento — daí a
+ * distinção entre `ehMobilidade` (aparece na aba de mobilidade) e `soMobilidade`
+ * (não tem nenhuma outra tag, logo não é exercício de treino).
+ */
+export const TAG_MOBILIDADE = 'MOBILIDADE';
+/** @param {any} x @returns {boolean} */
+export const ehMobilidade = (x) => (x?.tags || []).includes(TAG_MOBILIDADE);
+/** @param {any} x @returns {boolean} */
+export const soMobilidade = (x) => ehMobilidade(x) && (x.tags || []).every((t) => t === TAG_MOBILIDADE);
 export const MUSCULOS = [
   'Peito', 'Costas', 'Ombro', 'Trapézio', 'Bíceps', 'Tríceps', 'Antebraço',
   'Core/Abdômen', 'Lombar', 'Quadríceps', 'Posterior de coxa', 'Glúteo',
@@ -121,7 +137,7 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 9;
+const SEED_VERSION = 11;
 
 /**
  * RECONSTRUÇÃO DO CATÁLOGO (semente v9) — aplica de uma vez a revisão completa:

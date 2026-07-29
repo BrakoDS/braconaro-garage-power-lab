@@ -23,17 +23,22 @@ let UID = null;
    Estado dos filtros
    ============================================================ */
 let abaAtiva = 'inventario';
-const F = { invBusca: '', invCat: 'todos', exBusca: '', exTag: 'todos', exMusc: 'todos', exEquip: 'todos', soDisp: true, soDesat: false };
+const F = {
+  invBusca: '', invCat: 'todos',
+  exBusca: '', exTag: 'todos', exMusc: 'todos', exEquip: 'todos', soDisp: true, soDesat: false,
+  mobBusca: '', mobMusc: 'todos', mobDesat: false,
+};
 
 /* ============================================================
    Abas
    ============================================================ */
+const FAB_LABEL = { inventario: '+ Equipamento', exercicios: '+ Exercício', mobilidade: '+ Mobilidade' };
 $$('.tab').forEach((t) => t.addEventListener('click', () => trocarAba(t.dataset.tab)));
 function trocarAba(aba) {
   abaAtiva = aba;
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === aba));
   $$('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + aba));
-  $('#fab').textContent = aba === 'inventario' ? '+ Equipamento' : '+ Exercício';
+  $('#fab').textContent = FAB_LABEL[aba] || '+ Adicionar';
 }
 
 /* ============================================================
@@ -73,7 +78,9 @@ function renderInventario() {
    ============================================================ */
 function renderFiltrosTags() {
   const chip = (f, txt) => `<button class="chip${F.exTag === f ? ' on' : ''}" data-tag="${esc(f)}" type="button">${esc(txt)}</button>`;
-  $('#filtros-tags').innerHTML = [chip('todos', 'Todos'), ...db.TAGS.map((t) => chip(t, t))].join('');
+  // MOBILIDADE fica de fora: esses exercícios têm aba própria, filtrar por ela aqui não devolveria nada.
+  const tags = db.TAGS.filter((t) => t !== db.TAG_MOBILIDADE);
+  $('#filtros-tags').innerHTML = [chip('todos', 'Todos'), ...tags.map((t) => chip(t, t))].join('');
 }
 function renderFiltroEquip() {
   const inv = db.listarInventario().slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
@@ -97,7 +104,10 @@ function nomesEquip(ids) {
 
 function renderExercicios() {
   const q = norm(F.exBusca);
-  let itens = db.listarExercicios().map((x) => ({ x, d: db.disponibilidade(x), ativo: x.ativo !== false }));
+  // Sai daqui só o que serve EXCLUSIVAMENTE ao aquecimento; quem é as duas coisas
+  // (prancha, agachamento livre, face pull) continua no catálogo de treino também.
+  const base = db.listarExercicios().filter((x) => !db.soMobilidade(x));
+  let itens = base.map((x) => ({ x, d: db.disponibilidade(x), ativo: x.ativo !== false }));
   itens = itens.filter(({ x, d, ativo }) => {
     if (F.exTag !== 'todos' && !(x.tags || []).includes(F.exTag)) return false;
     if (F.exMusc !== 'todos' && !(x.musculos || []).includes(F.exMusc)) return false;
@@ -109,7 +119,7 @@ function renderExercicios() {
   itens.sort((a, b) => Number(a.d.disponivel) - Number(b.d.disponivel) || a.x.nome.localeCompare(b.x.nome, 'pt'));
   $('#count-ex').textContent = `${itens.length} ${itens.length === 1 ? 'exercício' : 'exercícios'}`;
   if (!itens.length) {
-    $('#lista-ex').innerHTML = `<div class="empty"><b>Nenhum exercício</b>${db.listarExercicios().length ? 'Ajuste os filtros — talvez estejam ocultos por “Só disponíveis” ou “Desativados”.' : 'Toque em “+ Exercício” para começar.'}</div>`;
+    $('#lista-ex').innerHTML = `<div class="empty"><b>Nenhum exercício</b>${base.length ? 'Ajuste os filtros — talvez estejam ocultos por “Só disponíveis” ou “Desativados”.' : 'Toque em “+ Exercício” para começar.'}</div>`;
     return;
   }
   $('#lista-ex').innerHTML = itens.map(({ x, d, ativo }) => `
@@ -127,11 +137,54 @@ function renderExercicios() {
 }
 
 /* ============================================================
+   Render — Mobilidades e Aquecimento
+   ------------------------------------------------------------
+   Mesmo modelo de dados do catálogo de treino: o que separa os dois bancos é a
+   tag MOBILIDADE. Aqui não faz sentido o filtro "só disponíveis" (quase tudo é
+   peso corporal ou acessório solto), então a aba fica com busca + músculo.
+   ============================================================ */
+function renderFiltroMobMusc() {
+  const usados = new Set(db.listarExercicios().filter(db.ehMobilidade).flatMap((x) => x.musculos || []));
+  const lista = db.MUSCULOS.filter((m) => usados.has(m));
+  const sel = F.mobMusc;
+  $('#filtro-mob-musc').innerHTML = `<option value="todos"${sel === 'todos' ? ' selected' : ''}>Músculo: todos</option>` +
+    lista.map((m) => `<option value="${esc(m)}"${sel === m ? ' selected' : ''}>${esc(m)}</option>`).join('');
+}
+
+function renderMobilidade() {
+  const q = norm(F.mobBusca);
+  const base = db.listarExercicios().filter(db.ehMobilidade);
+  const itens = base.map((x) => ({ x, d: db.disponibilidade(x), ativo: x.ativo !== false })).filter(({ x, ativo }) => {
+    if (F.mobMusc !== 'todos' && !(x.musculos || []).includes(F.mobMusc)) return false;
+    if (F.mobDesat && ativo) return false;
+    return !q || norm(x.nome).includes(q);
+  });
+  itens.sort((a, b) => a.x.nome.localeCompare(b.x.nome, 'pt'));
+  $('#count-mob').textContent = `${itens.length} ${itens.length === 1 ? 'item' : 'itens'}`;
+  if (!itens.length) {
+    $('#lista-mob').innerHTML = `<div class="empty"><b>Nenhuma mobilidade</b>${base.length ? 'Ajuste a busca ou o filtro de músculo.' : 'Toque em “+ Mobilidade” para começar.'}</div>`;
+    return;
+  }
+  $('#lista-mob').innerHTML = itens.map(({ x, d, ativo }) => `
+    <button class="row${d.disponivel && ativo ? '' : ' indisp'}" data-id="${esc(x.id)}" type="button">
+      <div>
+        <div class="nome">${esc(x.nome)}${ativo ? '' : ' <span class="badge" style="color:var(--bad);border-color:var(--bad)">Desativado</span>'}</div>
+        <div class="sub">${(x.musculos || []).map((m) => `<span class="musc">${esc(m)}</span>`).join('')}</div>
+        <div class="sub2">${esc(nomesEquip(x.equipamentoIds).join(', ') || 'sem equipamento')}</div>
+        ${d.disponivel ? '' : `<div class="alerta">⚠ Indisponível — falta: ${esc(d.falta.join(', '))}</div>`}
+        ${ativo ? '' : '<div class="alerta">⚠ Desativado — não entra no aquecimento</div>'}
+      </div>
+      <div class="qtd" style="font-size:1.3rem;color:${d.disponivel && ativo ? 'var(--ok)' : 'var(--bad)'}">${d.disponivel && ativo ? '●' : '○'}</div>
+    </button>`).join('');
+}
+
+/* ============================================================
    Render geral
    ============================================================ */
 function renderTudo() {
   renderFiltrosCat(); renderInventario();
   renderFiltrosTags(); renderFiltroMusc(); renderFiltroEquip(); renderExercicios();
+  renderFiltroMobMusc(); renderMobilidade();
 }
 
 /* ============================================================
@@ -145,6 +198,9 @@ $('#filtro-musc').addEventListener('change', (e) => { F.exMusc = e.target.value;
 $('#filtro-equip').addEventListener('change', (e) => { F.exEquip = e.target.value; renderExercicios(); });
 $('#chip-disp').addEventListener('click', () => { F.soDisp = !F.soDisp; $('#chip-disp').classList.toggle('on', F.soDisp); renderExercicios(); });
 $('#chip-desat').addEventListener('click', () => { F.soDesat = !F.soDesat; $('#chip-desat').classList.toggle('on', F.soDesat); renderExercicios(); });
+$('#busca-mob').addEventListener('input', (e) => { F.mobBusca = e.target.value; renderMobilidade(); });
+$('#filtro-mob-musc').addEventListener('change', (e) => { F.mobMusc = e.target.value; renderMobilidade(); });
+$('#chip-mob-desat').addEventListener('click', () => { F.mobDesat = !F.mobDesat; $('#chip-mob-desat').classList.toggle('on', F.mobDesat); renderMobilidade(); });
 
 /* ============================================================
    Modais — abrir/fechar
@@ -155,7 +211,10 @@ $$('.modal-bg').forEach((m) => {
   m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-close]')) fecharModal(m.id); });
 });
 
-$('#fab').addEventListener('click', () => { if (abaAtiva === 'inventario') abrirEquip(); else abrirExerc(); });
+$('#fab').addEventListener('click', () => {
+  if (abaAtiva === 'inventario') abrirEquip();
+  else abrirExerc(null, { mobilidade: abaAtiva === 'mobilidade' });
+});
 
 /* ---------- Modal Equipamento ---------- */
 let equipEdit = null;
@@ -199,27 +258,89 @@ $('#btn-del-equip').addEventListener('click', () => {
   renderTudo();
 });
 
+/* ---------- Picker de equipamentos (chips + busca + lista agrupada) ----------
+   O inventário cresceu para dezenas de itens e a lista aberta de checkboxes virou
+   uma parede no formulário. A seleção agora vive num Set; `#pick-equip` continua no
+   DOM como espelho oculto de checkboxes marcados, então o submit segue lendo
+   `#pick-equip input:checked` — o contrato de gravação dos IDs não mudou.
+   ------------------------------------------------------------------------- */
+const equipSel = new Set();
+let peBusca = '';
+
+function renderPickEquip() {
+  const inv = db.listarInventario();
+  const nomeDe = (id) => inv.find((e) => e.id === id)?.nome || `?${id}`;
+
+  // espelho oculto — é daqui que o submit lê os ids
+  $('#pick-equip').innerHTML = [...equipSel]
+    .map((id) => `<input type="checkbox" value="${esc(id)}" checked />`).join('');
+
+  // chips do que está selecionado
+  const sel = [...equipSel].sort((a, b) => nomeDe(a).localeCompare(nomeDe(b), 'pt'));
+  $('#pe-chips').innerHTML = sel.map((id) => `<span class="sel">${esc(nomeDe(id))}<button type="button" data-rm="${esc(id)}" aria-label="Remover ${esc(nomeDe(id))}">×</button></span>`).join('');
+  $('#pe-count').textContent = equipSel.size
+    ? `(${equipSel.size} selecionado${equipSel.size > 1 ? 's' : ''})`
+    : '(puxa do inventário)';
+
+  // lista agrupada por categoria, filtrada pela busca
+  const lista = $('#pe-lista');
+  if (!inv.length) {
+    lista.innerHTML = '<div class="picker-vazio">Cadastre equipamentos no Inventário primeiro — um exercício precisa de pelo menos um.</div>';
+    return;
+  }
+  const q = norm(peBusca);
+  const achados = inv.filter((e) => !q || norm(e.nome).includes(q) || norm(e.categoria).includes(q));
+  if (!achados.length) {
+    lista.innerHTML = `<div class="picker-vazio">Nenhum equipamento com “${esc(peBusca)}”.</div>`;
+    return;
+  }
+  const grupos = db.CATEGORIAS
+    .map((cat) => [cat, achados.filter((e) => e.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, 'pt'))])
+    .filter(([, itens]) => itens.length);
+  lista.innerHTML = grupos.map(([cat, itens]) => `
+    <div class="grupo">${esc(cat)}</div>
+    <div class="opcoes">${itens.map((e) => `
+      <button class="opt${equipSel.has(e.id) ? ' on' : ''}" type="button" data-id="${esc(e.id)}"
+        aria-pressed="${equipSel.has(e.id)}">${esc(e.nome)}<span class="qtd">×${Number(e.quantidade) || 0}</span></button>`).join('')}</div>`).join('');
+}
+
+$('#pe-busca').addEventListener('input', (e) => { peBusca = e.target.value; renderPickEquip(); });
+$('#pe-lista').addEventListener('click', (e) => {
+  const b = e.target.closest('.opt');
+  if (!b) return;
+  if (equipSel.has(b.dataset.id)) equipSel.delete(b.dataset.id); else equipSel.add(b.dataset.id);
+  renderPickEquip();
+});
+$('#pe-chips').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-rm]');
+  if (!b) return;
+  equipSel.delete(b.dataset.rm);
+  renderPickEquip();
+});
+
 /* ---------- Modal Exercício ---------- */
 let exercEdit = null;
-function abrirExerc(item = null) {
+/**
+ * @param {any} [item] exercício a editar (null = novo)
+ * @param {{mobilidade?: boolean}} [opcoes] `mobilidade` já marca a tag MOBILIDADE
+ *        num item novo — é como a aba de Mobilidade cria direto no banco dela.
+ */
+function abrirExerc(item = null, opcoes = {}) {
   exercEdit = item;
   const f = $('#form-exerc');
-  $('#modal-exerc-titulo').textContent = item ? 'Editar exercício' : 'Novo exercício';
+  $('#modal-exerc-titulo').textContent = item
+    ? `Editar ${db.ehMobilidade(item) ? 'mobilidade' : 'exercício'}`
+    : (opcoes.mobilidade ? 'Nova mobilidade / aquecimento' : 'Novo exercício');
   f.nome.value = item?.nome || '';
   f.obs.value = item?.obs || '';
   $('#erro-exerc').classList.remove('show');
 
   // Equipamentos (puxa do inventário) — regra: só dá pra escolher o que existe no inventário
-  const inv = db.listarInventario().slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
-  const sel = new Set(item?.equipamentoIds || []);
-  const pe = $('#pick-equip');
-  if (!inv.length) {
-    pe.className = 'pick vazio';
-    pe.innerHTML = 'Cadastre equipamentos no Inventário primeiro — um exercício precisa de pelo menos um.';
-  } else {
-    pe.className = 'pick';
-    pe.innerHTML = inv.map((eq) => `<input type="checkbox" id="eq_${esc(eq.id)}" value="${esc(eq.id)}"${sel.has(eq.id) ? ' checked' : ''}/><label for="eq_${esc(eq.id)}">${esc(eq.nome)}</label>`).join('');
-  }
+  equipSel.clear();
+  for (const id of item?.equipamentoIds || []) equipSel.add(id);
+  peBusca = '';
+  $('#pe-busca').value = '';
+  renderPickEquip();
 
   // Padrão de movimento (o que o gerador do montador usa p/ equilibrar o full body) + nível
   $('#ex-padrao').innerHTML = ['<option value="">— selecione —</option>',
@@ -229,7 +350,7 @@ function abrirExerc(item = null) {
   f.ativo.checked = item ? item.ativo !== false : true;
 
   // Tags
-  const selT = new Set(item?.tags || []);
+  const selT = new Set(item?.tags || (opcoes.mobilidade ? [db.TAG_MOBILIDADE] : []));
   $('#pick-tags').className = 'pick';
   $('#pick-tags').innerHTML = db.TAGS.map((t) => `<input type="checkbox" id="tg_${esc(t)}" value="${esc(t)}"${selT.has(t) ? ' checked' : ''}/><label for="tg_${esc(t)}">${esc(t)}</label>`).join('');
 
@@ -269,19 +390,20 @@ $('#form-exerc').addEventListener('submit', (e) => {
   if (exercEdit) dados.id = exercEdit.id;
   db.salvarExerc(dados);
   fecharModal('modal-exerc');
-  renderExercicios();
+  renderTudo(); // marcar/desmarcar MOBILIDADE move o item entre as abas
 });
 $('#btn-del-exerc').addEventListener('click', () => {
   if (!exercEdit) return;
   if (!confirm(`Excluir o exercício "${exercEdit.nome}"?`)) return;
   db.removerExerc(exercEdit.id);
   fecharModal('modal-exerc');
-  renderExercicios();
+  renderTudo();
 });
 
 /* Clique nas listas → editar */
 $('#lista-inv').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterEquip(r.dataset.id); if (it) abrirEquip(it); } });
 $('#lista-ex').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterExerc(r.dataset.id); if (it) abrirExerc(it); } });
+$('#lista-mob').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterExerc(r.dataset.id); if (it) abrirExerc(it); } });
 
 /* ============================================================
    GATE de acesso (mesmo login do Coach/Montador)

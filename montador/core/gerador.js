@@ -453,7 +453,9 @@ function montarAquecimento(rng, modalidade) {
  * @param {Exercicio[]} pool @param {Exercicio[]} jaUsados @param {() => number} rng
  */
 function montarFinalizador(pool, jaUsados, rng) {
-  const wod = pool.filter((e) => e.categorias.includes('wod') && !jaUsados.includes(e));
+  // 'cross' e 'wod' são o mesmo conceito: o catálogo base usa 'wod', o convertido da
+  // Academia (tag CROSS) usa 'cross'. Aceitar os dois, como em hibrido.js.
+  const wod = pool.filter((e) => (e.categorias.includes('cross') || e.categorias.includes('wod')) && !jaUsados.includes(e));
   const itens = embaralhar(wod, rng).slice(0, 3);
   if (!itens.length) return null;
   return {
