@@ -7,6 +7,13 @@
  * suficientes do(s) seu(s) equipamento(s) para o seu grupo, considerando que
  * equipamentos "compartilháveis em dupla" servem 2 alunos por unidade.
  *
+ * EXCEÇÃO — `ocupaTudo`: alguns exercícios usam o aparelho INTEIRO por pessoa, não
+ * uma unidade dele. O crossover puxa as 2 torres de monocross (e as 2 manoplas) de
+ * uma vez; o SkiErg é montado atravessado nas duas. Nesses casos a estação reivindica
+ * todo o estoque: o grupo se reveza no aparelho (um por vez) e NENHUMA outra estação
+ * do mesmo circuito pode usar aquele equipamento em paralelo — inclusive outro
+ * exercício `ocupaTudo` do mesmo aparelho (dois crossovers não rodam juntos).
+ *
  * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
  */
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesNecessarias, unidadesDe } from '../data/equipamentos.js';
@@ -25,20 +32,34 @@ export function verificarViabilidade(exercicios, nAlunos = ALUNOS_POR_SESSAO, nu
 
   /** @type {Record<string, number>} */
   const demanda = {};
+  /** equipId → nomes dos exercícios que o reivindicam inteiro. @type {Record<string, string[]>} */
+  const exclusivos = {};
   for (const ex of exercicios) {
     for (const equipId of ex.equipamento) {
-      demanda[equipId] = (demanda[equipId] || 0) + unidadesNecessarias(equipId, tamanhoGrupo);
+      if (ex.ocupaTudo) {
+        // Todo o estoque. `max(1, …)` para que um equipamento ausente (0 unidades)
+        // ainda conte como demanda e apareça como conflito, em vez de somar zero.
+        demanda[equipId] = (demanda[equipId] || 0) + Math.max(1, unidadesDe(equipId));
+        exclusivos[equipId] = [...(exclusivos[equipId] || []), ex.nome];
+      } else {
+        demanda[equipId] = (demanda[equipId] || 0) + unidadesNecessarias(equipId, tamanhoGrupo);
+      }
     }
   }
 
   const conflitos = [];
   for (const [equipId, precisa] of Object.entries(demanda)) {
     const eq = EQUIP_POR_ID[equipId];
+    const nome = eq ? eq.nome : equipId;
     const tem = unidadesDe(equipId);
-    if (precisa > tem) {
+    if (precisa <= tem) continue;
+    const donos = exclusivos[equipId];
+    if (donos && tem > 0) {
       conflitos.push(
-        `${eq ? eq.nome : equipId}: precisa de ${precisa} unidade(s), box tem ${tem}.`
+        `${nome}: ${donos.join(' e ')} ocupa${donos.length > 1 ? 'm' : ''} o aparelho inteiro (${tem} unidade(s)) de uma vez — não sobra para outra estação.`
       );
+    } else {
+      conflitos.push(`${nome}: precisa de ${precisa} unidade(s), box tem ${tem}.`);
     }
   }
 
