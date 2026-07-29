@@ -347,6 +347,9 @@ function abrirExerc(item = null, opcoes = {}) {
     ...PADROES.map((p) => `<option value="${esc(p)}">${esc(PADRAO_LABEL[p] || p)}</option>`)].join('');
   $('#ex-padrao').value = item?.padrao || '';
   $('#ex-nivel').value = item?.nivel || 'intermediario';
+  // Composto vs. isolado: só o composto entra no dia de Força, e o Híbrido usa isso
+  // para misturar os blocos. Default composto, como no catálogo.
+  $('#ex-multi').value = item?.multiarticular === false ? '0' : '1';
   f.ativo.checked = item ? item.ativo !== false : true;
 
   // Tags
@@ -384,6 +387,7 @@ $('#form-exerc').addEventListener('submit', (e) => {
   const dados = {
     nome, equipamentoIds, tags, musculos,
     padrao: f.padrao.value, nivel: f.nivel.value || 'intermediario',
+    multiarticular: f.multiarticular.value !== '0',
     ativo: f.ativo.checked,
     obs: f.obs.value.trim(),
   };

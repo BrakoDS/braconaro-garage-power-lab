@@ -28,10 +28,11 @@ export const MUSC_MAP = {
   gluteo: 'Glúteo', panturrilha: 'Panturrilha', estabilizadores: 'Estabilizadores',
 };
 
-/** Categorias do montador → tags de treino desta app (FORÇA, HIPERTROFIA, HYROX, HIIT, CROSS, GAP, MOBILIDADE). */
+/** Categorias do montador → tags de treino desta app (MUSCULAÇÃO, HYROX, HIIT, CROSS, GAP, MOBILIDADE). */
 export const TAG_MAP = {
-  forca: 'FORÇA',
-  hipertrofia: 'HIPERTROFIA',
+  musculacao: 'MUSCULAÇÃO', // serve a Força E Hipertrofia — a diferença é a regra, não a lista
+  forca: 'MUSCULAÇÃO',      // legado: catálogos antigos separavam as duas
+  hipertrofia: 'MUSCULAÇÃO',
   hyrox: 'HYROX',
   gap: 'GAP',
   hiit: 'HIIT',
@@ -65,6 +66,9 @@ export function seedData() {
     padrao: x.padrao || '',
     nivel: x.nivel || 'intermediario',
     tempoMedioSeg: Number.isFinite(x.tempoMedioSeg) ? x.tempoMedioSeg : 35,
+    // Composto ou isolado: decide se o exercício entra no dia de FORÇA e como o
+    // Híbrido mistura os blocos. Editável na Academia, por isso vai na semente.
+    multiarticular: x.multiarticular !== false,
     obs: x.descricao || '',
   }));
 

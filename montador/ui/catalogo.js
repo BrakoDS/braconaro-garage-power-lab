@@ -23,8 +23,9 @@ const MUSC_INV = Object.fromEntries(Object.entries(MUSC_MAP).map(([k, v]) => [v,
 
 /** Tag de treino (Academia, MAIÚSCULA) → categoria/modalidade do montador. */
 const TAG_INV = {
-  'FORÇA': 'forca',
-  'HIPERTROFIA': 'hipertrofia',
+  'MUSCULAÇÃO': 'musculacao',
+  'FORÇA': 'musculacao',      // legado: antes da unificação eram duas tags
+  'HIPERTROFIA': 'musculacao',
   'HYROX': 'hyrox',
   'GAP': 'gap',
   'HIIT': 'hiit',

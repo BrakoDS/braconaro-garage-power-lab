@@ -19,7 +19,10 @@ const chave = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀
 
 /** Rótulos fixos de categoria de equipamento e tags de treino. */
 export const CATEGORIAS = ['Peso livre', 'Máquina', 'Cardio', 'Acessório', 'Estação', 'Corporal'];
-export const TAGS = ['FORÇA', 'HIPERTROFIA', 'HYROX', 'HIIT', 'CROSS', 'GAP', 'MOBILIDADE'];
+export const TAGS = ['MUSCULAÇÃO', 'HYROX', 'HIIT', 'CROSS', 'GAP', 'MOBILIDADE'];
+
+/** Tags antigas que viraram MUSCULAÇÃO (Força e Hipertrofia usam a MESMA lista). */
+const TAGS_OBSOLETAS = { 'FORÇA': 'MUSCULAÇÃO', 'HIPERTROFIA': 'MUSCULAÇÃO' };
 
 /**
  * Tag que marca o banco de Mobilidade/Aquecimento: exercício com ela aparece na aba
@@ -79,7 +82,7 @@ function backfillMusculos() {
   return mudou;
 }
 
-/** Mapa id→tags da semente (esquema novo FORÇA/HIPERTROFIA/HYROX/HIIT/CROSS/GAP). */
+/** Mapa id→tags da semente (esquema atual MUSCULAÇÃO/HYROX/HIIT/CROSS/GAP/MOBILIDADE). */
 let _seedTags = null;
 function seedTagsMap() {
   if (!_seedTags) { _seedTags = {}; for (const x of seedData().exercicios) _seedTags[x.id] = x.tags || []; }
@@ -138,17 +141,19 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 12;
+const SEED_VERSION = 13;
 
 /**
- * RECONSTRUÇÃO DO CATÁLOGO (semente v9) — aplica de uma vez a revisão completa:
+ * MIGRAÇÃO DO CATÁLOGO — aplica de uma vez a revisão da versão de semente atual:
  *  1. Migra os renomeados (`MIGRACOES_CATALOGO`), casando por id antigo OU nome antigo,
  *     e apaga os removidos. Se o id novo já existir, descarta a versão antiga (dedupe).
- *  2. Re-sincroniza TODO exercício semeado com a semente (nome, equipamentos, tags,
+ *  2. Troca tags obsoletas pela atual (FORÇA/HIPERTROFIA → MUSCULAÇÃO), inclusive nos
+ *     exercícios criados pelo coach.
+ *  3. Re-sincroniza TODO exercício semeado com a semente (nome, equipamentos, tags,
  *     músculos, padrão, nível, tempo) e o reativa — é a revisão aprovada valendo.
- *  3. Funde itens de inventário duplicados (`MIGRACOES_INVENTARIO`), somando o estoque
+ *  4. Funde itens de inventário duplicados (`MIGRACOES_INVENTARIO`), somando o estoque
  *     e repontando os exercícios que usavam o id antigo.
- *  4. Atualiza nome/categoria/observação dos equipamentos semeados, preservando a
+ *  5. Atualiza nome/categoria/observação dos equipamentos semeados, preservando a
  *     QUANTIDADE e a ÁREA, que são a realidade do box e só o coach conhece.
  * Exercícios e equipamentos criados pelo coach que não estão na semente não são tocados.
  * Roda uma única vez por versão (gate em `d.seedVersion`, gravado por `backfillNovosSeed`).
@@ -176,19 +181,27 @@ function migrarCatalogo() {
     }
   }
 
-  // 2. exercícios semeados voltam a bater com a semente revisada
+  // 2. tags obsoletas → nova (roda em TODOS, inclusive nos criados pelo coach)
+  for (const x of d.exercicios) {
+    const tags = x.tags || [];
+    if (!tags.some((t) => TAGS_OBSOLETAS[t])) continue;
+    x.tags = [...new Set(tags.map((t) => TAGS_OBSOLETAS[t] || t))];
+    mudou = true;
+  }
+
+  // 3. exercícios semeados voltam a bater com a semente revisada
   for (const x of d.exercicios) {
     const base = seedEx.get(x.id);
     if (!base) continue; // criado pelo coach: preservado como está
     Object.assign(x, {
       nome: base.nome, equipamentoIds: base.equipamentoIds.slice(), tags: base.tags.slice(),
       musculos: base.musculos.slice(), padrao: base.padrao, nivel: base.nivel,
-      tempoMedioSeg: base.tempoMedioSeg, obs: base.obs, ativo: true,
+      tempoMedioSeg: base.tempoMedioSeg, multiarticular: base.multiarticular, obs: base.obs, ativo: true,
     });
     mudou = true;
   }
 
-  // 3. fusões de inventário (itens do coach que eram o mesmo aparelho do catálogo)
+  // 4. fusões de inventário (itens do coach que eram o mesmo aparelho do catálogo)
   for (const { de, para, somarQuantidade } of MIGRACOES_INVENTARIO) {
     for (const antigo of de) {
       const k = chave(antigo);
@@ -212,7 +225,7 @@ function migrarCatalogo() {
     }
   }
 
-  // 4. equipamentos semeados: rótulos da semente, quantidades do coach
+  // 5. equipamentos semeados: rótulos da semente, quantidades do coach
   for (const e of d.inventario) {
     const base = seedInv.get(e.id);
     if (!base) continue;

@@ -16,7 +16,7 @@
  * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
  * @typedef {import('../config/padroes.js').Padrao} Padrao
  */
-import { EXERCICIOS, EXERCICIO_POR_ID } from '../data/exercicios.js';
+import { EXERCICIOS, EXERCICIO_POR_ID, serveModalidade } from '../data/exercicios.js';
 import { MODALIDADES } from '../config/modalidades.js';
 import { padroesObrigatorios, PADROES } from '../config/padroes.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
@@ -116,7 +116,7 @@ export function gerarTreino(opcoes) {
     ...idsEvitar,
   ]);
   const naoMobilidadePura = (/** @type {Exercicio} */ e) => !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade');
-  const naModalidade = (/** @type {Exercicio} */ e) => e.categorias.includes(modalidade) && (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao));
+  const naModalidade = (/** @type {Exercicio} */ e) => serveModalidade(e, modalidade) && (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao));
   const pool = EXERCICIOS.filter(
     (e) => naModalidade(e) && NIVEL_ORDEM[e.nivel] <= nivelAluno && naoMobilidadePura(e) && !idsEvitarSet.has(e.id)
   );
@@ -372,7 +372,7 @@ export function alternativasViaveis(treino, indice) {
   return EXERCICIOS.filter((e) => {
     if (e.id === alvo.exercicio.id || usados.has(e.id)) return false;
     if (e.padrao !== alvo.exercicio.padrao) return false;
-    if (!e.categorias.includes(treino.modalidade)) return false;
+    if (!serveModalidade(e, treino.modalidade)) return false;
     if (NIVEL_ORDEM[e.nivel] > nivelAluno) return false;
     return verificarViabilidade([...outros, e], treino.nAlunos, treino.principal.length).ok;
   });
@@ -427,7 +427,7 @@ export function alternativasPorIds(ids, indice, modalidade, nivel, nAlunos = ALU
   return EXERCICIOS.filter((e) => {
     if (usados.has(e.id) || e.id === alvo.id) return false;
     if (e.padrao !== alvo.padrao) return false;
-    if (!e.categorias.includes(/** @type {any} */ (modalidade))) return false;
+    if (!serveModalidade(e, modalidade)) return false;
     if (NIVEL_ORDEM[e.nivel] > nivelAluno) return false;
     return verificarViabilidade([...outros, e], nAlunos, ids.length).ok;
   });

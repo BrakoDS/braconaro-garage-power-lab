@@ -9,6 +9,9 @@
  *  - Variante de equipamento NÃO é redundância: existe para o rodízio conseguir
  *    dividir a turma quando um aparelho já está ocupado.
  *  - "polia" foi padronizado para "monocross" (é o aparelho que o box tem).
+ *  - FORÇA e HIPERTROFIA são a MESMA lista ('musculacao'). O que muda entre os dois
+ *    dias é a prescrição (reps/séries/descanso) e um recorte automático: Força só
+ *    usa exercício COMPOSTO e que aceite CARGA EXTERNA (ver `servePraForca`).
  *  - Os 8 exercícios da aula fixa de Hyrox ficam SÓ com a categoria 'hyrox' —
  *    são referência do coach e não devem alimentar o montador. A única exceção
  *    é o Wall ball shot, que o coach também usa nas outras modalidades.
@@ -24,7 +27,10 @@
  * @property {Padrao} padrao                  Padrão principal de movimento
  * @property {string[]} musculosPrimarios
  * @property {string[]} musculosSecundarios
- * @property {Array<'forca'|'hipertrofia'|'hiit'|'hyrox'|'hibrido'|'gap'|'mobilidade'|'tecnica'|'wod'|'cross'>} categorias  ('cross' = cross-training/WOD; nos built-in o token é 'wod', exibido como CROSS na Academia)
+ * @property {Array<'musculacao'|'hiit'|'hyrox'|'hibrido'|'gap'|'mobilidade'|'tecnica'|'wod'|'cross'>} categorias
+ *           'musculacao' = exercício de academia; serve a Força E Hipertrofia — o que separa
+ *           as duas é a REGRA, não a lista (ver `servePraForca` abaixo). 'cross' = cross-training/
+ *           WOD; nos built-in o token é 'wod', exibido como CROSS na Academia.
  * @property {string[]} equipamento           IDs de equipamentos.js
  * @property {'iniciante'|'intermediario'|'avancado'} nivel
  * @property {number} tempoMedioSeg           Tempo médio de execução de 1 série/rodada
@@ -37,6 +43,8 @@
  * @property {string} [obs]
  */
 
+import { EQUIP_COM_CARGA } from './equipamentos.js';
+
 /** @type {Exercicio[]} */
 export const EXERCICIOS = [
   // ===================== EMPURRAR =====================
@@ -44,49 +52,49 @@ export const EXERCICIOS = [
     id: 'supino_smith', nome: 'Supino reto no Smith',
     descricao: 'Empurrar horizontal na barra guiada, deitado no banco reto.',
     padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: ['triceps', 'ombro'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['smith', 'banco'],
+    categorias: ['musculacao'], equipamento: ['smith', 'banco'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'supino_inclinado_smith', nome: 'Supino inclinado no Smith',
     descricao: 'Banco a 30–45° sob a barra guiada — foco na porção superior do peito.',
     padrao: 'empurrar', musculosPrimarios: ['peito', 'ombro'], musculosSecundarios: ['triceps'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['smith', 'banco'],
+    categorias: ['musculacao'], equipamento: ['smith', 'banco'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'supino_halter', nome: 'Supino reto com halteres',
     descricao: 'Deitado no banco reto, empurrar halteres — mais amplitude e estabilização que o Smith.',
     padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: ['triceps', 'ombro'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'supino_inclinado_halter', nome: 'Supino inclinado com halteres',
     descricao: 'Banco a 30–45°, empurrar halteres para cima.',
     padrao: 'empurrar', musculosPrimarios: ['peito', 'ombro'], musculosSecundarios: ['triceps'],
-    categorias: ['hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'intermediario', tempoMedioSeg: 35,
   },
   {
     id: 'crucifixo_halter', nome: 'Crucifixo com halteres',
     descricao: 'Deitado no banco reto, abrir e fechar os braços em arco — isolamento do peitoral.',
     padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'crucifixo_inclinado_halter', nome: 'Crucifixo inclinado com halteres',
     descricao: 'Abertura no banco a 30–45° — foco na porção superior/clavicular do peito.',
     padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: ['ombro'],
-    categorias: ['hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'crucifixo_crossover_inferior', nome: 'Crucifixo no crossover inferior',
     descricao: 'Polias na altura baixa, cruzar os braços de baixo para cima — peito superior/clavicular.',
     padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: ['ombro'],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_manopla'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_manopla'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false, ocupaTudo: true,
     obs: 'Ocupa as 2 torres de monocross ao mesmo tempo — bloqueia a estação inteira de polia.',
   },
@@ -94,7 +102,7 @@ export const EXERCICIOS = [
     id: 'crucifixo_crossover_medial', nome: 'Crucifixo no crossover medial',
     descricao: 'Polias na altura do ombro, cruzar os braços à frente do peito — peito medial.',
     padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_manopla'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_manopla'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false, ocupaTudo: true,
     obs: 'Ocupa as 2 torres de monocross ao mesmo tempo — bloqueia a estação inteira de polia.',
   },
@@ -102,7 +110,7 @@ export const EXERCICIOS = [
     id: 'crucifixo_crossover_superior', nome: 'Crucifixo no crossover superior',
     descricao: 'Polias na altura alta, cruzar os braços de cima para baixo — peito inferior/esternal.',
     padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_manopla'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_manopla'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false, ocupaTudo: true,
     obs: 'Ocupa as 2 torres de monocross ao mesmo tempo — bloqueia a estação inteira de polia.',
   },
@@ -110,112 +118,112 @@ export const EXERCICIOS = [
     id: 'desenvolvimento_smith', nome: 'Desenvolvimento militar no Smith',
     descricao: 'Empurrar vertical na barra guiada, em pé ou sentado.',
     padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: ['triceps'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['smith'],
+    categorias: ['musculacao'], equipamento: ['smith'],
     nivel: 'intermediario', tempoMedioSeg: 35,
   },
   {
     id: 'desenvolvimento_halter', nome: 'Desenvolvimento militar com halteres',
     descricao: 'Empurrar halteres acima da cabeça, sentado no banco.',
     padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: ['triceps'],
-    categorias: ['forca', 'hipertrofia', 'hibrido'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao', 'hibrido'], equipamento: ['halter', 'banco'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'elevacao_lateral_halter', nome: 'Elevação lateral com halteres',
     descricao: 'Braços quase estendidos, elevar os halteres até a linha do ombro.',
     padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: [],
-    categorias: ['hipertrofia', 'hibrido'], equipamento: ['halter'],
+    categorias: ['musculacao', 'hibrido'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'elevacao_lateral_monocross', nome: 'Elevação lateral no monocross',
     descricao: 'Manopla na polia baixa, elevar o braço lateralmente — tensão constante do cabo.',
     padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_manopla'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_manopla'],
     nivel: 'intermediario', tempoMedioSeg: 30, unilateral: true, multiarticular: false,
   },
   {
     id: 'elevacao_frontal_halter', nome: 'Elevação frontal com halteres',
     descricao: 'Braços estendidos à frente, elevar até a linha dos olhos — deltoide anterior.',
     padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['halter'],
+    categorias: ['musculacao'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'crucifixo_invertido_halter', nome: 'Crucifixo invertido com halteres',
     descricao: 'Tronco inclinado à frente, abrir os braços para trás — isolamento de deltoide posterior.',
     padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: ['costas'],
-    categorias: ['hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'encolhimento_halter', nome: 'Encolhimento de trapézio com halteres',
     descricao: 'Halteres ao lado do corpo, elevar os ombros na vertical — trapézio superior.',
     padrao: 'empurrar', musculosPrimarios: ['trapezio'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['halter'],
+    categorias: ['musculacao'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'triceps_testa_halter', nome: 'Tríceps testa com halteres',
     descricao: 'Deitado no banco, descer os halteres até a testa flexionando só os cotovelos.',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'triceps_testa_monocross', nome: 'Tríceps testa no monocross',
     descricao: 'Deitado/inclinado, estender a corda da polia sobre a testa — tensão constante do cabo.',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_corda'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_corda'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'triceps_testa_barra', nome: 'Tríceps testa (barra + banco)',
     descricao: 'Deitado no banco, descer a barra até a testa flexionando só os cotovelos (skullcrusher).',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['barra_livre', 'banco'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'banco'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'triceps_corda_monocross', nome: 'Tríceps corda no monocross',
     descricao: 'Cotovelos fixos ao tronco, estender a corda na polia alta.',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia', 'hibrido'], equipamento: ['monocross', 'pux_corda'],
+    categorias: ['musculacao', 'hibrido'], equipamento: ['monocross', 'pux_corda'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'triceps_barra_monocross', nome: 'Tríceps barra no monocross',
     descricao: 'Barra reta de 60 cm na polia alta, estender os cotovelos junto ao tronco.',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_barra_60'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_barra_60'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'triceps_coice_halter', nome: 'Tríceps coice com halteres',
     descricao: 'Tronco inclinado, cotovelo fixo atrás, estender o antebraço até o pico de contração.',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['halter'],
+    categorias: ['musculacao'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'triceps_coice_monocross', nome: 'Tríceps coice no monocross',
     descricao: 'Manopla na polia, tronco inclinado e cotovelo fixo — coice com tensão constante.',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_manopla'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_manopla'],
     nivel: 'iniciante', tempoMedioSeg: 30, unilateral: true, multiarticular: false,
   },
   {
     id: 'triceps_frances_halter', nome: 'Tríceps francês com halteres',
     descricao: 'Halter acima da cabeça, descer atrás da nuca e estender — foco na cabeça longa.',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['halter'],
+    categorias: ['musculacao'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'triceps_mergulho_banco', nome: 'Tríceps mergulho no banco',
     descricao: 'Mãos na borda do banco, descer e subir o corpo flexionando os cotovelos.',
     padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: ['peito', 'ombro'],
-    categorias: ['hipertrofia'], equipamento: ['banco', 'corporal'],
+    categorias: ['musculacao'], equipamento: ['banco', 'corporal'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
   {
@@ -251,21 +259,21 @@ export const EXERCICIOS = [
     id: 'landmine_press', nome: 'Landmine press (cavalinho)',
     descricao: 'Empurrar a barra apoiada no suporte de cavalinho, unilateral.',
     padrao: 'empurrar', musculosPrimarios: ['ombro', 'peito'], musculosSecundarios: ['triceps', 'core'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['cavalinho', 'barra_livre'],
+    categorias: ['musculacao'], equipamento: ['cavalinho', 'barra_livre'],
     nivel: 'intermediario', tempoMedioSeg: 35, unilateral: true,
   },
   {
     id: 'flexao_trx', nome: 'Flexão no TRX',
     descricao: 'Flexão com as mãos nas alças — dificuldade regulada pelo ângulo do corpo.',
     padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: ['triceps', 'ombro', 'core'],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['trx'],
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['trx'],
     nivel: 'intermediario', tempoMedioSeg: 30,
   },
   {
     id: 'desenvolvimento_y_trx', nome: 'Desenvolvimento em Y no TRX',
     descricao: 'Corpo inclinado, abrir os braços em Y acima da cabeça — deltoide posterior e trapézio inferior.',
     padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: ['trapezio', 'estabilizadores'],
-    categorias: ['hipertrofia'], equipamento: ['trx'],
+    categorias: ['musculacao'], equipamento: ['trx'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
 
@@ -274,175 +282,175 @@ export const EXERCICIOS = [
     id: 'puxada_aberta_pronada', nome: 'Puxada aberta pronada (monocross)',
     descricao: 'Barra de 1,5 m em pegada pronada aberta, puxar de cima para baixo até o peito.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps'],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_barra_15'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_barra_15'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'puxada_aberta_supinada', nome: 'Puxada aberta supinada (monocross)',
     descricao: 'Mesma barra em pegada supinada — mais dorsal baixo e bíceps.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps'],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_barra_15'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_barra_15'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'puxada_fechada_triangulo', nome: 'Puxada fechada triângulo (monocross)',
     descricao: 'Triângulo de pegada neutra estreita, puxar até o peito.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps'],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_triangulo'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_triangulo'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'puxada_aberta_neutra', nome: 'Puxada aberta neutra (monocross)',
     descricao: 'Puxador aberto de pegada neutra — ombro em posição mais confortável.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps'],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_neutro'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_neutro'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'puxada_braco_estendido', nome: 'Puxada com braço estendido no monocross',
     descricao: 'Cotovelos fixos, puxar a barra da polia alta até as coxas — isolamento de dorsal.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_barra_15'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_barra_15'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'remada_aberta_pronada', nome: 'Remada aberta pronada (monocross)',
     descricao: 'Sentado, puxar a barra de 1,5 m em pegada pronada até o abdômen.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'antebraco'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['monocross', 'pux_barra_15'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_barra_15'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'remada_aberta_supinada', nome: 'Remada aberta supinada (monocross)',
     descricao: 'Mesma remada com pegada supinada — cotovelo mais rente ao corpo.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'antebraco'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['monocross', 'pux_barra_15'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_barra_15'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'remada_fechada_triangulo', nome: 'Remada fechada triângulo (monocross)',
     descricao: 'Puxar o triângulo em direção ao abdômen, sentado.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'antebraco'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['monocross', 'pux_triangulo'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_triangulo'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'remada_aberta_neutra', nome: 'Remada aberta neutra (monocross)',
     descricao: 'Remada sentada com o puxador aberto neutro.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'antebraco'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['monocross', 'pux_neutro'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_neutro'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'remada_cavalinho_fechada', nome: 'Remada cavalinho pegada fechada',
     descricao: 'Barra no suporte de cavalinho, puxar com o pegador fechado (neutro estreito).',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'antebraco'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['cavalinho', 'barra_livre', 'pux_cavalinho'],
+    categorias: ['musculacao'], equipamento: ['cavalinho', 'barra_livre', 'pux_cavalinho'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'remada_cavalinho_aberta', nome: 'Remada cavalinho pegada aberta',
     descricao: 'Mesma remada com o pegador aberto — mais dorsal alto e deltoide posterior.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['ombro', 'biceps'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['cavalinho', 'barra_livre', 'pux_cavalinho'],
+    categorias: ['musculacao'], equipamento: ['cavalinho', 'barra_livre', 'pux_cavalinho'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'remada_curvada_barra', nome: 'Remada curvada com barra',
     descricao: 'Tronco inclinado, puxar a barra livre em direção ao abdômen.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'posterior_coxa'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['barra_livre', 'anilhas'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'anilhas'],
     nivel: 'intermediario', tempoMedioSeg: 35,
   },
   {
     id: 'remada_halter_unilateral', nome: 'Remada unilateral com halter',
     descricao: 'Apoio no banco, puxar halter ao lado do tronco.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'core'],
-    categorias: ['forca', 'hipertrofia', 'hibrido'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao', 'hibrido'], equipamento: ['halter', 'banco'],
     nivel: 'iniciante', tempoMedioSeg: 40, unilateral: true,
   },
   {
     id: 'face_pull_monocross', nome: 'Face pull na corda',
     descricao: 'Puxar a corda em direção ao rosto, foco em deltoide posterior.',
     padrao: 'puxar', musculosPrimarios: ['ombro', 'costas'], musculosSecundarios: ['estabilizadores'],
-    categorias: ['forca', 'hipertrofia', 'mobilidade'], equipamento: ['monocross', 'pux_corda'],
+    categorias: ['musculacao', 'mobilidade'], equipamento: ['monocross', 'pux_corda'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
   {
     id: 'pullover_halter', nome: 'Pullover com halter',
     descricao: 'Deitado no banco, levar o halter atrás da cabeça e voltar — dorsal em alongamento.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['peito'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'rosca_barra', nome: 'Rosca direta com barra',
     descricao: 'Pegada supinada na barra, flexionar até o ombro com cotovelos fixos — permite mais carga.',
     padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: ['antebraco'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['barra_livre', 'anilhas'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'anilhas'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'rosca_direta_halter', nome: 'Rosca direta com halteres',
     descricao: 'Cotovelos fixos ao tronco, flexionar os halteres até o ombro.',
     padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia', 'hibrido'], equipamento: ['halter'],
+    categorias: ['musculacao', 'hibrido'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'rosca_martelo', nome: 'Rosca martelo com halteres',
     descricao: 'Pegada neutra (polegar para cima), flexionar os halteres — pega braquial/braquiorradial.',
     padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: ['antebraco'],
-    categorias: ['hipertrofia'], equipamento: ['halter'],
+    categorias: ['musculacao'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'rosca_monocross', nome: 'Rosca no monocross',
     descricao: 'Barra de 60 cm na polia baixa, flexionar mantendo tensão constante do cabo.',
     padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_barra_60'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_barra_60'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'rosca_banco_45', nome: 'Rosca no banco 45° (inclinada)',
     descricao: 'Sentado no banco inclinado, braços atrás do tronco — alonga a cabeça longa do bíceps.',
     padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'rosca_concentrada', nome: 'Rosca concentrada',
     descricao: 'Sentado, cotovelo apoiado na face interna da coxa, flexionar um braço por vez.',
     padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['halter', 'banco'],
+    categorias: ['musculacao'], equipamento: ['halter', 'banco'],
     nivel: 'iniciante', tempoMedioSeg: 30, unilateral: true, multiarticular: false,
   },
   {
     id: 'rosca_scott', nome: 'Rosca Scott',
     descricao: 'Braços apoiados no banco Scott, flexionar a barra — elimina a ajuda do tronco.',
     padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['barra_livre', 'banco_scott'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'banco_scott'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'rosca_inversa_barra', nome: 'Rosca inversa com barra',
     descricao: 'Pegada pronada na barra, flexionar até o ombro — braquiorradial e extensores do antebraço.',
     padrao: 'puxar', musculosPrimarios: ['antebraco'], musculosSecundarios: ['biceps'],
-    categorias: ['hipertrofia'], equipamento: ['barra_livre', 'anilhas'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'anilhas'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'rosca_punho', nome: 'Rosca de punho (wrist curl)',
     descricao: 'Antebraços apoiados no banco, flexionar só os punhos com a barra.',
     padrao: 'puxar', musculosPrimarios: ['antebraco'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['barra_livre', 'banco'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'banco'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'preensao_hand_grip', nome: 'Preensão no hand grip',
     descricao: 'Fechar o hand grip ajustável em repetições ou isometria — força de pegada.',
     padrao: 'puxar', musculosPrimarios: ['antebraco'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['hand_grip'],
+    categorias: ['musculacao'], equipamento: ['hand_grip'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
@@ -465,14 +473,14 @@ export const EXERCICIOS = [
     id: 'remada_trx', nome: 'Remada no TRX',
     descricao: 'Corpo inclinado sob as alças, puxar o tronco até as mãos.',
     padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['biceps', 'core'],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['trx'],
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['trx'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
   {
     id: 'rosca_trx', nome: 'Rosca bíceps no TRX',
     descricao: 'Corpo inclinado para trás, flexionar os cotovelos trazendo as mãos à testa.',
     padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['trx'],
+    categorias: ['musculacao'], equipamento: ['trx'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
@@ -489,63 +497,63 @@ export const EXERCICIOS = [
     id: 'agachamento_smith', nome: 'Agachamento no Smith',
     descricao: 'Agachamento guiado, profundidade controlada.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: ['gluteo', 'posterior_coxa'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['smith'],
+    categorias: ['musculacao'], equipamento: ['smith'],
     nivel: 'iniciante', tempoMedioSeg: 40,
   },
   {
     id: 'agachamento_frontal', nome: 'Agachamento frontal',
     descricao: 'Barra apoiada à frente dos ombros — tronco mais ereto e ênfase no quadríceps.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['barra_livre', 'anilhas'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'anilhas'],
     nivel: 'intermediario', tempoMedioSeg: 40,
   },
   {
     id: 'bulgaro_caixote', nome: 'Agachamento búlgaro no caixote',
     descricao: 'Pé de trás apoiado no caixote, agachar unilateral.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['estabilizadores'],
-    categorias: ['hipertrofia'], equipamento: ['caixote', 'halter'],
+    categorias: ['musculacao'], equipamento: ['caixote', 'halter'],
     nivel: 'avancado', tempoMedioSeg: 45, unilateral: true,
   },
   {
     id: 'leg_press_vertical_smith', nome: 'Vertical Leg Press no Smith',
     descricao: 'Deitado sob a barra guiada, empurrar a carga com os pés na vertical.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: ['gluteo'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['smith'],
+    categorias: ['musculacao'], equipamento: ['smith'],
     nivel: 'intermediario', tempoMedioSeg: 40,
   },
   {
     id: 'cadeira_extensora', nome: 'Cadeira extensora',
     descricao: 'Sentado, estender os joelhos contra o rolo — isolamento de quadríceps.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['cadeira_extensora'],
+    categorias: ['musculacao'], equipamento: ['cadeira_extensora'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'afundo_halter', nome: 'Afundo com halteres',
     descricao: 'Passada à frente/trás segurando halteres.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['posterior_coxa'],
-    categorias: ['forca', 'hipertrofia', 'hibrido'], equipamento: ['halter'],
+    categorias: ['musculacao', 'hibrido'], equipamento: ['halter'],
     nivel: 'intermediario', tempoMedioSeg: 40,
   },
   {
     id: 'sissy_squat', nome: 'Sissy squat',
     descricao: 'Joelhos à frente e tronco inclinado para trás, descer flexionando só os joelhos — isola o quadríceps.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['corporal'],
+    categorias: ['musculacao'], equipamento: ['corporal'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'panturrilha_em_pe', nome: 'Panturrilha em pé (livre/step)',
     descricao: 'Ponta dos pés na borda do step, subir e descer em amplitude total (pode segurar halter).',
     padrao: 'quadriceps', musculosPrimarios: ['panturrilha'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['corporal', 'step'],
+    categorias: ['musculacao'], equipamento: ['corporal', 'step'],
     nivel: 'iniciante', tempoMedioSeg: 25, multiarticular: false,
   },
   {
     id: 'panturrilha_smith', nome: 'Elevação de panturrilha no Smith',
     descricao: 'Em pé na barra guiada, subir na ponta dos pés em amplitude total.',
     padrao: 'quadriceps', musculosPrimarios: ['panturrilha'], musculosSecundarios: [],
-    categorias: ['forca', 'hipertrofia', 'hibrido'], equipamento: ['smith'],
+    categorias: ['musculacao', 'hibrido'], equipamento: ['smith'],
     nivel: 'iniciante', tempoMedioSeg: 25, multiarticular: false,
   },
   {
@@ -580,7 +588,7 @@ export const EXERCICIOS = [
     id: 'box_step_up', nome: 'Step-up no caixote',
     descricao: 'Subir no caixote de 30 cm alternando as pernas, com ou sem carga.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha'],
-    categorias: ['forca', 'hipertrofia', 'hiit', 'wod'], equipamento: ['caixote'],
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['caixote'],
     nivel: 'iniciante', tempoMedioSeg: 35, unilateral: true,
   },
   {
@@ -603,14 +611,14 @@ export const EXERCICIOS = [
     id: 'agachamento_trx', nome: 'Agachamento no TRX',
     descricao: 'Segurar as alças e agachar com assistência — boa porta de entrada para o iniciante.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['trx'],
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['trx'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
   {
     id: 'afundo_trx', nome: 'Afundo no TRX',
     descricao: 'Pé de trás na alça suspensa, descer em afundo unilateral.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['estabilizadores'],
-    categorias: ['hipertrofia'], equipamento: ['trx'],
+    categorias: ['musculacao'], equipamento: ['trx'],
     nivel: 'intermediario', tempoMedioSeg: 40, unilateral: true,
   },
   {
@@ -627,84 +635,84 @@ export const EXERCICIOS = [
     id: 'terra_barra_livre', nome: 'Levantamento terra (barra livre)',
     descricao: 'Levantar a barra do chão, dobradiça de quadril.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa', 'gluteo', 'costas'], musculosSecundarios: ['core', 'antebraco'],
-    categorias: ['forca'], equipamento: ['barra_livre', 'anilhas'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'anilhas'],
     nivel: 'avancado', tempoMedioSeg: 45,
   },
   {
     id: 'rdl_smith', nome: 'Levantamento terra romeno no Smith',
     descricao: 'Quadril para trás, barra desce rente às pernas.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa', 'gluteo'], musculosSecundarios: ['costas'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['smith'],
+    categorias: ['musculacao'], equipamento: ['smith'],
     nivel: 'iniciante', tempoMedioSeg: 40,
   },
   {
     id: 'rdl_halter', nome: 'Levantamento terra romeno com halteres',
     descricao: 'Mesma dobradiça de quadril com halteres — libera o Smith no rodízio.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa', 'gluteo'], musculosSecundarios: ['costas'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['halter'],
+    categorias: ['musculacao'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 40,
   },
   {
     id: 'rdl_barra', nome: 'Levantamento terra romeno com barra',
     descricao: 'Dobradiça de quadril com barra livre — permite mais carga que a versão com halteres.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa', 'gluteo'], musculosSecundarios: ['costas'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['barra_livre', 'anilhas'],
+    categorias: ['musculacao'], equipamento: ['barra_livre', 'anilhas'],
     nivel: 'intermediario', tempoMedioSeg: 40,
   },
   {
     id: 'good_morning_barra', nome: 'Good morning (barra)',
     descricao: 'Barra nas costas, flexão de tronco com joelhos semi.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa'], musculosSecundarios: ['gluteo', 'core'],
-    categorias: ['forca', 'hipertrofia', 'tecnica'], equipamento: ['barra_livre'],
+    categorias: ['musculacao', 'tecnica'], equipamento: ['barra_livre'],
     nivel: 'intermediario', tempoMedioSeg: 35,
   },
   {
     id: 'mesa_flexora', nome: 'Mesa flexora',
     descricao: 'Sentado/deitado, flexionar os joelhos contra o rolo — isolamento de posterior de coxa.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['mesa_flexora'],
+    categorias: ['musculacao'], equipamento: ['mesa_flexora'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'flexora_nordica', nome: 'Flexora nórdica (nordic curl)',
     descricao: 'Ajoelhado com pés presos, descer o tronco freando com o posterior e voltar.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa'], musculosSecundarios: ['gluteo'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['colchonete'],
+    categorias: ['musculacao'], equipamento: ['colchonete'],
     nivel: 'avancado', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'elevacao_pelvica', nome: 'Elevação pélvica (hip thrust)',
     descricao: 'Ombros no banco, empurrar o quadril com carga sobre o quadril.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: ['posterior_coxa'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['banco', 'halter'],
+    categorias: ['musculacao'], equipamento: ['banco', 'halter'],
     nivel: 'iniciante', tempoMedioSeg: 35,
   },
   {
     id: 'ponte_gluteo', nome: 'Ponte de glúteo no chão',
     descricao: 'Deitado com os pés no chão, elevar o quadril até a linha do tronco — versão peso corporal do hip thrust.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: ['posterior_coxa', 'core'],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['colchonete'],
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['colchonete'],
     nivel: 'iniciante', tempoMedioSeg: 30,
   },
   {
     id: 'coice_gluteo_monocross', nome: 'Coice de glúteo no monocross',
     descricao: 'Tornozeleira na polia baixa, estender o quadril para trás — isolamento de glúteo máximo.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: ['posterior_coxa'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['monocross', 'pux_tornozeleira'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_tornozeleira'],
     nivel: 'iniciante', tempoMedioSeg: 30, unilateral: true, multiarticular: false,
   },
   {
     id: 'abducao_quadril_monocross', nome: 'Abdução de quadril no monocross',
     descricao: 'Tornozeleira na polia baixa, afastar a perna para o lado — isolamento de glúteo médio.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_tornozeleira'],
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_tornozeleira'],
     nivel: 'iniciante', tempoMedioSeg: 30, unilateral: true, multiarticular: false,
   },
   {
     id: 'agachamento_sumo', nome: 'Agachamento sumô',
     descricao: 'Base ampla e pontas dos pés abertas, agachar com halter entre as pernas — adutores e glúteo.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo', 'quadriceps'], musculosSecundarios: ['posterior_coxa'],
-    categorias: ['forca', 'hipertrofia'], equipamento: ['halter'],
+    categorias: ['musculacao'], equipamento: ['halter'],
     nivel: 'iniciante', tempoMedioSeg: 40,
   },
   {
@@ -718,14 +726,14 @@ export const EXERCICIOS = [
     id: 'extensao_lombar', nome: 'Extensão lombar (superman)',
     descricao: 'Deitado de bruços, elevar tronco e pernas simultaneamente — eretores da espinha.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['lombar'], musculosSecundarios: ['gluteo'],
-    categorias: ['hipertrofia'], equipamento: ['colchonete'],
+    categorias: ['musculacao'], equipamento: ['colchonete'],
     nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'flexao_joelho_trx', nome: 'Flexão de joelho no TRX (hamstring curl)',
     descricao: 'Deitado com os calcanhares nas alças, flexionar os joelhos elevando o quadril.',
     padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa'], musculosSecundarios: ['gluteo', 'core'],
-    categorias: ['hipertrofia'], equipamento: ['trx'],
+    categorias: ['musculacao'], equipamento: ['trx'],
     nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
 
@@ -734,43 +742,43 @@ export const EXERCICIOS = [
     id: 'abdominal_supra', nome: 'Abdominal Supra (Crunch)',
     descricao: 'Deitado, elevar o tronco flexionando a coluna — reto abdominal superior.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: [],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['colchonete'],
-    nivel: 'iniciante', tempoMedioSeg: 30,
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['colchonete'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'abdominal_infra', nome: 'Abdominal Infra (Elevação de pernas)',
     descricao: 'Deitado, elevar as pernas estendidas tirando o quadril do chão — porção inferior.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: [],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['colchonete'],
-    nivel: 'iniciante', tempoMedioSeg: 30,
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['colchonete'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'abdominal_remador', nome: 'Abdominal Remador',
     descricao: 'Sentado, aproximar joelhos e tronco ao mesmo tempo, como uma remada.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: ['quadriceps'],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['colchonete'],
-    nivel: 'intermediario', tempoMedioSeg: 30,
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['colchonete'],
+    nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'abdominal_monocross', nome: 'Abdominal no monocross (cable crunch)',
     descricao: 'Ajoelhado sob a polia alta com a corda, flexionar a coluna contra a carga.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: [],
-    categorias: ['hipertrofia'], equipamento: ['monocross', 'pux_corda'],
-    nivel: 'intermediario', tempoMedioSeg: 30,
+    categorias: ['musculacao'], equipamento: ['monocross', 'pux_corda'],
+    nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'russian_twist', nome: 'Russian twist',
     descricao: 'Sentado, rotação de tronco segurando anilha.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: [],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['anilhas', 'colchonete'],
-    nivel: 'iniciante', tempoMedioSeg: 30,
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['anilhas', 'colchonete'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'abdominal_bicicleta', nome: 'Abdominal bicicleta',
     descricao: 'Deitado, alternar cotovelo e joelho opostos em ritmo contínuo — oblíquos.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: [],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['colchonete'],
-    nivel: 'iniciante', tempoMedioSeg: 30,
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['colchonete'],
+    nivel: 'iniciante', tempoMedioSeg: 30, multiarticular: false,
   },
   {
     id: 'prancha', nome: 'Prancha isométrica',
@@ -797,15 +805,15 @@ export const EXERCICIOS = [
     id: 'pallof_press', nome: 'Pallof press',
     descricao: 'Anti-rotação: empurrar a manopla da polia à frente resistindo à rotação.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: ['estabilizadores'],
-    categorias: ['hipertrofia', 'tecnica'], equipamento: ['monocross', 'pux_manopla'],
-    nivel: 'intermediario', tempoMedioSeg: 35,
+    categorias: ['musculacao', 'tecnica'], equipamento: ['monocross', 'pux_manopla'],
+    nivel: 'intermediario', tempoMedioSeg: 35, multiarticular: false,
   },
   {
     id: 'fallout_trx', nome: 'Fallout no TRX',
     descricao: 'Em pé inclinado, estender os braços à frente resistindo à extensão da lombar.',
     padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: ['ombro', 'estabilizadores'],
-    categorias: ['hipertrofia', 'hiit', 'wod'], equipamento: ['trx'],
-    nivel: 'intermediario', tempoMedioSeg: 30,
+    categorias: ['musculacao', 'hiit', 'wod'], equipamento: ['trx'],
+    nivel: 'intermediario', tempoMedioSeg: 30, multiarticular: false,
   },
 
   // ===================== ESTABILIZADORES / CONDICIONAMENTO =====================
@@ -913,6 +921,41 @@ export const EXERCICIOS = [
     nivel: 'iniciante', tempoMedioSeg: 60,
   },
 ];
+
+/**
+ * O exercício de musculação serve a um dia de FORÇA?
+ *
+ * Força e Hipertrofia saem da mesma lista ('musculacao'); o recorte é automático e
+ * vale só para Força, que pede carga alta (80–95% de 1RM) em poucas reps:
+ *  - COMPOSTO: `multiarticular !== false`. Rosca, panturrilha, cadeira extensora e
+ *    abdominal são acessórios de volume, não levantamentos de força.
+ *  - COM CARGA: pelo menos um equipamento da lista `EQUIP_COM_CARGA`. Derruba os
+ *    compostos de peso corporal (TRX, ponte de glúteo, mergulho no banco), que são
+ *    ótimos em hipertrofia mas não escalam para força máxima.
+ * Hipertrofia usa a lista inteira, sem recorte.
+ * @param {Exercicio} e
+ * @returns {boolean}
+ */
+export function servePraForca(e) {
+  if (e.multiarticular === false) return false;
+  return (e.equipamento || []).some((id) => EQUIP_COM_CARGA.has(id));
+}
+
+/**
+ * O exercício entra num treino desta modalidade?
+ *
+ * Ponto ÚNICO de decisão — Força e Hipertrofia compartilham a lista 'musculacao' e
+ * só Força aplica o recorte de `servePraForca`. As demais modalidades continuam
+ * casando a categoria pelo próprio id.
+ * @param {Exercicio} e
+ * @param {string} modalidade
+ * @returns {boolean}
+ */
+export function serveModalidade(e, modalidade) {
+  if (modalidade === 'forca') return e.categorias.includes('musculacao') && servePraForca(e);
+  if (modalidade === 'hipertrofia') return e.categorias.includes('musculacao');
+  return e.categorias.includes(/** @type {any} */ (modalidade));
+}
 
 /** @type {Record<string, Exercicio>} */
 export const EXERCICIO_POR_ID = Object.fromEntries(EXERCICIOS.map((e) => [e.id, e]));

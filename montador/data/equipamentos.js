@@ -354,6 +354,25 @@ export const EQUIPAMENTOS = [
 ];
 
 /**
+ * Equipamentos que permitem CARGA EXTERNA PROGRESSIVA — os que dá para levar a
+ * 80–95% de 1RM. É o que separa o dia de Força do de Hipertrofia dentro da mesma
+ * lista de musculação: flexão no TRX e ponte de glúteo são compostos legítimos,
+ * mas peso corporal não escala para força máxima.
+ *
+ * Ficam de fora de propósito: corporal, trx, colchonete, caixote, step, banco,
+ * banco_scott, elástico, bastão, hand grip, cordas navais, corrida, turf e air bike
+ * (apoios, acessórios ou peso corporal — nenhum deles é a carga em si). Os puxadores
+ * `pux_*` também ficam de fora porque quem carrega é o monocross, que o exercício
+ * já lista junto.
+ * @type {Set<string>}
+ */
+export const EQUIP_COM_CARGA = new Set([
+  'smith', 'barra_livre', 'anilhas', 'halter', 'halter_pesado', 'kettlebell',
+  'monocross', 'monocross_movel', 'cavalinho', 'mesa_flexora', 'cadeira_extensora',
+  'sandbag', 'sled', 'anilha_olimpica_15', 'wall_ball',
+]);
+
+/**
  * Fusões/remoções de itens do inventário do coach, aplicadas uma vez por versão de
  * semente (ver `academia/db.js`). Casa por id OU por nome (o id de um equipamento
  * criado na Academia é o slug do nome). `somarQuantidade` junta o estoque dos dois
