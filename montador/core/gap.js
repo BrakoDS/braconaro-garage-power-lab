@@ -13,7 +13,7 @@
  * @typedef {import('../data/gap.js').MovGap} MovGap
  * @typedef {import('./volume.js').Volume} Volume
  */
-import { GAP_AQUECIMENTO, GAP_PERNAS, GAP_GLUTEO, GAP_ABDOMEN } from '../data/gap.js';
+import { GAP_AQUECIMENTO, GAP_PERNAS, GAP_GLUTEO, GAP_ABDOMEN, MOV_GAP_POR_ID, PESO_VARIACAO, SERIES_POR_ROUND } from '../data/gap.js';
 import { ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
 
 export const TABATA = { trabalhoSeg: 20, descansoSeg: 10, roundsPorMusica: 8 };
@@ -44,22 +44,39 @@ function embaralhar(arr, rng) {
   return a;
 }
 
-/** Monta os 3 slots de uma música (variações de 1 base) → labels dos 3 exercícios. @param {MovGap} base */
-function slotsVariacoes(base) {
-  const dinamica = base.salto ? `${base.nome} com salto` : base.nome;
-  return [dinamica, `${base.nome} com 3 quicadas`, `${base.nome} isométrico (segura)`];
-}
-/** Slots de bloco unilateral: D, E, terceiro bilateral. @param {MovGap} uni @param {MovGap} terceiro */
-function slotsUnilateral(uni, terceiro) {
-  const t = terceiro.soIsometrico ? `${terceiro.nome}` : (terceiro.quicada ? `${terceiro.nome} com 3 quicadas` : terceiro.nome);
-  return [`${uni.nome} — Lado Direito`, `${uni.nome} — Lado Esquerdo`, t];
-}
-/** Slots de trio: 3 movimentos distintos. @param {MovGap[]} tres */
-function slotsTrio(tres) { return tres.map((m) => m.nome); }
+/**
+ * Slot = um dos 3 exercícios de uma música. Além do rótulo que vai para a tela, carrega
+ * de onde ele veio (`movId`) e QUAL variação é — é o par que permite contar o volume
+ * sem cadastrar "agachamento com 3 quicadas" como exercício próprio.
+ * @typedef {{movId: string, nome: string, variacao: keyof typeof PESO_VARIACAO}} SlotGap
+ */
 
-/** Expande 3 slots em 8 rounds cíclicos. @param {string} titulo @param {string} tipo @param {string[]} slots */
+/** Monta os 3 slots de uma música (variações de 1 movimento base). @param {MovGap} base @returns {SlotGap[]} */
+function slotsVariacoes(base) {
+  return [
+    { movId: base.id, nome: base.salto ? `${base.nome} com salto` : base.nome, variacao: base.salto ? 'salto' : 'dinamica' },
+    { movId: base.id, nome: `${base.nome} com 3 quicadas`, variacao: 'quicada' },
+    { movId: base.id, nome: `${base.nome} isométrico (segura)`, variacao: 'isometrico' },
+  ];
+}
+/** Slots de bloco unilateral: D, E, terceiro bilateral. @param {MovGap} uni @param {MovGap} terceiro @returns {SlotGap[]} */
+function slotsUnilateral(uni, terceiro) {
+  const tVariacao = terceiro.soIsometrico ? 'isometrico' : (terceiro.quicada ? 'quicada' : 'dinamica');
+  const tNome = tVariacao === 'quicada' ? `${terceiro.nome} com 3 quicadas` : terceiro.nome;
+  return [
+    { movId: uni.id, nome: `${uni.nome} — Lado Direito`, variacao: 'unilateral' },
+    { movId: uni.id, nome: `${uni.nome} — Lado Esquerdo`, variacao: 'unilateral' },
+    { movId: terceiro.id, nome: tNome, variacao: /** @type {any} */ (tVariacao) },
+  ];
+}
+/** Slots de trio: 3 movimentos distintos. @param {MovGap[]} tres @returns {SlotGap[]} */
+function slotsTrio(tres) {
+  return tres.map((m) => ({ movId: m.id, nome: m.nome, variacao: /** @type {any} */ (m.soIsometrico ? 'isometrico' : 'dinamica') }));
+}
+
+/** Expande 3 slots em 8 rounds cíclicos. @param {string} titulo @param {string} tipo @param {SlotGap[]} slots */
 function musica(titulo, tipo, slots) {
-  return { titulo, tipo, rounds: CICLO8.map((idx, i) => ({ n: i + 1, nome: slots[idx] })) };
+  return { titulo, tipo, rounds: CICLO8.map((idx, i) => ({ n: i + 1, ...slots[idx] })) };
 }
 
 /**
@@ -136,14 +153,40 @@ export function estimarDuracaoSeg() {
 }
 
 /**
- * Volume nominal (condicionamento) p/ manter cenários/mesociclo válidos quando o GAP
- * entra na grade (ou substitui o HIIT no mesociclo). Cobre trem inferior + core.
+ * Volume REAL da aula gerada — não um número nominal.
+ *
+ * Cada round vale meia série (`SERIES_POR_ROUND`), ajustada pelo peso da variação
+ * (`PESO_VARIACAO`): a quicada conta mais que o movimento liso, o isométrico conta
+ * menos. A variação não é um exercício cadastrado — é o movimento base com um
+ * multiplicador, que é o que resolve "agachamento com 3 quicadas" sem inflar o
+ * catálogo. O músculo/padrão vem do movimento base (ver data/gap.js).
+ *
+ * Sem a aula em mãos, devolve zeros — quem chama passa o resultado de `gerarGap`.
+ * @param {ReturnType<typeof gerarGap>} [gap]
  * @returns {Volume}
  */
-export function volumeGap() {
-  return {
-    porMusculo: {},
-    porPadrao: { quadriceps: 9, posterior_gluteo: 9, core: 8, empurrar: 2 },
-    totalSeries: 28,
-  };
+export function volumeGap(gap) {
+  /** @type {Record<string, number>} */ const porMusculo = {};
+  /** @type {Record<string, number>} */ const porPadrao = {};
+  let totalSeries = 0;
+
+  for (const parte of gap?.partes || []) {
+    for (const m of parte.musicas) {
+      for (const r of m.rounds) {
+        const mov = MOV_GAP_POR_ID[r.movId];
+        if (!mov) continue;
+        const series = SERIES_POR_ROUND * (PESO_VARIACAO[r.variacao] ?? 1);
+        totalSeries += series;
+        if (mov.padrao) porPadrao[mov.padrao] = (porPadrao[mov.padrao] || 0) + series;
+        // mesma convenção de volume.js: primeiro músculo é primário (1,0), resto secundário (0,5)
+        (mov.musculos || []).forEach((musc, i) => {
+          porMusculo[musc] = (porMusculo[musc] || 0) + series * (i === 0 ? 1 : 0.5);
+        });
+      }
+    }
+  }
+
+  const arredondar = (/** @type {Record<string, number>} */ o) =>
+    Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v * 10) / 10]));
+  return { porMusculo: arredondar(porMusculo), porPadrao: arredondar(porPadrao), totalSeries: Math.round(totalSeries) };
 }

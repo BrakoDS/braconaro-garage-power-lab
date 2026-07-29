@@ -319,7 +319,7 @@ function montarGap({ dia, semana, nivel, nAlunos, seed }) {
     aquecimento: [],
     principal: [],
     finalizador: null,
-    volume: volumeGap(),
+    volume: volumeGap(gap),
     viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'tabata', nota: gap.viabilidade.nota },
     tempoAquecimentoSeg: 0,
     tempoPrincipalSeg: tempoTotalSeg,
