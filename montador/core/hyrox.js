@@ -38,9 +38,9 @@ export const HYROX_CORRIDA = {
 
 /** @type {EstacaoHyrox[]} */
 export const HYROX_ESTACOES = [
-  { n: 1, nome: 'Puxada alta no monocross', base: 'SkiErg', equipamento: ['monocross'], padrao: 'puxar',
+  { n: 1, nome: 'SkiErg (simulador de esqui)', base: 'SkiErg', equipamento: ['monocross'], padrao: 'puxar',
     tipo: 'reps', prescricao: { iniciante: 200, intermediario: 250, avancado: 250 },
-    carga: 'carga moderada (polia)', nota: 'Ritmo de esqui: puxada explosiva, tronco à frente.' },
+    carga: 'carga moderada (polia)', nota: 'Adaptado nos 2 monocross lado a lado. Ritmo de esqui: puxada explosiva, tronco à frente.' },
   { n: 2, nome: 'Sled Push (empurrar trenó)', base: 'Sled Push', equipamento: ['sled', 'turf', 'anilha_olimpica_15'], padrao: 'quadriceps', padraoSec: 'empurrar',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40 },
     carga: 'trenó + 15–45 kg (1 a 3 anilhas por nível)', nota: 'Trenó baixo, tronco firme, passos curtos e potentes no turf de 5 m.' },
@@ -50,9 +50,9 @@ export const HYROX_ESTACOES = [
   { n: 4, nome: 'Burpee Broad Jump', base: 'Burpee Broad Jump', equipamento: ['corporal'], padrao: 'empurrar',
     tipo: 'distancia', prescricao: { iniciante: 40, intermediario: 60, avancado: 80 },
     carga: 'peso corporal', nota: 'Como na prova (avança em metros): a cada rep, flexão com o peito ao chão + salto para a frente. Avançado = 80 m, como no Hyrox.' },
-  { n: 5, nome: 'Remada baixa rápida no monocross', base: 'Rowing', equipamento: ['monocross'], padrao: 'puxar',
+  { n: 5, nome: 'Rowing (simulador de remo)', base: 'Rowing', equipamento: ['monocross_movel'], padrao: 'puxar',
     tipo: 'reps', prescricao: { iniciante: 200, intermediario: 250, avancado: 250 },
-    carga: 'carga leve/moderada (polia)', nota: 'Cadência de remo: rápido e ritmado.' },
+    carga: 'carga leve/moderada (polia)', nota: 'No 3º monocross (móvel), reservado ao dia de Hyrox. Cadência de remo: rápido e ritmado.' },
   { n: 6, nome: 'Farmer’s carry (halteres pesados)', base: 'Farmers Carry', equipamento: ['halter_pesado'], padrao: 'estabilizadores', padraoSec: 'posterior_gluteo',
     tipo: 'distancia', prescricao: { iniciante: 80, intermediario: 100, avancado: 100 },
     carga: 'halteres pesados (12,5–17,5 kg)', nota: 'Tronco firme, ombros para trás, passos curtos.' },

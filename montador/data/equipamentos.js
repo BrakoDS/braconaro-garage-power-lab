@@ -46,7 +46,31 @@ export const EQUIPAMENTOS = [
     categoria: 'estacao',
     unidades: 2,
     compartilhavelDupla: true,
-    obs: 'Puxadores: 2 cordas, 2 triângulos, 2 barras 40cm, 2 barras 1,20m, 2 caneleiras, 1 puxador aberto neutro.',
+    obs: 'As 2 torres fixas de polia. Os acessórios são itens próprios do inventário (barras 1,5 m e 60 cm, cordas, triângulos, neutro, tornozeleiras, manoplas). ATENÇÃO: o crossover ocupa as 2 torres de uma vez.',
+  },
+  {
+    id: 'monocross_movel',
+    nome: 'Monocross móvel (Hyrox)',
+    categoria: 'estacao',
+    unidades: 1,
+    compartilhavelDupla: false,
+    obs: '3º monocross, móvel. Uso exclusivo do dia de Hyrox (Rowing) — não entra no rodízio das outras modalidades.',
+  },
+  {
+    id: 'trx',
+    nome: 'TRX (fitas de suspensão)',
+    categoria: 'estacao',
+    unidades: 2,
+    compartilhavelDupla: false,
+    obs: 'Treino suspenso: dificuldade regulada pelo ângulo do corpo. Libera monocross/halteres no rodízio.',
+  },
+  {
+    id: 'banco_scott',
+    nome: 'Banco Scott (apoio de rosca)',
+    categoria: 'estacao',
+    unidades: 1,
+    compartilhavelDupla: false,
+    obs: 'Apoio inclinado para rosca Scott. Só 1 — organizar rodízio.',
   },
   {
     id: 'mesa_flexora',
@@ -70,7 +94,7 @@ export const EQUIPAMENTOS = [
     categoria: 'estacao',
     unidades: 2,
     compartilhavelDupla: true,
-    obs: 'Remada cavalinho, landmine press, meadows.',
+    obs: '2 suportes de cavalinho (landmine). Puxadores próprios: ver "Puxadores de cavalinho".',
   },
   {
     id: 'banco',
@@ -111,9 +135,9 @@ export const EQUIPAMENTOS = [
   },
   {
     id: 'barra_livre',
-    nome: 'Barras de ferro soltas (1,5 m e 2,0 m)',
+    nome: 'Barras maciças soltas (2× 2,0 m + 2× 1,5 m)',
     categoria: 'peso_livre',
-    unidades: 4, // 2x1,5m + 2x2,0m
+    unidades: 4, // 2x2,0m + 2x1,5m
     compartilhavelDupla: true,
     obs: 'Usadas com anilhas. Sem rack fixo — levantamentos do chão/apoio.',
   },
@@ -179,6 +203,74 @@ export const EQUIPAMENTOS = [
     compartilhavelDupla: false,
     cargasKg: [20],
     obs: 'Carregada, agachamento, clean, avanço. Só 1 — gargalo.',
+  },
+
+  // ---------------- PUXADORES (acessórios de polia) ----------------
+  // Cada puxador é um item próprio: dois exercícios que exigem o MESMO puxador não
+  // podem rodar em paralelo, mesmo havendo torre de monocross livre.
+  {
+    id: 'pux_barra_15',
+    nome: 'Puxador barra 1,5 m (monocross)',
+    categoria: 'acessorio',
+    unidades: 2,
+    compartilhavelDupla: true,
+    obs: 'Puxada/remada aberta (pronada e supinada), puxada com braço estendido.',
+  },
+  {
+    id: 'pux_barra_60',
+    nome: 'Puxador barra 60 cm (monocross)',
+    categoria: 'acessorio',
+    unidades: 2,
+    compartilhavelDupla: true,
+    obs: 'Tríceps barra e rosca no monocross.',
+  },
+  {
+    id: 'pux_corda',
+    nome: 'Puxador corda (monocross)',
+    categoria: 'acessorio',
+    unidades: 2,
+    compartilhavelDupla: true,
+    obs: 'Tríceps corda/testa, face pull, abdominal no cabo.',
+  },
+  {
+    id: 'pux_triangulo',
+    nome: 'Puxador triângulo (monocross)',
+    categoria: 'acessorio',
+    unidades: 2,
+    compartilhavelDupla: true,
+    obs: 'Puxada e remada fechadas (pegada neutra estreita).',
+  },
+  {
+    id: 'pux_neutro',
+    nome: 'Puxador aberto neutro (monocross)',
+    categoria: 'acessorio',
+    unidades: 1,
+    compartilhavelDupla: false,
+    obs: 'Só 1 — puxada e remada abertas neutras disputam o mesmo puxador.',
+  },
+  {
+    id: 'pux_tornozeleira',
+    nome: 'Tornozeleiras de polia (monocross)',
+    categoria: 'acessorio',
+    unidades: 2,
+    compartilhavelDupla: false,
+    obs: 'Coice de glúteo e abdução de quadril no monocross.',
+  },
+  {
+    id: 'pux_manopla',
+    nome: 'Manoplas estribo de nylon (monocross)',
+    categoria: 'acessorio',
+    unidades: 2,
+    compartilhavelDupla: false,
+    obs: 'Crossover, elevação lateral, tríceps coice e Pallof press. O crossover usa as 2 de uma vez.',
+  },
+  {
+    id: 'pux_cavalinho',
+    nome: 'Puxadores de remada cavalinho (aberto e fechado)',
+    categoria: 'acessorio',
+    unidades: 2,
+    compartilhavelDupla: false,
+    obs: 'Um de pegada aberta e um de pegada fechada, usados no suporte de cavalinho.',
   },
 
   // ---------------- ACESSÓRIOS / CORPORAL ----------------

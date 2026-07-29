@@ -8,8 +8,13 @@
  * vez (sem dados locais nem na nuvem) semeia com o inventário/catálogo reais.
  */
 import { seedData } from './data/seed.js';
+import { MIGRACOES_CATALOGO } from '../montador/data/exercicios.js';
 
 const KEY = 'braconaro_academia_v1';
+
+/** Normaliza um nome/id para comparação (o id de um exercício criado aqui é o slug do nome). */
+const chave = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 
 /** Rótulos fixos de categoria de equipamento e tags de treino. */
 export const CATEGORIAS = ['Peso livre', 'Máquina', 'Cardio', 'Acessório', 'Estação', 'Corporal'];
@@ -116,7 +121,66 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 8;
+const SEED_VERSION = 9;
+
+/**
+ * RECONSTRUÇÃO DO CATÁLOGO (semente v9) — aplica de uma vez a revisão completa:
+ *  1. Migra os renomeados (`MIGRACOES_CATALOGO`), casando por id antigo OU nome antigo,
+ *     e apaga os removidos. Se o id novo já existir, descarta a versão antiga (dedupe).
+ *  2. Re-sincroniza TODO exercício semeado com a semente (nome, equipamentos, tags,
+ *     músculos, padrão, nível, tempo) e o reativa — é a revisão aprovada valendo.
+ *  3. Atualiza nome/categoria/observação dos equipamentos semeados, preservando a
+ *     QUANTIDADE e a ÁREA, que são a realidade do box e só o coach conhece.
+ * Exercícios e equipamentos criados pelo coach que não estão na semente não são tocados.
+ * Roda uma única vez por versão (gate em `d.seedVersion`, gravado por `backfillNovosSeed`).
+ */
+function migrarCatalogo() {
+  const d = ler();
+  if ((d.seedVersion || 0) >= SEED_VERSION) return false;
+  const s = seedData();
+  const seedEx = new Map(s.exercicios.map((x) => [x.id, x]));
+  const seedInv = new Map(s.inventario.map((e) => [e.id, e]));
+  let mudou = false;
+
+  // 1. renomeações e remoções
+  for (const { de, para } of MIGRACOES_CATALOGO) {
+    for (const antigo of de) {
+      const k = chave(antigo);
+      const alvo = d.exercicios.find((x) => x.id === antigo || chave(x.id) === k || chave(x.nome) === k);
+      if (!alvo || alvo.id === para) continue;
+      if (para === null || d.exercicios.some((x) => x.id === para)) {
+        d.exercicios = d.exercicios.filter((x) => x !== alvo); // removido ou já existe com o id novo
+      } else {
+        alvo.id = para;
+      }
+      mudou = true;
+    }
+  }
+
+  // 2. exercícios semeados voltam a bater com a semente revisada
+  for (const x of d.exercicios) {
+    const base = seedEx.get(x.id);
+    if (!base) continue; // criado pelo coach: preservado como está
+    Object.assign(x, {
+      nome: base.nome, equipamentoIds: base.equipamentoIds.slice(), tags: base.tags.slice(),
+      musculos: base.musculos.slice(), padrao: base.padrao, nivel: base.nivel,
+      tempoMedioSeg: base.tempoMedioSeg, obs: base.obs, ativo: true,
+    });
+    mudou = true;
+  }
+
+  // 3. equipamentos semeados: rótulos da semente, quantidades do coach
+  for (const e of d.inventario) {
+    const base = seedInv.get(e.id);
+    if (!base) continue;
+    e.nome = base.nome; e.categoria = base.categoria; e.obs = base.obs;
+    mudou = true;
+  }
+
+  if (mudou) setLocal(d);
+  return mudou;
+}
+
 function backfillNovosSeed() {
   const d = ler();
   if ((d.seedVersion || 0) >= SEED_VERSION) return false;
@@ -134,6 +198,7 @@ garantirSeed();
 backfillMusculos();
 backfillPadrao();
 backfillTags();
+migrarCatalogo();
 backfillNovosSeed();
 
 /* ---------- Sincronização na nuvem ---------- */
@@ -164,7 +229,7 @@ export async function iniciarSync(uid, aoAtualizar) {
     const temRemoto = remoto && Array.isArray(remoto.inventario) && (remoto.inventario.length || remoto.exercicios.length);
     if (temRemoto) {
       setLocal({ inventario: remoto.inventario, exercicios: remoto.exercicios || [], seeded: true });
-      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
+      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
       if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
     } else {
