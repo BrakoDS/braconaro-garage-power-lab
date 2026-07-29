@@ -143,12 +143,14 @@ export const EQUIPAMENTOS = [
   },
   {
     id: 'wall_ball',
-    nome: 'Wall Balls (14 lb e 10 lb)',
+    nome: 'Wall balls (2× 14 lb + 2× 10 lb)',
     categoria: 'peso_livre',
-    unidades: 4, // 2x14lb + 2x10lb
+    unidades: 4, // 2x 14lb (6,35 kg) + 2x 10lb (4,53 kg)
     compartilhavelDupla: false,
-    cargasKg: [6.4, 6.4, 4.5, 4.5],
-    obs: 'Wall ball shots, thruster, agachamento com arremesso.',
+    cargasKg: [6.35, 6.35, 4.53, 4.53],
+    obs: 'Wall ball shots, thruster, agachamento com arremesso. Item único de propósito: '
+      + 'os exercícios servem com qualquer um dos dois pesos, e o modelo de equipamento exige '
+      + 'TODOS os itens listados (E, não OU) — separar por peso obrigaria a bola errada.',
   },
 
   // ---------------- PLIOMETRIA / DEGRAUS ----------------
@@ -349,6 +351,22 @@ export const EQUIPAMENTOS = [
     cargasKg: [1, 2, 3, 4, 5, 10, 15, 20],
     obs: 'Estoque: 1kg×4, 2kg×4, 3kg×5, 4kg×4, 5kg×10, 10kg×9, 15kg×2, 20kg×2. Carga total ~190 kg.',
   },
+];
+
+/**
+ * Fusões/remoções de itens do inventário do coach, aplicadas uma vez por versão de
+ * semente (ver `academia/db.js`). Casa por id OU por nome (o id de um equipamento
+ * criado na Academia é o slug do nome). `somarQuantidade` junta o estoque dos dois
+ * itens no de destino; `para: null` remove. Exercícios que apontavam para o id
+ * antigo são repontados para o novo.
+ * @type {Array<{de: string[], para: string|null, somarQuantidade?: boolean}>}
+ */
+export const MIGRACOES_INVENTARIO = [
+  // As duas entradas de wall ball eram o MESMO estoque partido por peso (2× 14 lb no
+  // item criado pelo coach + 2× 10 lb no do catálogo). Viram um item de 4 unidades:
+  // os exercícios servem com qualquer um dos pesos, e `equipamento` é uma lista E —
+  // separado por peso, um exercício acabaria exigindo as duas bolas ao mesmo tempo.
+  { de: ['wall_ball_14_lb_6_35_kg', 'Wall ball 14 Lb (6,35 Kg)'], para: 'wall_ball', somarQuantidade: true },
 ];
 
 /** @type {Record<string, Equipamento>} */

@@ -9,6 +9,7 @@
  */
 import { seedData } from './data/seed.js';
 import { MIGRACOES_CATALOGO } from '../montador/data/exercicios.js';
+import { MIGRACOES_INVENTARIO } from '../montador/data/equipamentos.js';
 
 const KEY = 'braconaro_academia_v1';
 
@@ -137,7 +138,7 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 11;
+const SEED_VERSION = 12;
 
 /**
  * RECONSTRUÇÃO DO CATÁLOGO (semente v9) — aplica de uma vez a revisão completa:
@@ -145,7 +146,9 @@ const SEED_VERSION = 11;
  *     e apaga os removidos. Se o id novo já existir, descarta a versão antiga (dedupe).
  *  2. Re-sincroniza TODO exercício semeado com a semente (nome, equipamentos, tags,
  *     músculos, padrão, nível, tempo) e o reativa — é a revisão aprovada valendo.
- *  3. Atualiza nome/categoria/observação dos equipamentos semeados, preservando a
+ *  3. Funde itens de inventário duplicados (`MIGRACOES_INVENTARIO`), somando o estoque
+ *     e repontando os exercícios que usavam o id antigo.
+ *  4. Atualiza nome/categoria/observação dos equipamentos semeados, preservando a
  *     QUANTIDADE e a ÁREA, que são a realidade do box e só o coach conhece.
  * Exercícios e equipamentos criados pelo coach que não estão na semente não são tocados.
  * Roda uma única vez por versão (gate em `d.seedVersion`, gravado por `backfillNovosSeed`).
@@ -185,7 +188,31 @@ function migrarCatalogo() {
     mudou = true;
   }
 
-  // 3. equipamentos semeados: rótulos da semente, quantidades do coach
+  // 3. fusões de inventário (itens do coach que eram o mesmo aparelho do catálogo)
+  for (const { de, para, somarQuantidade } of MIGRACOES_INVENTARIO) {
+    for (const antigo of de) {
+      const k = chave(antigo);
+      const alvo = d.inventario.find((e) => e.id === antigo || chave(e.id) === k || chave(e.nome) === k);
+      if (!alvo || alvo.id === para) continue;
+      const destino = para && d.inventario.find((e) => e.id === para);
+      if (destino) {
+        if (somarQuantidade) destino.quantidade = (Number(destino.quantidade) || 0) + (Number(alvo.quantidade) || 0);
+        // exercícios que apontavam para o item antigo passam a apontar para o novo
+        for (const x of d.exercicios) {
+          if (!(x.equipamentoIds || []).includes(alvo.id)) continue;
+          x.equipamentoIds = [...new Set(x.equipamentoIds.map((id) => (id === alvo.id ? para : id)))];
+        }
+        d.inventario = d.inventario.filter((e) => e !== alvo);
+      } else if (para === null) {
+        d.inventario = d.inventario.filter((e) => e !== alvo);
+      } else {
+        alvo.id = para;
+      }
+      mudou = true;
+    }
+  }
+
+  // 4. equipamentos semeados: rótulos da semente, quantidades do coach
   for (const e of d.inventario) {
     const base = seedInv.get(e.id);
     if (!base) continue;
