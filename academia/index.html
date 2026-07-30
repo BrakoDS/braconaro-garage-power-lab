@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./academia.css?v=3" />
+  <link rel="stylesheet" href="./academia.css?v=4" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -156,6 +156,13 @@
             <!-- Espelho oculto da seleção: mantém o contrato de gravação
                  (`#pick-equip input:checked` → equipamentoIds) intacto. -->
             <div id="pick-equip" hidden></div>
+            <label class="check-linha">
+              <input type="checkbox" name="ocupaTudo" id="ex-ocupatudo" />
+              <span>
+                Ocupa o aparelho inteiro
+                <span class="hint">Marque se o exercício usa todas as unidades/polias do equipamento de uma vez (crucifixo no crossover, SkiErg). O montador reserva o aparelho todo para essa estação — nenhum outro exercício do circuito poderá usá-lo em paralelo.</span>
+              </span>
+            </label>
           </div>
           <div class="grid" style="margin-bottom:16px">
             <div class="field">
@@ -205,6 +212,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=18"></script>
+  <script type="module" src="./app.js?v=19"></script>
 </body>
 </html>

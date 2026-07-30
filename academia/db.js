@@ -141,7 +141,7 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 13;
+const SEED_VERSION = 14;
 
 /**
  * MIGRAÇÃO DO CATÁLOGO — aplica de uma vez a revisão da versão de semente atual:
@@ -196,7 +196,8 @@ function migrarCatalogo() {
     Object.assign(x, {
       nome: base.nome, equipamentoIds: base.equipamentoIds.slice(), tags: base.tags.slice(),
       musculos: base.musculos.slice(), padrao: base.padrao, nivel: base.nivel,
-      tempoMedioSeg: base.tempoMedioSeg, multiarticular: base.multiarticular, obs: base.obs, ativo: true,
+      tempoMedioSeg: base.tempoMedioSeg, multiarticular: base.multiarticular,
+      ocupaTudo: base.ocupaTudo === true, obs: base.obs, ativo: true,
     });
     mudou = true;
   }

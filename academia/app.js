@@ -350,6 +350,8 @@ function abrirExerc(item = null, opcoes = {}) {
   // Composto vs. isolado: só o composto entra no dia de Força, e o Híbrido usa isso
   // para misturar os blocos. Default composto, como no catálogo.
   $('#ex-multi').value = item?.multiarticular === false ? '0' : '1';
+  // Ocupa o aparelho inteiro: desmarcado por padrão — é a exceção, não a regra.
+  f.ocupaTudo.checked = item?.ocupaTudo === true;
   f.ativo.checked = item ? item.ativo !== false : true;
 
   // Tags
@@ -388,6 +390,7 @@ $('#form-exerc').addEventListener('submit', (e) => {
     nome, equipamentoIds, tags, musculos,
     padrao: f.padrao.value, nivel: f.nivel.value || 'intermediario',
     multiarticular: f.multiarticular.value !== '0',
+    ocupaTudo: f.ocupaTudo.checked,
     ativo: f.ativo.checked,
     obs: f.obs.value.trim(),
   };

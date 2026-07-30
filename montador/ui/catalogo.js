@@ -77,10 +77,10 @@ function converter(a) {
     unilateral: a.unilateral ?? base?.unilateral ?? false,
     cardio: a.cardio ?? base?.cardio ?? false,
     multiarticular: a.multiarticular ?? base?.multiarticular ?? true,
-    // Estrutural, igual a 'tecnica'/'hibrido': vem SÓ do catálogo base. A Academia não
-    // tem esse campo, então sem puxá-lo daqui o crossover perderia a exclusividade do
-    // monocross assim que o coach conectasse o catálogo dele.
-    ocupaTudo: base?.ocupaTudo ?? false,
+    // Reserva o aparelho inteiro no motor de viabilidade. A Academia manda (o coach
+    // marca isso no formulário); o base só entra como fallback para dados antigos,
+    // gravados antes de o campo existir.
+    ocupaTudo: a.ocupaTudo ?? base?.ocupaTudo ?? false,
     obs: base?.obs,
   };
 }

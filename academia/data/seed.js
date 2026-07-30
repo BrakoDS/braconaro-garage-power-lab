@@ -69,6 +69,9 @@ export function seedData() {
     // Composto ou isolado: decide se o exercício entra no dia de FORÇA e como o
     // Híbrido mistura os blocos. Editável na Academia, por isso vai na semente.
     multiarticular: x.multiarticular !== false,
+    // Ocupa o aparelho inteiro (crossover, SkiErg): o motor de viabilidade reserva
+    // TODO o estoque do equipamento p/ essa estação. Editável na Academia.
+    ocupaTudo: x.ocupaTudo === true,
     obs: x.descricao || '',
   }));
 
