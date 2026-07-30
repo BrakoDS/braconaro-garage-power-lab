@@ -45,12 +45,18 @@ export const MUSCULOS = [
   'Panturrilha', 'Estabilizadores',
 ];
 
-function vazio() { return { inventario: [], exercicios: [], seeded: false }; }
+function vazio() { return { inventario: [], exercicios: [], tecnicas: [], seeded: false }; }
 function setLocal(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 function ler() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || '');
-    if (d && Array.isArray(d.inventario) && Array.isArray(d.exercicios)) return d;
+    // `tecnicas` NÃO entra no guard de propósito: os dados que já existem foram
+    // gravados antes dela e cairiam em `vazio()` — apagando inventário e catálogo.
+    // Coleção nova se normaliza na leitura, nunca vira condição de validade.
+    if (d && Array.isArray(d.inventario) && Array.isArray(d.exercicios)) {
+      if (!Array.isArray(d.tecnicas)) d.tecnicas = [];
+      return d;
+    }
   } catch {}
   return vazio();
 }
@@ -60,7 +66,7 @@ function garantirSeed() {
   const d = ler();
   if (!d.seeded && !d.inventario.length && !d.exercicios.length) {
     const s = seedData();
-    setLocal({ inventario: s.inventario, exercicios: s.exercicios, seeded: true });
+    setLocal({ inventario: s.inventario, exercicios: s.exercicios, tecnicas: s.tecnicas, seeded: true });
   }
 }
 
@@ -141,7 +147,7 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 14;
+const SEED_VERSION = 15;
 
 /**
  * MIGRAÇÃO DO CATÁLOGO — aplica de uma vez a revisão da versão de semente atual:
@@ -238,6 +244,28 @@ function migrarCatalogo() {
   return mudou;
 }
 
+/**
+ * Acrescenta as TÉCNICAS da semente que ainda não existem por id.
+ *
+ * Só adiciona — nunca reescreve. Técnica é texto do coach: se ele reescrever o
+ * Drop Set com as palavras dele, subir a versão de semente não pode desfazer isso
+ * (diferente do passo 3 de `migrarCatalogo`, que ressincroniza exercício semeado
+ * porque o gerador depende daqueles metadados). Idempotente por id.
+ */
+function backfillTecnicas() {
+  const d = ler();
+  if ((d.seedVersion || 0) >= SEED_VERSION) return false;
+  const ids = new Set(d.tecnicas.map((t) => t.id));
+  let mudou = false;
+  for (const t of seedData().tecnicas) {
+    if (ids.has(t.id)) continue;
+    d.tecnicas.push({ ...t });
+    mudou = true;
+  }
+  if (mudou) setLocal(d);
+  return mudou;
+}
+
 function backfillNovosSeed() {
   const d = ler();
   if ((d.seedVersion || 0) >= SEED_VERSION) return false;
@@ -256,6 +284,7 @@ backfillMusculos();
 backfillPadrao();
 backfillTags();
 migrarCatalogo();
+backfillTecnicas(); // antes do backfillNovosSeed, que é quem grava a seedVersion
 backfillNovosSeed();
 
 /* ---------- Sincronização na nuvem ---------- */
@@ -287,8 +316,18 @@ export async function iniciarSync(uid, aoAtualizar) {
     if (temRemoto) {
       // `seedVersion` vem junto da nuvem de propósito: é o que impede as migrações de
       // semente de rodarem outra vez a cada login (e de reverterem edições do coach).
-      setLocal({ inventario: remoto.inventario, exercicios: remoto.exercicios || [], seeded: true, seedVersion: remoto.seedVersion || 0 });
-      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
+      // Toda coleção precisa ser listada aqui. O que não vier junto é DESCARTADO a
+      // cada login — foi assim que `seedVersion` se perdeu e as migrações voltaram a
+      // rodar. `tecnicas` entra pelo mesmo motivo: sem esta linha, técnica cadastrada
+      // pelo coach sumiria toda vez que ele entrasse.
+      setLocal({
+        inventario: remoto.inventario,
+        exercicios: remoto.exercicios || [],
+        tecnicas: remoto.tecnicas || [],
+        seeded: true,
+        seedVersion: remoto.seedVersion || 0,
+      });
+      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillTecnicas() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
       if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
     } else {
@@ -374,6 +413,46 @@ export function definirAtivoExerc(id, ativo) {
 export function removerExerc(id) {
   const d = ler();
   d.exercicios = d.exercicios.filter((x) => x.id !== id);
+  gravar(d);
+}
+
+/* ---------- Técnicas de treino ---------- */
+/**
+ * Material de referência do box (Drop Set, Bi-set, Pico de Contração, Rest-Pause…).
+ * NÃO alimenta a geração de treino — o montador não lê esta coleção; o Híbrido
+ * segue fazendo drop-set pela lógica dele em `montador/core/hibrido.js`.
+ */
+export function listarTecnicas() { return ler().tecnicas.slice(); }
+/** @param {string} id */
+export function obterTecnica(id) { return ler().tecnicas.find((t) => t.id === id) || null; }
+
+/** Cria ou atualiza uma técnica. Se `dados.id` existir, atualiza; senão cria. */
+export function salvarTecnica(dados) {
+  const d = ler();
+  if (dados.id && d.tecnicas.some((t) => t.id === dados.id)) {
+    const t = d.tecnicas.find((x) => x.id === dados.id);
+    Object.assign(t, dados);
+    gravar(d); return t;
+  }
+  const id = idUnico(dados.id || dados.nome, d.tecnicas.map((t) => t.id));
+  const t = { id, nome: '', resumo: '', comoExecutar: '', objetivo: '', ativo: true, ...dados, id };
+  d.tecnicas.push(t);
+  gravar(d); return t;
+}
+
+/** Ativa/desativa uma técnica sem apagá-la. @param {string} id @param {boolean} ativo */
+export function definirAtivaTecnica(id, ativo) {
+  const d = ler();
+  const t = d.tecnicas.find((x) => x.id === id);
+  if (!t) return null;
+  t.ativo = !!ativo;
+  gravar(d); return t;
+}
+
+/** Remove uma técnica. @param {string} id */
+export function removerTecnica(id) {
+  const d = ler();
+  d.tecnicas = d.tecnicas.filter((t) => t.id !== id);
   gravar(d);
 }
 

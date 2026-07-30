@@ -27,12 +27,15 @@ const F = {
   invBusca: '', invCat: 'todos',
   exBusca: '', exTag: 'todos', exMusc: 'todos', exEquip: 'todos', soDisp: true, soDesat: false,
   mobBusca: '', mobMusc: 'todos', mobDesat: false,
+  tecBusca: '', tecDesat: false,
 };
+/** Técnicas com o acordeão aberto — sobrevive ao re-render da lista. @type {Set<string>} */
+const tecAbertas = new Set();
 
 /* ============================================================
    Abas
    ============================================================ */
-const FAB_LABEL = { inventario: '+ Equipamento', exercicios: '+ Exercício', mobilidade: '+ Mobilidade' };
+const FAB_LABEL = { inventario: '+ Equipamento', exercicios: '+ Exercício', mobilidade: '+ Mobilidade', tecnicas: '+ Técnica' };
 $$('.tab').forEach((t) => t.addEventListener('click', () => trocarAba(t.dataset.tab)));
 function trocarAba(aba) {
   abaAtiva = aba;
@@ -179,12 +182,59 @@ function renderMobilidade() {
 }
 
 /* ============================================================
+   Render — Técnicas de treino
+   ============================================================ */
+/** Texto multilinha → parágrafos. Cada linha vira um passo; linhas vazias somem. */
+function paragrafos(txt) {
+  const linhas = String(txt || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  return linhas.map((l) => `<p>${esc(l)}</p>`).join('');
+}
+
+function renderTecnicas() {
+  const q = norm(F.tecBusca);
+  const base = db.listarTecnicas();
+  const itens = base.filter((t) => {
+    const ativa = t.ativo !== false;
+    if (F.tecDesat && ativa) return false;
+    if (!q) return true;
+    return norm(t.nome).includes(q) || norm(t.resumo).includes(q);
+  });
+  itens.sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+  $('#count-tec').textContent = `${itens.length} ${itens.length === 1 ? 'técnica' : 'técnicas'}`;
+  if (!itens.length) {
+    $('#lista-tec').innerHTML = `<div class="empty"><b>Nenhuma técnica</b>${base.length ? 'Ajuste a busca ou o filtro.' : 'Toque em “+ Técnica” para começar.'}</div>`;
+    return;
+  }
+  $('#lista-tec').innerHTML = itens.map((t) => {
+    const ativa = t.ativo !== false;
+    const aberta = tecAbertas.has(t.id);
+    return `
+    <article class="tec${ativa ? '' : ' indisp'}${aberta ? ' aberta' : ''}" data-id="${esc(t.id)}">
+      <button class="tec-hd" type="button" data-toggle aria-expanded="${aberta}">
+        <div>
+          <div class="nome">${esc(t.nome)}${ativa ? '' : ' <span class="badge" style="color:var(--bad);border-color:var(--bad)">Desativada</span>'}</div>
+          ${t.resumo ? `<div class="sub">${esc(t.resumo)}</div>` : ''}
+        </div>
+        <svg class="tec-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      ${aberta ? `
+      <div class="tec-bd">
+        ${t.comoExecutar ? `<div class="tec-bloco"><h4>Como executar</h4>${paragrafos(t.comoExecutar)}</div>` : ''}
+        ${t.objetivo ? `<div class="tec-bloco"><h4>Objetivo / dica</h4><p>${esc(t.objetivo)}</p></div>` : ''}
+        <div class="tec-acoes"><button class="btn ghost btn-sm" type="button" data-editar>Editar</button></div>
+      </div>` : ''}
+    </article>`;
+  }).join('');
+}
+
+/* ============================================================
    Render geral
    ============================================================ */
 function renderTudo() {
   renderFiltrosCat(); renderInventario();
   renderFiltrosTags(); renderFiltroMusc(); renderFiltroEquip(); renderExercicios();
   renderFiltroMobMusc(); renderMobilidade();
+  renderTecnicas();
 }
 
 /* ============================================================
@@ -201,6 +251,8 @@ $('#chip-desat').addEventListener('click', () => { F.soDesat = !F.soDesat; $('#c
 $('#busca-mob').addEventListener('input', (e) => { F.mobBusca = e.target.value; renderMobilidade(); });
 $('#filtro-mob-musc').addEventListener('change', (e) => { F.mobMusc = e.target.value; renderMobilidade(); });
 $('#chip-mob-desat').addEventListener('click', () => { F.mobDesat = !F.mobDesat; $('#chip-mob-desat').classList.toggle('on', F.mobDesat); renderMobilidade(); });
+$('#busca-tec').addEventListener('input', (e) => { F.tecBusca = e.target.value; renderTecnicas(); });
+$('#chip-tec-desat').addEventListener('click', () => { F.tecDesat = !F.tecDesat; $('#chip-tec-desat').classList.toggle('on', F.tecDesat); renderTecnicas(); });
 
 /* ============================================================
    Modais — abrir/fechar
@@ -213,6 +265,7 @@ $$('.modal-bg').forEach((m) => {
 
 $('#fab').addEventListener('click', () => {
   if (abaAtiva === 'inventario') abrirEquip();
+  else if (abaAtiva === 'tecnicas') abrirTecnica();
   else abrirExerc(null, { mobilidade: abaAtiva === 'mobilidade' });
 });
 
@@ -407,10 +460,64 @@ $('#btn-del-exerc').addEventListener('click', () => {
   renderTudo();
 });
 
+/* ---------- Modal Técnica ---------- */
+let tecEdit = null;
+function abrirTecnica(item = null) {
+  tecEdit = item;
+  const f = $('#form-tecnica');
+  $('#modal-tecnica-titulo').textContent = item ? `Editar ${item.nome}` : 'Nova técnica';
+  f.nome.value = item?.nome || '';
+  f.resumo.value = item?.resumo || '';
+  f.comoExecutar.value = item?.comoExecutar || '';
+  f.objetivo.value = item?.objetivo || '';
+  f.ativo.checked = item ? item.ativo !== false : true;
+  $('#erro-tecnica').classList.remove('show');
+  $('#btn-del-tecnica').hidden = !item;
+  abrirModal('modal-tecnica');
+  setTimeout(() => f.nome.focus(), 50);
+}
+$('#form-tecnica').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const nome = f.nome.value.trim();
+  if (!nome) return;
+  const dados = {
+    nome,
+    resumo: f.resumo.value.trim(),
+    comoExecutar: f.comoExecutar.value.trim(),
+    objetivo: f.objetivo.value.trim(),
+    ativo: f.ativo.checked,
+  };
+  if (tecEdit) dados.id = tecEdit.id;
+  const salva = db.salvarTecnica(dados);
+  tecAbertas.add(salva.id); // recém-editada já abre expandida, p/ conferir o texto
+  fecharModal('modal-tecnica');
+  renderTecnicas();
+});
+$('#btn-del-tecnica').addEventListener('click', () => {
+  if (!tecEdit) return;
+  if (!confirm(`Excluir a técnica "${tecEdit.nome}"?`)) return;
+  db.removerTecnica(tecEdit.id);
+  tecAbertas.delete(tecEdit.id);
+  fecharModal('modal-tecnica');
+  renderTecnicas();
+});
+
 /* Clique nas listas → editar */
 $('#lista-inv').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterEquip(r.dataset.id); if (it) abrirEquip(it); } });
 $('#lista-ex').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterExerc(r.dataset.id); if (it) abrirExerc(it); } });
 $('#lista-mob').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterExerc(r.dataset.id); if (it) abrirExerc(it); } });
+// Técnica: o card é leitura (acordeão). Editar é um botão dentro do expandido — ler
+// a explicação não deve abrir um modal de edição, ao contrário das outras listas.
+$('#lista-tec').addEventListener('click', (e) => {
+  const card = e.target.closest('.tec');
+  if (!card) return;
+  const id = card.dataset.id;
+  if (e.target.closest('[data-editar]')) { const t = db.obterTecnica(id); if (t) abrirTecnica(t); return; }
+  if (!e.target.closest('[data-toggle]')) return;
+  if (tecAbertas.has(id)) tecAbertas.delete(id); else tecAbertas.add(id);
+  renderTecnicas();
+});
 
 /* ============================================================
    GATE de acesso (mesmo login do Coach/Montador)

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./academia.css?v=4" />
+  <link rel="stylesheet" href="./academia.css?v=5" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -53,6 +53,10 @@
       <button class="tab" data-tab="mobilidade" type="button" role="tab">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M4.5 7.5 6.6 9.6M19.5 7.5 17.4 9.6M3 15h3M18 15h3"/><path d="M8 15a4 4 0 0 1 8 0"/><path d="M2 20h20"/></svg>
         Mobilidade
+      </button>
+      <button class="tab" data-tab="tecnicas" type="button" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5V5.5"/><path d="M9 8h6M9 12h4"/></svg>
+        Técnicas
       </button>
     </nav>
 
@@ -100,6 +104,20 @@
           <select id="filtro-mob-musc" aria-label="Filtrar por músculo"></select>
         </div>
         <div class="lista" id="lista-mob"></div>
+      </section>
+
+      <!-- ABA 4: TÉCNICAS DE TREINO -->
+      <section class="tab-panel" id="tab-tecnicas">
+        <div class="head"><span class="eyebrow">Técnicas de treino</span><span class="count" id="count-tec"></span></div>
+        <p class="painel-nota">Material de referência do box — como aplicar cada técnica na aula. <b>Não entra na montagem automática</b> do treino; é consulta sua e da equipe.</p>
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="busca-tec" type="search" placeholder="Buscar técnica…" />
+        </label>
+        <div class="filtros">
+          <button class="chip toggle" id="chip-tec-desat" type="button">Desativadas</button>
+        </div>
+        <div class="lista tecnicas" id="lista-tec"></div>
       </section>
     </div>
 
@@ -212,6 +230,48 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=19"></script>
+  <!-- ============ MODAL: técnica de treino ============ -->
+  <div class="modal-bg" id="modal-tecnica">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3 id="modal-tecnica-titulo">Nova técnica</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="form-tecnica">
+        <div class="modal-bd">
+          <div class="grid">
+            <div class="field full"><label>Nome da técnica</label><input name="nome" required placeholder="Ex.: Drop Set, Bi-set, Rest-Pause" /></div>
+            <div class="field full">
+              <label>Resumo <span class="hint">(uma frase — o conceito)</span></label>
+              <input name="resumo" placeholder="Ex.: Chegar à falha, tirar carga na hora e seguir sem descanso." />
+            </div>
+            <div class="field full">
+              <label>Como executar</label>
+              <textarea name="comoExecutar" rows="7" placeholder="Passo a passo da aplicação no treino. Uma linha por passo."></textarea>
+            </div>
+            <div class="field full">
+              <label>Objetivo / dica do coach <span class="hint">(opcional)</span></label>
+              <input name="objetivo" placeholder="Ex.: Hipertrofia — estende a série além da falha." />
+            </div>
+            <div class="field full">
+              <label class="check-linha">
+                <input type="checkbox" name="ativo" checked />
+                <span>Técnica ativa <span class="hint">Desmarque para arquivar sem apagar — ela continua na lista, marcada como desativada, e o filtro “Desativadas” isola as arquivadas.</span></span>
+              </label>
+            </div>
+          </div>
+          <div class="erro-form" id="erro-tecnica"></div>
+        </div>
+        <div class="modal-ft">
+          <button class="btn danger btn-sm" id="btn-del-tecnica" type="button" hidden>Excluir</button>
+          <span style="flex:1"></span>
+          <button class="btn ghost" data-close type="button">Cancelar</button>
+          <button class="btn" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js?v=20"></script>
 </body>
 </html>

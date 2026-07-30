@@ -71,14 +71,16 @@ button{font-family:inherit}
   font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.92rem;
   padding:.8em .7em;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
 .tab svg{width:18px;height:18px;flex:none}
-/* Com 3 abas o rótulo aperta no celular: encolhe a letra antes de esconder o texto. */
+/* Com 4 abas o rótulo aperta no celular: encolhe a letra antes de esconder o texto.
+   O empilhamento (ícone sobre rótulo) subiu p/ 460px — em 4 colunas a linha única
+   já não cabe antes disso. */
 @media (max-width:560px){
   .tabs{gap:4px;padding-inline:12px}
-  .tab{font-size:.76rem;letter-spacing:.04em;gap:6px;padding:.75em .4em}
+  .tab{font-size:.72rem;letter-spacing:.03em;gap:5px;padding:.75em .3em}
   .tab svg{width:16px;height:16px}
 }
-@media (max-width:380px){
-  .tab{flex-direction:column;gap:3px;font-size:.68rem}
+@media (max-width:460px){
+  .tab{flex-direction:column;gap:3px;font-size:.66rem;letter-spacing:.02em}
 }
 .tab:hover{color:var(--txt);border-color:var(--line-2)}
 .tab.active{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
@@ -113,6 +115,27 @@ button{font-family:inherit}
 
 /* ---------- Listas (cards) ---------- */
 .lista{display:flex;flex-direction:column;gap:10px}
+/* ---------- Cards de técnica (acordeão) ---------- */
+.lista.tecnicas{gap:12px}
+.tec{background:var(--card);border:1px solid var(--line);transition:border-color .15s ease,box-shadow .15s ease}
+.tec:hover{border-color:var(--accent);box-shadow:0 14px 30px -22px var(--glow)}
+.tec.aberta{border-color:var(--accent)}
+.tec.indisp{opacity:.55}
+.tec.indisp:hover{border-color:var(--bad)}
+.tec-hd{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;width:100%;text-align:left;
+  color:inherit;background:none;border:0;padding:14px 16px;cursor:pointer;font:inherit}
+.tec-hd .nome{font-family:var(--font-cond);font-weight:600;font-size:1.12rem;letter-spacing:.01em;line-height:1.15}
+.tec-hd .sub{color:var(--mut-2);font-size:.85rem;margin-top:4px;line-height:1.45}
+.tec-seta{width:20px;height:20px;flex:none;color:var(--mut);transition:transform .18s ease}
+.tec.aberta .tec-seta{transform:rotate(180deg);color:var(--accent)}
+.tec-bd{padding:0 16px 16px;border-top:1px solid var(--line);margin-top:-1px;padding-top:14px}
+.tec-bloco+.tec-bloco{margin-top:14px}
+.tec-bloco h4{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  font-size:.74rem;color:var(--mut);margin:0 0 6px}
+.tec-bloco p{margin:0 0 5px;font-size:.9rem;line-height:1.6;color:var(--txt)}
+.tec-bloco p:last-child{margin-bottom:0}
+.tec-acoes{display:flex;justify-content:flex-end;margin-top:16px}
+
 .row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;width:100%;text-align:left;color:inherit;
   background:var(--card);border:1px solid var(--line);padding:14px 16px;cursor:pointer;
   transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
