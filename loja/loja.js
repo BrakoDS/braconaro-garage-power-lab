@@ -7,7 +7,7 @@
  * depende de sessão. O catálogo do coach (academia/{uid}) NÃO é acessível daqui, e
  * é assim que tem que ser.
  */
-import { carregarLoja } from '../academia/loja-portal.js';
+import { carregarLoja } from './loja-portal.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -89,7 +89,7 @@ $('#filtros').addEventListener('click', (e) => {
   renderFiltros(); renderGrid();
 });
 
-(async () => {
+async function carregarVitrine() {
   try {
     PRODUTOS = await carregarLoja();
   } catch {
@@ -97,4 +97,65 @@ $('#filtros').addEventListener('click', (e) => {
   }
   renderFiltros();
   renderGrid();
-})();
+}
+carregarVitrine();
+
+/* ============================================================
+   Entrada da gestão (coach)
+   ============================================================
+   Tudo aqui é carregado SOB DEMANDA. O visitante que só quer ver a loja não baixa
+   o módulo de admin, nem o Firebase Auth, nem a camada de dados da Academia. */
+let admin = null; // módulo de gestão, uma vez carregado
+
+const gate = () => document.getElementById('gate');
+const fecharGate = () => { gate().hidden = true; document.body.style.overflow = ''; };
+
+gate().addEventListener('click', (ev) => {
+  const alvo = /** @type {HTMLElement} */ (ev.target);
+  if (alvo === gate() || alvo.closest('[data-fechar]')) fecharGate();
+});
+
+document.getElementById('btn-gerenciar').addEventListener('click', async () => {
+  // já está no painel → volta para a vitrine
+  if (admin && !document.getElementById('admin').hidden) { admin.mostrarVitrine(); return; }
+
+  const { sessaoAtual } = await import('../montador/ui/cloud.js');
+  const user = await sessaoAtual();
+  if (user) { await entrarNaGestao(user); return; }
+
+  gate().hidden = false;
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('gate-email').focus(), 50);
+});
+
+/** Valida que é coach e abre o painel. */
+async function entrarNaGestao(user) {
+  const { bloquearSeNaoCoach } = await import('../montador/ui/coach-guard.js');
+  if (await bloquearSeNaoCoach(user)) return; // barra conta de aluno
+  fecharGate();
+  admin = admin || await import('./admin.js');
+  await admin.abrirGestao(user.uid, carregarVitrine);
+}
+
+document.getElementById('gate-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const email = /** @type {HTMLInputElement} */ (document.getElementById('gate-email')).value.trim();
+  const senha = /** @type {HTMLInputElement} */ (document.getElementById('gate-senha')).value;
+  const erro = document.getElementById('gate-erro');
+  erro.textContent = '';
+  if (!email || !senha) { erro.textContent = 'Informe e-mail e senha.'; return; }
+  try {
+    const { login } = await import('../montador/ui/cloud.js');
+    const user = await login(email, senha);
+    /** @type {HTMLInputElement} */ (document.getElementById('gate-senha')).value = '';
+    await entrarNaGestao(user);
+  } catch (e) {
+    erro.textContent = ({
+      'auth/invalid-credential': 'E-mail ou senha incorretos.',
+      'auth/user-not-found': 'Conta não encontrada.',
+      'auth/invalid-email': 'E-mail inválido.',
+      'auth/too-many-requests': 'Muitas tentativas. Aguarde e tente de novo.',
+      'auth/network-request-failed': 'Sem conexão com a internet.',
+    })[e?.code] || `Não foi possível entrar (${e?.code || 'erro desconhecido'}).`;
+  }
+});

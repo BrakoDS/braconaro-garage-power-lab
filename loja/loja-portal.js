@@ -2,15 +2,17 @@
 /**
  * Publicação da Garage Store para a vitrine pública.
  *
- * O catálogo do coach vive em `academia/{uid}`, que as regras do Firestore fecham
- * só para ele — nenhum aluno ou visitante lê de lá. Então a vitrine tem um doc
- * próprio, `lojaPortal/atual`, de leitura pública e escrita só do coach. Mesmo
- * desenho de `montador/ui/portal-treino.js` com `treinoPortal`.
+ * O catálogo do coach vive em `academia/{uid}` (a camada de dados continua sendo a
+ * do app Academia, mesmo com a Loja sendo um app à parte), e as regras do Firestore
+ * fecham esse documento só para ele — nenhum aluno ou visitante lê de lá. Então a
+ * vitrine tem um doc próprio, `lojaPortal/atual`, de leitura pública e escrita só do
+ * coach. Mesmo desenho de `montador/ui/portal-treino.js` com `treinoPortal`.
  *
  * Publica SÓ o que está ativo: desativar um produto tira ele do ar na próxima
  * publicação, sem apagar nada do catálogo do coach.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+
 
 const V = '10.12.2';
 const DOC = 'atual';

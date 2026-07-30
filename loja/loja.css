@@ -65,6 +65,85 @@ img{max-width:100%}
 .estado{border:1px dashed var(--line-2);padding:38px 22px;text-align:center;color:var(--mut);line-height:1.7}
 .estado b{color:var(--txt)}
 
+/* ---------- gestão (coach) ---------- */
+.topo-nav button{font:inherit;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  font-size:.78rem;color:var(--mut);background:transparent;border:1px solid var(--line-2);padding:.5em .9em;cursor:pointer;transition:.15s}
+.topo-nav button:hover{color:var(--accent);border-color:var(--accent)}
+.admin-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.admin-hd h1{font-family:var(--font-display);font-weight:400;text-transform:uppercase;font-size:clamp(1.5rem,5vw,2.2rem);margin:0 0 4px;line-height:1}
+.admin-hd .mut{margin:0;color:var(--mut);font-size:.9rem}
+.admin-hd .mut b{color:var(--accent)}
+.admin-acoes{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;font-family:var(--font-cond);font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;font-size:.84rem;padding:.7em 1.2em;border:1px solid var(--accent);
+  background:var(--accent);color:var(--accent-ink);cursor:pointer;transition:.15s}
+.btn:hover{background:transparent;color:var(--accent)}
+.btn.ghost{background:transparent;color:var(--txt);border-color:var(--line-2)}
+.btn.ghost:hover{color:var(--accent);border-color:var(--accent)}
+.btn.danger{background:transparent;color:var(--bad);border-color:var(--bad)}
+.btn-sm{padding:.5em .9em;font-size:.76rem}
+.btn:disabled{opacity:.5;cursor:default}
+.admin-status{min-height:1.3em;margin:0 0 12px;font-size:.85rem;color:var(--mut-2)}
+.admin-status .ok{color:var(--ok)}
+.admin-status .erro,.erro{color:var(--bad)}
+.admin-lista{display:flex;flex-direction:column;gap:10px}
+.prod{display:grid;grid-template-columns:70px 1fr;gap:14px;align-items:start;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--line);color:inherit;padding:12px 14px;cursor:pointer;font:inherit;transition:.15s}
+.prod:hover{border-color:var(--accent);transform:translateX(3px)}
+.prod.rascunho{opacity:.6}
+.prod-foto{width:70px;height:70px;background:var(--bg-2);border:1px solid var(--line-2);overflow:hidden;display:block}
+.prod-foto img{width:100%;height:100%;object-fit:cover;display:block}
+.prod-info{display:flex;flex-direction:column;gap:5px;min-width:0}
+.prod-nome{font-family:var(--font-cond);font-weight:600;font-size:1.06rem;line-height:1.2}
+.tag-rascunho{font-family:var(--font-cond);font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--bad);border:1px solid var(--bad);padding:.1em .5em;vertical-align:middle}
+.prod-meta{display:flex;align-items:center;gap:8px}
+.prod-meta b{font-family:var(--font-cond);color:var(--accent)}
+.prod-dica{font-size:.82rem;color:var(--mut-2);line-height:1.45}
+.prod-loja{font-size:.7rem;color:var(--mut-2);text-transform:uppercase;letter-spacing:.06em}
+
+/* ---------- modais ---------- */
+.modal-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.modal-bg[hidden]{display:none}
+.modal{width:100%;max-width:480px;margin:auto;background:var(--card);border:1px solid var(--line-2);
+  display:flex;flex-direction:column;max-height:calc(100vh - 32px)}
+.modal-hd{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.modal-hd h3{margin:0;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:1rem}
+.modal-x{margin-left:auto;background:none;border:0;color:var(--mut);font-size:24px;line-height:1;cursor:pointer;padding:0 4px}
+.modal-x:hover{color:var(--txt)}
+.modal-bd{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.modal-ft{display:flex;gap:10px;align-items:center;padding:14px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.campo{display:flex;flex-direction:column;gap:6px;min-width:0}
+.campo-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.campo label,.check-linha>span{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.74rem;color:var(--mut)}
+.campo .hint,.check-linha .hint{display:block;text-transform:none;letter-spacing:0;font-size:.74rem;color:var(--mut-2);font-weight:400;margin-top:3px}
+.campo input,.campo select,.campo textarea{width:100%;padding:.65em .8em;background:var(--bg-2);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font);font-size:.95rem;outline:none}
+.campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--accent)}
+.campo textarea{resize:vertical}
+.check-linha{display:flex;align-items:flex-start;gap:9px;cursor:pointer}
+.check-linha input{width:auto;flex:none;margin-top:3px}
+.check-linha>span{text-transform:none;letter-spacing:0;font-size:.88rem;color:var(--txt);font-weight:500}
+.pr-analise{font-size:.78rem;color:var(--mut-2);min-height:1.1em}
+.pr-analise .ok{color:var(--ok)}
+.pr-preview{padding:12px;background:var(--bg-2);border:1px dashed var(--line-2)}
+.pr-preview .produto{max-width:230px}
+.pr-preview .btn-comprar{cursor:default}
+.erro-form{color:var(--bad);font-size:.86rem}
+.gate-box .gate-sub{margin:0;color:var(--mut);font-size:.92rem}
+.gate-box input{width:100%;padding:.7em .9em;background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);font:inherit;outline:none}
+.gate-box input:focus{border-color:var(--accent)}
+.gate-erro{color:var(--bad);font-size:.86rem;min-height:1.1em}
+.gate-box .modal-ft{justify-content:flex-end}
+@media (max-width:480px){
+  .campo-2{grid-template-columns:1fr}
+  .prod{grid-template-columns:56px 1fr;gap:11px}
+  .prod-foto{width:56px;height:56px}
+  .admin-acoes{width:100%}
+  .admin-acoes .btn{flex:1}
+}
+
 /* ---------- rodapé ---------- */
 .rodape{border-top:1px solid var(--line);padding:26px clamp(14px,4vw,36px);text-align:center;color:var(--mut);font-size:.85rem}
 .rodape p{margin:0 0 4px}

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./academia.css?v=6" />
+  <link rel="stylesheet" href="./academia.css?v=7" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -57,10 +57,6 @@
       <button class="tab" data-tab="tecnicas" type="button" role="tab">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5V5.5"/><path d="M9 8h6M9 12h4"/></svg>
         Técnicas
-      </button>
-      <button class="tab" data-tab="loja" type="button" role="tab">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-1.4 10.2a2 2 0 0 1-2 1.8H6.4a2 2 0 0 1-2-1.8z"/><path d="M3 9l2.2-4.4A2 2 0 0 1 7 3.5h10a2 2 0 0 1 1.8 1.1L21 9"/><path d="M9 13a3 3 0 0 0 6 0"/></svg>
-        Loja
       </button>
     </nav>
 
@@ -124,22 +120,6 @@
         <div class="lista tecnicas" id="lista-tec"></div>
       </section>
 
-      <!-- ABA 5: GARAGE STORE -->
-      <section class="tab-panel" id="tab-loja">
-        <div class="head"><span class="eyebrow">Garage Store</span><span class="count" id="count-loja"></span></div>
-        <p class="painel-nota">Vitrine de produtos afiliados do box. O que estiver <b>ativo</b> aparece na loja pública depois de você publicar; o resto fica como rascunho aqui.</p>
-        <div class="loja-barra">
-          <button class="btn" id="btn-publicar-loja" type="button">Publicar vitrine</button>
-          <a class="btn ghost btn-sm" href="../loja/index.html" target="_blank" rel="noopener">Ver a loja</a>
-          <span class="loja-status" id="loja-status"></span>
-        </div>
-        <label class="search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="busca-loja" type="search" placeholder="Buscar produto…" />
-        </label>
-        <div class="filtros" id="filtros-loja"></div>
-        <div class="lista loja-lista" id="lista-loja"></div>
-      </section>
     </div>
 
     <button id="fab" class="btn fab" type="button">+ Adicionar</button>
@@ -293,55 +273,6 @@
     </div>
   </div>
 
-  <!-- ============ MODAL: produto da Garage Store ============ -->
-  <div class="modal-bg" id="modal-produto">
-    <div class="modal" role="dialog" aria-modal="true">
-      <div class="modal-hd">
-        <h3 id="modal-produto-titulo">Novo produto</h3>
-        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
-      </div>
-      <form id="form-produto">
-        <div class="modal-bd">
-          <div class="grid">
-            <div class="field full">
-              <label>Link de afiliado <span class="hint">(cole aqui primeiro)</span></label>
-              <input name="url" id="pr-url" required placeholder="https://..." autocomplete="off" />
-              <div class="pr-analise" id="pr-analise"></div>
-            </div>
-            <div class="field full"><label>Nome do produto</label><input name="nome" id="pr-nome" required placeholder="Ex.: Creatina monohidratada 300 g" /></div>
-            <div class="field"><label>Categoria</label><select name="categoria" id="pr-categoria"></select></div>
-            <div class="field"><label>Preço de referência</label><input name="preco" id="pr-preco" inputmode="decimal" placeholder="Ex.: 89,90" /></div>
-            <div class="field full">
-              <label>URL da imagem</label>
-              <input name="imagem" id="pr-imagem" placeholder="https://... (clique com o botão direito na foto da loja → Copiar endereço da imagem)" />
-            </div>
-            <div class="field full">
-              <label>Dica do coach <span class="hint">(opcional)</span></label>
-              <textarea name="dica" id="pr-dica" placeholder="Ex.: A mesma creatina que usamos no box."></textarea>
-            </div>
-            <div class="field full">
-              <label class="check-linha">
-                <input type="checkbox" name="ativo" id="pr-ativo" checked />
-                <span>Produto ativo <span class="hint">Só os ativos vão para a vitrine pública quando você publicar. Desmarque para deixar como rascunho.</span></span>
-              </label>
-            </div>
-            <div class="field full">
-              <label>Prévia do card</label>
-              <div class="pr-preview" id="pr-preview"></div>
-            </div>
-          </div>
-          <div class="erro-form" id="erro-produto"></div>
-        </div>
-        <div class="modal-ft">
-          <button class="btn danger btn-sm" id="btn-del-produto" type="button" hidden>Excluir</button>
-          <span style="flex:1"></span>
-          <button class="btn ghost" data-close type="button">Cancelar</button>
-          <button class="btn" type="submit">Salvar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script type="module" src="./app.js?v=22"></script>
+  <script type="module" src="./app.js?v=23"></script>
 </body>
 </html>

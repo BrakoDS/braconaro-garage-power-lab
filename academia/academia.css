@@ -71,18 +71,16 @@ button{font-family:inherit}
   font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.92rem;
   padding:.8em .7em;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
 .tab svg{width:18px;height:18px;flex:none}
-/* São 5 abas: em 375px sobram ~68px por coluna. Encolhe a letra antes de esconder
-   o texto e empilha ícone sobre rótulo cedo (620px), porque em 5 colunas a linha
-   única deixa de caber muito antes do que cabia com 3. */
-@media (max-width:620px){
+/* Com 4 abas o rótulo aperta no celular: encolhe a letra antes de esconder o texto.
+   O empilhamento (ícone sobre rótulo) sobe p/ 460px — em 4 colunas a linha única
+   já não cabe antes disso. */
+@media (max-width:560px){
   .tabs{gap:4px;padding-inline:12px}
-  .tab{flex-direction:column;gap:3px;font-size:.64rem;letter-spacing:.02em;padding:.6em .2em}
+  .tab{font-size:.72rem;letter-spacing:.03em;gap:5px;padding:.75em .3em}
   .tab svg{width:16px;height:16px}
 }
-@media (max-width:400px){
-  .tabs{gap:3px;padding-inline:8px}
-  .tab{font-size:.58rem;padding:.55em .15em}
-  .tab svg{width:15px;height:15px}
+@media (max-width:460px){
+  .tab{flex-direction:column;gap:3px;font-size:.66rem;letter-spacing:.02em}
 }
 .tab:hover{color:var(--txt);border-color:var(--line-2)}
 .tab.active{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
@@ -117,46 +115,6 @@ button{font-family:inherit}
 
 /* ---------- Listas (cards) ---------- */
 .lista{display:flex;flex-direction:column;gap:10px}
-/* ---------- Garage Store (admin) ---------- */
-.loja-barra{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
-.loja-status{font-size:.82rem;color:var(--mut-2)}
-.loja-status .ok{color:var(--ok)}
-.loja-status .alerta{color:var(--bad)}
-.prod{display:grid;grid-template-columns:76px 1fr;gap:14px;align-items:start;width:100%;text-align:left;color:inherit;
-  background:var(--card);border:1px solid var(--line);padding:12px 14px;cursor:pointer;
-  transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
-.prod:hover{transform:translateX(3px);border-color:var(--accent);box-shadow:0 14px 30px -22px var(--glow)}
-.prod.indisp{opacity:.55}
-.prod-img{width:76px;height:76px;object-fit:cover;background:var(--bg-2);border:1px solid var(--line-2)}
-.prod-img.quebrada{display:flex}
-.prod-img.quebrada::after{content:'sem foto';display:flex;align-items:center;justify-content:center;width:100%;height:100%;
-  background:var(--bg-2);color:var(--mut-2);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
-.prod-info{min-width:0}
-.prod-info .nome{font-family:var(--font-cond);font-weight:600;font-size:1.06rem;line-height:1.2}
-.prod-info .sub{display:flex;align-items:center;gap:8px;margin-top:5px}
-.prod-preco{font-family:var(--font-cond);font-weight:700;color:var(--accent);font-size:.95rem}
-.prod-loja{margin-top:5px;font-size:.74rem;color:var(--mut-2);text-transform:uppercase;letter-spacing:.05em}
-.prod-loja .alerta{color:var(--bad)}
-.pr-analise{font-size:.78rem;color:var(--mut-2);min-height:1.1em}
-.pr-analise .ok{color:var(--ok)}
-.pr-analise .alerta{color:var(--bad)}
-.pr-preview{padding:10px;background:var(--bg-2);border:1px dashed var(--line-2)}
-/* Prévia com a MESMA moldura da vitrine pública, para o que o coach vê aqui ser o
-   que o aluno vê lá. */
-.prod-card{background:var(--card);border:1px solid var(--line-2);overflow:hidden;max-width:250px}
-.prod-card img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--bg-2)}
-.prod-card img.quebrada{display:none}
-.prod-card-sem{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:var(--bg-2);
-  color:var(--mut-2);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}
-.prod-card-bd{padding:11px 12px 13px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
-.prod-card-nome{font-family:var(--font-cond);font-weight:600;font-size:1rem;line-height:1.25}
-.prod-card-preco{font-family:var(--font-cond);font-weight:700;color:var(--accent);font-size:1.06rem}
-.prod-card-dica{font-size:.79rem;color:var(--mut-2);line-height:1.45}
-@media (max-width:480px){
-  .prod{grid-template-columns:60px 1fr;gap:11px}
-  .prod-img{width:60px;height:60px}
-}
-
 /* ---------- Cards de técnica (acordeão) ---------- */
 .lista.tecnicas{gap:12px}
 .tec{background:var(--card);border:1px solid var(--line);transition:border-color .15s ease,box-shadow .15s ease}
