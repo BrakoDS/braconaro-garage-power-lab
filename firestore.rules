@@ -52,6 +52,18 @@ service cloud.firestore {
           || exists(/databases/$(database)/documents/gestao/$(request.auth.uid)));
     }
 
+    // Garage Store — vitrine de produtos afiliados, publicada pelo coach.
+    //  - leitura PÚBLICA e sem login: a vitrine fica no site, aberta a visitante.
+    //    São só produtos (nome, foto, preço, link) — nenhum dado pessoal aqui.
+    //  - escrita só do COACH, dono de academia/{uid} (onde ele edita o catálogo)
+    //    ou de gestao/{uid}, para acompanhar os outros murais.
+    match /lojaPortal/{doc} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && (exists(/databases/$(database)/documents/academia/$(request.auth.uid))
+          || exists(/databases/$(database)/documents/gestao/$(request.auth.uid)));
+    }
+
     // Desafios da semana — lista única publicada pelo coach, lida por todos.
     match /desafiosPortal/{doc} {
       allow read: if request.auth != null;

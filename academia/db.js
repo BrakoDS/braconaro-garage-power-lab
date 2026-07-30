@@ -20,6 +20,8 @@ const chave = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀
 /** Rótulos fixos de categoria de equipamento e tags de treino. */
 export const CATEGORIAS = ['Peso livre', 'Máquina', 'Cardio', 'Acessório', 'Estação', 'Corporal'];
 export const TAGS = ['MUSCULAÇÃO', 'HYROX', 'HIIT', 'CROSS', 'GAP', 'MOBILIDADE'];
+/** Categorias da Garage Store (vitrine de produtos afiliados). */
+export const CATEGORIAS_LOJA = ['Suplementos', 'Equipamentos', 'Acessórios', 'Vestuário', 'Outros'];
 
 /** Tags antigas que viraram MUSCULAÇÃO (Força e Hipertrofia usam a MESMA lista). */
 const TAGS_OBSOLETAS = { 'FORÇA': 'MUSCULAÇÃO', 'HIPERTROFIA': 'MUSCULAÇÃO' };
@@ -45,7 +47,7 @@ export const MUSCULOS = [
   'Panturrilha', 'Estabilizadores',
 ];
 
-function vazio() { return { inventario: [], exercicios: [], tecnicas: [], seeded: false }; }
+function vazio() { return { inventario: [], exercicios: [], tecnicas: [], garageStore: [], seeded: false }; }
 function setLocal(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 function ler() {
   try {
@@ -55,6 +57,7 @@ function ler() {
     // Coleção nova se normaliza na leitura, nunca vira condição de validade.
     if (d && Array.isArray(d.inventario) && Array.isArray(d.exercicios)) {
       if (!Array.isArray(d.tecnicas)) d.tecnicas = [];
+      if (!Array.isArray(d.garageStore)) d.garageStore = [];
       return d;
     }
   } catch {}
@@ -66,7 +69,7 @@ function garantirSeed() {
   const d = ler();
   if (!d.seeded && !d.inventario.length && !d.exercicios.length) {
     const s = seedData();
-    setLocal({ inventario: s.inventario, exercicios: s.exercicios, tecnicas: s.tecnicas, seeded: true });
+    setLocal({ inventario: s.inventario, exercicios: s.exercicios, tecnicas: s.tecnicas, garageStore: s.garageStore, seeded: true });
   }
 }
 
@@ -147,7 +150,7 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 16;
+const SEED_VERSION = 17;
 
 /**
  * MIGRAÇÃO DO CATÁLOGO — aplica de uma vez a revisão da versão de semente atual:
@@ -266,6 +269,28 @@ function backfillTecnicas() {
   return mudou;
 }
 
+/**
+ * Acrescenta os produtos de exemplo da Garage Store que faltam por id.
+ *
+ * Mesma regra do `backfillTecnicas`: só adiciona, nunca reescreve — o texto e o
+ * link de afiliado são do coach. Os exemplos entram DESATIVADOS de propósito: são
+ * rascunhos para ele trocar pelo link de afiliado dele antes de ir ao ar, e produto
+ * inativo não é publicado na vitrine pública.
+ */
+function backfillLoja() {
+  const d = ler();
+  if ((d.seedVersion || 0) >= SEED_VERSION) return false;
+  const ids = new Set(d.garageStore.map((p) => p.id));
+  let mudou = false;
+  for (const p of seedData().garageStore) {
+    if (ids.has(p.id)) continue;
+    d.garageStore.push({ ...p });
+    mudou = true;
+  }
+  if (mudou) setLocal(d);
+  return mudou;
+}
+
 function backfillNovosSeed() {
   const d = ler();
   if ((d.seedVersion || 0) >= SEED_VERSION) return false;
@@ -285,6 +310,7 @@ backfillPadrao();
 backfillTags();
 migrarCatalogo();
 backfillTecnicas(); // antes do backfillNovosSeed, que é quem grava a seedVersion
+backfillLoja();
 backfillNovosSeed();
 
 /* ---------- Sincronização na nuvem ---------- */
@@ -324,10 +350,11 @@ export async function iniciarSync(uid, aoAtualizar) {
         inventario: remoto.inventario,
         exercicios: remoto.exercicios || [],
         tecnicas: remoto.tecnicas || [],
+        garageStore: remoto.garageStore || [],
         seeded: true,
         seedVersion: remoto.seedVersion || 0,
       });
-      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillTecnicas() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
+      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillTecnicas() | backfillLoja() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
       if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
     } else {
@@ -413,6 +440,41 @@ export function definirAtivoExerc(id, ativo) {
 export function removerExerc(id) {
   const d = ler();
   d.exercicios = d.exercicios.filter((x) => x.id !== id);
+  gravar(d);
+}
+
+/* ---------- Garage Store (produtos afiliados) ---------- */
+/**
+ * Vitrine de produtos recomendados pelo box. O aluno clica e vai para o link de
+ * afiliado da loja parceira.
+ *
+ * Estes dados ficam em `academia/{uid}`, que é PRIVADO do coach — nenhum aluno ou
+ * visitante consegue ler. Quem alimenta a vitrine pública é `publicarLoja()` em
+ * `loja-portal.js`, que espelha só os ATIVOS em `lojaPortal/atual`. Mesmo caminho
+ * do Montador com `treinoPortal`.
+ */
+export function listarProdutos() { return ler().garageStore.slice(); }
+/** @param {string} id */
+export function obterProduto(id) { return ler().garageStore.find((p) => p.id === id) || null; }
+
+/** Cria ou atualiza um produto. Se `dados.id` existir, atualiza; senão cria. */
+export function salvarProduto(dados) {
+  const d = ler();
+  if (dados.id && d.garageStore.some((p) => p.id === dados.id)) {
+    const p = d.garageStore.find((x) => x.id === dados.id);
+    Object.assign(p, dados);
+    gravar(d); return p;
+  }
+  const id = idUnico(dados.id || dados.nome, d.garageStore.map((p) => p.id));
+  const p = { id, nome: '', url: '', categoria: 'Outros', preco: '', imagem: '', dica: '', ativo: true, ...dados, id };
+  d.garageStore.push(p);
+  gravar(d); return p;
+}
+
+/** Remove um produto. @param {string} id */
+export function removerProduto(id) {
+  const d = ler();
+  d.garageStore = d.garageStore.filter((p) => p.id !== id);
   gravar(d);
 }
 

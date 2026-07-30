@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garage Store — Braconaro Garage Power Lab</title>
+  <meta name="description" content="Produtos recomendados pelo Braconaro Garage Power Lab: suplementos, equipamentos e acessórios que usamos e indicamos no box." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./loja.css?v=1" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+  <header class="topo">
+    <a class="brand" href="../index.html"><b>BRACONARO</b> · Garage Store<small>Garage Power Lab</small></a>
+    <nav class="topo-nav">
+      <a href="../index.html">Voltar ao site</a>
+      <a href="../aluno/index.html">Portal do Aluno</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Garage Store</h1>
+      <p>O que a gente usa e indica no box. Escolhemos cada item pensando em quem treina aqui — clicar leva você direto à loja parceira para concluir a compra.</p>
+      <p class="aviso">Alguns links são de afiliado: você paga o mesmo preço e o box recebe uma pequena comissão, que volta em equipamento novo.</p>
+    </section>
+
+    <div class="barra">
+      <label class="busca">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="busca" type="search" placeholder="Buscar produto…" aria-label="Buscar produto" />
+      </label>
+      <div class="filtros" id="filtros"></div>
+    </div>
+
+    <div id="saida" class="saida" aria-live="polite">
+      <p class="estado">Carregando a vitrine…</p>
+    </div>
+  </main>
+
+  <footer class="rodape">
+    <p>Braconaro Garage Power Lab · Agudos/SP</p>
+    <p class="mut">Preços e disponibilidade são definidos pela loja parceira e podem mudar sem aviso.</p>
+  </footer>
+
+  <script type="module" src="./loja.js?v=1"></script>
+</body>
+</html>

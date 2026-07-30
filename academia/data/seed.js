@@ -225,7 +225,77 @@ export const TECNICAS_SEED = [
   },
 ];
 
-/** @returns {{inventario: any[], exercicios: any[], tecnicas: Tecnica[]}} */
+/**
+ * GARAGE STORE — produtos afiliados de exemplo.
+ *
+ * Entram DESATIVADOS de propósito: os links apontam para a BUSCA da loja, não para
+ * um produto com o código de afiliado do coach. Servem de molde — ele troca a URL
+ * pela dele, ajusta foto e preço, e só então ativa. Produto inativo não é publicado
+ * na vitrine pública, então o box nunca vai ao ar com produto de mentira.
+ *
+ * A imagem é um SVG embutido (`data:`), não um link para foto de terceiro: nada de
+ * hotlink que some, nada de 404 na estreia.
+ *
+ * @typedef {Object} Produto
+ * @property {string} id
+ * @property {string} nome
+ * @property {string} url        link de afiliado
+ * @property {string} categoria
+ * @property {number|string} preco
+ * @property {string} imagem
+ * @property {string} dica       comentário do coach
+ * @property {boolean} ativo
+ */
+const placeholder = (rotulo) => 'data:image/svg+xml,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="#16181d"/>`
+  + `<text x="200" y="196" fill="#e8b339" font-family="sans-serif" font-size="34" font-weight="bold" text-anchor="middle">${rotulo}</text>`
+  + `<text x="200" y="232" fill="#8b929d" font-family="sans-serif" font-size="17" text-anchor="middle">troque a foto</text></svg>`);
+
+/** @type {Produto[]} */
+export const LOJA_SEED = [
+  {
+    id: 'creatina_monohidratada',
+    nome: 'Creatina monohidratada 300 g',
+    url: 'https://lista.mercadolivre.com.br/creatina-monohidratada',
+    categoria: 'Suplementos',
+    preco: 89.9,
+    imagem: placeholder('EXEMPLO'),
+    dica: 'A mesma creatina que usamos no box. 5 g por dia, todo dia — inclusive no dia sem treino.',
+    ativo: false,
+  },
+  {
+    id: 'corda_pular',
+    nome: 'Corda de pular com rolamento',
+    url: 'https://lista.mercadolivre.com.br/corda-de-pular-crossfit',
+    categoria: 'Acessórios',
+    preco: 49.9,
+    imagem: placeholder('EXEMPLO'),
+    dica: 'Para treinar double under em casa. Pegue uma com cabo de aço e rolamento — as de corda grossa não giram rápido o bastante.',
+    ativo: false,
+  },
+  {
+    id: 'halter_ajustavel',
+    nome: 'Halteres ajustáveis (par)',
+    url: 'https://lista.mercadolivre.com.br/halter-ajustavel',
+    categoria: 'Equipamentos',
+    preco: 399,
+    imagem: placeholder('EXEMPLO'),
+    dica: 'Resolve o treino em casa quando você não puder vir ao box. Um par ajustável ocupa o espaço de um e cobre várias cargas.',
+    ativo: false,
+  },
+  {
+    id: 'camiseta_dry_fit',
+    nome: 'Camiseta dry fit para treino',
+    url: 'https://lista.mercadolivre.com.br/camiseta-dry-fit-masculina',
+    categoria: 'Vestuário',
+    preco: 59.9,
+    imagem: placeholder('EXEMPLO'),
+    dica: 'Tecido que seca rápido faz diferença real no HIIT e no Hyrox. Algodão encharca e pesa.',
+    ativo: false,
+  },
+];
+
+/** @returns {{inventario: any[], exercicios: any[], tecnicas: Tecnica[], garageStore: Produto[]}} */
 export function seedData() {
   const inventario = EQUIPAMENTOS.map((e) => ({
     id: e.id,
@@ -257,5 +327,10 @@ export function seedData() {
     obs: x.descricao || '',
   }));
 
-  return { inventario, exercicios, tecnicas: TECNICAS_SEED.map((t) => ({ ...t })) };
+  return {
+    inventario,
+    exercicios,
+    tecnicas: TECNICAS_SEED.map((t) => ({ ...t })),
+    garageStore: LOJA_SEED.map((p) => ({ ...p })),
+  };
 }

@@ -8,6 +8,8 @@ import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
 import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
 import { PADROES, PADRAO_LABEL } from '../montador/config/padroes.js';
 import * as db from './db.js';
+import { analisarUrl, lerPreco, formatarPreco, buscarMetadados } from './loja-url.js';
+import { publicarLoja } from './loja-portal.js';
 
 /* ============================================================
    Helpers
@@ -28,6 +30,7 @@ const F = {
   exBusca: '', exTag: 'todos', exMusc: 'todos', exEquip: 'todos', soDisp: true, soDesat: false,
   mobBusca: '', mobMusc: 'todos', mobDesat: false,
   tecBusca: '', tecDesat: false,
+  lojaBusca: '', lojaCat: 'todas',
 };
 /** Técnicas com o acordeão aberto — sobrevive ao re-render da lista. @type {Set<string>} */
 const tecAbertas = new Set();
@@ -35,7 +38,7 @@ const tecAbertas = new Set();
 /* ============================================================
    Abas
    ============================================================ */
-const FAB_LABEL = { inventario: '+ Equipamento', exercicios: '+ Exercício', mobilidade: '+ Mobilidade', tecnicas: '+ Técnica' };
+const FAB_LABEL = { inventario: '+ Equipamento', exercicios: '+ Exercício', mobilidade: '+ Mobilidade', tecnicas: '+ Técnica', loja: '+ Produto' };
 $$('.tab').forEach((t) => t.addEventListener('click', () => trocarAba(t.dataset.tab)));
 function trocarAba(aba) {
   abaAtiva = aba;
@@ -228,6 +231,51 @@ function renderTecnicas() {
 }
 
 /* ============================================================
+   Render — Garage Store
+   ============================================================ */
+function renderFiltrosLoja() {
+  const cats = ['todas', ...db.CATEGORIAS_LOJA];
+  $('#filtros-loja').innerHTML = cats.map((c) => {
+    const rot = c === 'todas' ? 'Todas' : c;
+    return `<button class="chip${F.lojaCat === c ? ' on' : ''}" data-cat="${esc(c)}" type="button">${esc(rot)}</button>`;
+  }).join('');
+}
+
+function renderLoja() {
+  const q = norm(F.lojaBusca);
+  const base = db.listarProdutos();
+  const itens = base.filter((p) => {
+    if (F.lojaCat !== 'todas' && (p.categoria || 'Outros') !== F.lojaCat) return false;
+    return !q || norm(p.nome).includes(q) || norm(p.dica).includes(q);
+  });
+  itens.sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+
+  const ativos = base.filter((p) => p.ativo !== false && p.nome && p.url).length;
+  $('#count-loja').textContent = `${itens.length} ${itens.length === 1 ? 'produto' : 'produtos'} · ${ativos} na vitrine`;
+
+  if (!itens.length) {
+    $('#lista-loja').innerHTML = `<div class="empty"><b>Nenhum produto</b>${base.length ? 'Ajuste a busca ou o filtro.' : 'Toque em “+ Produto” para começar.'}</div>`;
+    return;
+  }
+  $('#lista-loja').innerHTML = itens.map((p) => {
+    const ativo = p.ativo !== false;
+    const preco = formatarPreco(typeof p.preco === 'number' ? p.preco : lerPreco(p.preco));
+    const info = analisarUrl(p.url || '');
+    return `
+    <button class="prod${ativo ? '' : ' indisp'}" data-id="${esc(p.id)}" type="button">
+      <img class="prod-img" src="${esc(p.imagem)}" alt="" loading="lazy"
+           onerror="this.classList.add('quebrada');this.removeAttribute('src')" />
+      <div class="prod-info">
+        <div class="nome">${esc(p.nome)}${ativo ? '' : ' <span class="badge" style="color:var(--bad);border-color:var(--bad)">Rascunho</span>'}</div>
+        <div class="sub"><span class="badge cat">${esc(p.categoria || 'Outros')}</span>${preco ? `<span class="prod-preco">${esc(preco)}</span>` : ''}</div>
+        ${p.dica ? `<div class="sub2">${esc(p.dica)}</div>` : ''}
+        <div class="prod-loja">${info.ok ? esc(info.loja) : '<span class="alerta">⚠ link inválido</span>'}${info.codigo ? ` · ${esc(info.codigo)}` : ''}</div>
+      </div>
+    </button>`;
+  }).join('');
+}
+
+/* ============================================================
    Render geral
    ============================================================ */
 function renderTudo() {
@@ -235,6 +283,7 @@ function renderTudo() {
   renderFiltrosTags(); renderFiltroMusc(); renderFiltroEquip(); renderExercicios();
   renderFiltroMobMusc(); renderMobilidade();
   renderTecnicas();
+  renderFiltrosLoja(); renderLoja();
 }
 
 /* ============================================================
@@ -253,6 +302,8 @@ $('#filtro-mob-musc').addEventListener('change', (e) => { F.mobMusc = e.target.v
 $('#chip-mob-desat').addEventListener('click', () => { F.mobDesat = !F.mobDesat; $('#chip-mob-desat').classList.toggle('on', F.mobDesat); renderMobilidade(); });
 $('#busca-tec').addEventListener('input', (e) => { F.tecBusca = e.target.value; renderTecnicas(); });
 $('#chip-tec-desat').addEventListener('click', () => { F.tecDesat = !F.tecDesat; $('#chip-tec-desat').classList.toggle('on', F.tecDesat); renderTecnicas(); });
+$('#busca-loja').addEventListener('input', (e) => { F.lojaBusca = e.target.value; renderLoja(); });
+$('#filtros-loja').addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (c) { F.lojaCat = c.dataset.cat; renderFiltrosLoja(); renderLoja(); } });
 
 /* ============================================================
    Modais — abrir/fechar
@@ -266,6 +317,7 @@ $$('.modal-bg').forEach((m) => {
 $('#fab').addEventListener('click', () => {
   if (abaAtiva === 'inventario') abrirEquip();
   else if (abaAtiva === 'tecnicas') abrirTecnica();
+  else if (abaAtiva === 'loja') abrirProduto();
   else abrirExerc(null, { mobilidade: abaAtiva === 'mobilidade' });
 });
 
@@ -503,12 +555,137 @@ $('#btn-del-tecnica').addEventListener('click', () => {
   renderTecnicas();
 });
 
+/* ---------- Modal Produto (Garage Store) ---------- */
+let prodEdit = null;
+
+/** Lê o formulário como um produto (sem gravar). */
+function produtoDoForm() {
+  const f = $('#form-produto');
+  return {
+    nome: f.nome.value.trim(),
+    url: f.url.value.trim(),
+    categoria: f.categoria.value,
+    preco: lerPreco(f.preco.value),
+    imagem: f.imagem.value.trim(),
+    dica: f.dica.value.trim(),
+    ativo: f.ativo.checked,
+  };
+}
+
+/** Prévia do card + leitura do link, atualizadas a cada digitação. */
+function atualizarPreviaProduto() {
+  const p = produtoDoForm();
+  const info = analisarUrl(p.url);
+  $('#pr-analise').innerHTML = !p.url ? ''
+    : info.ok
+      ? `<span class="ok">✓ ${esc(info.loja)}</span>${info.codigo ? ` · código <b>${esc(info.codigo)}</b>` : ''}`
+      : `<span class="alerta">⚠ ${esc(info.erro)}</span>`;
+
+  const preco = formatarPreco(p.preco);
+  $('#pr-preview').innerHTML = `
+    <div class="prod-card previa">
+      ${p.imagem
+        ? `<img src="${esc(p.imagem)}" alt="" onerror="this.classList.add('quebrada');this.removeAttribute('src')" />`
+        : '<div class="prod-card-sem">sem foto</div>'}
+      <div class="prod-card-bd">
+        <span class="badge cat">${esc(p.categoria)}</span>
+        <div class="prod-card-nome">${esc(p.nome || 'Nome do produto')}</div>
+        ${preco ? `<div class="prod-card-preco">${esc(preco)}</div>` : ''}
+        ${p.dica ? `<div class="prod-card-dica">${esc(p.dica)}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+async function abrirProduto(item = null) {
+  prodEdit = item;
+  const f = $('#form-produto');
+  $('#modal-produto-titulo').textContent = item ? `Editar ${item.nome}` : 'Novo produto';
+  $('#pr-categoria').innerHTML = db.CATEGORIAS_LOJA
+    .map((c) => `<option value="${esc(c)}"${c === (item?.categoria || 'Suplementos') ? ' selected' : ''}>${esc(c)}</option>`).join('');
+  f.url.value = item?.url || '';
+  f.nome.value = item?.nome || '';
+  f.preco.value = item?.preco === '' || item?.preco == null ? '' : String(item.preco).replace('.', ',');
+  f.imagem.value = item?.imagem || '';
+  f.dica.value = item?.dica || '';
+  f.ativo.checked = item ? item.ativo !== false : true;
+  $('#erro-produto').classList.remove('show');
+  $('#btn-del-produto').hidden = !item;
+  atualizarPreviaProduto();
+  abrirModal('modal-produto');
+  setTimeout(() => f.url.focus(), 50);
+}
+
+// Qualquer digitação no formulário reflete na prévia
+$('#form-produto').addEventListener('input', atualizarPreviaProduto);
+$('#form-produto').addEventListener('change', atualizarPreviaProduto);
+
+// Colar o link é o gatilho da automação possível (ver loja-url.js: o que dá e o que não dá)
+$('#pr-url').addEventListener('paste', () => {
+  setTimeout(async () => {
+    atualizarPreviaProduto();
+    const meta = await buscarMetadados($('#pr-url').value.trim());
+    const f = $('#form-produto');
+    if (meta.nome && !f.nome.value) f.nome.value = meta.nome;
+    if (meta.preco && !f.preco.value) f.preco.value = String(meta.preco).replace('.', ',');
+    if (meta.imagem && !f.imagem.value) f.imagem.value = meta.imagem;
+    atualizarPreviaProduto();
+  }, 0);
+});
+
+$('#form-produto').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const p = produtoDoForm();
+  const err = $('#erro-produto');
+  if (!p.nome) return;
+  const info = analisarUrl(p.url);
+  if (!info.ok) {
+    err.textContent = info.erro;
+    err.classList.add('show');
+    return;
+  }
+  const dados = { ...p, url: info.url, preco: p.preco == null ? '' : p.preco };
+  if (prodEdit) dados.id = prodEdit.id;
+  db.salvarProduto(dados);
+  fecharModal('modal-produto');
+  renderLoja();
+  avisarPublicacaoPendente();
+});
+
+$('#btn-del-produto').addEventListener('click', () => {
+  if (!prodEdit) return;
+  if (!confirm(`Excluir o produto "${prodEdit.nome}"?`)) return;
+  db.removerProduto(prodEdit.id);
+  fecharModal('modal-produto');
+  renderLoja();
+  avisarPublicacaoPendente();
+});
+
+/** A vitrine só muda quando o coach publica — o aviso deixa isso explícito. */
+function avisarPublicacaoPendente() {
+  $('#loja-status').innerHTML = '<span class="alerta">alterações não publicadas</span>';
+}
+
+$('#btn-publicar-loja').addEventListener('click', async () => {
+  const btn = $('#btn-publicar-loja');
+  const status = $('#loja-status');
+  btn.disabled = true;
+  status.textContent = 'publicando…';
+  const produtos = db.listarProdutos();
+  const ok = await publicarLoja(produtos);
+  const ativos = produtos.filter((p) => p.ativo !== false && p.nome && p.url).length;
+  status.innerHTML = ok
+    ? `<span class="ok">✓ vitrine publicada — ${ativos} ${ativos === 1 ? 'produto no ar' : 'produtos no ar'}</span>`
+    : '<span class="alerta">⚠ não deu para publicar (sem conexão ou sem permissão)</span>';
+  btn.disabled = false;
+});
+
 /* Clique nas listas → editar */
 $('#lista-inv').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterEquip(r.dataset.id); if (it) abrirEquip(it); } });
 $('#lista-ex').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterExerc(r.dataset.id); if (it) abrirExerc(it); } });
 $('#lista-mob').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) { const it = db.obterExerc(r.dataset.id); if (it) abrirExerc(it); } });
 // Técnica: o card é leitura (acordeão). Editar é um botão dentro do expandido — ler
 // a explicação não deve abrir um modal de edição, ao contrário das outras listas.
+$('#lista-loja').addEventListener('click', (e) => { const r = e.target.closest('.prod'); if (r) { const it = db.obterProduto(r.dataset.id); if (it) abrirProduto(it); } });
 $('#lista-tec').addEventListener('click', (e) => {
   const card = e.target.closest('.tec');
   if (!card) return;
