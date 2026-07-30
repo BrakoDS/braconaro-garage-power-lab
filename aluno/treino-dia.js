@@ -31,7 +31,7 @@ function corpoExercicios(d, nivel) {
   const linhas = (d.exercicios || []).map((e, i) => {
     const v = e.niveis && e.niveis[nivel];
     const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}` : esc(e.reps || '');
-    const tec = e.tecnica ? ` · <i>${esc(TECNICA_LABEL[e.tecnica.tipo] || e.tecnica.tipo)}</i>` : '';
+    const tec = e.tecnica ? ` · <i>${esc(rotuloTecnica(e.tecnica))}</i>` : '';
     return `<li class="td-ex">
       <span class="td-ex-nome">${i + 1}. ${esc(e.nome)}</span>
       <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}${tec}</span>
@@ -77,7 +77,13 @@ function corpoGap(g) {
   return `<div class="td-nota">TABATA ${p.trabalhoSeg || 20}s/${p.descansoSeg || 10}s — Siga o Mestre.</div>${partes}`;
 }
 
+/**
+ * Rótulo da técnica. As do Treino Manual vêm da Academia e trazem `label` junto —
+ * o mapa fixo abaixo atende as que o Híbrido gera sozinho e os treinos salvos antes
+ * de o campo existir.
+ */
 const TECNICA_LABEL = { biset: 'Bi-set', dropset: 'Drop-set', isometria: 'Isometria', tempo: 'Tempo 2-1-2' };
+const rotuloTecnica = (t) => t.label || TECNICA_LABEL[t.tipo] || t.tipo;
 
 /** Híbrido: Mobilidade + Hipertrofia (nível do aluno) + WOD. */
 function corpoHibrido(h, nivel) {
@@ -85,7 +91,7 @@ function corpoHibrido(h, nivel) {
   const linhas = (h.hipertrofia || []).map((e, i) => {
     const v = e.niveis && e.niveis[nivel];
     const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}` : esc(e.reps || '');
-    const tec = e.tecnica ? ` · <i>${esc(TECNICA_LABEL[e.tecnica.tipo] || e.tecnica.tipo)}</i>` : '';
+    const tec = e.tecnica ? ` · <i>${esc(rotuloTecnica(e.tecnica))}</i>` : '';
     return `<li class="td-ex">
       <span class="td-ex-nome">${i + 1}. ${esc(e.nome)}</span>
       <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}${tec}</span>

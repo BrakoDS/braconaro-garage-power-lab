@@ -31,8 +31,13 @@ function diaEnxuto(d) {
   if (d.hibrido) return { ...base, hibrido: d.hibrido };
   return {
     ...base,
+    // `aquecimento` e `tecnica` são o que o aluno precisa para executar sozinho:
+    // sem eles, o Portal mostrava só a prescrição seca e a técnica escolhida no
+    // Treino Manual não saía do montador.
+    aquecimento: (d.aquecimento || []).map((a) => ({ nome: a.nome, duracaoSeg: a.duracaoSeg })),
     exercicios: (d.exercicios || []).map((e) => ({
       nome: e.nome, padrao: e.padrao, reps: e.reps, descansoSeg: e.descansoSeg, niveis: e.niveis,
+      tecnica: e.tecnica || null,
     })),
     finalizador: d.finalizador || null,
   };

@@ -11,9 +11,11 @@
  */
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
 import { PADRAO_LABEL, PADROES } from '../config/padroes.js';
-import { EXERCICIOS } from '../data/exercicios.js';
+import { EXERCICIOS, serveModalidade } from '../data/exercicios.js';
+import { MOV_GAP_POR_ID } from '../data/gap.js';
 import { calcularVolume } from '../core/volume.js';
 import { variantesNivel } from '../core/niveis.js';
+import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
 import { publicarTreino } from './portal-treino.js';
@@ -22,14 +24,6 @@ const N_BLOCOS = 8;
 const N_AQUEC = 3;
 /** Duração de cada exercício de mobilidade no aquecimento (mesma regra do gerador). */
 const AQUEC_SEG = { forca: 150, default: 120 };
-
-/** Técnicas avançadas selecionáveis (mesmos rótulos/detalhes do Híbrido). */
-const TECNICAS = {
-  dropset: { label: 'Drop-set', detalhe: 'Drop-set na última série: reduza a carga e vá até a falha' },
-  isometria: { label: 'Isometria', detalhe: 'Isometria de 1–2s no pico da contração, em toda série' },
-  tempo: { label: 'Tempo 2-1-2', detalhe: 'Cadência 2-1-2 (2s descida · 1s pico · 2s subida)' },
-  biset: { label: 'Bi-set', detalhe: 'Bi-set com o exercício seguinte — sem descanso entre os dois' },
-};
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -41,13 +35,48 @@ const aquecSel = Array(N_AQUEC).fill('');
 /** @type {{ex:string, series:number, reps:number, tecnica:string}[]} */
 const blocos = Array.from({ length: N_BLOCOS }, () => ({ ex: '', series: 4, reps: 10, tecnica: '' }));
 
-const porId = (id) => EXERCICIOS.find((e) => e.id === id) || null;
+/* ---------- banco do GAP ----------
+   O GAP não usa o catálogo: tem banco próprio de peso corporal em data/gap.js.
+   Aqui cada movimento é adaptado para o formato `Exercicio`, e aí todo o resto do
+   caminho (volume, variantes de nível, snapshot, Portal) funciona sem saber que
+   veio de outro lugar. Os ids ganham o prefixo `gap:` porque há colisão real com o
+   catálogo (`polichinelo` existe nos dois). */
+const GAP_PREFIXO = 'gap:';
+
+/** @param {import('../data/gap.js').MovGap} m */
+function movGapComoExercicio(m) {
+  return {
+    id: GAP_PREFIXO + m.id,
+    nome: m.nome,
+    descricao: '',
+    padrao: m.padrao,
+    // mesma convenção do catálogo: o primeiro músculo é primário, o resto secundário
+    musculosPrimarios: m.musculos.slice(0, 1),
+    musculosSecundarios: m.musculos.slice(1),
+    categorias: ['gap'],
+    equipamento: ['corporal'],
+    nivel: 'iniciante',
+    tempoMedioSeg: 30,
+    multiarticular: true,
+  };
+}
+
+/** @type {Record<string, any>} */
+const GAP_COMO_EXERCICIO = Object.fromEntries(
+  Object.values(MOV_GAP_POR_ID).map((m) => { const e = movGapComoExercicio(m); return [e.id, e]; })
+);
+
+const porId = (id) => (id?.startsWith(GAP_PREFIXO) ? GAP_COMO_EXERCICIO[id] : EXERCICIOS.find((e) => e.id === id)) || null;
 
 // ---------- pools (lêem o catálogo VIVO — já com as tags da Academia) ----------
 function poolPrincipal() {
+  if (modalidade === 'gap') return Object.values(GAP_COMO_EXERCICIO);
   const mod = MODALIDADES[modalidade];
+  // `serveModalidade` é a MESMA regra do gerador automático: depois da unificação
+  // FORÇA+HIPERTROFIA na tag MUSCULAÇÃO, `categorias.includes('forca')` não casa com
+  // nada — Força vira "musculação + composto com carga", e isso mora lá.
   return EXERCICIOS.filter((e) =>
-    e.categorias.includes(modalidade)
+    serveModalidade(e, modalidade)
     && !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade')
     && (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao)));
 }
@@ -91,9 +120,22 @@ const optionsNum = (de, ate, sel, sufixo = '') => {
   return out;
 };
 
+/**
+ * Técnicas avançadas: vêm da aba "Técnicas" da Academia (mesma ponte que o catálogo
+ * de exercícios usa). O que o coach cadastra lá aparece aqui; desativada não aparece.
+ */
+function tecnicasDisponiveis() {
+  try {
+    return academia.listarTecnicas()
+      .filter((t) => t.ativo !== false)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+  } catch { return []; }
+}
+const tecnicaPorId = (id) => tecnicasDisponiveis().find((t) => t.id === id) || null;
+
 function optionsTecnica(sel) {
-  return `<option value="">Nenhuma</option>` + Object.entries(TECNICAS)
-    .map(([k, t]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${t.label}</option>`).join('');
+  return `<option value="">Nenhuma</option>` + tecnicasDisponiveis()
+    .map((t) => `<option value="${esc(t.id)}"${t.id === sel ? ' selected' : ''}>${esc(t.nome)}</option>`).join('');
 }
 
 // ---------- render do editor ----------
@@ -172,12 +214,15 @@ function snapshotManual(dateId) {
       .map((e) => ({ nome: e.nome, duracaoSeg: aquecSeg })),
     exercicios: blocos.filter((b) => b.ex && porId(b.ex)).map((b) => {
       const e = porId(b.ex);
-      const t = TECNICAS[b.tecnica];
+      const t = tecnicaPorId(b.tecnica);
       return {
         id: e.id, nome: e.nome, padrao: e.padrao, equipamento: e.equipamento,
         reps: `${b.reps} reps`, descansoSeg: mod.descansoSeg, seriesRef: b.series,
         niveis: variantesNivel(e, b.series, modalidade),
-        tecnica: t ? { tipo: b.tecnica, detalhe: t.detalhe } : null,
+        // `label` vai junto porque o rótulo não é mais um mapa fixo no código — a
+        // técnica é editável na Academia e pode até ser apagada depois. O treino
+        // salvo guarda o nome que valia no dia.
+        tecnica: t ? { tipo: t.id, label: t.nome, detalhe: t.resumo || t.objetivo || '' } : null,
       };
     }),
     finalizador: null,

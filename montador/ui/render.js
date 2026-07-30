@@ -16,6 +16,7 @@ export const COR_MODALIDADE = {
   hiit:        { bg: '#3DDC84', fg: '#06210f', nome: 'HIIT' },
 };
 
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const mmss = (s) => `${Math.round(s / 60)}min`;
 const equipNomes = (ids) => ids.map((i) => (EQUIP_POR_ID[i]?.nome || i)).join(', ');
 let _uid = 0;
@@ -23,11 +24,19 @@ let _uid = 0;
 /** Célula de um nível: séries + carga. @param {{series:number,carga:string}} v */
 const celNivel = (v) => `<span class="nv-series">${v.series}×</span> <span class="nv-carga">${v.carga}</span>`;
 
-/** Selo de técnica avançada (Híbrido) — bi-set/drop-set/isometria/tempo. */
+/**
+ * Selo de técnica avançada.
+ *
+ * Duas origens: o Híbrido gera as suas em `core/hibrido.js` (tipos fixos, sem
+ * `label`) e o Treino Manual usa as técnicas cadastradas na Academia, que trazem o
+ * nome junto. Por isso o `label` do snapshot vem primeiro e o mapa fixo só atende os
+ * tipos antigos — incluindo treino já salvo antes desta mudança.
+ */
 const TECNICA_LABEL = { biset: 'Bi-set', dropset: 'Drop-set', isometria: 'Isometria', tempo: 'Tempo 2-1-2' };
 function seloTecnica(tecnica) {
   if (!tecnica) return '';
-  return `<span class="tec-badge tec-${tecnica.tipo}" title="${tecnica.detalhe}">${TECNICA_LABEL[tecnica.tipo] || tecnica.tipo}</span>`;
+  const rotulo = tecnica.label || TECNICA_LABEL[tecnica.tipo] || tecnica.tipo;
+  return `<span class="tec-badge tec-${esc(tecnica.tipo)}" title="${esc(tecnica.detalhe || '')}">${esc(rotulo)}</span>`;
 }
 
 /**
