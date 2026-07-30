@@ -121,9 +121,111 @@ export const TECNICAS_SEED = [
     objetivo: 'Força e hipertrofia com carga alta. Exige aluno experiente e, em barra livre ou smith, segurança de parceiro.',
     ativo: true,
   },
+  {
+    id: 'pre_exaustao',
+    nome: 'Pré-Exaustão',
+    resumo: 'Exercício isolador realizado antes de um exercício composto para o mesmo músculo.',
+    comoExecutar: [
+      '1. Faça um exercício isolador (ex.: voador / crucifixo) até próximo da falha.',
+      '2. Sem descanso entre eles, vá direto para o exercício composto (ex.: supino reto).',
+      '3. Espere reduzir bastante a carga do composto — o músculo alvo já chega cansado, e isso é o ponto.',
+    ].join('\n'),
+    objetivo: 'Garantir que o músculo alvo seja o fator limitante no exercício principal, sem fadigar os sinergistas primeiro.',
+    ativo: true,
+  },
+  {
+    id: 'pos_exaustao',
+    nome: 'Pós-Exaustão',
+    resumo: 'Exercício composto seguido imediatamente por um exercício isolador.',
+    comoExecutar: [
+      '1. Realize a série no exercício composto (ex.: agachamento).',
+      '2. Em seguida, sem pausa, faça o isolador (ex.: cadeira extensora).',
+      '3. O par inteiro conta como uma série. Só descanse ao final dele.',
+    ].join('\n'),
+    objetivo: 'Esgotar totalmente as fibras musculares do agrupamento alvo após o exercício principal.',
+    ativo: true,
+  },
+  {
+    id: 'tri_set',
+    nome: 'Tri-set',
+    resumo: 'Três exercícios diferentes executados em sequência para o mesmo grupo muscular, sem descanso.',
+    comoExecutar: [
+      '1. Deixe os três exercícios montados antes de começar.',
+      '2. Faça a série do exercício A, passe imediatamente para o B e depois para o C.',
+      '3. O descanso só ocorre após finalizar os três.',
+      'No box: três estações reservadas por aluno saem caro no rodízio. Funciona melhor fora do horário de pico, ou combinando um de peso corporal para não travar aparelho.',
+    ].join('\n'),
+    objetivo: 'Alto acúmulo de estresse metabólico e volume em um curto espaço de tempo.',
+    ativo: true,
+  },
+  {
+    id: 'serie_gigante',
+    nome: 'Série Gigante (Giant Set)',
+    resumo: 'Sequência de 4 ou mais exercícios para o mesmo grupo muscular realizados sem pausa.',
+    comoExecutar: [
+      '1. Realize 1 série de cada um dos 4 ou mais exercícios, seguidos.',
+      '2. Descanse de 2 a 3 minutos ao final do circuito.',
+      '3. Repita a sequência.',
+      'Mesmo alerta do tri-set, ampliado: 4 aparelhos presos por aluno inviabiliza turma cheia. Reserve para atendimento individual ou monte com halteres e peso corporal.',
+    ].join('\n'),
+    objetivo: 'Máximo recrutamento de fibras, trabalho de resistência muscular e alto gasto calórico.',
+    ativo: true,
+  },
+  {
+    id: 'fst_7',
+    nome: 'FST-7 (Fascia Stretch Training 7)',
+    resumo: '7 séries do mesmo exercício com descansos curtos (30 a 45 s) ao final do treino do grupo muscular.',
+    comoExecutar: [
+      '1. No ÚLTIMO exercício daquele músculo, faça 7 séries de 8 a 12 repetições.',
+      '2. Use carga moderada — o objetivo é o bombeamento, não o peso.',
+      '3. Descanse exatamente 30 a 45 segundos entre cada série. Cronômetro na mão.',
+      'Prende um aparelho por uns 8 a 10 minutos. Escolha um que não seja gargalo do rodízio.',
+    ].join('\n'),
+    objetivo: 'Mapear e expandir a fáscia muscular através do bombeamento máximo de sangue (pump).',
+    ativo: true,
+  },
+  {
+    id: 'cluster_set',
+    nome: 'Cluster Set',
+    resumo: 'Séries fracionadas em pequenos blocos com micro-pausas intra-série (10 a 20 segundos).',
+    comoExecutar: [
+      '1. Escolha uma carga que você faria por 4 a 6 repetições.',
+      '2. Faça 2 repetições e descanse 15 segundos.',
+      '3. Mais 2 repetições, mais 15 segundos de descanso.',
+      '4. Mais 2 repetições — 6 no total, com uma carga que normalmente daria 4 ou 5.',
+      'Diferença para o rest-pause: aqui a pausa vem ANTES da falha, de propósito, para manter a qualidade de cada repetição.',
+    ].join('\n'),
+    objetivo: 'Permitir maior volume total de treino com cargas pesadas sem perder a explosão e o rendimento.',
+    ativo: true,
+  },
+  {
+    id: 'excentrica_lenta',
+    nome: 'Excêntrica Lenta (Negativa)',
+    resumo: 'Foco na cadência e controle da fase de alongamento do músculo (fase excêntrica).',
+    comoExecutar: [
+      '1. Faça a fase concêntrica (a subida) em velocidade normal.',
+      '2. Controle a fase excêntrica (a descida) levando de 3 a 5 segundos.',
+      '3. Repita em TODAS as repetições da série — se a cadência cair, a série acabou.',
+      'Conte alto para o aluno nas primeiras vezes. Sozinho, quase todo mundo acelera a descida sem perceber.',
+    ].join('\n'),
+    objetivo: 'Aumentar a tensão mecânica e provocar maior estímulo para hipertrofia.',
+    ativo: true,
+  },
+  {
+    id: 'repeticoes_parciais',
+    nome: 'Repetições Parciais',
+    resumo: 'Continuação do exercício em amplitude reduzida após atingir a falha em amplitude total.',
+    comoExecutar: [
+      '1. Execute até não conseguir mais nenhuma repetição completa com boa técnica.',
+      '2. Continue fazendo repetições curtas (metade do movimento) até a exaustão.',
+      '3. Encerre quando nem a parcial sair com controle — parcial não é sinônimo de movimento solto.',
+    ].join('\n'),
+    objetivo: 'Extrair o máximo de fadiga metabólica do músculo quando a amplitude total não é mais possível.',
+    ativo: true,
+  },
 ];
 
-/** @returns {{inventario: any[], exercicios: any[]}} */
+/** @returns {{inventario: any[], exercicios: any[], tecnicas: Tecnica[]}} */
 export function seedData() {
   const inventario = EQUIPAMENTOS.map((e) => ({
     id: e.id,

@@ -147,7 +147,7 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 15;
+const SEED_VERSION = 16;
 
 /**
  * MIGRAÇÃO DO CATÁLOGO — aplica de uma vez a revisão da versão de semente atual:
