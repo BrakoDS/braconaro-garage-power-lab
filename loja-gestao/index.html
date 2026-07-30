@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Gestão Garage Store — Braconaro Garage Power Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- vitrine.css primeiro: traz os tokens e é o MESMO CSS do card que o aluno vê,
+       usado pela aba de Prévia. gestao.css só acrescenta o painel. -->
+  <link rel="stylesheet" href="../loja/vitrine.css?v=1" />
+  <link rel="stylesheet" href="./gestao.css?v=1" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+  <!-- ============ GATE (login do coach) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>BRACONARO</b> · Gestão da Loja<small>Garage Power Lab</small></div>
+      <p class="gate-sub">Área restrita ao coach.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links">
+        <a href="#" id="gate-reset">Esqueci a senha</a>
+      </div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <h1>Gestão Garage Store</h1>
+      <div class="topbar-acoes">
+        <a class="btn ghost btn-sm" href="../coach/index.html">Coach</a>
+        <a class="btn ghost btn-sm" href="../loja/index.html" target="_blank" rel="noopener">Ver a loja</a>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="painel" type="button" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        Painel
+      </button>
+      <button class="tab" data-tab="produtos" type="button" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-1.4 10.2a2 2 0 0 1-2 1.8H6.4a2 2 0 0 1-2-1.8z"/><path d="M3 9l2.2-4.4A2 2 0 0 1 7 3.5h10a2 2 0 0 1 1.8 1.1L21 9"/><path d="M9 13a3 3 0 0 0 6 0"/></svg>
+        Produtos
+      </button>
+      <button class="tab" data-tab="previa" type="button" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        Prévia
+      </button>
+    </nav>
+
+    <div class="wrap">
+      <!-- ABA 1: PAINEL -->
+      <section class="tab-panel active" id="tab-painel">
+        <div class="head"><span class="eyebrow">Painel da vitrine</span></div>
+        <div id="painel-cards"></div>
+        <div id="painel-categorias"></div>
+      </section>
+
+      <!-- ABA 2: PRODUTOS -->
+      <section class="tab-panel" id="tab-produtos">
+        <div class="head"><span class="eyebrow">Produtos</span><span class="count" id="count-prod"></span></div>
+        <div class="acoes-barra">
+          <button class="btn" id="btn-novo" type="button">+ Produto</button>
+          <button class="btn ghost" id="btn-publicar" type="button">Publicar na vitrine</button>
+          <span class="status" id="status-pub"></span>
+        </div>
+        <label class="busca">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="busca-prod" type="search" placeholder="Buscar produto…" />
+        </label>
+        <div class="filtros" id="filtros-prod"></div>
+        <div class="prod-lista" id="lista-prod"></div>
+      </section>
+
+      <!-- ABA 3: PRÉVIA -->
+      <section class="tab-panel" id="tab-previa">
+        <div class="head"><span class="eyebrow">Prévia da vitrine</span><span class="count" id="count-previa"></span></div>
+        <p class="nota">Renderizado com o <b>mesmo código e o mesmo CSS</b> da loja pública — é o que o aluno vê.</p>
+        <div class="filtros modos">
+          <button class="chip on" id="modo-ar" data-modo="ar" type="button">Como está no ar</button>
+          <button class="chip" id="modo-local" data-modo="local" type="button">Como ficará ao publicar</button>
+        </div>
+        <p class="nota" id="previa-nota"></p>
+        <div class="barra">
+          <label class="busca">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="busca-previa" type="search" placeholder="Buscar produto…" />
+          </label>
+          <div class="filtros" id="filtros-previa"></div>
+        </div>
+        <div id="saida-previa"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: produto ============ -->
+  <div class="modal-bg" id="modal-produto" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3 id="modal-produto-titulo">Novo produto</h3>
+        <button class="modal-x" data-fechar type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="form-produto">
+        <div class="modal-bd">
+          <div class="campo">
+            <label for="pr-url">Link de afiliado <span class="hint">(cole aqui primeiro)</span></label>
+            <input name="url" id="pr-url" required placeholder="https://..." autocomplete="off" />
+            <div class="pr-analise" id="pr-analise"></div>
+          </div>
+          <div class="campo"><label for="pr-nome">Nome do produto</label><input name="nome" id="pr-nome" required placeholder="Ex.: Creatina monohidratada 300 g" /></div>
+          <div class="campo-2">
+            <div class="campo"><label for="pr-categoria">Categoria</label><select name="categoria" id="pr-categoria"></select></div>
+            <div class="campo"><label for="pr-preco">Preço de referência</label><input name="preco" id="pr-preco" inputmode="decimal" placeholder="Ex.: 89,90" /></div>
+          </div>
+          <div class="campo">
+            <label for="pr-imagem">URL da imagem</label>
+            <input name="imagem" id="pr-imagem" placeholder="Botão direito na foto da loja → Copiar endereço da imagem" />
+          </div>
+          <div class="campo">
+            <label for="pr-dica">Dica do coach <span class="hint">(opcional)</span></label>
+            <textarea name="dica" id="pr-dica" rows="3" placeholder="Ex.: A mesma creatina que usamos no box."></textarea>
+          </div>
+          <label class="check-linha">
+            <input type="checkbox" name="ativo" id="pr-ativo" checked />
+            <span>Produto ativo <span class="hint">Só os ativos vão para a vitrine quando você publicar. Desmarque para deixar como rascunho.</span></span>
+          </label>
+          <div class="campo"><label>Prévia do card</label><div class="pr-preview" id="pr-preview"></div></div>
+          <div class="erro-form" id="erro-produto"></div>
+        </div>
+        <div class="modal-ft">
+          <button class="btn danger btn-sm" id="btn-del-produto" type="button" hidden>Excluir</button>
+          <span style="flex:1"></span>
+          <button class="btn ghost" data-fechar type="button">Cancelar</button>
+          <button class="btn" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="./gestao.js?v=1"></script>
+</body>
+</html>

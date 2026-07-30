@@ -65,13 +65,46 @@ export async function publicarLoja(produtos) {
 
 /** Lê a vitrine publicada (usado pela loja pública). @returns {Promise<any[]>} */
 export async function carregarLoja() {
-  if (!lojaCloudAtiva()) return [];
+  return (await carregarVitrine()).produtos;
+}
+
+/**
+ * Lê a vitrine COM os metadados da publicação — o painel do coach precisa do
+ * `atualizadoEm` para dizer quando foi ao ar.
+ * @returns {Promise<{produtos: any[], atualizadoEm: number|null}>}
+ */
+export async function carregarVitrine() {
+  if (!lojaCloudAtiva()) return { produtos: [], atualizadoEm: null };
   try {
     await init();
     const snap = await _fns.getDoc(_fns.doc(_db, 'lojaPortal', DOC));
-    return snap.exists() ? (snap.data().produtos || []) : [];
+    if (!snap.exists()) return { produtos: [], atualizadoEm: null };
+    const d = snap.data();
+    return { produtos: d.produtos || [], atualizadoEm: d.atualizadoEm || null };
   } catch (e) {
     console.warn('Carregar Garage Store:', e?.code || e);
-    return [];
+    return { produtos: [], atualizadoEm: null };
   }
+}
+
+/**
+ * Assinatura do que ESTARIA no ar para uma lista de produtos.
+ *
+ * Usa exatamente o `produtoEnxuto` da publicação, então comparar a assinatura do
+ * catálogo local com a do que está publicado responde a pergunta certa: "existe
+ * alteração pendente?". É melhor que uma flag de sessão, que mente depois de um
+ * reload e não sabe se a mudança foi desfeita.
+ * @param {any[]} produtos catálogo inteiro (a função filtra os ativos)
+ */
+export function assinatura(produtos) {
+  const ativos = (produtos || []).filter((p) => p.ativo !== false && p.nome && p.url).map(produtoEnxuto);
+  ativos.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  return JSON.stringify(ativos);
+}
+
+/** Assinatura de uma lista JÁ publicada (que veio enxuta da nuvem). @param {any[]} publicados */
+export function assinaturaPublicada(publicados) {
+  const lista = (publicados || []).map(produtoEnxuto);
+  lista.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  return JSON.stringify(lista);
 }
