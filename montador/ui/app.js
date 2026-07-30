@@ -10,6 +10,7 @@ import { gerarTreino } from '../core/gerador.js';
 import { variantesNivel } from '../core/niveis.js';
 import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
 import { initManual } from './manual.js';
+import { confirmar, painel } from './dialogo.js';
 
 /** A geração ancora no intermediário; as colunas iniciante/avançado derivam dele. */
 const NIVEL_ANCORA = 'intermediario';
@@ -118,11 +119,16 @@ function gerarUnico() {
   renderSalvarBar(dateId);
 }
 
-function salvarTreinoAtual() {
+async function salvarTreinoAtual() {
   if (!treinoGerado) return;
   const dateId = $('#u-data').value || store.dateIdDe();
   if (store.getTreino(dateId)) {
-    if (!confirm(`Já existe um treino salvo em ${formatarData(dateId)}.\n\nSubstituir pelo treino gerado?`)) return;
+    const ok = await confirmar({
+      titulo: 'Substituir treino?',
+      texto: `Já existe um treino registrado em <b>${formatarData(dateId)}</b>. Ele será trocado pelo treino gerado, no histórico e no Portal do Aluno.`,
+      ok: 'Substituir', perigo: true,
+    });
+    if (!ok) return;
   }
   const snap = diaSnapshotDe(treinoGerado, dateId);
   store.salvarTreino(dateId, snap);
@@ -142,35 +148,36 @@ function shiftMes(mesId, delta) {
 
 function renderHistorico() {
   const treinos = store.listarTreinosDoMes(calMesId);
-  $('#h-saida').innerHTML = renderCalendario(calMesId, treinos, store.rotuloMes(calMesId)) + '<div id="cal-detalhe"></div>';
+  $('#h-saida').innerHTML = renderCalendario(calMesId, treinos, store.rotuloMes(calMesId));
+}
+
+/** Abre o treino do dia em modal; o "Excluir" de lá pede confirmação em seguida. */
+async function abrirDia(dateId) {
+  const snap = store.getTreino(dateId);
+  if (!snap) return;
+  const acao = await painel({
+    titulo: formatarData(dateId),
+    corpoHTML: renderDiaSalvo(snap, false),
+    acoes: [{ id: 'excluir', label: 'Excluir treino', perigo: true }],
+  });
+  if (acao !== 'excluir') return;
+  const ok = await confirmar({
+    titulo: 'Excluir treino?',
+    texto: `O treino de <b>${formatarData(dateId)}</b> sai do histórico e também do “Treino do dia” do aluno.`,
+    ok: 'Excluir', perigo: true,
+  });
+  if (!ok) return;
+  store.removerTreino(dateId);
+  removerTreinoPortal(dateId);
+  renderHistorico();
 }
 
 function ativarCalendario() {
   $('#h-saida').addEventListener('click', (ev) => {
     const nav = ev.target.closest('.cal-nav');
     if (nav) { calMesId = shiftMes(calMesId, Number(nav.dataset.nav)); renderHistorico(); return; }
-
     const cel = ev.target.closest('.cal-cel.tem');
-    if (cel) {
-      const dateId = cel.dataset.date;
-      const snap = store.getTreino(dateId);
-      if (!snap) return;
-      const det = $('#cal-detalhe');
-      det.innerHTML = `<div class="cal-det-topo"><b>${formatarData(dateId)}</b>
-        <button class="btn danger sm" id="btn-excluir-dia" data-date="${dateId}" type="button">Excluir treino</button></div>`
-        + renderDiaSalvo(snap, false);
-      det.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      return;
-    }
-
-    const del = ev.target.closest('#btn-excluir-dia');
-    if (del) {
-      const dateId = del.dataset.date;
-      if (!confirm(`Excluir o treino de ${formatarData(dateId)}?\n\nEle sai do histórico e do "Treino do dia" do aluno.`)) return;
-      store.removerTreino(dateId);
-      removerTreinoPortal(dateId);
-      renderHistorico();
-    }
+    if (cel) abrirDia(cel.dataset.date);
   });
 }
 

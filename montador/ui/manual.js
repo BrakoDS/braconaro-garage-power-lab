@@ -18,6 +18,7 @@ import { variantesNivel } from '../core/niveis.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
+import { confirmar } from './dialogo.js';
 import { publicarTreino } from './portal-treino.js';
 
 const N_BLOCOS = 8;
@@ -229,13 +230,18 @@ function snapshotManual(dateId) {
   };
 }
 
-function salvarManual() {
+async function salvarManual() {
   const dateId = $('#m-data').value || store.dateIdDe();
   const { itens } = volumeAtual();
   if (!itens.length) return;
   const dataTxt = store.dataDe(dateId).toLocaleDateString('pt-BR');
   if (store.getTreino(dateId)) {
-    if (!confirm(`Já existe um treino salvo em ${dataTxt}.\n\nSubstituir pelo treino manual?`)) return;
+    const ok = await confirmar({
+      titulo: 'Substituir treino?',
+      texto: `Já existe um treino registrado em <b>${dataTxt}</b>. Ele será trocado por este treino manual, no histórico e no Portal do Aluno.`,
+      ok: 'Substituir', perigo: true,
+    });
+    if (!ok) return;
   }
   const snap = snapshotManual(dateId);
   store.salvarTreino(dateId, snap);

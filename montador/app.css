@@ -168,7 +168,6 @@ tr.bad-row td { color: var(--warn); }
 .cal-legenda { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 14px; }
 .cal-leg-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mut); }
 .cal-leg-cor { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
-.cal-det-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 8px; }
 
 @media print {
   .topbar, .panel, .tab, .swap, .alts, button, .cal-nav, .salvar-bar { display: none !important; }
@@ -183,6 +182,29 @@ tr.bad-row td { color: var(--warn); }
   .cal-grade { gap: 4px; }
   .cal-cel { padding: 3px 5px; border-radius: 6px; }
   .cal-cel .cal-num { font-size: 11px; }
+}
+
+/* ---------- Modal genérico (confirmação + detalhes do histórico) ---------- */
+.modal-bg { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.66); backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center; padding: 18px; overflow-y: auto; }
+.modal-bg[hidden] { display: none; }
+.modal { width: 100%; max-width: 460px; margin: auto; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r); box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: calc(100vh - 36px); }
+/* Detalhes do treino precisam de espaço: a tabela de 3 níveis não cabe em 460px. */
+.modal.largo { max-width: 860px; }
+.modal-hd { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.modal-hd h3 { margin: 0; font-size: 16px; }
+.modal-x { margin-left: auto; background: none; border: 0; color: var(--mut); font-size: 24px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.modal-x:hover { color: var(--txt); }
+.modal-bd { padding: 18px; overflow-y: auto; }
+/* O card interno do treino já vem com moldura própria — sem moldura dupla no modal. */
+.modal-bd > .card { background: transparent; border: 0; box-shadow: none; padding: 0; margin: 0; }
+.modal-ft { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.dlg-texto { margin: 0; color: var(--txt); line-height: 1.6; }
+@media (max-width: 640px) {
+  .modal-bg { padding: 10px; }
+  .modal-ft { justify-content: stretch; }
+  .modal-ft .btn { flex: 1; }
 }
 
 /* ---------- Treino Manual (montagem por seleção) ---------- */
