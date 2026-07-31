@@ -32,24 +32,44 @@
     links.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', closeMenu); });
   }
 
-  /* ---------- PLANS ---------- */
+  /* ---------- PLANS ----------
+     Os preços exibidos são sempre o VALOR MENSAL (ou o equivalente mensal, nos
+     prazos longos) — é assim que o visitante compara com academia e personal.
+     O total do período vai no `obs`, para não haver surpresa no fechamento.
+
+     O trimestral custa o mesmo por mês que o mensal de propósito: ele não compete
+     por desconto, e sim pela reavaliação no 3º mês. Só o semestral tem desconto
+     (10%). Por isso o `obs` de cada prazo precisa dizer o que se ganha — sem ele,
+     dois cartões com o mesmo preço pareceriam um erro da página. */
   var PLANS = {
     mensal: {
-      note: 'Mês de 4 semanas. Quando houver 5 semanas, a 5ª não será cobrada.',
+      label: 'Mensal',
+      note: 'Avaliação física completa inclusa. Mês de 4 semanas — quando houver 5, a 5ª não será cobrada.',
       per: '/mês',
       rows: [
-        { freq: '3x', sub: 'por semana', price: '130', obs: '4 semanas' },
-        { freq: '4x', sub: 'por semana', price: '150', obs: '4 semanas', featured: true },
-        { freq: '5x', sub: 'por semana', price: '170', obs: '4 semanas' }
+        { freq: '2x', sub: 'por semana', price: '190', obs: 'Avaliação física inclusa' },
+        { freq: '3x', sub: 'por semana', price: '260', obs: 'Avaliação física inclusa', featured: true },
+        { freq: '4x', sub: 'por semana', price: '310', obs: 'Avaliação física inclusa' }
       ]
     },
     tri: {
-      note: 'Valores reduzidos por fidelidade (plano trimestral). Mesma regra das 4 semanas, com a 5ª semana não cobrada.',
+      label: 'Trimestral',
+      note: 'Mesmo valor mensal, com uma reavaliação física no 3º mês para medir sua evolução.',
       per: '/mês no trimestral',
       rows: [
-        { freq: '3x', sub: 'por semana', price: '125', obs: 'Economia por fidelidade' },
-        { freq: '4x', sub: 'por semana', price: '140', obs: 'Economia por fidelidade', featured: true },
-        { freq: '5x', sub: 'por semana', price: '150', obs: 'Economia por fidelidade' }
+        { freq: '2x', sub: 'por semana', price: '190', obs: 'Reavaliação no 3º mês · R$ 570 no total' },
+        { freq: '3x', sub: 'por semana', price: '260', obs: 'Reavaliação no 3º mês · R$ 780 no total', featured: true },
+        { freq: '4x', sub: 'por semana', price: '310', obs: 'Reavaliação no 3º mês · R$ 930 no total' }
+      ]
+    },
+    semestral: {
+      label: 'Semestral',
+      note: '10% de desconto e acompanhamento contínuo: uma avaliação a cada 2 meses, 3 no total.',
+      per: '/mês no semestral',
+      rows: [
+        { freq: '2x', sub: 'por semana', price: '171', obs: '3 avaliações · R$ 1.026 no total' },
+        { freq: '3x', sub: 'por semana', price: '234', obs: '3 avaliações · R$ 1.404 no total', featured: true },
+        { freq: '4x', sub: 'por semana', price: '279', obs: '3 avaliações · R$ 1.674 no total' }
       ]
     }
   };
@@ -60,7 +80,7 @@
   function renderPlans(key) {
     if (!grid) return;
     var p = PLANS[key];
-    var planName = key === 'mensal' ? 'Mensal' : 'Trimestral';
+    var planName = p.label;
     grid.innerHTML = p.rows.map(function (r) {
       var msg = encodeURIComponent('Olá! Tenho interesse no plano ' + planName + ' ' + r.freq + ' por semana (R$ ' + r.price + '). Pode me passar mais informações?');
       return '' +

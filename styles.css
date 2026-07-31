@@ -466,6 +466,12 @@ section.block { padding-block: var(--section-y); position: relative; }
   padding: 0.6em 1.4em; border-radius: 999px; transition: .2s; white-space: nowrap;
 }
 .plans-toggle button.active { background: var(--accent); color: var(--accent-ink); }
+/* Com três prazos (Mensal / Trimestral / Semestral) a pílula não cabe mais em uma
+   linha no celular: encolhe o texto e o respiro antes de deixar estourar a tela. */
+@media (max-width: 520px){
+  .plans-toggle { display: flex; width: 100%; }
+  .plans-toggle button { flex: 1; padding: 0.6em 0.4em; font-size: 0.78rem; letter-spacing: 0.04em; }
+}
 .toggle-note {
   font-family: var(--font-cond); letter-spacing: .06em; text-transform: uppercase;
   font-size: .8rem; color: var(--accent); margin-top: 14px;
