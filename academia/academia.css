@@ -65,22 +65,28 @@ button{font-family:inherit}
   font-size:clamp(1.1rem,3vw,1.5rem);margin:0;line-height:1}
 .wrap{max-width:900px;margin:0 auto;padding:clamp(16px,4vw,28px) clamp(14px,4vw,36px) 120px}
 
-/* ---------- Abas (Inventário / Exercícios / Mobilidade) ---------- */
+/* ---------- Abas (Inventário / Exercícios / Mobilidade / Técnicas / Negócio) ---------- */
 .tabs{display:flex;gap:6px;margin:0 auto;max-width:900px;padding:14px clamp(14px,4vw,36px) 0}
 .tab{flex:1;min-width:0;appearance:none;border:1px solid var(--line-2);background:var(--card);cursor:pointer;color:var(--mut);
   font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.92rem;
   padding:.8em .7em;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
 .tab svg{width:18px;height:18px;flex:none}
-/* Com 4 abas o rótulo aperta no celular: encolhe a letra antes de esconder o texto.
-   O empilhamento (ícone sobre rótulo) sobe p/ 460px — em 4 colunas a linha única
-   já não cabe antes disso. */
-@media (max-width:560px){
+/* Com 5 abas o rótulo aperta no celular: encolhe a letra antes de esconder o texto.
+   Os dois cortes subiram junto com a 5ª aba (eram 560/460 com 4 colunas): em 5 a
+   linha única deixa de caber bem antes, então o empilhamento (ícone sobre rótulo)
+   precisa entrar mais cedo — senão "Mobilidade" e "Exercícios" quebram no meio. */
+@media (max-width:680px){
   .tabs{gap:4px;padding-inline:12px}
   .tab{font-size:.72rem;letter-spacing:.03em;gap:5px;padding:.75em .3em}
   .tab svg{width:16px;height:16px}
 }
-@media (max-width:460px){
+@media (max-width:560px){
   .tab{flex-direction:column;gap:3px;font-size:.66rem;letter-spacing:.02em}
+}
+@media (max-width:400px){
+  .tabs{gap:3px;padding-inline:10px}
+  .tab{font-size:.6rem;padding:.6em .15em}
+  .tab svg{width:15px;height:15px}
 }
 .tab:hover{color:var(--txt);border-color:var(--line-2)}
 .tab.active{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
@@ -171,6 +177,9 @@ button{font-family:inherit}
 
 /* ---------- FAB ---------- */
 .fab{position:fixed;right:clamp(16px,4vw,40px);bottom:24px;z-index:30}
+/* `.btn{display:inline-flex}` do autor vence a regra `[hidden]{display:none}` do
+   navegador — sem esta linha, esconder o FAB na aba Negócio não surtiria efeito. */
+.fab[hidden]{display:none}
 
 /* ============================================================
    Modais
@@ -247,3 +256,100 @@ button{font-family:inherit}
 
 .erro-form{color:var(--bad);font-size:.85rem;margin-top:10px;display:none}
 .erro-form.show{display:block}
+
+/* ============================================================
+   Dossiê do negócio (aba Negócio)
+   Material comercial do coach: leitura corrida com edição por linha.
+   Não usa `.row`/`.lista` porque cada seção tem uma forma própria — plano tem
+   valor à direita, horário tem vagas, promoção é card, pendência tem checkbox.
+   ============================================================ */
+.neg-sec{margin-bottom:30px}
+.neg-sec-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.neg-sec-hd h3{margin:0;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.1em;font-size:.9rem;color:var(--mut)}
+.neg-vazio{border:1px dashed var(--line-2);padding:20px 18px;color:var(--mut-2);font-size:.86rem;line-height:1.5}
+
+/* Perfil: painel de números + texto do estilo */
+.neg-perfil{display:block;width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer;
+  background:var(--card);border:1px solid var(--line);padding:18px;transition:.15s;position:relative}
+.neg-perfil:hover{border-color:var(--accent)}
+.neg-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px}
+.neg-stat{display:flex;flex-direction:column;gap:1px;min-width:0}
+.neg-stat b{font-family:var(--font-display);font-weight:400;font-size:1.5rem;line-height:1.1;color:var(--accent);
+  overflow-wrap:anywhere}
+.neg-stat span{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+  font-size:.68rem;color:var(--mut-2)}
+.neg-estilo{margin:16px 0 0;color:var(--mut);font-size:.9rem;line-height:1.55}
+.neg-mods{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.neg-editar{display:block;margin-top:14px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;font-size:.7rem;color:var(--mut-2)}
+.neg-perfil:hover .neg-editar{color:var(--accent)}
+
+/* Linha genérica clicável */
+.neg-linhas{display:flex;flex-direction:column;gap:8px}
+.neg-linha{display:flex;align-items:center;gap:12px;width:100%;text-align:left;color:inherit;font:inherit;
+  cursor:pointer;background:var(--card);border:1px solid var(--line);padding:12px 14px;transition:.15s}
+.neg-linha:hover{border-color:var(--accent);transform:translateX(3px)}
+.neg-linha.indisp{opacity:.55}
+.neg-obs{color:var(--mut-2);font-size:.82rem;line-height:1.4;flex:1;min-width:0}
+
+/* Cards (pilares, promoções) */
+.neg-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.neg-linha.card{flex-direction:column;align-items:flex-start;gap:5px}
+.neg-linha.card b{font-family:var(--font-cond);font-weight:600;font-size:1.02rem;line-height:1.2}
+.neg-linha.card>span{font-size:.84rem;color:var(--mut)}
+.neg-desc{font-family:var(--font-cond);font-weight:700;font-size:1.1rem;color:var(--accent)}
+.neg-cond{font-size:.78rem;color:var(--mut-2);line-height:1.45}
+.badge.off{color:var(--bad);border-color:var(--bad)}
+
+/* Horários */
+.neg-dia{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+  font-size:.8rem;color:var(--mut);min-width:74px}
+.neg-hora{font-family:var(--font-display);font-weight:400;font-size:1.3rem;color:var(--accent);line-height:1;min-width:64px}
+.neg-cap{font-family:var(--font-cond);font-weight:700;font-size:1.1rem;text-align:center;line-height:1.1}
+.neg-cap small{display:block;font-weight:400;font-size:.6rem;color:var(--mut-2);letter-spacing:.1em;text-transform:uppercase}
+
+/* Planos */
+.neg-grupo{margin-bottom:18px}
+.neg-grupo h4{margin:0 0 8px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.12em;font-size:.74rem;color:var(--accent)}
+.neg-freq{font-family:var(--font-cond);font-weight:600;font-size:1rem;min-width:96px}
+.neg-valor{font-family:var(--font-display);font-weight:400;font-size:1.35rem;color:var(--accent);
+  line-height:1.1;text-align:right;min-width:96px;font-variant-numeric:tabular-nums}
+.neg-valor small{display:block;font-family:var(--font-cond);font-weight:400;font-size:.66rem;
+  color:var(--mut-2);letter-spacing:.04em}
+
+/* Mercado */
+.neg-conc{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.neg-conc b{font-family:var(--font-cond);font-weight:600;font-size:1rem;line-height:1.2}
+.neg-conc small{color:var(--mut-2);font-size:.8rem;line-height:1.4}
+.neg-preco{font-family:var(--font-cond);font-weight:700;font-size:.92rem;color:var(--accent);text-align:right;
+  flex:none;min-width:110px;max-width:52%;line-height:1.3}
+
+/* Vantagens / desvantagens / pendências */
+.neg-linha.texto{font-size:.9rem;line-height:1.5;color:var(--mut)}
+.neg-linha.texto span{flex:1}
+.neg-pend{display:flex;align-items:stretch;gap:8px}
+.neg-pend .neg-linha{flex:1}
+.neg-pend.feito .neg-linha{opacity:.5}
+.neg-pend.feito .neg-linha span{text-decoration:line-through}
+.neg-check{flex:none;width:38px;appearance:none;cursor:pointer;background:var(--card);
+  border:1px solid var(--line-2);color:var(--ok);font-size:1.1rem;line-height:1;transition:.15s}
+.neg-check:hover{border-color:var(--ok)}
+.neg-pend.feito .neg-check{background:rgba(63,185,80,.14);border-color:var(--ok)}
+
+/* Card é coluna: `flex:1` aqui esticaria a ALTURA sem necessidade, e combinado com
+   o `flex-wrap` do mobile jogava o item para uma segunda coluna fora do card. */
+.neg-linha.card .neg-obs{flex:none;width:100%}
+
+@media (max-width:560px){
+  /* `:not(.card)` é essencial: em `flex-direction:column`, `wrap` + `flex-basis:100%`
+     manda o item para a coluna seguinte — ou seja, para fora do card. */
+  .neg-linha:not(.card){flex-wrap:wrap;gap:6px 10px}
+  .neg-linha:not(.card) .neg-obs{flex-basis:100%;order:3}
+  .neg-freq,.neg-dia{min-width:0}
+  .neg-valor,.neg-preco{margin-left:auto;min-width:0}
+  .neg-cap{margin-left:auto}
+  .neg-cards{grid-template-columns:1fr}
+}

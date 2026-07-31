@@ -41,6 +41,9 @@ function trocarAba(aba) {
   abaAtiva = aba;
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === aba));
   $$('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + aba));
+  // O Negócio não tem uma ação única que caiba no FAB: cada seção tem o seu
+  // "+ Adicionar" próprio. Um botão flutuante genérico só confundiria.
+  $('#fab').hidden = aba === 'negocio';
   $('#fab').textContent = FAB_LABEL[aba] || '+ Adicionar';
 }
 
@@ -228,6 +231,144 @@ function renderTecnicas() {
 }
 
 /* ============================================================
+   Render — Dossiê do negócio
+   ============================================================ */
+/** Valor em reais. Sem centavos quando o número é redondo — preço de plano é inteiro. */
+const moeda = (n) => {
+  const v = Number(n) || 0;
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: Number.isInteger(v) ? 0 : 2 });
+};
+
+/** Quantos meses cada prazo cobre — usado para mostrar o equivalente mensal. */
+const MESES_PRAZO = { Mensal: 1, Trimestral: 3, Semestral: 6 };
+
+function secao(titulo, chave, rotuloBotao, corpo) {
+  return `
+    <section class="neg-sec">
+      <div class="neg-sec-hd">
+        <h3>${esc(titulo)}</h3>
+        ${chave ? `<button class="btn ghost btn-sm" data-add="${esc(chave)}" type="button">+ ${esc(rotuloBotao)}</button>` : ''}
+      </div>
+      ${corpo}
+    </section>`;
+}
+
+const vazio = (txt) => `<div class="neg-vazio">${esc(txt)}</div>`;
+
+/** Linha clicável genérica de uma seção do dossiê. */
+const editavel = (sec, id, html, extra = '') =>
+  `<button class="neg-linha${extra}" data-sec="${esc(sec)}" data-id="${esc(id)}" type="button">${html}</button>`;
+
+function renderNegocio() {
+  const n = db.obterNegocio();
+  const abertas = n.pendencias.filter((p) => !p.feito).length;
+  $('#count-neg').textContent = abertas
+    ? `${abertas} ${abertas === 1 ? 'pendência aberta' : 'pendências abertas'}`
+    : 'sem pendências';
+
+  /* --- Perfil + estilo --- */
+  const p = n.perfil;
+  // Campo nunca preenchido é `null` e aparece como "—". Mostrar "0" ali seria mentira:
+  // o coach leria um dado ("tenho 0 alunos") onde só há ausência de dado.
+  const num = (v) => (v === null || v === undefined || v === '' ? '—' : Number(v));
+  const perfil = `
+    <button class="neg-perfil" data-perfil type="button">
+      <div class="neg-stats">
+        <div class="neg-stat"><b>${esc(p.cidade || '—')}</b><span>Cidade</span></div>
+        <div class="neg-stat"><b>${num(p.alunosAtivos)}</b><span>Alunos ativos</span></div>
+        <div class="neg-stat"><b>${num(p.capacidadeTurma)}</b><span>Por turma</span></div>
+        <div class="neg-stat"><b>${p.tetoDesconto === null || p.tetoDesconto === undefined ? '—' : moeda(p.tetoDesconto)}</b><span>Teto de desconto</span></div>
+      </div>
+      ${p.estiloTexto ? `<p class="neg-estilo">${esc(p.estiloTexto)}</p>` : ''}
+      ${n.modalidades.length ? `<div class="neg-mods">${n.modalidades.map((m) => `<span class="badge">${esc(m)}</span>`).join('')}</div>` : ''}
+      <span class="neg-editar">Editar perfil</span>
+    </button>`;
+
+  /* --- Pilares --- */
+  const pilares = n.pilares.length
+    ? `<div class="neg-cards">${n.pilares.map((x) => editavel('pilares', x.id,
+        `<b>${esc(x.titulo)}</b><span>${esc(x.texto)}</span>`, ' card')).join('')}</div>`
+    : vazio('Nenhum pilar cadastrado.');
+
+  /* --- Horários --- */
+  const horarios = n.horarios.length
+    ? `<div class="neg-linhas">${[...n.horarios]
+        .sort((a, b) => (db.DIAS_SEMANA.indexOf(a.dia) - db.DIAS_SEMANA.indexOf(b.dia)) || String(a.hora).localeCompare(String(b.hora)))
+        .map((h) => editavel('horarios', h.id, `
+          <span class="neg-dia">${esc(h.dia || '—')}</span>
+          <b class="neg-hora">${esc(h.hora || '--:--')}</b>
+          <span class="neg-obs">${esc(h.obs || '')}</span>
+          <span class="neg-cap">${Number(h.capacidade) || 0}<small>vagas</small></span>`, ' horario')).join('')}</div>`
+    : vazio('A grade ainda não foi definida. Cadastre cada aula que você já roda — é o que falta para formalizar a reserva por sessão.');
+
+  /* --- Planos, agrupados por prazo --- */
+  const gruposPlano = db.PRAZOS.map((prazo) => {
+    const itens = n.planos.filter((x) => x.prazo === prazo)
+      .sort((a, b) => db.FREQUENCIAS.indexOf(a.frequencia) - db.FREQUENCIAS.indexOf(b.frequencia));
+    if (!itens.length) return '';
+    const meses = MESES_PRAZO[prazo] || 1;
+    return `
+      <div class="neg-grupo">
+        <h4>${esc(prazo)}</h4>
+        <div class="neg-linhas">${itens.map((x) => editavel('planos', x.id, `
+          <span class="neg-freq">${esc(x.frequencia)}</span>
+          <span class="neg-obs">${esc(x.inclui || '')}</span>
+          <span class="neg-valor">${moeda(x.valor)}${meses > 1 ? `<small>${moeda(Math.round(Number(x.valor) / meses))}/mês</small>` : ''}</span>`, ' plano')).join('')}</div>
+      </div>`;
+  }).join('');
+  // Plano com prazo fora da lista fixa (dado antigo ou digitado errado) não pode sumir da tela.
+  const orfaos = n.planos.filter((x) => !db.PRAZOS.includes(x.prazo));
+  const planos = (gruposPlano || orfaos.length)
+    ? gruposPlano + (orfaos.length ? `<div class="neg-grupo"><h4>Outros</h4><div class="neg-linhas">${orfaos.map((x) => editavel('planos', x.id,
+        `<span class="neg-freq">${esc(x.frequencia || '—')}</span><span class="neg-obs">${esc(x.prazo || 'sem prazo')}</span><span class="neg-valor">${moeda(x.valor)}</span>`, ' plano')).join('')}</div></div>` : '')
+    : vazio('Nenhum plano cadastrado.');
+
+  /* --- Promoções --- */
+  const promocoes = n.promocoes.length
+    ? `<div class="neg-cards">${n.promocoes.map((x) => editavel('promocoes', x.id, `
+        <b>${esc(x.nome)}${x.ativo === false ? ' <span class="badge off">Pausada</span>' : ''}</b>
+        <span class="neg-desc">${esc(x.valor)}</span>
+        <span class="neg-obs">${esc(x.duracao)}</span>
+        ${x.condicao ? `<span class="neg-cond">${esc(x.condicao)}</span>` : ''}`,
+        ` card${x.ativo === false ? ' indisp' : ''}`)).join('')}</div>`
+    : vazio('Nenhuma promoção cadastrada.');
+
+  /* --- Mercado --- */
+  const mercado = n.mercado.length
+    ? `<div class="neg-linhas">${n.mercado.map((x) => editavel('mercado', x.id, `
+        <span class="neg-conc"><b>${esc(x.concorrente)}</b><small>${esc(x.oferta)}</small></span>
+        <span class="neg-preco">${esc(x.preco)}</span>`, ' mercado')).join('')}</div>`
+    : vazio('Nenhuma referência de mercado cadastrada.');
+
+  /* --- Vantagens / desvantagens --- */
+  const listaTexto = (sec) => n[sec].length
+    ? `<div class="neg-linhas">${n[sec].map((x) => editavel(sec, x.id, `<span>${esc(x.texto)}</span>`, ' texto')).join('')}</div>`
+    : vazio('Nada cadastrado.');
+
+  /* --- Pendências --- */
+  const pendencias = n.pendencias.length
+    ? `<div class="neg-linhas">${n.pendencias.map((x) => `
+        <div class="neg-pend${x.feito ? ' feito' : ''}">
+          <button class="neg-check" data-feito="${esc(x.id)}" type="button" role="checkbox" aria-checked="${!!x.feito}"
+            aria-label="${x.feito ? 'Reabrir' : 'Concluir'} pendência">${x.feito ? '✓' : ''}</button>
+          <button class="neg-linha texto" data-sec="pendencias" data-id="${esc(x.id)}" type="button"><span>${esc(x.texto)}</span></button>
+        </div>`).join('')}</div>`
+    : vazio('Nenhuma pendência — tudo em dia.');
+
+  $('#neg-conteudo').innerHTML = [
+    secao('Perfil e estilo', '', '', perfil),
+    secao('O que compõe a experiência', 'pilares', 'Pilar', pilares),
+    secao('Horários de funcionamento', 'horarios', 'Horário', horarios),
+    secao('Planos e valores', 'planos', 'Plano', planos),
+    secao('Promoções e descontos', 'promocoes', 'Promoção', promocoes),
+    secao('Referências de mercado', 'mercado', 'Referência', mercado),
+    secao('Vantagens', 'vantagens', 'Vantagem', listaTexto('vantagens')),
+    secao('Desvantagens e riscos', 'desvantagens', 'Risco', listaTexto('desvantagens')),
+    secao('Pendências', 'pendencias', 'Pendência', pendencias),
+  ].join('');
+}
+
+/* ============================================================
    Render geral
    ============================================================ */
 function renderTudo() {
@@ -235,6 +376,7 @@ function renderTudo() {
   renderFiltrosTags(); renderFiltroMusc(); renderFiltroEquip(); renderExercicios();
   renderFiltroMobMusc(); renderMobilidade();
   renderTecnicas();
+  renderNegocio();
 }
 
 /* ============================================================
@@ -501,6 +643,161 @@ $('#btn-del-tecnica').addEventListener('click', () => {
   tecAbertas.delete(tecEdit.id);
   fecharModal('modal-tecnica');
   renderTecnicas();
+});
+
+/* ---------- Modal Dossiê do negócio ----------
+   Um formulário só para todas as seções: `CAMPOS_NEGOCIO` descreve os campos de cada
+   uma e o modal se monta a partir daí. Seis formulários quase iguais renderiam o
+   mesmo HTML seis vezes — a variação real entre eles é só a lista de campos. */
+const CAMPOS_NEGOCIO = {
+  perfil: [
+    { n: 'cidade', l: 'Cidade' },
+    { n: 'alunosAtivos', l: 'Alunos ativos', t: 'number' },
+    { n: 'capacidadeTurma', l: 'Capacidade por turma', t: 'number' },
+    { n: 'tetoDesconto', l: 'Teto de desconto (R$)', t: 'number', hint: 'Máximo que um aluno pode acumular por mês somando todas as promoções.' },
+    { n: 'estiloTexto', l: 'Estilo de treino', t: 'textarea', full: true },
+  ],
+  pilares: [
+    { n: 'titulo', l: 'Título', full: true, req: true },
+    { n: 'texto', l: 'Descrição', t: 'textarea', full: true },
+  ],
+  horarios: [
+    { n: 'dia', l: 'Dia da semana', t: 'select', op: () => db.DIAS_SEMANA, req: true },
+    { n: 'hora', l: 'Horário', t: 'time', req: true },
+    { n: 'capacidade', l: 'Vagas', t: 'number' },
+    { n: 'obs', l: 'Observação', hint: 'Ex.: turma mista, foco em Hyrox.' },
+  ],
+  planos: [
+    { n: 'frequencia', l: 'Frequência', t: 'select', op: () => db.FREQUENCIAS, req: true },
+    { n: 'prazo', l: 'Prazo', t: 'select', op: () => db.PRAZOS, req: true },
+    { n: 'valor', l: 'Valor total (R$)', t: 'number', req: true, hint: 'Valor cheio do prazo — o equivalente mensal é calculado na lista.' },
+    { n: 'inclui', l: 'O que inclui', full: true },
+  ],
+  promocoes: [
+    { n: 'nome', l: 'Nome da promoção', full: true, req: true },
+    { n: 'valor', l: 'Desconto', hint: 'Ex.: −R$50' },
+    { n: 'duracao', l: 'Duração', hint: 'Ex.: contínuo, 1 mês' },
+    { n: 'condicao', l: 'Condição', t: 'textarea', full: true },
+    { n: 'ativo', l: 'Promoção ativa', t: 'check', full: true, hint: 'Desmarque para pausar sem apagar.' },
+  ],
+  mercado: [
+    { n: 'concorrente', l: 'Concorrente / referência', full: true, req: true },
+    { n: 'preco', l: 'Preço praticado', full: true },
+    { n: 'oferta', l: 'O que entrega', t: 'textarea', full: true },
+  ],
+  vantagens: [{ n: 'texto', l: 'Vantagem', t: 'textarea', full: true, req: true }],
+  desvantagens: [{ n: 'texto', l: 'Risco ou desvantagem', t: 'textarea', full: true, req: true }],
+  pendencias: [
+    { n: 'texto', l: 'Pendência', t: 'textarea', full: true, req: true },
+    { n: 'feito', l: 'Concluída', t: 'check', full: true },
+  ],
+};
+
+/** Rótulo de cada seção no singular, com o artigo certo para o título "Novo/Nova …". */
+const TITULO_NEGOCIO = {
+  perfil: { novo: 'Perfil do negócio', nome: 'perfil' },
+  pilares: { novo: 'Novo pilar', nome: 'pilar' },
+  horarios: { novo: 'Novo horário', nome: 'horário' },
+  planos: { novo: 'Novo plano', nome: 'plano' },
+  promocoes: { novo: 'Nova promoção', nome: 'promoção' },
+  mercado: { novo: 'Nova referência', nome: 'referência' },
+  vantagens: { novo: 'Nova vantagem', nome: 'vantagem' },
+  desvantagens: { novo: 'Novo risco', nome: 'risco' },
+  pendencias: { novo: 'Nova pendência', nome: 'pendência' },
+};
+
+/** Seção aberta no modal — `'perfil'` grava no objeto de perfil, o resto numa lista. */
+let negSec = null, negEdit = null;
+
+function campoNegocio(c, valor) {
+  const id = `neg-f-${c.n}`;
+  const hint = c.hint ? `<span class="hint">${esc(c.hint)}</span>` : '';
+  if (c.t === 'check') {
+    return `<div class="field full"><label class="check-linha" for="${id}">
+      <input type="checkbox" id="${id}" name="${c.n}"${valor ? ' checked' : ''} />
+      <span>${esc(c.l)}${hint}</span></label></div>`;
+  }
+  const corpo = c.t === 'textarea'
+    ? `<textarea id="${id}" name="${c.n}" rows="3">${esc(valor ?? '')}</textarea>`
+    : c.t === 'select'
+      ? `<select id="${id}" name="${c.n}">${c.op().map((o) => `<option value="${esc(o)}"${o === valor ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+      : `<input id="${id}" name="${c.n}" type="${c.t || 'text'}"${c.t === 'number' ? ' min="0" step="1" inputmode="numeric"' : ''} value="${esc(valor ?? '')}" />`;
+  return `<div class="field${c.full ? ' full' : ''}"><label for="${id}">${esc(c.l)}</label>${corpo}${hint}</div>`;
+}
+
+function abrirNegocio(sec, item = null) {
+  negSec = sec; negEdit = item;
+  const campos = CAMPOS_NEGOCIO[sec];
+  if (!campos) return;
+  const base = sec === 'perfil' ? db.obterNegocio().perfil : (item || {});
+  const rot = TITULO_NEGOCIO[sec];
+  $('#modal-negocio-titulo').textContent = item ? `Editar ${rot.nome}` : rot.novo;
+  $('#campos-negocio').innerHTML = campos.map((c) => campoNegocio(c, base[c.n])).join('');
+  $('#erro-negocio').classList.remove('show');
+  $('#btn-del-negocio').hidden = sec === 'perfil' || !item;
+  abrirModal('modal-negocio');
+  setTimeout(() => $('#campos-negocio').querySelector('input,select,textarea')?.focus(), 50);
+}
+
+$('#form-negocio').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const campos = CAMPOS_NEGOCIO[negSec];
+  const f = e.target;
+  const dados = {};
+  for (const c of campos) {
+    const el = f.elements[c.n];
+    if (!el) continue;
+    if (c.t === 'check') dados[c.n] = el.checked;
+    else if (c.t === 'number') dados[c.n] = Number(el.value) || 0;
+    else dados[c.n] = el.value.trim();
+    if (c.req && !dados[c.n] && c.t !== 'number') {
+      $('#erro-negocio').textContent = `Preencha “${c.l}”.`;
+      $('#erro-negocio').classList.add('show');
+      el.focus();
+      return;
+    }
+  }
+  if (negSec === 'perfil') db.salvarPerfilNegocio(dados);
+  else {
+    if (negEdit) dados.id = negEdit.id;
+    db.salvarItemNegocio(negSec, dados);
+  }
+  fecharModal('modal-negocio');
+  renderNegocio();
+});
+
+$('#btn-del-negocio').addEventListener('click', () => {
+  if (!negEdit || negSec === 'perfil') return;
+  // Horário e plano não têm campo de nome — o que identifica a linha é a combinação
+  // que o coach vê na tela. Sem isto a confirmação viraria "Excluir este horário?",
+  // que não diz QUAL horário está prestes a sumir.
+  const rotulo = negSec === 'horarios' ? `${negEdit.dia} ${negEdit.hora}`
+    : negSec === 'planos' ? `${negEdit.prazo} ${negEdit.frequencia}`
+    : negEdit.nome || negEdit.titulo || negEdit.concorrente || negEdit.texto || `este ${TITULO_NEGOCIO[negSec].nome}`;
+  if (!confirm(`Excluir “${String(rotulo).slice(0, 80)}”?`)) return;
+  db.removerItemNegocio(negSec, negEdit.id);
+  fecharModal('modal-negocio');
+  renderNegocio();
+});
+
+$('#neg-conteudo').addEventListener('click', (e) => {
+  const add = e.target.closest('[data-add]');
+  if (add) { abrirNegocio(add.dataset.add); return; }
+  if (e.target.closest('[data-perfil]')) { abrirNegocio('perfil'); return; }
+  // Marcar/desmarcar pendência é ação direta: um modal para um booleano seria atrito.
+  const chk = e.target.closest('[data-feito]');
+  if (chk) {
+    const id = chk.dataset.feito;
+    const item = db.obterNegocio().pendencias.find((x) => x.id === id);
+    if (item) { db.salvarItemNegocio('pendencias', { id, feito: !item.feito }); renderNegocio(); }
+    return;
+  }
+  const linha = e.target.closest('[data-sec]');
+  if (linha) {
+    const { sec, id } = linha.dataset;
+    const item = db.obterNegocio()[sec]?.find((x) => x.id === id);
+    if (item) abrirNegocio(sec, item);
+  }
 });
 
 /* Clique nas listas → editar */

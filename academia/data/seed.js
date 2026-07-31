@@ -295,7 +295,119 @@ export const LOJA_SEED = [
   },
 ];
 
-/** @returns {{inventario: any[], exercicios: any[], tecnicas: Tecnica[], garageStore: Produto[]}} */
+/* ============================================================
+   DOSSIÊ DO NEGÓCIO
+   ============================================================ */
+
+/**
+ * DOSSIÊ DO NEGÓCIO — o retrato comercial do box, editável pelo coach.
+ *
+ * Diferente de tudo mais neste arquivo, isto NÃO é um array de itens iguais: é um
+ * objeto com seções de naturezas diferentes (um perfil, várias listas). Por isso o
+ * backfill em db.js é por SEÇÃO, não por id de uma lista só.
+ *
+ * Mesma regra de escrita das técnicas e da loja: a migração só ACRESCENTA o que
+ * falta, nunca reescreve — preço, promoção e texto aqui são decisão comercial do
+ * coach, e uma subida de versão não pode desfazer o que ele mudou.
+ *
+ * Os horários nascem VAZIOS de propósito: a grade real do box ainda não foi
+ * definida, e semear exemplo aqui viraria dado falso num documento de decisão.
+ *
+ * @typedef {Object} Negocio
+ * @property {{cidade: string, alunosAtivos: number, capacidadeTurma: number, estiloTexto: string, tetoDesconto: number}} perfil
+ * @property {string[]} modalidades
+ * @property {{id: string, titulo: string, texto: string}[]} pilares
+ * @property {{id: string, dia: string, hora: string, capacidade: number, obs: string}[]} horarios
+ * @property {{id: string, frequencia: string, prazo: string, valor: number, inclui: string}[]} planos
+ * @property {{id: string, nome: string, valor: string, duracao: string, condicao: string, ativo: boolean}[]} promocoes
+ * @property {{id: string, concorrente: string, oferta: string, preco: string}[]} mercado
+ * @property {{id: string, texto: string}[]} vantagens
+ * @property {{id: string, texto: string}[]} desvantagens
+ * @property {{id: string, texto: string, feito: boolean}[]} pendencias
+ */
+
+/** Prazos e frequências fixos dos planos — o formulário escolhe destes, não digita. */
+export const FREQUENCIAS = ['2x/semana', '3x/semana', '4x/semana'];
+export const PRAZOS = ['Mensal', 'Trimestral', 'Semestral'];
+
+/** @type {Negocio} */
+export const NEGOCIO_SEED = {
+  perfil: {
+    cidade: 'Agudos/SP',
+    alunosAtivos: 20,
+    capacidadeTurma: 8,
+    estiloTexto: 'Treino individualizado dentro de turma pequena — não é ficha genérica de academia nem 100% 1-a-1 de personal. O montador próprio calcula o volume trabalhado por grupo muscular para cada aluno, evitando treino aleatório que não bate com o objetivo.',
+    tetoDesconto: 60,
+  },
+  modalidades: ['Força', 'Hipertrofia', 'Hyrox', 'HIIT', 'Cross / WOD', 'GAP'],
+  pilares: [
+    { id: 'turma_8', titulo: 'Turma até 8', texto: 'Atenção real, correção de execução possível — impossível numa academia cheia.' },
+    { id: 'treino_calculado', titulo: 'Treino calculado', texto: 'Montador próprio soma volume por músculo, não repete a mesma ficha para todo mundo.' },
+    { id: 'avaliacao', titulo: 'Avaliação estruturada', texto: 'Avaliação física completa, com acompanhamento personalizado ao longo do plano.' },
+    { id: 'ugym', titulo: 'Monitoramento uGym', texto: 'Pulseira acompanha sinais durante a aula.' },
+    { id: 'ambiente', titulo: 'Ambiente', texto: 'Espaço calmo, café e bolacha, atendimento próximo — não é linha de produção.' },
+    { id: 'ecossistema', titulo: 'Ecossistema digital', texto: 'Portal do Aluno com histórico e conquistas (gamificação do progresso).' },
+  ],
+  horarios: [],
+  planos: [
+    { id: 'mensal_2x', frequencia: '2x/semana', prazo: 'Mensal', valor: 190, inclui: '1 avaliação completa' },
+    { id: 'mensal_3x', frequencia: '3x/semana', prazo: 'Mensal', valor: 260, inclui: '1 avaliação completa' },
+    { id: 'mensal_4x', frequencia: '4x/semana', prazo: 'Mensal', valor: 310, inclui: '1 avaliação completa' },
+    { id: 'trimestral_2x', frequencia: '2x/semana', prazo: 'Trimestral', valor: 570, inclui: 'Avaliação inicial + reavaliação no 3º mês' },
+    { id: 'trimestral_3x', frequencia: '3x/semana', prazo: 'Trimestral', valor: 780, inclui: 'Avaliação inicial + reavaliação no 3º mês' },
+    { id: 'trimestral_4x', frequencia: '4x/semana', prazo: 'Trimestral', valor: 930, inclui: 'Avaliação inicial + reavaliação no 3º mês' },
+    { id: 'semestral_2x', frequencia: '2x/semana', prazo: 'Semestral', valor: 1026, inclui: '10% off + 3 avaliações (inicial e a cada 2 meses)' },
+    { id: 'semestral_3x', frequencia: '3x/semana', prazo: 'Semestral', valor: 1404, inclui: '10% off + 3 avaliações (inicial e a cada 2 meses)' },
+    { id: 'semestral_4x', frequencia: '4x/semana', prazo: 'Semestral', valor: 1674, inclui: '10% off + 3 avaliações (inicial e a cada 2 meses)' },
+  ],
+  promocoes: [
+    {
+      id: 'postar_marcar', nome: 'Postar e marcar o box', valor: '−R$20',
+      duracao: 'No mês da postagem', condicao: 'Uma postagem por ciclo — postar várias vezes não acumula.', ativo: true,
+    },
+    {
+      id: 'indicacao', nome: 'Indicação de amigo', valor: '−R$50 (quem indica) / −R$30 (quem entra)',
+      duracao: '1 mês para cada', condicao: 'Só libera depois que o amigo indicado completar o 1º mês pago.', ativo: true,
+    },
+    {
+      id: 'dupla', nome: 'Dupla / casal', valor: '−R$30 por pessoa',
+      duracao: 'Contínuo', condicao: 'Enquanto os dois permanecerem ativos ao mesmo tempo. Se um sai, o desconto do outro cai.', ativo: true,
+    },
+  ],
+  mercado: [
+    { id: 'academia_tradicional', concorrente: 'Academia tradicional', oferta: 'Acesso livre, sem treinador, sem turma limitada', preco: 'R$99,90 a R$165 (conforme fidelidade)' },
+    { id: 'personal_avulso', concorrente: 'Personal local (avulso)', oferta: 'Só avaliação; aluno paga a academia à parte', preco: 'R$50 a R$70 por hora' },
+    { id: 'mini_academia', concorrente: 'Mini-academia (mesmo porte, com uGym)', oferta: '3x/semana, mais aparelhos, sem turma com coach', preco: 'R$360/mês, individual' },
+    { id: 'historico_personal', concorrente: 'Seu histórico como personal', oferta: '1-a-1, sem turma, sem tecnologia própria', preco: 'R$200 a R$600 (1x a 5x/semana)' },
+  ],
+  vantagens: [
+    { id: 'v_turma', texto: 'Turma travada em 8 — atenção real, impossível de replicar numa academia comum.' },
+    { id: 'v_calculo', texto: 'Treino calculado por volume muscular, não ficha genérica.' },
+    { id: 'v_avaliacao', texto: 'Avaliação física completa incluída, com reavaliações nos planos mais longos.' },
+    { id: 'v_ugym', texto: 'Monitoramento uGym durante a aula.' },
+    { id: 'v_ambiente', texto: 'Ambiente calmo, café e bolacha, atendimento próximo.' },
+    { id: 'v_digital', texto: 'Ecossistema digital próprio (Portal do Aluno, histórico, conquistas).' },
+    { id: 'v_nome', texto: 'Fundador já tem nome construído na cidade como instrutor.' },
+    { id: 'v_preco', texto: 'Preço abaixo de concorrentes com menos diferencial — ainda há espaço de reposicionamento sem perder competitividade.' },
+  ],
+  desvantagens: [
+    { id: 'd_marca', texto: 'Marca nova, base pequena — tração de longo prazo ainda não comprovada.' },
+    { id: 'd_teto', texto: 'Capacidade física de 8 por turma é um teto de receita por horário.' },
+    { id: 'd_ugym_api', texto: 'uGym não tem API oficial — o vínculo de pulseira é manual e depende de lembrar antes de cada aula.' },
+    { id: 'd_reserva', texto: 'Reserva de horário ainda não formalizada nem comunicada — risco de lotação sem controle.' },
+    { id: 'd_reajuste', texto: 'Reajuste de preço pode gerar atrito com a base atual; mitigado pelo congelamento, mas sem data de transição fechada.' },
+    { id: 'd_grade', texto: 'Grade de horários de funcionamento ainda não documentada.' },
+  ],
+  pendencias: [
+    { id: 'p_grade', texto: 'Definir a grade real de horários de funcionamento (dias, turnos, quantas turmas por dia).', feito: false },
+    { id: 'p_transicao', texto: 'Fechar a data exata de transição de preço para os alunos atuais.', feito: false },
+    { id: 'p_reserva', texto: 'Ativar formalmente a reserva por sessão no uGym e comunicar o novo processo aos alunos.', feito: false },
+    { id: 'p_api_ugym', texto: 'Contatar o suporte do uGym perguntando sobre acesso oficial (API/export) antes de considerar automação por navegador.', feito: false },
+    { id: 'p_pico', texto: 'Depois que a reserva estiver rodando, mapear quais horários realmente são de pico com dados reais de inscrição.', feito: false },
+  ],
+};
+
+/** @returns {{inventario: any[], exercicios: any[], tecnicas: Tecnica[], garageStore: Produto[], negocio: Negocio}} */
 export function seedData() {
   const inventario = EQUIPAMENTOS.map((e) => ({
     id: e.id,
@@ -332,5 +444,27 @@ export function seedData() {
     exercicios,
     tecnicas: TECNICAS_SEED.map((t) => ({ ...t })),
     garageStore: LOJA_SEED.map((p) => ({ ...p })),
+    negocio: clonarNegocio(),
+  };
+}
+
+/**
+ * Cópia funda do dossiê. Cada seção é um array de objetos: um `{...}` raso deixaria
+ * o coach editando a própria constante do módulo, e a edição vazaria para o backfill.
+ * @returns {Negocio}
+ */
+export function clonarNegocio() {
+  const n = NEGOCIO_SEED;
+  return {
+    perfil: { ...n.perfil },
+    modalidades: n.modalidades.slice(),
+    pilares: n.pilares.map((x) => ({ ...x })),
+    horarios: n.horarios.map((x) => ({ ...x })),
+    planos: n.planos.map((x) => ({ ...x })),
+    promocoes: n.promocoes.map((x) => ({ ...x })),
+    mercado: n.mercado.map((x) => ({ ...x })),
+    vantagens: n.vantagens.map((x) => ({ ...x })),
+    desvantagens: n.desvantagens.map((x) => ({ ...x })),
+    pendencias: n.pendencias.map((x) => ({ ...x })),
   };
 }

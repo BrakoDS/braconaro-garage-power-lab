@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./academia.css?v=7" />
+  <link rel="stylesheet" href="./academia.css?v=10" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -57,6 +57,10 @@
       <button class="tab" data-tab="tecnicas" type="button" role="tab">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5V5.5"/><path d="M9 8h6M9 12h4"/></svg>
         Técnicas
+      </button>
+      <button class="tab" data-tab="negocio" type="button" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><rect x="4" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="16" y="3" width="4" height="17"/></svg>
+        Negócio
       </button>
     </nav>
 
@@ -118,6 +122,13 @@
           <button class="chip toggle" id="chip-tec-desat" type="button">Desativadas</button>
         </div>
         <div class="lista tecnicas" id="lista-tec"></div>
+      </section>
+
+      <!-- ABA 5: DOSSIÊ DO NEGÓCIO -->
+      <section class="tab-panel" id="tab-negocio">
+        <div class="head"><span class="eyebrow">Dossiê do negócio</span><span class="count" id="count-neg"></span></div>
+        <p class="painel-nota">Retrato comercial do box — planos, promoções, horários, mercado e pendências. <b>Nada aqui alimenta a montagem de treino</b> nem chega ao aluno: é material de decisão seu. Toque em qualquer linha para editar.</p>
+        <div id="neg-conteudo"></div>
       </section>
 
     </div>
@@ -273,6 +284,31 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=23"></script>
+  <!-- ============ MODAL: dossiê do negócio ============
+       Um modal só para todas as seções: os campos são gerados por `app.js` a partir
+       da seção aberta (plano, promoção, horário, mercado, perfil, linha de texto).
+       Seis modais quase iguais no HTML seria repetição sem ganho. -->
+  <div class="modal-bg" id="modal-negocio">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3 id="modal-negocio-titulo">Editar</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="form-negocio">
+        <div class="modal-bd">
+          <div class="grid" id="campos-negocio"></div>
+          <div class="erro-form" id="erro-negocio"></div>
+        </div>
+        <div class="modal-ft">
+          <button class="btn danger btn-sm" id="btn-del-negocio" type="button" hidden>Excluir</button>
+          <span style="flex:1"></span>
+          <button class="btn ghost" data-close type="button">Cancelar</button>
+          <button class="btn" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js?v=24"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@
  * enviada à nuvem (debounced). No login, adota os dados da nuvem. Na primeira
  * vez (sem dados locais nem na nuvem) semeia com o inventário/catálogo reais.
  */
-import { seedData } from './data/seed.js';
+import { seedData, clonarNegocio, FREQUENCIAS, PRAZOS } from './data/seed.js';
 import { MIGRACOES_CATALOGO } from '../montador/data/exercicios.js';
 import { MIGRACOES_INVENTARIO } from '../montador/data/equipamentos.js';
 
@@ -22,6 +22,12 @@ export const CATEGORIAS = ['Peso livre', 'Máquina', 'Cardio', 'Acessório', 'Es
 export const TAGS = ['MUSCULAÇÃO', 'HYROX', 'HIIT', 'CROSS', 'GAP', 'MOBILIDADE'];
 /** Categorias da Garage Store (vitrine de produtos afiliados). */
 export const CATEGORIAS_LOJA = ['Suplementos', 'Equipamentos', 'Acessórios', 'Vestuário', 'Outros'];
+/** Opções fixas dos planos do dossiê (o formulário escolhe, não digita). */
+export { FREQUENCIAS, PRAZOS };
+/** Dias da semana para a grade de horários. */
+export const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+/** Seções do dossiê que são listas editáveis (o `perfil` é objeto, fica de fora). */
+export const SECOES_NEGOCIO = ['pilares', 'horarios', 'planos', 'promocoes', 'mercado', 'vantagens', 'desvantagens', 'pendencias'];
 
 /** Tags antigas que viraram MUSCULAÇÃO (Força e Hipertrofia usam a MESMA lista). */
 const TAGS_OBSOLETAS = { 'FORÇA': 'MUSCULAÇÃO', 'HIPERTROFIA': 'MUSCULAÇÃO' };
@@ -47,7 +53,36 @@ export const MUSCULOS = [
   'Panturrilha', 'Estabilizadores',
 ];
 
-function vazio() { return { inventario: [], exercicios: [], tecnicas: [], garageStore: [], seeded: false }; }
+/**
+ * Dossiê sem nenhum conteúdo — a forma mínima esperada por quem lê `d.negocio`.
+ *
+ * Existe separado de `clonarNegocio()` (que traz a semente preenchida) porque a
+ * normalização da leitura precisa apenas GARANTIR A FORMA, sem ressemear: se o
+ * coach apagar todas as promoções de propósito, `ler()` não pode trazê-las de volta.
+ */
+function negocioVazio() {
+  return {
+    // Numéricos nascem `null`, não `0`: `0` é um valor legítimo, e usá-lo como
+    // "vazio" faria o backfill enxergar o campo como já preenchido e nunca semear —
+    // era assim que o coach vindo da v17 via "0 alunos" e "R$ 0 de teto".
+    perfil: { cidade: '', alunosAtivos: null, capacidadeTurma: null, estiloTexto: '', tetoDesconto: null },
+    modalidades: [],
+    pilares: [], horarios: [], planos: [], promocoes: [],
+    mercado: [], vantagens: [], desvantagens: [], pendencias: [],
+  };
+}
+
+/** Completa as seções que faltam no dossiê, sem tocar nas que já existem. */
+function normalizarNegocio(n) {
+  const base = negocioVazio();
+  if (!n || typeof n !== 'object') return base;
+  n.perfil = { ...base.perfil, ...(n.perfil || {}) };
+  if (!Array.isArray(n.modalidades)) n.modalidades = base.modalidades;
+  for (const s of SECOES_NEGOCIO) if (!Array.isArray(n[s])) n[s] = [];
+  return n;
+}
+
+function vazio() { return { inventario: [], exercicios: [], tecnicas: [], garageStore: [], negocio: negocioVazio(), seeded: false }; }
 function setLocal(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 function ler() {
   try {
@@ -55,9 +90,11 @@ function ler() {
     // `tecnicas` NÃO entra no guard de propósito: os dados que já existem foram
     // gravados antes dela e cairiam em `vazio()` — apagando inventário e catálogo.
     // Coleção nova se normaliza na leitura, nunca vira condição de validade.
+    // Vale igual para `garageStore` e `negocio`.
     if (d && Array.isArray(d.inventario) && Array.isArray(d.exercicios)) {
       if (!Array.isArray(d.tecnicas)) d.tecnicas = [];
       if (!Array.isArray(d.garageStore)) d.garageStore = [];
+      d.negocio = normalizarNegocio(d.negocio);
       return d;
     }
   } catch {}
@@ -69,7 +106,7 @@ function garantirSeed() {
   const d = ler();
   if (!d.seeded && !d.inventario.length && !d.exercicios.length) {
     const s = seedData();
-    setLocal({ inventario: s.inventario, exercicios: s.exercicios, tecnicas: s.tecnicas, garageStore: s.garageStore, seeded: true });
+    setLocal({ inventario: s.inventario, exercicios: s.exercicios, tecnicas: s.tecnicas, garageStore: s.garageStore, negocio: s.negocio, seeded: true });
   }
 }
 
@@ -150,7 +187,7 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 17;
+const SEED_VERSION = 18;
 
 /**
  * MIGRAÇÃO DO CATÁLOGO — aplica de uma vez a revisão da versão de semente atual:
@@ -291,6 +328,49 @@ function backfillLoja() {
   return mudou;
 }
 
+/**
+ * Acrescenta o que falta no dossiê do negócio.
+ *
+ * Mesma regra de `backfillTecnicas`/`backfillLoja` — só ADICIONA, nunca reescreve:
+ * preço, promoção e texto daqui são decisão comercial do coach, e subir a versão da
+ * semente não pode desfazer o que ele mudou.
+ *
+ * A diferença é que o dossiê não é uma lista só: o backfill roda POR SEÇÃO, e cada
+ * seção compara por id.
+ *
+ * Consequência herdada de `backfillTecnicas`, e vale registrar: EDIÇÃO é preservada,
+ * mas EXCLUSÃO de um item semeado não é — apagar um plano da semente o traz de volta
+ * na próxima subida de versão, porque o id some do banco e o backfill o lê como
+ * "falta". Para tirar um plano de circulação sem que ele volte, o caminho é editá-lo,
+ * não excluí-lo. Só o `perfil` e `modalidades` fogem disso: lá o preenchimento é por
+ * campo em branco, então valor posto nunca é trocado.
+ */
+function backfillNegocio() {
+  const d = ler();
+  if ((d.seedVersion || 0) >= SEED_VERSION) return false;
+  const semente = clonarNegocio();
+  const n = d.negocio;
+  let mudou = false;
+
+  // Perfil e modalidades: preenche só o que está em branco (nunca troca valor posto).
+  for (const [k, v] of Object.entries(semente.perfil)) {
+    const atual = n.perfil[k];
+    if (atual === undefined || atual === '' || atual === null) { n.perfil[k] = v; mudou = true; }
+  }
+  if (!n.modalidades.length) { n.modalidades = semente.modalidades; mudou = true; }
+
+  for (const secao of SECOES_NEGOCIO) {
+    const ids = new Set(n[secao].map((x) => x.id));
+    for (const item of semente[secao]) {
+      if (ids.has(item.id)) continue;
+      n[secao].push({ ...item });
+      mudou = true;
+    }
+  }
+  if (mudou) setLocal(d);
+  return mudou;
+}
+
 function backfillNovosSeed() {
   const d = ler();
   if ((d.seedVersion || 0) >= SEED_VERSION) return false;
@@ -311,6 +391,7 @@ backfillTags();
 migrarCatalogo();
 backfillTecnicas(); // antes do backfillNovosSeed, que é quem grava a seedVersion
 backfillLoja();
+backfillNegocio();
 backfillNovosSeed();
 
 /* ---------- Sincronização na nuvem ---------- */
@@ -345,16 +426,18 @@ export async function iniciarSync(uid, aoAtualizar) {
       // Toda coleção precisa ser listada aqui. O que não vier junto é DESCARTADO a
       // cada login — foi assim que `seedVersion` se perdeu e as migrações voltaram a
       // rodar. `tecnicas` entra pelo mesmo motivo: sem esta linha, técnica cadastrada
-      // pelo coach sumiria toda vez que ele entrasse.
+      // pelo coach sumiria toda vez que ele entrasse. `negocio` idem — é o dossiê
+      // comercial inteiro (preços, promoções, horários) num campo só.
       setLocal({
         inventario: remoto.inventario,
         exercicios: remoto.exercicios || [],
         tecnicas: remoto.tecnicas || [],
         garageStore: remoto.garageStore || [],
+        negocio: normalizarNegocio(remoto.negocio),
         seeded: true,
         seedVersion: remoto.seedVersion || 0,
       });
-      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillTecnicas() | backfillLoja() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
+      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillTecnicas() | backfillLoja() | backfillNegocio() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
       if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
     } else {
@@ -515,6 +598,76 @@ export function definirAtivaTecnica(id, ativo) {
 export function removerTecnica(id) {
   const d = ler();
   d.tecnicas = d.tecnicas.filter((t) => t.id !== id);
+  gravar(d);
+}
+
+/* ---------- Dossiê do negócio ---------- */
+/**
+ * Retrato comercial do box: perfil, planos, promoções, horários, mercado, vantagens,
+ * desvantagens e pendências. É material de decisão do coach — nada aqui alimenta a
+ * geração de treino nem chega ao aluno.
+ */
+export function obterNegocio() { return ler().negocio; }
+
+/** Atualiza os campos do perfil (cidade, nº de alunos, capacidade, texto, teto de desconto). */
+export function salvarPerfilNegocio(dados) {
+  const d = ler();
+  Object.assign(d.negocio.perfil, dados);
+  gravar(d);
+  return d.negocio.perfil;
+}
+
+/** Campos padrão de cada seção — garantem forma completa mesmo se o formulário omitir algum. */
+const PADRAO_SECAO = {
+  pilares: { titulo: '', texto: '' },
+  horarios: { dia: '', hora: '', capacidade: 8, obs: '' },
+  planos: { frequencia: '', prazo: '', valor: 0, inclui: '' },
+  promocoes: { nome: '', valor: '', duracao: '', condicao: '', ativo: true },
+  mercado: { concorrente: '', oferta: '', preco: '' },
+  vantagens: { texto: '' },
+  desvantagens: { texto: '' },
+  pendencias: { texto: '', feito: false },
+};
+
+/** Base do id de um item novo — o campo que melhor nomeia a linha em cada seção. */
+const ROTULO_SECAO = {
+  pilares: (x) => x.titulo,
+  horarios: (x) => `${x.dia}_${x.hora}`,
+  planos: (x) => `${x.prazo}_${x.frequencia}`,
+  promocoes: (x) => x.nome,
+  mercado: (x) => x.concorrente,
+  vantagens: (x) => 'vantagem',
+  desvantagens: (x) => 'desvantagem',
+  pendencias: (x) => 'pendencia',
+};
+
+/**
+ * Cria ou atualiza um item de uma seção-lista do dossiê. Se `dados.id` existir, atualiza.
+ * @param {string} secao uma de `SECOES_NEGOCIO`
+ */
+export function salvarItemNegocio(secao, dados) {
+  if (!SECOES_NEGOCIO.includes(secao)) throw new Error(`Seção desconhecida: ${secao}`);
+  const d = ler();
+  const lista = d.negocio[secao];
+  if (dados.id && lista.some((x) => x.id === dados.id)) {
+    const item = lista.find((x) => x.id === dados.id);
+    Object.assign(item, dados);
+    gravar(d); return item;
+  }
+  // Vantagens/desvantagens/pendências são frases longas: derivar id do texto daria um
+  // slug gigante, então essas usam um rótulo fixo + sufixo numérico do `idUnico`.
+  const base = ROTULO_SECAO[secao]({ ...PADRAO_SECAO[secao], ...dados });
+  const id = idUnico(dados.id || base || secao, lista.map((x) => x.id));
+  const item = { ...PADRAO_SECAO[secao], ...dados, id };
+  lista.push(item);
+  gravar(d); return item;
+}
+
+/** Remove um item de uma seção-lista do dossiê. @param {string} secao @param {string} id */
+export function removerItemNegocio(secao, id) {
+  if (!SECOES_NEGOCIO.includes(secao)) throw new Error(`Seção desconhecida: ${secao}`);
+  const d = ler();
+  d.negocio[secao] = d.negocio[secao].filter((x) => x.id !== id);
   gravar(d);
 }
 
