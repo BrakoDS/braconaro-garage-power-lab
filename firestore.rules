@@ -119,6 +119,16 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
     }
 
+    // Rotina do aluno (app mobile) — blocos de hábitos e o que já foi concluído
+    // em cada dia. Um doc por aluno, id == e-mail (mesmo padrão de desafios/cargas).
+    //  - o ALUNO lê/grava só a sua;
+    //  - o COACH (dono de gestao/{uid}) lê, para acompanhar a adesão.
+    match /rotinas/{email} {
+      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read: if request.auth != null
+        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+    }
+
     // Caixa de entrada do aluno → coach (foto nova + feedbacks pós-treino).
     //  - o ALUNO lê/escreve apenas a própria caixa (id == e-mail logado);
     //  - o COACH (dono de gestao/{uid}) lê e limpa (merge para gestao/{uid}).
