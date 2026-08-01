@@ -107,13 +107,17 @@
   }
   renderPlans('mensal');
 
-  /* ---------- HOURS ---------- */
+  /* ---------- HOURS ----------
+     Espelha a grade formalizada na aba Negócio da Academia (aulas de hora em hora,
+     06h–11h e 15h–19h/20h). A manhã fecha às 11h, não 13h: das 11h às 13h é reservado
+     para o próprio treino do coach + almoço, sem aula — por isso não aparece aqui,
+     mesmo padrão do buraco entre os dois turnos que a página já mostrava. */
   var DAYS = [
-    { name: 'Segunda', dow: 1, slots: ['06:00 – 13:00', '15:00 – 20:00'] },
-    { name: 'Terça',   dow: 2, slots: ['06:00 – 13:00', '15:00 – 20:00'] },
-    { name: 'Quarta',  dow: 3, slots: ['06:00 – 13:00', '15:00 – 20:00'] },
-    { name: 'Quinta',  dow: 4, slots: ['06:00 – 13:00', '15:00 – 20:00'] },
-    { name: 'Sexta',   dow: 5, slots: ['06:00 – 13:00', '15:00 – 19:00'] },
+    { name: 'Segunda', dow: 1, slots: ['06:00 – 11:00', '15:00 – 20:00'] },
+    { name: 'Terça',   dow: 2, slots: ['06:00 – 11:00', '15:00 – 20:00'] },
+    { name: 'Quarta',  dow: 3, slots: ['06:00 – 11:00', '15:00 – 20:00'] },
+    { name: 'Quinta',  dow: 4, slots: ['06:00 – 11:00', '15:00 – 20:00'] },
+    { name: 'Sexta',   dow: 5, slots: ['06:00 – 11:00', '15:00 – 19:00'] },
     { name: 'Sábado',  dow: 6, slots: ['Aula às 09:00'] },
     { name: 'Domingo', dow: 0, slots: [], closed: true }
   ];
