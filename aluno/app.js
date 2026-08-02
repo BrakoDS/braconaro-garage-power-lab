@@ -11,7 +11,7 @@ import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, resolverHoje } from './treino-db.js';
 import { renderTreinoDia, renderFaixaSemana } from './treino-dia.js';
-import { carregarNutricao, salvarNutricao } from './nutricao-db.js';
+import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=2';
 import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
 import { carregarDesafios, carregarProgressoDesafios, salvarProgressoDesafios } from './desafios-db.js';

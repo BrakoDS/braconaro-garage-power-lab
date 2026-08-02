@@ -31,7 +31,16 @@ export async function carregarNutricao(email) {
   return { nivelAtividade: d.nivelAtividade || '1.55', gastos: Array.isArray(d.gastos) ? d.gastos : [], creatina: { checks } };
 }
 
-/** Grava o documento inteiro (nível + lançamentos + creatina). @param {string} email @param {{nivelAtividade:string, gastos:any[], creatina?:{checks:string[]}}} dados */
+/**
+ * Grava nível + lançamentos + creatina.
+ *
+ * Com `merge` porque este documento não é mais só desta tela: o app do celular
+ * (Garage App) grava a hidratação do dia no mesmo `gastoTreinos/{email}`. Sem o
+ * merge, salvar aqui apagaria a água do aluno sem nenhum aviso.
+ *
+ * @param {string} email
+ * @param {{nivelAtividade:string, gastos:any[], creatina?:{checks:string[]}}} dados
+ */
 export async function salvarNutricao(email, dados) {
   await init();
   await _fns.setDoc(_fns.doc(_db, 'gastoTreinos', emailKey(email)), {
@@ -39,5 +48,5 @@ export async function salvarNutricao(email, dados) {
     gastos: JSON.parse(JSON.stringify(dados.gastos || [])),
     creatina: { checks: Array.isArray(dados.creatina?.checks) ? dados.creatina.checks.slice() : [] },
     atualizadoEm: Date.now(),
-  });
+  }, { merge: true });
 }
