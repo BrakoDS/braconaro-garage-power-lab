@@ -869,8 +869,18 @@ export const EXERCICIOS = [
   },
 
   // ===================== MOBILIDADE / TÉCNICA =====================
-  // Fora da revisão do catálogo de treino: alimentam o aquecimento (Treino Manual e
-  // gerador). Uma lista dedicada de mobilidade/aquecimento será desenhada à parte.
+  // Alimentam o aquecimento (Treino Manual e gerador).
+  //
+  // `tempoMedioSeg` aqui É a duração do exercício no aquecimento (o gerador o
+  // prende entre 30s e 60s). São movimentos CURTOS de propósito: três blocos de
+  // 2,5 min viravam uma espera, e o aluno desligava antes do treino começar. Com
+  // 30–60s cada, o mesmo tempo total vira 6–8 movimentos e a turma entra
+  // aquecida de verdade.
+  //
+  // Cada um declara os músculos que prepara — é por eles que o gerador escolhe:
+  // dia de empurrar recebe ombro e torácica, dia de agachamento recebe quadril e
+  // tornozelo. Por isso a lista cobre TODOS os grupos que o treino usa; um grupo
+  // sem mobilidade correspondente simplesmente não teria como ser aquecido.
   {
     id: 'dead_bug', nome: 'Dead bug',
     descricao: 'Deitado, estender braço e perna opostos mantendo lombar neutra.',
@@ -918,7 +928,121 @@ export const EXERCICIOS = [
     descricao: 'Joelho à frente do pé apoiado na parede, balanço controlado no tornozelo.',
     padrao: 'quadriceps', musculosPrimarios: ['panturrilha'], musculosSecundarios: [],
     categorias: ['mobilidade'], equipamento: ['corporal'],
-    nivel: 'iniciante', tempoMedioSeg: 60,
+    nivel: 'iniciante', tempoMedioSeg: 45,
+  },
+
+  // ---- curtas e dinâmicas, uma para cada grupo que o treino ataca ----
+  {
+    id: 'mob_gato_camelo', nome: 'Gato–camelo',
+    descricao: 'Quatro apoios, alternar flexão e extensão da coluna no ritmo da respiração.',
+    padrao: 'core', musculosPrimarios: ['core'], musculosSecundarios: ['costas'],
+    categorias: ['mobilidade'], equipamento: ['colchonete'],
+    nivel: 'iniciante', tempoMedioSeg: 40,
+  },
+  {
+    id: 'mob_open_book', nome: 'Rotação torácica deitado (open book)',
+    descricao: 'Deitado de lado, joelhos dobrados, abrir o braço de cima acompanhando com o olhar.',
+    padrao: 'estabilizadores', musculosPrimarios: ['costas', 'peito'], musculosSecundarios: ['ombro'],
+    categorias: ['mobilidade'], equipamento: ['colchonete'],
+    nivel: 'iniciante', tempoMedioSeg: 40,
+  },
+  {
+    id: 'mob_peitoral_parede', nome: 'Abertura de peitoral na parede',
+    descricao: 'Antebraço apoiado na parede, girar o tronco no sentido oposto. Troca de lado na metade.',
+    padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: ['ombro'],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 40,
+  },
+  {
+    id: 'mob_circunducao_ombro', nome: 'Circundução de ombros',
+    descricao: 'Braços estendidos, círculos para frente e para trás aumentando a amplitude.',
+    padrao: 'empurrar', musculosPrimarios: ['ombro'], musculosSecundarios: [],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30,
+  },
+  {
+    id: 'mob_escapular_parede', nome: 'Deslize escapular na parede',
+    descricao: 'Costas na parede, subir e descer os braços mantendo cotovelos e punhos encostados.',
+    padrao: 'puxar', musculosPrimarios: ['costas', 'ombro'], musculosSecundarios: [],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 40,
+  },
+  {
+    id: 'mob_dorsal_barra', nome: 'Suspensão ativa na barra',
+    descricao: 'Pendurado na barra, puxar as escápulas para baixo e soltar, sem dobrar o cotovelo.',
+    padrao: 'puxar', musculosPrimarios: ['costas'], musculosSecundarios: ['antebraco', 'ombro'],
+    categorias: ['mobilidade'], equipamento: ['pux_barra_15'],
+    nivel: 'iniciante', tempoMedioSeg: 35,
+  },
+  {
+    id: 'mob_balanco_perna', nome: 'Balanço de perna (frente e lado)',
+    descricao: 'Apoio numa mão, balançar a perna à frente/atrás e depois lateralmente. Troca de lado.',
+    padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa', 'gluteo'], musculosSecundarios: [],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 40,
+  },
+  {
+    id: 'mob_ponte_gluteo', nome: 'Ponte de glúteo (ativação)',
+    descricao: 'Deitado, pés no chão, subir o quadril apertando o glúteo no topo.',
+    padrao: 'posterior_gluteo', musculosPrimarios: ['gluteo'], musculosSecundarios: ['posterior_coxa', 'core'],
+    categorias: ['mobilidade'], equipamento: ['colchonete'],
+    nivel: 'iniciante', tempoMedioSeg: 40,
+  },
+  {
+    id: 'mob_afundo_rotacao', nome: 'Afundo com rotação torácica',
+    descricao: 'Passo longo à frente, mão no chão ao lado do pé e girar o tronco abrindo o braço.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'core'], musculosSecundarios: ['gluteo'],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 45,
+  },
+  {
+    id: 'mob_inchworm', nome: 'Caminhada de mão (inchworm)',
+    descricao: 'Em pé, mãos ao chão e caminhar até a prancha; voltar caminhando com os pés.',
+    padrao: 'core', musculosPrimarios: ['core', 'posterior_coxa'], musculosSecundarios: ['ombro'],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 45,
+  },
+  {
+    id: 'mob_agachamento_profundo', nome: 'Agachamento profundo assistido',
+    descricao: 'Descer ao agachamento profundo segurando um apoio e trabalhar a posição no fundo.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha'],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 45,
+  },
+  {
+    id: 'mob_calcanhar_gluteo', nome: 'Corrida com calcanhar no glúteo',
+    descricao: 'No lugar, levar o calcanhar ao glúteo alternando as pernas em ritmo leve.',
+    padrao: 'posterior_gluteo', musculosPrimarios: ['posterior_coxa'], musculosSecundarios: ['panturrilha'],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30,
+  },
+  {
+    id: 'mob_joelho_alto', nome: 'Elevação de joelho no lugar',
+    descricao: 'Marcha alta no lugar, joelho na altura do quadril, tronco firme.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'core'], musculosSecundarios: ['panturrilha'],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30,
+  },
+  {
+    id: 'mob_triceps_overhead', nome: 'Tríceps overhead dinâmico',
+    descricao: 'Mão atrás da nuca, empurrar o cotovelo levemente para trás e soltar. Troca de lado.',
+    padrao: 'empurrar', musculosPrimarios: ['triceps'], musculosSecundarios: ['ombro'],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30,
+  },
+  {
+    id: 'mob_biceps_parede', nome: 'Abertura de bíceps na parede',
+    descricao: 'Braço estendido apoiado na parede à altura do ombro, girar o corpo para longe.',
+    padrao: 'puxar', musculosPrimarios: ['biceps'], musculosSecundarios: ['peito', 'ombro'],
+    categorias: ['mobilidade'], equipamento: ['corporal'],
+    nivel: 'iniciante', tempoMedioSeg: 30,
+  },
+  {
+    id: 'mob_punho', nome: 'Mobilidade de punho no chão',
+    descricao: 'Quatro apoios, transferir o peso à frente e atrás com as palmas fixas; inverter as mãos.',
+    padrao: 'estabilizadores', musculosPrimarios: ['antebraco'], musculosSecundarios: [],
+    categorias: ['mobilidade'], equipamento: ['colchonete'],
+    nivel: 'iniciante', tempoMedioSeg: 30,
   },
 ];
 

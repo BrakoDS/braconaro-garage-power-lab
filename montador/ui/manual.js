@@ -14,6 +14,7 @@ import { PADRAO_LABEL, PADROES } from '../config/padroes.js';
 import { EXERCICIOS, serveModalidade } from '../data/exercicios.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
 import { calcularVolume } from '../core/volume.js';
+import { duracaoMobilidade } from '../core/gerador.js';
 import { variantesNivel } from '../core/niveis.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
@@ -22,9 +23,12 @@ import { confirmar } from './dialogo.js';
 import { publicarTreino } from './portal-treino.js';
 
 const N_BLOCOS = 8;
-const N_AQUEC = 3;
-/** Duração de cada exercício de mobilidade no aquecimento (mesma regra do gerador). */
-const AQUEC_SEG = { forca: 150, default: 120 };
+/**
+ * Slots de mobilidade. Eram 3 porque cada uma durava 2,5 min; agora cada uma dura
+ * 30–60s (a duração vem do próprio exercício, mesma regra do gerador), então cabe
+ * um aquecimento de verdade dentro do mesmo tempo de aula.
+ */
+const N_AQUEC = 8;
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -82,6 +86,18 @@ function poolPrincipal() {
     && (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao)));
 }
 const poolMobilidade = () => EXERCICIOS.filter((e) => e.categorias.includes('mobilidade'));
+
+/** As mobilidades escolhidas nos slots, na ordem, sem os vazios. */
+const mobilidadesEscolhidas = () =>
+  aquecSel.map((id) => (id ? porId(id) : null)).filter(Boolean);
+
+/** "≈ 5,5 min · 30–60s cada" — o total sai da soma real, não de um número fixo. */
+function tempoAquecTxt() {
+  const total = mobilidadesEscolhidas().reduce((a, e) => a + duracaoMobilidade(e), 0);
+  return total
+    ? `≈ ${Math.round(total / 60 * 10) / 10} min no total`
+    : '30–60s cada';
+}
 
 /** IDs já usados em OUTROS dias da mesma semana (marcados na lista, mas selecionáveis). */
 function idsUsadosNaSemana(dateId) {
@@ -161,7 +177,7 @@ function renderEditor() {
 
   $('#m-editor').innerHTML = `
     <article class="card">
-      <h4>Aquecimento / Mobilidade <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— até ${N_AQUEC} exercícios, ${Math.round((AQUEC_SEG[modalidade] || AQUEC_SEG.default) / 60 * 10) / 10}min cada</span></h4>
+      <h4>Aquecimento / Mobilidade <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— até ${N_AQUEC} exercícios curtos · ${tempoAquecTxt()}</span></h4>
       ${aquecRows}
       <h4>Parte principal <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— até ${N_BLOCOS} blocos · exercício, séries, reps e técnica</span></h4>
       <div class="man-head"><span></span><span>Exercício</span><span>Séries</span><span>Reps</span><span>Técnica</span></div>
@@ -202,7 +218,6 @@ function renderSalvarBar(dateId, temExercicios) {
 // ---------- snapshot no MESMO formato do automático ----------
 function snapshotManual(dateId) {
   const { itens, vol } = volumeAtual();
-  const aquecSeg = AQUEC_SEG[modalidade] || AQUEC_SEG.default;
   const mod = MODALIDADES[modalidade];
   return {
     dia: store.diaSemanaDe(dateId),
@@ -211,8 +226,8 @@ function snapshotManual(dateId) {
     manual: true,
     volPorPadrao: vol.porPadrao,
     viabilidade: { ok: false }, // montagem manual: sem checagem de equipamento/grupos
-    aquecimento: aquecSel.filter(Boolean).map((id) => porId(id)).filter(Boolean)
-      .map((e) => ({ nome: e.nome, duracaoSeg: aquecSeg })),
+    aquecimento: mobilidadesEscolhidas()
+      .map((e) => ({ nome: e.nome, duracaoSeg: duracaoMobilidade(e) })),
     exercicios: blocos.filter((b) => b.ex && porId(b.ex)).map((b) => {
       const e = porId(b.ex);
       const t = tecnicaPorId(b.tecnica);

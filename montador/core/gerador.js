@@ -39,6 +39,18 @@ const BUDGET_PRINCIPAL = {
   default: [2700, 3000], // 45–50 min
 };
 
+// Orçamento de tempo do bloco de mobilidade (seg). São os MESMOS totais de antes —
+// o teto da aula depende deles. O que mudou é a divisão: em vez de 3 exercícios de
+// 150s, entram quantos couberem de 30–60s (ver montarAquecimento).
+const AQUECIMENTO_SEG = { forca: 450, default: 240 };
+const MOB_MIN_SEG = 30;
+const MOB_MAX_SEG = 60;
+// Teto de movimentos. Só o orçamento de tempo deixava Força chegar a 11–12
+// mobilidades de 30–40s: aí já não é aquecimento, é circuito, e a troca de
+// posição a cada meio minuto consome um tempo que a conta não enxerga. Oito é o
+// mesmo teto que o box usa no bloco principal. A sobra de tempo é bem-vinda.
+const MOB_MAX_EXERCICIOS = 8;
+
 // -------- RNG determinístico (seed reproduzível) --------
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -226,7 +238,7 @@ export function gerarTreino(opcoes) {
     tempoSeg: tempoExercicio(ex, series[i], mod),
   }));
 
-  const aquecimento = montarAquecimento(rng, modalidade);
+  const aquecimento = montarAquecimento(rng, modalidade, principal);
   const finalizador = mod.finalizador ? montarFinalizador(pool, selecionados, rng) : null;
 
   const volume = calcularVolume(principal.map((p) => ({ exercicio: p.exercicio, series: p.series })));
@@ -434,16 +446,88 @@ export function alternativasPorIds(ids, indice, modalidade, nivel, nAlunos = ALU
 }
 
 /**
- * Aquecimento de 5–10 min com mobilidade (preparação articular para os padrões do dia).
- * Força pede o bloco cheio (3 exercícios × 150s ≈ 7,5 min); as demais modalidades
- * seguem o padrão mais curto já validado (2 × 120s ≈ 4 min).
- * @param {() => number} rng @param {import('../config/modalidades.js').ModalidadeId} [modalidade]
+ * Duração de UMA mobilidade: o tempo médio do próprio exercício, preso à faixa.
+ * O teto de 60s é o ponto da mudança — antes cada mobilidade durava 150s, e ficar
+ * dois minutos e meio no mesmo movimento cansa a turma antes do treino começar.
+ * @param {Exercicio} ex
  */
-function montarAquecimento(rng, modalidade) {
+export function duracaoMobilidade(ex) {
+  const t = Number.isFinite(ex.tempoMedioSeg) ? ex.tempoMedioSeg : 40;
+  return Math.min(MOB_MAX_SEG, Math.max(MOB_MIN_SEG, Math.round(t / 5) * 5));
+}
+
+/**
+ * Músculos e padrões que o bloco principal do dia ataca — o alvo do aquecimento.
+ * `core` entra sempre: seja qual for o dia, o tronco sustenta o movimento, e é a
+ * cobertura que `padroesObrigatorios` já esperava do aquecimento nos treinos curtos.
+ * @param {{exercicio: Exercicio}[]} principal
+ */
+function focoDoDia(principal) {
+  const musculos = new Set(['core']);
+  const padroes = new Set();
+  for (const p of principal) {
+    for (const m of p.exercicio.musculosPrimarios || []) musculos.add(m);
+    if (p.exercicio.padrao) padroes.add(p.exercicio.padrao);
+  }
+  return { musculos, padroes };
+}
+
+/**
+ * Aquecimento por MOBILIDADE dirigida ao que o dia vai exigir.
+ *
+ * O tempo total do bloco não mudou (7,5 min em Força, 4 min nas demais) — é ele que
+ * faz a aula caber em 55 min, ver BUDGET_PRINCIPAL. O que mudou é como ele é
+ * gasto: em vez de 2–3 exercícios longos sorteados ao acaso, entram quantos
+ * couberem de 30–60s (até 8), escolhidos pelos músculos que o treino ataca. Dia
+ * de empurrar aquece ombro e torácica; dia de agachar aquece quadril e tornozelo.
+ *
+ * A escolha é gulosa e prioriza COBRIR músculo do dia ainda sem mobilidade: o
+ * segundo exercício de ombro vale menos que o primeiro de quadril, senão o bloco
+ * inteiro cairia sobre o mesmo grupo e deixaria o resto frio.
+ *
+ * @param {() => number} rng
+ * @param {import('../config/modalidades.js').ModalidadeId} [modalidade]
+ * @param {{exercicio: Exercicio}[]} [principal] bloco principal já montado
+ */
+function montarAquecimento(rng, modalidade, principal = []) {
   const mob = EXERCICIOS.filter((e) => e.categorias.includes('mobilidade'));
-  const [n, duracaoSeg] = modalidade === 'forca' ? [3, 150] : [2, 120];
-  const escolhidos = embaralhar(mob, rng).slice(0, n);
-  return escolhidos.map((ex) => ({ exercicio: ex, duracaoSeg }));
+  if (!mob.length) return [];
+
+  const orcamento = AQUECIMENTO_SEG[modalidade] ?? AQUECIMENTO_SEG.default;
+  const { musculos, padroes } = focoDoDia(principal);
+  // Embaralhar antes: como o desempate é "o primeiro com a maior nota", isto é o
+  // que faz dois dias iguais não gerarem sempre o mesmo aquecimento.
+  const candidatos = embaralhar(mob, rng);
+
+  /** @type {Exercicio[]} */
+  const escolhidos = [];
+  const cobertos = new Set();
+  let gasto = 0;
+
+  const pontuar = (/** @type {Exercicio} */ ex) => {
+    const prim = ex.musculosPrimarios || [];
+    let s = prim.filter((m) => musculos.has(m) && !cobertos.has(m)).length * 100;
+    if (prim.some((m) => musculos.has(m))) s += 20;  // do dia, mas já coberto
+    if (padroes.has(ex.padrao)) s += 15;             // mesmo padrão de movimento
+    return s;
+  };
+
+  while (escolhidos.length < MOB_MAX_EXERCICIOS) {
+    let melhor = null;
+    let melhorNota = -1;
+    for (const ex of candidatos) {
+      if (escolhidos.includes(ex)) continue;
+      if (gasto + duracaoMobilidade(ex) > orcamento) continue;
+      const nota = pontuar(ex);
+      if (nota > melhorNota) { melhor = ex; melhorNota = nota; }
+    }
+    if (!melhor) break;
+    escolhidos.push(melhor);
+    gasto += duracaoMobilidade(melhor);
+    for (const m of melhor.musculosPrimarios || []) cobertos.add(m);
+  }
+
+  return escolhidos.map((ex) => ({ exercicio: ex, duracaoSeg: duracaoMobilidade(ex) }));
 }
 
 /**

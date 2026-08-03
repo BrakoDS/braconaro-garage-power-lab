@@ -187,7 +187,9 @@ function backfillPadrao() {
  * vez por versão de semente (`d.seedVersion`) — ao subir a versão, re-oferece os
  * itens novos a coaches que já existiam.
  */
-const SEED_VERSION = 18;
+// 19: mobilidades curtas (30–60s) por grupo muscular, para o aquecimento do
+//     Montador deixar de ser 3 exercícios longos e passar a seguir o foco do dia.
+const SEED_VERSION = 19;
 
 /**
  * MIGRAÇÃO DO CATÁLOGO — aplica de uma vez a revisão da versão de semente atual:

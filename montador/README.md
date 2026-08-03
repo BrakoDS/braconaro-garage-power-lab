@@ -167,6 +167,26 @@ sem exceder o que existe, permitir dupla, e **limitar aparelho único**
 7. **Ajuste de tempo**: reduz séries e, se preciso, remove exercícios até caber em 45–50 min.
 8. **Montagem final**: aquecimento (mobilidade) + bloco principal + finalizador opcional (WOD).
 
+### Aquecimento dirigido ao foco do dia
+
+O bloco de mobilidade tem orçamento fixo de tempo — **7,5 min em Força, 4 min nas
+demais** — porque é ele que faz a aula caber em 55 min (ver `BUDGET_PRINCIPAL`).
+Dentro desse orçamento entram **até 8 movimentos de 30–60s**, e não 2–3 de 2,5 min:
+ficar dois minutos e meio no mesmo exercício cansa a turma antes do treino
+começar, e o aluno chega frio no que importa.
+
+A escolha não é sorteio. Cada mobilidade declara os músculos que prepara, e o
+gerador prioriza **cobrir músculo que o treino do dia ataca e ainda não tem
+mobilidade**: o segundo exercício de ombro vale menos que o primeiro de quadril.
+Na prática, dia de supino/remada aquece peito, escápula e torácica; dia de
+agachamento e terra aquece quadril, tornozelo e posterior. `core` entra sempre —
+o tronco sustenta qualquer movimento, e é a cobertura que
+`padroesObrigatorios()` já contava do aquecimento nos treinos curtos.
+
+O teto de 8 existe porque só o orçamento de tempo levava Força a 11–12 movimentos:
+aí já não é aquecimento, é circuito, e a troca de posição a cada meio minuto
+consome um tempo que a conta não enxerga. A sobra é bem-vinda.
+
 ---
 
 ## Validação automática (resultados atuais)
