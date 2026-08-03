@@ -392,8 +392,19 @@ export function renderCalendario(mesId, treinos, rotulo) {
   </article>`;
 }
 
-/** Delegação de cliques para os botões "trocar" e as alternativas. */
-export function ativarTrocas(raiz) {
+/**
+ * Delegação de cliques para os botões "trocar" e as alternativas.
+ *
+ * `aplicarTroca` devolve um treino NOVO — não altera o recebido. O card em tela
+ * passa a mostrar esse novo (é o que fica em `vivos`), mas quem chamou
+ * `renderTreino` continua com a referência antiga na mão. Sem o `aoTrocar`, o
+ * treino que vai para o histórico e para o Portal é o gerado antes das trocas,
+ * e nada avisa: a tela mostra uma coisa e o aluno recebe outra.
+ *
+ * @param {HTMLElement} raiz
+ * @param {(treino:any)=>void} [aoTrocar] recebe o treino já com a troca aplicada
+ */
+export function ativarTrocas(raiz, aoTrocar) {
   raiz.addEventListener('click', (ev) => {
     const swap = ev.target.closest('.swap');
     if (swap) {
@@ -416,6 +427,7 @@ export function ativarTrocas(raiz) {
       const atualizado = aplicarTroca(t, Number(idx), novo);
       vivos.set(card, atualizado);
       document.getElementById(card).innerHTML = corpoTreino(card);
+      if (aoTrocar) aoTrocar(atualizado);
     }
   });
 }

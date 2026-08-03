@@ -185,7 +185,17 @@ function ativarCalendario() {
 popularSelects();
 $('#u-gerar').addEventListener('click', gerarUnico);
 $('#u-imprimir').addEventListener('click', () => window.print());
-ativarTrocas($('#u-saida'));
+// Trocar um exercício gera um treino novo: sem isto, `treinoGerado` continuaria
+// sendo o da geração inicial e era ELE que ia para o histórico e para o Portal.
+// A meta de volume e a barra de salvar são refeitas junto — a troca muda o
+// volume por padrão, e depois de já ter salvo o botão precisa voltar para o
+// coach poder regravar com a troca.
+ativarTrocas($('#u-saida'), (treino) => {
+  treinoGerado = treino;
+  const dateId = $('#u-data').value || store.dateIdDe();
+  renderMetaPanel(dateId, treino);
+  renderSalvarBar(dateId);
+});
 $('#view-unico').addEventListener('click', (ev) => { if (ev.target.closest('#btn-salvar-treino')) salvarTreinoAtual(); });
 ativarCalendario();
 renderHistorico();
