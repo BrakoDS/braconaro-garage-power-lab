@@ -18,7 +18,7 @@ import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../montador/ui/clo
 import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
 import * as db from '../academia/db.js';
 import { publicarLoja, carregarVitrine, assinatura, assinaturaPublicada } from '../loja/loja-portal.js';
-import { cardProduto, gridVitrine, filtrar, chipsCategoria, formatarPreco, esc, norm, CATEGORIAS } from '../loja/vitrine-card.js';
+import { cardProduto, gridVitrine, filtrar, chipsCategoria, formatarPreco, esc, norm, CATEGORIAS, SUBCATEGORIAS } from '../loja/vitrine-card.js';
 import { analisarUrl, lerPreco, buscarMetadados } from './loja-url.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
@@ -189,9 +189,19 @@ function produtoDoForm() {
   const f = $('#form-produto');
   return {
     nome: f.nome.value.trim(), url: f.url.value.trim(), categoria: f.categoria.value,
+    subcategoria: $('#campo-subcategoria').hidden ? '' : f.subcategoria.value,
     preco: lerPreco(f.preco.value), imagem: f.imagem.value.trim(),
     dica: f.dica.value.trim(), ativo: f.ativo.checked,
   };
+}
+
+/** Preenche o select de subcategoria conforme a categoria escolhida; esconde o campo se não houver nenhuma. */
+function popularSubcategoria(categoria, valorAtual) {
+  const subs = SUBCATEGORIAS[categoria];
+  $('#campo-subcategoria').hidden = !subs;
+  if (!subs) { $('#pr-subcategoria').innerHTML = ''; return; }
+  $('#pr-subcategoria').innerHTML = ['', ...subs]
+    .map((s) => `<option value="${esc(s)}"${s === valorAtual ? ' selected' : ''}>${esc(s || '— nenhuma —')}</option>`).join('');
 }
 
 function atualizarPrevia() {
@@ -213,6 +223,7 @@ function abrirProduto(item = null) {
     .map((c) => `<option value="${esc(c)}"${c === (item?.categoria || 'Suplementos') ? ' selected' : ''}>${esc(c)}</option>`).join('');
   f.url.value = item?.url || '';
   f.nome.value = item?.nome || '';
+  popularSubcategoria(item?.categoria || 'Suplementos', item?.subcategoria || '');
   f.preco.value = item?.preco === '' || item?.preco == null ? '' : String(item.preco).replace('.', ',');
   f.imagem.value = item?.imagem || '';
   f.dica.value = item?.dica || '';
@@ -224,6 +235,7 @@ function abrirProduto(item = null) {
   setTimeout(() => f.url.focus(), 50);
 }
 
+$('#pr-categoria').addEventListener('change', () => popularSubcategoria($('#pr-categoria').value, ''));
 $('#form-produto').addEventListener('input', atualizarPrevia);
 $('#form-produto').addEventListener('change', atualizarPrevia);
 

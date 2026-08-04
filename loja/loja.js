@@ -10,17 +10,20 @@
  * do coach usa — é o que garante que a prévia dele seja fiel a esta tela.
  */
 import { carregarLoja } from './loja-portal.js';
-import { gridVitrine, filtrar, chipsCategoria } from './vitrine-card.js';
+import { gridVitrine, filtrar, chipsCategoria, chipsSubcategoria } from './vitrine-card.js';
 
 const $ = (s) => document.querySelector(s);
 
 /** @type {any[]} */ let PRODUTOS = [];
 let busca = '';
 let categoria = 'todas';
+let subcategoria = 'todas';
 
 function render() {
   $('#filtros').innerHTML = chipsCategoria(PRODUTOS, categoria);
-  $('#saida').innerHTML = gridVitrine(filtrar(PRODUTOS, busca, categoria), PRODUTOS.length);
+  const daCategoria = filtrar(PRODUTOS, '', categoria);
+  $('#filtros-sub').innerHTML = chipsSubcategoria(daCategoria, categoria, subcategoria);
+  $('#saida').innerHTML = gridVitrine(filtrar(PRODUTOS, busca, categoria, subcategoria), PRODUTOS.length);
 }
 
 $('#busca').addEventListener('input', (e) => {
@@ -32,6 +35,14 @@ $('#filtros').addEventListener('click', (e) => {
   const c = /** @type {HTMLElement} */ (e.target).closest('.chip');
   if (!c) return;
   categoria = /** @type {HTMLElement} */ (c).dataset.cat;
+  subcategoria = 'todas';
+  render();
+});
+
+$('#filtros-sub').addEventListener('click', (e) => {
+  const c = /** @type {HTMLElement} */ (e.target).closest('.chip-sub');
+  if (!c) return;
+  subcategoria = /** @type {HTMLElement} */ (c).dataset.sub;
   render();
 });
 

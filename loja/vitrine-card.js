@@ -12,6 +12,7 @@
  * @property {string} nome
  * @property {string} url
  * @property {string} categoria
+ * @property {string} [subcategoria]
  * @property {number|null} preco
  * @property {string} imagem
  * @property {string} dica
@@ -29,6 +30,12 @@ export const formatarPreco = (n) => (typeof n === 'number' && Number.isFinite(n)
 
 /** Ordem fixa das categorias na barra de filtros. */
 export const CATEGORIAS = ['Suplementos', 'Equipamentos', 'Acessórios', 'Vestuário', 'Outros'];
+
+/** Subcategorias por categoria — só quem está aqui ganha a segunda linha de filtros. */
+export const SUBCATEGORIAS = {
+  Suplementos: ['Creatinas', 'Vitaminas', 'Pré-treinos', 'Wheys'],
+  'Vestuário': ['Feminino', 'Masculino', 'Unissex'],
+};
 
 /**
  * Um card.
@@ -55,7 +62,10 @@ export function cardProduto(p, opcoes = {}) {
       <span class="produto-sem">Foto indisponível</span>
     </div>
     <div class="produto-bd">
-      <span class="badge">${esc(p.categoria || 'Outros')}</span>
+      <span class="badges">
+        <span class="badge">${esc(p.categoria || 'Outros')}</span>
+        ${p.subcategoria ? `<span class="badge badge-sub">${esc(p.subcategoria)}</span>` : ''}
+      </span>
       <h2 class="produto-nome">${esc(p.nome)}</h2>
       ${preco ? `<div class="produto-preco">${esc(preco)}<small>preço de referência</small></div>` : ''}
       ${p.dica ? `<p class="produto-dica">${esc(p.dica)}</p>` : ''}
@@ -79,11 +89,12 @@ export function gridVitrine(itens, total, opcoes = {}) {
   return `<div class="grid">${itens.map((p) => cardProduto(p, opcoes)).join('')}</div>`;
 }
 
-/** Filtro comum de busca + categoria. @param {ProdutoVitrine[]} produtos */
-export function filtrar(produtos, busca, categoria) {
+/** Filtro comum de busca + categoria + subcategoria. @param {ProdutoVitrine[]} produtos */
+export function filtrar(produtos, busca, categoria, subcategoria) {
   const q = norm(busca);
   return produtos.filter((p) => {
     if (categoria && categoria !== 'todas' && (p.categoria || 'Outros') !== categoria) return false;
+    if (subcategoria && subcategoria !== 'todas' && (p.subcategoria || '') !== subcategoria) return false;
     return !q || norm(p.nome).includes(q) || norm(p.dica).includes(q) || norm(p.categoria).includes(q);
   });
 }
@@ -95,5 +106,21 @@ export function chipsCategoria(produtos, ativa) {
   if (cats.length < 2) return ''; // uma categoria só não precisa de filtro
   return ['todas', ...cats]
     .map((c) => `<button class="chip${ativa === c ? ' on' : ''}" data-cat="${esc(c)}" type="button">${esc(c === 'todas' ? 'Todos' : c)}</button>`)
+    .join('');
+}
+
+/**
+ * Chips de subcategoria da categoria ativa, só as que têm produto. Vazio quando a
+ * categoria não tem subcategorias definidas, ou está em "todas".
+ * @param {ProdutoVitrine[]} produtos  já filtrados pela categoria ativa
+ */
+export function chipsSubcategoria(produtos, categoriaAtiva, subAtiva) {
+  const subs = SUBCATEGORIAS[categoriaAtiva];
+  if (!subs) return '';
+  const presentes = new Set(produtos.map((p) => p.subcategoria).filter(Boolean));
+  const cats = subs.filter((s) => presentes.has(s));
+  if (!cats.length) return '';
+  return ['todas', ...cats]
+    .map((s) => `<button class="chip chip-sub${subAtiva === s ? ' on' : ''}" data-sub="${esc(s)}" type="button">${esc(s === 'todas' ? 'Todos' : s)}</button>`)
     .join('');
 }

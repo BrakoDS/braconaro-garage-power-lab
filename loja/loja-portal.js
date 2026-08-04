@@ -37,6 +37,7 @@ const produtoEnxuto = (p) => ({
   nome: p.nome,
   url: p.url,
   categoria: p.categoria || 'Outros',
+  subcategoria: p.subcategoria || '',
   preco: p.preco === '' || p.preco == null ? null : Number(p.preco),
   imagem: p.imagem || '',
   dica: p.dica || '',

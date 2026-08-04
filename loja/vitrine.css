@@ -29,6 +29,10 @@ img{max-width:100%}
   background:transparent;color:var(--mut);border:1px solid var(--line-2);padding:.5em .95em;cursor:pointer;transition:.15s}
 .chip:hover{color:var(--txt);border-color:var(--mut)}
 .chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.filtros-sub{margin-top:8px}
+.filtros-sub .chip-sub{font-size:.68rem;padding:.4em .8em;color:var(--mut-2)}
+.filtros-sub .chip-sub:hover{color:var(--txt)}
+.filtros-sub .chip-sub.on{background:transparent;color:var(--accent);border-color:var(--accent)}
 
 /* ---------- grid e card ---------- */
 .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
@@ -39,8 +43,10 @@ img{max-width:100%}
 .produto-sem{display:none;color:var(--mut-2);font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.08em;font-size:.76rem}
 .produto-foto.sem-foto .produto-sem{display:block}
 .produto-bd{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:14px 15px 16px;flex:1}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
 .badge{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.07em;font-size:.66rem;
   color:var(--accent);border:1px solid rgba(245,197,24,.4);padding:.15em .6em}
+.badge-sub{color:var(--mut);border-color:var(--line-2)}
 .produto-nome{font-family:var(--font-cond);font-weight:600;font-size:1.12rem;line-height:1.25;margin:0}
 .produto-preco{font-family:var(--font-cond);font-weight:700;color:var(--accent);font-size:1.35rem;line-height:1.1}
 .produto-preco small{display:block;font-family:var(--font);font-weight:400;font-size:.68rem;color:var(--mut-2);letter-spacing:.02em}
