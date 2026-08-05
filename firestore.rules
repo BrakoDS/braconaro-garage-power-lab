@@ -140,6 +140,21 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
     }
 
+    // Cota diária de análise de foto pelo Coach IA — um doc por aluno.
+    //
+    // NINGUÉM escreve pelo cliente: só a Cloud Function `analisarRefeicao`, que
+    // usa o Admin SDK e passa por cima destas regras. Se o aluno pudesse gravar
+    // aqui, zerar o próprio limite (e a conta da OpenAI do box) seria trivial —
+    // por isso o contador não mora em nutricao/{email}, que ele edita.
+    //  - o ALUNO lê o seu, para a tela mostrar quantas análises sobram;
+    //  - o COACH (dono de gestao/{uid}) lê, para enxergar consumo.
+    match /nutricaoUso/{email} {
+      allow read: if request.auth != null && request.auth.token.email == email;
+      allow read: if request.auth != null
+        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow write: if false;
+    }
+
     // Caixa de entrada do aluno → coach (foto nova + feedbacks pós-treino).
     //  - o ALUNO lê/escreve apenas a própria caixa (id == e-mail logado);
     //  - o COACH (dono de gestao/{uid}) lê e limpa (merge para gestao/{uid}).

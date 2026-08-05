@@ -19,6 +19,20 @@ service firebase.storage {
         && uploadImagemValido();
     }
 
+    // Fotos das refeições enviadas pelo aluno (Garage App, controle nutricional).
+    // Uma por refeição, em nutricao/{email}/{mealId}.jpg — fora do Firestore de
+    // propósito: o doc nutricao/{email} tem teto de 1 MB e guarda 90 dias de
+    // refeições, então imagem lá dentro estouraria o histórico.
+    //  - o ALUNO lê/grava só a própria pasta;
+    //  - o COACH (dono de gestao/{uid}) lê, para orientar a dieta.
+    match /nutricao/{email}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.token.email == email;
+      allow write: if request.auth != null && request.auth.token.email == email
+        && uploadImagemValido();
+      allow read: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/gestao/$(request.auth.uid));
+    }
+
     // Foto de perfil enviada pelo próprio aluno (Portal do Aluno).
     // Só o aluno cujo e-mail logado bate com a pasta pode ler/gravar.
     match /portal/{email}/{allPaths=**} {
