@@ -129,6 +129,17 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
     }
 
+    // Controle nutricional (app mobile) — o que o aluno COME: refeições por dia,
+    // com calorias e macros. Não confundir com `gastoTreinos`, que é a energia
+    // QUEIMADA no treino. Um doc por aluno, id == e-mail (padrão de cargas/rotinas).
+    //  - o ALUNO lê/grava só o seu;
+    //  - o COACH (dono de gestao/{uid}) lê, para orientar a dieta.
+    match /nutricao/{email} {
+      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read: if request.auth != null
+        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+    }
+
     // Caixa de entrada do aluno → coach (foto nova + feedbacks pós-treino).
     //  - o ALUNO lê/escreve apenas a própria caixa (id == e-mail logado);
     //  - o COACH (dono de gestao/{uid}) lê e limpa (merge para gestao/{uid}).
