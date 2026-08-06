@@ -238,22 +238,40 @@ function garantirIsolado(selecionados, pool, poolAmplo, nAlunos, rng) {
 
 /**
  * Distribui as técnicas avançadas por CRITÉRIO LÓGICO (não aleatório puro):
- *  - Bi-set: um par que cobre os 2 padrões do split (agonista/antagonista natural).
+ *  - Bi-set: só entre 2 exercícios que usam o MESMO aparelho — nenhuma técnica
+ *    pode exigir trocar de estação. Com 4 estações tipicamente de aparelhos
+ *    diferentes, isto normalmente não aciona; não precisa de exceção especial,
+ *    a condição "mesmo aparelho" já resolve sozinha.
  *  - Drop-set: no último multiarticular (drop-set clássico fecha num composto).
  *  - Isometria 1-2s no pico: numa isolada (fallback: qualquer exercício restante).
  *  - Tempo 2-1-2: no que sobrar, se sobrar.
- * @param {ItemHipertrofiaHibrido[]} itens @param {Split} split @param {() => number} rng
+ * @param {ItemHipertrofiaHibrido[]} itens @param {() => number} rng
  */
 function atribuirTecnicas(itens, rng) {
   if (itens.length < 2) return itens;
   const marcados = new Set();
-  // bi-set fica pra Task 3 — por ora, nenhuma técnica de bi-set é atribuída.
+
+  const mesmoAparelho = (a, b) =>
+    a.exercicio.equipamento.length === b.exercicio.equipamento.length
+    && a.exercicio.equipamento.every((id) => b.exercicio.equipamento.includes(id));
+
+  let parA = null, parB = null;
+  buscaPar:
+  for (let i = 0; i < itens.length; i++) {
+    for (let j = i + 1; j < itens.length; j++) {
+      if (mesmoAparelho(itens[i], itens[j])) { parA = itens[i]; parB = itens[j]; break buscaPar; }
+    }
+  }
+  if (parA && parB) {
+    parA.tecnica = { tipo: 'biset', detalhe: `Bi-set com ${parB.exercicio.nome} — sem descanso entre os dois`, parceiroNome: parB.exercicio.nome };
+    parB.tecnica = { tipo: 'biset', detalhe: `Bi-set com ${parA.exercicio.nome} — sem descanso entre os dois`, parceiroNome: parA.exercicio.nome };
+    marcados.add(parA); marcados.add(parB);
+  }
 
   const restantes = () => itens.filter((i) => !marcados.has(i) && !i.tecnica);
   const multiarticulares = () => restantes().filter((i) => i.exercicio.multiarticular !== false);
   const isolados = () => restantes().filter((i) => i.exercicio.multiarticular === false);
 
-  // 2) drop-set no último multiarticular restante
   const mults = multiarticulares();
   if (mults.length) {
     const alvo = mults[mults.length - 1];
@@ -261,7 +279,6 @@ function atribuirTecnicas(itens, rng) {
     marcados.add(alvo);
   }
 
-  // 3) isometria numa isolada (fallback: qualquer restante)
   const isos = isolados();
   const candidataIso = isos.length ? isos[Math.floor(rng() * isos.length)] : restantes()[0];
   if (candidataIso) {
@@ -269,7 +286,6 @@ function atribuirTecnicas(itens, rng) {
     marcados.add(candidataIso);
   }
 
-  // 4) tempo 2-1-2 no que sobrar
   const sobrou = restantes()[0];
   if (sobrou) sobrou.tecnica = { tipo: 'tempo', detalhe: 'Cadência 2-1-2 (2s descida · 1s pico · 2s subida)' };
 
