@@ -119,9 +119,10 @@ function renderSalvarBar(dateId) {
 function gerarUnico() {
   const modalidade = $('#u-modalidade').value;
   const nAlunos = Math.min(20, Math.max(1, Number($('#u-alunos').value) || 8));
+  const semana = Math.min(4, Math.max(1, Number($('#u-semana').value) || 1));
   const dateId = $('#u-data').value || store.dateIdDe();
   const idsEvitar = idsUsadosNaSemana(dateId);
-  const treino = gerarTreino({ modalidade, nivel: NIVEL_ANCORA, dia: 'unico', semana: 1, nAlunos, idsEvitar, seed: Math.floor(Math.random() * 1e6) });
+  const treino = gerarTreino({ modalidade, nivel: NIVEL_ANCORA, dia: 'unico', semana, nAlunos, idsEvitar, seed: Math.floor(Math.random() * 1e6) });
   treinoGerado = treino;
   $('#u-saida').innerHTML = renderTreino(treino, { mostrarDiaSemana: false });
   renderMetaPanel(dateId, treino);
