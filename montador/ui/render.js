@@ -171,10 +171,13 @@ export function renderHibrido(h, dia) {
   const mob = h.mobilidade.map((m) => `<li>${m.nome} — ${mmss(m.duracaoSeg)}</li>`).join('');
   const mobMin = Math.round(h.mobilidade.reduce((a, m) => a + m.duracaoSeg, 0) / 60);
 
+  /** 'iniciante' e 'intermediario' começam com a mesma letra — abreviar em 1 char confundiria as duas. */
+  const NIVEL_ABREV = { iniciante: 'Ini', intermediario: 'Int', avancado: 'Avç' };
+
   const lado = (ex, p) => {
     const v = ex.niveis || variantesNivel(ex, p.series, 'hibrido', { seriesFixas: true });
     const cargas = ['iniciante', 'intermediario', 'avancado']
-      .map((n) => `<span class="mut">${n[0].toUpperCase()}:</span> ${v[n].carga}`).join(' · ');
+      .map((n) => `<span class="mut">${NIVEL_ABREV[n]}:</span> ${v[n].carga}`).join(' · ');
     return `<div class="hib-lado"><b>${ex.nome || ex}</b><div class="mut">${cargas}</div></div>`;
   };
 
