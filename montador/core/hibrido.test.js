@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPostos } from './hibrido.js';
+import { montarPostos, montarMobilidade } from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
 import { EXERCICIOS } from '../data/exercicios.js';
 
@@ -122,4 +122,19 @@ test('rede de segurança nunca entrega exercício acima do nível, mesmo sob pre
       }
     }
   }
+});
+
+test('mobilidade tem 4 min nas semanas normais e 12 no deload', () => {
+  const postos = montar();
+  const soma = (itens) => itens.reduce((a, m) => a + m.duracaoSeg, 0);
+  assert.ok(Math.abs(soma(montarMobilidade(postos, rngDe(1), false)) - 240) <= 2);
+  assert.ok(Math.abs(soma(montarMobilidade(postos, rngDe(1), true)) - 720) <= 2);
+});
+
+test('a mobilidade mira nos músculos que os postos vão treinar', () => {
+  const postos = montar({ seed: 5 });
+  const alvo = new Set(postos.flatMap((p) => [...p.a.musculosPrimarios, ...p.b.musculosPrimarios]));
+  const itens = montarMobilidade(postos, rngDe(5), false);
+  assert.ok(itens.length > 0);
+  assert.ok(itens.some((m) => m.musculosAlvo?.some((mu) => alvo.has(mu)) ?? true));
 });

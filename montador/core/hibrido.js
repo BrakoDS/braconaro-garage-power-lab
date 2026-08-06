@@ -18,6 +18,7 @@
  * @typedef {Object} MobilidadeItem
  * @property {string} nome
  * @property {number} duracaoSeg
+ * @property {string[]} [musculosAlvo]
  *
  * @typedef {Object} TecnicaTag
  * @property {'biset'|'dropset'|'isometria'|'tempo'} tipo
@@ -68,7 +69,8 @@ import {
 } from './hibrido-postos.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
-const MOBILIDADE_SEG = 240; // 4 min fixos (era 360/6min)
+const MOBILIDADE_SEG = 240;          // 4 min nas semanas 1–3
+const MOBILIDADE_DELOAD_SEG = 720;   // 12 min na semana 4 — vira bloco de recuperação
 const SERIES_BASE = 3;      // base de séries do bloco de hipertrofia (10-12 reps)
 const REPS_HIPERTROFIA = '10–12 reps';
 const DESCANSO_HIPERTROFIA_SEG = 60;
@@ -99,24 +101,34 @@ function embaralhar(arr, rng) {
 }
 
 /**
- * Bloco de mobilidade (4 min): prioriza exercícios cujos músculos batem com o
- * que a Hipertrofia deste dia vai treinar — mesmo princípio do `focoDoDia()` do
- * motor genérico (`core/gerador.js`). Por isso roda DEPOIS da Hipertrofia (antes
- * era antes, quando o alvo vinha do split fixo).
- * @param {ItemHipertrofiaHibrido[]} hipertrofia @param {() => number} rng
+ * Bloco de mobilidade: mira nos músculos que os postos deste dia vão treinar
+ * (mesmo princípio do `focoDoDia()` do motor genérico). Por isso roda DEPOIS da
+ * montagem dos postos.
+ *
+ * Na semana de deload o bloco vai de 4 para 12 min: é o tempo que a Hipertrofia
+ * devolveu ao cortar uma série, e ele volta como recuperação em vez de mais
+ * esforço — do contrário o "deload" só trocaria a fadiga de lugar.
+ * @param {PostoHipertrofia[]} postos @param {() => number} rng @param {boolean} ehDeload
  * @returns {MobilidadeItem[]}
  */
-export function montarMobilidade(hipertrofia, rng) {
+export function montarMobilidade(postos, rng, ehDeload = false) {
+  const total = ehDeload ? MOBILIDADE_DELOAD_SEG : MOBILIDADE_SEG;
   const banco = EXERCICIOS.filter((e) => e.categorias.includes('mobilidade'));
   const alvo = new Set(['core']);
-  for (const item of hipertrofia) for (const m of item.exercicio.musculosPrimarios || []) alvo.add(m);
+  for (const p of postos) {
+    for (const ex of [p.a, p.b]) for (const m of ex.musculosPrimarios || []) alvo.add(m);
+  }
   const bate = (e) => e.musculosPrimarios.some((m) => alvo.has(m));
   const prioritarios = embaralhar(banco.filter(bate), rng);
   const resto = embaralhar(banco.filter((e) => !bate(e)), rng);
-  const escolhidos = [...prioritarios, ...resto].slice(0, 3);
+  // Deload tem 3x mais tempo — cabe mais variedade sem virar 4 min por exercício.
+  const nItens = ehDeload ? 6 : 3;
+  const escolhidos = [...prioritarios, ...resto].slice(0, nItens);
   if (!escolhidos.length) return [];
-  const duracaoSeg = Math.round(MOBILIDADE_SEG / escolhidos.length);
-  return escolhidos.map((ex) => ({ nome: ex.nome, duracaoSeg }));
+  const duracaoSeg = Math.round(total / escolhidos.length);
+  return escolhidos.map((ex) => ({
+    nome: ex.nome, duracaoSeg, musculosAlvo: ex.musculosPrimarios,
+  }));
 }
 
 /** Ids de core por plano de movimento — o catálogo não tem campo pra isso, e o par
