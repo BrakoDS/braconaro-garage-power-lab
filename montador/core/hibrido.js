@@ -51,19 +51,17 @@
  * @property {MovimentoWod[]} movimentos
  *
  * @typedef {Object} Hibrido
- * @property {Split} split
- * @property {string} splitLabel
  * @property {MobilidadeItem[]} mobilidade
- * @property {ItemHipertrofiaHibrido[]} hipertrofia
+ * @property {PostoHipertrofia[]} hipertrofia
  * @property {BlocoWod} wod
  * @property {number} duracaoSeg
+ * @property {string} semanaRotulo
  * @property {{ok:boolean, nota:string}} viabilidade
  */
 import { EXERCICIOS } from '../data/exercicios.js';
 import { ALUNOS_POR_SESSAO, unidadesDe } from '../data/equipamentos.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
 import { calcularVolume } from './volume.js';
-import { seriesAjustadas } from './periodizacao.js';
 import {
   PARES_ANTAGONISTAS, calcularPostos, calcularSeries, prescricaoSemana, SERIE_SEG, duracaoWodPorSemana,
 } from './hibrido-postos.js';
@@ -71,9 +69,6 @@ import {
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const MOBILIDADE_SEG = 240;          // 4 min nas semanas 1–3
 const MOBILIDADE_DELOAD_SEG = 720;   // 12 min na semana 4 — vira bloco de recuperação
-const SERIES_BASE = 3;      // base de séries do bloco de hipertrofia (10-12 reps)
-const REPS_HIPERTROFIA = '10–12 reps';
-const DESCANSO_HIPERTROFIA_SEG = 60;
 
 /** Os 4 padrões que a Hipertrofia percorre livremente (substituem o split de 2). */
 export const PADROES_PRINCIPAIS = ['empurrar', 'puxar', 'quadriceps', 'posterior_gluteo'];
@@ -312,10 +307,9 @@ export function atribuirTecnicas(postos, rng, ehDeload = false) {
   return postos;
 }
 
-/** Tempo estimado do bloco de hipertrofia (mesma fórmula do motor genérico). */
-function tempoHipertrofiaSeg(itens) {
-  const TRANSICAO = 20;
-  return itens.reduce((acc, i) => acc + i.series * (30 + i.descansoSeg) + TRANSICAO, 0);
+/** Tempo do bloco de Hipertrofia — a soma dos postos (cada um `series × SERIE_SEG`). */
+function tempoHipertrofiaSeg(postos) {
+  return postos.reduce((acc, p) => acc + p.tempoSeg, 0);
 }
 
 /**
@@ -327,40 +321,49 @@ export function gerarHibrido(opcoes) {
   const { dia, semana, nivel, nAlunos = ALUNOS_POR_SESSAO, idsEvitar = [] } = opcoes;
   const seed = opcoes.seed ?? hashSeed(`hibrido-${dia}-${semana}-${nivel}`);
   const rng = mulberry32(seed);
+  const presc = prescricaoSemana(semana, nivel);
 
-  const split = escolherSplit(semana);
-  const hipertrofia = montarHipertrofia({ nivel, semana, nAlunos, idsEvitar, rng });
-  const mobilidade = montarMobilidade(hipertrofia, rng);
-  for (const i of hipertrofia) i.tempoSeg = i.series * (30 + i.descansoSeg) + 20;
-  const tHiper = tempoHipertrofiaSeg(hipertrofia);
-  const cobertos = new Set(hipertrofia.map((i) => i.exercicio.padrao));
-  const padroesFaltantes = new Set(PADROES_PRINCIPAIS.filter((p) => !cobertos.has(p)));
-  const series = hipertrofia[0]?.series ?? 3;
-  const wod = montarWod({ padroesFaltantes, series, nAlunos, rng });
+  const postos = atribuirTecnicas(
+    montarPostos({ nivel, semana, nAlunos, idsEvitar, rng }), rng, presc.ehDeload);
+  const mobilidade = montarMobilidade(postos, rng, presc.ehDeload);
 
-  const viabilidade = verificarViabilidade(hipertrofia.map((i) => i.exercicio), nAlunos, hipertrofia.length);
-  const duracaoSeg = MOBILIDADE_SEG + tHiper + wod.duracaoMin * 60 + 120; // +2min transição geral
+  const exercicios = postos.flatMap((p) => [p.a, p.b]);
+  const cobertos = new Set(exercicios.map((e) => e.padrao));
+  const padroesFaltantes = new Set(
+    ['empurrar', 'puxar', 'quadriceps', 'posterior_gluteo', 'core'].filter((p) => !cobertos.has(p)));
+  const wod = montarWod({ padroesFaltantes, semana, nAlunos, rng });
+
+  // `2 × nPostos` slots: cada exercício serve 1 pessoa por vez (a dupla se divide
+  // entre os dois lados do bi-set), então tamanhoGrupo cai pra 1 e esta chamada já
+  // cobre tanto a colisão dentro do posto quanto a soma entre postos.
+  const viabilidade = verificarViabilidade(exercicios, nAlunos, exercicios.length);
+  const tHiper = tempoHipertrofiaSeg(postos);
+  const mobSeg = mobilidade.reduce((a, m) => a + m.duracaoSeg, 0);
+  const duracaoSeg = mobSeg + tHiper + wod.duracaoMin * 60 + 120; // +2min transição geral
 
   return {
-    split, splitLabel: SPLIT_LABEL[split],
-    mobilidade, hipertrofia, wod, duracaoSeg,
+    mobilidade, hipertrofia: postos, wod, duracaoSeg,
+    semanaRotulo: presc.rotulo,
     viabilidade: {
       ok: viabilidade.ok,
       nota: viabilidade.ok
-        ? `Foco de hoje: ${SPLIT_LABEL[split]}. WOD complementa com padrões opostos p/ não refadigar.`
+        ? `${presc.rotulo} · ${postos.length} postos de bi-set: ${postos.map((p) => p.parLabel).join(' · ')}.`
         : `⚠ ${viabilidade.conflitos.join(' ')}`,
     },
   };
 }
 
 /**
- * Volume do treino Híbrido: REAL na hipertrofia (via calcularVolume) + crédito nominal
- * leve do WOD (reforça um pouco os padrões que ele de fato treina).
- * @param {ItemHipertrofiaHibrido[]} hipertrofia @param {BlocoWod} wod
+ * Volume do Híbrido: REAL nos dois lados de cada posto + crédito nominal leve do WOD.
+ * @param {PostoHipertrofia[]} postos @param {BlocoWod} wod
  * @returns {import('./volume.js').Volume}
  */
-export function volumeHibrido(hipertrofia, wod) {
-  const real = calcularVolume(hipertrofia.map((i) => ({ exercicio: i.exercicio, series: i.series })));
+export function volumeHibrido(postos, wod) {
+  const itens = postos.flatMap((p) => [
+    { exercicio: p.a, series: p.series },
+    { exercicio: p.b, series: p.series },
+  ]);
+  const real = calcularVolume(itens);
   const CREDITO_WOD = 2.5;
   for (const m of wod.movimentos) {
     real.porPadrao[m.padraoDominante] = (real.porPadrao[m.padraoDominante] || 0) + CREDITO_WOD;

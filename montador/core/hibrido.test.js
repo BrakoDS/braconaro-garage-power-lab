@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPostos, montarMobilidade, montarWod, atribuirTecnicas } from './hibrido.js';
+import {
+  montarPostos, montarMobilidade, montarWod, atribuirTecnicas, gerarHibrido, volumeHibrido,
+} from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
 import { EXERCICIOS } from '../data/exercicios.js';
 
@@ -171,4 +173,47 @@ test('técnicas se aplicam ao posto e somem no deload', () => {
   assert.ok(atribuirTecnicas(postos.map((p) => ({ ...p })), rngDe(1), false).some((p) => p.tecnica));
   assert.ok(atribuirTecnicas(postos.map((p) => ({ ...p })), rngDe(1), true).every((p) => !p.tecnica),
     'deload não tem trabalho até a falha');
+});
+
+const gerar = (o = {}) => gerarHibrido({ dia: 'seg', semana: 2, nivel: 'intermediario', nAlunos: 8, ...o });
+
+test('gerarHibrido devolve os 3 blocos e não fala mais em split', () => {
+  const h = gerar();
+  assert.ok(h.mobilidade.length && h.hipertrofia.length && h.wod.movimentos.length);
+  assert.equal(h.split, undefined);
+  assert.equal(h.splitLabel, undefined);
+});
+
+test('a mesma entrada gera sempre o mesmo treino', () => {
+  assert.deepEqual(gerar(), gerar());
+});
+
+test('a aula fecha na janela esperada em todas as semanas', () => {
+  for (const semana of [1, 2, 3, 4]) {
+    for (const nAlunos of [6, 8]) {
+      const min = gerar({ semana, nAlunos }).duracaoSeg / 60;
+      assert.ok(min >= 38 && min <= 54, `semana ${semana}, ${nAlunos} alunas: ${min.toFixed(1)}min`);
+    }
+  }
+});
+
+test('a nota de viabilidade lista os pares montados', () => {
+  const h = gerar();
+  assert.ok(h.viabilidade.ok);
+  assert.ok(h.viabilidade.nota.includes('Peito / Costas'), h.viabilidade.nota);
+});
+
+test('o volume credita os DOIS exercícios de cada posto', () => {
+  const h = gerar();
+  const vol = volumeHibrido(h.hipertrofia, h.wod);
+  const seriesDaHipertrofia = h.hipertrofia.reduce((a, p) => a + p.series * 2, 0);
+  assert.ok(vol.totalSeries >= seriesDaHipertrofia,
+    `${vol.totalSeries} < ${seriesDaHipertrofia} — algum lado do bi-set ficou sem crédito`);
+});
+
+test('bíceps e tríceps entram no volume — o desenho antigo só os creditava de raspão', () => {
+  const h = gerar();
+  const vol = volumeHibrido(h.hipertrofia, h.wod);
+  assert.ok(vol.porMusculo.biceps > 0, 'bíceps sem volume');
+  assert.ok(vol.porMusculo.triceps > 0, 'tríceps sem volume');
 });
