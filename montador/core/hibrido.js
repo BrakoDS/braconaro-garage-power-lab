@@ -1,12 +1,17 @@
 // @ts-check
 /**
- * GERADOR DE TREINO HÍBRIDO — Mobilidade → Hipertrofia (split) → WOD.
+ * GERADOR DE TREINO HÍBRIDO — Mobilidade → Hipertrofia (bi-sets) → WOD.
  *
- * Ao contrário das outras modalidades do box (full body, mesmo treino p/ todos), o
- * Híbrido roda em SPLIT ROTATIVO — Superiores (empurrar+puxar) ou Inferiores
- * (quadríceps+posterior/glúteo) — alternando por semana. Isso é o que dá sentido à
- * "coerência biomecânica": a mobilidade é escolhida pelas articulações do split do
- * dia, e o WOD prioriza padrões OPOSTOS ao split (não refadiga o que já foi treinado).
+ * A Hipertrofia roda em POSTOS, cada posto um bi-set de músculos ANTAGONISTAS
+ * (peito/costas, quadríceps/posterior-glúteo, bíceps/tríceps, abdominal/abdominal).
+ * Cada posto comporta 1 dupla: uma aluna no lado A, a outra no B, trocando a cada
+ * série. É o bi-set que divide a turma — por isso cada exercício só precisa de 1
+ * unidade de aparelho, e por isso ninguém fica na fila: o intervalo de cada uma é
+ * descanso ativo do grupo que a outra acabou de trabalhar.
+ *
+ * Quantos postos e quantas séries vêm do tamanho da turma (`hibrido-postos.js`,
+ * que trava `postos × séries = 12` para segurar o bloco em 24 min). A onda de
+ * periodização não mexe nas séries — se expressa em reps, pausa e carga.
  *
  * Nada aqui é fixo — os 3 blocos são montados a partir do catálogo real (nenhum
  * exercício específico está hardcoded como "o" treino híbrido).
@@ -68,9 +73,6 @@ import {
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const MOBILIDADE_SEG = 240;          // 4 min nas semanas 1–3
 const MOBILIDADE_DELOAD_SEG = 720;   // 12 min na semana 4 — vira bloco de recuperação
-
-/** Os 4 padrões que a Hipertrofia percorre livremente (substituem o split de 2). */
-export const PADROES_PRINCIPAIS = ['empurrar', 'puxar', 'quadriceps', 'posterior_gluteo'];
 
 // -------- RNG determinístico (mesmo mulberry32 do resto do gerador) --------
 function mulberry32(seed) {

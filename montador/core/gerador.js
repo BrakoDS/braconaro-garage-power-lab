@@ -105,7 +105,7 @@ export function gerarTreino(opcoes) {
   if (modalidade === 'hiit') return montarHiit({ dia, semana, nivel, nAlunos, seed });
   // -------- GAP: aula estruturada TABATA (Aquecimento + Pernas/Glúteo/Abdômen) --------
   if (modalidade === 'gap') return montarGap({ dia, semana, nivel, nAlunos, seed });
-  // -------- Híbrido: Mobilidade + Hipertrofia (split) + WOD, gerado dinamicamente --------
+  // -------- Híbrido: Mobilidade + Hipertrofia (postos de bi-set) + WOD, gerado dinamicamente --------
   if (modalidade === 'hibrido') return montarHibrido({ dia, semana, nivel, nAlunos, seed, idsEvitar });
 
   // -------- Passo 2: quantos exercícios (4, 5 ou 6) --------
@@ -341,7 +341,7 @@ function montarGap({ dia, semana, nivel, nAlunos, seed }) {
 }
 
 /**
- * Monta o treino Híbrido (Mobilidade + Hipertrofia em split + WOD). Como os demais
+ * Monta o treino Híbrido (Mobilidade + Hipertrofia em postos de bi-set + WOD). Como os demais
  * templates: conteúdo em `hibrido`, `principal` vazio — mas aqui o volume é REAL
  * (a hipertrofia usa o catálogo/equipamento de verdade, não é nominal).
  * @param {{dia:string, semana:number, nivel:string, nAlunos:number, seed:number, idsEvitar:string[]}} o
