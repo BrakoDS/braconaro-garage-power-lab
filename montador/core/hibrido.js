@@ -67,6 +67,23 @@ const SERIES_BASE = 3;      // base de séries do bloco de hipertrofia (10-12 re
 const REPS_HIPERTROFIA = '10–12 reps';
 const DESCANSO_HIPERTROFIA_SEG = 60;
 
+/** Nº de estações do bloco de Hipertrofia — fixo, formato circuito (era 4–6 variável). */
+export const N_ESTACOES = 4;
+/** Os 4 padrões que a Hipertrofia percorre livremente (substituem o split de 2). */
+export const PADROES_PRINCIPAIS = ['empurrar', 'puxar', 'quadriceps', 'posterior_gluteo'];
+
+/**
+ * Aparelho duplicado SEM REVEZAR: cada aluno da estação treina ao mesmo tempo,
+ * na sua própria unidade — não como o `compartilhavelDupla` de `equipamentos.js`,
+ * que permite 1 unidade servir 2 alunos alternando. `ocupaTudo` (ex.: crossover,
+ * que consome as 2 torres do monocross para 1 pessoa) desqualifica sempre.
+ * @param {Exercicio} ex @param {number} tamanhoGrupo
+ */
+export function equipamentoDuplicado(ex, tamanhoGrupo) {
+  if (ex.ocupaTudo) return false;
+  return ex.equipamento.every((id) => unidadesDe(id) >= tamanhoGrupo);
+}
+
 export const SPLIT_LABEL = { superiores: 'Superiores', inferiores: 'Inferiores' };
 /** @type {Record<Split, Padrao[]>} */
 const SPLIT_PADROES = { superiores: ['empurrar', 'puxar'], inferiores: ['quadriceps', 'posterior_gluteo'] };
