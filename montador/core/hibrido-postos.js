@@ -10,6 +10,8 @@
  * Este módulo não conhece o catálogo. Quem escolhe exercício é `hibrido.js`.
  */
 
+import { intensidadeSemana } from './periodizacao.js';
+
 /** Duração fixa de uma série de bi-set em dupla (A + a troca + pausa). */
 export const SERIE_SEG = 120;
 /** Segundos por repetição — espelha `segPorRepMedia` do Híbrido em config/modalidades.js. */
@@ -50,4 +52,45 @@ export function calcularPostos(nAlunos) {
  */
 export function calcularSeries(nPostos) {
   return Math.min(4, Math.max(3, Math.round(12 / nPostos)));
+}
+
+/** Faixa de %1RM do Híbrido — espelha `intensidadePctRM` de config/modalidades.js. */
+const FAIXA_PCT_RM = /** @type {[number,number]} */ ([65, 75]);
+/** Reps por semana do ciclo. Semana 4 repete a 1 em volume, mas com carga de deload. */
+const REPS_POR_SEMANA = { 1: 12, 2: 10, 3: 8, 4: 12 };
+/** Nível desloca a CARGA (§5 do spec) — as séries estão presas ao relógio. */
+const SHIFT_PCT_NIVEL = { iniciante: -5, intermediario: 0, avancado: 5 };
+/** Minutos de WOD por semana do ciclo. */
+const WOD_MIN_POR_SEMANA = { 1: 16, 2: 16, 3: 20, 4: 12 };
+
+/** Semana 1..4 dentro do mesociclo. @param {number} semana */
+function semanaDoCiclo(semana) {
+  return ((Math.max(1, semana) - 1) % 4) + 1;
+}
+
+/**
+ * A prescrição da semana. A pausa não é escolhida — ela é o resto de 120s depois
+ * do trabalho, o que faz a relação sair fisiologicamente correta de graça:
+ * mais carga → menos reps → mais pausa.
+ * @param {number} semana
+ * @param {'iniciante'|'intermediario'|'avancado'} nivel
+ * @returns {{semanaCiclo:number, rotulo:string, pctRM:number, reps:number, descansoSeg:number, ehDeload:boolean}}
+ */
+export function prescricaoSemana(semana, nivel) {
+  const s = semanaDoCiclo(semana);
+  const { pctRM, rotulo } = intensidadeSemana(FAIXA_PCT_RM, s);
+  const reps = REPS_POR_SEMANA[s];
+  return {
+    semanaCiclo: s,
+    rotulo,
+    pctRM: pctRM + (SHIFT_PCT_NIVEL[nivel] ?? 0),
+    reps,
+    descansoSeg: SERIE_SEG - 2 * reps * SEG_POR_REP,
+    ehDeload: s === 4,
+  };
+}
+
+/** @param {number} semana */
+export function duracaoWodPorSemana(semana) {
+  return WOD_MIN_POR_SEMANA[semanaDoCiclo(semana)];
 }
