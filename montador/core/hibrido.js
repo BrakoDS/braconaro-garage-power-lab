@@ -145,14 +145,16 @@ export function montarMobilidade(split, rng) {
 }
 
 /**
- * Pontua um candidato de hipertrofia: prioriza padrão do split ainda descoberto,
- * variedade de equipamento, viabilidade p/ 8 alunos, e evita repetir a semana anterior.
+ * Pontua um candidato pra uma estação: composto, reincidência de equipamento,
+ * viabilidade e não-repetição da semana. Não recebe mais `faltantes`/`nExercicios`
+ * variável — quem decide QUAL padrão buscar agora é o loop de `montarHipertrofia`,
+ * chamando esta função já filtrada por padrão específico.
  */
-function pontuarHipertrofia(ex, selecionados, faltantes, idsAnteriores, nAlunos, nExercicios, rng) {
+function pontuarHipertrofia(ex, selecionados, idsAnteriores, nAlunos, rng) {
   let s = 0;
-  if (faltantes.has(ex.padrao)) s += 100;
+  if (ex.multiarticular !== false) s += 30; // prioriza composto — ver nota no spec
   if (idsAnteriores.has(ex.id)) s -= 40;
-  if (!podeAdicionar(selecionados.map((i) => i.exercicio), ex, nAlunos, nExercicios)) s -= 1000;
+  if (!podeAdicionar(selecionados.map((i) => i.exercicio), ex, nAlunos, N_ESTACOES)) s -= 1000;
   for (const equipId of ex.equipamento) {
     const usos = selecionados.filter((i) => i.exercicio.equipamento.includes(equipId)).length;
     s -= usos * 18;
@@ -162,78 +164,72 @@ function pontuarHipertrofia(ex, selecionados, faltantes, idsAnteriores, nAlunos,
 }
 
 /**
- * Bloco de Hipertrofia: 4–6 exercícios do split do dia, 10–12 reps, misturando
- * multiarticulares e isolados. Volume real (via calcularVolume) — não nominal.
- * @param {{split:Split, nivel:Nivel, semana:number, nAlunos:number, idsEvitar:string[], rng:() => number}} o
+ * Bloco de Hipertrofia: 4 estações fixas, formato circuito — 2 alunos por
+ * estação, cada um na sua própria unidade de aparelho (sem revezar, ver
+ * `equipamentoDuplicado`). Full body é o OBJETIVO, não garantia: percorre os 4
+ * padrões principais livremente (não trava mais num split de 2). Se não houver
+ * candidato viável pra um padrão, ele fica de fora — o WOD prioriza cobrir essa
+ * lacuna (ver `montarWod`).
+ * @param {{nivel:Nivel, semana:number, nAlunos:number, idsEvitar:string[], rng:() => number}} o
  * @returns {ItemHipertrofiaHibrido[]}
  */
-export function montarHipertrofia({ split, nivel, semana, nAlunos, idsEvitar, rng }) {
+export function montarHipertrofia({ nivel, semana, nAlunos, idsEvitar, rng }) {
   const nivelAluno = NIVEL_ORDEM[nivel];
-  const padroesDoSplit = SPLIT_PADROES[split];
-  // Exclui exercícios SÓ de mobilidade (isometria/prep articular) — não são hipertrofia de
-  // verdade, mesmo quando padrao bate (mesmo filtro que o motor genérico usa).
   const naoMobilidadePura = (e) => !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade');
-  // O bloco 2 é HIPERTROFIA — só exercícios de musculação entram (aceita também as
-  // categorias antigas forca/hipertrofia, p/ catálogos ainda não migrados). Sem
-  // isto, movimentos de cross/WOD (thruster, burpee, sled, kb swing, wall ball, sandbag
-  // lunges...) cujo padrão bate com o split vazavam pra cá. O cross fica no bloco 3 (WOD),
-  // montado à parte por `montarWod` (categorias 'wod').
   const ehHipertrofia = (e) => e.categorias.includes('musculacao') || e.categorias.includes('hipertrofia') || e.categorias.includes('forca');
-  const elegivel = (e) => padroesDoSplit.includes(e.padrao) && NIVEL_ORDEM[e.nivel] <= nivelAluno && naoMobilidadePura(e) && ehHipertrofia(e);
-  const pool = EXERCICIOS.filter(elegivel);
-  const poolAmplo = EXERCICIOS.filter((e) => padroesDoSplit.includes(e.padrao) && naoMobilidadePura(e) && ehHipertrofia(e)); // sem teto de nível — rede de segurança
+  const tamanhoGrupo = Math.ceil(nAlunos / N_ESTACOES);
+  const duplicado = (e) => equipamentoDuplicado(e, tamanhoGrupo);
+  const elegivel = (e) => PADROES_PRINCIPAIS.includes(e.padrao) && naoMobilidadePura(e) && ehHipertrofia(e) && duplicado(e);
 
-  const nExercicios = 4 + Math.floor(rng() * 3); // 4..6
+  const pool = EXERCICIOS.filter((e) => elegivel(e) && NIVEL_ORDEM[e.nivel] <= nivelAluno);
+  const poolAmplo = EXERCICIOS.filter(elegivel); // sem teto de nível — rede de segurança
+
   const idsAnteriores = new Set(idsEvitar);
   /** @type {ItemHipertrofiaHibrido[]} */
   const selecionados = [];
   const seriesBase = seriesAjustadas(SERIES_BASE, semana, nivel);
-
   const empacotar = (ex) => ({ exercicio: ex, series: seriesBase, reps: REPS_HIPERTROFIA, descansoSeg: DESCANSO_HIPERTROFIA_SEG, tempoSeg: 0, tecnica: null });
-  const candidatos = (fonte, faltantes) => fonte
-    .filter((e) => !selecionados.some((i) => i.exercicio.id === e.id))
-    .map((e) => ({ e, score: pontuarHipertrofia(e, selecionados, faltantes, idsAnteriores, nAlunos, nExercicios, rng) }))
+
+  const candidatosDoPadrao = (fonte, padrao) => fonte
+    .filter((e) => e.padrao === padrao && !selecionados.some((i) => i.exercicio.id === e.id))
+    .map((e) => ({ e, score: pontuarHipertrofia(e, selecionados, idsAnteriores, nAlunos, rng) }))
     .sort((a, b) => b.score - a.score);
   const viavel = (c) => c.length && c[0].score > -500;
 
-  // 1) garante os 2 padrões do split (ex.: pelo menos 1 empurrar + 1 puxar)
-  for (const padrao of padroesDoSplit) {
-    const faltantes = new Set(padroesDoSplit.filter((p) => !selecionados.some((i) => i.exercicio.padrao === p)));
-    let cs = candidatos(pool.filter((e) => e.padrao === padrao), faltantes);
-    if (!viavel(cs)) cs = candidatos(poolAmplo.filter((e) => e.padrao === padrao), faltantes);
-    if (viavel(cs)) selecionados.push(empacotar(cs[0].e));
-  }
-  // 2) completa até nExercicios, alternando padrão pra equilibrar volume dentro do split
-  while (selecionados.length < nExercicios) {
-    const porPadrao = Object.fromEntries(padroesDoSplit.map((p) => [p, 0]));
+  while (selecionados.length < N_ESTACOES) {
+    // padrão com menos estações já escolhidas entra primeiro na busca
+    const porPadrao = Object.fromEntries(PADROES_PRINCIPAIS.map((p) => [p, 0]));
     for (const i of selecionados) porPadrao[i.exercicio.padrao] = (porPadrao[i.exercicio.padrao] || 0) + 1;
-    const faltantes = new Set([...padroesDoSplit].sort((a, b) => porPadrao[a] - porPadrao[b]));
-    let cs = candidatos(pool, faltantes);
-    if (!viavel(cs)) cs = candidatos(poolAmplo, faltantes);
-    if (!viavel(cs)) break;
-    selecionados.push(empacotar(cs[0].e));
+    const ordemPadrao = [...PADROES_PRINCIPAIS].sort((a, b) => porPadrao[a] - porPadrao[b]);
+
+    let escolhido = null;
+    for (const padrao of ordemPadrao) {
+      let cs = candidatosDoPadrao(pool, padrao);
+      if (!viavel(cs)) cs = candidatosDoPadrao(poolAmplo, padrao);
+      if (viavel(cs)) { escolhido = cs[0].e; break; }
+    }
+    if (!escolhido) break; // nenhum padrão tem candidato viável — degrada (ver gerarHibrido)
+    selecionados.push(empacotar(escolhido));
   }
 
-  garantirIsolado(selecionados, pool, poolAmplo, padroesDoSplit, nAlunos, rng);
-  return atribuirTecnicas(selecionados, split, rng);
+  garantirIsolado(selecionados, pool, poolAmplo, nAlunos, rng);
+  return atribuirTecnicas(selecionados, rng);
 }
 
 /**
- * O briefing pede a mistura de multiarticulares E isolados — a pontuação (que
- * favorece viabilidade/variedade) nem sempre puxa um isolado sozinha. Se a lista
- * saiu 100% composta, troca o ÚLTIMO exercício de um padrão com mais de 1 opção
- * selecionada por um isolado viável do mesmo padrão (não mexe se isso descobrir
- * algum dos 2 padrões obrigatórios do split).
+ * O briefing pede a mistura de multiarticulares E isolados. Se a lista saiu
+ * 100% composta, troca o ÚLTIMO exercício de um padrão com mais de 1 opção
+ * selecionada por um isolado viável do mesmo padrão. Com 4 estações cobrindo
+ * tipicamente 4 padrões diferentes (1 cada), isto raramente aciona agora — só
+ * quando 2 estações acabam caindo no mesmo padrão.
  */
-function garantirIsolado(selecionados, pool, poolAmplo, padroesDoSplit, nAlunos, rng) {
+function garantirIsolado(selecionados, pool, poolAmplo, nAlunos, rng) {
   if (selecionados.some((i) => i.exercicio.multiarticular === false)) return;
   const isolados = embaralhar([...pool, ...poolAmplo].filter((e) => e.multiarticular === false), rng);
   for (const iso of isolados) {
     const idx = selecionados.map((i) => i.exercicio.padrao).lastIndexOf(iso.padrao);
     if (idx < 0) continue;
     const restante = selecionados.filter((_, i) => i !== idx).map((i) => i.exercicio);
-    const cobreAindaOsPadroes = padroesDoSplit.every((p) => restante.some((e) => e.padrao === p) || iso.padrao === p);
-    if (!cobreAindaOsPadroes) continue;
     if (!podeAdicionar(restante, iso, nAlunos, selecionados.length)) continue;
     selecionados[idx] = { ...selecionados[idx], exercicio: iso };
     return;
@@ -248,20 +244,10 @@ function garantirIsolado(selecionados, pool, poolAmplo, padroesDoSplit, nAlunos,
  *  - Tempo 2-1-2: no que sobrar, se sobrar.
  * @param {ItemHipertrofiaHibrido[]} itens @param {Split} split @param {() => number} rng
  */
-function atribuirTecnicas(itens, split, rng) {
+function atribuirTecnicas(itens, rng) {
   if (itens.length < 2) return itens;
-  const [padA, padB] = SPLIT_PADROES[split];
   const marcados = new Set();
-
-  // 1) bi-set: 1 exercício de cada padrão do split
-  const deA = itens.filter((i) => i.exercicio.padrao === padA && !marcados.has(i));
-  const deB = itens.filter((i) => i.exercicio.padrao === padB && !marcados.has(i));
-  if (deA.length && deB.length) {
-    const a = deA[Math.floor(rng() * deA.length)], b = deB[Math.floor(rng() * deB.length)];
-    a.tecnica = { tipo: 'biset', detalhe: `Bi-set com ${b.exercicio.nome} — sem descanso entre os dois`, parceiroNome: b.exercicio.nome };
-    b.tecnica = { tipo: 'biset', detalhe: `Bi-set com ${a.exercicio.nome} — sem descanso entre os dois`, parceiroNome: a.exercicio.nome };
-    marcados.add(a); marcados.add(b);
-  }
+  // bi-set fica pra Task 3 — por ora, nenhuma técnica de bi-set é atribuída.
 
   const restantes = () => itens.filter((i) => !marcados.has(i) && !i.tecnica);
   const multiarticulares = () => restantes().filter((i) => i.exercicio.multiarticular !== false);
