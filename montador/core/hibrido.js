@@ -380,7 +380,10 @@ export function gerarHibrido(opcoes) {
   const mobilidade = montarMobilidade(hipertrofia, rng);
   for (const i of hipertrofia) i.tempoSeg = i.series * (30 + i.descansoSeg) + 20;
   const tHiper = tempoHipertrofiaSeg(hipertrofia);
-  const wod = montarWod({ split, tempoHipertrofiaSeg: tHiper, nAlunos, rng });
+  const cobertos = new Set(hipertrofia.map((i) => i.exercicio.padrao));
+  const padroesFaltantes = new Set(PADROES_PRINCIPAIS.filter((p) => !cobertos.has(p)));
+  const series = hipertrofia[0]?.series ?? 3;
+  const wod = montarWod({ padroesFaltantes, series, nAlunos, rng });
 
   const viabilidade = verificarViabilidade(hipertrofia.map((i) => i.exercicio), nAlunos, hipertrofia.length);
   const duracaoSeg = MOBILIDADE_SEG + tHiper + wod.duracaoMin * 60 + 120; // +2min transição geral
