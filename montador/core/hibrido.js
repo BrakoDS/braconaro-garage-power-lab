@@ -319,37 +319,30 @@ export function duracaoWodPorSeries(series) {
 }
 
 /**
- * WOD (10–20 min): formato sorteado; movimentos priorizam padrões OPOSTOS ao split
- * do dia (não refadiga o que a hipertrofia já carregou) sem excluir por completo.
- * Duração é função do tempo do bloco de hipertrofia — mantém o WOD perto de ~20% do
- * tempo total da sessão.
- * @param {{split:Split, tempoHipertrofiaSeg:number, nAlunos:number, rng:() => number}} o
+ * WOD: formato sorteado; movimentos priorizam os padrões que a Hipertrofia NÃO
+ * cobriu hoje (rede de segurança pro full body fechar no dia inteiro — substitui
+ * a antiga prioridade por "padrão oposto ao split", que não existe mais).
+ * Duração segue `duracaoWodPorSeries` — a mesma onda de periodização das séries.
+ * @param {{padroesFaltantes:Set<Padrao>, series:number, nAlunos:number, rng:() => number}} o
  * @returns {BlocoWod}
  */
-export function montarWod({ split, tempoHipertrofiaSeg, nAlunos, rng }) {
+export function montarWod({ padroesFaltantes, series, nAlunos, rng }) {
   const formato = FORMATOS_WOD[Math.floor(rng() * FORMATOS_WOD.length)];
-  // Só exercícios de Cross/WOD: built-in carregam a tag 'wod'; exercícios que o coach
-  // cria e classifica como CROSS na Academia chegam com 'cross'. Aceita os dois.
   const ehCross = (e) => e.categorias.includes('cross') || e.categorias.includes('wod');
   const wodPool = EXERCICIOS.filter((e) => ehCross(e) && e.equipamento.every((id) => unidadesDe(id) >= 1));
-  const padroesOpostos = new Set(SPLIT_PADROES[split === 'superiores' ? 'inferiores' : 'superiores']);
 
   const pontuar = (ex) => {
-    let s = padroesOpostos.has(ex.padrao) ? 40 : 0; // prioriza sem excluir
-    if (grupoWod(ex) === 'monoestrutural') s += 15; // condicionamento sempre bem-vindo
+    let s = padroesFaltantes.has(ex.padrao) ? 40 : 0;
+    if (grupoWod(ex) === 'monoestrutural') s += 15;
     const min = ex.equipamento.length ? Math.min(...ex.equipamento.map(unidadesDe)) : 99;
     s += min >= nAlunos ? 20 : min >= Math.ceil(nAlunos / 2) ? 8 : 0;
     return s + rng() * 15;
   };
   const ordenado = embaralhar(wodPool, rng).map((e) => ({ e, s: pontuar(e) })).sort((a, b) => b.s - a.s);
-  const nMovs = 3 + Math.floor(rng() * 3); // 3..5
+  const nMovs = 3 + Math.floor(rng() * 3);
 
-  // Garante pelo menos 1 movimento de CADA padrão oposto ao split — sem isso, um
-  // padrão com poucos exercícios 'wod' no catálogo (ex.: só 1 de posterior_gluteo)
-  // podia nunca aparecer, e o mínimo semanal daquele padrão ficava sem cobertura
-  // nas semanas em que o Híbrido é o único dia "de sobra" da combinação de 3 dias.
   const escolhidos = [];
-  for (const p of padroesOpostos) {
+  for (const p of padroesFaltantes) {
     const cand = ordenado.find((c) => c.e.padrao === p && !escolhidos.includes(c));
     if (cand) escolhidos.push(cand);
   }
@@ -363,11 +356,7 @@ export function montarWod({ split, tempoHipertrofiaSeg, nAlunos, rng }) {
     prescricao: prescricaoWod(e, rng),
   }));
 
-  // duração ~ 1/4 do tempo de hipertrofia, clampada a 10-20min e arredondada a 5min
-  const bruto = Math.round(tempoHipertrofiaSeg / 4 / 60);
-  const duracaoMin = Math.min(20, Math.max(10, Math.round(bruto / 5) * 5));
-
-  return { formato, descricaoFormato: DESCRICAO_FORMATO[formato], duracaoMin, movimentos };
+  return { formato, descricaoFormato: DESCRICAO_FORMATO[formato], duracaoMin: duracaoWodPorSeries(series), movimentos };
 }
 
 /** Tempo estimado do bloco de hipertrofia (mesma fórmula do motor genérico). */
