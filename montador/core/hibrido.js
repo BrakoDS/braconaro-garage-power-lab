@@ -62,7 +62,7 @@ import { calcularVolume } from './volume.js';
 import { seriesAjustadas } from './periodizacao.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
-const MOBILIDADE_SEG = 360; // 6 min fixos
+const MOBILIDADE_SEG = 240; // 4 min fixos (era 360/6min)
 const SERIES_BASE = 3;      // base de séries do bloco de hipertrofia (10-12 reps)
 const REPS_HIPERTROFIA = '10–12 reps';
 const DESCANSO_HIPERTROFIA_SEG = 60;
@@ -87,11 +87,6 @@ export function equipamentoDuplicado(ex, tamanhoGrupo) {
 export const SPLIT_LABEL = { superiores: 'Superiores', inferiores: 'Inferiores' };
 /** @type {Record<Split, Padrao[]>} */
 const SPLIT_PADROES = { superiores: ['empurrar', 'puxar'], inferiores: ['quadriceps', 'posterior_gluteo'] };
-/** Músculos-alvo pra priorizar a mobilidade do split (aproxima quadril/tornozelo via músculos já existentes). */
-const SPLIT_MUSCULOS_MOBILIDADE = {
-  superiores: ['ombro', 'core'],
-  inferiores: ['gluteo', 'quadriceps', 'panturrilha', 'core'],
-};
 
 // -------- RNG determinístico (mesmo mulberry32 do resto do gerador) --------
 function mulberry32(seed) {
@@ -127,14 +122,17 @@ export function escolherSplit(semana) {
 }
 
 /**
- * Bloco de mobilidade (6 min): prioriza exercícios cujas articulações/músculos batem
- * com o split do dia; completa com o restante do banco de mobilidade se faltar.
- * @param {Split} split @param {() => number} rng
+ * Bloco de mobilidade (4 min): prioriza exercícios cujos músculos batem com o
+ * que a Hipertrofia deste dia vai treinar — mesmo princípio do `focoDoDia()` do
+ * motor genérico (`core/gerador.js`). Por isso roda DEPOIS da Hipertrofia (antes
+ * era antes, quando o alvo vinha do split fixo).
+ * @param {ItemHipertrofiaHibrido[]} hipertrofia @param {() => number} rng
  * @returns {MobilidadeItem[]}
  */
-export function montarMobilidade(split, rng) {
+export function montarMobilidade(hipertrofia, rng) {
   const banco = EXERCICIOS.filter((e) => e.categorias.includes('mobilidade'));
-  const alvo = new Set(SPLIT_MUSCULOS_MOBILIDADE[split]);
+  const alvo = new Set(['core']);
+  for (const item of hipertrofia) for (const m of item.exercicio.musculosPrimarios || []) alvo.add(m);
   const bate = (e) => e.musculosPrimarios.some((m) => alvo.has(m));
   const prioritarios = embaralhar(banco.filter(bate), rng);
   const resto = embaralhar(banco.filter((e) => !bate(e)), rng);
@@ -382,8 +380,8 @@ export function gerarHibrido(opcoes) {
   const rng = mulberry32(seed);
 
   const split = escolherSplit(semana);
-  const mobilidade = montarMobilidade(split, rng);
-  const hipertrofia = montarHipertrofia({ split, nivel, semana, nAlunos, idsEvitar, rng });
+  const hipertrofia = montarHipertrofia({ nivel, semana, nAlunos, idsEvitar, rng });
+  const mobilidade = montarMobilidade(hipertrofia, rng);
   for (const i of hipertrofia) i.tempoSeg = i.series * (30 + i.descansoSeg) + 20;
   const tHiper = tempoHipertrofiaSeg(hipertrofia);
   const wod = montarWod({ split, tempoHipertrofiaSeg: tHiper, nAlunos, rng });
