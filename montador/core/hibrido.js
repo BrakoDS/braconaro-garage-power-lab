@@ -334,10 +334,17 @@ export function gerarHibrido(opcoes) {
     ['empurrar', 'puxar', 'quadriceps', 'posterior_gluteo', 'core'].filter((p) => !cobertos.has(p)));
   const wod = montarWod({ padroesFaltantes, semana, nAlunos, rng });
 
-  // `2 × nPostos` slots: cada exercício serve 1 pessoa por vez (a dupla se divide
-  // entre os dois lados do bi-set), então tamanhoGrupo cai pra 1 e esta chamada já
-  // cobre tanto a colisão dentro do posto quanto a soma entre postos.
-  const viabilidade = verificarViabilidade(exercicios, nAlunos, exercicios.length);
+  // Mesmo denominador `slots = 2 × nPostos` (pretendido) que `montarPostos` já usou em
+  // CADA chamada de `podeAdicionar` durante a seleção — não `exercicios.length` (Nº
+  // real de postos que sobreviveram). Os dois só coincidem quando nenhum posto cai;
+  // quando cai, checar com o real reabre uma conta mais apertada do que a que cada
+  // candidato já passou, gerando conflito falso pra uma montagem que o próprio
+  // seletor julgou viável (e apagando a lista de pares da nota). tamanhoGrupo só cai
+  // pra 1 quando `nAlunos ≤ slots` (turmas de até 8); turmas maiores (o teto de 4
+  // postos = 8 slots vale até 20 alunos, que a UI aceita) formam grupos maiores por
+  // estação — isso é esperado, não um bug.
+  const slotsPretendidos = 2 * calcularPostos(nAlunos);
+  const viabilidade = verificarViabilidade(exercicios, nAlunos, slotsPretendidos);
   const tHiper = tempoHipertrofiaSeg(postos);
   const mobSeg = mobilidade.reduce((a, m) => a + m.duracaoSeg, 0);
   const duracaoSeg = mobSeg + tHiper + wod.duracaoMin * 60 + 120; // +2min transição geral

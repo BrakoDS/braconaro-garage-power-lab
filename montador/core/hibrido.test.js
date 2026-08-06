@@ -203,6 +203,22 @@ test('a nota de viabilidade lista os pares montados', () => {
   assert.ok(h.viabilidade.nota.includes('Peito / Costas'), h.viabilidade.nota);
 });
 
+test('quando um posto cai, a checagem final usa o MESMO denominador da seleção (sem alerta falso)', () => {
+  // Com 18 alunas o teto de 4 postos costuma perder 1 (ver hibrido-postos.js): a
+  // seleção (podeAdicionar) já validou cada candidato contra slots=2×4=8; se a
+  // checagem final usar exercicios.length (6, com só 3 postos) em vez dos mesmos 8
+  // slots, ela reabre uma conta mais apertada e falseia um conflito.
+  let achouQueda = false;
+  for (let seed = 0; seed < 40; seed++) {
+    const h = gerarHibrido({ dia: 'seg', semana: 2, nivel: 'intermediario', nAlunos: 18, seed });
+    if (h.hipertrofia.length >= 4) continue; // 4 é o teto/pretendido p/ 18 alunas
+    achouQueda = true;
+    assert.ok(h.viabilidade.ok, `seed ${seed}: alerta de conflito espúrio — ${h.viabilidade.nota}`);
+    assert.ok(h.viabilidade.nota.includes('postos de bi-set'), `seed ${seed}: nota perdeu a lista de pares — ${h.viabilidade.nota}`);
+  }
+  assert.ok(achouQueda, 'teste não encontrou nenhuma seed com posto descartado (pré-condição do cenário)');
+});
+
 test('o volume credita os DOIS exercícios de cada posto', () => {
   const h = gerar();
   const vol = volumeHibrido(h.hipertrofia, h.wod);
