@@ -1,0 +1,100 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { montarPostos } from './hibrido.js';
+import { verificarViabilidade } from './viabilidade.js';
+
+/** mulberry32 — mesmo RNG do gerador, pra teste determinístico. */
+function rngDe(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const montar = (o = {}) => montarPostos({
+  nivel: 'intermediario', semana: 2, nAlunos: 8, idsEvitar: [], rng: rngDe(o.seed ?? 1), ...o,
+});
+
+test('8 alunas geram 4 postos; 6 geram 3 (o core sai)', () => {
+  assert.equal(montar({ nAlunos: 8 }).length, 4);
+  const seis = montar({ nAlunos: 6 });
+  assert.equal(seis.length, 3);
+  assert.deepEqual(seis.map((p) => p.par), ['peito_costas', 'quadriceps_posterior', 'bracos']);
+});
+
+test('cada posto tem dois exercícios distintos, um de cada lado do par', () => {
+  for (const p of montar()) {
+    assert.ok(p.a && p.b, `posto ${p.par} incompleto`);
+    assert.notEqual(p.a.id, p.b.id, `posto ${p.par} repetiu o exercício`);
+  }
+});
+
+test('os músculos de cada posto batem com o par declarado', () => {
+  const postos = montar();
+  const peito = postos.find((p) => p.par === 'peito_costas');
+  assert.ok(peito.a.musculosPrimarios.includes('peito'));
+  assert.ok(peito.b.musculosPrimarios.includes('costas'));
+  const bracos = postos.find((p) => p.par === 'bracos');
+  assert.ok(bracos.a.musculosPrimarios.includes('biceps'));
+  assert.ok(bracos.b.musculosPrimarios.includes('triceps'));
+});
+
+test('nenhum exercício se repete entre postos', () => {
+  const ids = montar().flatMap((p) => [p.a.id, p.b.id]);
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test('o inventário aguenta os 4 postos rodando juntos, em qualquer seed', () => {
+  for (let seed = 0; seed < 50; seed++) {
+    const postos = montarPostos({
+      nivel: 'intermediario', semana: 2, nAlunos: 8, idsEvitar: [], rng: rngDe(seed),
+    });
+    const exs = postos.flatMap((p) => [p.a, p.b]);
+    assert.equal(exs.length, 8, `seed ${seed}: postos incompletos`);
+    const v = verificarViabilidade(exs, 8, exs.length);
+    assert.ok(v.ok, `seed ${seed}: ${v.conflitos.join(' ')}`);
+    assert.equal(v.tamanhoGrupo, 1, `seed ${seed}: cada exercício serve 1 pessoa por vez`);
+  }
+});
+
+test('a prescrição da semana chega em todos os postos', () => {
+  for (const p of montar({ semana: 3 })) {
+    assert.equal(p.series, 3);          // 4 postos → 3 séries
+    assert.equal(p.reps, 8);            // semana 3 = pico
+    assert.equal(p.descansoSeg, 72);
+    assert.equal(p.pctRM, 75);
+  }
+});
+
+test('o bloco fecha em 24 min com 8 ou com 6 alunas', () => {
+  const bloco = (postos) => postos.reduce((a, p) => a + p.tempoSeg, 0);
+  assert.equal(bloco(montar({ nAlunos: 8 })), 24 * 60);
+  assert.equal(bloco(montar({ nAlunos: 6 })), 24 * 60);
+});
+
+test('deload corta uma série de cada posto', () => {
+  assert.equal(montar({ semana: 4, nAlunos: 8 })[0].series, 2); // 3 - 1
+  assert.equal(montar({ semana: 4, nAlunos: 6 })[0].series, 3); // 4 - 1
+});
+
+test('idsEvitar afasta o exercício sem travar a montagem', () => {
+  const base = montar({ seed: 3 });
+  const evitados = base.flatMap((p) => [p.a.id, p.b.id]);
+  const outro = montarPostos({
+    nivel: 'intermediario', semana: 2, nAlunos: 8, idsEvitar: evitados, rng: rngDe(3),
+  });
+  assert.equal(outro.length, 4, 'a montagem não pode degradar por causa do idsEvitar');
+  const repetidos = outro.flatMap((p) => [p.a.id, p.b.id]).filter((id) => evitados.includes(id));
+  assert.ok(repetidos.length <= 2, `repetiu demais: ${repetidos.join(', ')}`);
+});
+
+test('iniciante não recebe exercício avançado', () => {
+  const NIVEL = { iniciante: 1, intermediario: 2, avancado: 3 };
+  for (const p of montar({ nivel: 'iniciante' })) {
+    for (const ex of [p.a, p.b]) {
+      assert.ok(NIVEL[ex.nivel] <= NIVEL.iniciante, `${ex.nome} é ${ex.nivel}`);
+    }
+  }
+});

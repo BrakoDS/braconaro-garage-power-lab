@@ -14,7 +14,6 @@
  * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
  * @typedef {import('../config/padroes.js').Padrao} Padrao
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
- * @typedef {'superiores'|'inferiores'} Split
  *
  * @typedef {Object} MobilidadeItem
  * @property {string} nome
@@ -25,13 +24,17 @@
  * @property {string} detalhe          Texto explicativo pro coach/aluno
  * @property {string} [parceiroNome]   Nome do outro exercício do bi-set (quando tipo==='biset')
  *
- * @typedef {Object} ItemHipertrofiaHibrido
- * @property {Exercicio} exercicio
+ * @typedef {Object} PostoHipertrofia
+ * @property {string} par              Id do par antagonista
+ * @property {string} parLabel         Ex.: 'Peito / Costas'
+ * @property {Exercicio} a
+ * @property {Exercicio} b
  * @property {number} series
- * @property {string} reps
+ * @property {number} reps
  * @property {number} descansoSeg
+ * @property {number} pctRM
  * @property {number} tempoSeg
- * @property {TecnicaTag|null} tecnica
+ * @property {TecnicaTag|null} [tecnica]
  *
  * @typedef {Object} MovimentoWod
  * @property {string} nome
@@ -60,6 +63,9 @@ import { ALUNOS_POR_SESSAO, unidadesDe } from '../data/equipamentos.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
 import { calcularVolume } from './volume.js';
 import { seriesAjustadas } from './periodizacao.js';
+import {
+  PARES_ANTAGONISTAS, calcularPostos, calcularSeries, prescricaoSemana, SERIE_SEG,
+} from './hibrido-postos.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const MOBILIDADE_SEG = 240; // 4 min fixos (era 360/6min)
@@ -67,26 +73,8 @@ const SERIES_BASE = 3;      // base de séries do bloco de hipertrofia (10-12 re
 const REPS_HIPERTROFIA = '10–12 reps';
 const DESCANSO_HIPERTROFIA_SEG = 60;
 
-/** Nº de estações do bloco de Hipertrofia — fixo, formato circuito (era 4–6 variável). */
-export const N_ESTACOES = 4;
 /** Os 4 padrões que a Hipertrofia percorre livremente (substituem o split de 2). */
 export const PADROES_PRINCIPAIS = ['empurrar', 'puxar', 'quadriceps', 'posterior_gluteo'];
-
-/**
- * Aparelho duplicado SEM REVEZAR: cada aluno da estação treina ao mesmo tempo,
- * na sua própria unidade — não como o `compartilhavelDupla` de `equipamentos.js`,
- * que permite 1 unidade servir 2 alunos alternando. `ocupaTudo` (ex.: crossover,
- * que consome as 2 torres do monocross para 1 pessoa) desqualifica sempre.
- * @param {Exercicio} ex @param {number} tamanhoGrupo
- */
-export function equipamentoDuplicado(ex, tamanhoGrupo) {
-  if (ex.ocupaTudo) return false;
-  return ex.equipamento.every((id) => unidadesDe(id) >= tamanhoGrupo);
-}
-
-export const SPLIT_LABEL = { superiores: 'Superiores', inferiores: 'Inferiores' };
-/** @type {Record<Split, Padrao[]>} */
-const SPLIT_PADROES = { superiores: ['empurrar', 'puxar'], inferiores: ['quadriceps', 'posterior_gluteo'] };
 
 // -------- RNG determinístico (mesmo mulberry32 do resto do gerador) --------
 function mulberry32(seed) {
@@ -111,17 +99,6 @@ function embaralhar(arr, rng) {
 }
 
 /**
- * Split do dia — alterna por semana (ímpar=Superiores, par=Inferiores). Determinístico:
- * a mesma semana sempre gera o mesmo split, mas o mesociclo inteiro varia o foco.
- * @param {number} semana
- * @returns {Split}
- */
-export function escolherSplit(semana) {
-  const s = ((Math.max(1, semana) - 1) % 4) + 1;
-  return s % 2 === 1 ? 'superiores' : 'inferiores';
-}
-
-/**
  * Bloco de mobilidade (4 min): prioriza exercícios cujos músculos batem com o
  * que a Hipertrofia deste dia vai treinar — mesmo princípio do `focoDoDia()` do
  * motor genérico (`core/gerador.js`). Por isso roda DEPOIS da Hipertrofia (antes
@@ -142,152 +119,87 @@ export function montarMobilidade(hipertrofia, rng) {
   return escolhidos.map((ex) => ({ nome: ex.nome, duracaoSeg }));
 }
 
+/** Ids de core por plano de movimento — o catálogo não tem campo pra isso, e o par
+ *  de core precisa juntar planos diferentes (não dois crunches seguidos). */
+const CORE_FLEXAO = ['abdominal_supra', 'abdominal_infra', 'abdominal_remador', 'abdominal_monocross', 'abdominal_bicicleta'];
+const CORE_ANTI = ['russian_twist', 'pallof_press', 'fallout_trx'];
+
 /**
- * Pontua um candidato pra uma estação: composto, reincidência de equipamento,
- * viabilidade e não-repetição da semana. Não recebe mais `faltantes`/`nExercicios`
- * variável — quem decide QUAL padrão buscar agora é o loop de `montarHipertrofia`,
- * chamando esta função já filtrada por padrão específico.
+ * Pontua um candidato. Sem bônus de composto: o músculo do lado já decide se o
+ * exercício é composto (peito/costas, pernas) ou isolado (braços, core), e o bônus
+ * só distorceria os postos de braço, onde todo candidato é isolado.
+ * @param {Exercicio} ex @param {Exercicio[]} usados @param {Set<string>} idsAnteriores
+ * @param {number} nAlunos @param {number} slots @param {() => number} rng
  */
-function pontuarHipertrofia(ex, selecionados, idsAnteriores, nAlunos, rng) {
+function pontuarPosto(ex, usados, idsAnteriores, nAlunos, slots, rng) {
   let s = 0;
-  if (ex.multiarticular !== false) s += 30; // prioriza composto — ver nota no spec
   if (idsAnteriores.has(ex.id)) s -= 40;
-  if (!podeAdicionar(selecionados.map((i) => i.exercicio), ex, nAlunos, N_ESTACOES)) s -= 1000;
+  if (!podeAdicionar(usados, ex, nAlunos, slots)) s -= 1000;
   for (const equipId of ex.equipamento) {
-    const usos = selecionados.filter((i) => i.exercicio.equipamento.includes(equipId)).length;
-    s -= usos * 18;
+    s -= usados.filter((u) => u.equipamento.includes(equipId)).length * 18;
   }
-  s += rng() * 10;
-  return s;
+  return s + rng() * 10;
 }
 
 /**
- * Bloco de Hipertrofia: 4 estações fixas, formato circuito — 2 alunos por
- * estação, cada um na sua própria unidade de aparelho (sem revezar, ver
- * `equipamentoDuplicado`). Full body é o OBJETIVO, não garantia: percorre os 4
- * padrões principais livremente (não trava mais num split de 2). Se não houver
- * candidato viável pra um padrão, ele fica de fora — o WOD prioriza cobrir essa
- * lacuna (ver `montarWod`).
+ * Melhor candidato de um lado do par. Tenta primeiro o pool com teto de nível;
+ * se não houver ninguém viável, reabre sem o teto (rede de segurança).
+ * @returns {Exercicio|null}
+ */
+function escolherLado(musculos, ids, { pool, poolAmplo, usados, idsAnteriores, nAlunos, slots, rng }) {
+  const tentar = (fonte) => fonte
+    .filter((e) => musculos.some((m) => e.musculosPrimarios.includes(m)))
+    .filter((e) => !ids || ids.includes(e.id))
+    .filter((e) => !usados.some((u) => u.id === e.id))
+    .map((e) => ({ e, score: pontuarPosto(e, usados, idsAnteriores, nAlunos, slots, rng) }))
+    .filter((c) => c.score > -500)
+    .sort((x, y) => y.score - x.score);
+  return tentar(pool)[0]?.e ?? tentar(poolAmplo)[0]?.e ?? null;
+}
+
+/**
+ * Monta os postos de bi-set antagonista. Quantos postos e quantas séries vêm do
+ * tamanho da turma (`hibrido-postos.js`); reps/pausa/carga vêm da semana.
+ * Se um lado ficar sem candidato, o posto é descartado e o bloco degrada com
+ * menos postos — mesma tolerância que o gerador já tinha.
  * @param {{nivel:Nivel, semana:number, nAlunos:number, idsEvitar:string[], rng:() => number}} o
- * @returns {ItemHipertrofiaHibrido[]}
+ * @returns {PostoHipertrofia[]}
  */
-export function montarHipertrofia({ nivel, semana, nAlunos, idsEvitar, rng }) {
+export function montarPostos({ nivel, semana, nAlunos, idsEvitar, rng }) {
+  const nPostos = calcularPostos(nAlunos);
+  const presc = prescricaoSemana(semana, nivel);
+  const seriesBase = calcularSeries(nPostos);
+  const series = presc.ehDeload ? Math.max(2, seriesBase - 1) : seriesBase;
+  const slots = 2 * nPostos;
   const nivelAluno = NIVEL_ORDEM[nivel];
-  const naoMobilidadePura = (e) => !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade');
-  const ehHipertrofia = (e) => e.categorias.includes('musculacao') || e.categorias.includes('hipertrofia') || e.categorias.includes('forca');
-  const tamanhoGrupo = Math.ceil(nAlunos / N_ESTACOES);
-  const duplicado = (e) => equipamentoDuplicado(e, tamanhoGrupo);
-  const elegivel = (e) => PADROES_PRINCIPAIS.includes(e.padrao) && naoMobilidadePura(e) && ehHipertrofia(e) && duplicado(e);
 
-  const pool = EXERCICIOS.filter((e) => elegivel(e) && NIVEL_ORDEM[e.nivel] <= nivelAluno);
-  const poolAmplo = EXERCICIOS.filter(elegivel); // sem teto de nível — rede de segurança
-
+  const base = EXERCICIOS.filter((e) => e.categorias.includes('musculacao') && !e.ocupaTudo);
+  const pool = base.filter((e) => NIVEL_ORDEM[e.nivel] <= nivelAluno);
   const idsAnteriores = new Set(idsEvitar);
-  /** @type {ItemHipertrofiaHibrido[]} */
-  const selecionados = [];
-  const seriesBase = seriesAjustadas(SERIES_BASE, semana, nivel);
-  const empacotar = (ex) => ({ exercicio: ex, series: seriesBase, reps: REPS_HIPERTROFIA, descansoSeg: DESCANSO_HIPERTROFIA_SEG, tempoSeg: 0, tecnica: null });
 
-  const candidatosDoPadrao = (fonte, padrao) => fonte
-    .filter((e) => e.padrao === padrao && !selecionados.some((i) => i.exercicio.id === e.id))
-    .map((e) => ({ e, score: pontuarHipertrofia(e, selecionados, idsAnteriores, nAlunos, rng) }))
-    .sort((a, b) => b.score - a.score);
-  const viavel = (c) => c.length && c[0].score > -500;
+  /** @type {Exercicio[]} */
+  const usados = [];
+  /** @type {PostoHipertrofia[]} */
+  const postos = [];
 
-  while (selecionados.length < N_ESTACOES) {
-    // padrão com menos estações já escolhidas entra primeiro na busca
-    const porPadrao = Object.fromEntries(PADROES_PRINCIPAIS.map((p) => [p, 0]));
-    for (const i of selecionados) porPadrao[i.exercicio.padrao] = (porPadrao[i.exercicio.padrao] || 0) + 1;
-    const ordemPadrao = [...PADROES_PRINCIPAIS].sort((a, b) => porPadrao[a] - porPadrao[b]);
-
-    let escolhido = null;
-    for (const padrao of ordemPadrao) {
-      let cs = candidatosDoPadrao(pool, padrao);
-      if (!viavel(cs)) cs = candidatosDoPadrao(poolAmplo, padrao);
-      if (viavel(cs)) { escolhido = cs[0].e; break; }
-    }
-    if (!escolhido) break; // nenhum padrão tem candidato viável — degrada (ver gerarHibrido)
-    selecionados.push(empacotar(escolhido));
+  for (const par of PARES_ANTAGONISTAS.slice(0, nPostos)) {
+    const ctx = { pool, poolAmplo: base, usados, idsAnteriores, nAlunos, slots, rng };
+    // O par de core precisa de planos diferentes; os outros não têm restrição de id.
+    const idsA = par.id === 'core' ? CORE_FLEXAO : null;
+    const idsB = par.id === 'core' ? CORE_ANTI : null;
+    const a = escolherLado(par.a, idsA, ctx);
+    if (!a) continue;
+    usados.push(a);
+    const b = escolherLado(par.b, idsB, ctx);
+    if (!b) { usados.pop(); continue; }
+    usados.push(b);
+    postos.push({
+      par: par.id, parLabel: par.label, a, b,
+      series, reps: presc.reps, descansoSeg: presc.descansoSeg, pctRM: presc.pctRM,
+      tempoSeg: series * SERIE_SEG,
+    });
   }
-
-  garantirIsolado(selecionados, pool, poolAmplo, nAlunos, rng);
-  return atribuirTecnicas(selecionados, rng);
-}
-
-/**
- * O briefing pede a mistura de multiarticulares E isolados. Se a lista saiu
- * 100% composta, troca o ÚLTIMO exercício de um padrão com mais de 1 opção
- * selecionada por um isolado viável do mesmo padrão. Com 4 estações cobrindo
- * tipicamente 4 padrões diferentes (1 cada), isto raramente aciona agora — só
- * quando 2 estações acabam caindo no mesmo padrão.
- */
-function garantirIsolado(selecionados, pool, poolAmplo, nAlunos, rng) {
-  if (selecionados.some((i) => i.exercicio.multiarticular === false)) return;
-  const isolados = embaralhar([...pool, ...poolAmplo].filter((e) => e.multiarticular === false), rng);
-  for (const iso of isolados) {
-    const idx = selecionados.map((i) => i.exercicio.padrao).lastIndexOf(iso.padrao);
-    if (idx < 0) continue;
-    const restante = selecionados.filter((_, i) => i !== idx).map((i) => i.exercicio);
-    if (!podeAdicionar(restante, iso, nAlunos, selecionados.length)) continue;
-    selecionados[idx] = { ...selecionados[idx], exercicio: iso };
-    return;
-  }
-}
-
-/**
- * Distribui as técnicas avançadas por CRITÉRIO LÓGICO (não aleatório puro):
- *  - Bi-set: só entre 2 exercícios que usam o MESMO aparelho — nenhuma técnica
- *    pode exigir trocar de estação. Com 4 estações tipicamente de aparelhos
- *    diferentes, isto normalmente não aciona; não precisa de exceção especial,
- *    a condição "mesmo aparelho" já resolve sozinha.
- *  - Drop-set: no último multiarticular (drop-set clássico fecha num composto).
- *  - Isometria 1-2s no pico: numa isolada (fallback: qualquer exercício restante).
- *  - Tempo 2-1-2: no que sobrar, se sobrar.
- * @param {ItemHipertrofiaHibrido[]} itens @param {() => number} rng
- */
-function atribuirTecnicas(itens, rng) {
-  if (itens.length < 2) return itens;
-  const marcados = new Set();
-
-  const mesmoAparelho = (a, b) =>
-    a.exercicio.equipamento.length === b.exercicio.equipamento.length
-    && a.exercicio.equipamento.every((id) => b.exercicio.equipamento.includes(id));
-
-  let parA = null, parB = null;
-  buscaPar:
-  for (let i = 0; i < itens.length; i++) {
-    for (let j = i + 1; j < itens.length; j++) {
-      if (mesmoAparelho(itens[i], itens[j])) { parA = itens[i]; parB = itens[j]; break buscaPar; }
-    }
-  }
-  if (parA && parB) {
-    parA.tecnica = { tipo: 'biset', detalhe: `Bi-set com ${parB.exercicio.nome} — sem descanso entre os dois`, parceiroNome: parB.exercicio.nome };
-    parB.tecnica = { tipo: 'biset', detalhe: `Bi-set com ${parA.exercicio.nome} — sem descanso entre os dois`, parceiroNome: parA.exercicio.nome };
-    marcados.add(parA); marcados.add(parB);
-  }
-
-  const restantes = () => itens.filter((i) => !marcados.has(i) && !i.tecnica);
-  const multiarticulares = () => restantes().filter((i) => i.exercicio.multiarticular !== false);
-  const isolados = () => restantes().filter((i) => i.exercicio.multiarticular === false);
-
-  const mults = multiarticulares();
-  if (mults.length) {
-    const alvo = mults[mults.length - 1];
-    alvo.tecnica = { tipo: 'dropset', detalhe: 'Drop-set na última série: reduza a carga e vá até a falha' };
-    marcados.add(alvo);
-  }
-
-  const isos = isolados();
-  const candidataIso = isos.length ? isos[Math.floor(rng() * isos.length)] : restantes()[0];
-  if (candidataIso) {
-    candidataIso.tecnica = { tipo: 'isometria', detalhe: 'Isometria de 1–2s no pico da contração, em toda série' };
-    marcados.add(candidataIso);
-  }
-
-  const sobrou = restantes()[0];
-  if (sobrou) sobrou.tecnica = { tipo: 'tempo', detalhe: 'Cadência 2-1-2 (2s descida · 1s pico · 2s subida)' };
-
-  return itens;
+  return postos;
 }
 
 /** Grupo do movimento de WOD, derivado do equipamento real (sem banco à parte). */
