@@ -40,6 +40,16 @@ function popularSelects() {
 }
 
 // ---------- snapshot persistível de UM treino (formato "dia") ----------
+/** Congela um lado do bi-set no snapshot: nome + cargas por nível, séries fixas. */
+function ladoSalvo(ex, series) {
+  return {
+    id: ex.id, nome: ex.nome, padrao: ex.padrao, equipamento: ex.equipamento,
+    musculosPrimarios: ex.musculosPrimarios,
+    multiarticular: ex.multiarticular !== false,
+    niveis: variantesNivel(ex, series, 'hibrido', { seriesFixas: true }),
+  };
+}
+
 /** @param {any} t treino de gerarTreino @param {string} dateId */
 function diaSnapshotDe(t, dateId) {
   const dia = store.diaSemanaDe(dateId);
@@ -54,14 +64,13 @@ function diaSnapshotDe(t, dateId) {
     ...base,
     viabilidade: { ok: t.hibrido.viabilidade.ok, tamanhoGrupo: t.tamanhoGrupo },
     hibrido: {
-      split: t.hibrido.split, splitLabel: t.hibrido.splitLabel,
       mobilidade: t.hibrido.mobilidade,
+      semanaRotulo: t.hibrido.semanaRotulo,
       hipertrofia: t.hibrido.hipertrofia.map((p) => ({
-        nome: p.exercicio.nome, padrao: p.exercicio.padrao, equipamento: p.exercicio.equipamento,
-        reps: p.reps, descansoSeg: p.descansoSeg, seriesRef: p.series,
-        niveis: variantesNivel(p.exercicio, p.series, t.modalidade),
-        multiarticular: p.exercicio.multiarticular !== false,
+        par: p.par, parLabel: p.parLabel,
+        series: p.series, reps: p.reps, descansoSeg: p.descansoSeg, pctRM: p.pctRM,
         tecnica: p.tecnica,
+        a: ladoSalvo(p.a, p.series), b: ladoSalvo(p.b, p.series),
       })),
       wod: t.hibrido.wod, duracaoSeg: t.hibrido.duracaoSeg,
     },

@@ -21,9 +21,8 @@
  * @property {string[]} [musculosAlvo]
  *
  * @typedef {Object} TecnicaTag
- * @property {'biset'|'dropset'|'isometria'|'tempo'} tipo
+ * @property {'dropset'|'isometria'|'tempo'} tipo
  * @property {string} detalhe          Texto explicativo pro coach/aluno
- * @property {string} [parceiroNome]   Nome do outro exercício do bi-set (quando tipo==='biset')
  *
  * @typedef {Object} PostoHipertrofia
  * @property {string} par              Id do par antagonista

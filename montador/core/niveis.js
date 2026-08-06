@@ -36,13 +36,18 @@ export function seriesDoNivel(seriesAncora, nivel) {
  * @param {Exercicio} ex
  * @param {number} seriesAncora  séries do intermediário para este exercício
  * @param {ModalidadeId} modalidade
+ * @param {{seriesFixas?: boolean}} [opcoes]  Híbrido usa `seriesFixas`: lá as séries
+ *        são função do nº de postos (seguram a duração da aula), e o nível age na carga.
  * @returns {Record<Nivel, { series: number, carga: string }>}
  */
-export function variantesNivel(ex, seriesAncora, modalidade) {
+export function variantesNivel(ex, seriesAncora, modalidade, opcoes = {}) {
   /** @type {any} */
   const out = {};
   for (const n of NIVEIS) {
-    out[n] = { series: seriesDoNivel(seriesAncora, n), carga: sugerirCarga(ex, n, modalidade).texto };
+    out[n] = {
+      series: opcoes.seriesFixas ? seriesAncora : seriesDoNivel(seriesAncora, n),
+      carga: sugerirCarga(ex, n, modalidade).texto,
+    };
   }
   return out;
 }
