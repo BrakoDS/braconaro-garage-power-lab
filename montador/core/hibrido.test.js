@@ -4,6 +4,7 @@ import {
   montarPostos, montarMobilidade, montarWod, atribuirTecnicas, gerarHibrido, volumeHibrido,
 } from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
+import { calcularPostos, calcularSeries, SERIE_SEG } from './hibrido-postos.js';
 import { EXERCICIOS } from '../data/exercicios.js';
 
 /** mulberry32 — mesmo RNG do gerador, pra teste determinístico. */
@@ -75,6 +76,41 @@ test('o bloco fecha em 24 min com 8 ou com 6 alunas', () => {
   const bloco = (postos) => postos.reduce((a, p) => a + p.tempoSeg, 0);
   assert.equal(bloco(montar({ nAlunos: 8 })), 24 * 60);
   assert.equal(bloco(montar({ nAlunos: 6 })), 24 * 60);
+});
+
+test('nAlunos de 1 a 20 (faixa aceita pela UI) nunca lança exceção nem excede o teto de postos', () => {
+  for (let nAlunos = 1; nAlunos <= 20; nAlunos++) {
+    for (const semana of [1, 2, 3, 4]) {
+      for (const seed of [0, 1, 2]) {
+        assert.doesNotThrow(() => {
+          const postos = montarPostos({
+            nivel: 'intermediario', semana, nAlunos, idsEvitar: [], rng: rngDe(nAlunos * 100 + semana * 10 + seed),
+          });
+          assert.ok(
+            postos.length <= calcularPostos(nAlunos),
+            `nAlunos ${nAlunos} semana ${semana} seed ${seed}: ${postos.length} postos > teto de ${calcularPostos(nAlunos)}`,
+          );
+        }, `nAlunos ${nAlunos} semana ${semana} seed ${seed} lançou exceção`);
+      }
+    }
+  }
+});
+
+test('quando um posto cai, as séries recalculam sobre o Nº REAL de postos (o bloco tenta voltar a 24 min)', () => {
+  let achouQueda = false;
+  for (let seed = 0; seed < 40; seed++) {
+    const postos = montarPostos({
+      nivel: 'intermediario', semana: 2, nAlunos: 18, idsEvitar: [], rng: rngDe(seed),
+    });
+    if (!postos.length) continue;
+    if (postos.length < calcularPostos(18)) achouQueda = true;
+    const esperado = calcularSeries(postos.length);
+    for (const p of postos) {
+      assert.equal(p.series, esperado, `seed ${seed}: série não recalculada sobre postos.length real`);
+      assert.equal(p.tempoSeg, esperado * SERIE_SEG);
+    }
+  }
+  assert.ok(achouQueda, 'teste não encontrou nenhuma seed com posto descartado (pré-condição do cenário)');
 });
 
 test('deload corta uma série de cada posto', () => {
@@ -215,6 +251,20 @@ test('quando um posto cai, a checagem final usa o MESMO denominador da seleção
     achouQueda = true;
     assert.ok(h.viabilidade.ok, `seed ${seed}: alerta de conflito espúrio — ${h.viabilidade.nota}`);
     assert.ok(h.viabilidade.nota.includes('postos de bi-set'), `seed ${seed}: nota perdeu a lista de pares — ${h.viabilidade.nota}`);
+  }
+  assert.ok(achouQueda, 'teste não encontrou nenhuma seed com posto descartado (pré-condição do cenário)');
+});
+
+test('quando um posto cai, a nota de viabilidade avisa o coach quantos saíram', () => {
+  let achouQueda = false;
+  for (let seed = 0; seed < 40; seed++) {
+    const h = gerarHibrido({ dia: 'seg', semana: 2, nivel: 'intermediario', nAlunos: 18, seed });
+    if (h.hipertrofia.length >= 4) continue;
+    achouQueda = true;
+    assert.ok(
+      /posto.*não coube|não couberam/.test(h.viabilidade.nota),
+      `seed ${seed}: nota não avisa sobre o posto perdido — ${h.viabilidade.nota}`,
+    );
   }
   assert.ok(achouQueda, 'teste não encontrou nenhuma seed com posto descartado (pré-condição do cenário)');
 });

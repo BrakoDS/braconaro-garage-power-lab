@@ -176,8 +176,6 @@ function escolherLado(musculos, ids, { pool, poolAmplo, usados, idsAnteriores, n
 export function montarPostos({ nivel, semana, nAlunos, idsEvitar, rng }) {
   const nPostos = calcularPostos(nAlunos);
   const presc = prescricaoSemana(semana, nivel);
-  const seriesBase = calcularSeries(nPostos);
-  const series = presc.ehDeload ? Math.max(2, seriesBase - 1) : seriesBase;
   const slots = 2 * nPostos;
   const nivelAluno = NIVEL_ORDEM[nivel];
 
@@ -203,9 +201,23 @@ export function montarPostos({ nivel, semana, nAlunos, idsEvitar, rng }) {
     usados.push(b);
     postos.push({
       par: par.id, parLabel: par.label, a, b,
-      series, reps: presc.reps, descansoSeg: presc.descansoSeg, pctRM: presc.pctRM,
-      tempoSeg: series * SERIE_SEG,
+      reps: presc.reps, descansoSeg: presc.descansoSeg, pctRM: presc.pctRM,
+      // series/tempoSeg entram depois, calculados sobre o Nº REAL de postos (abaixo).
+      series: 0, tempoSeg: 0,
     });
+  }
+
+  // As séries seguram o relógio em 24 min (`postos × séries = 12`, ver
+  // hibrido-postos.js) — mas calculadas sobre `nPostos` (o pretendido), a conta só
+  // fecha quando NENHUM posto cai. Se um lado ficou sem candidato e um posto foi
+  // descartado, recalcular aqui sobre `postos.length` (o Nº REAL que sobreviveu)
+  // reparte as séries que sobraram entre os postos restantes, e o bloco volta a
+  // fechar 24 min sempre que a aritmética permitir — em vez de encolher em silêncio.
+  // `gerarHibrido` avisa o coach na nota quando isso acontece.
+  if (postos.length) {
+    const seriesBase = calcularSeries(postos.length);
+    const series = presc.ehDeload ? Math.max(2, seriesBase - 1) : seriesBase;
+    for (const p of postos) { p.series = series; p.tempoSeg = series * SERIE_SEG; }
   }
   return postos;
 }
@@ -343,11 +355,21 @@ export function gerarHibrido(opcoes) {
   // pra 1 quando `nAlunos ≤ slots` (turmas de até 8); turmas maiores (o teto de 4
   // postos = 8 slots vale até 20 alunos, que a UI aceita) formam grupos maiores por
   // estação — isso é esperado, não um bug.
-  const slotsPretendidos = 2 * calcularPostos(nAlunos);
+  const nPostosPretendido = calcularPostos(nAlunos);
+  const slotsPretendidos = 2 * nPostosPretendido;
   const viabilidade = verificarViabilidade(exercicios, nAlunos, slotsPretendidos);
   const tHiper = tempoHipertrofiaSeg(postos);
   const mobSeg = mobilidade.reduce((a, m) => a + m.duracaoSeg, 0);
   const duracaoSeg = mobSeg + tHiper + wod.duracaoMin * 60 + 120; // +2min transição geral
+
+  // Quando um posto cai, `montarPostos` já reparte as séries que sobraram entre os
+  // que restaram (o bloco tenta voltar a 24 min sozinho) — mas o coach precisa saber
+  // que a turma perdeu um bi-set, porque a aula real ainda rende menos exercício do
+  // que o previsto (menos pares trabalhados, mesmo com o tempo recuperado).
+  const postosPerdidos = nPostosPretendido - postos.length;
+  const avisoPostos = postosPerdidos > 0
+    ? ` ⚠ ${postosPerdidos} posto${postosPerdidos > 1 ? 's' : ''} de bi-set não coube${postosPerdidos > 1 ? 'ram' : ''} por falta de exercício viável — a Hipertrofia treina menos pares do que o previsto para essa turma.`
+    : '';
 
   return {
     mobilidade, hipertrofia: postos, wod, duracaoSeg,
@@ -355,7 +377,7 @@ export function gerarHibrido(opcoes) {
     viabilidade: {
       ok: viabilidade.ok,
       nota: viabilidade.ok
-        ? `${presc.rotulo} · ${postos.length} postos de bi-set: ${postos.map((p) => p.parLabel).join(' · ')}.`
+        ? `${presc.rotulo} · ${postos.length} postos de bi-set: ${postos.map((p) => p.parLabel).join(' · ')}.${avisoPostos}`
         : `⚠ ${viabilidade.conflitos.join(' ')}`,
     },
   };
