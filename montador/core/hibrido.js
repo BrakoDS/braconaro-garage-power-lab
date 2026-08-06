@@ -311,6 +311,13 @@ function prescricaoWod(ex, rng) {
   return `${reps} reps`;
 }
 
+/** Segue a MESMA onda de periodização que decide as séries (periodizacao.js) — não mais uma fração do tempo da Hipertrofia. */
+export function duracaoWodPorSeries(series) {
+  if (series <= 2) return 12; // deload
+  if (series === 3) return 16; // semanas normais
+  return 20; // pico (4 séries — só intermediário/avançado bate; ver periodizacao.js)
+}
+
 /**
  * WOD (10–20 min): formato sorteado; movimentos priorizam padrões OPOSTOS ao split
  * do dia (não refadiga o que a hipertrofia já carregou) sem excluir por completo.
