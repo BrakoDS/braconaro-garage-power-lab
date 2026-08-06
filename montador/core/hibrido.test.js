@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { montarPostos } from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
+import { EXERCICIOS } from '../data/exercicios.js';
 
 /** mulberry32 — mesmo RNG do gerador, pra teste determinístico. */
 function rngDe(seed) {
@@ -95,6 +96,30 @@ test('iniciante não recebe exercício avançado', () => {
   for (const p of montar({ nivel: 'iniciante' })) {
     for (const ex of [p.a, p.b]) {
       assert.ok(NIVEL[ex.nivel] <= NIVEL.iniciante, `${ex.nome} é ${ex.nivel}`);
+    }
+  }
+});
+
+test('rede de segurança nunca entrega exercício acima do nível, mesmo sob pressão máxima', () => {
+  const NIVEL = { iniciante: 1, intermediario: 2, avancado: 3 };
+  // Todos os ids de exercícios iniciante que servem ao bloco (musculacao && !ocupaTudo)
+  const idsIniciante = EXERCICIOS
+    .filter((e) => e.categorias.includes('musculacao') && !e.ocupaTudo && e.nivel === 'iniciante')
+    .map((e) => e.id);
+
+  // Rodar múltiplas seeds com máxima pressão: idsEvitar = todos os iniciantes
+  for (let seed = 0; seed < 30; seed++) {
+    const postos = montarPostos({
+      nivel: 'iniciante', semana: 2, nAlunos: 8, idsEvitar: idsIniciante, rng: rngDe(seed),
+    });
+    for (const p of postos) {
+      for (const lado of ['a', 'b']) {
+        const ex = p[lado];
+        assert.ok(
+          NIVEL[ex.nivel] <= NIVEL.iniciante,
+          `seed ${seed}: ${ex.nome} (${ex.nivel}) vazou no lado ${lado} do par ${p.par}`,
+        );
+      }
     }
   }
 });
