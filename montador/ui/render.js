@@ -168,6 +168,37 @@ const WOD_GRUPO_LABEL = { peso: '🏋 Peso', corporal: '🤸 Corporal', monoestr
  * @param {string} [dia]
  */
 export function renderHibrido(h, dia) {
+  // Compat: treino Híbrido salvo antes da virada p/ postos de bi-set — `hipertrofia`
+  // era uma lista PLANA de exercícios (`nome`/`niveis`), sem `a`/`b`. Sem este ramo,
+  // `lado()` tenta ler `.niveis` de um posto que não existe e quebra ao reabrir o dia.
+  const legado = h.hipertrofia.length && !h.hipertrofia[0].a;
+  if (legado) {
+    const mob = h.mobilidade.map((m) => `<li>${m.nome} — ${mmss(m.duracaoSeg)}</li>`).join('');
+    const hiperRows = h.hipertrofia.map((item, i) => linhaNiveis(i, item, '', '')).join('');
+    const wodMovs = h.wod.movimentos.map((m) => `<li><b>${m.nome}</b> <span class="mut">${WOD_GRUPO_LABEL[m.grupo] || m.grupo}</span> — ${m.prescricao}</li>`).join('');
+    const durMin = Math.round(h.duracaoSeg / 60);
+    return `<article class="card">
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido${h.splitLabel ? ` — ${h.splitLabel}` : ''}</h3>
+    <div class="hyrox-fmt">3 blocos: Mobilidade → Hipertrofia → WOD (${h.wod.duracaoMin}min).</div>
+    ${h.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${h.viabilidade.nota}</div>` : ''}
+
+    <h4>Mobilidade</h4>
+    <ul class="aquec">${mob}</ul>
+
+    <h4>Parte 1 — Hipertrofia <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— série × carga por nível</span></h4>
+    ${tabelaNiveis(hiperRows)}
+
+    <h4>Parte 2 — WOD <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${h.wod.formato}</span></h4>
+    <div class="hib-wod">
+      <div class="hib-wod-h"><span class="hiit-badge">${h.wod.formato}</span> <b>${h.wod.duracaoMin} min</b></div>
+      <div class="mut" style="margin:4px 0 8px">${h.wod.descricaoFormato}</div>
+      <ul class="hib-wod-list">${wodMovs}</ul>
+    </div>
+
+    <div class="hyrox-dur">⏱ Duração total estimada: <b>~${durMin}min</b> <span class="mut">(mobilidade + hipertrofia + WOD — ajuste na prática)</span></div>
+  </article>`;
+  }
+
   const mob = h.mobilidade.map((m) => `<li>${m.nome} — ${mmss(m.duracaoSeg)}</li>`).join('');
   const mobMin = Math.round(h.mobilidade.reduce((a, m) => a + m.duracaoSeg, 0) / 60);
 
