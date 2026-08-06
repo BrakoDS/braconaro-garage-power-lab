@@ -65,7 +65,7 @@ import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
 import { calcularVolume } from './volume.js';
 import { seriesAjustadas } from './periodizacao.js';
 import {
-  PARES_ANTAGONISTAS, calcularPostos, calcularSeries, prescricaoSemana, SERIE_SEG,
+  PARES_ANTAGONISTAS, calcularPostos, calcularSeries, prescricaoSemana, SERIE_SEG, duracaoWodPorSemana,
 } from './hibrido-postos.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
@@ -235,23 +235,20 @@ function prescricaoWod(ex, rng) {
   return `${reps} reps`;
 }
 
-/** Segue a MESMA onda de periodização que decide as séries (periodizacao.js) — não mais uma fração do tempo da Hipertrofia. */
-export function duracaoWodPorSeries(series) {
-  if (series <= 2) return 12; // deload
-  if (series === 3) return 16; // semanas normais
-  return 20; // pico (4 séries — só intermediário/avançado bate; ver periodizacao.js)
-}
-
 /**
- * WOD: formato sorteado; movimentos priorizam os padrões que a Hipertrofia NÃO
- * cobriu hoje (rede de segurança pro full body fechar no dia inteiro — substitui
- * a antiga prioridade por "padrão oposto ao split", que não existe mais).
- * Duração segue `duracaoWodPorSeries` — a mesma onda de periodização das séries.
- * @param {{padroesFaltantes:Set<Padrao>, series:number, nAlunos:number, rng:() => number}} o
+ * WOD: formato sorteado, exceto no deload — ali é EMOM fixo, o único dos quatro
+ * cujo ritmo é imposto pela estrutura (executa o bloco, descansa o resto do
+ * minuto) em vez de ficar a cargo de quanto a aluna decide se enterrar.
+ *
+ * A priorização por padrões faltantes continua, mas raramente dispara: com os
+ * pares antagonistas o full body passa a ser garantido por construção. Fica como
+ * rede de segurança pros casos degradados (turma minúscula, inventário curto).
+ * @param {{padroesFaltantes:Set<Padrao>, semana:number, nAlunos:number, rng:() => number}} o
  * @returns {BlocoWod}
  */
-export function montarWod({ padroesFaltantes, series, nAlunos, rng }) {
-  const formato = FORMATOS_WOD[Math.floor(rng() * FORMATOS_WOD.length)];
+export function montarWod({ padroesFaltantes, semana, nAlunos, rng }) {
+  const presc = prescricaoSemana(semana, 'intermediario');
+  const formato = presc.ehDeload ? 'EMOM' : FORMATOS_WOD[Math.floor(rng() * FORMATOS_WOD.length)];
   const ehCross = (e) => e.categorias.includes('cross') || e.categorias.includes('wod');
   const wodPool = EXERCICIOS.filter((e) => ehCross(e) && e.equipamento.every((id) => unidadesDe(id) >= 1));
 
@@ -280,7 +277,39 @@ export function montarWod({ padroesFaltantes, series, nAlunos, rng }) {
     prescricao: prescricaoWod(e, rng),
   }));
 
-  return { formato, descricaoFormato: DESCRICAO_FORMATO[formato], duracaoMin: duracaoWodPorSeries(series), movimentos };
+  return {
+    formato, descricaoFormato: DESCRICAO_FORMATO[formato],
+    duracaoMin: duracaoWodPorSemana(semana), movimentos,
+  };
+}
+
+/**
+ * Técnicas avançadas, agora aplicadas ao POSTO inteiro (não a um exercício solto).
+ * O bi-set saiu da lista: todo posto já é um bi-set por construção.
+ * Suspensas no deload — é o corte de intensidade que faz a semana ser deload
+ * de verdade, junto com a série a menos.
+ * @param {PostoHipertrofia[]} postos @param {() => number} rng @param {boolean} ehDeload
+ */
+export function atribuirTecnicas(postos, rng, ehDeload = false) {
+  if (ehDeload) {
+    for (const p of postos) p.tecnica = null;
+    return postos;
+  }
+  const compostos = postos.filter((p) => p.par === 'peito_costas' || p.par === 'quadriceps_posterior');
+  const acessorios = postos.filter((p) => p.par === 'bracos' || p.par === 'core');
+
+  if (compostos.length) {
+    const alvo = compostos[Math.floor(rng() * compostos.length)];
+    alvo.tecnica = { tipo: 'dropset', detalhe: 'Drop-set na última série de cada lado: reduza a carga e vá até a falha' };
+  }
+  if (acessorios.length) {
+    const alvo = acessorios[Math.floor(rng() * acessorios.length)];
+    alvo.tecnica = { tipo: 'isometria', detalhe: 'Isometria de 1–2s no pico da contração, em toda série' };
+  }
+  for (const p of postos) {
+    if (!p.tecnica) p.tecnica = { tipo: 'tempo', detalhe: 'Cadência 2-1-2 (2s descida · 1s pico · 2s subida)' };
+  }
+  return postos;
 }
 
 /** Tempo estimado do bloco de hipertrofia (mesma fórmula do motor genérico). */

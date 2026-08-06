@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPostos, montarMobilidade } from './hibrido.js';
+import { montarPostos, montarMobilidade, montarWod, atribuirTecnicas } from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
 import { EXERCICIOS } from '../data/exercicios.js';
 
@@ -137,4 +137,38 @@ test('a mobilidade mira nos músculos que os postos vão treinar', () => {
   const itens = montarMobilidade(postos, rngDe(5), false);
   assert.ok(itens.length > 0);
   assert.ok(itens.some((m) => m.musculosAlvo?.some((mu) => alvo.has(mu)) ?? true));
+});
+
+const wod = (o = {}) => montarWod({
+  padroesFaltantes: new Set(), semana: 2, nAlunos: 8, rng: rngDe(o.seed ?? 1), ...o,
+});
+
+test('a duração do WOD segue a semana do ciclo', () => {
+  assert.equal(wod({ semana: 1 }).duracaoMin, 16);
+  assert.equal(wod({ semana: 3 }).duracaoMin, 20);
+  assert.equal(wod({ semana: 4 }).duracaoMin, 12);
+});
+
+test('o deload trava o formato em EMOM', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    assert.equal(wod({ semana: 4, seed }).formato, 'EMOM',
+      'EMOM é o único formato cujo ritmo a estrutura impõe');
+  }
+});
+
+test('fora do deload o formato varia', () => {
+  const formatos = new Set([...Array(30).keys()].map((seed) => wod({ semana: 2, seed }).formato));
+  assert.ok(formatos.size > 1, `sorteou sempre ${[...formatos]}`);
+});
+
+test('o WOD cobre o padrão que a Hipertrofia deixou de fora', () => {
+  const b = wod({ padroesFaltantes: new Set(['core']) });
+  assert.ok(b.movimentos.some((m) => m.padraoDominante === 'core'));
+});
+
+test('técnicas se aplicam ao posto e somem no deload', () => {
+  const postos = montar();
+  assert.ok(atribuirTecnicas(postos.map((p) => ({ ...p })), rngDe(1), false).some((p) => p.tecnica));
+  assert.ok(atribuirTecnicas(postos.map((p) => ({ ...p })), rngDe(1), true).every((p) => !p.tecnica),
+    'deload não tem trabalho até a falha');
 });
