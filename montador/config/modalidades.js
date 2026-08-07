@@ -100,7 +100,7 @@ export const MODALIDADES = {
     segPorRepMedia: 3,
     formato: 'blocos',
     finalizador: true,
-    estimulo: 'Mobilidade (6min) + Hipertrofia em split Superiores/Inferiores (10-12 reps, técnicas avançadas) + WOD (10-20min, ~20% do estímulo).',
+    estimulo: 'Mobilidade (4min, 12min na semana de deload) + Hipertrofia em postos de bi-set antagonista (8-12 reps, técnicas avançadas) + WOD (12-20min conforme a semana).',
   },
 };
 

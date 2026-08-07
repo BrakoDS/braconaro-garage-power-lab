@@ -85,8 +85,8 @@ function corpoGap(g) {
 const TECNICA_LABEL = { biset: 'Bi-set', dropset: 'Drop-set', isometria: 'Isometria', tempo: 'Tempo 2-1-2' };
 const rotuloTecnica = (t) => t.label || TECNICA_LABEL[t.tipo] || t.tipo;
 
-/** Híbrido: Mobilidade + Hipertrofia (nível do aluno) + WOD. */
-function corpoHibrido(h, nivel) {
+/** Híbrido — formato LEGADO: hipertrofia era lista plana de exercícios com splitLabel. */
+function corpoHibridoLegado(h, nivel) {
   const mob = (h.mobilidade || []).map((m) => `<li>${esc(m.nome)}</li>`).join('');
   const linhas = (h.hipertrofia || []).map((e, i) => {
     const v = e.niveis && e.niveis[nivel];
@@ -105,6 +105,48 @@ function corpoHibrido(h, nivel) {
     <ul class="td-lista">${mob}</ul>
     <div class="td-parte-h">Hipertrofia — 10–12 reps</div>
     <ul class="td-lista">${linhas}</ul>
+    <div class="td-parte-h">WOD — ${esc(wod.formato || '')} · ${wod.duracaoMin || ''} min</div>
+    <ul class="td-lista">${movs}</ul>`;
+}
+
+/** Um lado do bi-set: nome + carga do nível do aluno. */
+function ladoBiset(ex, nivel) {
+  const v = ex.niveis && ex.niveis[nivel];
+  const carga = v ? ` · ${esc(v.carga)}` : '';
+  return `<span class="td-ex-nome">${esc(ex.nome)}</span>${carga}`;
+}
+
+/** Híbrido: Mobilidade (duração real) + Hipertrofia (postos de bi-set, nível do aluno) + WOD. */
+function corpoHibrido(h, nivel) {
+  // Compat: treino salvo antes da virada p/ postos de bi-set — `hipertrofia` era uma
+  // lista PLANA de exercícios (`nome`/`niveis`), sem `a`/`b`. Sem este ramo, a leitura
+  // de `p.a`/`p.b` quebra (ou pior, degrada em silêncio) ao reabrir o dia.
+  const legado = (h.hipertrofia || []).length && !h.hipertrofia[0].a;
+  if (legado) return corpoHibridoLegado(h, nivel);
+
+  const mobSeg = (h.mobilidade || []).reduce((a, m) => a + (m.duracaoSeg || 0), 0);
+  const mobMin = Math.round(mobSeg / 60);
+  const mob = (h.mobilidade || []).map((m) => `<li>${esc(m.nome)}</li>`).join('');
+
+  const postos = (h.hipertrofia || []).map((p, i) => {
+    const tec = p.tecnica ? `<div class="td-ex-sub"><i>${esc(rotuloTecnica(p.tecnica))}</i></div>` : '';
+    return `<li class="td-ex td-posto">
+      <span class="td-ex-nome">Posto ${i + 1} — ${esc(p.parLabel || '')}</span>
+      <span class="td-ex-sub">${ladoBiset(p.a, nivel)}</span>
+      <span class="td-ex-sub td-biset-vs">↕ bi-set — alterna com a parceira a cada série</span>
+      <span class="td-ex-sub">${ladoBiset(p.b, nivel)}</span>
+      <span class="td-ex-presc"><b>${p.series || 0}×</b> ${esc(String(p.reps || ''))} reps · ${p.descansoSeg || 0}s de pausa</span>
+      ${tec}
+    </li>`;
+  }).join('');
+
+  const wod = h.wod || {};
+  const movs = (wod.movimentos || []).map((m) => `<li>${esc(m.nome)} — ${esc(m.prescricao)}</li>`).join('');
+  return `<div class="td-nota">${esc(h.semanaRotulo || '')}</div>
+    <div class="td-parte-h">Mobilidade — ${mobMin} min</div>
+    <ul class="td-lista">${mob}</ul>
+    <div class="td-parte-h">Hipertrofia — bi-sets em dupla</div>
+    <ul class="td-lista">${postos}</ul>
     <div class="td-parte-h">WOD — ${esc(wod.formato || '')} · ${wod.duracaoMin || ''} min</div>
     <ul class="td-lista">${movs}</ul>`;
 }

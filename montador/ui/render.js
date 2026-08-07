@@ -32,7 +32,7 @@ const celNivel = (v) => `<span class="nv-series">${v.series}×</span> <span clas
  * nome junto. Por isso o `label` do snapshot vem primeiro e o mapa fixo só atende os
  * tipos antigos — incluindo treino já salvo antes desta mudança.
  */
-const TECNICA_LABEL = { biset: 'Bi-set', dropset: 'Drop-set', isometria: 'Isometria', tempo: 'Tempo 2-1-2' };
+const TECNICA_LABEL = { dropset: 'Drop-set', isometria: 'Isometria', tempo: 'Tempo 2-1-2' };
 function seloTecnica(tecnica) {
   if (!tecnica) return '';
   const rotulo = tecnica.label || TECNICA_LABEL[tecnica.tipo] || tecnica.tipo;
@@ -162,33 +162,78 @@ export function renderGap(g, dia) {
 const WOD_GRUPO_LABEL = { peso: '🏋 Peso', corporal: '🤸 Corporal', monoestrutural: '🏃 Monoestrutural' };
 
 /**
- * Card do treino HÍBRIDO — Mobilidade → Hipertrofia (split) → WOD, gerado
- * dinamicamente a cada geração (sem exercícios fixos).
- * @param {any} h  estrutura de core/hibrido.js (split, mobilidade, hipertrofia, wod, duracaoSeg)
+ * Card do treino HÍBRIDO — Mobilidade → Hipertrofia (postos de bi-set antagonista) →
+ * WOD, gerado dinamicamente a cada geração (sem exercícios fixos).
+ * @param {any} h  estrutura de core/hibrido.js (mobilidade, hipertrofia, wod, duracaoSeg, semanaRotulo)
  * @param {string} [dia]
  */
 export function renderHibrido(h, dia) {
+  // Compat: treino Híbrido salvo antes da virada p/ postos de bi-set — `hipertrofia`
+  // era uma lista PLANA de exercícios (`nome`/`niveis`), sem `a`/`b`. Sem este ramo,
+  // `lado()` tenta ler `.niveis` de um posto que não existe e quebra ao reabrir o dia.
+  const legado = h.hipertrofia.length && !h.hipertrofia[0].a;
+  if (legado) {
+    const mob = h.mobilidade.map((m) => `<li>${m.nome} — ${mmss(m.duracaoSeg)}</li>`).join('');
+    const hiperRows = h.hipertrofia.map((item, i) => linhaNiveis(i, item, '', '')).join('');
+    const wodMovs = h.wod.movimentos.map((m) => `<li><b>${m.nome}</b> <span class="mut">${WOD_GRUPO_LABEL[m.grupo] || m.grupo}</span> — ${m.prescricao}</li>`).join('');
+    const durMin = Math.round(h.duracaoSeg / 60);
+    return `<article class="card">
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido${h.splitLabel ? ` — ${h.splitLabel}` : ''}</h3>
+    <div class="hyrox-fmt">3 blocos: Mobilidade → Hipertrofia → WOD (${h.wod.duracaoMin}min).</div>
+    ${h.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${h.viabilidade.nota}</div>` : ''}
+
+    <h4>Mobilidade</h4>
+    <ul class="aquec">${mob}</ul>
+
+    <h4>Parte 1 — Hipertrofia <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— série × carga por nível</span></h4>
+    ${tabelaNiveis(hiperRows)}
+
+    <h4>Parte 2 — WOD <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${h.wod.formato}</span></h4>
+    <div class="hib-wod">
+      <div class="hib-wod-h"><span class="hiit-badge">${h.wod.formato}</span> <b>${h.wod.duracaoMin} min</b></div>
+      <div class="mut" style="margin:4px 0 8px">${h.wod.descricaoFormato}</div>
+      <ul class="hib-wod-list">${wodMovs}</ul>
+    </div>
+
+    <div class="hyrox-dur">⏱ Duração total estimada: <b>~${durMin}min</b> <span class="mut">(mobilidade + hipertrofia + WOD — ajuste na prática)</span></div>
+  </article>`;
+  }
+
   const mob = h.mobilidade.map((m) => `<li>${m.nome} — ${mmss(m.duracaoSeg)}</li>`).join('');
-  // Vem "ao vivo" do gerador (item.exercicio + series, sem niveis calculado ainda — como
-  // t.principal da Força) OU já normalizado do snapshot salvo (item.nome/niveis prontos).
-  const hiperItens = h.hipertrofia.map((item) => item.exercicio ? {
-    nome: item.exercicio.nome, padrao: item.exercicio.padrao, equipamento: item.exercicio.equipamento,
-    reps: item.reps, descansoSeg: item.descansoSeg, tecnica: item.tecnica,
-    niveis: variantesNivel(item.exercicio, item.series, 'hibrido'),
-  } : item);
-  const hiperRows = hiperItens.map((item, i) => linhaNiveis(i, item, '', '')).join('');
+  const mobMin = Math.round(h.mobilidade.reduce((a, m) => a + m.duracaoSeg, 0) / 60);
+
+  /** 'iniciante' e 'intermediario' começam com a mesma letra — abreviar em 1 char confundiria as duas. */
+  const NIVEL_ABREV = { iniciante: 'Ini', intermediario: 'Int', avancado: 'Avç' };
+
+  const lado = (ex, p) => {
+    const v = ex.niveis || variantesNivel(ex, p.series, 'hibrido', { seriesFixas: true });
+    const cargas = ['iniciante', 'intermediario', 'avancado']
+      .map((n) => `<span class="mut">${NIVEL_ABREV[n]}:</span> ${v[n].carga}`).join(' · ');
+    return `<div class="hib-lado"><b>${ex.nome || ex}</b><div class="mut">${cargas}</div></div>`;
+  };
+
+  const postos = h.hipertrofia.map((p, i) => `
+    <div class="hib-posto">
+      <div class="hib-posto-h"><b>Posto ${i + 1} — ${p.parLabel}</b>
+        <span class="mut">${p.series} × ${p.reps} reps · ${p.descansoSeg}s de pausa · ~${p.pctRM}% 1RM</span></div>
+      ${lado(p.a, p)}
+      <div class="hib-biset mut">↕ bi-set — uma faz A enquanto a outra faz B, trocam a cada série</div>
+      ${lado(p.b, p)}
+      ${p.tecnica ? `<div class="hib-tec">⚡ ${p.tecnica.detalhe}</div>` : ''}
+    </div>`).join('');
+
   const wodMovs = h.wod.movimentos.map((m) => `<li><b>${m.nome}</b> <span class="mut">${WOD_GRUPO_LABEL[m.grupo] || m.grupo}</span> — ${m.prescricao}</li>`).join('');
   const durMin = Math.round(h.duracaoSeg / 60);
   return `<article class="card">
-    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido — ${h.splitLabel}</h3>
-    <div class="hyrox-fmt">Split de hoje: <b>${h.splitLabel}</b>. 3 blocos: Mobilidade (6min) → Hipertrofia (10–12 reps) → WOD (${h.wod.duracaoMin}min).</div>
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido${h.semanaRotulo ? ` — ${h.semanaRotulo}` : ''}</h3>
+    <div class="hyrox-fmt">3 blocos: Mobilidade (${mobMin}min) → Hipertrofia (${h.hipertrofia.length} postos de bi-set) → WOD (${h.wod.duracaoMin}min).</div>
     ${h.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${h.viabilidade.nota}</div>` : ''}
 
-    <h4>Mobilidade <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— 6 min</span></h4>
+    <h4>Mobilidade <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${mobMin} min</span></h4>
     <ul class="aquec">${mob}</ul>
 
-    <h4>Parte 1 — Hipertrofia <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${h.splitLabel} · série × carga por nível</span></h4>
-    ${tabelaNiveis(hiperRows)}
+    <h4>Parte 1 — Hipertrofia <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— 1 dupla por posto, sem fila</span></h4>
+    <div class="hib-postos">${postos}</div>
 
     <h4>Parte 2 — WOD <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${h.wod.formato}</span></h4>
     <div class="hib-wod">
