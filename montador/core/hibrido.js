@@ -346,18 +346,21 @@ export function gerarHibrido(opcoes) {
     ['empurrar', 'puxar', 'quadriceps', 'posterior_gluteo', 'core'].filter((p) => !cobertos.has(p)));
   const wod = montarWod({ padroesFaltantes, semana, nAlunos, rng });
 
-  // Mesmo denominador `slots = 2 × nPostos` (pretendido) que `montarPostos` já usou em
-  // CADA chamada de `podeAdicionar` durante a seleção — não `exercicios.length` (Nº
-  // real de postos que sobreviveram). Os dois só coincidem quando nenhum posto cai;
-  // quando cai, checar com o real reabre uma conta mais apertada do que a que cada
-  // candidato já passou, gerando conflito falso pra uma montagem que o próprio
-  // seletor julgou viável (e apagando a lista de pares da nota). tamanhoGrupo só cai
-  // pra 1 quando `nAlunos ≤ slots` (turmas de até 8); turmas maiores (o teto de 4
-  // postos = 8 slots vale até 20 alunos, que a UI aceita) formam grupos maiores por
-  // estação — isso é esperado, não um bug.
-  const nPostosPretendido = calcularPostos(nAlunos);
-  const slotsPretendidos = 2 * nPostosPretendido;
-  const viabilidade = verificarViabilidade(exercicios, nAlunos, slotsPretendidos);
+  // Denominador PROPOSITALMENTE diferente do que `montarPostos` usa internamente.
+  // Durante a montagem, cada chamada de `podeAdicionar` valida o candidato contra
+  // `slots = 2 × nPostos PRETENDIDO` — uma estimativa otimista, pra não rejeitar
+  // um exercício cedo demais só porque outros postos ainda podem cair depois. Mas
+  // essa é a viabilidade AO ENTRAR no posto, não a viabilidade da aula que de fato
+  // vai acontecer. Aqui embaixo é a checagem final: usa `exercicios.length`, o Nº
+  // REAL de postos que sobreviveram, porque é essa composição — não a pretendida —
+  // que decide quantos alunos por aparelho vão aparecer na aula. Se um posto cai, os
+  // slots reais encolhem e o mesmo conflito de equipamento que antes era tolerável
+  // (grupo menor, mais postos) pode deixar de ser. Alinhar os dois denominadores
+  // (como um commit anterior tentou) MASCARA esse conflito real atrás do selo verde
+  // "✓ viável" — não reintroduza isso. Ver core/hibrido.test.js: teste de bi-set
+  // caído compara `viabilidade.ok` daqui com `verificarViabilidade` usando a
+  // contagem real, e tem que bater.
+  const viabilidade = verificarViabilidade(exercicios, nAlunos, exercicios.length);
   const tHiper = tempoHipertrofiaSeg(postos);
   const mobSeg = mobilidade.reduce((a, m) => a + m.duracaoSeg, 0);
   const duracaoSeg = mobSeg + tHiper + wod.duracaoMin * 60 + 120; // +2min transição geral
@@ -366,6 +369,7 @@ export function gerarHibrido(opcoes) {
   // que restaram (o bloco tenta voltar a 24 min sozinho) — mas o coach precisa saber
   // que a turma perdeu um bi-set, porque a aula real ainda rende menos exercício do
   // que o previsto (menos pares trabalhados, mesmo com o tempo recuperado).
+  const nPostosPretendido = calcularPostos(nAlunos);
   const postosPerdidos = nPostosPretendido - postos.length;
   const avisoPostos = postosPerdidos > 0
     ? ` ⚠ ${postosPerdidos} posto${postosPerdidos > 1 ? 's' : ''} de bi-set não coube${postosPerdidos > 1 ? 'ram' : ''} por falta de exercício viável — a Hipertrofia treina menos pares do que o previsto para essa turma.`

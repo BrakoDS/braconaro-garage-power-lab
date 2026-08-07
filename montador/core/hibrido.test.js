@@ -239,34 +239,46 @@ test('a nota de viabilidade lista os pares montados', () => {
   assert.ok(h.viabilidade.nota.includes('Peito / Costas'), h.viabilidade.nota);
 });
 
-test('quando um posto cai, a checagem final usa o MESMO denominador da seleção (sem alerta falso)', () => {
-  // Com 18 alunas o teto de 4 postos costuma perder 1 (ver hibrido-postos.js): a
-  // seleção (podeAdicionar) já validou cada candidato contra slots=2×4=8; se a
-  // checagem final usar exercicios.length (6, com só 3 postos) em vez dos mesmos 8
-  // slots, ela reabre uma conta mais apertada e falseia um conflito.
-  let achouQueda = false;
-  for (let seed = 0; seed < 40; seed++) {
-    const h = gerarHibrido({ dia: 'seg', semana: 2, nivel: 'intermediario', nAlunos: 18, seed });
-    if (h.hipertrofia.length >= 4) continue; // 4 é o teto/pretendido p/ 18 alunas
-    achouQueda = true;
-    assert.ok(h.viabilidade.ok, `seed ${seed}: alerta de conflito espúrio — ${h.viabilidade.nota}`);
-    assert.ok(h.viabilidade.nota.includes('postos de bi-set'), `seed ${seed}: nota perdeu a lista de pares — ${h.viabilidade.nota}`);
-  }
-  assert.ok(achouQueda, 'teste não encontrou nenhuma seed com posto descartado (pré-condição do cenário)');
+test('a checagem final de viabilidade reflete a composição REAL da aula, não a pretendida', () => {
+  // Âncora do bug: 17 alunas / seed 10 — 2 dos 4 postos pretendidos caem, sobram 4
+  // exercícios reais pra 17 alunas (grupos de ~5 por estação), e o box só tem 2
+  // Smiths / 2 bancos reguláveis / 2 torres de monocross. É um conflito REAL de
+  // equipamento. Com o denominador pretendido (2×4=8 slots) esse conflito ficava
+  // mascarado atrás do selo "✓ viável"; com o denominador real (exercicios.length)
+  // ele tem que aparecer — gerarHibrido().viabilidade.ok tem que bater exatamente
+  // com verificarViabilidade() usando a mesma contagem real.
+  const h = gerarHibrido({ dia: 'd', semana: 1, nivel: 'intermediario', nAlunos: 17, seed: 10 });
+  const exs = h.hipertrofia.flatMap((p) => [p.a, p.b]);
+  assert.ok(h.hipertrofia.length < calcularPostos(17), 'pré-condição do cenário: precisa de um posto caído');
+  assert.equal(
+    h.viabilidade.ok,
+    verificarViabilidade(exs, 17, exs.length).ok,
+    'gerarHibrido().viabilidade.ok tem que bater com a verdade física (verificarViabilidade sobre a contagem real)',
+  );
+  assert.equal(h.viabilidade.ok, false, 'este caso é um conflito real de equipamento — não pode passar como viável');
+
+  // Caso normal: nada cai, e o alarme continua calado — 8 alunas / semana 2 seguem
+  // ok === true, com a nota listando os pares montados (não pode virar alarmista).
+  const normal = gerar({ nAlunos: 8, semana: 2 });
+  assert.equal(normal.viabilidade.ok, true);
+  assert.ok(normal.viabilidade.nota.includes('postos de bi-set'), normal.viabilidade.nota);
 });
 
-test('quando um posto cai, a nota de viabilidade avisa o coach quantos saíram', () => {
+test('quando um posto cai mas a turma continua fisicamente viável, a nota avisa o coach quantos saíram', () => {
   let achouQueda = false;
   for (let seed = 0; seed < 40; seed++) {
     const h = gerarHibrido({ dia: 'seg', semana: 2, nivel: 'intermediario', nAlunos: 18, seed });
-    if (h.hipertrofia.length >= 4) continue;
+    // Só interessa o caso "posto caiu, mas sem virar conflito de equipamento" — quando
+    // vira conflito real, a nota é a lista de conflitos, não o aviso de posto perdido
+    // (ver teste acima: isso é o comportamento correto, não uma regressão).
+    if (h.hipertrofia.length >= 4 || !h.viabilidade.ok) continue;
     achouQueda = true;
     assert.ok(
       /posto.*não coube|não couberam/.test(h.viabilidade.nota),
       `seed ${seed}: nota não avisa sobre o posto perdido — ${h.viabilidade.nota}`,
     );
   }
-  assert.ok(achouQueda, 'teste não encontrou nenhuma seed com posto descartado (pré-condição do cenário)');
+  assert.ok(achouQueda, 'teste não encontrou nenhuma seed com posto descartado e ainda viável (pré-condição do cenário)');
 });
 
 test('o volume credita os DOIS exercícios de cada posto', () => {

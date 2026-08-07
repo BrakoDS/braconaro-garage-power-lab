@@ -109,9 +109,6 @@ function corpoHibridoLegado(h, nivel) {
     <ul class="td-lista">${movs}</ul>`;
 }
 
-/** 'iniciante' e 'intermediario' começam com a mesma letra — abreviar em 1 char confundiria as duas. */
-const NIVEL_ABREV = { iniciante: 'Ini', intermediario: 'Int', avancado: 'Avç' };
-
 /** Um lado do bi-set: nome + carga do nível do aluno. */
 function ladoBiset(ex, nivel) {
   const v = ex.niveis && ex.niveis[nivel];
