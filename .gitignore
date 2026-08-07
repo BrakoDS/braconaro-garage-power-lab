@@ -1,2 +1,5 @@
 # Configs locais do Claude Code e helpers de preview (específicos da máquina)
 .claude/
+
+# Specs e planos de design — ficam locais, o repo é público
+docs/superpowers/
