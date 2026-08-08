@@ -76,7 +76,10 @@ function tabelaNiveis(linhasHTML) {
  * @param {any} hx  estrutura de core/hyrox.js (corrida, estacoes, duracaoSeg, viabilidade)
  * @param {string} [dia]
  */
-export function renderHyrox(hx, dia) {
+/** Selo de treino montado à mão, para os cards dos formatos estruturados. */
+const seloManual = (m) => (m ? ' <span class="chip acc">manual</span>' : '');
+
+export function renderHyrox(hx, dia, manual = false) {
   const corridaLinha = NIVEIS.map((n) => `${NIVEL_LABEL[n]}: <b>${hx.corrida[n].metros} m</b> (${hx.corrida[n].voltas}×50 m)`).join(' · ');
   const linhas = hx.estacoes.map((e) => {
     const unidade = (v) => e.tipo === 'distancia' ? `${v} m` : `${v} reps`;
@@ -92,7 +95,7 @@ export function renderHyrox(hx, dia) {
   }).join('');
   const durLinha = NIVEIS.map((n) => `${NIVEL_LABEL[n]} <b>~${mmss(hx.duracaoSeg[n])}</b>`).join(' · ');
   return `<article class="card">
-    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Hyrox — formato da competição</h3>
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Hyrox — formato da competição${seloManual(manual)}</h3>
     <div class="hyrox-fmt">8 rodadas de <b>corrida + estação</b>, na ordem da prova. Antes de CADA estação, a corrida — ${corridaLinha}.</div>
     ${hx.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${hx.viabilidade.nota}</div>` : ''}
     <div class="tbl-scroll"><table class="t-niveis">
@@ -108,7 +111,7 @@ export function renderHyrox(hx, dia) {
  * @param {any} h  estrutura de core/hiitTabata.js
  * @param {string} [dia]
  */
-export function renderHiit(h, dia) {
+export function renderHiit(h, dia, manual = false) {
   const p = h.protocolo;
   const estacoes = h.estacoes.map((est, i) => {
     const slots = est.slots.map((s, j) => {
@@ -123,7 +126,7 @@ export function renderHiit(h, dia) {
   }).join('');
   const durMin = Math.round(h.duracaoSeg / 60);
   return `<article class="card">
-    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}HIIT — 4 estações TABATA</h3>
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}HIIT — 4 estações TABATA${seloManual(manual)}</h3>
     <div class="hyrox-fmt">Protocolo <b>TABATA ${p.trabalhoSeg}s on / ${p.descansoSeg}s off</b> · cada estação tem 4 exercícios rodados em <b>${p.roundsPorEstacao} rounds</b> (4 por exercício, de forma cíclica). Exercício unilateral entra como 2 (um lado por vez).</div>
     ${h.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${h.viabilidade.nota}</div>` : ''}
     <div class="hiit-grid">${estacoes}</div>
@@ -137,7 +140,7 @@ export function renderHiit(h, dia) {
  * @param {any} g  estrutura de core/gap.js
  * @param {string} [dia]
  */
-export function renderGap(g, dia) {
+export function renderGap(g, dia, manual = false) {
   const p = g.protocolo;
   const partes = g.partes.map((parte) => {
     const musicas = parte.musicas.map((m, i) => {
@@ -151,7 +154,7 @@ export function renderGap(g, dia) {
   }).join('');
   const durMin = Math.round(g.duracaoSeg / 60);
   return `<article class="card">
-    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}GAP — aula TABATA (Siga o Mestre)</h3>
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}GAP — aula TABATA (Siga o Mestre)${seloManual(manual)}</h3>
     <div class="hyrox-fmt">Protocolo <b>TABATA ${p.trabalhoSeg}s on / ${p.descansoSeg}s off</b> · <b>${g.totalMusicas} músicas</b> (${g.totalRounds} rounds). Cada música = 8 rounds com 3 exercícios cíclicos (1,2,3,1,2,3,1,2). O professor executa à frente; a turma acompanha.</div>
     ${g.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${g.viabilidade.nota}</div>` : ''}
     ${partes}
@@ -167,7 +170,7 @@ const WOD_GRUPO_LABEL = { peso: '🏋 Peso', corporal: '🤸 Corporal', monoestr
  * @param {any} h  estrutura de core/hibrido.js (mobilidade, hipertrofia, wod, duracaoSeg, semanaRotulo)
  * @param {string} [dia]
  */
-export function renderHibrido(h, dia) {
+export function renderHibrido(h, dia, manual = false) {
   // Compat: treino Híbrido salvo antes da virada p/ postos de bi-set — `hipertrofia`
   // era uma lista PLANA de exercícios (`nome`/`niveis`), sem `a`/`b`. Sem este ramo,
   // `lado()` tenta ler `.niveis` de um posto que não existe e quebra ao reabrir o dia.
@@ -178,7 +181,7 @@ export function renderHibrido(h, dia) {
     const wodMovs = h.wod.movimentos.map((m) => `<li><b>${m.nome}</b> <span class="mut">${WOD_GRUPO_LABEL[m.grupo] || m.grupo}</span> — ${m.prescricao}</li>`).join('');
     const durMin = Math.round(h.duracaoSeg / 60);
     return `<article class="card">
-    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido${h.splitLabel ? ` — ${h.splitLabel}` : ''}</h3>
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido${h.splitLabel ? ` — ${h.splitLabel}` : ''}${seloManual(manual)}</h3>
     <div class="hyrox-fmt">3 blocos: Mobilidade → Hipertrofia → WOD (${h.wod.duracaoMin}min).</div>
     ${h.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${h.viabilidade.nota}</div>` : ''}
 
@@ -225,7 +228,7 @@ export function renderHibrido(h, dia) {
   const wodMovs = h.wod.movimentos.map((m) => `<li><b>${m.nome}</b> <span class="mut">${WOD_GRUPO_LABEL[m.grupo] || m.grupo}</span> — ${m.prescricao}</li>`).join('');
   const durMin = Math.round(h.duracaoSeg / 60);
   return `<article class="card">
-    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido${h.semanaRotulo ? ` — ${h.semanaRotulo}` : ''}</h3>
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Híbrido${h.semanaRotulo ? ` — ${h.semanaRotulo}` : ''}${seloManual(manual)}</h3>
     <div class="hyrox-fmt">3 blocos: Mobilidade (${mobMin}min) → Hipertrofia (${h.hipertrofia.length} postos de bi-set) → WOD (${h.wod.duracaoMin}min).</div>
     ${h.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${h.viabilidade.nota}</div>` : ''}
 
@@ -318,10 +321,14 @@ function corpoTreino(id) {
  * @param {any} d @param {boolean} [editavel]  Mostra o botão "trocar" (só na aba Programa)
  */
 export function renderDiaSalvo(d, editavel = true) {
-  if (d.hyrox) return renderHyrox(d.hyrox, d.dia); // Hyrox é template fixo (sem "trocar")
-  if (d.hiit) return renderHiit(d.hiit, d.dia);    // HIIT é template TABATA (sem "trocar")
-  if (d.gap) return renderGap(d.gap, d.dia);       // GAP é aula estruturada (sem "trocar")
-  if (d.hibrido) return renderHibrido(d.hibrido, d.dia); // Híbrido é gerado (sem "trocar" nesta leva)
+  // O selo "manual" precisa chegar aos formatos estruturados também: desde que o
+  // Treino Manual passou a montá-los, um HIIT feito à mão e um sorteado ficam
+  // idênticos no histórico, e o coach não tem como saber qual foi qual.
+  const man = Boolean(d.manual);
+  if (d.hyrox) return renderHyrox(d.hyrox, d.dia, man); // Hyrox é template fixo (sem "trocar")
+  if (d.hiit) return renderHiit(d.hiit, d.dia, man);    // HIIT é template TABATA (sem "trocar")
+  if (d.gap) return renderGap(d.gap, d.dia, man);       // GAP é aula estruturada (sem "trocar")
+  if (d.hibrido) return renderHibrido(d.hibrido, d.dia, man); // Híbrido é gerado (sem "trocar" nesta leva)
   const acoesDe = (i) => editavel ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>` : '';
   const altsDe = (i) => editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
   // snapshot antigo (sem níveis) → render legado de coluna única

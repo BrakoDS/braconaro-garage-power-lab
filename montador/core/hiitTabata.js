@@ -15,7 +15,7 @@
 import { EXERCICIOS } from '../data/exercicios.js';
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesDe } from '../data/equipamentos.js';
 
-const TABATA = { trabalhoSeg: 20, descansoSeg: 10, roundsPorEstacao: 16, slotsPorEstacao: 4 };
+export const TABATA = { trabalhoSeg: 20, descansoSeg: 10, roundsPorEstacao: 16, slotsPorEstacao: 4 };
 const DESCANSO_ENTRE_ESTACOES_SEG = 60;
 const AQUECIMENTO_SEG = 300;
 
@@ -80,6 +80,23 @@ function equipNomes(ids) {
   return (ids || []).map((i) => EQUIP_POR_ID[i]?.nome || i).join(', ');
 }
 
+/**
+ * Um slot de estação a partir de um exercício. A carga sai do equipamento, não de
+ * um campo — é o mesmo texto que o card mostra ao coach.
+ *
+ * Exportado porque o Treino Manual monta os slots um a um (o coach escolhe) e
+ * precisa produzir exatamente a mesma forma que o gerador produz.
+ *
+ * @param {Exercicio} ex
+ * @param {'D'|'E'} [lado]  Só nos unilaterais, que ocupam 2 slots (um por lado).
+ */
+export function slotDe(ex, lado) {
+  const carga = ex.equipamento && ex.equipamento.length ? equipNomes(ex.equipamento) : 'peso corporal';
+  return lado
+    ? { id: ex.id, nome: ex.nome, lado, unilateral: true, carga }
+    : { id: ex.id, nome: ex.nome, carga };
+}
+
 /** Sub-padrões que uma estação deve equilibrar (joelho×quadril, empurrar×puxar). */
 function subPadroes(grupo) {
   if (grupo === 'inferiores') return ['posterior_gluteo', 'quadriceps'];
@@ -104,12 +121,11 @@ function preencherEstacao(grupo, pool, rng) {
   const addEx = (ex) => {
     if (!ex || usados.has(ex.id) || !cabe(ex)) return false;
     usados.add(ex.id);
-    const carga = ex.equipamento && ex.equipamento.length ? equipNomes(ex.equipamento) : 'peso corporal';
     if (ex.unilateral) {
-      slots.push({ id: ex.id, nome: ex.nome, lado: 'D', unilateral: true, carga });
-      slots.push({ id: ex.id, nome: ex.nome, lado: 'E', unilateral: true, carga });
+      slots.push(slotDe(ex, 'D'));
+      slots.push(slotDe(ex, 'E'));
     } else {
-      slots.push({ id: ex.id, nome: ex.nome, carga });
+      slots.push(slotDe(ex));
     }
     return true;
   };
@@ -131,10 +147,7 @@ function preencherEstacao(grupo, pool, rng) {
   let i = 0;
   while (slots.length < MAX && ordenado.length) {
     const ex = ordenado[i % ordenado.length]; i++;
-    if (!ex.unilateral) {
-      const carga = ex.equipamento && ex.equipamento.length ? equipNomes(ex.equipamento) : 'peso corporal';
-      slots.push({ id: ex.id, nome: ex.nome, carga });
-    }
+    if (!ex.unilateral) slots.push(slotDe(ex));
     if (i > ordenado.length * 2) break; // trava de segurança
   }
   return slots.slice(0, MAX);

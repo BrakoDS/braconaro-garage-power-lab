@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   montarPostos, montarMobilidade, montarWod, atribuirTecnicas, gerarHibrido, volumeHibrido,
+  montarPostosDe, poolLado, movimentoWod, CORE_FLEXAO, CORE_ANTI,
 } from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
 import { calcularPostos, calcularSeries, SERIE_SEG } from './hibrido-postos.js';
@@ -294,4 +295,78 @@ test('bíceps e tríceps entram no volume — o desenho antigo só os creditava 
   const vol = volumeHibrido(h.hipertrofia, h.wod);
   assert.ok(vol.porMusculo.biceps > 0, 'bíceps sem volume');
   assert.ok(vol.porMusculo.triceps > 0, 'tríceps sem volume');
+});
+
+// -------- montadores reusados pelo Treino Manual --------
+
+test('montarPostosDe monta os postos a partir dos ids escolhidos', () => {
+  const escolhas = [{ par: 'peito_costas', aId: 'supino_smith', bId: 'remada_curvada_barra' }];
+  const postos = montarPostosDe(escolhas, { semana: 1, nivel: 'intermediario', nAlunos: 6 });
+  assert.equal(postos.length, 1);
+  assert.equal(postos[0].a.id, 'supino_smith');
+  assert.equal(postos[0].b.id, 'remada_curvada_barra');
+  assert.equal(postos[0].parLabel, 'Peito / Costas');
+  assert.equal(postos[0].reps, 12);          // semana 1
+  assert.equal(postos[0].descansoSeg, 48);   // 120 − 2×12×3
+  assert.ok(postos[0].series > 0);
+  assert.equal(postos[0].tempoSeg, postos[0].series * SERIE_SEG);
+});
+
+test('montarPostosDe ignora escolha incompleta em vez de quebrar', () => {
+  const postos = montarPostosDe(
+    [{ par: 'peito_costas', aId: 'supino_smith', bId: '' }],
+    { semana: 1, nivel: 'intermediario', nAlunos: 6 });
+  assert.equal(postos.length, 0);
+  assert.equal(montarPostosDe(null, { semana: 1, nivel: 'intermediario' }).length, 0);
+});
+
+test('as séries de montarPostosDe batem com as de montarPostos', () => {
+  // As duas rotas têm que segurar o bloco no mesmo relógio (postos × séries = 12),
+  // senão o treino manual e o automático saem com durações diferentes.
+  for (const semana of [1, 2, 3, 4]) {
+    for (const nAlunos of [2, 6, 8, 12]) {
+      const auto = montarPostos({ nivel: 'intermediario', semana, nAlunos, idsEvitar: [], rng: rngDe(3) });
+      const escolhas = auto.map((p) => ({ par: p.par, aId: p.a.id, bId: p.b.id }));
+      const manual = montarPostosDe(escolhas, { semana, nivel: 'intermediario', nAlunos });
+      assert.equal(manual.length, auto.length, `semana ${semana}, ${nAlunos} alunos`);
+      manual.forEach((p, i) => {
+        assert.equal(p.series, auto[i].series, `séries divergiram — semana ${semana}, ${nAlunos} alunos`);
+        assert.equal(p.reps, auto[i].reps);
+        assert.equal(p.descansoSeg, auto[i].descansoSeg);
+        assert.equal(p.pctRM, auto[i].pctRM);
+      });
+    }
+  }
+});
+
+test('montarPostosDe não inventa técnica — quem escolhe no manual é o coach', () => {
+  const escolhas = [{ par: 'peito_costas', aId: 'supino_smith', bId: 'remada_curvada_barra' }];
+  assert.equal(montarPostosDe(escolhas, { semana: 1, nivel: 'intermediario' })[0].tecnica, null);
+  const comTecnica = [{ ...escolhas[0], tecnica: { tipo: 'dropset', detalhe: 'x' } }];
+  assert.equal(montarPostosDe(comTecnica, { semana: 1, nivel: 'intermediario' })[0].tecnica.tipo, 'dropset');
+});
+
+test('poolLado respeita os planos do posto de core', () => {
+  const a = poolLado(['core'], CORE_FLEXAO).map((e) => e.id);
+  const b = poolLado(['core'], CORE_ANTI).map((e) => e.id);
+  assert.ok(a.length && b.length);
+  assert.equal(a.filter((id) => b.includes(id)).length, 0, 'os dois lados do core se sobrepõem');
+});
+
+test('poolLado devolve os mesmos candidatos que o automático considera', () => {
+  const peito = poolLado(['peito']);
+  assert.ok(peito.length > 0);
+  assert.ok(peito.every((e) => e.categorias.includes('musculacao') && !e.ocupaTudo));
+  assert.ok(peito.every((e) => e.musculosPrimarios.includes('peito')));
+  // teto de nível é opcional e realmente filtra
+  assert.ok(poolLado(['peito'], null, 'iniciante').length < peito.length);
+});
+
+test('movimentoWod descreve o exercício com grupo e prescrição', () => {
+  const ex = EXERCICIOS.find((e) => e.categorias.includes('wod') || e.categorias.includes('cross'));
+  const m = movimentoWod(ex, rngDe(9));
+  assert.equal(m.nome, ex.nome);
+  assert.equal(m.padraoDominante, ex.padrao);
+  assert.ok(['peso', 'corporal', 'monoestrutural'].includes(m.grupo));
+  assert.ok(/reps|m$/.test(m.prescricao), `prescrição estranha: ${m.prescricao}`);
 });

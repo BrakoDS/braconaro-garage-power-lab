@@ -8,6 +8,7 @@ import * as store from './store.js';
 import { renderDiaSalvo, renderTreino, ativarTrocas, renderCalendario, renderMetaVolume } from './render.js';
 import { gerarTreino } from '../core/gerador.js';
 import { variantesNivel } from '../core/niveis.js';
+import { ladoSalvo } from '../core/hibrido.js';
 import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
 import { initManual } from './manual.js';
 import { confirmar, painel } from './dialogo.js';
@@ -40,16 +41,6 @@ function popularSelects() {
 }
 
 // ---------- snapshot persistível de UM treino (formato "dia") ----------
-/** Congela um lado do bi-set no snapshot: nome + cargas por nível, séries fixas. */
-function ladoSalvo(ex, series) {
-  return {
-    id: ex.id, nome: ex.nome, padrao: ex.padrao, equipamento: ex.equipamento,
-    musculosPrimarios: ex.musculosPrimarios,
-    multiarticular: ex.multiarticular !== false,
-    niveis: variantesNivel(ex, series, 'hibrido', { seriesFixas: true }),
-  };
-}
-
 /** @param {any} t treino de gerarTreino @param {string} dateId */
 function diaSnapshotDe(t, dateId) {
   const dia = store.diaSemanaDe(dateId);

@@ -58,11 +58,21 @@
     <section class="view" id="view-manual">
       <div class="panel">
         <div class="field"><label>Classificação / Objetivo</label><select id="m-modalidade"></select></div>
+        <div class="field"><label>Nº de alunos</label><input id="m-alunos" type="number" min="1" max="20" value="8" style="min-width:90px" /></div>
+        <div class="field" id="m-campo-semana" hidden><label>Semana do mesociclo</label>
+          <select id="m-semana" style="min-width:170px">
+            <option value="1">1 · Introdução</option>
+            <option value="2">2 · Acúmulo</option>
+            <option value="3">3 · Pico</option>
+            <option value="4">4 · Deload</option>
+          </select>
+        </div>
         <div class="field"><label>Data do treino</label><input id="m-data" type="date" style="min-width:150px" /></div>
         <button class="btn ghost" id="m-limpar" type="button">Limpar</button>
       </div>
-      <div class="mut" style="margin:0 0 12px">Monte o treino <b>escolhendo nas listas</b> (sem digitar): a classificação filtra os exercícios do banco da Academia. A meta de volume da semana atualiza a cada seleção; salvar publica no Portal do Aluno, igual ao automático.</div>
+      <div class="mut" style="margin:0 0 12px">Monte o treino <b>escolhendo nas listas</b> (sem digitar). A classificação define <b>a estrutura</b>: blocos na Força e na Hipertrofia, estações TABATA no HIIT, músicas no GAP, postos de bi-set no Híbrido e as estações da prova no Hyrox. A meta de volume da semana atualiza a cada seleção; salvar publica no Portal do Aluno, igual ao automático.</div>
       <div id="m-editor"></div>
+      <div id="m-dist"></div>
       <div id="m-meta"></div>
       <div id="m-vol"></div>
       <div id="m-salvar"></div>

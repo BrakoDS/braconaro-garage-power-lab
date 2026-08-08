@@ -87,43 +87,54 @@ function duracaoEstacaoSeg(est, nivel) {
   return Math.round(q * (SEG_POR_REP[est.n] ?? 2));
 }
 
-/** Duração total estimada do Hyrox para um nível (corrida + 8 estações + transições). */
-export function estimarDuracaoSeg(nivel) {
-  const corrida = HYROX_CORRIDA[nivel].metros * SEG_POR_METRO_CORRIDA * HYROX_ESTACOES.length;
-  const estacoes = HYROX_ESTACOES.reduce((a, e) => a + duracaoEstacaoSeg(e, nivel), 0);
-  const transicoes = HYROX_ESTACOES.length * 2 * TRANSICAO_SEG;
-  return Math.round(corrida + estacoes + transicoes);
+/**
+ * Duração total estimada do Hyrox para um nível (corrida + estações + transições).
+ *
+ * `estacoes` existe para o Treino Manual, onde o coach desliga o que o box não vai
+ * rodar hoje. Como a corrida acontece antes de CADA estação, o termo de corrida
+ * conta as estações ATIVAS — é a parte mais longa da prova, e prendê-la ao total
+ * faria desligar estações quase não mudar o relógio.
+ * @param {Nivel} nivel @param {EstacaoHyrox[]} [estacoes]
+ */
+export function estimarDuracaoSeg(nivel, estacoes = HYROX_ESTACOES) {
+  const corrida = HYROX_CORRIDA[nivel].metros * SEG_POR_METRO_CORRIDA * estacoes.length;
+  const trabalho = estacoes.reduce((a, e) => a + duracaoEstacaoSeg(e, nivel), 0);
+  const transicoes = estacoes.length * 2 * TRANSICAO_SEG;
+  return Math.round(corrida + trabalho + transicoes);
 }
 
 /**
  * Volume nominal (condicionamento) para manter `treino.volume` válido no cálculo
  * semanal/mesociclo. Cada estação conta um equivalente-séries no seu padrão.
+ * @param {EstacaoHyrox[]} [estacoes]  Subconjunto ativo (Treino Manual). Default: a prova inteira.
  * @returns {Volume}
  */
-export function volumeHyrox() {
+export function volumeHyrox(estacoes = HYROX_ESTACOES) {
   const PRIM = 3, SEC = 1.5; // equivalente de condicionamento por estação (primário + secundário)
   /** @type {Record<string, number>} */
   const porPadrao = {};
   const add = (p, v) => { porPadrao[p] = (porPadrao[p] || 0) + v; };
-  for (const e of HYROX_ESTACOES) { add(e.padrao, PRIM); if (e.padraoSec) add(e.padraoSec, SEC); }
+  for (const e of estacoes) { add(e.padrao, PRIM); if (e.padraoSec) add(e.padraoSec, SEC); }
   const totalSeries = Object.values(porPadrao).reduce((a, b) => a + b, 0);
   return { porMusculo: {}, porPadrao, totalSeries };
 }
 
 /**
  * Gera a sessão Hyrox estruturada.
- * @param {{ nAlunos?: number }} [opcoes]
+ * @param {{ nAlunos?: number, estacoes?: EstacaoHyrox[] }} [opcoes]
+ *        `estacoes` é o subconjunto ligado no Treino Manual; omitir dá a prova inteira.
  */
 export function gerarHyrox(opcoes = {}) {
   const nAlunos = opcoes.nAlunos ?? ALUNOS_POR_SESSAO;
+  const estacoes = opcoes.estacoes ?? HYROX_ESTACOES;
   const sled = EQUIP_POR_ID.sled;
   return {
     corrida: HYROX_CORRIDA,
-    estacoes: HYROX_ESTACOES,
+    estacoes,
     duracaoSeg: {
-      iniciante: estimarDuracaoSeg('iniciante'),
-      intermediario: estimarDuracaoSeg('intermediario'),
-      avancado: estimarDuracaoSeg('avancado'),
+      iniciante: estimarDuracaoSeg('iniciante', estacoes),
+      intermediario: estimarDuracaoSeg('intermediario', estacoes),
+      avancado: estimarDuracaoSeg('avancado', estacoes),
     },
     // Hyrox é for-time: a turma faz o mesmo percurso em rodízio, não é um circuito
     // de K estações simultâneas. Os gargalos práticos são o TRENÓ (só 1), a SANDBAG

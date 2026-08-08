@@ -80,6 +80,21 @@ function musica(titulo, tipo, slots) {
 }
 
 /**
+ * Uma música a partir de uma escolha EXPLÍCITA — o caminho do Treino Manual, onde
+ * quem escolhe o movimento é o coach. O gerador automático continua entrando por
+ * `musicaMembro`/`musicaTrio`, que sorteiam do banco; as duas rotas terminam aqui,
+ * então a forma do round (e o ciclo 1,2,3,1,2,3,1,2) é a mesma nas duas telas.
+ *
+ * @param {{modo:'variacoes'|'unilateral'|'trio', base?:MovGap, terceiro?:MovGap,
+ *          trio?:MovGap[], titulo?:string}} o
+ */
+export function montarMusica({ modo, base, terceiro, trio, titulo }) {
+  if (modo === 'trio') return musica(titulo || trio[0].nome, 'trio', slotsTrio(trio));
+  if (modo === 'unilateral') return musica(titulo || base.nome, 'unilateral', slotsUnilateral(base, terceiro));
+  return musica(titulo || base.nome, 'variacoes', slotsVariacoes(base));
+}
+
+/**
  * Monta 1 música para uma parte com foco em membro (Pernas/Glúteo), alternando entre
  * bloco de VARIAÇÕES e bloco UNILATERAL, sem repetir movimento-base na mesma aula.
  * @param {MovGap[]} banco @param {() => number} rng @param {Set<string>} usados @param {number} indice
@@ -145,9 +160,14 @@ export function gerarGap(opcoes = {}) {
   };
 }
 
-/** Duração: 9 músicas × 8 rounds × (20+10)s + descanso entre músicas. */
-export function estimarDuracaoSeg() {
-  const musicas = 9;
+/**
+ * Duração: músicas × 8 rounds × (20+10)s + descanso entre músicas.
+ * `musicas` existe para o Treino Manual, onde o coach pode deixar uma música vazia
+ * e a aula é mais curta do que as 9 da metodologia.
+ * @param {number} [musicas]
+ */
+export function estimarDuracaoSeg(musicas = 9) {
+  if (musicas <= 0) return 0;
   const trabalho = musicas * TABATA.roundsPorMusica * (TABATA.trabalhoSeg + TABATA.descansoSeg);
   return trabalho + (musicas - 1) * DESCANSO_ENTRE_MUSICAS_SEG;
 }
