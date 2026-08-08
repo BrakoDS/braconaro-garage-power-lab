@@ -15,7 +15,7 @@
 import { EXERCICIOS } from '../data/exercicios.js';
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesDe } from '../data/equipamentos.js';
 
-const TABATA = { trabalhoSeg: 20, descansoSeg: 10, roundsPorEstacao: 16, slotsPorEstacao: 4 };
+export const TABATA = { trabalhoSeg: 20, descansoSeg: 10, roundsPorEstacao: 16, slotsPorEstacao: 4 };
 const DESCANSO_ENTRE_ESTACOES_SEG = 60;
 const AQUECIMENTO_SEG = 300;
 
