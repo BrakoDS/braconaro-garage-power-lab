@@ -129,8 +129,30 @@ export function montarMobilidade(postos, rng, ehDeload = false) {
 
 /** Ids de core por plano de movimento — o catálogo não tem campo pra isso, e o par
  *  de core precisa juntar planos diferentes (não dois crunches seguidos). */
-const CORE_FLEXAO = ['abdominal_supra', 'abdominal_infra', 'abdominal_remador', 'abdominal_monocross', 'abdominal_bicicleta'];
-const CORE_ANTI = ['russian_twist', 'pallof_press', 'fallout_trx'];
+export const CORE_FLEXAO = ['abdominal_supra', 'abdominal_infra', 'abdominal_remador', 'abdominal_monocross', 'abdominal_bicicleta'];
+export const CORE_ANTI = ['russian_twist', 'pallof_press', 'fallout_trx'];
+
+/**
+ * Exercícios elegíveis para um lado de posto. É o mesmo recorte que `escolherLado`
+ * usa antes de pontuar — separado porque o Treino Manual precisa LISTAR os
+ * candidatos para o coach escolher, em vez de escolher por ele.
+ *
+ * `ocupaTudo` fica de fora porque um exercício que reivindica o aparelho inteiro não
+ * comporta o bi-set: a dupla não teria como alternar.
+ * @param {string[]} musculos        Músculos primários do lado do par
+ * @param {string[]|null} [idsPermitidos]  Restrição de ids (só o par de core usa)
+ * @param {Nivel} [nivel]            Teto de nível; omitir não filtra
+ * @returns {Exercicio[]}
+ */
+export function poolLado(musculos, idsPermitidos = null, nivel) {
+  const teto = nivel ? NIVEL_ORDEM[nivel] : Infinity;
+  return EXERCICIOS.filter((e) =>
+    e.categorias.includes('musculacao')
+    && !e.ocupaTudo
+    && NIVEL_ORDEM[e.nivel] <= teto
+    && musculos.some((m) => e.musculosPrimarios.includes(m))
+    && (!idsPermitidos || idsPermitidos.includes(e.id)));
+}
 
 /**
  * Pontua um candidato. Sem bônus de composto: o músculo do lado já decide se o
@@ -222,14 +244,60 @@ export function montarPostos({ nivel, semana, nAlunos, idsEvitar, rng }) {
   return postos;
 }
 
+/**
+ * Postos a partir de escolhas EXPLÍCITAS — o caminho do Treino Manual.
+ *
+ * A prescrição não é escolhida: reps, pausa e %1RM vêm da semana, e as séries do
+ * nº de postos, exatamente como em `montarPostos`. É o que segura o bloco em 24 min.
+ * Uma escolha com lado faltando ou id que não existe é DESCARTADA em silêncio — o
+ * editor é quem sabe avisar o coach, e um posto pela metade não é um bi-set.
+ *
+ * Não atribui técnica: no manual quem escolhe é o coach.
+ *
+ * Não recebe `nAlunos`: o tamanho da turma já decidiu quantos postos o editor
+ * ofereceu, e as séries se repartem sobre os postos que o coach de fato preencheu.
+ *
+ * @param {{par:string, aId:string, bId:string, tecnica?:TecnicaTag|null}[]} escolhas
+ * @param {{semana:number, nivel:Nivel}} o
+ * @returns {PostoHipertrofia[]}
+ */
+export function montarPostosDe(escolhas, { semana, nivel }) {
+  const presc = prescricaoSemana(semana, nivel);
+  const porId = Object.fromEntries(EXERCICIOS.map((e) => [e.id, e]));
+  const rotulo = Object.fromEntries(PARES_ANTAGONISTAS.map((p) => [p.id, p.label]));
+
+  /** @type {PostoHipertrofia[]} */
+  const postos = [];
+  for (const esc of escolhas || []) {
+    const a = porId[esc.aId];
+    const b = porId[esc.bId];
+    if (!a || !b) continue;
+    postos.push({
+      par: esc.par, parLabel: rotulo[esc.par] || esc.par, a, b,
+      reps: presc.reps, descansoSeg: presc.descansoSeg, pctRM: presc.pctRM,
+      series: 0, tempoSeg: 0,
+      tecnica: esc.tecnica ?? null,
+    });
+  }
+
+  // Mesma regra de `montarPostos`: as séries se repartem sobre o nº REAL de postos,
+  // e o deload tira uma. Calculado depois do laço porque depende do total.
+  if (postos.length) {
+    const seriesBase = calcularSeries(postos.length);
+    const series = presc.ehDeload ? Math.max(2, seriesBase - 1) : seriesBase;
+    for (const p of postos) { p.series = series; p.tempoSeg = series * SERIE_SEG; }
+  }
+  return postos;
+}
+
 /** Grupo do movimento de WOD, derivado do equipamento real (sem banco à parte). */
 function grupoWod(ex) {
   if (ex.equipamento.some((id) => ['air_bike', 'corrida', 'corda_naval'].includes(id))) return 'monoestrutural';
   if (ex.equipamento.length === 1 && ex.equipamento[0] === 'corporal') return 'corporal';
   return 'peso';
 }
-const FORMATOS_WOD = /** @type {const} */ (['AMRAP', 'EMOM', 'For Time', 'Chipper']);
-const DESCRICAO_FORMATO = {
+export const FORMATOS_WOD = /** @type {const} */ (['AMRAP', 'EMOM', 'For Time', 'Chipper']);
+export const DESCRICAO_FORMATO = {
   'AMRAP': 'Máximo de rodadas possíveis no tempo — cronômetro corre até o fim.',
   'EMOM': 'A cada minuto, execute o bloco de movimentos e descanse o restante do minuto.',
   'For Time': 'Complete tudo o mais rápido possível — cronometra o tempo total.',
@@ -241,6 +309,20 @@ function prescricaoWod(ex, rng) {
   if (g === 'monoestrutural') return ['200m', '250m', '300m'][Math.floor(rng() * 3)];
   const reps = [10, 12, 15, 20][Math.floor(rng() * 4)];
   return `${reps} reps`;
+}
+
+/**
+ * Um movimento de WOD a partir de um exercício do catálogo. O grupo e a prescrição
+ * saem do próprio equipamento, então o Treino Manual — onde o coach escolhe o
+ * exercício — produz a mesma forma que o sorteio produz.
+ * @param {Exercicio} ex @param {() => number} rng
+ * @returns {MovimentoWod}
+ */
+export function movimentoWod(ex, rng) {
+  return {
+    nome: ex.nome, grupo: grupoWod(ex), padraoDominante: ex.padrao,
+    equipamento: ex.equipamento, prescricao: prescricaoWod(ex, rng),
+  };
 }
 
 /**
@@ -280,10 +362,7 @@ export function montarWod({ padroesFaltantes, semana, nAlunos, rng }) {
     if (!escolhidos.includes(c)) escolhidos.push(c);
   }
 
-  const movimentos = escolhidos.slice(0, nMovs).map(({ e }) => ({
-    nome: e.nome, grupo: grupoWod(e), padraoDominante: e.padrao, equipamento: e.equipamento,
-    prescricao: prescricaoWod(e, rng),
-  }));
+  const movimentos = escolhidos.slice(0, nMovs).map(({ e }) => movimentoWod(e, rng));
 
   return {
     formato, descricaoFormato: DESCRICAO_FORMATO[formato],
