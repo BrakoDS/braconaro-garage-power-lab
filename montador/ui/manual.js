@@ -2,43 +2,68 @@
 /**
  * TREINO MANUAL — montagem por seleção (sem digitação).
  *
- * O coach escolhe a Classificação/Objetivo (modalidade) no topo; ela filtra os
- * exercícios das listas (mesmo catálogo efetivo da Academia usado pelo gerador).
- * Estrutura: Aquecimento/Mobilidade (até 3 seleções) + 8 blocos principais, cada
- * um com Exercício · Séries · Repetições · Técnica avançada. A meta de volume da
- * semana e as barras por músculo são as MESMAS do Treino Automático, e o
- * salvamento reaproveita o mesmo snapshot/fluxo (histórico + Portal do Aluno).
+ * O coach escolhe a Classificação/Objetivo no topo, e ela define A ESTRUTURA da
+ * tela, não só o filtro de exercícios: blocos na Força e na Hipertrofia, estações
+ * TABATA no HIIT, músicas no GAP, postos de bi-set no Híbrido, estações da prova no
+ * Hyrox. Quem responde "qual é a forma da modalidade X" é `core/formato-manual.js`;
+ * este arquivo é o despachante, e cada formato tem seu editor em `manual-*.js`.
+ *
+ * O snapshot salvo é o MESMO que o Treino Automático produz para aquela modalidade,
+ * então histórico, card do coach e Portal do Aluno exibem sem código próprio.
+ *
+ * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
+ *
+ * @typedef {Object} CtxManual
+ * @property {ModalidadeId} modalidade
+ * @property {any} formato        Descritor de `formatoManual`
+ * @property {number} nAlunos
+ * @property {number} semana
+ * @property {string} dateId
+ * @property {Set<string>} usados  IDs já usados em OUTROS dias da mesma semana
+ *
+ * @typedef {Object} MontagemManual
+ * @property {import('../core/volume.js').Volume} vol
+ * @property {Object} extra    O que entra no snapshot (ex.: `{hiit: …}`)
+ * @property {number} nItens   Quantos itens o coach preencheu (0 = nada a salvar)
+ *
+ * @typedef {Object} EditorManual
+ * @property {(ctx: CtxManual) => string} html
+ * @property {(ctx: CtxManual, ev: Event) => boolean} aoMudar  true = precisa re-renderizar
+ * @property {(ctx: CtxManual) => void} reset
+ * @property {(ctx: CtxManual) => MontagemManual} montar
+ * @property {(ctx: CtxManual) => string} [distribuicao]
  */
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
-import { PADRAO_LABEL, PADROES } from '../config/padroes.js';
-import { EXERCICIOS, serveModalidade } from '../data/exercicios.js';
+import { EXERCICIOS } from '../data/exercicios.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
-import { calcularVolume } from '../core/volume.js';
+import { formatoManual } from '../core/formato-manual.js';
 import { duracaoMobilidade } from '../core/gerador.js';
-import { variantesNivel } from '../core/niveis.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
 import { confirmar } from './dialogo.js';
 import { publicarTreino } from './portal-treino.js';
 
-const N_BLOCOS = 8;
-/**
- * Slots de mobilidade. Eram 3 porque cada uma durava 2,5 min; agora cada uma dura
- * 30–60s (a duração vem do próprio exercício, mesma regra do gerador), então cabe
- * um aquecimento de verdade dentro do mesmo tempo de aula.
- */
-const N_AQUEC = 8;
+import { editorBlocos } from './manual-blocos.js';
+import { editorTabata } from './manual-tabata.js';
+import { editorGap } from './manual-gap.js';
+import { editorPostos } from './manual-postos.js';
+import { editorHyrox } from './manual-hyrox.js';
 
-const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/** @type {Record<string, EditorManual>} */
+const EDITORES = {
+  blocos: editorBlocos,
+  tabata4: editorTabata,
+  gapMusicas: editorGap,
+  postosBiset: editorPostos,
+  hyroxEstacoes: editorHyrox,
+};
 
-// ---------- estado local da aba ----------
-let modalidade = /** @type {import('../config/modalidades.js').ModalidadeId} */ ('forca');
-/** @type {string[]} ids de mobilidade escolhidos ('' = vazio) */
-const aquecSel = Array(N_AQUEC).fill('');
-/** @type {{ex:string, series:number, reps:number, tecnica:string}[]} */
-const blocos = Array.from({ length: N_BLOCOS }, () => ({ ex: '', series: 4, reps: 10, tecnica: '' }));
+export const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
+export const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------- estado da aba ----------
+let modalidade = /** @type {ModalidadeId} */ ('forca');
 
 /* ---------- banco do GAP ----------
    O GAP não usa o catálogo: tem banco próprio de peso corporal em data/gap.js.
@@ -67,37 +92,117 @@ function movGapComoExercicio(m) {
 }
 
 /** @type {Record<string, any>} */
-const GAP_COMO_EXERCICIO = Object.fromEntries(
+export const GAP_COMO_EXERCICIO = Object.fromEntries(
   Object.values(MOV_GAP_POR_ID).map((m) => { const e = movGapComoExercicio(m); return [e.id, e]; })
 );
 
-const porId = (id) => (id?.startsWith(GAP_PREFIXO) ? GAP_COMO_EXERCICIO[id] : EXERCICIOS.find((e) => e.id === id)) || null;
+export const porId = (id) => (id?.startsWith(GAP_PREFIXO) ? GAP_COMO_EXERCICIO[id] : EXERCICIOS.find((e) => e.id === id)) || null;
 
-// ---------- pools (lêem o catálogo VIVO — já com as tags da Academia) ----------
-function poolPrincipal() {
-  if (modalidade === 'gap') return Object.values(GAP_COMO_EXERCICIO);
-  const mod = MODALIDADES[modalidade];
-  // `serveModalidade` é a MESMA regra do gerador automático: depois da unificação
-  // FORÇA+HIPERTROFIA na tag MUSCULAÇÃO, `categorias.includes('forca')` não casa com
-  // nada — Força vira "musculação + composto com carga", e isso mora lá.
-  return EXERCICIOS.filter((e) =>
-    serveModalidade(e, modalidade)
-    && !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade')
-    && (!mod.padroesAlvo || mod.padroesAlvo.includes(e.padrao)));
+// ---------- utilitários compartilhados pelos editores ----------
+export const poolMobilidade = () => EXERCICIOS.filter((e) => e.categorias.includes('mobilidade'));
+
+export function optionsMobilidade(selecionado) {
+  const opts = poolMobilidade()
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+    .map((e) => `<option value="${e.id}"${e.id === selecionado ? ' selected' : ''}>${esc(e.nome)}</option>`)
+    .join('');
+  return `<option value="">— vazio —</option>${opts}`;
 }
-const poolMobilidade = () => EXERCICIOS.filter((e) => e.categorias.includes('mobilidade'));
 
-/** As mobilidades escolhidas nos slots, na ordem, sem os vazios. */
-const mobilidadesEscolhidas = () =>
-  aquecSel.map((id) => (id ? porId(id) : null)).filter(Boolean);
-
-/** "≈ 5,5 min · 30–60s cada" — o total sai da soma real, não de um número fixo. */
-function tempoAquecTxt() {
-  const total = mobilidadesEscolhidas().reduce((a, e) => a + duracaoMobilidade(e), 0);
-  return total
-    ? `≈ ${Math.round(total / 60 * 10) / 10} min no total`
-    : '30–60s cada';
+/**
+ * Lista de exercícios como `<option>`s simples, ordenada por nome.
+ * @param {any[]} pool @param {string} selecionado @param {Set<string>} [usados]
+ */
+export function optionsDe(pool, selecionado, usados) {
+  return `<option value="">— vazio —</option>` + [...pool]
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt'))
+    .map((e) => `<option value="${esc(e.id)}"${e.id === selecionado ? ' selected' : ''}>${esc(e.nome)}${usados?.has(e.id) ? ' · já na semana' : ''}</option>`)
+    .join('');
 }
+
+export const optionsNum = (de, ate, sel, sufixo = '') => {
+  let out = '';
+  for (let n = de; n <= ate; n++) out += `<option value="${n}"${n === sel ? ' selected' : ''}>${n}${sufixo}</option>`;
+  return out;
+};
+
+/**
+ * Técnicas avançadas: vêm da aba "Técnicas" da Academia (mesma ponte que o catálogo
+ * de exercícios usa). O que o coach cadastra lá aparece aqui; desativada não aparece.
+ */
+export function tecnicasDisponiveis() {
+  try {
+    return academia.listarTecnicas()
+      .filter((t) => t.ativo !== false)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+  } catch { return []; }
+}
+export const tecnicaPorId = (id) => tecnicasDisponiveis().find((t) => t.id === id) || null;
+
+export function optionsTecnica(sel) {
+  return `<option value="">Nenhuma</option>` + tecnicasDisponiveis()
+    .map((t) => `<option value="${esc(t.id)}"${t.id === sel ? ' selected' : ''}>${esc(t.nome)}</option>`).join('');
+}
+
+/** Congela a técnica no snapshot: o rótulo vai junto porque ela é editável na
+ *  Academia e pode até ser apagada depois — o treino salvo guarda o nome do dia. */
+export function tecnicaSalva(id) {
+  const t = tecnicaPorId(id);
+  return t ? { tipo: t.id, label: t.nome, detalhe: t.resumo || t.objetivo || '' } : null;
+}
+
+/** Rótulo do orçamento de mobilidade: quanto as escolhas gastam do tempo previsto. */
+function rotuloOrcamento(sel, orcamentoSeg) {
+  const gasto = sel.map((id) => (id ? porId(id) : null)).filter(Boolean)
+    .reduce((a, e) => a + duracaoMobilidade(e), 0);
+  const min = (s) => `${Math.round(s / 60 * 10) / 10} min`.replace('.', ',');
+  return {
+    estourou: gasto > orcamentoSeg,
+    texto: gasto
+      ? `≈ ${min(gasto)} de ${min(orcamentoSeg)}${gasto > orcamentoSeg ? ' — passou do previsto' : ''}`
+      : `orçamento de ${min(orcamentoSeg)} · 30–60s cada`,
+  };
+}
+
+/** Bloco de mobilidade: slots + o total gasto contra o orçamento da modalidade. */
+export function blocoMobilidade(sel, orcamentoSeg, extraBotao = true) {
+  const { texto, estourou } = rotuloOrcamento(sel, orcamentoSeg);
+  const linhas = sel.map((id, i) => `
+    <div class="man-row man-aquec">
+      <span class="man-n">${i + 1}</span>
+      <select class="man-sel man-mob" data-i="${i}">${optionsMobilidade(id)}</select>
+    </div>`).join('');
+  return `
+    <h4>Aquecimento / Mobilidade
+      <span class="mut man-orc${estourou ? ' warn' : ''}" style="font-weight:400;text-transform:none;letter-spacing:0">— ${texto}</span></h4>
+    ${linhas}
+    ${extraBotao ? '<button class="btn ghost sm man-add" id="m-add-mob" type="button">+ mobilidade</button>' : ''}`;
+}
+
+/**
+ * Atualiza SÓ o rótulo do orçamento, sem redesenhar o editor.
+ *
+ * Escolher uma mobilidade muda um número no cabeçalho, e nada mais. Redesenhar por
+ * causa disso descartaria os `<select>` que o coach está usando — na prática, quem
+ * preenchesse a segunda mobilidade perderia a primeira do meio da lista.
+ */
+export function atualizarOrcamentoMob(sel, orcamentoSeg) {
+  const alvo = document.querySelector('#m-editor .man-orc');
+  if (!alvo) return;
+  const { texto, estourou } = rotuloOrcamento(sel, orcamentoSeg);
+  alvo.textContent = `— ${texto}`;
+  alvo.classList.toggle('warn', estourou);
+}
+
+/** As mobilidades escolhidas, no formato do snapshot. */
+export function mobilidadeSalva(sel) {
+  return sel.map((id) => (id ? porId(id) : null)).filter(Boolean)
+    .map((e) => ({ nome: e.nome, duracaoSeg: duracaoMobilidade(e) }));
+}
+
+// ---------- contexto ----------
+const alunosAtual = () => Math.min(20, Math.max(1, Number($('#m-alunos')?.value) || 8));
+const semanaAtual = () => Math.min(4, Math.max(1, Number($('#m-semana')?.value) || 1));
 
 /** IDs já usados em OUTROS dias da mesma semana (marcados na lista, mas selecionáveis). */
 function idsUsadosNaSemana(dateId) {
@@ -109,148 +214,71 @@ function idsUsadosNaSemana(dateId) {
   return ids;
 }
 
-// ---------- options ----------
-function optionsExercicios(selecionado, usados) {
-  const porPadrao = {};
-  for (const e of poolPrincipal()) (porPadrao[e.padrao] = porPadrao[e.padrao] || []).push(e);
-  const grupos = PADROES.filter((p) => porPadrao[p]?.length).map((p) => {
-    const opts = porPadrao[p]
-      .sort((a, b) => a.nome.localeCompare(b.nome))
-      .map((e) => `<option value="${e.id}"${e.id === selecionado ? ' selected' : ''}>${esc(e.nome)}${usados.has(e.id) ? ' · já na semana' : ''}</option>`)
-      .join('');
-    return `<optgroup label="${PADRAO_LABEL[p] || p}">${opts}</optgroup>`;
-  }).join('');
-  return `<option value="">— vazio —</option>${grupos}`;
-}
-
-function optionsMobilidade(selecionado) {
-  const opts = poolMobilidade()
-    .sort((a, b) => a.nome.localeCompare(b.nome))
-    .map((e) => `<option value="${e.id}"${e.id === selecionado ? ' selected' : ''}>${esc(e.nome)}</option>`)
-    .join('');
-  return `<option value="">— vazio —</option>${opts}`;
-}
-
-const optionsNum = (de, ate, sel, sufixo = '') => {
-  let out = '';
-  for (let n = de; n <= ate; n++) out += `<option value="${n}"${n === sel ? ' selected' : ''}>${n}${sufixo}</option>`;
-  return out;
-};
-
-/**
- * Técnicas avançadas: vêm da aba "Técnicas" da Academia (mesma ponte que o catálogo
- * de exercícios usa). O que o coach cadastra lá aparece aqui; desativada não aparece.
- */
-function tecnicasDisponiveis() {
-  try {
-    return academia.listarTecnicas()
-      .filter((t) => t.ativo !== false)
-      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
-  } catch { return []; }
-}
-const tecnicaPorId = (id) => tecnicasDisponiveis().find((t) => t.id === id) || null;
-
-function optionsTecnica(sel) {
-  return `<option value="">Nenhuma</option>` + tecnicasDisponiveis()
-    .map((t) => `<option value="${esc(t.id)}"${t.id === sel ? ' selected' : ''}>${esc(t.nome)}</option>`).join('');
-}
-
-// ---------- render do editor ----------
-function renderEditor() {
+/** @returns {CtxManual} */
+function ctx() {
   const dateId = $('#m-data').value || store.dateIdDe();
-  const usados = idsUsadosNaSemana(dateId);
-
-  const aquecRows = aquecSel.map((id, i) => `
-    <div class="man-row man-aquec">
-      <span class="man-n">${i + 1}</span>
-      <select class="man-sel man-mob" data-i="${i}">${optionsMobilidade(id)}</select>
-    </div>`).join('');
-
-  const blocoRows = blocos.map((b, i) => `
-    <div class="man-row">
-      <span class="man-n">${i + 1}</span>
-      <select class="man-sel man-ex" data-i="${i}">${optionsExercicios(b.ex, usados)}</select>
-      <select class="man-sel man-series" data-i="${i}" title="Séries">${optionsNum(2, 6, b.series, '×')}</select>
-      <select class="man-sel man-reps" data-i="${i}" title="Repetições">${optionsNum(1, 20, b.reps, ' reps')}</select>
-      <select class="man-sel man-tec" data-i="${i}" title="Técnica avançada">${optionsTecnica(b.tecnica)}</select>
-    </div>`).join('');
-
-  $('#m-editor').innerHTML = `
-    <article class="card">
-      <h4>Aquecimento / Mobilidade <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— até ${N_AQUEC} exercícios curtos · ${tempoAquecTxt()}</span></h4>
-      ${aquecRows}
-      <h4>Parte principal <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— até ${N_BLOCOS} blocos · exercício, séries, reps e técnica</span></h4>
-      <div class="man-head"><span></span><span>Exercício</span><span>Séries</span><span>Reps</span><span>Técnica</span></div>
-      ${blocoRows}
-    </article>`;
+  const nAlunos = alunosAtual();
+  const semana = semanaAtual();
+  return {
+    modalidade, nAlunos, semana, dateId,
+    formato: formatoManual(modalidade, { nAlunos, semana }),
+    usados: idsUsadosNaSemana(dateId),
+  };
 }
 
-// ---------- meta de volume + barras por músculo (mesma lógica do automático) ----------
-function volumeAtual() {
-  const itens = blocos
-    .filter((b) => b.ex && porId(b.ex))
-    .map((b) => ({ exercicio: porId(b.ex), series: b.series }));
-  return { itens, vol: calcularVolume(itens) };
+const editorDe = (c) => EDITORES[c.formato.tipo] || EDITORES.blocos;
+
+// ---------- render ----------
+function renderEditor() {
+  const c = ctx();
+  // A semana só governa o Híbrido; mostrá-la nas outras sugeriria um efeito que não existe.
+  $('#m-campo-semana').hidden = c.formato.tipo !== 'postosBiset';
+  $('#m-editor').innerHTML = `<article class="card">${editorDe(c).html(c)}</article>`;
 }
 
 function atualizarPaineis() {
-  const dateId = $('#m-data').value || store.dateIdDe();
-  const { itens, vol } = volumeAtual();
-  const volsWeek = store.treinosDaSemana(dateId)
-    .filter((t) => t.dateId !== dateId)
+  const c = ctx();
+  const editor = editorDe(c);
+  const { vol, nItens } = editor.montar(c);
+
+  const volsWeek = store.treinosDaSemana(c.dateId)
+    .filter((t) => t.dateId !== c.dateId)
     .map((t) => t.volPorPadrao || {});
-  $('#m-meta').innerHTML = renderMetaVolume(volsWeek, itens.length ? vol.porPadrao : null);
-  $('#m-vol').innerHTML = itens.length
+  $('#m-meta').innerHTML = renderMetaVolume(volsWeek, nItens ? vol.porPadrao : null);
+  $('#m-dist').innerHTML = editor.distribuicao ? editor.distribuicao(c) : '';
+  $('#m-vol').innerHTML = nItens
     ? `<article class="card"><h4>Volume por músculo (séries equivalentes)</h4>${renderVolume(vol)}</article>`
     : '';
-  renderSalvarBar(dateId, itens.length > 0);
+  renderSalvarBar(c.dateId, nItens > 0);
 }
 
-function renderSalvarBar(dateId, temExercicios) {
+function renderSalvarBar(dateId, temConteudo) {
   const jaTem = store.getTreino(dateId);
   const dataTxt = store.dataDe(dateId).toLocaleDateString('pt-BR');
-  $('#m-salvar').innerHTML = temExercicios ? `<div class="card salvar-bar">
+  $('#m-salvar').innerHTML = temConteudo ? `<div class="card salvar-bar">
     <div>Salvar na data <b>${dataTxt}</b>${jaTem ? ' <span class="chip warn">já há treino nesse dia</span>' : ''} e publicar no <b>Portal do Aluno</b>.</div>
     <button class="btn" id="btn-salvar-manual" type="button">Salvar no histórico</button>
   </div>` : '';
 }
 
-// ---------- snapshot no MESMO formato do automático ----------
-function snapshotManual(dateId) {
-  const { itens, vol } = volumeAtual();
-  const mod = MODALIDADES[modalidade];
+// ---------- snapshot ----------
+function snapshotManual(c) {
+  const { vol, extra } = editorDe(c).montar(c);
   return {
-    dia: store.diaSemanaDe(dateId),
-    modalidade,
+    dia: store.diaSemanaDe(c.dateId),
+    modalidade: c.modalidade,
     geradoEm: new Date().toISOString(),
     manual: true,
     volPorPadrao: vol.porPadrao,
-    viabilidade: { ok: false }, // montagem manual: sem checagem de equipamento/grupos
-    aquecimento: mobilidadesEscolhidas()
-      .map((e) => ({ nome: e.nome, duracaoSeg: duracaoMobilidade(e) })),
-    exercicios: blocos.filter((b) => b.ex && porId(b.ex)).map((b) => {
-      const e = porId(b.ex);
-      const t = tecnicaPorId(b.tecnica);
-      return {
-        id: e.id, nome: e.nome, padrao: e.padrao, equipamento: e.equipamento,
-        reps: `${b.reps} reps`, descansoSeg: mod.descansoSeg, seriesRef: b.series,
-        niveis: variantesNivel(e, b.series, modalidade),
-        // `label` vai junto porque o rótulo não é mais um mapa fixo no código — a
-        // técnica é editável na Academia e pode até ser apagada depois. O treino
-        // salvo guarda o nome que valia no dia.
-        tecnica: t ? { tipo: t.id, label: t.nome, detalhe: t.resumo || t.objetivo || '' } : null,
-      };
-    }),
-    finalizador: null,
+    ...extra,
   };
 }
 
 async function salvarManual() {
-  const dateId = $('#m-data').value || store.dateIdDe();
-  const { itens } = volumeAtual();
-  if (!itens.length) return;
-  const dataTxt = store.dataDe(dateId).toLocaleDateString('pt-BR');
-  if (store.getTreino(dateId)) {
+  const c = ctx();
+  if (!editorDe(c).montar(c).nItens) return;
+  const dataTxt = store.dataDe(c.dateId).toLocaleDateString('pt-BR');
+  if (store.getTreino(c.dateId)) {
     const ok = await confirmar({
       titulo: 'Substituir treino?',
       texto: `Já existe um treino registrado em <b>${dataTxt}</b>. Ele será trocado por este treino manual, no histórico e no Portal do Aluno.`,
@@ -258,22 +286,17 @@ async function salvarManual() {
     });
     if (!ok) return;
   }
-  const snap = snapshotManual(dateId);
-  store.salvarTreino(dateId, snap);
-  publicarTreino(dateId, snap);
+  const snap = snapshotManual(c);
+  store.salvarTreino(c.dateId, snap);
+  publicarTreino(c.dateId, snap);
   $('#m-salvar').innerHTML = `<div class="card salvar-bar"><span class="ok">✓ Treino manual salvo em ${dataTxt} e enviado ao Portal do Aluno.</span></div>`;
-  atualizarPaineis0AposSalvar(dateId);
-}
-
-/** Após salvar, re-renderiza a meta já contando o treino salvo na semana. */
-function atualizarPaineis0AposSalvar(dateId) {
-  const volsWeek = store.treinosDaSemana(dateId).map((t) => t.volPorPadrao || {});
+  // Re-renderiza a meta já contando o treino que acabou de entrar na semana.
+  const volsWeek = store.treinosDaSemana(c.dateId).map((t) => t.volPorPadrao || {});
   $('#m-meta').innerHTML = renderMetaVolume(volsWeek, null);
 }
 
 // ---------- init ----------
 export function initManual() {
-  // popular selects fixos
   MODALIDADE_IDS.forEach((id) => {
     const o = document.createElement('option');
     o.value = id; o.textContent = MODALIDADES[id].nome;
@@ -281,46 +304,47 @@ export function initManual() {
   });
   $('#m-data').value = store.dateIdDe();
 
-  renderEditor();
-  atualizarPaineis();
+  const redesenhar = () => { renderEditor(); atualizarPaineis(); };
+
+  redesenhar();
 
   $('#m-modalidade').addEventListener('change', () => {
     modalidade = /** @type {any} */ ($('#m-modalidade').value);
-    // exercícios já escolhidos que não pertencem à nova classificação saem da montagem
-    const validos = new Set(poolPrincipal().map((e) => e.id));
-    for (const b of blocos) if (b.ex && !validos.has(b.ex)) b.ex = '';
-    renderEditor();
-    atualizarPaineis();
+    // Cada formato guarda seu próprio estado; trocar de modalidade zera o do novo,
+    // senão o editor abriria com escolhas de uma estrutura que não existe mais.
+    const c = ctx();
+    editorDe(c).reset(c);
+    redesenhar();
   });
 
-  $('#m-data').addEventListener('change', () => { renderEditor(); atualizarPaineis(); });
+  // Turma e semana mudam a ESTRUTURA no Híbrido (nº de postos, séries, mobilidade),
+  // então redesenham o editor, não só os painéis.
+  $('#m-alunos').addEventListener('change', redesenhar);
+  $('#m-semana').addEventListener('change', redesenhar);
+  $('#m-data').addEventListener('change', redesenhar);
 
   $('#m-limpar').addEventListener('click', () => {
-    aquecSel.fill('');
-    for (const b of blocos) { b.ex = ''; b.series = 4; b.reps = 10; b.tecnica = ''; }
-    renderEditor();
-    atualizarPaineis();
+    const c = ctx();
+    editorDe(c).reset(c);
+    redesenhar();
   });
 
-  // delegação: qualquer select do editor
-  $('#m-editor').addEventListener('change', (ev) => {
-    const el = /** @type {HTMLSelectElement} */ (ev.target);
-    const i = Number(el.dataset.i);
-    if (el.classList.contains('man-mob')) aquecSel[i] = el.value;
-    else if (el.classList.contains('man-ex')) blocos[i].ex = el.value;
-    else if (el.classList.contains('man-series')) blocos[i].series = Number(el.value);
-    else if (el.classList.contains('man-reps')) blocos[i].reps = Number(el.value);
-    else if (el.classList.contains('man-tec')) blocos[i].tecnica = el.value;
+  // Delegação: qualquer select/checkbox/botão do editor.
+  const tratar = (ev) => {
+    const c = ctx();
+    const precisaRedesenhar = editorDe(c).aoMudar(c, ev);
+    if (precisaRedesenhar) renderEditor();
     atualizarPaineis();
+  };
+  $('#m-editor').addEventListener('change', tratar);
+  $('#m-editor').addEventListener('click', (ev) => {
+    if (/** @type {HTMLElement} */ (ev.target).closest('button')) tratar(ev);
   });
 
   $('#m-salvar').addEventListener('click', (ev) => {
     if (/** @type {HTMLElement} */ (ev.target).closest('#btn-salvar-manual')) salvarManual();
   });
 
-  // ao entrar na aba, re-renderiza (catálogo da Academia pode ter chegado depois)
-  document.querySelector('.tab[data-view="manual"]')?.addEventListener('click', () => {
-    renderEditor();
-    atualizarPaineis();
-  });
+  // Ao entrar na aba, re-renderiza (catálogo da Academia pode ter chegado depois).
+  document.querySelector('.tab[data-view="manual"]')?.addEventListener('click', redesenhar);
 }

@@ -160,9 +160,14 @@ export function gerarGap(opcoes = {}) {
   };
 }
 
-/** Duração: 9 músicas × 8 rounds × (20+10)s + descanso entre músicas. */
-export function estimarDuracaoSeg() {
-  const musicas = 9;
+/**
+ * Duração: músicas × 8 rounds × (20+10)s + descanso entre músicas.
+ * `musicas` existe para o Treino Manual, onde o coach pode deixar uma música vazia
+ * e a aula é mais curta do que as 9 da metodologia.
+ * @param {number} [musicas]
+ */
+export function estimarDuracaoSeg(musicas = 9) {
+  if (musicas <= 0) return 0;
   const trabalho = musicas * TABATA.roundsPorMusica * (TABATA.trabalhoSeg + TABATA.descansoSeg);
   return trabalho + (musicas - 1) * DESCANSO_ENTRE_MUSICAS_SEG;
 }

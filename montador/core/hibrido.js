@@ -66,6 +66,7 @@ import { EXERCICIOS } from '../data/exercicios.js';
 import { ALUNOS_POR_SESSAO, unidadesDe } from '../data/equipamentos.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
 import { calcularVolume } from './volume.js';
+import { variantesNivel } from './niveis.js';
 import {
   PARES_ANTAGONISTAS, calcularPostos, calcularSeries, prescricaoSemana, SERIE_SEG, duracaoWodPorSemana,
 } from './hibrido-postos.js';
@@ -242,6 +243,21 @@ export function montarPostos({ nivel, semana, nAlunos, idsEvitar, rng }) {
     for (const p of postos) { p.series = series; p.tempoSeg = series * SERIE_SEG; }
   }
   return postos;
+}
+
+/**
+ * Congela um lado do bi-set no snapshot: nome + cargas por nível, séries fixas.
+ * As séries do Híbrido não escalam por nível (seguram a duração da aula); o nível
+ * age na carga — daí `seriesFixas`.
+ * @param {Exercicio} ex @param {number} series
+ */
+export function ladoSalvo(ex, series) {
+  return {
+    id: ex.id, nome: ex.nome, padrao: ex.padrao, equipamento: ex.equipamento,
+    musculosPrimarios: ex.musculosPrimarios,
+    multiarticular: ex.multiarticular !== false,
+    niveis: variantesNivel(ex, series, 'hibrido', { seriesFixas: true }),
+  };
 }
 
 /**
