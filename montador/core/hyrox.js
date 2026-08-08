@@ -13,11 +13,19 @@
  */
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
 
-/** Corrida por rodada (tiros de 50 m ida/volta). */
+/**
+ * Corrida por rodada (tiros de 50 m ida/volta), com a alternativa na airbike.
+ *
+ * `bikeMin` NÃO é uma estação a mais nem um bloco extra: é a MESMA rodada de
+ * corrida, feita pedalando. Serve a dois casos reais do box — aluno com patologia
+ * que não permite impacto, e dia em que correr na rua está inviável. Por isso os
+ * tempos são equivalentes à corrida do mesmo nível, e não uma prescrição própria:
+ * quem pedala faz o mesmo percurso da turma, e termina junto.
+ */
 export const HYROX_CORRIDA = {
-  iniciante:     { voltas: 2, metros: 200 },
-  intermediario: { voltas: 3, metros: 300 },
-  avancado:      { voltas: 5, metros: 500 },
+  iniciante:     { voltas: 1, metros: 100, bikeMin: 0.8 },
+  intermediario: { voltas: 3, metros: 300, bikeMin: 1 },
+  avancado:      { voltas: 5, metros: 500, bikeMin: 2 },
 };
 
 /**

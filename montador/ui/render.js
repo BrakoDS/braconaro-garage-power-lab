@@ -81,6 +81,9 @@ const seloManual = (m) => (m ? ' <span class="chip acc">manual</span>' : '');
 
 export function renderHyrox(hx, dia, manual = false) {
   const corridaLinha = NIVEIS.map((n) => `${NIVEL_LABEL[n]}: <b>${hx.corrida[n].metros} m</b> (${hx.corrida[n].voltas}×50 m)`).join(' · ');
+  const bikeLinha = NIVEIS.every((n) => hx.corrida[n].bikeMin)
+    ? `<div class="mut" style="margin:4px 0 2px">🚲 <b>Sem impacto ou sem rua:</b> a mesma rodada na airbike — ${NIVEIS.map((n) => `${NIVEL_LABEL[n]} ${String(hx.corrida[n].bikeMin).replace('.', ',')} min`).join(' · ')}.</div>`
+    : '';
   const linhas = hx.estacoes.map((e) => {
     const unidade = (v) => e.tipo === 'distancia' ? `${v} m` : `${v} reps`;
     return `<tr>
@@ -96,7 +99,8 @@ export function renderHyrox(hx, dia, manual = false) {
   const durLinha = NIVEIS.map((n) => `${NIVEL_LABEL[n]} <b>~${mmss(hx.duracaoSeg[n])}</b>`).join(' · ');
   return `<article class="card">
     <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Hyrox — formato da competição${seloManual(manual)}</h3>
-    <div class="hyrox-fmt">8 rodadas de <b>corrida + estação</b>, na ordem da prova. Antes de CADA estação, a corrida — ${corridaLinha}.</div>
+    <div class="hyrox-fmt">${hx.estacoes.length} rodadas de <b>corrida + estação</b>, na ordem da prova. Antes de CADA estação, a corrida — ${corridaLinha}.</div>
+    ${bikeLinha}
     ${hx.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${hx.viabilidade.nota}</div>` : ''}
     <div class="tbl-scroll"><table class="t-niveis">
       <thead><tr><th>#</th><th>Estação</th>${NIVEIS.map((n) => `<th class="nv nv-${n}">${NIVEL_LABEL[n]}</th>`).join('')}</tr></thead>

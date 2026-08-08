@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { montarMusica } from './gap.js';
 import { slotDe } from './hiitTabata.js';
-import { estimarDuracaoSeg, volumeHyrox, HYROX_ESTACOES } from './hyrox.js';
+import { estimarDuracaoSeg, volumeHyrox, HYROX_ESTACOES, HYROX_CORRIDA } from './hyrox.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
 
 test('música de variações rende 8 rounds ciclando 3 variações do mesmo movimento', () => {
@@ -96,4 +96,25 @@ test('gerarHyrox aceita um subconjunto e devolve só ele', async () => {
   assert.equal(hx.estacoes.length, 3);
   assert.equal(hx.duracaoSeg.intermediario, estimarDuracaoSeg('intermediario', hx.estacoes));
   assert.equal(gerarHyrox().estacoes.length, 8);
+});
+
+test('a corrida do Hyrox tem alternativa na airbike em todos os níveis', async () => {
+  // A bike não é estação nem bloco extra: é a MESMA rodada de corrida, pedalando,
+  // para quem não pode impacto ou quando a rua está inviável. Sem um tempo para
+  // cada nível, o aluno substituído não sabe quando parar.
+  for (const n of ['iniciante', 'intermediario', 'avancado']) {
+    assert.ok(HYROX_CORRIDA[n].bikeMin > 0, `${n} sem tempo de airbike`);
+  }
+  // Mais corrida tem que significar mais bike — se a ordem inverter, o aluno
+  // substituído faria menos esforço justamente no nível mais alto.
+  assert.ok(HYROX_CORRIDA.iniciante.bikeMin < HYROX_CORRIDA.intermediario.bikeMin);
+  assert.ok(HYROX_CORRIDA.intermediario.bikeMin < HYROX_CORRIDA.avancado.bikeMin);
+});
+
+test('as voltas de 50 m batem com a distância declarada', () => {
+  // Cada volta é um tiro de 50 m ida e volta = 100 m. Uma volta a mais ou a menos
+  // muda o percurso real da aula sem mudar o número que o coach lê.
+  for (const [n, c] of Object.entries(HYROX_CORRIDA)) {
+    assert.equal(c.voltas * 100, c.metros, `${n}: ${c.voltas} voltas ≠ ${c.metros} m`);
+  }
 });

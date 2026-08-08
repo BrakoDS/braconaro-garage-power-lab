@@ -42,6 +42,7 @@ export const editorHyrox = {
     }).join('');
 
     const corrida = NIVEIS.map((n) => `${NIVEL_LABEL[n]} ${HYROX_CORRIDA[n].metros} m`).join(' · ');
+    const bike = NIVEIS.map((n) => `${NIVEL_LABEL[n]} ${String(HYROX_CORRIDA[n].bikeMin).replace('.', ',')} min`).join(' · ');
     const dur = ativas.length
       ? NIVEIS.map((n) => `${NIVEL_LABEL[n]} <b>~${mmss(estimarDuracaoSeg(n, ativas))}</b>`).join(' · ')
       : '—';
@@ -49,7 +50,8 @@ export const editorHyrox = {
     return `
       <h4>Estações da prova
         <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${ativas.length} de ${f.estacoes.length} ligadas</span></h4>
-      <div class="mut" style="margin:0 0 10px">Antes de <b>cada</b> estação, a corrida — ${corrida}. A ordem e a prescrição são as da competição e não se editam; desligue o que o box não vai rodar hoje.</div>
+      <div class="mut" style="margin:0 0 6px">Antes de <b>cada</b> estação, a corrida — ${corrida}. A ordem e a prescrição são as da competição e não se editam; desligue o que o box não vai rodar hoje.</div>
+      <div class="mut" style="margin:0 0 10px">🚲 Aluno sem liberação para impacto, ou dia sem rua: a mesma rodada na airbike — ${bike}.</div>
       ${linhas}
       <div class="hyrox-dur" style="margin-top:10px">⏱ Duração estimada: ${dur}</div>`;
   },
