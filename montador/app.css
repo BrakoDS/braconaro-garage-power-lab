@@ -213,6 +213,30 @@ tr.bad-row td { color: var(--warn); }
 .man-row:last-of-type { border-bottom: none; }
 .man-n { color: var(--mut); font-size: 12px; text-align: right; }
 .man-sel { background: var(--bg2); color: var(--txt); border: 1px solid var(--line); border-radius: 9px; padding: 8px 9px; font-size: 13px; width: 100%; min-width: 0; }
+/* Linha de bloco: a 1ª coluna cresce para caber a etiqueta do padrão de movimento
+   ("2 · POSTERIOR/GLÚTEO"), que é o que diz ao coach o que aquele slot deveria cobrir. */
+.man-row.man-bloco, .man-head.man-bloco { grid-template-columns: 92px minmax(160px, 1fr) 84px 96px 130px; }
+.man-padrao { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); line-height: 1.3; }
+.man-padrao.livre { opacity: .55; }
+
+/* Bloco agrupador dos formatos estruturados (estação, música, posto). */
+.man-grupo { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+.man-grupo-h { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.man-sub { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.man-fixo { font-size: 12px; color: var(--mut); font-style: italic; }
+.man-orc.warn { color: var(--warn); }
+.man-add { margin-top: 8px; }
+.man-derivado { margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: var(--mut); }
+.man-check { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.man-check:last-of-type { border-bottom: none; }
+.man-check input { min-width: 0; width: auto; margin-top: 3px; }
+.man-check.off { opacity: .45; }
+
+/* Painel de distribuição: um chip por padrão obrigatório. */
+.man-dist { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip.falta { color: var(--warn); border-color: var(--warn); border-style: dashed; }
+.chip.ok { color: var(--ok); border-color: var(--ok); }
+
 @media (max-width: 640px) {
   .man-head { display: none; }
   .man-row { grid-template-columns: 20px 1fr 1fr; }
@@ -220,6 +244,13 @@ tr.bad-row td { color: var(--warn); }
   .man-row .man-series { grid-column: 2; }
   .man-row .man-reps { grid-column: 3; }
   .man-row .man-tec { grid-column: 2 / -1; }
+  .man-row.man-bloco { grid-template-columns: 1fr 1fr; }
+  .man-row.man-bloco .man-n { grid-column: 1 / -1; text-align: left; }
+  .man-row.man-bloco .man-ex { grid-column: 1 / -1; }
+  .man-row.man-bloco .man-series { grid-column: 1; }
+  .man-row.man-bloco .man-reps { grid-column: 2; }
+  .man-row.man-bloco .man-tec { grid-column: 1 / -1; }
+  .man-sub { grid-template-columns: 1fr; }
 }
 
 /* ---------- Híbrido: postos de bi-set ---------- */
