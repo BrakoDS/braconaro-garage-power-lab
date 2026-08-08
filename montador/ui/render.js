@@ -172,6 +172,60 @@ export function renderGap(g, dia, manual = false) {
   </article>`;
 }
 
+/**
+ * Card do MURPH — desafio for time: corrida + 600 repetições + corrida.
+ *
+ * O que varia por nível não é o volume (o miolo é igual para todos), é a
+ * distância da corrida e se as repetições podem ser fracionadas. Por isso a
+ * tabela mostra as duas coisas lado a lado, e não uma prescrição por exercício.
+ * @param {any} m  estrutura de core/murph.js
+ * @param {string} [dia] @param {boolean} [manual]
+ */
+export function renderMurph(m, dia, manual = false) {
+  const niveis = NIVEIS.filter((n) => m.cardio?.[n]);
+  const blocos = m.blocos.map((b) => `<tr>
+    <td>${b.n}</td>
+    <td><b>${esc(b.nome)}</b><br>
+      <small>no lugar de ${esc(b.base)} · ${equipNomes(b.equipamento || [])}</small>
+      ${b.nota ? `<br><small class="mut">${esc(b.nota)}</small>` : ''}</td>
+    <td class="nv"><span class="nv-series">${b.reps}</span></td>
+  </tr>`).join('');
+
+  const linhas = niveis.map((n) => {
+    const c = m.cardio[n];
+    const ex = m.execucao[n];
+    const alt = c.alternativa ? ` <small class="mut">ou ${c.alternativa.metros} m</small>` : '';
+    return `<tr>
+      <td class="nv nv-${n}"><b>${NIVEL_LABEL[n]}</b></td>
+      <td>${c.metros} m${alt}<br><small class="mut">🚲 ${String(c.bikeMin).replace('.', ',')} min de airbike${c.alternativa ? ` ou ${String(c.alternativa.bikeMin).replace('.', ',')} min` : ''}</small></td>
+      <td><b>${esc(ex.rotulo)}</b><br><small class="mut">${esc(ex.detalhe)}</small></td>
+      <td>~${mmss(m.duracaoSeg[n])}</td>
+    </tr>`;
+  }).join('');
+
+  const cindy = m.cindy
+    ? `<div class="mut" style="margin:6px 0 2px">🔁 <b>Round do Cindy</b> (Iniciante): ${m.cindy.rounds} rounds de ${m.cindy.round.map((r) => `${r.reps} ${esc(r.nome)}`).join(' + ')}.</div>`
+    : '';
+
+  return `<article class="card">
+    <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Murph — desafio${seloManual(manual)}</h3>
+    <div class="hyrox-fmt"><b>For time:</b> corrida → <b>${m.totalReps} repetições</b> → corrida. O miolo é igual para todos; o nível decide a distância e se dá para fracionar.</div>
+    ${m.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${esc(m.viabilidade.nota)}</div>` : ''}
+    ${cindy}
+
+    <h4>Miolo <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— mesmo para todos os níveis</span></h4>
+    <div class="tbl-scroll"><table class="t-niveis">
+      <thead><tr><th>#</th><th>Exercício</th><th class="nv">Reps</th></tr></thead>
+      <tbody>${blocos}</tbody></table></div>
+
+    <h4>Por nível <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— cardio em CADA ponta e regra de execução</span></h4>
+    <div class="tbl-scroll"><table class="t-niveis">
+      <thead><tr><th>Nível</th><th>Cardio (abre e fecha)</th><th>Execução das ${m.totalReps} reps</th><th>Tempo</th></tr></thead>
+      <tbody>${linhas}</tbody></table></div>
+    <small class="mut">⏱ Tempos são estimativa — o Murph é cronometrado, o número acima é só para dimensionar a aula.</small>
+  </article>`;
+}
+
 const WOD_GRUPO_LABEL = { peso: '🏋 Peso', corporal: '🤸 Corporal', monoestrutural: '🏃 Monoestrutural' };
 
 /**
@@ -285,6 +339,7 @@ export function renderTreino(t, { comTroca = true, mostrarDiaSemana = true } = {
   if (t.hiit) return renderHiit(t.hiit, mostrarDiaSemana ? t.dia : undefined);
   if (t.gap) return renderGap(t.gap, mostrarDiaSemana ? t.dia : undefined);
   if (t.hibrido) return renderHibrido(t.hibrido, mostrarDiaSemana ? t.dia : undefined);
+  if (t.murph) return renderMurph(t.murph, mostrarDiaSemana ? t.dia : undefined);
   const id = 'tr' + (_uid++);
   vivos.set(id, t);
   cardOpts.set(id, { comTroca, mostrarDiaSemana });
@@ -339,6 +394,7 @@ export function renderDiaSalvo(d, editavel = true) {
   if (d.hiit) return renderHiit(d.hiit, d.dia, man);    // HIIT é template TABATA (sem "trocar")
   if (d.gap) return renderGap(d.gap, d.dia, man);       // GAP é aula estruturada (sem "trocar")
   if (d.hibrido) return renderHibrido(d.hibrido, d.dia, man); // Híbrido é gerado (sem "trocar" nesta leva)
+  if (d.murph) return renderMurph(d.murph, d.dia, man);       // Murph é desafio fixo (sem "trocar")
   const acoesDe = (i) => editavel ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>` : '';
   const altsDe = (i) => editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
   // snapshot antigo (sem níveis) → render legado de coluna única

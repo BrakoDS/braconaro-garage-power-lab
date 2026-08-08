@@ -27,6 +27,7 @@ import { gerarHyrox, volumeHyrox, estimarDuracaoSeg } from './hyrox.js';
 import { gerarHiitTabata, volumeHiit, estimarDuracaoSeg as estimarDuracaoHiitSeg } from './hiitTabata.js';
 import { gerarGap, volumeGap, estimarDuracaoSeg as estimarDuracaoGapSeg } from './gap.js';
 import { gerarHibrido, volumeHibrido } from './hibrido.js';
+import { gerarMurph, volumeMurph, estimarDuracaoSeg as estimarDuracaoMurphSeg } from './murph.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const TETO_SERIES_POR_MUSCULO = 10; // teto por sessão para evitar sobrecarga
@@ -107,6 +108,8 @@ export function gerarTreino(opcoes) {
   if (modalidade === 'gap') return montarGap({ dia, semana, nivel, nAlunos, seed });
   // -------- Híbrido: Mobilidade + Hipertrofia (postos de bi-set) + WOD, gerado dinamicamente --------
   if (modalidade === 'hibrido') return montarHibrido({ dia, semana, nivel, nAlunos, seed, idsEvitar });
+  // -------- Murph: desafio for time, template fixo (o rodízio é do professor) --------
+  if (modalidade === 'murph') return montarMurph({ dia, semana, nivel, nAlunos });
 
   // -------- Passo 2: quantos exercícios (4, 5 ou 6) --------
   // A contagem é estável por TEMPLATE (modalidade+dia+nível) para que um mesociclo
@@ -362,6 +365,31 @@ function montarHibrido({ dia, semana, nivel, nAlunos, seed, idsEvitar }) {
     tempoPrincipalSeg: hibrido.duracaoSeg,
     tempoFinalizadorSeg: 0,
     tempoTotalSeg: hibrido.duracaoSeg,
+  };
+}
+
+/**
+ * Monta o desafio Murph (template fixo). Como Hyrox/HIIT/GAP: conteúdo em `murph`,
+ * `principal` vazio, tempo = estimativa do nível pedido.
+ * @param {{dia:string, semana:number, nivel:string, nAlunos:number}} o
+ */
+function montarMurph({ dia, semana, nivel, nAlunos }) {
+  const murph = gerarMurph({ nAlunos });
+  const tempoTotalSeg = estimarDuracaoMurphSeg(/** @type {any} */ (nivel));
+  return {
+    modalidade: 'murph', dia, semana, nivel, nAlunos,
+    tamanhoGrupo: nAlunos,
+    deload: ehDeload(semana),
+    murph,
+    aquecimento: [],
+    principal: [],
+    finalizador: null,
+    volume: volumeMurph(),
+    viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'for-time', nota: murph.viabilidade.nota },
+    tempoAquecimentoSeg: 0,
+    tempoPrincipalSeg: tempoTotalSeg,
+    tempoFinalizadorSeg: 0,
+    tempoTotalSeg,
   };
 }
 

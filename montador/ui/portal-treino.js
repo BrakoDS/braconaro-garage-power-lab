@@ -29,6 +29,7 @@ function diaEnxuto(d) {
   if (d.hiit) return { ...base, hiit: d.hiit };
   if (d.gap) return { ...base, gap: d.gap };
   if (d.hibrido) return { ...base, hibrido: d.hibrido };
+  if (d.murph) return { ...base, murph: d.murph };
   return {
     ...base,
     // `aquecimento` e `tecnica` são o que o aluno precisa para executar sozinho:

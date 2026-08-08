@@ -3,7 +3,7 @@
  * MODALIDADES — cada uma altera nº de exercícios, esquema de séries/reps,
  * descanso, intensidade, tipo de estímulo e se há finalizador.
  *
- * @typedef {'forca'|'hipertrofia'|'hiit'|'hyrox'|'hibrido'} ModalidadeId
+ * @typedef {'forca'|'hipertrofia'|'hiit'|'hyrox'|'gap'|'hibrido'|'murph'} ModalidadeId
  *
  * @typedef {Object} Modalidade
  * @property {ModalidadeId} id
@@ -101,6 +101,19 @@ export const MODALIDADES = {
     formato: 'blocos',
     finalizador: true,
     estimulo: 'Mobilidade (4min, 12min na semana de deload) + Hipertrofia em postos de bi-set antagonista (8-12 reps, técnicas avançadas) + WOD (12-20min conforme a semana).',
+  },
+  murph: {
+    id: 'murph',
+    nome: 'Murph (desafio)',
+    faixaExercicios: [3, 3],
+    series: 1, // for time: não há séries, o treino é um bloco só
+    reps: '100 puxadas + 200 flexões + 300 agachamentos',
+    descansoSeg: 0, // o descanso é escolha do aluno dentro do cronômetro
+    intensidadePctRM: [0, 0], // peso corporal e puxada leve — a carga não é a variável
+    segPorRepMedia: 2,
+    formato: 'circuito',
+    finalizador: false,
+    estimulo: 'Desafio for time: corrida + 600 repetições + corrida. O nível decide a distância da corrida e se as repetições podem ser fracionadas.',
   },
 };
 

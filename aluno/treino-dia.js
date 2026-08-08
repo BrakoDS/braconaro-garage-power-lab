@@ -5,7 +5,7 @@
  * do aluno (força/hipertrofia); Hyrox/HIIT/GAP têm prescrição única.
  */
 
-const MOD_NOME = { forca: 'Força', hipertrofia: 'Hipertrofia', hiit: 'HIIT', hyrox: 'Hyrox', hibrido: 'Híbrido', gap: 'GAP' };
+const MOD_NOME = { forca: 'Força', hipertrofia: 'Hipertrofia', hiit: 'HIIT', hyrox: 'Hyrox', hibrido: 'Híbrido', gap: 'GAP', murph: 'Murph' };
 const PADRAO_LABEL = {
   empurrar: 'Empurrar', puxar: 'Puxar', quadriceps: 'Quadríceps',
   posterior_gluteo: 'Posterior/Glúteo', core: 'Core', estabilizadores: 'Estabilizadores',
@@ -61,6 +61,33 @@ function corpoHyrox(h, nivel) {
   // desligar as que o box não vai rodar hoje, e "8" ficaria mentindo para a aluna.
   const n = (h.estacoes || []).length;
   return `<div class="td-nota">${n} rodada${n === 1 ? '' : 's'} de corrida + estação (formato da prova).</div>${corrida}${bike}<ul class="td-lista">${est}</ul>`;
+}
+
+/**
+ * Murph no nível da aluna. O miolo é igual para todos; o que muda é a corrida e
+ * se ela PODE fracionar — e a regra de execução é o que mais importa aqui, porque
+ * é ela que protege quem está começando.
+ */
+function corpoMurph(m, nivel) {
+  const c = m.cardio?.[nivel];
+  const ex = m.execucao?.[nivel];
+  const alt = c?.alternativa ? ` (ou ${c.alternativa.metros} m)` : '';
+  const corrida = c
+    ? `<div class="td-nota">🏃 Corrida: <b>${c.metros} m${alt}</b> na abertura <b>e</b> no fechamento.</div>
+       <div class="td-nota">🚲 Sem impacto ou sem rua: <b>${String(c.bikeMin).replace('.', ',')} min</b>${c.alternativa ? ` (ou ${String(c.alternativa.bikeMin).replace('.', ',')} min)` : ''} de airbike em cada ponta.</div>`
+    : '';
+  const regra = ex
+    ? `<div class="td-nota">📋 <b>${esc(ex.rotulo)}</b> — ${esc(ex.detalhe)}</div>`
+    : '';
+  const cindy = ex?.id === 'cindy' && m.cindy
+    ? `<div class="td-nota">🔁 ${m.cindy.rounds} rounds de ${m.cindy.round.map((r) => `${r.reps} ${esc(r.nome)}`).join(' + ')}.</div>`
+    : '';
+  const blocos = (m.blocos || []).map((b) => `<li class="td-ex">
+    <span class="td-ex-nome">${b.n}. ${esc(b.nome)}</span>
+    <span class="td-ex-sub">no lugar de ${esc(b.base)}</span>
+    <span class="td-ex-presc"><b>${b.reps} reps</b></span></li>`).join('');
+  return `<div class="td-nota">Desafio <b>for time</b>: corrida → ${m.totalReps} repetições → corrida.</div>
+    ${corrida}${regra}${cindy}<ul class="td-lista">${blocos}</ul>`;
 }
 
 /** HIIT — 4 estações TABATA (prescrição única). */
@@ -174,6 +201,7 @@ export function renderTreinoDia(treino, nivel) {
   else if (treino.hiit) { corpo = corpoHiit(treino.hiit); porNivel = false; }
   else if (treino.gap) { corpo = corpoGap(treino.gap); porNivel = false; }
   else if (treino.hibrido) { corpo = corpoHibrido(treino.hibrido, n); porNivel = true; }
+  else if (treino.murph) { corpo = corpoMurph(treino.murph, n); porNivel = true; }
   else { corpo = corpoExercicios(treino, n); porNivel = true; }
   // só mostra o "seu nível" nos formatos que variam por nível (força/hyrox)
   const badgeNivel = porNivel ? `<span class="td-nivel">seu nível: ${esc(NIVEL_LABEL[n] || n)}</span>` : '';

@@ -21,7 +21,7 @@
  * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
  * @typedef {import('../config/padroes.js').Padrao} Padrao
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
- * @typedef {'blocos'|'tabata4'|'gapMusicas'|'postosBiset'|'hyroxEstacoes'} FormatoManualId
+ * @typedef {'blocos'|'tabata4'|'gapMusicas'|'postosBiset'|'hyroxEstacoes'|'murphFixo'} FormatoManualId
  */
 import { MODALIDADES } from '../config/modalidades.js';
 import { padroesObrigatorios } from '../config/padroes.js';
@@ -40,6 +40,7 @@ export const FORMATO_POR_MODALIDADE = {
   gap: 'gapMusicas',
   hibrido: 'postosBiset',
   hyrox: 'hyroxEstacoes',
+  murph: 'murphFixo',
 };
 
 /**
@@ -148,6 +149,10 @@ export function formatoManual(modalidade, opcoes = {}) {
   if (tipo === 'hyroxEstacoes') {
     return { tipo, modalidade, estacoes: HYROX_ESTACOES, corrida: HYROX_CORRIDA };
   }
+
+  // O Murph não tem parâmetro: o desafio inteiro é fixo, e o editor só o mostra
+  // para conferência antes de agendar.
+  if (tipo === 'murphFixo') return { tipo, modalidade };
 
   // -------- blocos (Força, Hipertrofia) --------
   const mod = MODALIDADES[modalidade];

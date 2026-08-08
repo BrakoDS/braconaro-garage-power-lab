@@ -51,6 +51,7 @@ function diaSnapshotDe(t, dateId) {
   if (t.hyrox) return { ...base, viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo }, hyrox: t.hyrox };
   if (t.hiit) return { ...base, viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo }, hiit: t.hiit };
   if (t.gap) return { ...base, viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo }, gap: t.gap };
+  if (t.murph) return { ...base, viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo }, murph: t.murph };
   if (t.hibrido) return {
     ...base,
     viabilidade: { ok: t.hibrido.viabilidade.ok, tamanhoGrupo: t.tamanhoGrupo },

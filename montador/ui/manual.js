@@ -49,6 +49,7 @@ import { editorTabata } from './manual-tabata.js';
 import { editorGap } from './manual-gap.js';
 import { editorPostos } from './manual-postos.js';
 import { editorHyrox } from './manual-hyrox.js';
+import { editorMurph } from './manual-murph.js';
 
 /** @type {Record<string, EditorManual>} */
 const EDITORES = {
@@ -57,6 +58,7 @@ const EDITORES = {
   gapMusicas: editorGap,
   postosBiset: editorPostos,
   hyroxEstacoes: editorHyrox,
+  murphFixo: editorMurph,
 };
 
 export const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
