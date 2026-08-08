@@ -80,6 +80,21 @@ function musica(titulo, tipo, slots) {
 }
 
 /**
+ * Uma música a partir de uma escolha EXPLÍCITA — o caminho do Treino Manual, onde
+ * quem escolhe o movimento é o coach. O gerador automático continua entrando por
+ * `musicaMembro`/`musicaTrio`, que sorteiam do banco; as duas rotas terminam aqui,
+ * então a forma do round (e o ciclo 1,2,3,1,2,3,1,2) é a mesma nas duas telas.
+ *
+ * @param {{modo:'variacoes'|'unilateral'|'trio', base?:MovGap, terceiro?:MovGap,
+ *          trio?:MovGap[], titulo?:string}} o
+ */
+export function montarMusica({ modo, base, terceiro, trio, titulo }) {
+  if (modo === 'trio') return musica(titulo || trio[0].nome, 'trio', slotsTrio(trio));
+  if (modo === 'unilateral') return musica(titulo || base.nome, 'unilateral', slotsUnilateral(base, terceiro));
+  return musica(titulo || base.nome, 'variacoes', slotsVariacoes(base));
+}
+
+/**
  * Monta 1 música para uma parte com foco em membro (Pernas/Glúteo), alternando entre
  * bloco de VARIAÇÕES e bloco UNILATERAL, sem repetir movimento-base na mesma aula.
  * @param {MovGap[]} banco @param {() => number} rng @param {Set<string>} usados @param {number} indice
