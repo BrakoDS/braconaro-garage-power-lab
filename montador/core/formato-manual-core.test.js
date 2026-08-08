@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { montarMusica } from './gap.js';
 import { slotDe } from './hiitTabata.js';
-import { estimarDuracaoSeg, volumeHyrox, HYROX_ESTACOES, HYROX_CORRIDA } from './hyrox.js';
+import { estimarDuracaoSeg, volumeHyrox, HYROX_ESTACOES, HYROX_CORRIDA, NIVEIS_HYROX } from './hyrox.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
 
 test('música de variações rende 8 rounds ciclando 3 variações do mesmo movimento', () => {
@@ -117,4 +117,62 @@ test('as voltas de 50 m batem com a distância declarada', () => {
   for (const [n, c] of Object.entries(HYROX_CORRIDA)) {
     assert.equal(c.voltas * 100, c.metros, `${n}: ${c.voltas} voltas ≠ ${c.metros} m`);
   }
+});
+
+// -------- tabela do Hyrox: os números do quadro do box --------
+
+test('a prescrição das 8 estações bate com o quadro do box', () => {
+  // Fonte da verdade: o quadro branco da parede, 4 colunas.
+  // Se alguém mexer num número aqui sem mexer no quadro, a aula sai diferente
+  // do que a turma lê na parede.
+  const esperado = {
+    1: { nome: 'SkiErg',            tipo: 'reps',      v: [60, 80, 100, 250] },
+    2: { nome: 'Sled Push',         tipo: 'distancia', v: [20, 30, 40, 100] },
+    3: { nome: 'Sled Pull',         tipo: 'distancia', v: [20, 30, 40, 100] },
+    4: { nome: 'Burpee Broad Jump', tipo: 'distancia', v: [20, 40, 60, 100] },
+    5: { nome: 'Rowing',            tipo: 'reps',      v: [60, 80, 100, 250] },
+    6: { nome: 'Farmers Carry',     tipo: 'distancia', v: [80, 100, 150, 200] },
+    7: { nome: 'Sandbag Lunges',    tipo: 'distancia', v: [20, 30, 40, 100] },
+    8: { nome: 'Wall Balls',        tipo: 'reps',      v: [30, 50, 75, 100] },
+  };
+  assert.equal(HYROX_ESTACOES.length, 8);
+  for (const e of HYROX_ESTACOES) {
+    const q = esperado[e.n];
+    assert.equal(e.base, q.nome, `estação ${e.n}`);
+    assert.equal(e.tipo, q.tipo, `${q.nome}: unidade errada`);
+    assert.deepEqual(
+      ['iniciante', 'intermediario', 'avancado', 'competitivo'].map((n) => e.prescricao[n]),
+      q.v, `${q.nome}: prescrição fora do quadro`);
+  }
+});
+
+test('a corrida e a bike batem com o quadro, e as voltas fecham a distância', () => {
+  assert.deepEqual(NIVEIS_HYROX.map((n) => HYROX_CORRIDA[n].metros), [100, 300, 500, 1000]);
+  assert.deepEqual(NIVEIS_HYROX.map((n) => HYROX_CORRIDA[n].bikeMin), [0.8, 1, 2, 4]);
+  for (const [n, c] of Object.entries(HYROX_CORRIDA)) {
+    assert.equal(c.voltas * 100, c.metros, `${n}: ${c.voltas} voltas de 50 m ida/volta ≠ ${c.metros} m`);
+  }
+});
+
+test('a prescrição cresce a cada nível — nunca cai', () => {
+  // Uma coluna fora de ordem passa despercebida na leitura mas inverte o treino
+  // de duas turmas. Vale para as 8 estações e para a corrida.
+  for (const e of HYROX_ESTACOES) {
+    const v = NIVEIS_HYROX.map((n) => e.prescricao[n]);
+    for (let i = 1; i < v.length; i++) {
+      assert.ok(v[i] >= v[i - 1], `${e.base}: ${NIVEIS_HYROX[i]} (${v[i]}) < ${NIVEIS_HYROX[i - 1]} (${v[i - 1]})`);
+    }
+  }
+  const dist = NIVEIS_HYROX.map((n) => HYROX_CORRIDA[n].metros);
+  assert.deepEqual([...dist].sort((a, b) => a - b), dist);
+});
+
+test('o Competitivo é o nível mais longo, e existe só no Hyrox', async () => {
+  const dur = NIVEIS_HYROX.map((n) => estimarDuracaoSeg(n));
+  assert.deepEqual([...dur].sort((a, b) => a - b), dur, 'as durações não crescem com o nível');
+  // niveis.js continua com 3 — acrescentar lá vazaria uma 4ª coluna para
+  // Força e Hipertrofia, que não têm prescrição competitiva.
+  const { NIVEIS } = await import('./niveis.js');
+  assert.equal(NIVEIS.length, 3);
+  assert.ok(!NIVEIS.includes('competitivo'));
 });

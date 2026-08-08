@@ -82,6 +82,9 @@ tr.bad-row td { color: var(--warn); }
 /* coluna do intermediário (referência) destacada */
 .t-niveis th.nv-intermediario, .t-niveis td.nv-intermediario { background: rgba(245, 197, 24, .06); }
 .t-niveis th.nv-intermediario { color: var(--acc); }
+/* Competitivo só existe no Hyrox — quem treina para a prova de verdade. */
+.t-niveis th.nv-competitivo, .t-niveis td.nv-competitivo { background: rgba(255, 93, 93, .06); }
+.t-niveis th.nv-competitivo { color: var(--bad); }
 
 /* ---------- Hyrox (formato da competição) ---------- */
 .hyrox-fmt { font-size: 13.5px; color: var(--txt); margin: 6px 0 4px; }

@@ -8,10 +8,26 @@
  * 3 níveis já ajustados (corrida e reps escalam por nível). Não varia semana a
  * semana — é o próprio formato de prova.
  *
- * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
+ * @typedef {'iniciante'|'intermediario'|'avancado'|'competitivo'} Nivel
  * @typedef {import('./volume.js').Volume} Volume
  */
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
+
+/**
+ * Níveis do Hyrox — os três do resto do app MAIS o Competitivo.
+ *
+ * O Competitivo existe SÓ aqui, e de propósito: é a prescrição de quem treina
+ * para a prova de verdade (1 km de corrida por rodada, 250 remadas), e não faz
+ * sentido nas outras modalidades, onde o nível escala carga e não distância.
+ * Por isso este módulo tem a própria lista em vez de usar `NIVEIS` de niveis.js —
+ * acrescentar 'competitivo' lá vazaria uma 4ª coluna para Força e Hipertrofia.
+ * @type {Nivel[]}
+ */
+export const NIVEIS_HYROX = ['iniciante', 'intermediario', 'avancado', 'competitivo'];
+
+export const NIVEL_HYROX_LABEL = {
+  iniciante: 'Ini.', intermediario: 'Int.', avancado: 'Avanç.', competitivo: 'Comp.',
+};
 
 /**
  * Corrida por rodada (tiros de 50 m ida/volta), com a alternativa na airbike.
@@ -26,6 +42,7 @@ export const HYROX_CORRIDA = {
   iniciante:     { voltas: 1, metros: 100, bikeMin: 0.8 },
   intermediario: { voltas: 3, metros: 300, bikeMin: 1 },
   avancado:      { voltas: 5, metros: 500, bikeMin: 2 },
+  competitivo:   { voltas: 10, metros: 1000, bikeMin: 4 },
 };
 
 /**
@@ -47,28 +64,28 @@ export const HYROX_CORRIDA = {
 /** @type {EstacaoHyrox[]} */
 export const HYROX_ESTACOES = [
   { n: 1, nome: 'SkiErg (simulador de esqui)', base: 'SkiErg', equipamento: ['monocross'], padrao: 'puxar',
-    tipo: 'reps', prescricao: { iniciante: 200, intermediario: 250, avancado: 250 },
+    tipo: 'reps', prescricao: { iniciante: 60, intermediario: 80, avancado: 100, competitivo: 250 },
     carga: 'carga moderada (polia)', nota: 'Adaptado nos 2 monocross lado a lado. Ritmo de esqui: puxada explosiva, tronco à frente.' },
   { n: 2, nome: 'Sled Push (empurrar trenó)', base: 'Sled Push', equipamento: ['sled', 'turf', 'anilha_olimpica_15'], padrao: 'quadriceps', padraoSec: 'empurrar',
-    tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40 },
+    tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40, competitivo: 100 },
     carga: 'trenó + 15–45 kg (1 a 3 anilhas por nível)', nota: 'Trenó baixo, tronco firme, passos curtos e potentes no turf de 5 m.' },
   { n: 3, nome: 'Sled Pull (puxar trenó)', base: 'Sled Pull', equipamento: ['sled', 'turf', 'anilha_olimpica_15', 'corda_naval_4m'], padrao: 'puxar', padraoSec: 'estabilizadores',
-    tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40 },
+    tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40, competitivo: 100 },
     carga: 'trenó + 15–45 kg, puxar pela corda', nota: 'Puxe a corda mão sobre mão, quadril baixo e tronco estável.' },
   { n: 4, nome: 'Burpee Broad Jump', base: 'Burpee Broad Jump', equipamento: ['corporal'], padrao: 'empurrar',
-    tipo: 'distancia', prescricao: { iniciante: 40, intermediario: 60, avancado: 80 },
-    carga: 'peso corporal', nota: 'Como na prova (avança em metros): a cada rep, flexão com o peito ao chão + salto para a frente. Avançado = 80 m, como no Hyrox.' },
+    tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 40, avancado: 60, competitivo: 100 },
+    carga: 'peso corporal', nota: 'Como na prova (avança em metros): a cada rep, flexão com o peito ao chão + salto para a frente. Competitivo = 100 m, a distância da prova.' },
   { n: 5, nome: 'Rowing (simulador de remo)', base: 'Rowing', equipamento: ['monocross_movel'], padrao: 'puxar',
-    tipo: 'reps', prescricao: { iniciante: 200, intermediario: 250, avancado: 250 },
+    tipo: 'reps', prescricao: { iniciante: 60, intermediario: 80, avancado: 100, competitivo: 250 },
     carga: 'carga leve/moderada (polia)', nota: 'No 3º monocross (móvel), reservado ao dia de Hyrox. Cadência de remo: rápido e ritmado.' },
   { n: 6, nome: 'Farmer’s carry (halteres pesados)', base: 'Farmers Carry', equipamento: ['halter_pesado'], padrao: 'estabilizadores', padraoSec: 'posterior_gluteo',
-    tipo: 'distancia', prescricao: { iniciante: 80, intermediario: 100, avancado: 100 },
+    tipo: 'distancia', prescricao: { iniciante: 80, intermediario: 100, avancado: 150, competitivo: 200 },
     carga: 'halteres pesados (12,5–17,5 kg)', nota: 'Tronco firme, ombros para trás, passos curtos.' },
   { n: 7, nome: 'Sandbag Lunges (avanço com saco de areia)', base: 'Sandbag Lunges', equipamento: ['sandbag'], padrao: 'quadriceps', padraoSec: 'posterior_gluteo',
-    tipo: 'distancia', prescricao: { iniciante: 30, intermediario: 40, avancado: 40 },
+    tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40, competitivo: 100 },
     carga: 'sandbag 20 kg nos ombros', nota: 'Saco apoiado nos ombros/pescoço; joelho de trás toca o chão, tronco ereto.' },
   { n: 8, nome: 'Wall ball', base: 'Wall Balls', equipamento: ['wall_ball'], padrao: 'quadriceps', padraoSec: 'empurrar',
-    tipo: 'reps', prescricao: { iniciante: 30, intermediario: 50, avancado: 50 },
+    tipo: 'reps', prescricao: { iniciante: 30, intermediario: 50, avancado: 75, competitivo: 100 },
     carga: 'bola 4–6 kg', nota: 'Agachou → arremessou ao alvo; recebe já agachando.' },
 ];
 
@@ -139,11 +156,8 @@ export function gerarHyrox(opcoes = {}) {
   return {
     corrida: HYROX_CORRIDA,
     estacoes,
-    duracaoSeg: {
-      iniciante: estimarDuracaoSeg('iniciante', estacoes),
-      intermediario: estimarDuracaoSeg('intermediario', estacoes),
-      avancado: estimarDuracaoSeg('avancado', estacoes),
-    },
+    duracaoSeg: Object.fromEntries(
+      NIVEIS_HYROX.map((n) => [n, estimarDuracaoSeg(n, estacoes)])),
     // Hyrox é for-time: a turma faz o mesmo percurso em rodízio, não é um circuito
     // de K estações simultâneas. Os gargalos práticos são o TRENÓ (só 1), a SANDBAG
     // (só 1) e o monocross (2 estações de polia).

@@ -46,12 +46,21 @@ function corpoExercicios(d, nivel) {
 function corpoHyrox(h, nivel) {
   const c = h.corrida?.[nivel];
   const corrida = c ? `<div class="td-nota">🏃 Corrida por rodada: <b>${c.metros} m</b> (${c.voltas}×50 m)</div>` : '';
+  // A airbike é a MESMA rodada, pedalando — para quem não tem liberação para
+  // impacto ou quando correr na rua está inviável. Sem o tempo aqui, a aluna
+  // substituída não sabe quando parar.
+  const bike = c?.bikeMin
+    ? `<div class="td-nota">🚲 Sem impacto ou sem rua: <b>${String(c.bikeMin).replace('.', ',')} min</b> de airbike no lugar da corrida.</div>`
+    : '';
   const est = (h.estacoes || []).map((e) => {
     const q = e.prescricao?.[nivel];
     const un = q != null ? (e.tipo === 'distancia' ? `${q} m` : `${q} reps`) : '';
     return `<li class="td-ex"><span class="td-ex-nome">${e.n}. ${esc(e.nome)}</span><span class="td-ex-sub">${esc(e.base || '')}</span><span class="td-ex-presc"><b>${un}</b></span></li>`;
   }).join('');
-  return `<div class="td-nota">8 rodadas de corrida + estação (formato da prova).</div>${corrida}<ul class="td-lista">${est}</ul>`;
+  // O nº de rodadas sai das estações do treino: no Treino Manual o coach pode
+  // desligar as que o box não vai rodar hoje, e "8" ficaria mentindo para a aluna.
+  const n = (h.estacoes || []).length;
+  return `<div class="td-nota">${n} rodada${n === 1 ? '' : 's'} de corrida + estação (formato da prova).</div>${corrida}${bike}<ul class="td-lista">${est}</ul>`;
 }
 
 /** HIIT — 4 estações TABATA (prescrição única). */

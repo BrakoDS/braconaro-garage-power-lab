@@ -5,6 +5,7 @@ import { MINIMO_SEMANAL } from '../config/frequencias.js';
 import { EQUIP_POR_ID } from '../data/equipamentos.js';
 import { alternativasViaveis, aplicarTroca } from '../core/gerador.js';
 import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
+import { NIVEIS_HYROX, NIVEL_HYROX_LABEL } from '../core/hyrox.js';
 
 /** Cor de fundo + texto por modalidade (calendário do histórico). */
 export const COR_MODALIDADE = {
@@ -80,12 +81,17 @@ function tabelaNiveis(linhasHTML) {
 const seloManual = (m) => (m ? ' <span class="chip acc">manual</span>' : '');
 
 export function renderHyrox(hx, dia, manual = false) {
-  const corridaLinha = NIVEIS.map((n) => `${NIVEL_LABEL[n]}: <b>${hx.corrida[n].metros} m</b> (${hx.corrida[n].voltas}×50 m)`).join(' · ');
-  const bikeLinha = NIVEIS.every((n) => hx.corrida[n].bikeMin)
-    ? `<div class="mut" style="margin:4px 0 2px">🚲 <b>Sem impacto ou sem rua:</b> a mesma rodada na airbike — ${NIVEIS.map((n) => `${NIVEL_LABEL[n]} ${String(hx.corrida[n].bikeMin).replace('.', ',')} min`).join(' · ')}.</div>`
+  // O Hyrox tem uma coluna a mais que o resto do app — o Competitivo. Snapshot
+  // salvo antes dela existir não tem esse nível, então a lista sai do próprio
+  // treino em vez de ser fixa: o card antigo continua abrindo com 3 colunas.
+  const niveis = NIVEIS_HYROX.filter((n) => hx.corrida?.[n] || hx.estacoes?.[0]?.prescricao?.[n]);
+  const rot = (n) => NIVEL_HYROX_LABEL[n] || n;
+  const corridaLinha = niveis.map((n) => `${rot(n)} <b>${hx.corrida[n].metros} m</b> (${hx.corrida[n].voltas}×50 m)`).join(' · ');
+  const bikeLinha = niveis.every((n) => hx.corrida[n]?.bikeMin)
+    ? `<div class="mut" style="margin:4px 0 2px">🚲 <b>Sem impacto ou sem rua:</b> a mesma rodada na airbike — ${niveis.map((n) => `${rot(n)} ${String(hx.corrida[n].bikeMin).replace('.', ',')} min`).join(' · ')}.</div>`
     : '';
   const linhas = hx.estacoes.map((e) => {
-    const unidade = (v) => e.tipo === 'distancia' ? `${v} m` : `${v} reps`;
+    const unidade = (v) => (v == null ? '—' : e.tipo === 'distancia' ? `${v} m` : `${v} reps`);
     return `<tr>
       <td>${e.n}</td>
       <td>
@@ -93,17 +99,17 @@ export function renderHyrox(hx, dia, manual = false) {
         <small>${e.base} · ${equipNomes(e.equipamento)}</small><br>
         <small class="mut">${e.carga}${e.nota ? ` — ${e.nota}` : ''}</small>
       </td>
-      ${NIVEIS.map((n) => `<td class="nv nv-${n}"><span class="nv-series">${unidade(e.prescricao[n])}</span></td>`).join('')}
+      ${niveis.map((n) => `<td class="nv nv-${n}"><span class="nv-series">${unidade(e.prescricao[n])}</span></td>`).join('')}
     </tr>`;
   }).join('');
-  const durLinha = NIVEIS.map((n) => `${NIVEL_LABEL[n]} <b>~${mmss(hx.duracaoSeg[n])}</b>`).join(' · ');
+  const durLinha = niveis.map((n) => `${rot(n)} <b>~${mmss(hx.duracaoSeg[n])}</b>`).join(' · ');
   return `<article class="card">
     <h3>${dia ? dia.toUpperCase() + ' · ' : ''}Hyrox — formato da competição${seloManual(manual)}</h3>
     <div class="hyrox-fmt">${hx.estacoes.length} rodadas de <b>corrida + estação</b>, na ordem da prova. Antes de CADA estação, a corrida — ${corridaLinha}.</div>
     ${bikeLinha}
     ${hx.viabilidade?.nota ? `<div class="mut" style="margin:6px 0 2px">${hx.viabilidade.nota}</div>` : ''}
     <div class="tbl-scroll"><table class="t-niveis">
-      <thead><tr><th>#</th><th>Estação</th>${NIVEIS.map((n) => `<th class="nv nv-${n}">${NIVEL_LABEL[n]}</th>`).join('')}</tr></thead>
+      <thead><tr><th>#</th><th>Estação</th>${niveis.map((n) => `<th class="nv nv-${n}">${rot(n)}</th>`).join('')}</tr></thead>
       <tbody>${linhas}</tbody></table></div>
     <div class="hyrox-dur">⏱ Duração estimada: ${durLinha} <span class="mut">(estimativa — ajuste na prática)</span></div>
   </article>`;

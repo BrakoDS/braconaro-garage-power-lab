@@ -11,8 +11,9 @@
  * a duração — inclusive a corrida, que acontece antes de CADA estação e por isso é
  * a parte que mais encolhe.
  */
-import { NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
-import { estimarDuracaoSeg, volumeHyrox, HYROX_CORRIDA } from '../core/hyrox.js';
+import {
+  estimarDuracaoSeg, volumeHyrox, HYROX_CORRIDA, NIVEIS_HYROX, NIVEL_HYROX_LABEL,
+} from '../core/hyrox.js';
 import { esc } from './manual.js';
 
 /** Nº das estações desligadas. Vazio = a prova inteira, que é o default. @type {Set<number>} */
@@ -30,7 +31,7 @@ export const editorHyrox = {
     const linhas = f.estacoes.map((e) => {
       const off = desligadas.has(e.n);
       const unidade = (v) => (e.tipo === 'distancia' ? `${v} m` : `${v} reps`);
-      const presc = NIVEIS.map((n) => `${NIVEL_LABEL[n]} ${unidade(e.prescricao[n])}`).join(' · ');
+      const presc = NIVEIS_HYROX.map((n) => `${NIVEL_HYROX_LABEL[n]} ${unidade(e.prescricao[n])}`).join(' · ');
       return `<label class="man-check${off ? ' off' : ''}">
         <input type="checkbox" class="man-hyrox" data-n="${e.n}"${off ? '' : ' checked'} />
         <span>
@@ -41,10 +42,10 @@ export const editorHyrox = {
       </label>`;
     }).join('');
 
-    const corrida = NIVEIS.map((n) => `${NIVEL_LABEL[n]} ${HYROX_CORRIDA[n].metros} m`).join(' · ');
-    const bike = NIVEIS.map((n) => `${NIVEL_LABEL[n]} ${String(HYROX_CORRIDA[n].bikeMin).replace('.', ',')} min`).join(' · ');
+    const corrida = NIVEIS_HYROX.map((n) => `${NIVEL_HYROX_LABEL[n]} ${HYROX_CORRIDA[n].metros} m`).join(' · ');
+    const bike = NIVEIS_HYROX.map((n) => `${NIVEL_HYROX_LABEL[n]} ${String(HYROX_CORRIDA[n].bikeMin).replace('.', ',')} min`).join(' · ');
     const dur = ativas.length
-      ? NIVEIS.map((n) => `${NIVEL_LABEL[n]} <b>~${mmss(estimarDuracaoSeg(n, ativas))}</b>`).join(' · ')
+      ? NIVEIS_HYROX.map((n) => `${NIVEL_HYROX_LABEL[n]} <b>~${mmss(estimarDuracaoSeg(n, ativas))}</b>`).join(' · ')
       : '—';
 
     return `
@@ -79,7 +80,7 @@ export const editorHyrox = {
         hyrox: {
           corrida: HYROX_CORRIDA,
           estacoes,
-          duracaoSeg: Object.fromEntries(NIVEIS.map((n) => [n, estimarDuracaoSeg(n, estacoes)])),
+          duracaoSeg: Object.fromEntries(NIVEIS_HYROX.map((n) => [n, estimarDuracaoSeg(n, estacoes)])),
           viabilidade: {
             ok: true,
             formato: 'for-time',
