@@ -3,7 +3,7 @@ import { MODALIDADES } from '../config/modalidades.js';
 import { PADRAO_LABEL, PADROES } from '../config/padroes.js';
 import { MINIMO_SEMANAL } from '../config/frequencias.js';
 import { EQUIP_POR_ID } from '../data/equipamentos.js';
-import { alternativasViaveis, aplicarTroca } from '../core/gerador.js';
+import { alternativasViaveis, alternativasLivres, aplicarTroca } from '../core/gerador.js';
 import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
 import { NIVEIS_HYROX, NIVEL_HYROX_LABEL } from '../core/hyrox.js';
 
@@ -372,7 +372,8 @@ function corpoTreino(id) {
       reps: p.reps, descansoSeg: p.descansoSeg,
       niveis: variantesNivel(p.exercicio, p.series, t.modalidade),
     };
-    const acoes = `<button class="btn ghost sm swap" data-card="${id}" data-idx="${i}">trocar</button>`;
+    const acoes = `<button class="btn ghost sm swap" data-card="${id}" data-idx="${i}">trocar</button>
+      <button class="btn ghost sm swap-livre" data-card="${id}" data-idx="${i}" title="Trocar por qualquer exercício do catálogo, mesmo de outro padrão">troca livre</button>`;
     return linhaNiveis(i, item, acoes, `<div class="alts" id="${id}-alts-${i}"></div>`);
   }).join('');
   const fin = t.finalizador ? `<div class="fin"><b>Finalizador — ${t.finalizador.tipo}</b><br>${t.finalizador.descricao}</div>` : '';
@@ -563,6 +564,14 @@ export function renderCalendario(mesId, treinos, rotulo) {
  * @param {(treino:any)=>void} [aoTrocar] recebe o treino já com a troca aplicada
  */
 export function ativarTrocas(raiz, aoTrocar) {
+  /** Aplica a troca e redesenha o card. @param {string} card @param {number} idx @param {any} novo */
+  const trocar = (card, idx, novo) => {
+    const atualizado = aplicarTroca(vivos.get(card), idx, novo);
+    vivos.set(card, atualizado);
+    document.getElementById(card).innerHTML = corpoTreino(card);
+    if (aoTrocar) aoTrocar(atualizado);
+  };
+
   raiz.addEventListener('click', (ev) => {
     const swap = ev.target.closest('.swap');
     if (swap) {
@@ -576,16 +585,71 @@ export function ativarTrocas(raiz, aoTrocar) {
         : '<small>sem alternativas viáveis</small>';
       return;
     }
-    const alt = ev.target.closest('.alt');
-    if (alt) {
-      const { card, idx, ex } = alt.dataset;
-      const t = vivos.get(card);
-      const novo = alternativasViaveis(t, Number(idx)).find((e) => e.id === ex);
-      if (!novo) return;
-      const atualizado = aplicarTroca(t, Number(idx), novo);
-      vivos.set(card, atualizado);
-      document.getElementById(card).innerHTML = corpoTreino(card);
-      if (aoTrocar) aoTrocar(atualizado);
+
+    const livre = ev.target.closest('.swap-livre');
+    if (livre) {
+      const { card, idx } = livre.dataset;
+      const box = document.getElementById(`${card}-alts-${idx}`);
+      if (box.childElementCount) { box.innerHTML = ''; return; } // toggle
+      box.innerHTML = seletorLivre(vivos.get(card), Number(idx), card);
+      return;
     }
+    return;
   });
+
+  // O catálogo inteiro são centenas de exercícios: vira `<select>` agrupado por
+  // padrão, não uma fileira de botões que ninguém consegue percorrer.
+  raiz.addEventListener('change', (ev) => {
+    const sel = ev.target.closest('.alt-livre');
+    if (!sel || !sel.value) return;
+    const { card, idx } = sel.dataset;
+    const novo = alternativasLivres(vivos.get(card), Number(idx)).find((c) => c.exercicio.id === sel.value);
+    if (novo) trocar(card, Number(idx), novo.exercicio);
+  });
+
+  raiz.addEventListener('click', (ev) => {
+    const alt = ev.target.closest('.alt');
+    if (!alt) return;
+    const { card, idx, ex } = alt.dataset;
+    const novo = alternativasViaveis(vivos.get(card), Number(idx)).find((e) => e.id === ex);
+    if (novo) trocar(card, Number(idx), novo);
+  });
+}
+
+/**
+ * Select da troca livre: todo o catálogo, agrupado por padrão de movimento e com
+ * cada candidato etiquetado pelo que a troca custa — aparelho que não comporta a
+ * turma, exercício de fora da modalidade, mudança do padrão que o slot cobria.
+ * Nada é bloqueado; a etiqueta é para o coach decidir com a informação na mão.
+ */
+function seletorLivre(treino, idx, card) {
+  const cands = alternativasLivres(treino, idx);
+  if (!cands.length) return '<small>catálogo sem outro exercício disponível</small>';
+
+  /** @type {Record<string, typeof cands>} */
+  const porPadrao = {};
+  for (const c of cands) (porPadrao[c.exercicio.padrao] = porPadrao[c.exercicio.padrao] || []).push(c);
+
+  // O padrão que este slot cobre hoje vem primeiro: é a troca que NÃO desequilibra.
+  const atual = treino.principal[idx].exercicio.padrao;
+  const ordem = PADROES.filter((p) => porPadrao[p]?.length);
+  if (porPadrao[atual]) { ordem.splice(ordem.indexOf(atual), 1); ordem.unshift(atual); }
+
+  const grupos = ordem.map((p) => {
+    const opts = porPadrao[p]
+      .sort((a, b) => a.exercicio.nome.localeCompare(b.exercicio.nome, 'pt'))
+      .map((c) => {
+        const avisos = [];
+        if (!c.viavel) avisos.push('⚠ aparelho');
+        if (!c.naModalidade) avisos.push('fora da modalidade');
+        return `<option value="${esc(c.exercicio.id)}">${esc(c.exercicio.nome)}${avisos.length ? ` · ${avisos.join(' · ')}` : ''}</option>`;
+      }).join('');
+    const selo = p === atual ? ' — mantém o padrão' : '';
+    return `<optgroup label="${PADRAO_LABEL[p] || p}${selo}">${opts}</optgroup>`;
+  }).join('');
+
+  return `<select class="man-sel alt-livre" data-card="${card}" data-idx="${idx}" style="margin-top:6px">
+      <option value="">— escolha o exercício —</option>${grupos}
+    </select>
+    <small class="mut" style="display:block;margin-top:4px">Trocar para outro padrão muda a cobertura do dia — o volume por grupamento recalcula sozinho e a meta da semana acompanha.</small>`;
 }

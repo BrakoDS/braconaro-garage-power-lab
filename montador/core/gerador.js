@@ -427,6 +427,40 @@ export function alternativasViaveis(treino, indice) {
 }
 
 /**
+ * TROCA LIVRE — todo o catálogo, não só o mesmo padrão de movimento.
+ *
+ * `alternativasViaveis` protege o full body: só oferece exercícios do MESMO padrão,
+ * para o treino não perder a cobertura que a geração garantiu. Aqui a decisão é do
+ * coach — ele pode ter um motivo que o sistema não conhece (aluna com ombro
+ * sensível, aparelho ocupado, aula que hoje vai ser de perna). Nada é escondido:
+ * cada candidato vem etiquetado com o que a troca custaria, e quem decide é quem
+ * está na aula.
+ *
+ * O volume e a viabilidade se recalculam sozinhos depois da troca (`aplicarTroca`),
+ * então a contabilidade por grupamento continua correta seja qual for a escolha.
+ *
+ * @param {import('./tipos.js').Treino} treino
+ * @param {number} indice
+ * @returns {{exercicio: Exercicio, viavel: boolean, naModalidade: boolean, mudaPadrao: boolean}[]}
+ */
+export function alternativasLivres(treino, indice) {
+  const alvo = treino.principal[indice];
+  if (!alvo) return [];
+  const usados = new Set(treino.principal.map((p) => p.exercicio.id));
+  const outros = treino.principal.filter((_, i) => i !== indice).map((p) => p.exercicio);
+  const naoMobilidadePura = (e) => !(e.categorias.length === 1 && e.categorias[0] === 'mobilidade');
+
+  return EXERCICIOS
+    .filter((e) => !usados.has(e.id) && naoMobilidadePura(e))
+    .map((e) => ({
+      exercicio: e,
+      viavel: verificarViabilidade([...outros, e], treino.nAlunos, treino.principal.length).ok,
+      naModalidade: serveModalidade(e, treino.modalidade),
+      mudaPadrao: e.padrao !== alvo.exercicio.padrao,
+    }));
+}
+
+/**
  * Aplica a troca de um exercício e recalcula tempo, volume e viabilidade.
  * Não muta o treino original (retorna uma cópia atualizada).
  * @param {import('./tipos.js').Treino} treino

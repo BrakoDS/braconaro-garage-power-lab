@@ -121,3 +121,68 @@ test('TRX devolve orientação de intensidade, não um traço', () => {
   const textos = ['iniciante', 'intermediario', 'avancado'].map((n) => sugerirCarga(trx[0], n, 'hipertrofia').texto);
   assert.equal(new Set(textos).size, 3, 'os três níveis dão a mesma orientação de TRX');
 });
+
+// -------- troca livre --------
+
+test('a troca livre oferece o catálogo inteiro, não só o mesmo padrão', async () => {
+  const { alternativasLivres, alternativasViaveis } = await import('./gerador.js');
+  const t = gerarTreino({ modalidade: 'hipertrofia', nivel: 'intermediario', dia: 'seg', semana: 2, seed: 11 });
+  const presas = alternativasViaveis(t, 1);
+  const livres = alternativasLivres(t, 1);
+  assert.ok(livres.length > presas.length, `livre ${livres.length} deveria superar restrita ${presas.length}`);
+  // a restrita mantém o padrão; a livre alcança outros
+  assert.ok(presas.every((e) => e.padrao === t.principal[1].exercicio.padrao));
+  assert.ok(livres.some((c) => c.mudaPadrao), 'troca livre não alcançou outro padrão');
+});
+
+test('a troca livre não oferece exercício já usado no próprio treino', async () => {
+  const { alternativasLivres } = await import('./gerador.js');
+  const t = gerarTreino({ modalidade: 'forca', nivel: 'intermediario', dia: 'ter', semana: 1, seed: 5 });
+  const usados = new Set(t.principal.map((p) => p.exercicio.id));
+  for (const c of alternativasLivres(t, 0)) {
+    assert.ok(!usados.has(c.exercicio.id), `${c.exercicio.nome} já está no treino`);
+  }
+});
+
+test('a troca livre etiqueta o que a escolha custa, em vez de esconder', async () => {
+  const { alternativasLivres } = await import('./gerador.js');
+  const t = gerarTreino({ modalidade: 'forca', nivel: 'intermediario', dia: 'ter', semana: 1, seed: 5 });
+  const cands = alternativasLivres(t, 0);
+  // há candidatos de fora da modalidade e candidatos que quebram equipamento —
+  // e é justamente isso que a etiqueta na tela precisa dizer.
+  assert.ok(cands.some((c) => !c.naModalidade), 'nenhum candidato fora da modalidade');
+  assert.ok(cands.some((c) => !c.viavel), 'nenhum candidato inviável por aparelho');
+  assert.ok(cands.some((c) => c.viavel && c.naModalidade), 'nenhum candidato limpo');
+});
+
+test('depois da troca livre, o volume por padrão segue a composição REAL', async () => {
+  const { alternativasLivres, aplicarTroca } = await import('./gerador.js');
+  const t = gerarTreino({ modalidade: 'hipertrofia', nivel: 'intermediario', dia: 'seg', semana: 2, seed: 11 });
+  const padraoAntigo = t.principal[1].exercicio.padrao;
+  const novo = alternativasLivres(t, 1).find((c) => c.mudaPadrao && c.viavel);
+  assert.ok(novo, 'sem candidato de outro padrão para o cenário');
+
+  const depois = aplicarTroca(t, 1, novo.exercicio);
+  const p = novo.exercicio.padrao;
+  assert.equal(depois.principal[1].exercicio.id, novo.exercicio.id);
+  // o padrão novo ganhou volume e o antigo perdeu — é a contabilidade acompanhando
+  assert.ok((depois.volume.porPadrao[p] || 0) > (t.volume.porPadrao[p] || 0),
+    `${p} não ganhou volume após a troca`);
+  assert.ok((depois.volume.porPadrao[padraoAntigo] || 0) < (t.volume.porPadrao[padraoAntigo] || 0),
+    `${padraoAntigo} não perdeu volume após a troca`);
+  // e a viabilidade é recalculada sobre a nova composição
+  assert.equal(depois.viabilidade.ok,
+    (await import('./viabilidade.js')).verificarViabilidade(
+      depois.principal.map((x) => x.exercicio), depois.nAlunos, depois.principal.length).ok);
+});
+
+test('a troca livre não muda séries nem reps do slot', async () => {
+  const { alternativasLivres, aplicarTroca } = await import('./gerador.js');
+  const t = gerarTreino({ modalidade: 'hipertrofia', nivel: 'intermediario', dia: 'seg', semana: 2, seed: 11 });
+  const alvo = t.principal[2];
+  const novo = alternativasLivres(t, 2).find((c) => c.mudaPadrao);
+  const depois = aplicarTroca(t, 2, novo.exercicio);
+  assert.equal(depois.principal[2].series, alvo.series);
+  assert.equal(depois.principal[2].reps, alvo.reps);
+  assert.equal(depois.principal[2].descansoSeg, alvo.descansoSeg);
+});
