@@ -275,6 +275,7 @@ function snapshotManual(c) {
     geradoEm: new Date().toISOString(),
     manual: true,
     volPorPadrao: vol.porPadrao,
+    nAlunos: c.nAlunos, // a edição do dia salvo precisa da turma p/ recalcular viabilidade
     ...extra,
   };
 }

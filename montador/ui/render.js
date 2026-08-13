@@ -6,6 +6,8 @@ import { EQUIP_POR_ID } from '../data/equipamentos.js';
 import { alternativasViaveis, alternativasLivres, aplicarTroca } from '../core/gerador.js';
 import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
 import { NIVEIS_HYROX, NIVEL_HYROX_LABEL } from '../core/hyrox.js';
+import { agruparPorSemana, analisarSemana, analisarMes } from '../core/analise.js';
+import { alternativasDoDia, diaEditavel } from '../core/editar-dia.js';
 
 /** Cor de fundo + texto por modalidade (calendário do histórico). */
 export const COR_MODALIDADE = {
@@ -411,8 +413,14 @@ export function renderDiaSalvo(d, editavel = true) {
   if (d.gap) return renderGap(d.gap, d.dia, man);       // GAP é aula estruturada (sem "trocar")
   if (d.hibrido) return renderHibrido(d.hibrido, d.dia, man); // Híbrido é gerado (sem "trocar" nesta leva)
   if (d.murph) return renderMurph(d.murph, d.dia, man);       // Murph é desafio fixo (sem "trocar")
-  const acoesDe = (i) => editavel ? `<button class="btn ghost sm swap-prog" data-dia="${d.dia}" data-idx="${i}">trocar</button>` : '';
-  const altsDe = (i) => editavel ? `<div class="alts" id="alts-${d.dia}-${i}"></div>` : '';
+  // A edição do dia salvo é sempre sobre o formato plano — os estruturados já
+  // retornaram acima. `diaEditavel` confirma antes de oferecer os botões.
+  const podeEditar = editavel && diaEditavel(d);
+  const acoesDe = (i) => podeEditar
+    ? `<button class="btn ghost sm swap-dia" data-idx="${i}">trocar</button>
+       <button class="btn ghost sm swap-dia-livre" data-idx="${i}" title="Trocar por qualquer exercício do catálogo">troca livre</button>`
+    : '';
+  const altsDe = (i) => podeEditar ? `<div class="alts" id="alts-dia-${i}"></div>` : '';
   // snapshot antigo (sem níveis) → render legado de coluna única
   const legado = d.exercicios.length && !d.exercicios[0].niveis;
   let corpo;
@@ -461,14 +469,208 @@ export function renderDiaSalvo(d, editavel = true) {
         `<li><b>${esc(e.tecnica.label || e.tecnica.tipo)}</b> em ${esc(e.nome)} — <span class="mut">${esc(e.tecnica.detalhe)}</span></li>`).join('')}</ul>`
     : '';
 
+  // Um dia gerado e depois editado à mão não pode parecer igual a um gerado.
+  const selosEdicao = (d.trocas?.length)
+    ? ` <span class="chip warn" title="${esc(d.trocas.map((t) => `${t.de} → ${t.para}`).join(' · '))}">${d.trocas.length} troca${d.trocas.length > 1 ? 's' : ''}</span>`
+    : '';
+
   return `<article class="card">
-    <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}${d.manual ? ' <span class="chip acc">manual</span>' : ''}</h3>
+    <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}${d.manual ? ' <span class="chip acc">manual</span>' : ''}${selosEdicao}</h3>
     <div>${viab}</div>
     ${tempos}
     ${aquec}
     ${corpo}
     ${tecnicas}
     ${fin}</article>`;
+}
+
+/**
+ * Liga a edição do dia salvo dentro do modal.
+ *
+ * Diferente de `ativarTrocas`, aqui não há treino vivo em memória: cada troca
+ * produz um snapshot NOVO, que quem chama precisa gravar e republicar. Por isso
+ * `aoTrocar` é obrigatório — sem ele a tela mostraria uma coisa e o histórico
+ * guardaria outra.
+ *
+ * @param {HTMLElement} raiz  Container do card (o corpo do modal)
+ * @param {() => any} snapAtual  Devolve o snapshot em tela no momento do clique
+ * @param {(novo:any) => void} aoTrocar  Recebe o snapshot já com a troca aplicada
+ */
+export function ativarEdicaoDia(raiz, snapAtual, aoTrocar) {
+  raiz.addEventListener('click', (ev) => {
+    const alvo = /** @type {HTMLElement} */ (ev.target);
+
+    const btn = alvo.closest('.swap-dia, .swap-dia-livre');
+    if (btn) {
+      const idx = Number(/** @type {HTMLElement} */ (btn).dataset.idx);
+      const livre = btn.classList.contains('swap-dia-livre');
+      const box = raiz.querySelector(`#alts-dia-${idx}`);
+      if (!box) return;
+      if (box.childElementCount) { box.innerHTML = ''; return; } // toggle
+      const cands = alternativasDoDia(snapAtual(), idx, { livre });
+      box.innerHTML = livre
+        ? seletorCandidatos(cands, snapAtual().exercicios[idx].padrao, idx)
+        : (cands.length
+          ? cands.map((c) => `<button class="btn ghost sm alt-dia" data-idx="${idx}" data-ex="${esc(c.exercicio.id)}">${esc(c.exercicio.nome)}</button>`).join('')
+          : '<small>sem alternativas viáveis do mesmo padrão — use a troca livre</small>');
+      return;
+    }
+
+    const alt = alvo.closest('.alt-dia');
+    if (alt) {
+      const idx = Number(/** @type {HTMLElement} */ (alt).dataset.idx);
+      const id = /** @type {HTMLElement} */ (alt).dataset.ex;
+      const c = alternativasDoDia(snapAtual(), idx).find((x) => x.exercicio.id === id);
+      if (c) aoTrocar(c.exercicio, idx);
+    }
+  });
+
+  raiz.addEventListener('change', (ev) => {
+    const sel = /** @type {HTMLSelectElement} */ (ev.target).closest('.alt-dia-livre');
+    if (!sel || !sel.value) return;
+    const idx = Number(sel.dataset.idx);
+    const c = alternativasDoDia(snapAtual(), idx, { livre: true }).find((x) => x.exercicio.id === sel.value);
+    if (c) aoTrocar(c.exercicio, idx);
+  });
+}
+
+/** Select da troca livre, agrupado por padrão e com o custo de cada escolha à vista. */
+function seletorCandidatos(cands, padraoAtual, idx) {
+  if (!cands.length) return '<small>catálogo sem outro exercício disponível</small>';
+  /** @type {Record<string, any[]>} */
+  const porPadrao = {};
+  for (const c of cands) (porPadrao[c.exercicio.padrao] = porPadrao[c.exercicio.padrao] || []).push(c);
+
+  const ordem = PADROES.filter((p) => porPadrao[p]?.length);
+  if (porPadrao[padraoAtual]) { ordem.splice(ordem.indexOf(padraoAtual), 1); ordem.unshift(padraoAtual); }
+
+  const grupos = ordem.map((p) => {
+    const opts = porPadrao[p]
+      .sort((a, b) => a.exercicio.nome.localeCompare(b.exercicio.nome, 'pt'))
+      .map((c) => {
+        const avisos = [];
+        if (!c.viavel) avisos.push('⚠ aparelho');
+        if (!c.naModalidade) avisos.push('fora da modalidade');
+        return `<option value="${esc(c.exercicio.id)}">${esc(c.exercicio.nome)}${avisos.length ? ` · ${avisos.join(' · ')}` : ''}</option>`;
+      }).join('');
+    return `<optgroup label="${PADRAO_LABEL[p] || p}${p === padraoAtual ? ' — mantém o padrão' : ''}">${opts}</optgroup>`;
+  }).join('');
+
+  return `<select class="man-sel alt-dia-livre" data-idx="${idx}" style="margin-top:6px">
+      <option value="">— escolha o exercício —</option>${grupos}
+    </select>`;
+}
+
+const STATUS_SEMANA = {
+  fechada: { chip: 'ok', selo: '✓ fechada' },
+  incompleta: { chip: 'falta', selo: '○ incompleta' },
+  desequilibrada: { chip: 'warn', selo: '⚠ desequilibrada' },
+  vazia: { chip: '', selo: '—' },
+};
+
+/**
+ * Semana a semana do mês exibido: quanto foi trabalhado de cada padrão, se a
+ * semana fechou, e o que fazer a respeito.
+ *
+ * Existe para responder à pergunta que aparece depois de editar um dia salvo —
+ * "quebrei a estrutura da semana?" — sem o coach ter que somar na cabeça.
+ * @param {string} mesId @param {any[]} treinosDoMes
+ */
+export function renderAnaliseSemanal(mesId, treinosDoMes) {
+  const semanas = agruparPorSemana(mesId, treinosDoMes);
+  if (!semanas.length) return '';
+
+  const cobrados = PADROES.filter((p) => (MINIMO_SEMANAL[p] || 0) > 0);
+
+  const blocos = semanas.map(({ rotulo, treinos }) => {
+    const a = analisarSemana(treinos);
+    const st = STATUS_SEMANA[a.status];
+    const barras = cobrados.map((p) => {
+      const val = Math.round(a.volPorPadrao[p]);
+      const meta = MINIMO_SEMANAL[p];
+      const ok = val >= meta;
+      const pct = Math.min(100, meta ? (val / meta) * 100 : 0);
+      return `<div class="meta-row">
+        <span class="meta-lbl">${PADRAO_LABEL[p] || p}</span>
+        <span class="meta-bar"><span class="${ok ? 'ok' : ''}" style="width:${pct}%"></span></span>
+        <span class="meta-val ${ok ? 'ok' : 'mut'}">${val}/${meta}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="sem-bloco">
+      <div class="sem-h">
+        <b>${esc(rotulo)}</b>
+        <span>
+          <span class="chip">${treinos.length} treino${treinos.length > 1 ? 's' : ''}</span>
+          <span class="chip ${st.chip}">${st.selo}</span>
+        </span>
+      </div>
+      ${barras}
+      ${a.recomendacao ? `<div class="sem-rec">💡 ${esc(a.recomendacao)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<article class="card">
+    <h4>Semana a semana <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— séries por padrão vs. o mínimo semanal</span></h4>
+    ${blocos}
+  </article>`;
+}
+
+/**
+ * Fechamento do mês. O painel semanal mostra cada semana isolada; este mostra o
+ * acumulado, que é onde um déficit pequeno e repetido aparece.
+ * @param {string} mesId @param {any[]} treinosDoMes
+ */
+export function renderAnaliseMensal(mesId, treinosDoMes) {
+  const m = analisarMes(mesId, treinosDoMes);
+  if (!m.nTreinos) return '';
+
+  const metas = m.metas.map((x) => {
+    const ok = x.tem >= x.meta;
+    const pct = Math.min(100, x.pct);
+    return `<div class="meta-row">
+      <span class="meta-lbl">${PADRAO_LABEL[x.padrao] || x.padrao}</span>
+      <span class="meta-bar"><span class="${ok ? 'ok' : ''}" style="width:${pct}%"></span></span>
+      <span class="meta-val ${ok ? 'ok' : 'mut'}">${Math.round(x.tem)}/${x.meta} · ${x.pct}%</span>
+    </div>`;
+  }).join('');
+
+  const mods = Object.entries(m.porModalidade)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, n]) => `<span class="chip acc">${esc(MODALIDADES[id]?.nome || id)} ${n}</span>`).join('');
+
+  const nome = (p) => PADRAO_LABEL[p] || p;
+  // A amplitude é a diferença entre o campeão e o esquecido em pontos da meta.
+  // Acima de 100pp um está com o dobro do outro — aí é estrutura, não variação.
+  const desequilibrio = m.amplitude >= 100
+    ? `<div class="sem-rec">⚠ <b>${esc(nome(m.maisTrabalhado.padrao))}</b> está em ${m.maisTrabalhado.pct}% da meta e <b>${esc(nome(m.menosTrabalhado.padrao))}</b> em ${m.menosTrabalhado.pct}% — ${m.amplitude} pontos de diferença. O mês pendeu para um lado; equilibre no próximo mesociclo.</div>`
+    : `<div class="sem-rec">✓ Distribuição equilibrada: ${m.amplitude} pontos entre o padrão mais e o menos trabalhado.</div>`;
+
+  return `<article class="card">
+    <h4>Fechamento do mês <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${esc(rotuloDeMes(mesId))}</span></h4>
+
+    <div class="mes-numeros">
+      <div class="mes-num"><b>${m.nTreinos}</b><span>treinos</span></div>
+      <div class="mes-num"><b>${m.nSemanas}</b><span>semana${m.nSemanas > 1 ? 's' : ''}</span></div>
+      <div class="mes-num"><b>${m.mediaPorSemana}</b><span>por semana</span></div>
+      <div class="mes-num"><b>${m.semanasFechadas}/${m.nSemanas}</b><span>fechadas</span></div>
+    </div>
+
+    <h4>Modalidades</h4>
+    <div class="man-dist">${mods}</div>
+
+    <h4>Volume do mês <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— mínimo semanal × ${m.nSemanas} semana${m.nSemanas > 1 ? 's' : ''} com treino</span></h4>
+    ${metas}
+    ${desequilibrio}
+  </article>`;
+}
+
+/** Rótulo 'Setembro/2026' — mesma regra de store.rotuloMes, sem depender dele. */
+function rotuloDeMes(mesId) {
+  const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const [ano, m] = mesId.split('-').map(Number);
+  return `${MESES[m - 1]}/${ano}`;
 }
 
 /**

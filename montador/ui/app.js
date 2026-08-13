@@ -5,7 +5,11 @@
    é um calendário mensal colorido por modalidade. */
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
 import * as store from './store.js';
-import { renderDiaSalvo, renderTreino, ativarTrocas, renderCalendario, renderMetaVolume } from './render.js';
+import {
+  renderDiaSalvo, renderTreino, ativarTrocas, renderCalendario, renderMetaVolume,
+  renderAnaliseSemanal, renderAnaliseMensal, ativarEdicaoDia,
+} from './render.js';
+import { trocarExercicioDoDia } from '../core/editar-dia.js';
 import { gerarTreino } from '../core/gerador.js';
 import { variantesNivel } from '../core/niveis.js';
 import { ladoSalvo } from '../core/hibrido.js';
@@ -48,6 +52,9 @@ function diaSnapshotDe(t, dateId) {
   const base = {
     dia, modalidade: t.modalidade, geradoEm: new Date().toISOString(),
     volPorPadrao: t.volume?.porPadrao || {},
+    // O tamanho da turma vai junto: a edição do dia salvo recalcula a viabilidade
+    // de aparelho, e sem isto ela teria que adivinhar a turma pelo tamanhoGrupo.
+    nAlunos: t.nAlunos,
   };
   if (t.hyrox) return { ...base, viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo }, hyrox: t.hyrox };
   if (t.hiit) return { ...base, viabilidade: { ok: true, tamanhoGrupo: t.tamanhoGrupo }, hiit: t.hiit };
@@ -171,18 +178,55 @@ function shiftMes(mesId, delta) {
 
 function renderHistorico() {
   const treinos = store.listarTreinosDoMes(calMesId);
-  $('#h-saida').innerHTML = renderCalendario(calMesId, treinos, store.rotuloMes(calMesId));
+  $('#h-saida').innerHTML = renderCalendario(calMesId, treinos, store.rotuloMes(calMesId))
+    + renderAnaliseSemanal(calMesId, treinos)
+    + renderAnaliseMensal(calMesId, treinos);
+}
+
+/**
+ * Edição do dia salvo, dentro do modal.
+ *
+ * O snapshot em tela muda a cada troca, então quem responde "qual é o dia agora"
+ * é esta variável — os handlers de `ativarEdicaoDia` a consultam a cada clique em
+ * vez de fechar sobre o valor do momento em que foram registrados.
+ */
+let diaEmEdicao = null;
+let _edicaoLigada = false;
+
+function ligarEdicaoDia() {
+  if (_edicaoLigada) return;
+  _edicaoLigada = true;
+  ativarEdicaoDia(
+    $('#modal-app-corpo'),
+    () => diaEmEdicao?.snap,
+    (novoExercicio, indice) => {
+      if (!diaEmEdicao) return;
+      const { dateId } = diaEmEdicao;
+      const novo = trocarExercicioDoDia(diaEmEdicao.snap, indice, novoExercicio);
+      diaEmEdicao.snap = novo;
+      // Grava e republica NA HORA: o modal não tem "salvar", e um treino editado
+      // que só existe na tela é exatamente a divergência que queremos evitar
+      // entre o que o coach vê e o que a aluna recebe.
+      store.salvarTreino(dateId, novo);
+      publicarTreino(dateId, novo);
+      $('#modal-app-corpo').innerHTML = renderDiaSalvo(novo, true);
+      renderHistorico(); // o calendário e as análises atrás do modal acompanham
+    },
+  );
 }
 
 /** Abre o treino do dia em modal; o "Excluir" de lá pede confirmação em seguida. */
 async function abrirDia(dateId) {
   const snap = store.getTreino(dateId);
   if (!snap) return;
+  ligarEdicaoDia();
+  diaEmEdicao = { dateId, snap };
   const acao = await painel({
     titulo: formatarData(dateId),
-    corpoHTML: renderDiaSalvo(snap, false),
+    corpoHTML: renderDiaSalvo(snap, true),
     acoes: [{ id: 'excluir', label: 'Excluir treino', perigo: true }],
   });
+  diaEmEdicao = null;
   if (acao !== 'excluir') return;
   const ok = await confirmar({
     titulo: 'Excluir treino?',
