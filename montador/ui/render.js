@@ -33,6 +33,14 @@ const celNivel = (v) => `<span class="nv-series">${v.series}×</span> <span clas
  * nome junto. Por isso o `label` do snapshot vem primeiro e o mapa fixo só atende os
  * tipos antigos — incluindo treino já salvo antes desta mudança.
  */
+/** Nomes legíveis dos grupos musculares (os ids de config/padroes.js são internos). */
+const MUSCULO_LABEL = {
+  peito: 'peito', ombro: 'ombro', triceps: 'tríceps', costas: 'costas', biceps: 'bíceps',
+  quadriceps: 'quadríceps', posterior_coxa: 'posterior de coxa', gluteo: 'glúteo',
+  panturrilha: 'panturrilha', core: 'core', antebraco: 'antebraço',
+  adutores: 'adutores', abdutores: 'abdutores', lombar: 'lombar', trapezio: 'trapézio',
+};
+
 const TECNICA_LABEL = { dropset: 'Drop-set', isometria: 'Isometria', tempo: 'Tempo 2-1-2' };
 function seloTecnica(tecnica) {
   if (!tecnica) return '';
@@ -47,13 +55,20 @@ function seloTecnica(tecnica) {
  */
 function linhaNiveis(i, item, acoesHTML, altsHTML) {
   const desc = item.descansoSeg != null ? ` · ${item.descansoSeg}s desc.` : '';
+  // Músculos: o padrão de movimento diz COMO, os músculos dizem O QUÊ — e é o que
+  // o coach precisa para explicar o exercício e montar o quadro.
+  const prim = (item.musculosPrimarios || []).map((m) => MUSCULO_LABEL[m] || m);
+  const sec = (item.musculosSecundarios || []).map((m) => MUSCULO_LABEL[m] || m);
+  const musculos = prim.length
+    ? `<br><small class="mut">💪 ${prim.join(', ')}${sec.length ? ` <span style="opacity:.7">+ ${sec.join(', ')}</span>` : ''}</small>`
+    : '';
   return `<tr>
     <td>${i + 1}</td>
     <td>
       <div class="ex-row">
         <div>
           <b>${item.nome}</b> ${seloTecnica(item.tecnica)}<br>
-          <small>${PADRAO_LABEL[item.padrao] || item.padrao} · ${equipNomes(item.equipamento || [])}</small><br>
+          <small>${PADRAO_LABEL[item.padrao] || item.padrao} · ${equipNomes(item.equipamento || [])}</small>${musculos}<br>
           <small class="mut">${item.reps}${desc}</small>
         </div>
         ${acoesHTML}
@@ -418,15 +433,40 @@ export function renderDiaSalvo(d, editavel = true) {
   }
   const fin = d.finalizador ? `<div class="fin"><b>${d.finalizador.tipo}</b><br>${d.finalizador.descricao}</div>` : '';
   const viab = d.viabilidade?.ok ? `<span class="ok">✓ viável (grupos de ${d.viabilidade.tamanhoGrupo})</span>` : '';
-  // Aquecimento salvo no snapshot (Treino Manual) — o automático não persiste o aquecimento.
+
+  // Aquecimento: o Treino Manual sempre salvou; o automático passou a salvar
+  // também. Snapshot antigo (gerado antes disso) simplesmente não tem — some.
+  const totalAquec = (d.aquecimento || []).reduce((a, x) => a + (x.duracaoSeg || 0), 0);
   const aquec = d.aquecimento?.length
-    ? `<h4>Aquecimento / Mobilidade</h4><ul class="aquec">${d.aquecimento.map((a) => `<li>${a.nome} — ${mmss(a.duracaoSeg)}</li>`).join('')}</ul>`
+    ? `<h4>Aquecimento / Mobilidade <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${d.aquecimento.length} exercícios · ${mmss(totalAquec)}</span></h4>
+       <ul class="aquec">${d.aquecimento.map((a) => {
+         const alvo = a.musculosAlvo?.length ? ` <span class="mut">(${a.musculosAlvo.map((m) => MUSCULO_LABEL[m] || m).join(', ')})</span>` : '';
+         return `<li>${esc(a.nome)} — <b>${a.duracaoSeg}s</b>${alvo}</li>`;
+       }).join('')}</ul>`
     : '';
+
+  // Tempos: só existem em snapshot novo. Ajudam a dimensionar a aula no quadro.
+  const t = d.tempos;
+  const tempos = t
+    ? `<div class="tempos">🔥 aquec ${mmss(t.aquecimentoSeg)} · 🏋️ principal ${mmss(t.principalSeg)} · ⏱ total ~${mmss(t.totalSeg)} <span class="mut">(ref. intermediário)</span></div>`
+    : '';
+
+  // As técnicas do dia, com o texto do que fazer. O selo na linha do exercício
+  // guarda a explicação num `title` — que não serve para quem está copiando no
+  // quadro, e nem existe no celular.
+  const comTecnica = (d.exercicios || []).filter((e) => e.tecnica?.detalhe);
+  const tecnicas = comTecnica.length
+    ? `<h4>Técnicas do dia</h4><ul class="aquec">${comTecnica.map((e) =>
+        `<li><b>${esc(e.tecnica.label || e.tecnica.tipo)}</b> em ${esc(e.nome)} — <span class="mut">${esc(e.tecnica.detalhe)}</span></li>`).join('')}</ul>`
+    : '';
+
   return `<article class="card">
     <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}${d.manual ? ' <span class="chip acc">manual</span>' : ''}</h3>
     <div>${viab}</div>
+    ${tempos}
     ${aquec}
     ${corpo}
+    ${tecnicas}
     ${fin}</article>`;
 }
 

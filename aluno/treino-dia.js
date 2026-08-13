@@ -26,7 +26,7 @@ function nivelEfetivo(nivel) {
 function corpoExercicios(d, nivel) {
   // Aquecimento persistido no snapshot (Treino Manual do coach)
   const aquec = (d.aquecimento || []).length
-    ? `<div class="td-parte-h">Aquecimento / Mobilidade</div><ul class="td-lista">${d.aquecimento.map((a) => `<li>${esc(a.nome)}</li>`).join('')}</ul>`
+    ? `<div class="td-parte-h">Aquecimento / Mobilidade</div><ul class="td-lista">${d.aquecimento.map((a) => `<li>${esc(a.nome)}${a.duracaoSeg ? ` — <b>${a.duracaoSeg}s</b>` : ''}</li>`).join('')}</ul>`
     : '';
   const linhas = (d.exercicios || []).map((e, i) => {
     const v = e.niveis && e.niveis[nivel];

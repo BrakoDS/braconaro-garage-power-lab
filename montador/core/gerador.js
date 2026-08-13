@@ -28,6 +28,7 @@ import { gerarHiitTabata, volumeHiit, estimarDuracaoSeg as estimarDuracaoHiitSeg
 import { gerarGap, volumeGap, estimarDuracaoSeg as estimarDuracaoGapSeg } from './gap.js';
 import { gerarHibrido, volumeHibrido } from './hibrido.js';
 import { gerarMurph, volumeMurph, estimarDuracaoSeg as estimarDuracaoMurphSeg } from './murph.js';
+import { atribuirTecnicasAuto } from './tecnicas-auto.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const TETO_SERIES_POR_MUSCULO = 10; // teto por sessão para evitar sobrecarga
@@ -89,12 +90,15 @@ function tempoExercicio(ex, series, mod) {
  *        (positivo = priorizar; negativo = desencorajar). Usado pelo balanceamento semanal.
  * @param {string[]} [opcoes.idsEvitar]  IDs de exercícios a desencorajar (ex.: os da semana
  *        anterior do mês), para variar o estímulo entre semanas.
+ * @param {{id:string,nome:string,resumo?:string,objetivo?:string,ativo?:boolean}[]} [opcoes.tecnicas]
+ *        Banco de técnicas da Academia. `core/` não lê localStorage, então quem
+ *        chama passa a lista; sem ela, o treino sai sem técnica (como antes).
  */
 export function gerarTreino(opcoes) {
   const {
     modalidade, nivel, dia,
     semana = 1, treinoAnterior = null, nAlunos = ALUNOS_POR_SESSAO,
-    viesPadrao = {}, idsEvitar = [],
+    viesPadrao = {}, idsEvitar = [], tecnicas = [],
   } = opcoes;
   const seed = opcoes.seed ?? hashSeed(`${modalidade}-${dia}-${semana}-${nivel}`);
   const rng = mulberry32(seed);
@@ -240,6 +244,10 @@ export function gerarTreino(opcoes) {
     descansoSeg: mod.descansoSeg,
     tempoSeg: tempoExercicio(ex, series[i], mod),
   }));
+
+  // Técnica avançada em até 2 exercícios (só Hipertrofia — ver tecnicas-auto.js).
+  const tags = atribuirTecnicasAuto(principal, tecnicas, rng, modalidade);
+  principal.forEach((p, i) => { p.tecnica = tags[i]; });
 
   const aquecimento = montarAquecimento(rng, modalidade, principal);
   const finalizador = mod.finalizador ? montarFinalizador(pool, selecionados, rng) : null;

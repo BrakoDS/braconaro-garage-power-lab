@@ -9,6 +9,7 @@ import { renderDiaSalvo, renderTreino, ativarTrocas, renderCalendario, renderMet
 import { gerarTreino } from '../core/gerador.js';
 import { variantesNivel } from '../core/niveis.js';
 import { ladoSalvo } from '../core/hibrido.js';
+import * as academia from '../../academia/db.js';
 import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
 import { initManual } from './manual.js';
 import { confirmar, painel } from './dialogo.js';
@@ -70,10 +71,26 @@ function diaSnapshotDe(t, dateId) {
   return {
     ...base,
     viabilidade: { ok: t.viabilidade.ok, tamanhoGrupo: t.viabilidade.tamanhoGrupo },
+    // O aquecimento era DESCARTADO aqui: o gerador escolhe as mobilidades do dia
+    // (miradas nos músculos do bloco principal) e elas morriam no salvamento, então
+    // o histórico abria sem alongamento nenhum e o coach não tinha o que passar
+    // para o quadro. O Treino Manual sempre salvou — era só o automático.
+    aquecimento: (t.aquecimento || []).map((a) => ({
+      nome: a.exercicio.nome, duracaoSeg: a.duracaoSeg,
+      musculosAlvo: a.exercicio.musculosPrimarios || [],
+    })),
+    tempos: {
+      aquecimentoSeg: t.tempoAquecimentoSeg,
+      principalSeg: t.tempoPrincipalSeg,
+      totalSeg: t.tempoTotalSeg,
+    },
     exercicios: t.principal.map((p) => ({
       id: p.exercicio.id, nome: p.exercicio.nome, padrao: p.exercicio.padrao,
       equipamento: p.exercicio.equipamento, reps: p.reps, descansoSeg: p.descansoSeg,
       seriesRef: p.series, niveis: variantesNivel(p.exercicio, p.series, t.modalidade),
+      musculosPrimarios: p.exercicio.musculosPrimarios || [],
+      musculosSecundarios: p.exercicio.musculosSecundarios || [],
+      tecnica: p.tecnica || null,
     })),
     finalizador: t.finalizador ? { tipo: t.finalizador.tipo, descricao: t.finalizador.descricao } : null,
   };
@@ -114,7 +131,11 @@ function gerarUnico() {
   const semana = Math.min(4, Math.max(1, Number($('#u-semana').value) || 1));
   const dateId = $('#u-data').value || store.dateIdDe();
   const idsEvitar = idsUsadosNaSemana(dateId);
-  const treino = gerarTreino({ modalidade, nivel: NIVEL_ANCORA, dia: 'unico', semana, nAlunos, idsEvitar, seed: Math.floor(Math.random() * 1e6) });
+  // As técnicas vêm da aba "Técnicas" da Academia — o que o coach cadastrou lá é o
+  // que o gerador pode sortear (só Hipertrofia, ver core/tecnicas-auto.js).
+  let tecnicas = [];
+  try { tecnicas = academia.listarTecnicas(); } catch { /* Academia indisponível: treino sai sem técnica */ }
+  const treino = gerarTreino({ modalidade, nivel: NIVEL_ANCORA, dia: 'unico', semana, nAlunos, idsEvitar, tecnicas, seed: Math.floor(Math.random() * 1e6) });
   treinoGerado = treino;
   $('#u-saida').innerHTML = renderTreino(treino, { mostrarDiaSemana: false });
   renderMetaPanel(dateId, treino);

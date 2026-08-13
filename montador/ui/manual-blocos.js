@@ -186,11 +186,22 @@ export const editorBlocos = {
     const itens = escolhidos().map((b) => ({ exercicio: porId(b.ex), series: b.series }));
     const exercicios = itens.map((it) => it.exercicio);
     const viab = verificarViabilidade(exercicios, ctx.nAlunos, exercicios.length);
+
+    // Tempos, na MESMA conta do gerador automático (core/gerador.js): cada série
+    // custa o tempo do exercício mais o descanso, e a transição entre estações
+    // são 20s. O +5min do total é a tolerância que o automático também aplica.
+    const aquecimentoSeg = mobilidadeSalva(aquecSel).reduce((a, m) => a + m.duracaoSeg, 0);
+    const principalSeg = escolhidos().reduce((a, b) => {
+      const e = porId(b.ex);
+      return a + b.series * ((e.tempoMedioSeg || 40) + f.descansoSeg) + 20;
+    }, 0);
+
     return {
       vol: calcularVolume(itens),
       nItens: itens.length,
       extra: {
         viabilidade: { ok: viab.ok, tamanhoGrupo: viab.tamanhoGrupo },
+        tempos: { aquecimentoSeg, principalSeg, totalSeg: aquecimentoSeg + principalSeg + 300 },
         aquecimento: mobilidadeSalva(aquecSel),
         exercicios: escolhidos().map((b) => {
           const e = porId(b.ex);
@@ -198,6 +209,8 @@ export const editorBlocos = {
             id: e.id, nome: e.nome, padrao: e.padrao, equipamento: e.equipamento,
             reps: `${b.reps} reps`, descansoSeg: f.descansoSeg, seriesRef: b.series,
             niveis: variantesNivel(e, b.series, f.modalidade),
+            musculosPrimarios: e.musculosPrimarios || [],
+            musculosSecundarios: e.musculosSecundarios || [],
             tecnica: tecnicaSalva(b.tecnica),
           };
         }),

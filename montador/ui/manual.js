@@ -196,10 +196,13 @@ export function atualizarOrcamentoMob(sel, orcamentoSeg) {
   alvo.classList.toggle('warn', estourou);
 }
 
-/** As mobilidades escolhidas, no formato do snapshot. */
+/** As mobilidades escolhidas, no formato do snapshot (mesma forma do automático). */
 export function mobilidadeSalva(sel) {
   return sel.map((id) => (id ? porId(id) : null)).filter(Boolean)
-    .map((e) => ({ nome: e.nome, duracaoSeg: duracaoMobilidade(e) }));
+    .map((e) => ({
+      nome: e.nome, duracaoSeg: duracaoMobilidade(e),
+      musculosAlvo: e.musculosPrimarios || [],
+    }));
 }
 
 // ---------- contexto ----------

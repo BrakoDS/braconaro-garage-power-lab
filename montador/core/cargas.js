@@ -42,12 +42,22 @@ export function sugerirCarga(ex, nivel, modalidade) {
   const mult = MULT_MODALIDADE[modalidade] ?? 1;
 
   // peso corporal / cardio → orientação de esforço
+  // `trx` entra aqui: a fita não tem carga própria, quem regula a intensidade é o
+  // ângulo do corpo. Sem ele na lista, todo exercício de TRX caía no '—' do final
+  // e a coluna de carga saía vazia nas três colunas de nível.
   const corporais = ['corporal', 'corrida', 'air_bike', 'corda_naval', 'colchonete',
-    'elastico', 'bastao', 'caixote', 'step'];
+    'elastico', 'bastao', 'caixote', 'step', 'trx'];
   const ehSoCorporal = ex.equipamento.every((id) => corporais.includes(id));
   if (ehSoCorporal) {
     const esforco = { forca: 'controlado', hipertrofia: 'cadência 2-1-2', hibrido: 'forte',
-      hyrox: 'ritmo sustentável', hiit: 'máximo no tempo', gap: 'TABATA — máximo no tempo' }[modalidade] || 'controlado';
+      hyrox: 'ritmo sustentável', hiit: 'máximo no tempo', gap: 'TABATA — máximo no tempo',
+      murph: 'ritmo de prova' }[modalidade] || 'controlado';
+    // No TRX o que escala é a inclinação do corpo, não o peso — dizer "peso
+    // corporal" e parar ali deixaria o coach sem saber como diferenciar os níveis.
+    if (ex.equipamento.includes('trx')) {
+      const ang = { iniciante: 'corpo mais em pé', intermediario: 'corpo a ~45°', avancado: 'corpo quase na horizontal' }[nivel];
+      return { texto: `TRX · ${ang}`, kg: null, tipo: 'trx' };
+    }
     return { texto: `peso corporal · ${esforco}`, kg: null, tipo: 'corporal' };
   }
 
