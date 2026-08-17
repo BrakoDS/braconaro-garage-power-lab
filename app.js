@@ -118,7 +118,7 @@
     { name: 'Quarta',  dow: 3, slots: ['06:00 – 11:00', '15:00 – 20:00'] },
     { name: 'Quinta',  dow: 4, slots: ['06:00 – 11:00', '15:00 – 20:00'] },
     { name: 'Sexta',   dow: 5, slots: ['06:00 – 11:00', '15:00 – 19:00'] },
-    { name: 'Sábado',  dow: 6, slots: ['Aula às 09:00'] },
+    { name: 'Sábado',  dow: 6, slots: ['08:00 – 11:00'] },
     { name: 'Domingo', dow: 0, slots: [], closed: true }
   ];
   var todayDow = new Date().getDay();
