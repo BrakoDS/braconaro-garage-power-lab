@@ -1,6 +1,6 @@
 {
   "name": "garage-functions",
-  "description": "Cloud Functions do Braconaro Garage Power Lab",
+  "description": "Cloud Functions do Garage Power Lab",
   "private": true,
   "main": "lib/index.js",
   "engines": {

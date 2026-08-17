@@ -110,7 +110,7 @@ const STYLE = `
 
 function abrirImpressao(title, inner) {
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8" /><title>${esc(title)}</title><style>${STYLE}</style></head><body>${inner}
-    <div class="ft"><span>Braconaro Garage Power Lab · Agudos/SP</span><span>Gerado em ${new Date().toLocaleDateString('pt-BR')}</span></div>
+    <div class="ft"><span>Garage Power Lab · Agudos/SP</span><span>Gerado em ${new Date().toLocaleDateString('pt-BR')}</span></div>
     <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});<\/script>
   </body></html>`;
   const w = window.open('', '_blank');
@@ -229,7 +229,7 @@ export function exportarAvaliacao(aluno, av) {
   const pagina1 = `
     <div class="hd2">
       <img class="hd-logo" src="${LOGO_URL}" alt="" />
-      <div class="hd-brand"><div class="t1">Braconaro Garage Power Lab</div><div class="t2">Relatório de Avaliação Física</div></div>
+      <div class="hd-brand"><div class="t1">Garage Power Lab</div><div class="t2">Relatório de Avaliação Física</div></div>
       <div class="meta">Avaliação #${String(av.num).padStart(2, '0')}<br/>Realizada: ${fmtData(av.dataRealizada)}<br/>Próxima: ${fmtData(av.dataProxima)}</div>
     </div>
     <div class="stu-card">
@@ -323,7 +323,7 @@ export function exportarFicha(aluno) {
   const wa = (aluno.telefone || '').replace(/\D/g, '');
   const inner = `
     <div class="hd">
-      <div><div class="t1">Braconaro Garage Power Lab</div><div class="t2">Ficha do Aluno</div></div>
+      <div><div class="t1">Garage Power Lab</div><div class="t2">Ficha do Aluno</div></div>
       <div class="meta">${esc(aluno.nome || '')}<br/>ID #${esc(aluno.id)} · ${esc((aluno.status || 'ativo'))}</div>
     </div>
     <h2>Dados pessoais</h2>

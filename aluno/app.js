@@ -167,7 +167,7 @@ function wireFoto() {
 /* ---------- Indique um amigo ---------- */
 function renderIndique() {
   const nome1 = primeiroNome(PORTAL?.nome);
-  const msg = `Oi! Eu treino no Braconaro Garage Power Lab e recomendo muito. 💪 Eles têm uma aula experimental grátis — dá uma olhada: https://garagepowerlab.com.br/#experimental (fala que foi indicação de ${nome1})`;
+  const msg = `Oi! Eu treino no Garage Power Lab e recomendo muito. 💪 Eles têm uma aula experimental grátis — dá uma olhada: https://garagepowerlab.com.br/#experimental (fala que foi indicação de ${nome1})`;
   const waLink = `https://wa.me/?text=${encodeURIComponent(msg)}`;
   const wa = $('#indique-wa'); if (wa) wa.href = waLink;
   const btnCopiar = $('#indique-copiar');

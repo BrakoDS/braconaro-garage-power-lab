@@ -1,7 +1,7 @@
-# Braconaro Garage Power Lab — Landing Page
+# Garage Power Lab — Landing Page
 
 Landing page (dark · preto/cinza/amarelo) para o box de treinamento
-**Braconaro Garage Power Lab** em Agudos/SP. Construída a partir do design
+**Garage Power Lab** em Agudos/SP. Construída a partir do design
 exportado do Claude Design, em HTML/CSS/JS.
 
 ## Como abrir
@@ -52,7 +52,8 @@ As imagens do design acompanham o projeto em `braconaro/assets/`:
 
 | Arquivo                                | Onde aparece             |
 | -------------------------------------- | ------------------------ |
-| `braconaro/assets/logo-white.png`      | Logo (nav, hero, rodapé) |
+| `braconaro/assets/logo1.png`           | Logo horizontal (nav, rodapé) |
+| `braconaro/assets/logo2.png`           | Logo empilhada (hero)    |
 | `braconaro/assets/hero-box-v3.jpg`     | Hero (foto do box)       |
 | `braconaro/assets/about-athlete-v4.jpg`| Seção "Sobre o box"      |
 | `braconaro/assets/mod-forca.png`       | Modalidade · Força       |

@@ -1,5 +1,5 @@
 /* ============================================================
-   BRACONARO GARAGE POWER LAB — app.js
+   GARAGE POWER LAB — app.js
    ============================================================ */
 (function () {
   'use strict';
@@ -189,7 +189,7 @@
     var obj = (d.get('objetivo') || '').toString().trim();
     var hor = (d.get('horario') || '').toString().trim();
     var ind = (d.get('indicadoPor') || '').toString().trim();
-    var msg = 'Olá! Quero agendar uma AULA EXPERIMENTAL grátis no Braconaro Garage Power Lab.\n\n'
+    var msg = 'Olá! Quero agendar uma AULA EXPERIMENTAL grátis no Garage Power Lab.\n\n'
       + 'Nome: ' + nome + '\n'
       + 'Meu WhatsApp: ' + whats
       + (obj ? '\nObjetivo: ' + obj : '')

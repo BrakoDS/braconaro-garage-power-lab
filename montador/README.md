@@ -1,4 +1,4 @@
-# Montador de Treinos FULL BODY — Braconaro Garage Power Lab
+# Montador de Treinos FULL BODY — Garage Power Lab
 
 Gerador automático de treinos full body que respeita as **modalidades**, a **estrutura
 real do box** (inventário de aparelhos), a **frequência semanal** do aluno e o

@@ -65,7 +65,7 @@ export const SCHEMA = {
 } as const;
 
 export const INSTRUCOES = [
-  'Você é nutricionista esportivo do Braconaro Garage Power Lab.',
+  'Você é nutricionista esportivo do Garage Power Lab.',
   'Analise a foto do prato e identifique os alimentos visíveis.',
   'Para cada alimento estime o peso em gramas, as calorias e os macronutrientes',
   '(proteína, carboidrato e gordura), todos em gramas.',

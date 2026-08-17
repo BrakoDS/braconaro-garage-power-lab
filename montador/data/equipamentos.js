@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * INVENTÁRIO REAL DO BOX — Braconaro Garage Power Lab
+ * INVENTÁRIO REAL DO BOX — Garage Power Lab
  * ---------------------------------------------------
  * Cada equipamento tem `unidades` = quantas estações simultâneas ele permite.
  * O algoritmo usa isso para garantir que um treino de 8 alunos seja viável.

@@ -1,5 +1,5 @@
 /**
- * Cloud Functions do Braconaro Garage Power Lab.
+ * Cloud Functions do Garage Power Lab.
  *
  * Hoje só a análise de foto de refeição. Ela existe como função — e não como
  * chamada direta do app — por um motivo só: a chave da OpenAI não pode ir para

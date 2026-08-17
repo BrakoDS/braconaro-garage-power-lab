@@ -36,7 +36,7 @@ function lighten(h, amt) {
   return `rgb(${f(r)}, ${f(g)}, ${f(b)})`;
 }
 
-function BraconaroTweaks() {
+function GarageTweaks() {
   const [t, setTweak] = useTweaks(loadSavedTweaks(BRAC_TWEAK_DEFAULTS));
 
   React.useEffect(() => {
@@ -86,4 +86,4 @@ function BraconaroTweaks() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<BraconaroTweaks />);
+ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<GarageTweaks />);

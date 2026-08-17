@@ -1,5 +1,5 @@
 /* ============================================================
-   BRACONARO GARAGE POWER LAB — landing styles
+   GARAGE POWER LAB — landing styles
    ============================================================ */
 
 :root {
@@ -255,7 +255,9 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   width: 100%;
 }
-.hero-logo { width: clamp(200px, 26vw, 320px); margin-bottom: 22px; filter: drop-shadow(0 6px 26px rgba(0,0,0,.6)); }
+/* logo2 é empilhada (527×396). Na largura da logo horizontal antiga ela ficaria
+   alta demais e empurraria o h1 — daí a largura menor. */
+.hero-logo { width: clamp(170px, 20vw, 250px); margin-bottom: 22px; filter: drop-shadow(0 6px 26px rgba(0,0,0,.6)); }
 .hero h1 {
   font-family: var(--font-display);
   text-transform: uppercase;

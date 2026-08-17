@@ -52,7 +52,7 @@ export function bloquearNaoCoach() {
   gate.style.display = 'flex';
   gate.innerHTML = `
     <div class="gate-box" style="text-align:center;max-width:360px">
-      <div class="brand"><b>BRACONARO</b> · Área restrita</div>
+      <div class="brand"><b>GARAGE POWER LAB</b> · Área restrita</div>
       <p style="color:var(--mut,#a1a1aa);margin:14px 0 18px;line-height:1.5">Esta área é exclusiva do coach. Sua conta é de <b>aluno</b> — seu espaço é o Portal do Aluno.</p>
       <a class="btn" href="../aluno/index.html" style="display:block">Ir para o Portal do Aluno</a>
       <a href="#" id="blk-sair" style="display:inline-block;margin-top:16px;color:var(--mut,#a1a1aa);font-size:.85rem">Sair desta conta</a>
