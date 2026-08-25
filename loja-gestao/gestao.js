@@ -20,6 +20,7 @@ import * as db from '../academia/db.js';
 import { publicarLoja, carregarVitrine, assinatura, assinaturaPublicada } from '../loja/loja-portal.js';
 import { cardProduto, gridVitrine, filtrar, chipsCategoria, formatarPreco, esc, norm, CATEGORIAS, SUBCATEGORIAS } from '../loja/vitrine-card.js';
 import { analisarUrl, lerPreco, buscarMetadados } from './loja-url.js';
+import { estadoPrecos, fundirPrecos, carregarPrecos, pedirAtualizacao } from '../loja/precos.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -30,6 +31,9 @@ let abaAtiva = 'painel';
 
 /** Estado do que está publicado, p/ o painel e a prévia. */
 let publicado = { produtos: [], atualizadoEm: null };
+
+/** Última rodada do robô de preços, p/ a faixa do painel. */
+let feedPrecos = null;
 
 const F = { prodBusca: '', prodCat: 'todas', previaBusca: '', previaCat: 'todas', previaModo: 'ar' };
 
@@ -78,12 +82,20 @@ function renderPainel() {
          <span class="metrica-sub">${st.quando ? `atualizada em ${esc(st.quando)}` : 'nada publicado ainda'}</span>
        </div>`;
 
+  const ep = estadoPrecos(feedPrecos, produtos);
+  const classePreco = { ok: 'ok', falhas: 'alerta', travou: 'alerta', nunca: '' }[ep.tipo];
+
   $('#painel-cards').innerHTML = `
     <div class="metricas">
       <div class="metrica"><span class="metrica-n">${produtos.length}</span><span class="metrica-rot">${produtos.length === 1 ? 'Produto cadastrado' : 'Produtos cadastrados'}</span></div>
       <div class="metrica"><span class="metrica-n destaque">${ativos.length}</span><span class="metrica-rot">Ativos</span><span class="metrica-sub">vão para a vitrine</span></div>
       <div class="metrica"><span class="metrica-n">${rascunhos}</span><span class="metrica-rot">${rascunhos === 1 ? 'Rascunho' : 'Rascunhos'}</span><span class="metrica-sub">só você vê</span></div>
       ${cardStatus}
+      <div class="metrica ${classePreco}">
+        <span class="metrica-n">${ep.tipo === 'ok' ? '✓' : ep.tipo === 'nunca' ? '–' : '!'}</span>
+        <span class="metrica-rot">Preços do Mercado Livre</span>
+        <span class="metrica-sub">${esc(ep.texto)}</span>
+      </div>
     </div>`;
 
   // Categorias: barra proporcional ao maior valor, com ativos destacados dentro do total
@@ -148,8 +160,16 @@ function renderProdutos() {
    Aba 3 — Prévia (mesmo card e mesmo CSS da loja pública)
    ============================================================ */
 function produtosDaPrevia() {
-  if (F.previaModo === 'ar') return publicado.produtos;
-  // "como ficará": os ativos locais, passados pela mesma normalização da publicação
+  // "no ar": o mesmo cardápio que a vitrine pública monta — catálogo publicado
+  // FUNDIDO com o feed do robô. Sem `fundirPrecos` a prévia divergia do aluno em
+  // duas coisas de uma vez: mostrava o preço digitado pelo coach (com a legenda
+  // "preço de referência") no lugar do preço lido do Mercado Livre, e mantinha na
+  // grade produtos que a vitrine do aluno já tinha removido por falha de leitura.
+  if (F.previaModo === 'ar') return fundirPrecos(publicado.produtos, feedPrecos);
+  // "como ficará": os ativos locais, passados pela mesma normalização da
+  // publicação — e SEM o feed de propósito. O assunto aqui é o que ainda não foi
+  // ao ar; o robô só lê o que está publicado, então carimbar preço lido em
+  // produto ainda não publicado prometeria uma verificação que não aconteceu.
   return db.listarProdutos()
     .filter((p) => p.ativo !== false && p.nome && p.url)
     .map((p) => ({ ...p, preco: typeof p.preco === 'number' ? p.preco : lerPreco(p.preco) }));
@@ -307,6 +327,53 @@ $('#btn-publicar').addEventListener('click', async () => {
   renderTudo();
 });
 
+$('#btn-precos').addEventListener('click', async () => {
+  const btn = $('#btn-precos');
+
+  // A função lê a VITRINE PUBLICADA (`lojaPortal/atual`), não o catálogo local
+  // do coach — contar `db.listarProdutos()` prometeria buscar rascunhos e
+  // alterações ainda não publicados, que a função nem enxerga. Por isso a
+  // contagem vem de `publicado.produtos` (preenchido por `carregarVitrine()`
+  // na abertura), não do catálogo local. Não "corrija" isto de volta.
+  const qtd = publicado.produtos.length;
+
+  if (qtd === 0) {
+    $('#status-pub').innerHTML = '<span class="erro">nada publicado ainda — publique a vitrine antes de atualizar preços</span>';
+    return;
+  }
+
+  // Confirmação é guarda contra clique acidental, não aprovação de preço: quem
+  // manda no valor é a leitura, e a rodada das 05:00 aplica sem perguntar de
+  // qualquer forma. O número abaixo é o tamanho da vitrine publicada, não uma
+  // promessa de quantas buscas vão rodar: a função ainda descarta dali os
+  // produtos cujo link não é do Mercado Livre, e essa regra vive só no código
+  // dela — não duplicar aqui.
+  if (!confirm(`Buscar preços atuais no Mercado Livre para os produtos da vitrine publicada (${qtd} ao todo)?\nPode levar alguns minutos.`)) return;
+
+  // Desabilitar é obrigatório, não só cosmético: a função só atende uma chamada
+  // por vez, então um segundo clique não roda em paralelo — fica na fila e o
+  // coach espera duas rodadas.
+  btn.disabled = true;
+  const rotulo = btn.textContent;
+  btn.textContent = 'Buscando…';
+  try {
+    const r = await pedirAtualizacao();
+    feedPrecos = await carregarPrecos();
+    $('#status-pub').innerHTML = r.veioDoCache
+      ? '<span class="ok">leitura recente reaproveitada — nada foi buscado agora (aguarde 1 min e tente de novo)</span>'
+      : r.travou
+        ? '<span class="erro">a leitura falhou geral — nenhum preço foi alterado</span>'
+        : `<span class="ok">${r.lidos} lidos · ${r.mudaram} mudaram · ${r.falhas} falha${r.falhas === 1 ? '' : 's'}</span>`;
+    renderPainel();
+  } catch (e) {
+    $('#status-pub').innerHTML = '<span class="erro">⚠ não deu para atualizar os preços</span>';
+    console.warn('Atualizar preços:', e?.code || e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = rotulo;
+  }
+});
+
 function renderTudo() {
   renderPainel();
   renderProdutos();
@@ -337,7 +404,13 @@ async function entrar(user) {
       return;
     }
   }
-  publicado = await carregarVitrine();
+  // Duas atribuições em vez de desestruturar um array: uma linha começando com
+  // `[` depende do ponto e vírgula da linha anterior para não virar índice.
+  // Preços é acessório (o painel só perde a faixa se falhar); catálogo é o
+  // trabalho do coach, por isso só ele passa pelo `try/catch` do sync acima.
+  const [pub, precos] = await Promise.all([carregarVitrine(), carregarPrecos()]);
+  publicado = pub;
+  feedPrecos = precos;
   renderTudo();
 }
 

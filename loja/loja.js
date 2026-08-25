@@ -10,6 +10,7 @@
  * do coach usa — é o que garante que a prévia dele seja fiel a esta tela.
  */
 import { carregarLoja } from './loja-portal.js';
+import { carregarPrecos, fundirPrecos } from './precos.js';
 import { gridVitrine, filtrar, chipsCategoria, chipsSubcategoria } from './vitrine-card.js';
 
 const $ = (s) => document.querySelector(s);
@@ -48,7 +49,10 @@ $('#filtros-sub').addEventListener('click', (e) => {
 
 (async () => {
   try {
-    PRODUTOS = await carregarLoja();
+    // Os dois em paralelo: o feed não pode atrasar a vitrine, e se ele falhar a
+    // loja abre do mesmo jeito com os preços do catálogo.
+    const [produtos, feed] = await Promise.all([carregarLoja(), carregarPrecos()]);
+    PRODUTOS = fundirPrecos(produtos, feed);
   } catch {
     PRODUTOS = [];
   }
