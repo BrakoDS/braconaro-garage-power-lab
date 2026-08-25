@@ -64,6 +64,16 @@ service cloud.firestore {
           || exists(/databases/$(database)/documents/gestao/$(request.auth.uid)));
     }
 
+    // Feed de preços lido do Mercado Livre. Escrito SÓ pela Cloud Function, que
+    // usa o Admin SDK e passa por cima das regras — daí o `write: if false`, que
+    // fecha a porta para qualquer cliente, inclusive o coach logado. O robô e o
+    // coach nunca disputam o mesmo campo: o preço digitado vive no catálogo, o
+    // preço lido vive aqui, e a vitrine funde os dois na hora de montar o card.
+    match /lojaPrecos/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Desafios da semana — lista única publicada pelo coach, lida por todos.
     match /desafiosPortal/{doc} {
       allow read: if request.auth != null;

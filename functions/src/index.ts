@@ -13,11 +13,13 @@
  */
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { extrairAnalise, INSTRUCOES, SCHEMA, type Analise } from './analise';
+import { decidirRodada, extrairPreco, type ItemFeed, type Leitura, type ResultadoProduto } from './precos';
 
 initializeApp();
 
@@ -177,5 +179,133 @@ export const analisarRefeicao = onCall(
     } finally {
       clearTimeout(timer);
     }
+  },
+);
+
+/* ============================================================
+   SINCRONIZAÇÃO DE PREÇOS DA GARAGE STORE
+   ============================================================
+
+   Por que a função escreve num documento próprio (`lojaPrecos/atual`) em vez de
+   corrigir o preço direto na vitrine: `lojaPortal/atual` é sobrescrito INTEIRO
+   pelo app de gestão a cada "Publicar", com os preços que o coach digitou. Se o
+   robô escrevesse lá, o próximo clique do coach desfaria o trabalho dele. Cada
+   um com seu documento, a vitrine funde os dois na leitura, e o indicador de
+   "alterações pendentes" da gestão continua dizendo a verdade.
+
+   A lista de produtos vem do próprio `lojaPortal/atual`, que é de leitura
+   pública: a função não precisa de acesso nenhum ao catálogo privado do coach. */
+
+const UA_NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/** Quanto esperamos por um link antes de desistir dele. */
+const TIMEOUT_LINK_MS = 15_000;
+
+/** Pausa entre um link e o outro. Não é exigência do ML — é boa educação. */
+const PAUSA_MS = 400;
+
+const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Busca um produto e devolve a leitura. Erro de rede/HTTP vira motivo `http`. */
+async function buscarProduto(url: string): Promise<Leitura> {
+  const controle = new AbortController();
+  const timer = setTimeout(() => controle.abort(), TIMEOUT_LINK_MS);
+  try {
+    const r = await fetch(url, {
+      redirect: 'follow',
+      signal: controle.signal,
+      headers: { 'User-Agent': UA_NAVEGADOR, 'Accept-Language': 'pt-BR,pt;q=0.9' },
+    });
+    if (!r.ok) return { ok: false, motivo: 'http' };
+    return extrairPreco(await r.text());
+  } catch {
+    return { ok: false, motivo: 'http' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+type ResumoRodada = {
+  total: number; lidos: number; falhas: number; travou: boolean; mudaram: number;
+};
+
+/** Uma rodada completa. Usada pelo agendamento e pelo botão — o mesmo código. */
+async function rodar(): Promise<ResumoRodada> {
+  const db = getFirestore();
+
+  const vitrine = await db.doc('lojaPortal/atual').get();
+  const produtos = (vitrine.exists ? (vitrine.data()?.produtos ?? []) : []) as
+    { id?: string; url?: string }[];
+  const alvos = produtos.filter((p) => p && typeof p.id === 'string' && typeof p.url === 'string' && p.url);
+
+  // Vitrine vazia ou ilegível: não há o que sincronizar, e gravar um feed vazio
+  // apagaria os preços bons de ontem.
+  if (!alvos.length) {
+    logger.warn('Preços: vitrine vazia ou ilegível, rodada abortada sem gravar.');
+    return { total: 0, lidos: 0, falhas: 0, travou: true, mudaram: 0 };
+  }
+
+  const feedAntes = await db.doc('lojaPrecos/atual').get();
+  const anterior = (feedAntes.exists ? (feedAntes.data()?.itens ?? {}) : {}) as Record<string, ItemFeed>;
+
+  const resultados: ResultadoProduto[] = [];
+  for (const p of alvos) {
+    resultados.push({ id: p.id as string, leitura: await buscarProduto(p.url as string) });
+    await dormir(PAUSA_MS);
+  }
+
+  const agora = Date.now();
+  const { rodada, itens } = decidirRodada(resultados, anterior, agora);
+
+  const mudaram = rodada.travou ? 0 : Object.entries(itens).filter(([id, it]) =>
+    it.estado === 'ok' && anterior[id]?.preco !== it.preco).length;
+
+  if (rodada.travou) {
+    // Só o carimbo do problema. `itens` fica exatamente como estava.
+    await db.doc('lojaPrecos/atual').set(
+      { rodada, atualizadoEm: agora, travadaEm: agora },
+      { merge: true },
+    );
+    logger.error('Preços: trava disparada.', rodada);
+  } else {
+    await db.doc('lojaPrecos/atual').set({ rodada, itens, atualizadoEm: agora });
+    logger.info('Preços sincronizados.', { ...rodada, mudaram });
+  }
+
+  return { ...rodada, mudaram };
+}
+
+export const sincronizarPrecosDiario = onSchedule(
+  {
+    schedule: '0 5 * * *',
+    timeZone: 'America/Sao_Paulo',
+    region: 'southamerica-east1',
+    memory: '256MiB',
+    timeoutSeconds: 120,
+    maxInstances: 1,
+    retryCount: 0, // se falhar hoje, tenta amanhã — não em loop, que é o que gera conta alta
+  },
+  async () => { await rodar(); },
+);
+
+export const atualizarPrecos = onCall(
+  { region: 'southamerica-east1', memory: '256MiB', timeoutSeconds: 120, maxInstances: 1 },
+  async (req): Promise<ResumoRodada> => {
+    const uid = req.auth?.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Entre na sua conta.');
+
+    // Mesma condição que as regras do Firestore usam para autorizar escrita em
+    // lojaPortal: quem publica a vitrine é quem pode mandar reler os preços.
+    const db = getFirestore();
+    const [academia, gestao] = await Promise.all([
+      db.doc(`academia/${uid}`).get(),
+      db.doc(`gestao/${uid}`).get(),
+    ]);
+    if (!academia.exists && !gestao.exists) {
+      throw new HttpsError('permission-denied', 'Só o coach pode atualizar os preços.');
+    }
+
+    return rodar();
   },
 );
