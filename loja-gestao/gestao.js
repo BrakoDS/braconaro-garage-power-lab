@@ -321,12 +321,26 @@ $('#btn-publicar').addEventListener('click', async () => {
 
 $('#btn-precos').addEventListener('click', async () => {
   const btn = $('#btn-precos');
-  const qtd = db.listarProdutos().filter((p) => p.ativo !== false && p.nome && p.url).length;
+
+  // A função lê a VITRINE PUBLICADA (`lojaPortal/atual`), não o catálogo local
+  // do coach — contar `db.listarProdutos()` prometeria buscar rascunhos e
+  // alterações ainda não publicados, que a função nem enxerga. Por isso a
+  // contagem vem de `publicado.produtos` (preenchido por `carregarVitrine()`
+  // na abertura), não do catálogo local. Não "corrija" isto de volta.
+  const qtd = publicado.produtos.length;
+
+  if (qtd === 0) {
+    $('#status-pub').innerHTML = '<span class="erro">nada publicado ainda — publique a vitrine antes de atualizar preços</span>';
+    return;
+  }
 
   // Confirmação é guarda contra clique acidental, não aprovação de preço: quem
   // manda no valor é a leitura, e a rodada das 05:00 aplica sem perguntar de
-  // qualquer forma.
-  if (!confirm(`Buscar os preços atuais dos ${qtd} produtos no Mercado Livre agora?\nLeva cerca de 30 segundos.`)) return;
+  // qualquer forma. O número abaixo é o tamanho da vitrine publicada, não uma
+  // promessa de quantas buscas vão rodar: a função ainda descarta dali os
+  // produtos cujo link não é do Mercado Livre, e essa regra vive só no código
+  // dela — não duplicar aqui.
+  if (!confirm(`Buscar preços atuais no Mercado Livre para os produtos da vitrine publicada (${qtd} ao todo)?\nPode levar alguns minutos.`)) return;
 
   // Desabilitar é obrigatório, não só cosmético: a função só atende uma chamada
   // por vez, então um segundo clique não roda em paralelo — fica na fila e o
