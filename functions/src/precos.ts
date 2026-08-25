@@ -3,7 +3,8 @@
  *
  * Sem rede, sem Firestore, sem firebase-functions: recebe o HTML já baixado e
  * devolve o preço, ou o motivo de ter recusado. É o único lugar que sabe o
- * formato do payload do ML, e por isso é o único que precisa de teste pesado.
+ * formato do payload do ML — e também quais hosts são do ML —, e por isso é o
+ * único que precisa de teste pesado.
  *
  * A regra que sustenta tudo: o preço só vale se o título do primeiro card do
  * payload corresponder ao `og:title` da página. Cada link de afiliado abre a
@@ -13,7 +14,13 @@
  * preço de outro produto.
  */
 
-export type MotivoFalha = 'http' | 'sem-og' | 'sem-card' | 'titulo-nao-bate' | 'sem-preco';
+/**
+ * Por que `prazo` é separado de `http`: a gestão mostra o motivo ao coach para
+ * explicar o que aconteceu com o produto. Chamar de `http` um produto que o
+ * prazo da rodada nem chegou a buscar acusaria a loja de estar fora do ar
+ * quando o gargalo é nosso — e mandaria o coach investigar o link errado.
+ */
+export type MotivoFalha = 'http' | 'prazo' | 'sem-og' | 'sem-card' | 'titulo-nao-bate' | 'sem-preco';
 
 export type Leitura =
   | { ok: true; titulo: string; preco: number }
@@ -36,6 +43,46 @@ const CHARS_CONFERIDOS = 25;
 
 /** Fração de falhas acima da qual a rodada inteira é descartada. */
 const FRACAO_TRAVA = 1 / 3;
+
+/**
+ * Domínios que o robô sabe ler.
+ *
+ * `extrairPreco` só entende o payload do Mercado Livre, mas o catálogo é
+ * multi-loja de propósito (a gestão aceita Amazon, Shopee, Netshoes, Centauro,
+ * Growth, Integralmédica e qualquer host). Um produto de outra loja não é
+ * assunto do robô: fica fora do total, fora da conta da trava e sem entrada no
+ * feed — e a vitrine segue mostrando o preço que o coach digitou, que é o
+ * comportamento certo para uma loja que não sabemos ler. Se entrasse na conta,
+ * 8 produtos da Amazon entre 22 travariam a rodada todo dia e descartariam os
+ * 14 preços do ML lidos com sucesso.
+ */
+const DOMINIOS_ML = ['meli.la', 'mercadolivre.com.br', 'mercadolibre.com', 'mercadolivre.com'];
+
+/**
+ * Diz se a URL é um link do Mercado Livre que vale a pena buscar.
+ *
+ * Mora aqui, junto do resto do conhecimento sobre o ML, porque é pura — e
+ * porque assim o `checar` consegue exercitá-la sem subir nada do firebase.
+ *
+ * O casamento é por sufixo de DOMÍNIO, não por substring: `meli.la.exemplo.com`
+ * contém "meli.la" e ainda assim é de outra pessoa. E só `https:` passa, o que
+ * de quebra dá ao `fetch` (que segue redirect) a restrição de esquema e host que
+ * ele não tinha.
+ */
+export function ehLinkMercadoLivre(url: unknown): url is string {
+  if (typeof url !== 'string' || !url) return false;
+  let alvo: URL;
+  try {
+    alvo = new URL(url);
+  } catch {
+    return false;
+  }
+  if (alvo.protocol !== 'https:') return false;
+  // O ponto final do FQDN (`meli.la.`) é host válido e passaria batido no
+  // casamento por sufixo; normalizar fecha esse desvio.
+  const host = alvo.hostname.toLowerCase().replace(/\.$/, '');
+  return DOMINIOS_ML.some((d) => host === d || host.endsWith(`.${d}`));
+}
 
 export function extrairPreco(html: string): Leitura {
   const texto = String(html || '');

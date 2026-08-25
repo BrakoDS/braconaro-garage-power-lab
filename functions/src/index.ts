@@ -19,7 +19,10 @@ import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { extrairAnalise, INSTRUCOES, SCHEMA, type Analise } from './analise';
-import { decidirRodada, extrairPreco, type ItemFeed, type Leitura, type ResultadoProduto, type Rodada } from './precos';
+import {
+  decidirRodada, ehLinkMercadoLivre, extrairPreco,
+  type ItemFeed, type Leitura, type ResultadoProduto, type Rodada,
+} from './precos';
 
 initializeApp();
 
@@ -210,54 +213,28 @@ const PAUSA_MS = 400;
  *
  * Não está aqui para deixar a sincronização mais rápida — está aqui para
  * garantir que `decidirRodada` sempre seja chamada. O laço é sequencial, e no
- * pior caso (todos os links pendurados até o timeout) 22 produtos passariam de
- * 300 s, muito além do teto da plataforma. Sem prazo, o cenário exato para o
- * qual a trava de 1/3 existe — o ML engasgando ou bloqueando em massa — mata a
- * instância antes da decisão: nada é gravado, nenhum log de trava sai, e com
- * `retryCount: 0` o dia se perde em silêncio.
+ * pior caso (todos os links pendurados até o timeout de 15 s) 22 produtos
+ * levariam ~330 s, acima dos 300 s de `timeoutSeconds`. Sem prazo, o cenário
+ * exato para o qual a trava de 1/3 existe — o ML engasgando ou bloqueando em
+ * massa — mata a instância antes da decisão: nada é gravado, nenhum log de
+ * trava sai, e com `retryCount: 0` o dia se perde em silêncio.
  *
- * Estourado o prazo, os produtos restantes entram como falha de motivo `http`
+ * Estourado o prazo, os produtos restantes entram como falha de motivo `prazo`
  * sem serem buscados. Assim o total continua completo, a trava dispara como foi
  * projetada, e a gravação ainda cabe com folga dentro de `timeoutSeconds`.
- */
-const PRAZO_RODADA_MS = 90_000;
-
-/**
- * Domínios que o robô sabe ler.
  *
- * `extrairPreco` só entende o payload do Mercado Livre, mas o catálogo é
- * multi-loja de propósito (a gestão aceita Amazon, Shopee, Netshoes, Centauro,
- * Growth, Integralmédica e qualquer host). Um produto de outra loja não é
- * assunto do robô: fica fora do total, fora da conta da trava e sem entrada no
- * feed — e a vitrine segue mostrando o preço que o coach digitou, que é o
- * comportamento certo para uma loja que não sabemos ler. Se entrasse na conta,
- * 8 produtos da Amazon entre 22 travariam a rodada todo dia e descartariam os
- * 14 preços do ML lidos com sucesso.
+ * O número é PROVISÓRIO e erra de propósito para o lado folgado: como as falhas
+ * de prazo contam na trava de 1/3, um prazo curto trava a rodada sozinho por
+ * latência, sem nenhuma falha real de leitura — com 22 produtos e todas as
+ * páginas lidas com SUCESSO, 90 s travavam a partir de ~7 s por página (13
+ * buscados, 9 fora do prazo), e o log acusaria o Mercado Livre por um limite
+ * nosso. Ninguém mediu ainda quanto uma página do ML custa a partir de
+ * `southamerica-east1`; até essa medição existir, 150 s dá conta de ~22 páginas
+ * a 6,5 s cada e o teto do laço fica em ~165 s (prazo + um link pendurado),
+ * bem dentro dos 300 s de `timeoutSeconds`. Medido o custo real, dá para
+ * apertar.
  */
-const DOMINIOS_ML = ['meli.la', 'mercadolivre.com.br', 'mercadolibre.com', 'mercadolivre.com'];
-
-/**
- * Diz se a URL é um link do Mercado Livre que vale a pena buscar.
- *
- * O casamento é por sufixo de DOMÍNIO, não por substring: `meli.la.exemplo.com`
- * contém "meli.la" e ainda assim é de outra pessoa. E só `https:` passa, o que
- * de quebra dá ao `fetch` (que segue redirect) a restrição de esquema e host que
- * ele não tinha.
- */
-export function ehLinkMercadoLivre(url: unknown): url is string {
-  if (typeof url !== 'string' || !url) return false;
-  let alvo: URL;
-  try {
-    alvo = new URL(url);
-  } catch {
-    return false;
-  }
-  if (alvo.protocol !== 'https:') return false;
-  // O ponto final do FQDN (`meli.la.`) é host válido e passaria batido no
-  // casamento por sufixo; normalizar fecha esse desvio.
-  const host = alvo.hostname.toLowerCase().replace(/\.$/, '');
-  return DOMINIOS_ML.some((d) => host === d || host.endsWith(`.${d}`));
-}
+const PRAZO_RODADA_MS = 150_000;
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -295,10 +272,20 @@ async function rodar(): Promise<ResumoRodada> {
     { id?: string; url?: string }[];
 
   const alvos: { id: string; url: string }[] = [];
+  let descartados = 0;
   for (const p of produtos) {
     if (!p || typeof p.id !== 'string' || !p.id) continue;
-    if (!ehLinkMercadoLivre(p.url)) continue;
+    if (!ehLinkMercadoLivre(p.url)) { descartados += 1; continue; }
     alvos.push({ id: p.id, url: p.url });
+  }
+
+  // Descartar em silêncio faz um produto sumir do feed sem explicação: se o
+  // coach cadastrar um link da Amazon (ou colar um `http://` do ML), ele fica
+  // sem preço sincronizado e nada no log diz por quê.
+  if (descartados > 0) {
+    logger.info('Preços: produtos fora do Mercado Livre ignorados.', {
+      descartados, doMercadoLivre: alvos.length,
+    });
   }
 
   // Vitrine vazia, ilegível ou sem nenhum produto do ML: não há o que
@@ -322,7 +309,7 @@ async function rodar(): Promise<ResumoRodada> {
       });
     }
     if (estourou) {
-      resultados.push({ id: alvos[i].id, leitura: { ok: false, motivo: 'http' } });
+      resultados.push({ id: alvos[i].id, leitura: { ok: false, motivo: 'prazo' } });
       continue;
     }
     resultados.push({ id: alvos[i].id, leitura: await buscarProduto(alvos[i].url) });
@@ -361,10 +348,17 @@ export const sincronizarPrecosDiario = onSchedule(
     timeZone: 'America/Sao_Paulo',
     region: 'southamerica-east1',
     memory: '256MiB',
-    // Folga sobre o PRAZO_RODADA_MS de 90 s: o laço para no prazo e a gravação
-    // ainda cabe, em vez de a plataforma matar a instância antes da decisão.
-    timeoutSeconds: 180,
+    // Folga sobre o PRAZO_RODADA_MS de 150 s: o teto do laço é ~165 s e a
+    // gravação ainda cabe, em vez de a plataforma matar a instância antes da
+    // decisão. Os dois números andam juntos — mexer num exige mexer no outro.
+    timeoutSeconds: 300,
     maxInstances: 1,
+    // Ver `atualizarPrecos`: `maxInstances` NÃO serializa requisições, só
+    // instâncias. Uma instância só, com a concorrência padrão, aceitaria 80
+    // execuções simultâneas do mesmo `rodar` — e uma execução atrasada do
+    // agendador coincidindo com um retry viraria duas rodadas em paralelo
+    // contra o ML. `concurrency: 1` é o que garante uma rodada por vez.
+    concurrency: 1,
     retryCount: 0, // se falhar hoje, tenta amanhã — não em loop, que é o que gera conta alta
   },
   async () => { await rodar(); },
@@ -385,8 +379,34 @@ const EMAILS_COACH = ['braconaro@gmail.com'];
 /** Intervalo mínimo entre duas rodadas manuais. */
 const COOLDOWN_MS = 60_000;
 
+/**
+ * Por que `concurrency: 1`, e a armadilha que ele conserta.
+ *
+ * `maxInstances: 1` limita INSTÂNCIAS, não requisições simultâneas — não
+ * serializa nada. Com `memory: '256MiB'` a CPU é 1, e a concorrência padrão
+ * passa a ser 80 requisições atendidas pela MESMA instância (documentado em
+ * `firebase-functions/lib/v2/options.d.ts`: "A value of null restores the
+ * default concurrency (80 when CPU >= 1, 1 otherwise)").
+ *
+ * O estrago é concreto: a rodada leva de 30 a 100 s e o botão fica sem resposta,
+ * então o coach clica cinco vezes. As cinco chamadas entram juntas, as cinco leem
+ * o MESMO carimbo velho, as cinco passam pelo cooldown, e as cinco raspam em
+ * paralelo — 110 requisições em rajada contra o Mercado Livre, que é exatamente
+ * o muro de "suspicious-traffic" que `loja-gestao/loja-url.js` documenta.
+ *
+ * Com `concurrency: 1` a sequência ler-carimbo → decidir → gravar do cooldown
+ * passa a ser de fato serializada, e o segundo clique encontra o carimbo novo.
+ * É o que dispensa uma transação aqui.
+ */
 export const atualizarPrecos = onCall(
-  { region: 'southamerica-east1', memory: '256MiB', timeoutSeconds: 180, maxInstances: 1 },
+  {
+    region: 'southamerica-east1',
+    memory: '256MiB',
+    // Acompanha o PRAZO_RODADA_MS de 150 s, igual ao agendamento.
+    timeoutSeconds: 300,
+    maxInstances: 1,
+    concurrency: 1,
+  },
   async (req): Promise<ResumoRodada> => {
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Entre na sua conta.');

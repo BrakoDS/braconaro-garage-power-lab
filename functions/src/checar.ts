@@ -9,7 +9,7 @@
  * passarem batido.
  */
 import { extrairAnalise, num } from './analise';
-import { extrairPreco, decidirRodada, type ItemFeed } from './precos';
+import { extrairPreco, decidirRodada, ehLinkMercadoLivre, type ItemFeed } from './precos';
 import { HTML_SOCIAL } from './fixtures/social-ml';
 
 let falhas = 0;
@@ -147,6 +147,35 @@ ok(!rSemPrecoNoCardCerto.ok && rSemPrecoNoCardCerto.motivo === 'sem-preco',
   'card certo sem preço não pega emprestado o preço do card seguinte');
 
 ok(!extrairPreco('').ok, 'string vazia não quebra');
+
+/* ---------- de quem o robô aceita buscar ----------
+
+   `ehLinkMercadoLivre` é a ÚNICA restrição de esquema e host que o `fetch` com
+   `redirect: 'follow'` tem: o que passar daqui o robô busca, com User-Agent de
+   navegador, a partir do IP de saída da função. Os casos hostis abaixo existem
+   para que trocar o casamento de sufixo de domínio por um `includes()` — a
+   "simplificação" óbvia para quem passar por aqui depois — quebre o `checar`
+   em vez de passar despercebida. */
+
+ok(ehLinkMercadoLivre('https://meli.la/2ad5yzh'),
+  'o encurtador que o coach cola da vitrine do ML é buscado');
+ok(ehLinkMercadoLivre('https://www.mercadolivre.com.br/p/MLB123'),
+  'link longo do mercadolivre.com.br é buscado');
+ok(ehLinkMercadoLivre('https://produto.mercadolibre.com/x'),
+  'subdomínio de domínio conhecido é buscado, e não só o domínio nu');
+
+ok(!ehLinkMercadoLivre('https://meli.la.exemplo.com/x'),
+  'host de terceiro que CONTÉM o domínio do ML não recebe visita do robô');
+ok(!ehLinkMercadoLivre('https://evilmeli.la/x'),
+  'host que TERMINA em domínio do ML sem o ponto separador não recebe visita');
+ok(!ehLinkMercadoLivre('https://meli.la@evil.com/x'),
+  'ML escrito como userinfo não faz o robô buscar em evil.com');
+ok(!ehLinkMercadoLivre('https://www.amazon.com.br/dp/B0ABC'),
+  'produto de outra loja é ignorado em vez de virar falha na conta da trava');
+ok(!ehLinkMercadoLivre('http://meli.la/x'),
+  'link sem TLS é recusado, para o redirect não sair em claro');
+ok(!ehLinkMercadoLivre('não-é-url'),
+  'texto que não é URL é recusado sem quebrar a rodada');
 
 /* ---------- a trava ---------- */
 
