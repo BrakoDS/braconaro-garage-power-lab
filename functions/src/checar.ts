@@ -135,6 +135,17 @@ ok(!semCard.ok && semCard.motivo === 'sem-card', 'payload sem card de título fa
 const semPreco = extrairPreco(HTML_SOCIAL.replace(/"current_price":\{"value":48\.99/, '"current_price":{"value":0'));
 ok(!semPreco.ok && semPreco.motivo === 'sem-preco', 'preço zero é recusado');
 
+// O card certo (título bate com og:title) não tem bloco de preço, mas o card
+// SEGUINTE (Whey) tem. Sem delimitar a busca ao card certo, a extração vazaria
+// para o preço do Whey e devolveria ok:true com o produto errado.
+const semPrecoNoCardCerto = HTML_SOCIAL.replace(
+  '{"type":"price","id":"price","column":1,"price":{"previous_price":{"value":99.5,"currency":"BRL"},"current_price":{"value":48.99,"currency":"BRL"},"discount_label":{"text":"50% OFF"}}},',
+  '',
+);
+const rSemPrecoNoCardCerto = extrairPreco(semPrecoNoCardCerto);
+ok(!rSemPrecoNoCardCerto.ok && rSemPrecoNoCardCerto.motivo === 'sem-preco',
+  'card certo sem preço não pega emprestado o preço do card seguinte');
+
 ok(!extrairPreco('').ok, 'string vazia não quebra');
 
 /* ---------- a trava ---------- */

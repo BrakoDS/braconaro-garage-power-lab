@@ -58,10 +58,14 @@ export function extrairPreco(html: string): Leitura {
     return { ok: false, motivo: 'titulo-nao-bate' };
   }
 
-  // O preço é procurado a partir do card, não do começo do documento: garante
-  // que é o preço DAQUELE card, mesmo que o ML insira um banner com preço antes.
-  const depois = texto.slice(card.index ?? 0);
-  const p = depois.match(/"current_price":\{"value":([0-9.]+)/);
+  // O preço é procurado só dentro do card que casou, não no resto do documento:
+  // se o card certo não tiver bloco de preço, um card SEGUINTE não pode suprir
+  // o valor — furaria a garantia de que o preço é sempre daquele produto.
+  const inicioCard = card.index ?? 0;
+  const marcadorTitulo = '"type":"title","id":"title"';
+  const proximoCard = texto.indexOf(marcadorTitulo, inicioCard + marcadorTitulo.length);
+  const trechoCard = texto.slice(inicioCard, proximoCard === -1 ? texto.length : proximoCard);
+  const p = trechoCard.match(/"current_price":\{"value":([0-9.]+)/);
   const preco = p ? Number(p[1]) : NaN;
   if (!Number.isFinite(preco) || preco <= 0) return { ok: false, motivo: 'sem-preco' };
 
@@ -92,7 +96,9 @@ export function decidirRodada(
 
   // Lista vazia trava: sem produto para ler, gravar itens vazios apagaria o feed.
   const travou = total === 0 || falhas > total * FRACAO_TRAVA;
-  if (travou) return { rodada: { total, lidos, falhas, travou: true }, itens: anteriores };
+  // Cópia rasa: a função não muta `anteriores`, mas devolver a mesma referência
+  // exporia o objeto original a quem consumir o retorno.
+  if (travou) return { rodada: { total, lidos, falhas, travou: true }, itens: { ...anteriores } };
 
   const itens: Record<string, ItemFeed> = {};
   for (const { id, leitura } of lista) {
