@@ -16,7 +16,10 @@
  * @property {number|null} preco
  * @property {string} imagem
  * @property {string} dica
+ * @property {number} [verificadoEm]  carimbo do feed de preços; ausente = preço do catálogo
  */
+
+import { rotuloVerificado } from './precos.js';
 
 export const esc = (s) => String(s == null ? '' : s)
   .replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -45,6 +48,9 @@ export const SUBCATEGORIAS = {
  */
 export function cardProduto(p, opcoes = {}) {
   const preco = formatarPreco(typeof p.preco === 'number' ? p.preco : null);
+  // Sem carimbo do robô o preço é o que o coach digitou — e aí a legenda antiga
+  // continua sendo a verdade sobre ele.
+  const legenda = rotuloVerificado(p.verificadoEm) || 'preço de referência';
   const seta = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>';
   // `sponsored` sinaliza link de afiliado (padrão de SEO); `noopener noreferrer`
   // impede que a loja de destino acesse a janela de origem.
@@ -67,7 +73,7 @@ export function cardProduto(p, opcoes = {}) {
         ${p.subcategoria ? `<span class="badge badge-sub">${esc(p.subcategoria)}</span>` : ''}
       </span>
       <h2 class="produto-nome">${esc(p.nome)}</h2>
-      ${preco ? `<div class="produto-preco">${esc(preco)}<small>preço de referência</small></div>` : ''}
+      ${preco ? `<div class="produto-preco">${esc(preco)}<small>${esc(legenda)}</small></div>` : ''}
       ${p.dica ? `<p class="produto-dica">${esc(p.dica)}</p>` : ''}
       ${acao}
     </div>
