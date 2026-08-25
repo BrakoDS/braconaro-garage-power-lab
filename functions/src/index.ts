@@ -309,10 +309,13 @@ async function rodar(): Promise<ResumoRodada> {
       });
     }
     if (estourou) {
-      resultados.push({ id: alvos[i].id, leitura: { ok: false, motivo: 'prazo' } });
+      resultados.push({ id: alvos[i].id, url: alvos[i].url, leitura: { ok: false, motivo: 'prazo' } });
       continue;
     }
-    resultados.push({ id: alvos[i].id, leitura: await buscarProduto(alvos[i].url) });
+    // A URL vai junto do resultado para o item do feed poder gravá-la: o `id`
+    // sobrevive à edição do produto, então só a URL prova que o preço lido é
+    // deste link (ver `ItemFeed.url` em `precos.ts`).
+    resultados.push({ id: alvos[i].id, url: alvos[i].url, leitura: await buscarProduto(alvos[i].url) });
     // Só ENTRE produtos: depois do último a pausa é orçamento de instância no lixo.
     if (i < alvos.length - 1) await dormir(PAUSA_MS);
   }

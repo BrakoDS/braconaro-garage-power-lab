@@ -26,6 +26,15 @@ const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out
  * um preço que a gente sabe que não confere. Ele volta sozinho quando uma rodada
  * conseguir lê-lo de novo — não depende de o coach reativar nada.
  *
+ * O item só vale para o link de onde veio. A chave do feed é o `id`, e o `id` é
+ * o slug do nome de quando o produto foi criado: ele SOBREVIVE à edição da ficha
+ * (`academia/db.js` preserva o id ao atualizar). Reapontar um produto existente
+ * para outra URL mantém o mesmo `id` — e sem conferir a URL o aluno veria o
+ * produto novo com o preço do antigo, ainda por cima com a legenda "verificado
+ * hoje" fazendo o número errado parecer mais confiável que o preço digitado.
+ * Divergiu a URL, o item é ignorado e vale o catálogo, que é o certo: o robô
+ * nunca leu aquele link.
+ *
  * @param {any[]} produtos
  * @param {any} feed  o documento `lojaPrecos/atual`, ou null
  * @returns {any[]}
@@ -39,11 +48,35 @@ export function fundirPrecos(produtos, feed) {
   for (const p of lista) {
     const it = itens[p.id];
     if (!it) { saida.push(p); continue; }
+    if (!ehDoMesmoLink(it, p)) { saida.push(p); continue; }
     if (it.estado === 'falhou') continue;
     if (typeof it.preco !== 'number' || !Number.isFinite(it.preco)) { saida.push(p); continue; }
     saida.push({ ...p, preco: it.preco, verificadoEm: it.verificadoEm });
   }
   return saida;
+}
+
+/**
+ * O item do feed fala do link que este produto tem hoje?
+ *
+ * Item SEM `url` é aceito — é o feed gravado antes de o campo existir. Recusá-lo
+ * tiraria da vitrine, de uma vez e no deploy, todo preço lido até agora: os
+ * itens `ok` cairiam no preço do catálogo e os `falhou` voltariam a aparecer. O
+ * risco de manter é o cenário raro (coach reapontou a URL de uma ficha existente
+ * desde a última rodada) e dura até as 05:00 seguintes, quando toda a rodada
+ * regrava o feed com `url`; o risco de recusar é certo e vale para os 22
+ * produtos. Por isso a tolerância só existe para o item antigo: item novo sempre
+ * tem `url` e é sempre conferido.
+ *
+ * @param {any} item
+ * @param {any} produto
+ */
+function ehDoMesmoLink(item, produto) {
+  if (typeof item.url !== 'string' || !item.url) return true;
+  // Comparação literal: o robô lê exatamente a string que está em
+  // `lojaPortal/atual`, a mesma que chega aqui. Normalizar mais (caixa, query,
+  // barra final) só criaria chance de dois links diferentes casarem.
+  return item.url.trim() === String(produto.url || '').trim();
 }
 
 /**
@@ -62,6 +95,59 @@ export function rotuloVerificado(ms, agora = Date.now()) {
   ontem.setDate(ontem.getDate() - 1);
   if (dia(d) === dia(ontem)) return 'verificado ontem';
   return `verificado em ${d.getDate()}/${MES[d.getMonth()]}`;
+}
+
+/**
+ * Os seis motivos de falha, agrupados pelo que o COACH faz a respeito.
+ *
+ * Ele não precisa saber a diferença entre `sem-og` e `sem-card` — precisa saber
+ * se confere o link, se espera, ou se chama alguém. Por isso os quatro motivos
+ * de página quebrada viram uma frase só: a decisão dele é a mesma nos quatro.
+ * Já `prazo` fica separado justamente porque a resposta é oposta — mandá-lo
+ * conferir um link que a rodada nem chegou a abrir é fazê-lo perder tempo com um
+ * limite nosso.
+ */
+/** @type {Record<string, string>} */
+const GRUPO_DO_MOTIVO = {
+  http: 'link',
+  prazo: 'prazo',
+  'sem-og': 'pagina',
+  'sem-card': 'pagina',
+  'titulo-nao-bate': 'pagina',
+  'sem-preco': 'pagina',
+};
+
+/** Ordem fixa: primeiro o que o coach resolve, por último o que só depende de nós. */
+const MOTIVOS = [
+  ['link', 'o link não respondeu', 'vale conferir se ainda está no ar'],
+  ['pagina', 'a página do Mercado Livre veio diferente do esperado', 'se repetir amanhã, avise quem cuida do site'],
+  ['prazo', 'a verificação não deu tempo de chegar até o fim', 'é limite nosso, a próxima rodada pega'],
+];
+
+/**
+ * A parte da faixa que explica POR QUE os produtos caíram.
+ *
+ * Devolve string vazia quando nenhum item traz `motivo` — feed antigo não vira
+ * causa inventada. Com mais de um grupo, cada frase carrega os seus produtos:
+ * juntar tudo num rótulo só esconderia que um deles pede uma ação e o outro não.
+ *
+ * @param {{ nome?: string, motivo?: string }[]} falhados
+ */
+function fraseDosMotivos(falhados) {
+  const grupos = MOTIVOS
+    .map(([chave, causa, conselho]) => {
+      const doGrupo = falhados.filter((f) => GRUPO_DO_MOTIVO[String(f.motivo)] === chave);
+      return { causa, conselho, quantos: doGrupo.length, nomes: doGrupo.map((f) => f.nome).filter(Boolean) };
+    })
+    .filter((g) => g.quantos > 0);
+  if (!grupos.length) return '';
+
+  return grupos.map((g) => {
+    // Um grupo só: os nomes já vieram listados na frase anterior, repeti-los aqui
+    // seria ruído. Vários: sem os nomes o coach não sabe qual produto é qual caso.
+    const quais = grupos.length > 1 && g.nomes.length ? ` (${g.nomes.join(', ')})` : '';
+    return ` ${g.causa.charAt(0).toUpperCase()}${g.causa.slice(1)}${quais} — ${g.conselho}.`;
+  }).join('');
 }
 
 /**
@@ -94,10 +180,10 @@ export function estadoPrecos(feed, produtos) {
   const quando = rotuloVerificado(feed.atualizadoEm).replace('verificado ', '') || 'agora';
 
   if (falhas > 0) {
-    const nomes = Object.entries(feed.itens || {})
+    const falhados = Object.entries(feed.itens || {})
       .filter(([, it]) => it && it.estado === 'falhou')
-      .map(([id]) => (produtos || []).find((p) => p.id === id)?.nome)
-      .filter(Boolean);
+      .map(([id, it]) => ({ nome: (produtos || []).find((p) => p.id === id)?.nome, motivo: it.motivo }));
+    const nomes = falhados.map((f) => f.nome).filter(Boolean);
     // `quando` já vem com "em" embutido para datas ("em 20/ago") — necessário
     // depois de "verificados" e de "falhou em N de M", mas duplicaria a
     // preposição depois de "desde" ("desde em 20/ago"). Tira o "em" só aqui.
@@ -105,7 +191,7 @@ export function estadoPrecos(feed, produtos) {
     return {
       tipo: 'falhas',
       texto: `${falhas} produto${falhas === 1 ? '' : 's'} fora da vitrine desde ${desde}` +
-        (nomes.length ? `: ${nomes.join(', ')}` : '') + '.',
+        (nomes.length ? `: ${nomes.join(', ')}` : '') + '.' + fraseDosMotivos(falhados),
     };
   }
 

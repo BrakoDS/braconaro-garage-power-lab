@@ -32,9 +32,23 @@ export type ItemFeed = {
   titulo?: string;
   verificadoEm: number | null;
   motivo?: MotivoFalha;
+  /**
+   * A qual link este item se refere — a URL lida, quando `ok`; a que a rodada
+   * tentou ler, quando `falhou`.
+   *
+   * Existe porque o `id` NÃO identifica o link: ele é o slug do nome de quando o
+   * produto foi criado e sobrevive à edição da ficha. Trocar a URL de um produto
+   * existente mantém o mesmo `id`, e sem este campo o preço lido do link velho
+   * seria carimbado no produto novo — com "verificado hoje" fazendo o número
+   * errado parecer mais confiável que o preço digitado. A vitrine confere a URL
+   * antes de aplicar o preço (ver `fundirPrecos` em `loja/precos.js`).
+   *
+   * Opcional só por causa do feed já gravado em produção, que não tem o campo.
+   */
+  url?: string;
 };
 
-export type ResultadoProduto = { id: string; leitura: Leitura };
+export type ResultadoProduto = { id: string; url: string; leitura: Leitura };
 
 export type Rodada = { total: number; lidos: number; falhas: number; travou: boolean };
 
@@ -148,9 +162,9 @@ export function decidirRodada(
   if (travou) return { rodada: { total, lidos, falhas, travou: true }, itens: { ...anteriores } };
 
   const itens: Record<string, ItemFeed> = {};
-  for (const { id, leitura } of lista) {
+  for (const { id, url, leitura } of lista) {
     if (leitura.ok) {
-      itens[id] = { estado: 'ok', preco: leitura.preco, titulo: leitura.titulo, verificadoEm: agora };
+      itens[id] = { estado: 'ok', preco: leitura.preco, titulo: leitura.titulo, verificadoEm: agora, url };
     } else {
       const velho = anteriores[id];
       itens[id] = {
@@ -158,6 +172,12 @@ export function decidirRodada(
         motivo: leitura.motivo,
         preco: velho?.preco ?? null,
         verificadoEm: velho?.verificadoEm ?? null,
+        // A URL que ESTA rodada tentou, não a do preço velho preservado: é ela
+        // que diz a qual link a falha se refere. Reapontada a ficha para outro
+        // link, a URL deixa de bater e a vitrine para de esconder o produto —
+        // esconder por uma falha em link que já não é o dele seria punir o
+        // produto novo por um problema do antigo.
+        url,
       };
     }
   }

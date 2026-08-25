@@ -20,7 +20,7 @@ import * as db from '../academia/db.js';
 import { publicarLoja, carregarVitrine, assinatura, assinaturaPublicada } from '../loja/loja-portal.js';
 import { cardProduto, gridVitrine, filtrar, chipsCategoria, formatarPreco, esc, norm, CATEGORIAS, SUBCATEGORIAS } from '../loja/vitrine-card.js';
 import { analisarUrl, lerPreco, buscarMetadados } from './loja-url.js';
-import { estadoPrecos, carregarPrecos, pedirAtualizacao } from '../loja/precos.js';
+import { estadoPrecos, fundirPrecos, carregarPrecos, pedirAtualizacao } from '../loja/precos.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -160,8 +160,16 @@ function renderProdutos() {
    Aba 3 — Prévia (mesmo card e mesmo CSS da loja pública)
    ============================================================ */
 function produtosDaPrevia() {
-  if (F.previaModo === 'ar') return publicado.produtos;
-  // "como ficará": os ativos locais, passados pela mesma normalização da publicação
+  // "no ar": o mesmo cardápio que a vitrine pública monta — catálogo publicado
+  // FUNDIDO com o feed do robô. Sem `fundirPrecos` a prévia divergia do aluno em
+  // duas coisas de uma vez: mostrava o preço digitado pelo coach (com a legenda
+  // "preço de referência") no lugar do preço lido do Mercado Livre, e mantinha na
+  // grade produtos que a vitrine do aluno já tinha removido por falha de leitura.
+  if (F.previaModo === 'ar') return fundirPrecos(publicado.produtos, feedPrecos);
+  // "como ficará": os ativos locais, passados pela mesma normalização da
+  // publicação — e SEM o feed de propósito. O assunto aqui é o que ainda não foi
+  // ao ar; o robô só lê o que está publicado, então carimbar preço lido em
+  // produto ainda não publicado prometeria uma verificação que não aconteceu.
   return db.listarProdutos()
     .filter((p) => p.ativo !== false && p.nome && p.url)
     .map((p) => ({ ...p, preco: typeof p.preco === 'number' ? p.preco : lerPreco(p.preco) }));

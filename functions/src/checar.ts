@@ -182,8 +182,8 @@ ok(!ehLinkMercadoLivre('não-é-url'),
 const leituraOk = (p: number) => ({ ok: true as const, titulo: 'x', preco: p });
 const leituraMa = { ok: false as const, motivo: 'http' as const };
 const rodadaDe = (nOk: number, nFalha: number) => [
-  ...Array.from({ length: nOk }, (_, i) => ({ id: `ok${i}`, leitura: leituraOk(10 + i) })),
-  ...Array.from({ length: nFalha }, (_, i) => ({ id: `ma${i}`, leitura: leituraMa })),
+  ...Array.from({ length: nOk }, (_, i) => ({ id: `ok${i}`, url: `https://meli.la/ok${i}`, leitura: leituraOk(10 + i) })),
+  ...Array.from({ length: nFalha }, (_, i) => ({ id: `ma${i}`, url: `https://meli.la/ma${i}`, leitura: leituraMa })),
 ];
 
 const passou = decidirRodada(rodadaDe(15, 7), {}, 1000);
@@ -207,7 +207,7 @@ ok(Object.keys(travadoComAnterior.itens).length === 1,
   'e não acrescenta os produtos da rodada travada');
 
 const comFalhaIsolada = decidirRodada(
-  [{ id: 'zz', leitura: leituraMa }, ...rodadaDe(10, 0)],
+  [{ id: 'zz', url: 'https://meli.la/zz', leitura: leituraMa }, ...rodadaDe(10, 0)],
   anterior,
   1000,
 );
@@ -219,6 +219,34 @@ ok(comFalhaIsolada.itens.zz.motivo === 'http', 'e o motivo, para a gestão poder
 
 ok(decidirRodada([], {}, 1000).rodada.travou === true,
   'lista vazia trava em vez de apagar o feed');
+
+/* ---------- a URL viaja junto com o preço ---------- */
+
+// Sem a URL gravada, o preço lido de um link continuaria valendo depois que o
+// coach reaponta a ficha para OUTRO produto (o `id` sobrevive à edição), e a
+// vitrine carimbaria "verificado hoje" no preço do produto antigo.
+const comUrl = decidirRodada(
+  [{ id: 'pp', url: 'https://meli.la/dux', leitura: leituraOk(39.09) }],
+  {},
+  1000,
+);
+ok(comUrl.itens.pp?.url === 'https://meli.la/dux',
+  'item lido guarda a URL de onde o preço veio');
+
+const falhouComUrl = decidirRodada(
+  [
+    { id: 'zz', url: 'https://meli.la/tentada', leitura: leituraMa },
+    ...rodadaDe(10, 0),
+  ],
+  anterior,
+  1000,
+);
+// A URL do item que falhou é a que ESTA rodada tentou, não a do preço velho
+// preservado: é ela que diz a qual link a falha se refere. Se o coach reapontar
+// a ficha depois, a URL deixa de bater e a vitrine para de esconder o produto —
+// o link novo nunca foi tentado, não há falha que justifique tirá-lo do ar.
+ok(falhouComUrl.itens.zz?.url === 'https://meli.la/tentada',
+  'item que falhou guarda a URL que a rodada tentou ler');
 
 console.log(
   falhas === 0
