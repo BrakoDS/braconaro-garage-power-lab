@@ -13,7 +13,8 @@
  * que `vitrine-card.js` é compartilhado: prévia que não roda o código real não é
  * prévia.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { firebaseConfig } from '../montador/cloud-config.js';
+import { lojaCloudAtiva } from './loja-portal.js';
 
 const V = '10.12.2';
 const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -97,9 +98,13 @@ export function estadoPrecos(feed, produtos) {
       .filter(([, it]) => it && it.estado === 'falhou')
       .map(([id]) => (produtos || []).find((p) => p.id === id)?.nome)
       .filter(Boolean);
+    // `quando` já vem com "em" embutido para datas ("em 20/ago") — necessário
+    // depois de "verificados" e de "falhou em N de M", mas duplicaria a
+    // preposição depois de "desde" ("desde em 20/ago"). Tira o "em" só aqui.
+    const desde = quando.replace(/^em /, '');
     return {
       tipo: 'falhas',
-      texto: `${falhas} produto${falhas === 1 ? '' : 's'} fora da vitrine desde ${quando}` +
+      texto: `${falhas} produto${falhas === 1 ? '' : 's'} fora da vitrine desde ${desde}` +
         (nomes.length ? `: ${nomes.join(', ')}` : '') + '.',
     };
   }
@@ -121,9 +126,12 @@ async function init() {
   _fns = { doc: fsMod.doc, getDoc: fsMod.getDoc };
 }
 
-/** Lê `lojaPrecos/atual`. Devolve null em qualquer problema — a vitrine cai no catálogo. */
+/**
+ * Lê `lojaPrecos/atual`. Devolve null em qualquer problema — a vitrine cai no catálogo.
+ * @returns {Promise<any|null>}
+ */
 export async function carregarPrecos() {
-  if (!(CLOUD_ATIVO && firebaseConfig && firebaseConfig.apiKey)) return null;
+  if (!lojaCloudAtiva()) return null;
   try {
     await init();
     const snap = await _fns.getDoc(_fns.doc(_db, 'lojaPrecos', 'atual'));
