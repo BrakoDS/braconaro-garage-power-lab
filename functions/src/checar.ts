@@ -9,6 +9,8 @@
  * passarem batido.
  */
 import { extrairAnalise, num } from './analise';
+import { extrairPreco, decidirRodada, type ItemFeed } from './precos';
+import { HTML_SOCIAL } from './fixtures/social-ml';
 
 let falhas = 0;
 
@@ -102,9 +104,85 @@ ok(num('12.5') === 12.5, 'string numérica com ponto é aceita');
 ok(num(Infinity) === 0, 'Infinity vira 0');
 ok(num(NaN) === 0, 'NaN vira 0');
 
+/* ============================================================
+   LEITURA DE PREÇO DA PÁGINA DO MERCADO LIVRE
+   ============================================================ */
+console.log('\nLEITURA DE PREÇO\n');
+
+const bomPreco = extrairPreco(HTML_SOCIAL);
+ok(bomPreco.ok === true, 'a página real é lida');
+ok(bomPreco.ok && bomPreco.preco === 48.99, `pega o preço do PRIMEIRO card (${bomPreco.ok ? bomPreco.preco : '—'})`);
+ok(bomPreco.ok && bomPreco.titulo === 'Creatina Monohidratada 300g Pó', 'e o título dele');
+
+// O cenário que este projeto inteiro existe para detectar: o ML mudou o layout,
+// o card deixou de ser o produto do link, e o preço lido seria de outra coisa.
+const trocado = HTML_SOCIAL.replace(
+  '{"text":"Creatina Monohidratada 300g Pó","long_title":"x"}',
+  '{"text":"Whey Protein 1kg Max Titanium Baunilha"}',
+);
+const rTrocado = extrairPreco(trocado);
+ok(!rTrocado.ok && rTrocado.motivo === 'titulo-nao-bate',
+  'card que não corresponde ao og:title é RECUSADO, não lido');
+
+const semOg = extrairPreco(HTML_SOCIAL.replace(/<meta property="og:title"[^>]*>/, ''));
+ok(!semOg.ok && semOg.motivo === 'sem-og', 'página sem og:title falha com sem-og');
+
+// `g` porque o fixture tem dois cards; sem ele sobraria o segundo (Whey) e o
+// motivo seria titulo-nao-bate, não sem-card — o teste passaria pelo motivo errado.
+const semCard = extrairPreco(HTML_SOCIAL.replace(/\{"type":"title"[\s\S]*?\}\},\n/g, ''));
+ok(!semCard.ok && semCard.motivo === 'sem-card', 'payload sem card de título falha com sem-card');
+
+const semPreco = extrairPreco(HTML_SOCIAL.replace(/"current_price":\{"value":48\.99/, '"current_price":{"value":0'));
+ok(!semPreco.ok && semPreco.motivo === 'sem-preco', 'preço zero é recusado');
+
+ok(!extrairPreco('').ok, 'string vazia não quebra');
+
+/* ---------- a trava ---------- */
+
+const leituraOk = (p: number) => ({ ok: true as const, titulo: 'x', preco: p });
+const leituraMa = { ok: false as const, motivo: 'http' as const };
+const rodadaDe = (nOk: number, nFalha: number) => [
+  ...Array.from({ length: nOk }, (_, i) => ({ id: `ok${i}`, leitura: leituraOk(10 + i) })),
+  ...Array.from({ length: nFalha }, (_, i) => ({ id: `ma${i}`, leitura: leituraMa })),
+];
+
+const passou = decidirRodada(rodadaDe(15, 7), {}, 1000);
+ok(passou.rodada.travou === false, '7 falhas em 22 NÃO travam');
+ok(passou.rodada.lidos === 15 && passou.rodada.falhas === 7, 'e a contagem bate');
+
+const travou = decidirRodada(rodadaDe(14, 8), {}, 1000);
+ok(travou.rodada.travou === true, '8 falhas em 22 travam');
+
+// `zz` de propósito: `rodadaDe` gera ids ok0..okN, e reaproveitar um deles faria
+// o produto bom sobrescrever o que falhou no mapa — o teste passaria por engano.
+const anterior: Record<string, ItemFeed> = {
+  zz: { estado: 'ok', preco: 78.9, titulo: 'Creatina Growth', verificadoEm: 500 },
+};
+const travadoComAnterior = decidirRodada(rodadaDe(14, 8), anterior, 1000);
+ok(travadoComAnterior.itens.zz?.preco === 78.9,
+  'rodada travada preserva os itens da rodada anterior intactos');
+ok(travadoComAnterior.itens.zz?.verificadoEm === 500,
+  'inclusive a data antiga — não carimba de novo o que não leu');
+ok(Object.keys(travadoComAnterior.itens).length === 1,
+  'e não acrescenta os produtos da rodada travada');
+
+const comFalhaIsolada = decidirRodada(
+  [{ id: 'zz', leitura: leituraMa }, ...rodadaDe(10, 0)],
+  anterior,
+  1000,
+);
+ok(comFalhaIsolada.rodada.travou === false, '1 falha em 11 não trava');
+ok(comFalhaIsolada.itens.zz.estado === 'falhou', 'falha isolada marca o produto');
+ok(comFalhaIsolada.itens.zz.preco === 78.9, 'preservando o último preço bom conhecido');
+ok(comFalhaIsolada.itens.zz.verificadoEm === 500, 'e a data em que ele foi lido');
+ok(comFalhaIsolada.itens.zz.motivo === 'http', 'e o motivo, para a gestão poder explicar');
+
+ok(decidirRodada([], {}, 1000).rodada.travou === true,
+  'lista vazia trava em vez de apagar o feed');
+
 console.log(
   falhas === 0
-    ? '\n✓ A leitura da IA aguenta resposta torta.\n'
+    ? '\n✓ A leitura da IA e a de preço aguentam entrada torta.\n'
     : `\n✗ ${falhas} verificação(ões) falharam.\n`,
 );
 process.exitCode = falhas === 0 ? 0 : 1;
