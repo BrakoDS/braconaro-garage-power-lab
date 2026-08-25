@@ -176,7 +176,13 @@ export function decidirRodada(
         // que diz a qual link a falha se refere. Reapontada a ficha para outro
         // link, a URL deixa de bater e a vitrine para de esconder o produto —
         // esconder por uma falha em link que já não é o dele seria punir o
-        // produto novo por um problema do antigo.
+        // produto novo por um problema do antigo. Isso deixa o item com `preco`
+        // e `verificadoEm` do link ANTERIOR mas `url` desta rodada — hoje
+        // inofensivo, porque `fundirPrecos` descarta todo item `falhou` sem
+        // olhar o preço dele. Se um dia a vitrine passar a mostrar o último
+        // preço conhecido de um item `falhou` em vez de esconder o produto,
+        // esse par (preço de um link, URL de outro) volta a ser exatamente o
+        // bug que `ehDoMesmoLink` existe para evitar.
         url,
       };
     }

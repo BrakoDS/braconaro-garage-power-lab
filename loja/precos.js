@@ -63,10 +63,16 @@ export function fundirPrecos(produtos, feed) {
  * tiraria da vitrine, de uma vez e no deploy, todo preço lido até agora: os
  * itens `ok` cairiam no preço do catálogo e os `falhou` voltariam a aparecer. O
  * risco de manter é o cenário raro (coach reapontou a URL de uma ficha existente
- * desde a última rodada) e dura até as 05:00 seguintes, quando toda a rodada
- * regrava o feed com `url`; o risco de recusar é certo e vale para os 22
- * produtos. Por isso a tolerância só existe para o item antigo: item novo sempre
- * tem `url` e é sempre conferido.
+ * desde a última rodada) e dura até a primeira rodada bem-sucedida seguinte, que
+ * regrava o feed com `url` — não necessariamente às 05:00: uma rodada que TRAVA
+ * não regrava os itens, e clicar em "Atualizar preços" logo após o deploy fecha
+ * a janela na hora, sem esperar a madrugada. O risco de recusar é certo e vale
+ * para os 22 produtos. Por isso a tolerância só existe para o item antigo: item
+ * novo sempre tem `url` e é sempre conferido. De quebra, é essa tolerância que
+ * desacopla os dois deploys: o front (`loja/precos.js`) pode ir ao ar antes ou
+ * depois das functions, em qualquer ordem — o que não seria verdade se o item
+ * sem `url` fosse recusado, porque aí o deploy do front na frente do das
+ * functions já esvaziaria a vitrine sozinho.
  *
  * @param {any} item
  * @param {any} produto
@@ -101,11 +107,14 @@ export function rotuloVerificado(ms, agora = Date.now()) {
  * Os seis motivos de falha, agrupados pelo que o COACH faz a respeito.
  *
  * Ele não precisa saber a diferença entre `sem-og` e `sem-card` — precisa saber
- * se confere o link, se espera, ou se chama alguém. Por isso os quatro motivos
- * de página quebrada viram uma frase só: a decisão dele é a mesma nos quatro.
- * Já `prazo` fica separado justamente porque a resposta é oposta — mandá-lo
- * conferir um link que a rodada nem chegou a abrir é fazê-lo perder tempo com um
- * limite nosso.
+ * se confere o link, se troca o produto, se espera, ou se chama alguém. Por
+ * isso os três motivos de página quebrada (`sem-og`, `sem-card`,
+ * `titulo-nao-bate`) viram uma frase só: a decisão é a mesma nos três. Já
+ * `sem-preco` fica separado: a página foi entendida perfeitamente (o título
+ * casou), só que sem preço — típico de anúncio esgotado ou pausado, e a ação é
+ * trocar o produto, não esperar o site "se resolver". E `prazo` fica separado
+ * porque a resposta é oposta a tudo isso — mandá-lo conferir um link que a
+ * rodada nem chegou a abrir é fazê-lo perder tempo com um limite nosso.
  */
 /** @type {Record<string, string>} */
 const GRUPO_DO_MOTIVO = {
@@ -114,14 +123,20 @@ const GRUPO_DO_MOTIVO = {
   'sem-og': 'pagina',
   'sem-card': 'pagina',
   'titulo-nao-bate': 'pagina',
-  'sem-preco': 'pagina',
+  'sem-preco': 'esgotado',
 };
 
 /** Ordem fixa: primeiro o que o coach resolve, por último o que só depende de nós. */
 const MOTIVOS = [
   ['link', 'o link não respondeu', 'vale conferir se ainda está no ar'],
+  ['esgotado', 'o anúncio está sem preço — pode ter esgotado ou saído do ar', 'vale conferir'],
   ['pagina', 'a página do Mercado Livre veio diferente do esperado', 'se repetir amanhã, avise quem cuida do site'],
-  ['prazo', 'a verificação não deu tempo de chegar até o fim', 'é limite nosso, a próxima rodada pega'],
+  // Sem promessa de conserto automático: a rodada percorre os produtos sempre
+  // na mesma ordem, então quem estoura o prazo são sempre os últimos da lista
+  // — e na rodada seguinte são os últimos de novo. Se a lentidão persistir, os
+  // mesmos produtos passam fome indefinidamente; "a próxima rodada pega" seria
+  // uma promessa que a rotina não cumpre.
+  ['prazo', 'a verificação não deu tempo de chegar até o fim', 'é limite nosso, não do link — se voltar a acontecer, avise quem cuida do site'],
 ];
 
 /**

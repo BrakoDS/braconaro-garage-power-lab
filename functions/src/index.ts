@@ -223,16 +223,18 @@ const PAUSA_MS = 400;
  * sem serem buscados. Assim o total continua completo, a trava dispara como foi
  * projetada, e a gravação ainda cabe com folga dentro de `timeoutSeconds`.
  *
- * O número é PROVISÓRIO e erra de propósito para o lado folgado: como as falhas
- * de prazo contam na trava de 1/3, um prazo curto trava a rodada sozinho por
- * latência, sem nenhuma falha real de leitura — com 22 produtos e todas as
- * páginas lidas com SUCESSO, 90 s travavam a partir de ~7 s por página (13
- * buscados, 9 fora do prazo), e o log acusaria o Mercado Livre por um limite
- * nosso. Ninguém mediu ainda quanto uma página do ML custa a partir de
- * `southamerica-east1`; até essa medição existir, 150 s dá conta de ~22 páginas
- * a 6,5 s cada e o teto do laço fica em ~165 s (prazo + um link pendurado),
- * bem dentro dos 300 s de `timeoutSeconds`. Medido o custo real, dá para
- * apertar.
+ * O número erra de propósito para o lado folgado: como as falhas de prazo
+ * contam na trava de 1/3, um prazo curto trava a rodada sozinho por latência,
+ * sem nenhuma falha real de leitura — com 22 produtos e todas as páginas lidas
+ * com SUCESSO, 90 s travavam a partir de ~7 s por página (13 buscados, 9 fora
+ * do prazo), e o log acusaria o Mercado Livre por um limite nosso. Medido em
+ * produção em 25/08/2026: 32 s para 22 produtos, ~1,45 s por página. Com
+ * 150 s, o prazo só começa a descartar produtos acima de ~7 s por página e só
+ * trava a rodada acima de ~11 s por página — folga de 5-7x sobre o medido. NÃO
+ * apertar: apertar recompra o risco de a rodada travar por latência e acusar o
+ * Mercado Livre de um limite que é nosso, sem ganho nenhum em troca — o teto do
+ * laço já fica em ~165 s (prazo + um link pendurado), bem dentro dos 300 s de
+ * `timeoutSeconds`.
  */
 const PRAZO_RODADA_MS = 150_000;
 
@@ -314,7 +316,15 @@ async function rodar(): Promise<ResumoRodada> {
     }
     // A URL vai junto do resultado para o item do feed poder gravá-la: o `id`
     // sobrevive à edição do produto, então só a URL prova que o preço lido é
-    // deste link (ver `ItemFeed.url` em `precos.ts`).
+    // deste link (ver `ItemFeed.url` em `precos.ts`). É de propósito que aqui vai
+    // `alvos[i].url` — a URL de ANTES do redirecionamento, a mesma que está
+    // publicada na vitrine — e não a URL final que o `fetch` resolveu: os links
+    // são encurtados (`meli.la/xxx`) e resolvem para um endereço completamente
+    // diferente, que nunca bateria com `produto.url` em `ehDoMesmoLink`
+    // (`loja/precos.js`). Trocar para a URL resolvida faz todo item parecer
+    // "de outro link" e todo preço cair no catálogo em silêncio — sem erro, sem
+    // log, sem trava, porque os testes cobrem a decisão da rodada, não esta
+    // montagem.
     resultados.push({ id: alvos[i].id, url: alvos[i].url, leitura: await buscarProduto(alvos[i].url) });
     // Só ENTRE produtos: depois do último a pausa é orçamento de instância no lixo.
     if (i < alvos.length - 1) await dormir(PAUSA_MS);

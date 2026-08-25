@@ -99,12 +99,21 @@ test('a faixa da gestão diz o MOTIVO da falha, para o coach saber o que fazer',
 
   const prazo = faixa({ a: { estado: 'falhou', motivo: 'prazo', preco: 48.9, verificadoEm: 500 } }, uma);
   assert.match(prazo, /não deu tempo/, 'prazo: é limite nosso, não há link a conferir');
-  assert.doesNotMatch(prazo, /link/, 'e não pode mandar o coach investigar o link à toa');
+  assert.doesNotMatch(prazo, /vale conferir/, 'e não pode mandar o coach investigar o link à toa');
+  assert.doesNotMatch(prazo, /próxima rodada pega/, 'não pode prometer um conserto que a rotina não garante');
 
-  for (const motivo of ['sem-og', 'sem-card', 'titulo-nao-bate', 'sem-preco']) {
+  for (const motivo of ['sem-og', 'sem-card', 'titulo-nao-bate']) {
     const pagina = faixa({ a: { estado: 'falhou', motivo, preco: 48.9, verificadoEm: 500 } }, uma);
     assert.match(pagina, /página do Mercado Livre veio diferente/, `${motivo}: a página mudou`);
   }
+
+  // sem-preco: a página foi entendida (o título casou), só não trazia preço —
+  // motivo próprio, separado do grupo "página quebrada", porque a ação do coach
+  // é outra: trocar o produto, não esperar o site "se resolver".
+  const semPreco = faixa({ a: { estado: 'falhou', motivo: 'sem-preco', preco: 48.9, verificadoEm: 500 } }, uma);
+  assert.match(semPreco, /sem preço/, 'sem-preco: fala do anúncio sem preço');
+  assert.match(semPreco, /esgotado|saído do ar/, 'sem-preco: sugere a causa típica');
+  assert.doesNotMatch(semPreco, /página do Mercado Livre veio diferente/, 'sem-preco não é problema de página');
 
   // Motivos diferentes não podem ser escondidos atrás de um só rótulo: o coach
   // tem uma coisa a fazer com um produto e outra com o outro.
