@@ -554,24 +554,6 @@ section.block { padding-block: var(--section-y); position: relative; }
 .slot.none::before { background: var(--muted-2); }
 
 /* ============================================================
-   LOCAL / MAPA
-   ============================================================ */
-.local-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line-2); }
-.local-info { padding: clamp(28px,4vw,48px); background: var(--bg-2); display: flex; flex-direction: column; }
-.local-info h3 { font-family: var(--font-display); font-weight:400; text-transform: uppercase; font-size: clamp(1.8rem,3vw,2.6rem); margin: 14px 0 6px; letter-spacing:.02em; }
-.local-line { display: flex; gap: 14px; padding: 16px 0; border-top: 1px solid var(--line); color: var(--muted); }
-.local-line:first-of-type { border-top: 0; }
-.local-line .ic { width: 34px; height: 34px; flex:0 0 auto; border: 1px solid var(--line-2); display:grid; place-items:center; color: var(--accent); }
-.local-line .ic svg { width: 16px; height: 16px; }
-.local-line b { color: var(--txt); font-weight: 600; display:block; font-family: var(--font-cond); letter-spacing:.06em; text-transform: uppercase; font-size:.8rem; margin-bottom:2px; }
-.local-line a { color: var(--muted); transition: color .2s; }
-.local-line a:hover { color: var(--accent); }
-.local-actions { display:flex; gap: 12px; flex-wrap: wrap; margin-top: auto; padding-top: 24px; }
-.local-map { min-height: 380px; position: relative; background: var(--bg-3); }
-.local-map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; filter: grayscale(0.4) contrast(1.05) brightness(0.85); }
-@media (max-width: 820px){ .local-grid { grid-template-columns: 1fr; } .local-map { min-height: 320px; order: 2; } }
-
-/* ============================================================
    CTA FINAL
    ============================================================ */
 .cta {
@@ -594,6 +576,41 @@ section.block { padding-block: var(--section-y); position: relative; }
 .cta .display { font-size: clamp(2.6rem, 9vw, 6.5rem); margin: 0; }
 .cta .display .big { display:block; color: var(--accent); font-size: 1.25em; }
 .cta-sub { color: var(--muted); max-width: 50ch; margin: 18px auto 30px; }
+
+/* canais de contato — fecham a seção.
+   O gap de 1px sobre o fundo da grade desenha os fios divisórios entre as
+   células, no mesmo vocabulário de traço fino do resto do site. */
+.canais {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: var(--line-2); border: 1px solid var(--line-2);
+  max-width: 940px; margin: clamp(46px, 7vw, 76px) auto 0;
+  text-align: center;
+}
+.canal {
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  padding: clamp(24px, 3.4vw, 34px) 16px;
+  background: rgba(6,6,7,.78); color: var(--muted);
+  transition: background .25s;
+}
+.canal:hover, .canal:focus-visible { background: var(--bg-2); }
+.canal-ic {
+  width: 44px; height: 44px; border: 1px solid var(--line-2);
+  display: grid; place-items: center; color: var(--accent);
+  transition: background .25s, border-color .25s, color .25s;
+}
+.canal-ic svg { width: 19px; height: 19px; }
+.canal:hover .canal-ic, .canal:focus-visible .canal-ic {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+}
+.canal-rot {
+  font-family: var(--font-cond); text-transform: uppercase;
+  letter-spacing: .16em; font-size: .78rem; color: var(--txt);
+}
+/* o e-mail é longo: sem o anywhere ele estoura a coluna em telas médias */
+.canal-val { font-size: .88rem; overflow-wrap: anywhere; transition: color .25s; }
+.canal:hover .canal-val, .canal:focus-visible .canal-val { color: var(--accent); }
+@media (max-width: 860px){ .canais { grid-template-columns: 1fr 1fr; max-width: 520px; } }
+@media (max-width: 420px){ .canais { grid-template-columns: 1fr; } }
 
 /* ============================================================
    FOOTER
