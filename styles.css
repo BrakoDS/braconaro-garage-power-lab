@@ -29,7 +29,11 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+/* o overflow-x precisa estar aqui, e não só no body: o menu mobile é um painel
+   `position: fixed` estacionado fora da tela à direita, e elemento fixo não é
+   recortado pelo overflow do body — só pelo do html, que é quem governa a
+   rolagem da janela. Sem isto a página arrasta para o lado no celular. */
+html { scroll-behavior: smooth; overflow-x: hidden; }
 
 body {
   margin: 0;
@@ -198,6 +202,12 @@ a { color: inherit; text-decoration: none; }
     gap: 26px; padding: 0 36px;
     background: var(--bg-2); border-left: 1px solid var(--line);
     transform: translateX(100%); transition: transform .3s ease;
+    /* O `bottom: 0` do inset acima NÃO estica este painel até o pé da tela: o
+       .nav tem backdrop-filter, e isso faz dele o bloco de contenção dos filhos
+       fixos. Os insets passam a resolver contra os ~58px do nav, e os links
+       vazavam para fora do painel, sem fundo, por cima da página. A altura em
+       svh é medida na janela e não no nav, então corrige sem abrir mão do blur. */
+    height: 100vh; height: 100svh;
   }
   .nav-links.open { transform: translateX(0); }
   .nav-links a { font-size: 1.25rem; }
