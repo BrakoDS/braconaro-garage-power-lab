@@ -177,6 +177,14 @@ tr.bad-row td { color: var(--warn); }
   .card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
 }
 @media (max-width: 640px) {
+  /* As três abas não cabem ao lado da marca num telefone: vazavam para fora da
+     tela e esticavam a página inteira (a porta de acesso ia junto, por ser
+     `inset: 0`). Descem para a própria linha e quebram entre si conforme a
+     largura — sem encolher fonte e sem tira rolável, onde a última aba ficaria
+     escondida atrás de um arrasto que ninguém adivinha. */
+  .topbar { flex-wrap: wrap; }
+  .tabs { margin-left: 0; width: 100%; flex-wrap: wrap; }
+
   .bar-row { grid-template-columns: 100px 1fr 30px; }
   .panel { gap: 10px; }
   select, input { min-width: 120px; }
