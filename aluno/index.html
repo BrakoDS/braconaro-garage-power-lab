@@ -41,10 +41,14 @@
   <div id="app" hidden>
     <header class="topbar">
       <div class="brand"><b>GARAGE POWER LAB</b> · Portal</div>
-      <div style="display:flex;gap:10px">
-        <a class="btn ghost btn-sm" href="../index.html">Voltar ao site</a>
+      <!-- Os rótulos vêm em dois: no celular os três botões não cabem ao lado da
+           marca com o texto inteiro. Em vez de encolher a fonte, encolhe a
+           palavra — dentro do portal do box, "Site" e "Store" já dizem tudo. -->
+      <nav class="topbar-acoes">
+        <a class="btn ghost btn-sm" href="../index.html"><span class="tb-longo">Voltar ao site</span><span class="tb-curto">Site</span></a>
+        <a class="btn ghost btn-sm tb-store" href="../loja/index.html"><span class="tb-longo">Garage Store</span><span class="tb-curto">Store</span></a>
         <button id="sair" class="btn ghost btn-sm" type="button">Sair</button>
-      </div>
+      </nav>
     </header>
 
     <main class="wrap">
