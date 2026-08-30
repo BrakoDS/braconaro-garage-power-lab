@@ -34,7 +34,11 @@ function fatia(a) {
     status: a.status || 'ativo', objetivo: a.objetivo || '', nivel: a.nivel || '',
     sexo: a.sexo || '', nascimento: a.nascimento || '', altura: a.altura || '',
     mensalidade: a.mensalidade || '', vencimento: a.vencimento || '', pagamentos: a.pagamentos || {},
+    // Plano e grade de horários: o Portal monta com isso o bloco "Seu plano" e os
+    // quadrados de "Seu horário" (verde = veio, vermelho = faltou).
+    freqVezes: a.freqVezes || '', freqHorario: a.freqHorario || '', diasTreino: a.diasTreino || [],
     presencas: a.presencas || [],
+    presencaHoras: a.presencaHoras || {},
     avaliacoes: a.avaliacoes || [],
     metas: a.metas || [],
     criadoEm: a.criadoEm || null,

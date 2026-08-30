@@ -789,8 +789,20 @@ function renderCheckin() {
 function toggleCheckin(id) {
   const a = db.obter(id); if (!a) return;
   const set = new Set(a.presencas || []);
-  if (set.has(chkData)) set.delete(chkData); else set.add(chkData);
-  db.atualizar(id, { presencas: [...set].sort() });
+  // A hora vai num mapa à parte, e não dentro de `presencas`: essa lista é
+  // consultada com `.includes(data)` em meia dúzia de lugares (aqui, na
+  // gamificação, no Portal) e virar objeto quebraria todos de uma vez.
+  const horas = { ...(a.presencaHoras || {}) };
+  if (set.has(chkData)) {
+    set.delete(chkData); delete horas[chkData];
+  } else {
+    set.add(chkData);
+    // Só grava a hora quando o check-in é do próprio dia. Marcando um dia
+    // passado, o relógio de agora não diz nada sobre quando o aluno veio —
+    // melhor não ter hora do que ter uma inventada.
+    if (chkData === hoje()) horas[chkData] = new Date().toTimeString().slice(0, 5);
+  }
+  db.atualizar(id, { presencas: [...set].sort(), presencaHoras: horas });
   renderCheckin();
 }
 

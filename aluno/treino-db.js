@@ -1,10 +1,11 @@
 // @ts-check
 /**
- * Treino do dia (lado aluno).
+ * Cronograma de treinos (lado aluno).
  *
  * Lê o doc compartilhado `treinoPortal/{mesId}` que o Montador publica (um treino
  * por data em `dias[dateId]`, igual para todos). A regra permite qualquer aluno
- * autenticado ler. Resolve o treino pela data de hoje. Silencioso em falha.
+ * autenticado ler, inclusive meses passados — é o que deixa o aluno navegar o
+ * cronograma para trás. Silencioso em falha.
  */
 import { firebaseConfig } from '../montador/cloud-config.js';
 
@@ -29,48 +30,28 @@ export function dateIdDe(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const DOW = { 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex' };
-const NOME_DIA = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };
-
-/** Segunda-feira da semana de uma data. */
-function segundaDaSemana(d) {
-  const x = new Date(d);
-  const dow = x.getDay(); // 0=dom..6=sab
-  x.setDate(x.getDate() + (dow === 0 ? -6 : 1 - dow));
-  return x;
-}
-
-/** Lê o doc do mês atual (treinos por data). Retorna o doc ou null. */
-export async function carregarTreinoDoMes() {
-  try {
-    await init();
-    const snap = await _fns.getDoc(_fns.doc(_db, 'treinoPortal', mesIdHoje()));
-    return snap.exists() ? snap.data() : null;
-  } catch (e) {
-    console.warn('Treino do dia:', e?.code || e);
-    return null;
-  }
-}
+/**
+ * Cache por mês. O cronograma deixa o aluno navegar para trás e para a frente, e
+ * sem isto cada toque nas setas seria uma leitura nova do mesmo documento.
+ * Guarda inclusive o `null` de mês sem treino — é resposta, não falha.
+ */
+const _meses = new Map();
 
 /**
- * A partir do doc do mês, resolve o treino da DATA de hoje e monta a faixa da
- * semana (dia da semana → modalidade, das datas seg–sex desta semana).
- * @param {any} doc  documento de treinoPortal/{mesId}
- * @returns {{ diaHoje:string|null, treino:any|null, descanso:boolean, semanaMods:object }|null}
+ * Lê o doc de um mês (treinos por data). Sem argumento, o mês atual.
+ * @param {string} [mesId] 'YYYY-MM'
+ * @returns {Promise<any|null>} o doc, ou null se o mês não tem treino publicado
  */
-export function resolverHoje(doc) {
-  if (!doc || !doc.dias) return null;
-  const hoje = new Date();
-  const diaHoje = DOW[hoje.getDay()] || null; // null = fim de semana (só p/ destaque da faixa)
-  const treino = doc.dias[dateIdDe(hoje)] || null;
-  const semanaMods = {};
-  const seg = segundaDaSemana(hoje);
-  ['seg', 'ter', 'qua', 'qui', 'sex'].forEach((k, i) => {
-    const d = new Date(seg); d.setDate(d.getDate() + i);
-    const t = doc.dias[dateIdDe(d)];
-    if (t) semanaMods[k] = t.modalidade;
-  });
-  return { diaHoje, treino, descanso: !treino, semanaMods };
+export async function carregarTreinoDoMes(mesId = mesIdHoje()) {
+  if (_meses.has(mesId)) return _meses.get(mesId);
+  try {
+    await init();
+    const snap = await _fns.getDoc(_fns.doc(_db, 'treinoPortal', mesId));
+    const doc = snap.exists() ? snap.data() : null;
+    _meses.set(mesId, doc);
+    return doc;
+  } catch (e) {
+    console.warn('Treino do mês:', e?.code || e);
+    return null; // sem cache: falha de rede merece nova tentativa
+  }
 }
-
-export { NOME_DIA };

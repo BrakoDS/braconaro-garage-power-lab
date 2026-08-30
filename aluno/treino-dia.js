@@ -210,17 +210,3 @@ export function renderTreinoDia(treino, nivel) {
     ${corpo}
   </div>`;
 }
-
-/** Faixa compacta da semana: modalidade por dia, hoje destacado. */
-export function renderFaixaSemana(grade, diaHoje) {
-  const dias = ['seg', 'ter', 'qua', 'qui', 'sex'];
-  const cels = dias.map((d) => {
-    const m = grade && grade[d];
-    const on = d === diaHoje;
-    return `<div class="td-fx-cel${on ? ' on' : ''}">
-      <span class="td-fx-dia">${d.toUpperCase()}</span>
-      <span class="td-fx-mod">${m ? esc(MOD_NOME[m] || m) : '—'}</span>
-    </div>`;
-  }).join('');
-  return `<div class="td-faixa">${cels}</div>`;
-}
