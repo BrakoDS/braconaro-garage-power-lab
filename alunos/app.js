@@ -803,6 +803,7 @@ function toggleCheckin(id) {
     if (chkData === hoje()) horas[chkData] = new Date().toTimeString().slice(0, 5);
   }
   db.atualizar(id, { presencas: [...set].sort(), presencaHoras: horas });
+  agendarPublicarPortal(); // é o check-in que pinta os quadrados de "Seu horário"
   renderCheckin();
 }
 
@@ -895,6 +896,9 @@ function abrirPerfil(id) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     db.atualizar(a.id, lerForm(form));
+    // Republica: o Portal mostra plano, dias e horário direto desta fatia, e sem
+    // isto o aluno só veria a mudança quando o coach reabrisse a Gestão.
+    agendarPublicarPortal();
     alunoAtual = db.obter(a.id);
     $('#p-nome').textContent = alunoAtual.nome || 'Sem nome';
     const s2 = $('#p-status'); s2.className = 'status ' + (alunoAtual.status || 'ativo'); s2.textContent = STATUS_LABEL[alunoAtual.status] || 'Ativo';
