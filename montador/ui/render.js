@@ -8,16 +8,13 @@ import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
 import { NIVEIS_HYROX, NIVEL_HYROX_LABEL } from '../core/hyrox.js';
 import { agruparPorSemana, analisarSemana, analisarMes } from '../core/analise.js';
 import { alternativasDoDia, diaEditavel } from '../core/editar-dia.js';
+import { COR_MODALIDADE } from '../config/cores-modalidade.js';
 
-/** Cor de fundo + texto por modalidade (calendário do histórico). */
-export const COR_MODALIDADE = {
-  forca:       { bg: '#FF0000', fg: '#fff', nome: 'Força' },
-  hipertrofia: { bg: '#FFA500', fg: '#1a1300', nome: 'Hipertrofia' },
-  hyrox:       { bg: '#FFFF00', fg: '#1a1300', nome: 'HYROX' },
-  gap:         { bg: '#FFC0CB', fg: '#3a0d16', nome: 'GAP' },
-  hibrido:     { bg: '#800080', fg: '#fff', nome: 'Híbrido' },
-  hiit:        { bg: '#3DDC84', fg: '#06210f', nome: 'HIIT' },
-};
+/* Cor por modalidade (calendário do histórico). Mora em config/ porque o Portal
+   do Aluno desenha o mesmo calendário; o re-export mantém os imports de cá.
+   O import separado é necessário: `export ... from` não cria binding local, e
+   renderCalendario() logo abaixo usa o mapa. */
+export { COR_MODALIDADE } from '../config/cores-modalidade.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const mmss = (s) => `${Math.round(s / 60)}min`;

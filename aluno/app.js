@@ -9,8 +9,10 @@ import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario
 import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
-import { carregarTreinoDoMes, resolverHoje } from './treino-db.js';
-import { renderTreinoDia, renderFaixaSemana } from './treino-dia.js';
+import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
+import { semanaDoAluno, ORDEM_DIAS } from './semana.js';
+import { renderTreinoDia } from './treino-dia.js';
+import { COR_MODALIDADE } from '../montador/config/cores-modalidade.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=2';
 import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
@@ -36,6 +38,28 @@ function sinal(v, d = 1) { return v == null ? '—' : (v > 0 ? '+' : v < 0 ? '�
 let PORTAL = null;
 /** E-mail do aluno logado (usa a fatia como fallback se a sessão ainda não resolveu). */
 const emailAluno = () => (usuario()?.email || PORTAL?.email || '').toLowerCase();
+
+/* ============================================================
+   Navegação entre telas
+
+   A tela inicial mostra só o essencial; o resto vive atrás do botão "Pra você"
+   e do botão do Financeiro. Como dá para descer dois níveis (início → Pra você →
+   Cargas), o "Voltar" precisa de uma pilha: sem ela, sair de Cargas jogaria o
+   aluno na tela inicial e ele teria que refazer o caminho para o item vizinho.
+   ============================================================ */
+const VIEWS = ['view-dashboard', 'view-pravoce', 'view-secao', 'view-nutricao', 'view-conquistas', 'view-cargas'];
+let viewAtual = 'view-dashboard';
+const pilhaViews = [];
+
+function mostrarView(id) {
+  VIEWS.forEach((v) => { const el = $('#' + v); if (el) el.hidden = v !== id; });
+  viewAtual = id;
+  window.scrollTo(0, 0);
+}
+/** Entra numa tela guardando de onde veio. */
+function irPara(id) { pilhaViews.push(viewAtual); mostrarView(id); }
+/** Volta um nível. Sem histórico (link direto, recarga), cai na tela inicial. */
+function voltar() { mostrarView(pilhaViews.pop() || 'view-dashboard'); }
 
 /* ---------- Pagamento via Pix (dados do box) ---------- */
 const PIX = {
@@ -107,7 +131,8 @@ function avaliacoesOrdenadas() {
 function render() {
   const temDados = !!PORTAL;
   $('#sem-dados').hidden = temDados;
-  ['sec-atalhos', 'sec-indique', 'sec-progresso', 'sec-financeiro', 'sec-avaliacoes', 'sec-feedback'].forEach((id) => { $('#' + id).hidden = !temDados; });
+  ['sec-plano', 'sec-horarios', 'sec-indique', 'sec-progresso', 'sec-financeiro', 'sec-avaliacoes', 'sec-feedback']
+    .forEach((id) => { $('#' + id).hidden = !temDados; });
   // sec-metas: só quando há metas definidas (controlado em renderMetas)
 
   // Boas-vindas (sempre, com nome do que tiver) — avatar com botão "Alterar foto"
@@ -123,10 +148,14 @@ function render() {
     </div>
     <div class="wel-txt"><h1>Olá, ${esc(primeiroNome(nome))}! 👋</h1><p>${esc(subt || 'Acompanhe sua evolução.')}</p>
       <span class="wel-foto-msg" id="foto-msg" hidden></span>
-    </div>`;
+    </div>
+    ${temDados ? '<button class="btn wel-pv" id="ir-pravoce" type="button">Pra você</button>' : ''}`;
 
   if (!temDados) return;
+  $('#ir-pravoce').addEventListener('click', abrirPraVoce);
   wireFoto();
+  renderPlano();
+  renderHorarios();
   renderIndique();
   renderProgresso();
   renderMetas();
@@ -173,6 +202,256 @@ function renderIndique() {
   const btnCopiar = $('#indique-copiar');
   if (btnCopiar) btnCopiar.onclick = () => copiarTexto(btnCopiar, msg, 'Copiar mensagem');
 }
+
+/* ============================================================
+   "Pra você" — o menu de tudo que saiu da tela inicial
+
+   Os itens não têm HTML próprio: cada um aponta para seções que já existem no
+   documento, guardadas em #secoes-guardadas. Abrir move a seção para a tela de
+   detalhe; voltar devolve. Assim renderProgresso(), renderMetas() e companhia
+   continuam escrevendo no mesmo #id de sempre, sem saber que a tela mudou.
+   ============================================================ */
+const MENU_PRAVOCE = [
+  { ic: '🏆', rot: 'Conquistas', sub: 'Sua sequência, medalhas, recordes e o ranking do box', abrir: () => abrirConquistas() },
+  { ic: '📋', rot: 'Avaliações', sub: 'Suas medidas e a comparação entre elas', secao: 'avaliacoes' },
+  { ic: '📈', rot: 'Progresso', sub: 'Seus números, os gráficos e as fotos de evolução', secao: 'progresso' },
+  { ic: '🎯', rot: 'Metas', sub: 'O que o coach definiu e quanto falta pra você', secao: 'metas' },
+  { ic: '🏋️', rot: 'Registro de cargas', sub: 'Anote carga × reps e veja sua evolução de força', abrir: () => abrirCargas() },
+  { ic: '🍎', rot: 'Nutrição básica', sub: 'Metas de calorias e macros + gasto dos treinos', abrir: () => abrirNutricao() },
+  { ic: '💬', rot: 'Feedback', sub: 'Conte pro seu coach como foi o treino', secao: 'feedback' },
+  { ic: '📣', rot: 'Avisos', sub: 'Os recados da academia', secao: 'avisos' },
+];
+
+/** Seções guardadas, por chave. `ids` na ordem em que aparecem na tela. */
+const SECOES = {
+  financeiro: { titulo: 'Financeiro', ids: ['sec-financeiro'], vazio: 'Sua mensalidade ainda não foi cadastrada. Fale com seu coach.' },
+  avaliacoes: { titulo: 'Suas avaliações', ids: ['sec-avaliacoes'], vazio: 'Você ainda não tem avaliação física registrada. Marque a sua com o coach!' },
+  progresso: { titulo: 'Seu progresso', ids: ['sec-progresso', 'sec-evolucao', 'sec-fotos'], vazio: 'Seu progresso aparece aqui a partir da primeira avaliação física.' },
+  metas: { titulo: 'Suas metas', ids: ['sec-metas'], vazio: 'Seu coach ainda não definiu metas pra você. Combine as suas na próxima aula.' },
+  feedback: { titulo: 'Feedback pós-treino', ids: ['sec-feedback'], vazio: 'O feedback ainda não está disponível.' },
+  avisos: { titulo: 'Avisos da academia', ids: ['sec-avisos'], vazio: 'Nenhum aviso no mural por enquanto.' },
+};
+
+function abrirPraVoce() {
+  $('#pv-menu').innerHTML = MENU_PRAVOCE.map((m, i) => `
+    <button class="pv-card" data-i="${i}" type="button">
+      <span class="pv-ic" aria-hidden="true">${m.ic}</span>
+      <span class="pv-tx"><b>${esc(m.rot)}</b><small>${esc(m.sub)}</small></span>
+      <span class="pv-seta" aria-hidden="true">›</span>
+    </button>`).join('');
+  irPara('view-pravoce');
+}
+
+/** Move as seções da chave para a tela de detalhe e mostra. */
+function abrirSecao(chave) {
+  const s = SECOES[chave]; if (!s) return;
+  const host = $('#secao-host');
+  const nos = s.ids.map((id) => $('#' + id)).filter(Boolean);
+  nos.forEach((n) => host.appendChild(n));
+  $('#secao-h1').textContent = s.titulo;
+  // Cada seção se esconde sozinha quando não tem o que mostrar (metas sem meta,
+  // avisos sem aviso). Se TODAS se esconderam, a tela ficaria em branco — daí a
+  // mensagem, que explica o vazio em vez de deixar o aluno achando que quebrou.
+  const vazio = nos.every((n) => n.hidden);
+  $('#secao-vazia').hidden = !vazio;
+  if (vazio) $('#secao-vazia').innerHTML = `<b>Nada por aqui ainda</b>${esc(s.vazio)}`;
+  irPara('view-secao');
+}
+
+function fecharSecao() {
+  const guardadas = $('#secoes-guardadas');
+  [...$('#secao-host').children].forEach((n) => guardadas.appendChild(n));
+  voltar();
+}
+
+$('#pv-voltar').addEventListener('click', voltar);
+$('#secao-voltar').addEventListener('click', fecharSecao);
+$('#pv-menu').addEventListener('click', (ev) => {
+  const b = ev.target.closest('.pv-card'); if (!b) return;
+  const m = MENU_PRAVOCE[Number(b.dataset.i)];
+  if (m.abrir) m.abrir(); else abrirSecao(m.secao);
+});
+
+/* ============================================================
+   Seu plano — frequência, situação da mensalidade e porta do Financeiro
+   ============================================================ */
+const MESES_EXT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+/** Rótulo e cor do plano a partir do status financeiro do mês corrente. */
+const SIT_PLANO = {
+  pago: { rot: 'Ativo', cls: 'ok' },
+  pendente: { rot: 'Pendente', cls: 'warn' },
+  vencido: { rot: 'Inativo', cls: 'bad' },
+};
+
+function renderPlano() {
+  const vezes = parseInt(PORTAL?.freqVezes, 10) || (PORTAL?.diasTreino || []).length || null;
+  const temValor = (numf(PORTAL?.mensalidade) || 0) > 0;
+  const st = temValor ? statusFin(new Date().toISOString().slice(0, 7)) : null;
+  const sit = st ? SIT_PLANO[st] : null;
+
+  // Data de vencimento por extenso, no mês corrente — é o que o aluno procura
+  // aqui ("quando eu pago?"), e não o dia solto.
+  const hoje = new Date();
+  const dia = parseInt(PORTAL?.vencimento, 10);
+  const vencTxt = dia >= 1 && dia <= 31
+    ? `vence: ${Math.min(dia, new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate())} de ${MESES_EXT[hoje.getMonth()]}`
+    : 'vencimento não definido';
+
+  $('#plano').innerHTML = `
+    <div class="plano-freq">${vezes ? `<b>${vezes}x</b><span>semana</span>` : '<b>—</b><span>a definir</span>'}</div>
+    <div class="plano-sit">
+      ${sit ? `<span class="plano-badge ${sit.cls}"><i></i>${sit.rot}</span>` : '<span class="plano-badge">Sem mensalidade</span>'}
+      <span class="plano-venc">${esc(vencTxt)}</span>
+    </div>
+    <button class="btn plano-fin" id="ir-financeiro" type="button">Financeiro</button>`;
+  $('#ir-financeiro').addEventListener('click', () => abrirSecao('financeiro'));
+}
+
+/* ============================================================
+   Seu horário — um quadrado por dia fixo, pintado pela presença da semana
+   A regra de quem cobre quem mora em semana.js (puro, com testes).
+   ============================================================ */
+const DIA_EXT = { seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' };
+const DIA_CURTO = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };
+
+function renderHorarios() {
+  const sec = $('#sec-horarios');
+  if (!(PORTAL?.diasTreino || []).length) {
+    // Sem dias cadastrados não há o que pintar — melhor sumir com o bloco do que
+    // mostrar uma grade vazia que parece defeito.
+    sec.hidden = true;
+    return;
+  }
+  sec.hidden = false;
+  const hora = String(PORTAL?.freqHorario || '').trim();
+  const hojeIso = dateIdDe();
+  const quadrados = semanaDoAluno({
+    diasTreino: PORTAL.diasTreino,
+    presencas: PORTAL.presencas || [],
+    horas: PORTAL.presencaHoras || {},
+  });
+
+  const diaDe = (iso) => DIA_CURTO[ORDEM_DIAS[(new Date(iso + 'T00:00:00').getDay() + 6) % 7]];
+  const nota = (q) => {
+    if (q.veioEm) return `veio ${diaDe(q.veioEm)}${q.hora ? ` · ${q.hora}` : ''}`;
+    if (q.estado === 'ok') return q.hora ? `chegou ${q.hora}` : '';
+    if (q.estado === 'falta') return 'não veio';
+    return q.iso === hojeIso ? 'é hoje' : '';
+  };
+
+  $('#horarios').innerHTML = quadrados.map((q) => `
+    <div class="hor-cel ${q.estado}">
+      <span class="hor-dia">${esc(q.extra ? 'Treino extra' : DIA_EXT[q.chave])}</span>
+      <span class="hor-hora">${esc(q.extra ? `${diaDe(q.iso)}${q.hora ? ` · ${q.hora}` : ''}` : (hora || '—'))}</span>
+      ${!q.extra && nota(q) ? `<span class="hor-nota-cel">${esc(nota(q))}</span>` : ''}
+    </div>`).join('');
+
+  const fixos = quadrados.filter((q) => !q.extra);
+  const vindos = quadrados.filter((q) => q.estado === 'ok').length;
+  $('#horarios-nota').textContent = `${vindos} de ${fixos.length} treinos desta semana.`;
+}
+
+/* ============================================================
+   Cronograma — o mês de treinos publicado pelo Montador
+
+   Mesmo calendário do histórico do coach (mesmas cores, vindas de
+   config/cores-modalidade.js), só que sem editar nem excluir: o aluno toca num
+   dia colorido e lê o treino daquele dia.
+   ============================================================ */
+let cronoMesId = mesIdHoje();
+const CAB_SEMANA = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
+let cronoDias = {}; // dateId -> treino do mês em tela
+
+function rotuloMes(mesId) {
+  const [a, m] = mesId.split('-').map(Number);
+  return `${MESES_EXT[m - 1][0].toUpperCase()}${MESES_EXT[m - 1].slice(1)}/${a}`;
+}
+function shiftMes(mesId, d) {
+  const [a, m] = mesId.split('-').map(Number);
+  const x = new Date(a, m - 1 + d, 1);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function renderCronograma() {
+  const sec = $('#sec-cronograma');
+  sec.hidden = false;
+  const alvo = $('#cronograma');
+  const pedido = cronoMesId;
+  const doc = await carregarTreinoDoMes(pedido);
+  // Tocar nas setas rápido dispara leituras que podem voltar fora de ordem. Se o
+  // aluno já mudou de mês enquanto esta esperava, desenhar agora seria pintar o
+  // mês errado por cima do certo — melhor deixar a chamada mais nova terminar.
+  if (pedido !== cronoMesId) return;
+  cronoDias = doc?.dias || {};
+
+  const [ano, mes] = cronoMesId.split('-').map(Number);
+  const nDias = new Date(ano, mes, 0).getDate();
+  const inicioDow = new Date(ano, mes - 1, 1).getDay();
+  const hojeIso = dateIdDe();
+
+  const celulas = [];
+  for (let i = 0; i < inicioDow; i++) celulas.push('<div class="cal-cel vazia"></div>');
+  for (let dia = 1; dia <= nDias; dia++) {
+    const dateId = `${cronoMesId}-${String(dia).padStart(2, '0')}`;
+    const t = cronoDias[dateId];
+    const eHoje = dateId === hojeIso ? ' hoje' : '';
+    if (t) {
+      const c = COR_MODALIDADE[t.modalidade] || { bg: '#555', fg: '#fff', nome: t.modalidade };
+      celulas.push(`<button class="cal-cel tem${eHoje}" data-date="${dateId}" type="button"
+        style="background:${c.bg};color:${c.fg}" title="${esc(c.nome)}"><span class="cal-num">${dia}</span></button>`);
+    } else {
+      celulas.push(`<div class="cal-cel${eHoje}"><span class="cal-num">${dia}</span></div>`);
+    }
+  }
+
+  const legenda = Object.values(COR_MODALIDADE)
+    .map((c) => `<span class="cal-leg-item"><span class="cal-leg-cor" style="background:${c.bg}"></span>${esc(c.nome)}</span>`).join('');
+
+  // Destaque do dia: a chamada direta pro treino de hoje, sem obrigar o aluno a
+  // caçar o quadradinho certo no meio do mês.
+  const tHoje = cronoDias[hojeIso];
+  const cHoje = tHoje ? (COR_MODALIDADE[tHoje.modalidade] || { nome: tHoje.modalidade, bg: '#555' }) : null;
+  const destaque = cronoMesId !== mesIdHoje() ? ''
+    : tHoje
+      ? `<button class="crono-hoje" data-date="${hojeIso}" type="button">
+          <span class="crono-hoje-pt" style="background:${cHoje.bg}"></span>
+          <span class="crono-hoje-tx"><b>Hoje · ${esc(cHoje.nome)}</b><small>Toque para ver o treino completo</small></span>
+          <span class="crono-hoje-seta" aria-hidden="true">›</span>
+        </button>`
+      : `<div class="crono-hoje descanso"><span class="crono-hoje-pt" style="background:var(--line-2)"></span>
+          <span class="crono-hoje-tx"><b>Hoje é dia de descanso 💤</b><small>Aproveite para recuperar.</small></span></div>`;
+
+  alvo.innerHTML = `${destaque}
+    <div class="cal-card">
+      <div class="cal-topo">
+        <button class="btn ghost btn-sm cal-nav" data-nav="-1" type="button" aria-label="Mês anterior">◀</button>
+        <h3 class="cal-titulo">${esc(rotuloMes(cronoMesId))}</h3>
+        <button class="btn ghost btn-sm cal-nav" data-nav="1" type="button" aria-label="Próximo mês">▶</button>
+      </div>
+      <div class="cal-grade">
+        ${CAB_SEMANA.map((d) => `<div class="cal-cab">${d}</div>`).join('')}
+        ${celulas.join('')}
+      </div>
+      <div class="cal-legenda">${legenda}</div>
+      <p class="cal-dica">Toque num dia colorido para ver o treino daquele dia.</p>
+    </div>`;
+}
+
+/** Abre o treino de uma data no modal (só leitura — o aluno não edita nada). */
+function abrirDiaCronograma(dateId) {
+  const t = cronoDias[dateId]; if (!t) return;
+  $('#modal-treino-tit').textContent = fmtData(dateId);
+  $('#modal-treino-body').innerHTML = renderTreinoDia(t, PORTAL?.nivel || 'intermediario');
+  $('#modal-treino').classList.add('open');
+}
+
+$('#cronograma').addEventListener('click', (ev) => {
+  const nav = ev.target.closest('.cal-nav');
+  if (nav) { cronoMesId = shiftMes(cronoMesId, Number(nav.dataset.nav)); renderCronograma(); return; }
+  const alvo = ev.target.closest('.cal-cel.tem, .crono-hoje[data-date]');
+  if (alvo) abrirDiaCronograma(alvo.dataset.date);
+});
 
 const fmtDataCurta = (iso) => { if (!iso) return ''; const [, m, d] = iso.split('-'); return `${d}/${m}`; };
 
@@ -253,7 +532,7 @@ function renderPagLembrete() {
   banner.className = 'pag-banner ' + st;
   banner.innerHTML = `<span class="pb-ic" aria-hidden="true">💳</span><span class="pb-tx">${txt} Pague em segundos pelo Pix.</span><button class="btn btn-sm" id="pb-pix" type="button">Pagar com Pix</button>`;
   $('#pb-pix').addEventListener('click', () => {
-    $('#sec-financeiro')?.scrollIntoView({ behavior: 'smooth' });
+    abrirSecao('financeiro');
     const p = $('#pix-panel');
     if (p && p.hidden) $('#btn-pix')?.click();
   });
@@ -550,9 +829,7 @@ function barrasSemana(valores, labels, hojeIso, dias) {
 }
 
 async function abrirNutricao() {
-  $('#view-dashboard').hidden = true;
-  $('#view-nutricao').hidden = false;
-  window.scrollTo(0, 0);
+  irPara('view-nutricao');
   if (NUT == null) {
     $('#nut-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
     try { NUT = await carregarNutricao(emailAluno()); }
@@ -561,9 +838,7 @@ async function abrirNutricao() {
   desenharNutricao();
 }
 function fecharNutricao() {
-  $('#view-nutricao').hidden = true;
-  $('#view-dashboard').hidden = false;
-  window.scrollTo(0, 0);
+  voltar();
 }
 async function persistirNutricao() {
   try { await salvarNutricao(emailAluno(), NUT); }
@@ -691,9 +966,7 @@ let CONQ_RANKING = null;
 /** @type {any} */ let DES_PROG = null;  // progresso do aluno { checks, concluidos }
 
 async function abrirConquistas() {
-  $('#view-dashboard').hidden = true;
-  $('#view-conquistas').hidden = false;
-  window.scrollTo(0, 0);
+  irPara('view-conquistas');
   $('#conq-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
   if (NUT == null) {
     try { NUT = await carregarNutricao(emailAluno()); }
@@ -705,9 +978,7 @@ async function abrirConquistas() {
   desenharConquistas();
 }
 function fecharConquistas() {
-  $('#view-conquistas').hidden = true;
-  $('#view-dashboard').hidden = false;
-  window.scrollTo(0, 0);
+  voltar();
 }
 
 function desenharConquistas() {
@@ -845,9 +1116,7 @@ const normEx = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 const epley1rm = (carga, reps) => (carga > 0 && reps > 0 ? carga * (1 + reps / 30) : null);
 
 async function abrirCargas() {
-  $('#view-dashboard').hidden = true;
-  $('#view-cargas').hidden = false;
-  window.scrollTo(0, 0);
+  irPara('view-cargas');
   if (CARGAS == null) {
     $('#cargas-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
     try { CARGAS = await carregarCargas(emailAluno()); }
@@ -856,9 +1125,7 @@ async function abrirCargas() {
   desenharCargas();
 }
 function fecharCargas() {
-  $('#view-cargas').hidden = true;
-  $('#view-dashboard').hidden = false;
-  window.scrollTo(0, 0);
+  voltar();
 }
 async function persistirCargas() {
   try { await salvarCargas(emailAluno(), CARGAS); }
@@ -965,7 +1232,7 @@ async function entrar(user) {
   catch (e) { PORTAL = null; console.warn('Portal:', e?.code || e); }
   render();
   carregarAvisos().then(renderAvisos); // mural da academia (independe da fatia do aluno)
-  carregarTreinoDoMes().then(renderTreinoDoDia); // treino do dia (publicado pelo Montador)
+  renderCronograma(); // o mês de treinos publicado pelo Montador
   if (email) {
     try { const c = await carregarConsentimento(email); if (precisaAceitar(c)) pedirConsentimento(email); }
     catch (e) { console.warn('LGPD:', e?.code || e); }
@@ -987,24 +1254,6 @@ function renderAvisos(avisos) {
     </article>`;
   }).join('');
 }
-/* ---------- Treino do dia ---------- */
-function renderTreinoDoDia(doc) {
-  const sec = $('#sec-treino-dia'), box = $('#treino-dia-conteudo');
-  if (!sec || !box) return;
-  const hoje = resolverHoje(doc);
-  if (!hoje) { sec.hidden = true; return; } // sem programa publicado neste mês
-  sec.hidden = false;
-  const nivel = PORTAL?.nivel || 'intermediario';
-  if (hoje.treino) {
-    box.innerHTML = renderTreinoDia(hoje.treino, nivel);
-  } else {
-    // dia de descanso (fim de semana ou folga) → mensagem + faixa da semana
-    box.innerHTML = `<div class="td-descanso"><span class="td-descanso-ic">💤</span>
-      <div><b>Hoje é dia de descanso.</b><p>Aproveite para recuperar. Veja como fica a sua semana:</p></div></div>
-      ${renderFaixaSemana(hoje.semanaMods, hoje.diaHoje)}`;
-  }
-}
-
 function erroMsg(m) { gErro.style.color = ''; gErro.textContent = m; gErro.style.display = 'block'; }
 function okMsg(m) { gErro.style.color = 'var(--ok)'; gErro.textContent = m; gErro.style.display = 'block'; }
 function msgAuth(e) {

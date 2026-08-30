@@ -48,130 +48,145 @@
     </header>
 
     <main class="wrap">
+      <!-- ======================================================
+           TELA INICIAL — só o que o aluno precisa ver de relance:
+           quem ele é, se está em dia, quando treina e o que vem por aí.
+           Todo o resto mora atrás do botão "Pra você".
+           ====================================================== -->
       <div id="view-dashboard">
-      <!-- Boas-vindas / perfil -->
-      <section class="welcome" id="welcome"></section>
+        <!-- Boas-vindas / perfil (+ botão "Pra você") -->
+        <section class="welcome" id="welcome"></section>
 
-      <!-- Lembrete de mensalidade (aparece quando pendente/vencida) -->
-      <div id="pag-banner" hidden></div>
+        <!-- Lembrete de mensalidade (aparece quando pendente/vencida) -->
+        <div id="pag-banner" hidden></div>
 
-      <!-- Aviso quando o portal ainda não foi liberado -->
-      <div id="sem-dados" hidden class="empty">
-        <b>Seu portal ainda não foi liberado</b>
-        Seu coach ainda não publicou seus dados para este e-mail. Fale com ele para liberar o acesso.
-      </div>
-
-      <!-- Treino do dia (publicado pelo Montador do coach) -->
-      <section id="sec-treino-dia" hidden>
-        <h2 class="sec-titulo">Treino de hoje</h2>
-        <div id="treino-dia-conteudo"></div>
-      </section>
-
-      <!-- Atalhos (funcionalidades da área do aluno) -->
-      <section id="sec-atalhos" hidden>
-        <div class="atalhos">
-          <button class="atalho-card" id="ir-conquistas" type="button">
-            <span class="atalho-ic" aria-hidden="true">🏆</span>
-            <span class="atalho-tx"><b>Conquistas</b><small>Sua sequência, medalhas, recordes e o ranking do box</small></span>
-            <span class="atalho-seta" aria-hidden="true">›</span>
-          </button>
-          <button class="atalho-card" id="ir-cargas" type="button">
-            <span class="atalho-ic" aria-hidden="true">🏋️</span>
-            <span class="atalho-tx"><b>Registro de Cargas</b><small>Anote carga × reps e veja sua evolução de força</small></span>
-            <span class="atalho-seta" aria-hidden="true">›</span>
-          </button>
-          <button class="atalho-card" id="ir-nutricao" type="button">
-            <span class="atalho-ic" aria-hidden="true">🍎</span>
-            <span class="atalho-tx"><b>Nutrição Básica</b><small>Metas de calorias e macros + gasto dos treinos</small></span>
-            <span class="atalho-seta" aria-hidden="true">›</span>
-          </button>
+        <!-- Aviso quando o portal ainda não foi liberado -->
+        <div id="sem-dados" hidden class="empty">
+          <b>Seu portal ainda não foi liberado</b>
+          Seu coach ainda não publicou seus dados para este e-mail. Fale com ele para liberar o acesso.
         </div>
-      </section>
 
-      <!-- Indique um amigo -->
-      <section id="sec-indique" hidden>
-        <div class="indique-card">
-          <div class="indique-tx"><span class="indique-ic" aria-hidden="true">🎁</span><div><b>Indique um amigo</b><p>Compartilhe e ajude seu amigo a começar — quanto mais gente treinando, melhor a energia do box.</p></div></div>
-          <div class="indique-actions">
-            <a class="btn" id="indique-wa" target="_blank" rel="noopener">Compartilhar no WhatsApp</a>
-            <button class="btn ghost btn-sm" id="indique-copiar" type="button">Copiar mensagem</button>
+        <!-- Plano: frequência, situação da mensalidade e porta do Financeiro -->
+        <section id="sec-plano" hidden>
+          <h2 class="bloco-titulo">Seu plano</h2>
+          <div class="plano-grid" id="plano"></div>
+        </section>
+
+        <!-- Horário: um quadrado por dia fixo da semana, pintado pela presença -->
+        <section id="sec-horarios" hidden>
+          <h2 class="bloco-titulo">Seu horário</h2>
+          <div class="hor-grid" id="horarios"></div>
+          <p class="hor-nota" id="horarios-nota"></p>
+        </section>
+
+        <!-- Cronograma: o mês de treinos publicado pelo Montador -->
+        <section id="sec-cronograma" hidden>
+          <h2 class="bloco-titulo">Cronograma</h2>
+          <div id="cronograma"></div>
+        </section>
+
+        <!-- Indique um amigo — fecha a tela inicial -->
+        <section id="sec-indique" hidden>
+          <div class="indique-card">
+            <div class="indique-tx"><span class="indique-ic" aria-hidden="true">🎁</span><div><b>Indique um amigo</b><p>Compartilhe e ajude seu amigo a começar — quanto mais gente treinando, melhor a energia do box.</p></div></div>
+            <div class="indique-actions">
+              <a class="btn" id="indique-wa" target="_blank" rel="noopener">Compartilhar no WhatsApp</a>
+              <button class="btn ghost btn-sm" id="indique-copiar" type="button">Copiar mensagem</button>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <!-- Avisos da Academia -->
-      <section id="sec-avisos" hidden>
-        <h3 class="sec-titulo">Avisos da Academia</h3>
-        <div class="avisos-grid" id="avisos"></div>
-      </section>
-
-      <!-- Progresso -->
-      <section id="sec-progresso" hidden>
-        <h3 class="sec-titulo">Seu progresso</h3>
-        <div class="cards" id="progresso"></div>
-      </section>
-
-      <!-- Metas / objetivo -->
-      <section id="sec-metas" hidden>
-        <h3 class="sec-titulo">Suas metas</h3>
-        <div class="metas-grid" id="metas"></div>
-      </section>
-
-      <!-- Evolução (gráficos) -->
-      <section id="sec-evolucao" hidden>
-        <h3 class="sec-titulo">Sua evolução</h3>
-        <div class="prog-grid" id="evolucao"></div>
-      </section>
-
-      <!-- Fotos de progresso (antes/depois) -->
-      <section id="sec-fotos" hidden>
-        <h3 class="sec-titulo">Fotos de progresso</h3>
-        <p class="sec-sub" id="fotos-sub"></p>
-        <div class="fotos-grid" id="fotos"></div>
-      </section>
-
-      <!-- Financeiro -->
-      <section id="sec-financeiro" hidden>
-        <h3 class="sec-titulo">Financeiro</h3>
-        <div id="financeiro"></div>
-      </section>
-
-      <!-- Avaliações -->
-      <section id="sec-avaliacoes" hidden>
-        <div class="av-head">
-          <h3 class="sec-titulo">Suas avaliações</h3>
-          <button class="btn" id="btn-comparar" type="button">Comparar avaliações</button>
-        </div>
-        <div class="av-list" id="avaliacoes"></div>
-      </section>
-
-      <!-- Feedback pós-treino -->
-      <section id="sec-feedback" hidden>
-        <h3 class="sec-titulo">Feedback pós-treino</h3>
-        <div id="feedback"></div>
-      </section>
+        </section>
       </div><!-- /view-dashboard -->
+
+      <!-- View: Pra você (menu do que saiu da tela inicial) -->
+      <section id="view-pravoce" hidden>
+        <button class="nut-voltar" id="pv-voltar" type="button">← Voltar ao início</button>
+        <h2 class="nut-h1">Pra você</h2>
+        <p class="nut-sub">Tudo o que é seu, num lugar só.</p>
+        <div class="pv-grid" id="pv-menu"></div>
+      </section>
+
+      <!-- View genérica de detalhe. O conteúdo não é duplicado: a seção pedida é
+           MOVIDA de #secoes-guardadas para cá e devolvida ao voltar, então cada
+           render() continua tendo um alvo só no documento. -->
+      <section id="view-secao" hidden>
+        <button class="nut-voltar" id="secao-voltar" type="button">← Voltar</button>
+        <h2 class="nut-h1" id="secao-h1"></h2>
+        <div id="secao-host"></div>
+        <div class="empty" id="secao-vazia" hidden></div>
+      </section>
 
       <!-- View: Nutrição Básica -->
       <section id="view-nutricao" hidden>
-        <button class="nut-voltar" id="nut-voltar" type="button">← Voltar ao início</button>
+        <button class="nut-voltar" id="nut-voltar" type="button">← Voltar</button>
         <h2 class="nut-h1">Nutrição Básica</h2>
         <div id="nut-conteudo"></div>
       </section>
 
       <!-- View: Conquistas (gamificação) -->
       <section id="view-conquistas" hidden>
-        <button class="nut-voltar" id="conq-voltar" type="button">← Voltar ao início</button>
+        <button class="nut-voltar" id="conq-voltar" type="button">← Voltar</button>
         <h2 class="nut-h1">Conquistas</h2>
         <div id="conq-conteudo"></div>
       </section>
 
       <!-- View: Registro de Cargas -->
       <section id="view-cargas" hidden>
-        <button class="nut-voltar" id="cargas-voltar" type="button">← Voltar ao início</button>
+        <button class="nut-voltar" id="cargas-voltar" type="button">← Voltar</button>
         <h2 class="nut-h1">Registro de Cargas</h2>
         <div id="cargas-conteudo"></div>
       </section>
+
+      <!-- ======================================================
+           Seções guardadas. Ficam fora da tela até alguém abri-las
+           pelo menu "Pra você" ou pelo botão do Financeiro.
+           ====================================================== -->
+      <div id="secoes-guardadas" hidden>
+        <!-- Avisos da Academia -->
+        <section id="sec-avisos" hidden>
+          <div class="avisos-grid" id="avisos"></div>
+        </section>
+
+        <!-- Progresso -->
+        <section id="sec-progresso" hidden>
+          <div class="cards" id="progresso"></div>
+        </section>
+
+        <!-- Metas / objetivo -->
+        <section id="sec-metas" hidden>
+          <div class="metas-grid" id="metas"></div>
+        </section>
+
+        <!-- Evolução (gráficos) -->
+        <section id="sec-evolucao" hidden>
+          <h3 class="sec-titulo">Sua evolução</h3>
+          <div class="prog-grid" id="evolucao"></div>
+        </section>
+
+        <!-- Fotos de progresso (antes/depois) -->
+        <section id="sec-fotos" hidden>
+          <h3 class="sec-titulo">Fotos de progresso</h3>
+          <p class="sec-sub" id="fotos-sub"></p>
+          <div class="fotos-grid" id="fotos"></div>
+        </section>
+
+        <!-- Financeiro -->
+        <section id="sec-financeiro" hidden>
+          <div id="financeiro"></div>
+        </section>
+
+        <!-- Avaliações -->
+        <section id="sec-avaliacoes" hidden>
+          <div class="av-head">
+            <button class="btn" id="btn-comparar" type="button">Comparar avaliações</button>
+          </div>
+          <div class="av-list" id="avaliacoes"></div>
+        </section>
+
+        <!-- Feedback pós-treino -->
+        <section id="sec-feedback" hidden>
+          <div id="feedback"></div>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -183,6 +198,18 @@
         <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
       </div>
       <div class="modal-bd" id="modal-comparar-body"></div>
+      <div class="modal-ft"><button class="btn ghost" data-close type="button">Fechar</button></div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: treino de um dia do cronograma ============ -->
+  <div class="modal-bg" id="modal-treino">
+    <div class="modal">
+      <div class="modal-hd">
+        <h3 id="modal-treino-tit">Treino</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-bd" id="modal-treino-body"></div>
       <div class="modal-ft"><button class="btn ghost" data-close type="button">Fechar</button></div>
     </div>
   </div>
@@ -209,6 +236,6 @@
     <option>Tríceps testa</option><option>Cadeira extensora</option><option>Mesa flexora</option>
     <option>Elevação pélvica</option><option>Panturrilha</option>
   </datalist>
-  <script type="module" src="./app.js?v=20"></script>
+  <script type="module" src="./app.js?v=21"></script>
 </body>
 </html>

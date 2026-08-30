@@ -68,6 +68,14 @@ button{font-family:inherit}
   padding:14px clamp(16px,4vw,40px);border-bottom:1px solid var(--line);
   background:rgba(9,9,11,.78);backdrop-filter:blur(10px)}
 .wrap{max-width:900px;margin:0 auto;padding:clamp(18px,4vw,32px) clamp(16px,4vw,40px) 100px}
+/* No celular a marca e os dois botões não cabiam lado a lado: cada um quebrava
+   em duas linhas e a barra fixa comia 82px do topo — que é justamente onde o
+   aluno quer ver o próprio nome ao abrir o portal. */
+@media(max-width:520px){
+  .topbar{padding:11px 16px;gap:10px}
+  .topbar .brand{font-size:.82rem}
+  .topbar .btn-sm{white-space:nowrap;padding:.5em .75em;font-size:.7rem;letter-spacing:.06em}
+}
 .sec-titulo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.16em;
   font-size:.9rem;color:var(--mut);margin:30px 0 14px}
 
@@ -76,7 +84,8 @@ button{font-family:inherit}
   letter-spacing:.02em;font-size:1.15rem;margin-bottom:8px}
 
 /* ---------- Boas-vindas ---------- */
-.welcome{display:flex;align-items:center;gap:18px;margin-bottom:6px}
+.welcome{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+.wel-txt{flex:1;min-width:180px}
 .wel-avatar{position:relative;width:76px;height:76px;flex:0 0 auto;border-radius:50%;overflow:hidden;background:var(--bg-3);
   border:1px solid var(--line-2);display:grid;place-items:center;color:var(--accent);
   font-family:var(--font-cond);font-weight:700;font-size:1.5rem}
@@ -94,17 +103,92 @@ button{font-family:inherit}
 .wel-foto-msg{display:inline-block;margin-top:6px;font-size:.82rem;color:var(--accent-2)}
 .wel-foto-msg.erro{color:#ff5b50}
 
-/* ---------- Atalho (card de navegação) ---------- */
-.atalhos{display:grid;grid-template-columns:1fr;gap:12px;margin-top:6px}
-.atalho-card{display:flex;align-items:center;gap:16px;width:100%;text-align:left;cursor:pointer;
+/* ---------- Menu "Pra você" ---------- */
+.pv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}
+.pv-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;cursor:pointer;
   background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);padding:16px 18px;
-  color:var(--txt);font:inherit;transition:.15s}
-.atalho-card:hover{border-color:var(--line-2);transform:translateY(-1px)}
-.atalho-ic{font-size:1.7rem;line-height:1;flex:0 0 auto}
-.atalho-tx{flex:1;display:flex;flex-direction:column;gap:2px}
-.atalho-tx b{font-size:1.02rem}
-.atalho-tx small{color:var(--mut);font-size:.85rem}
-.atalho-seta{font-size:1.6rem;color:var(--mut-2);flex:0 0 auto}
+  color:var(--txt);font:inherit;transition:border-color .15s,transform .15s}
+.pv-card:hover,.pv-card:focus-visible{border-color:var(--line-2);border-left-color:var(--accent-2);transform:translateY(-1px)}
+.pv-ic{font-size:1.6rem;line-height:1;flex:0 0 auto}
+.pv-tx{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pv-tx b{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:1rem}
+.pv-tx small{color:var(--mut);font-size:.83rem;line-height:1.4}
+.pv-seta{font-size:1.5rem;color:var(--mut-2);flex:0 0 auto}
+@media(max-width:640px){ .pv-grid{grid-template-columns:1fr} }
+
+/* ---------- Blocos da tela inicial ---------- */
+.bloco-titulo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.16em;
+  font-size:.9rem;color:var(--mut);margin:30px 0 12px}
+
+/* Botão "Pra você" — a porta pro resto do portal, no topo, ao lado do nome. */
+.wel-pv{flex:0 0 auto;align-self:center}
+
+/* Seu plano: frequência · situação da mensalidade · porta do Financeiro */
+.plano-grid{display:grid;grid-template-columns:minmax(118px,auto) 1fr auto;gap:12px;align-items:stretch}
+.plano-freq{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;
+  background:var(--card);border:1px solid var(--line-2);padding:16px 20px;text-align:center}
+.plano-freq b{font-family:var(--font-display);font-weight:400;font-size:1.6rem;line-height:1;letter-spacing:.02em}
+.plano-freq span{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.14em;
+  font-size:.74rem;color:var(--mut)}
+.plano-sit{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;
+  background:var(--card);border:1px solid var(--line);padding:16px 20px;text-align:center}
+.plano-badge{display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:.78rem;
+  border:1px solid var(--line-2);color:var(--mut);padding:.35em .9em}
+.plano-badge i{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.plano-badge.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.plano-badge.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.plano-badge.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+.plano-venc{color:var(--mut);font-size:.9rem}
+.plano-fin{align-self:stretch}
+@media(max-width:640px){ .plano-grid{grid-template-columns:1fr} }
+
+/* Seu horário: um quadrado por dia fixo, pintado pela presença da semana */
+.hor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px}
+.hor-cel{display:flex;flex-direction:column;gap:3px;background:var(--card);
+  border:1px solid var(--line);border-left:3px solid var(--line-2);padding:14px 16px}
+.hor-cel.ok{border-left-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--card))}
+.hor-cel.falta{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,var(--card))}
+.hor-dia{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:.86rem}
+.hor-cel.ok .hor-dia{color:var(--ok)}
+.hor-cel.falta .hor-dia{color:var(--bad)}
+.hor-hora{color:var(--txt);font-size:1.05rem;font-weight:600}
+.hor-nota-cel{color:var(--mut);font-size:.8rem}
+.hor-nota{color:var(--mut-2);font-size:.85rem;margin:10px 0 0}
+
+/* Cronograma: o mesmo calendário do histórico do coach, só leitura */
+.crono-hoje{display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
+  padding:14px 18px;margin-bottom:14px;color:var(--txt);font:inherit}
+button.crono-hoje{cursor:pointer;transition:border-color .15s,transform .15s}
+button.crono-hoje:hover,button.crono-hoje:focus-visible{border-color:var(--line-2);transform:translateY(-1px)}
+.crono-hoje.descanso{border-left-color:var(--line-2)}
+.crono-hoje-pt{width:12px;height:12px;flex:0 0 auto}
+.crono-hoje-tx{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.crono-hoje-tx b{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.98rem}
+.crono-hoje-tx small{color:var(--mut);font-size:.83rem}
+.crono-hoje-seta{font-size:1.5rem;color:var(--mut-2);flex:0 0 auto}
+.cal-card{background:var(--card);border:1px solid var(--line);padding:clamp(14px,3vw,20px)}
+.cal-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.cal-titulo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  font-size:1rem;margin:0}
+.cal-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal-cab{text-align:center;font-family:var(--font-cond);font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.12em;color:var(--mut-2);padding-bottom:4px}
+.cal-cel{position:relative;aspect-ratio:1/1;border:1px solid var(--line);background:var(--bg-2);
+  display:flex;align-items:flex-start;justify-content:flex-end;padding:5px 7px;color:var(--txt);font:inherit}
+.cal-cel.vazia{border-color:transparent;background:transparent}
+.cal-num{font-size:.78rem;font-weight:600}
+.cal-cel.tem{cursor:pointer;border-color:transparent;font-weight:700}
+.cal-cel.tem:hover,.cal-cel.tem:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* O destaque de hoje precisa vencer o fundo colorido da modalidade, por isso o
+   anel externo em vez de mudar a borda — que a cor do dia já pintou. */
+.cal-cel.hoje{box-shadow:0 0 0 2px var(--accent)}
+.cal-legenda{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px}
+.cal-leg-item{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--mut)}
+.cal-leg-cor{width:12px;height:12px;display:inline-block}
+.cal-dica{color:var(--mut-2);font-size:.8rem;margin:8px 0 0}
+@media(max-width:560px){ .cal-grade{gap:3px} .cal-cel{padding:3px 5px} .cal-num{font-size:.7rem} }
 
 /* ---------- Indique um amigo ---------- */
 .indique-card{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:var(--card);
@@ -120,6 +204,7 @@ button{font-family:inherit}
 .nut-voltar:hover{color:var(--txt)}
 .nut-h1{font-family:var(--font-display);font-weight:400;text-transform:uppercase;letter-spacing:.02em;
   font-size:clamp(1.5rem,5vw,2rem);margin:6px 0 4px}
+.nut-sub{color:var(--mut);margin:0 0 4px;font-size:.92rem}
 .nut-sec{margin-bottom:6px}
 .nut-nivel{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
 .nut-nivel label{font-size:.85rem;color:var(--mut)}
@@ -441,10 +526,4 @@ button{font-family:inherit}
 .td-descanso{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);padding:16px 18px}
 .td-descanso-ic{font-size:1.8rem}
 .td-descanso p{margin:2px 0 0;color:var(--mut);font-size:.9rem}
-.td-faixa{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
-.td-fx-cel{background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:8px 4px;text-align:center}
-.td-fx-cel.on{border-color:var(--accent);background:rgba(245,197,24,.08)}
-.td-fx-dia{display:block;font-size:.7rem;color:var(--mut-2);letter-spacing:.06em}
-.td-fx-mod{display:block;font-size:.82rem;font-weight:600;margin-top:2px}
-.td-fx-cel.on .td-fx-mod{color:var(--accent)}
-@media(max-width:560px){.td-blocos{grid-template-columns:1fr}.td-faixa{grid-template-columns:repeat(5,1fr);gap:3px}.td-fx-mod{font-size:.72rem}}
+@media(max-width:560px){.td-blocos{grid-template-columns:1fr}}
