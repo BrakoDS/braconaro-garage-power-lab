@@ -68,13 +68,24 @@ button{font-family:inherit}
   padding:14px clamp(16px,4vw,40px);border-bottom:1px solid var(--line);
   background:rgba(9,9,11,.78);backdrop-filter:blur(10px)}
 .wrap{max-width:900px;margin:0 auto;padding:clamp(18px,4vw,32px) clamp(16px,4vw,40px) 100px}
-/* No celular a marca e os dois botões não cabiam lado a lado: cada um quebrava
-   em duas linhas e a barra fixa comia 82px do topo — que é justamente onde o
-   aluno quer ver o próprio nome ao abrir o portal. */
-@media(max-width:520px){
-  .topbar{padding:11px 16px;gap:10px}
-  .topbar .brand{font-size:.82rem}
-  .topbar .btn-sm{white-space:nowrap;padding:.5em .75em;font-size:.7rem;letter-spacing:.06em}
+.topbar-acoes{display:flex;gap:10px}
+.topbar .btn-sm{white-space:nowrap}
+/* A Garage Store é amarela aqui pelo mesmo motivo que é amarela no menu do site:
+   é a única saída da barra que leva a outro lugar, e não a outra parte daqui. */
+.topbar .tb-store{border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent)}
+.topbar .tb-store:hover{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tb-curto{display:none}
+/* No celular a marca e os três botões não cabem lado a lado com o texto inteiro:
+   cada um quebrava em duas linhas e a barra fixa comia 82px do topo — que é
+   justamente onde o aluno quer ver o próprio nome ao abrir o portal. Encurta a
+   palavra, não a fonte: dentro do portal, "Site" e "Store" já se explicam. */
+@media(max-width:560px){
+  .topbar{padding:11px 14px;gap:10px}
+  .topbar .brand{font-size:.8rem}
+  .topbar-acoes{gap:7px}
+  .topbar .btn-sm{padding:.5em .7em;font-size:.74rem;letter-spacing:.06em}
+  .tb-longo{display:none}
+  .tb-curto{display:inline}
 }
 .sec-titulo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.16em;
   font-size:.9rem;color:var(--mut);margin:30px 0 14px}
