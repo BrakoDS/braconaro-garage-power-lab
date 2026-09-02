@@ -114,6 +114,22 @@ button{font-family:inherit}
 .wel-foto-msg{display:inline-block;margin-top:6px;font-size:.82rem;color:var(--accent-2)}
 .wel-foto-msg.erro{color:#ff5b50}
 
+/* ---------- Notinha do financeiro ---------- */
+/* O extrato do mês: mensalidade em cima, os consumíveis do box no meio e o total
+   fechando. Números alinhados por tabular-nums — coluna de valor que dança é
+   coluna que ninguém confere. */
+.nota{background:var(--card);border:1px solid var(--line);padding:14px 18px;margin-top:12px}
+.nota-l{display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+  padding:6px 0;font-size:.92rem}
+.nota-l + .nota-l{border-top:1px solid var(--line)}
+.nota-l span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.nota-l i{display:block;font-style:normal;font-size:.76rem;color:var(--mut-2)}
+.nota-cap{font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.12em;
+  font-size:.68rem;color:var(--mut-2);margin:10px 0 2px}
+.nota-l.total{border-top:1px solid var(--line-2);margin-top:4px;padding-top:10px;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:1rem}
+.nota-l.total span:last-child{color:var(--accent)}
+
 /* ---------- Menu "Pra você" ---------- */
 .pv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}
 .pv-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;cursor:pointer;

@@ -40,6 +40,8 @@ function fatia(a) {
     // `freqHorario` era UMA hora para a semana toda. Continua sendo publicado
     // como reserva: aluno cadastrado antes da hora por dia ainda mostra a dele.
     freqHorario: a.freqHorario || '',
+    // Consumíveis do box: a notinha do Portal e o valor do Pix saem daqui.
+    consumos: a.consumos || [],
     presencas: a.presencas || [],
     presencaHoras: a.presencaHoras || {},
     // Remarcações: "a segunda dela aconteceu na quinta". O Portal precisa delas

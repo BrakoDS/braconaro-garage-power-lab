@@ -23,6 +23,7 @@ import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../aluno/gamificacao.js';
 import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../aluno/semana.js';
+import { mesIdParaLancar, totalConsumos, faturaDoMes } from '../aluno/consumo.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -404,6 +405,10 @@ function rotuloMesFin(mesId) { const [a, m] = mesId.split('-').map(Number); retu
 function addMesFin(mesId, n) { const [a, m] = mesId.split('-').map(Number); const d = new Date(a, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
 
 let finMes = mesIdAtual();
+/** Qual aluno está com o balcão de consumíveis aberto na tela. */
+let finBalcao = null;
+/** O catálogo está aberto para edição? */
+let finEditandoProdutos = false;
 
 /** 'pago' | 'vencido' | 'pendente' para um aluno num mês. */
 function statusFin(a, mesId) {
@@ -415,30 +420,86 @@ function statusFin(a, mesId) {
   return hoje() > venc ? 'vencido' : 'pendente';
 }
 
+/** O balcão: um botão por produto, para lançar na conta do aluno. */
+function balcaoConsumo(a, fatura) {
+  const produtos = db.listarProdutos();
+  const botoes = produtos.length
+    ? produtos.map((p) => `<button class="btn ghost btn-sm fin-add" data-id="${esc(a.id)}" data-prod="${esc(p.id)}" type="button">${esc(p.nome)} · ${brl(p.preco)}</button>`).join('')
+    : '<span class="fin-vazio">Nenhum produto cadastrado. Use “Produtos” lá em cima.</span>';
+
+  const lancados = fatura.consumos.length
+    ? `<ul class="fin-consumos">${fatura.consumos.map((c) => `
+        <li><span>${esc(c.nome)}</span><span class="fin-consumo-v">+ ${brl(c.preco)}</span>
+          <span class="fin-consumo-d">${esc(fmtDataCurta(c.data))}</span>
+          <button class="fin-x" data-id="${esc(a.id)}" data-consumo="${esc(c.id)}" type="button" aria-label="Remover">×</button></li>`).join('')}</ul>`
+    : '<span class="fin-vazio">Nada lançado nesta fatura ainda.</span>';
+
+  return `<div class="fin-balcao">
+    <span class="fin-balcao-cap">Lançar consumo (entra na fatura de ${esc(rotuloMesFin(finMes))})</span>
+    <div class="fin-prods">${botoes}</div>
+    ${lancados}
+  </div>`;
+}
+
+/** O painel de cadastro de produtos — some da tela até alguém pedir. */
+function painelProdutos() {
+  const linhas = db.listarProdutos().map((p, i) => `
+    <div class="prod-linha">
+      <input class="prod-nome" type="text" value="${esc(p.nome)}" data-i="${i}" placeholder="Nome do produto" />
+      <input class="prod-preco" type="number" min="0" step="0.01" value="${esc(p.preco)}" data-i="${i}" placeholder="0,00" />
+      <button class="fin-x" data-prod-rm="${i}" type="button" aria-label="Remover produto">×</button>
+    </div>`).join('');
+  return `<div class="prod-painel">
+    <span class="fin-balcao-cap">Produtos vendidos no box</span>
+    ${linhas || '<span class="fin-vazio">Nenhum produto cadastrado.</span>'}
+    <div class="prod-acoes">
+      <button class="btn ghost btn-sm" id="prod-add" type="button">+ Produto</button>
+      <button class="btn btn-sm" id="prod-salvar" type="button">Salvar produtos</button>
+    </div>
+    <span class="hint">Mudar o preço aqui não mexe no que já foi lançado: cada consumo guarda o preço do dia da venda.</span>
+  </div>`;
+}
+
 function renderFinanceiro() {
   $('#fin-mes-lbl').textContent = rotuloMesFin(finMes);
-  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo' && numMoney(a.mensalidade) > 0);
-  let previsto = 0, recebido = 0;
+  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo'
+    && (numMoney(a.mensalidade) > 0 || totalConsumos(a.consumos, finMes) > 0));
+  let previsto = 0, recebido = 0, extras = 0;
+
   const linhas = alunos.map((a) => {
-    const valor = numMoney(a.mensalidade);
-    previsto += valor;
+    const f = faturaDoMes(a, finMes);
+    previsto += f.total;
+    extras += f.extras;
     const st = statusFin(a, finMes);
-    if (st === 'pago') recebido += valor;
+    if (st === 'pago') recebido += f.total;
     const lbl = st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
     const btn = st === 'pago'
       ? `<button class="btn ghost btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="0" type="button">Desfazer</button>`
       : `<button class="btn btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="1" type="button">Marcar pago</button>`;
-    return `<div class="fin-row">
-      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${brl(valor)}</div></div>
+    const detalhe = f.extras > 0
+      ? `${brl(f.mensalidade)} + ${brl(f.extras)} em consumo = <b>${brl(f.total)}</b>`
+      : brl(f.total);
+    const aberto = finBalcao === a.id;
+    return `<div class="fin-row fin-row-consumo">
+      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div>
+        <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}</div></div>
       <span class="fin-badge ${st}">${lbl}</span>
-      ${btn}
+      <div class="fin-acoes">
+        <button class="btn ghost btn-sm fin-balcao-btn${aberto ? ' on' : ''}" data-id="${esc(a.id)}" type="button">${aberto ? 'Fechar' : '+ Consumo'}</button>
+        ${btn}
+      </div>
+      ${aberto ? balcaoConsumo(a, f) : ''}
     </div>`;
   }).join('');
+
   $('#fin-tot').innerHTML = `
     <div class="fin-card"><span class="fin-card-l">Recebido</span><span class="fin-card-v ok">${brl(recebido)}</span></div>
     <div class="fin-card"><span class="fin-card-l">A receber</span><span class="fin-card-v${previsto - recebido > 0 ? ' bad' : ''}">${brl(previsto - recebido)}</span></div>
-    <div class="fin-card"><span class="fin-card-l">Previsto no mês</span><span class="fin-card-v">${brl(previsto)}</span></div>`;
-  $('#fin-list').innerHTML = linhas || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade no perfil do aluno (aba Dados → Financeiro).</div>`;
+    <div class="fin-card"><span class="fin-card-l">Previsto no mês</span><span class="fin-card-v">${brl(previsto)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Consumíveis</span><span class="fin-card-v">${brl(extras)}</span></div>`;
+  $('#fin-list').innerHTML = (finEditandoProdutos ? painelProdutos() : '')
+    + (linhas || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade no perfil do aluno (aba Dados → Financeiro).</div>`);
+  $('#fin-produtos').textContent = finEditandoProdutos ? 'Fechar produtos' : 'Produtos';
 }
 
 function toggleFin(id, pago) {
@@ -446,14 +507,80 @@ function toggleFin(id, pago) {
   const pg = { ...(a.pagamentos || {}) };
   if (pago) pg[finMes] = true; else delete pg[finMes];
   db.atualizar(id, { pagamentos: pg });
+  agendarPublicarPortal();
   renderFinanceiro();
 }
 
-$('#btn-financeiro').addEventListener('click', () => { finMes = mesIdAtual(); renderFinanceiro(); mostrarTela('tela-financeiro'); });
+/**
+ * Lança um consumo na conta do aluno.
+ *
+ * O nome e o preço são copiados do catálogo AGORA e ficam gravados no consumo:
+ * a notinha de agosto não pode se reescrever quando o energético subir de preço.
+ * A fatura também é carimbada aqui (ver consumo.js) — a data manda, e uma fatura
+ * já quitada empurra a compra para a seguinte.
+ */
+function lancarConsumo(id, produtoId) {
+  const a = db.obter(id); if (!a) return;
+  const p = db.listarProdutos().find((x) => x.id === produtoId);
+  if (!p) return;
+  const data = hoje();
+  const consumos = [...(a.consumos || []), {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    produtoId: p.id, nome: p.nome, preco: Number(p.preco) || 0,
+    data, mesId: mesIdParaLancar(data, a.vencimento, a.pagamentos),
+  }];
+  db.atualizar(id, { consumos });
+  agendarPublicarPortal();
+  renderFinanceiro();
+}
+
+function removerConsumo(id, consumoId) {
+  const a = db.obter(id); if (!a) return;
+  db.atualizar(id, { consumos: (a.consumos || []).filter((c) => c.id !== consumoId) });
+  agendarPublicarPortal();
+  renderFinanceiro();
+}
+
+/** Lê os campos do painel de produtos e grava. Linha sem nome é descartada. */
+function salvarProdutos() {
+  const lista = $$('.prod-linha').map((linha, i) => {
+    const nome = $('.prod-nome', linha).value.trim();
+    const preco = numMoney($('.prod-preco', linha).value);
+    const antigo = db.listarProdutos()[i];
+    // O id é o que amarra o botão ao produto; mantém o antigo quando existe para
+    // não perder o vínculo, e gera um novo só para linha recém-criada.
+    return { id: (antigo && antigo.id) || `p${Date.now()}${i}`, nome, preco };
+  }).filter((p) => p.nome);
+  db.salvarProdutos(lista);
+  renderFinanceiro();
+}
+
+$('#btn-financeiro').addEventListener('click', () => { finMes = mesIdAtual(); finBalcao = null; finEditandoProdutos = false; renderFinanceiro(); mostrarTela('tela-financeiro'); });
 $('#fin-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
 $('#fin-prev').addEventListener('click', () => { finMes = addMesFin(finMes, -1); renderFinanceiro(); });
 $('#fin-next').addEventListener('click', () => { finMes = addMesFin(finMes, 1); renderFinanceiro(); });
-$('#fin-list').addEventListener('click', (e) => { const b = e.target.closest('.fin-toggle'); if (b) toggleFin(b.dataset.id, b.dataset.op === '1'); });
+$('#fin-produtos').addEventListener('click', () => { finEditandoProdutos = !finEditandoProdutos; renderFinanceiro(); });
+
+$('#fin-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.classList.contains('fin-toggle')) { toggleFin(btn.dataset.id, btn.dataset.op === '1'); return; }
+  if (btn.classList.contains('fin-balcao-btn')) {
+    finBalcao = finBalcao === btn.dataset.id ? null : btn.dataset.id;
+    renderFinanceiro(); return;
+  }
+  if (btn.classList.contains('fin-add')) { lancarConsumo(btn.dataset.id, btn.dataset.prod); return; }
+  if (btn.dataset.consumo) { removerConsumo(btn.dataset.id, btn.dataset.consumo); return; }
+  if (btn.dataset.prodRm != null) {
+    const lista = db.listarProdutos().filter((_, i) => i !== Number(btn.dataset.prodRm));
+    db.salvarProdutos(lista); renderFinanceiro(); return;
+  }
+  if (btn.id === 'prod-add') {
+    db.salvarProdutos([...db.listarProdutos(), { id: `p${Date.now()}`, nome: '', preco: 0 }]);
+    renderFinanceiro(); return;
+  }
+  if (btn.id === 'prod-salvar') { salvarProdutos(); return; }
+});
 
 /* ============================================================
    TELA — Cobranças (lembrete de mensalidade)

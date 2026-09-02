@@ -11,6 +11,7 @@ import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
 import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from './semana.js';
+import { faturaDoMes } from './consumo.js';
 import { renderTreinoDia } from './treino-dia.js';
 import { COR_MODALIDADE } from '../montador/config/cores-modalidade.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=2';
@@ -606,12 +607,15 @@ function statusFin(mesId) {
 }
 
 function renderFinanceiro() {
-  const valor = numf(PORTAL.mensalidade) || 0;
+  const mesId = mesIdLocal();
+  // A conta do mês é mensalidade + o que ele consumiu no box. O Pix, o total em
+  // destaque e a notinha saem todos daqui — três números que não podem divergir.
+  const fatura = faturaDoMes(PORTAL, mesId);
+  const valor = fatura.total;
   if (!valor) {
     $('#financeiro').innerHTML = `<div class="fin-box"><div><div class="fin-cap">Mensalidade</div><div class="fin-val">—</div></div><span class="fin-badge pendente">Não cadastrada</span></div>`;
     return;
   }
-  const mesId = mesIdLocal();
   const st = statusFin(mesId);
   const lbl = st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
   const M = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -654,15 +658,27 @@ function renderFinanceiro() {
       </a>
     </div>`;
 
+  // A notinha só aparece quando há consumo: sem ela, um aluno que nunca comprou
+  // nada veria uma tabela vazia perguntando o que ele deixou de entender.
+  const notinha = fatura.consumos.length ? `
+    <div class="nota">
+      <div class="nota-l"><span>Mensalidade · ${esc(mesNome)}</span><span>${brl(fatura.mensalidade)}</span></div>
+      <div class="nota-cap">Consumíveis</div>
+      ${fatura.consumos.map((c) => `
+        <div class="nota-l"><span>${esc(c.nome)}<i>${esc(fmtDataCurta(c.data))}</i></span><span>+ ${brl(c.preco)}</span></div>`).join('')}
+      <div class="nota-l total"><span>Total</span><span>${brl(fatura.total)}</span></div>
+    </div>` : '';
+
   $('#financeiro').innerHTML = `
     <div class="fin-box">
       <div>
-        <div class="fin-cap">Mensalidade · ${mesNome}</div>
+        <div class="fin-cap">${fatura.extras > 0 ? 'A pagar' : 'Mensalidade'} · ${mesNome}</div>
         <div class="fin-val">${brl(valor)}</div>
         ${PORTAL.vencimento ? `<div class="av-sub">vence dia ${esc(PORTAL.vencimento)}</div>` : ''}
       </div>
       <span class="fin-badge ${st}">${lbl}</span>
     </div>
+    ${notinha}
     ${pixHtml}`;
 
   const btnPix = $('#btn-pix');
