@@ -246,6 +246,22 @@ button.crono-hoje:hover,button.crono-hoje:focus-visible{border-color:var(--line-
 .nut-nivel{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
 .nut-nivel label{font-size:.85rem;color:var(--mut)}
 .nut-nivel select{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:10px 12px;font:inherit;font-size:.92rem}
+.nn-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.nn-rot{font-size:.85rem;color:var(--mut)}
+.nn-modo{display:flex;border:1px solid var(--line-2)}
+.nn-modo button{background:none;border:0;color:var(--mut);cursor:pointer;font:inherit;
+  font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;padding:7px 12px;min-height:34px}
+.nn-modo button+button{border-left:1px solid var(--line-2)}
+.nn-modo button:hover{color:var(--txt)}
+.nn-modo button.on{background:var(--accent);color:var(--accent-ink)}
+/* O nível resolvido no automático: ocupa o lugar que o select ocupava, para a
+   troca de modo não fazer o bloco pular de altura. */
+.nn-auto{background:var(--bg-2);border:1px solid var(--line-2);padding:10px 12px;
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.nn-auto b{font-family:var(--font-cond);font-weight:700;font-size:1.15rem;letter-spacing:.01em}
+.nn-auto span{font-size:.85rem;color:var(--mut)}
+.nn-exp{margin:0;font-size:.82rem;color:var(--mut-2);line-height:1.45}
+.nn-exp b{color:var(--txt);font-weight:600}
 .nut-metas{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .nut-card{background:var(--card);border:1px solid var(--line);padding:16px 18px;display:flex;flex-direction:column;gap:3px}
 .nut-card.accent{border-left:3px solid var(--accent)}

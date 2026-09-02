@@ -7,6 +7,7 @@
  * regra do Firestore permite ao aluno ler/gravar só o doc do próprio e-mail.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { FATOR_PADRAO, modoDoDoc } from './atividade.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -22,13 +23,21 @@ async function init() {
 
 const emailKey = (e) => String(e || '').trim().toLowerCase();
 
-/** Carrega { nivelAtividade, gastos:[], creatina:{checks:[]} } do aluno (defaults se ainda não existe). @param {string} email */
+/** Carrega { nivelAtividade, nivelModo, gastos:[], creatina:{checks:[]} } do aluno (defaults se ainda não existe). @param {string} email */
 export async function carregarNutricao(email) {
   await init();
   const snap = await _fns.getDoc(_fns.doc(_db, 'gastoTreinos', emailKey(email)));
   const d = snap.exists() ? snap.data() : {};
   const checks = d.creatina && Array.isArray(d.creatina.checks) ? d.creatina.checks : [];
-  return { nivelAtividade: d.nivelAtividade || '1.55', gastos: Array.isArray(d.gastos) ? d.gastos : [], creatina: { checks } };
+  return {
+    nivelAtividade: d.nivelAtividade || FATOR_PADRAO,
+    // 'auto' = o nível sai da presença; 'manual' = o aluno escolheu na mão.
+    // Quem já usava a tela não tem esse campo — `modoDoDoc` decide olhando o
+    // valor salvo, e o documento cru é o único lugar onde isso é possível.
+    nivelModo: modoDoDoc(d),
+    gastos: Array.isArray(d.gastos) ? d.gastos : [],
+    creatina: { checks },
+  };
 }
 
 /**
@@ -38,13 +47,19 @@ export async function carregarNutricao(email) {
  * (Garage App) grava a hidratação do dia no mesmo `gastoTreinos/{email}`. Sem o
  * merge, salvar aqui apagaria a água do aluno sem nenhum aviso.
  *
+ * O `nivelAtividade` gravado é SEMPRE o fator numérico já resolvido, mesmo no
+ * modo automático. O modo fica num campo à parte porque este documento é lido
+ * por fora (painel do coach, Garage App): quem só quer o número continua
+ * achando um número, e ainda por cima o certo.
+ *
  * @param {string} email
- * @param {{nivelAtividade:string, gastos:any[], creatina?:{checks:string[]}}} dados
+ * @param {{nivelAtividade:string, nivelModo?:string, gastos:any[], creatina?:{checks:string[]}}} dados
  */
 export async function salvarNutricao(email, dados) {
   await init();
   await _fns.setDoc(_fns.doc(_db, 'gastoTreinos', emailKey(email)), {
-    nivelAtividade: dados.nivelAtividade || '1.55',
+    nivelAtividade: dados.nivelAtividade || FATOR_PADRAO,
+    nivelModo: dados.nivelModo === 'manual' ? 'manual' : 'auto',
     gastos: JSON.parse(JSON.stringify(dados.gastos || [])),
     creatina: { checks: Array.isArray(dados.creatina?.checks) ? dados.creatina.checks.slice() : [] },
     atualizadoEm: Date.now(),
