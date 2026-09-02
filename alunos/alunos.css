@@ -520,6 +520,23 @@ button{font-family:inherit}
 .chk-cel-h{font-size:.98rem;font-weight:600}
 .chk-cel-nota{color:var(--mut-2);font-size:.78rem}
 .chk-cel-aviso{color:var(--warn);font-size:.78rem}
+/* Atestado não é o vermelho de quem sumiu: é falta justificada, com crédito de
+   reposição. Cor própria para o coach separar as duas de relance. */
+.chk-cel.atestado{border-left-color:var(--warn);background:rgba(255,158,27,.07)}
+.chk-cel.atestado .chk-cel-dia{color:var(--warn)}
+.chk-cel.reposicao{border-left-style:dashed}
+.chk-linha-hora{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px}
+.chk-hora-inp,.chk-data-inp{padding:.4em .5em;background:var(--bg-2);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font-body);font-size:.86rem;outline:none;color-scheme:dark;min-width:0}
+.chk-hora-inp{width:96px}
+.chk-data-inp{width:140px}
+.chk-hora-inp:focus,.chk-data-inp:focus{border-color:var(--accent)}
+.chk-seletor.solto{margin-top:8px;padding:8px 10px;border:1px solid var(--line-2);background:var(--bg-2)}
+/* O contador de reposições pendentes: é um botão, mas mora dentro da linha de
+   texto do aluno, então veste-se de link em vez de bloco. */
+.chk-chip{background:none;border:0;padding:0;cursor:pointer;font:inherit;
+  color:var(--warn);text-decoration:underline;text-underline-offset:2px}
+.chk-chip:hover{color:var(--accent)}
 .chk-cel-acoes{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .chk-cel-acoes .btn{flex:1 1 auto;min-width:64px}
 

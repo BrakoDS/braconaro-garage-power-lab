@@ -10,7 +10,7 @@ import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
-import { semanaDoAluno, ORDEM_DIAS } from './semana.js';
+import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from './semana.js';
 import { renderTreinoDia } from './treino-dia.js';
 import { COR_MODALIDADE } from '../montador/config/cores-modalidade.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=2';
@@ -28,6 +28,12 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
 const fmt = (v, d = 1) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const brl = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+/**
+ * 'YYYY-MM' do mes corrente, no fuso local. `toISOString()` e UTC, e em UTC-3 o
+ * ultimo dia do mes, depois das 21h, ja apontaria para o mes seguinte — e a
+ * mensalidade paga viraria pendente por tres horas.
+ */
+function mesIdLocal(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
 function fmtData(iso) { if (!iso) return '—'; const [a, m, d] = iso.split('-'); return `${d}/${m}/${a}`; }
 function iniciais(n) { return ((n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('') || '?').toUpperCase(); }
 function primeiroNome(n) { return (n || 'Aluno').trim().split(/\s+/)[0]; }
@@ -287,7 +293,7 @@ const SIT_PLANO = {
 function renderPlano() {
   const vezes = parseInt(PORTAL?.freqVezes, 10) || (PORTAL?.diasTreino || []).length || null;
   const temValor = (numf(PORTAL?.mensalidade) || 0) > 0;
-  const st = temValor ? statusFin(new Date().toISOString().slice(0, 7)) : null;
+  const st = temValor ? statusFin(mesIdLocal()) : null;
   const sit = st ? SIT_PLANO[st] : null;
 
   // Data de vencimento por extenso, no mês corrente — é o que o aluno procura
@@ -327,16 +333,19 @@ function renderHorarios() {
   const hojeIso = dateIdDe();
   const quadrados = semanaDoAluno({
     diasTreino: PORTAL.diasTreino,
+    horarios: PORTAL.horarios || {},
     presencas: PORTAL.presencas || [],
     horas: PORTAL.presencaHoras || {},
     remarcacoes: PORTAL.remarcacoes || {},
+    atestados: PORTAL.atestados || {},
   });
 
-  const diaDe = (iso) => DIA_CURTO[ORDEM_DIAS[(new Date(iso + 'T00:00:00').getDay() + 6) % 7]];
-  // A hora é de cada dia. O `freqHorario` (uma hora para a semana toda) sobrou
-  // dos cadastros antigos e vale enquanto o coach não preencher o dia.
-  const horaDoDia = (chave) => {
-    const h = (PORTAL?.horarios || {})[chave];
+  const diaDe = (iso) => DIA_CURTO[chaveDoDia(iso)];
+  // A hora prevista vem da regra da semana já resolvida (a do dia, ou a da
+  // troca). O `freqHorario` é a reserva dos cadastros antigos, de quando havia
+  // uma hora só para a semana inteira.
+  const hora = (q) => {
+    const h = q.horaPrevista;
     if (!h) return String(PORTAL?.freqHorario || '').trim();
     const m = h.match(/^(\d{2}):(\d{2})$/);
     return m ? `${Number(m[1])}h${m[2] === '00' ? '' : m[2]}` : h;
@@ -344,24 +353,37 @@ function renderHorarios() {
   const nota = (q) => {
     if (q.veioEm) return `veio ${diaDe(q.veioEm)}${q.hora ? ` · ${q.hora}` : ''}`;
     if (q.estado === 'ok') return q.hora ? `chegou ${q.hora}` : '';
+    if (q.estado === 'atestado') return 'atestado · você tem reposição';
     // Remarcado: o aluno precisa saber para quando ficou — senão o quadrado da
     // segunda fica mudo num dia em que a segunda já passou, e o vermelho parece
     // injusto para quem combinou a troca com o coach.
     if (q.estado === 'falta') return q.remarcado ? `não veio (era ${diaDe(q.efetivo)})` : 'não veio';
-    if (q.remarcado) return `vai ${diaDe(q.efetivo)}`;
+    if (q.remarcado) return `passou para ${diaDe(q.efetivo)}`;
+    if (q.alterado) return 'horário alterado';
     return q.iso === hojeIso ? 'é hoje' : '';
   };
+  const titulo = (q) => (q.tipo === 'extra' ? 'Treino extra' : q.tipo === 'reposicao' ? 'Reposição' : DIA_EXT[q.chave]);
+  const valor = (q) => (q.tipo === 'extra'
+    ? `${diaDe(q.iso)}${q.hora ? ` · ${q.hora}` : ''}`
+    : q.tipo === 'reposicao'
+      ? `${DIA_EXT[q.chave]}${hora(q) ? ` · ${hora(q)}` : ''}`
+      : (hora(q) || '—'));
 
   $('#horarios').innerHTML = quadrados.map((q) => `
     <div class="hor-cel ${q.estado}">
-      <span class="hor-dia">${esc(q.extra ? 'Treino extra' : DIA_EXT[q.chave])}</span>
-      <span class="hor-hora">${esc(q.extra ? `${diaDe(q.iso)}${q.hora ? ` · ${q.hora}` : ''}` : (horaDoDia(q.chave) || '—'))}</span>
-      ${!q.extra && nota(q) ? `<span class="hor-nota-cel">${esc(nota(q))}</span>` : ''}
+      <span class="hor-dia">${esc(titulo(q))}</span>
+      <span class="hor-hora">${esc(valor(q))}</span>
+      ${q.tipo === 'fixo' && nota(q) ? `<span class="hor-nota-cel">${esc(nota(q))}</span>` : ''}
+      ${q.tipo === 'reposicao' ? `<span class="hor-nota-cel">${esc(q.estado === 'ok' ? (q.hora ? 'chegou ' + q.hora : 'presente') : q.estado === 'falta' ? 'não veio' : 'da aula de ' + fmtDataCurta(q.origem))}</span>` : ''}
     </div>`).join('');
 
-  const fixos = quadrados.filter((q) => !q.extra);
-  const vindos = quadrados.filter((q) => q.estado === 'ok').length;
-  $('#horarios-nota').textContent = `${vindos} de ${fixos.length} treinos desta semana.`;
+  // Só as aulas DA SEMANA entram no contador: reposição veio de outra semana e
+  // treino extra é bônus — somá-los faria o número passar do total.
+  const fixos = quadrados.filter((q) => q.tipo === 'fixo');
+  const vindos = fixos.filter((q) => q.estado === 'ok').length;
+  const aRepor = reposicoesPendentes(PORTAL.atestados).length;
+  $('#horarios-nota').textContent = `${vindos} de ${fixos.length} treinos desta semana.`
+    + (aRepor ? ` Você tem ${aRepor} reposição${aRepor > 1 ? 'ões' : ''} a marcar com o coach.` : '');
 }
 
 /* ============================================================
@@ -532,7 +554,7 @@ function renderPagLembrete() {
   const banner = $('#pag-banner');
   const valor = numf(PORTAL?.mensalidade) || 0;
   if (!valor) { banner.hidden = true; return; }
-  const mesId = new Date().toISOString().slice(0, 7);
+  const mesId = mesIdLocal();
   const st = statusFin(mesId);
   if (st === 'pago') { banner.hidden = true; return; }
   const M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -580,7 +602,7 @@ function statusFin(mesId) {
   const ultimoDia = new Date(ano, m, 0).getDate();
   const dia = Math.min(Math.max(1, parseInt(PORTAL.vencimento, 10) || 10), ultimoDia);
   const venc = `${ano}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-  return new Date().toISOString().slice(0, 10) > venc ? 'vencido' : 'pendente';
+  return dateIdDe() > venc ? 'vencido' : 'pendente';
 }
 
 function renderFinanceiro() {
@@ -589,7 +611,7 @@ function renderFinanceiro() {
     $('#financeiro').innerHTML = `<div class="fin-box"><div><div class="fin-cap">Mensalidade</div><div class="fin-val">—</div></div><span class="fin-badge pendente">Não cadastrada</span></div>`;
     return;
   }
-  const mesId = new Date().toISOString().slice(0, 7);
+  const mesId = mesIdLocal();
   const st = statusFin(mesId);
   const lbl = st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
   const M = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -699,7 +721,7 @@ function renderFeedback() {
   const sec = $('#sec-feedback');
   const email = emailAluno();
   if (!email) { sec.hidden = true; return; }
-  const hj = new Date().toISOString().slice(0, 10);
+  const hj = dateIdDe();
   const dorOpts = [['nenhuma', 'Nenhuma'], ['leve', 'Leve'], ['moderada', 'Moderada'], ['forte', 'Forte']];
   $('#feedback').innerHTML = `
     <form id="fb-form" class="fb-form" novalidate>
@@ -1153,7 +1175,7 @@ function desenharCargas() {
     return g;
   }).sort((a, b) => (b.itens[b.itens.length - 1].criadoEm || 0) - (a.itens[a.itens.length - 1].criadoEm || 0));
 
-  const hj = new Date().toISOString().slice(0, 10);
+  const hj = dateIdDe();
   const form = `
     <form class="cargas-form" id="cargas-form">
       <input list="dl-exercicios" id="cg-ex" placeholder="Exercício (ex.: Supino reto)" required>

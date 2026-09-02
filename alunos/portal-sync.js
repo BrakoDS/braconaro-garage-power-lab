@@ -45,6 +45,9 @@ function fatia(a) {
     // Remarcações: "a segunda dela aconteceu na quinta". O Portal precisa delas
     // para pintar o quadrado certo — sem isso, a semana lá e a do coach divergem.
     remarcacoes: a.remarcacoes || {},
+    // Atestados: a aula que virou falta com direito a repor, e a reposição já
+    // agendada. O Portal mostra os dois; sem eles o aluno vê só o vermelho.
+    atestados: a.atestados || {},
     avaliacoes: a.avaliacoes || [],
     metas: a.metas || [],
     criadoEm: a.criadoEm || null,

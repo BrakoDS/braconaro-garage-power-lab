@@ -115,7 +115,8 @@ if (cloudAtivo()) {
    ============================================================ */
 const $ = (s) => document.querySelector(s);
 const escP = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const hojeISO = () => new Date().toISOString().slice(0, 10);
+/** Hoje no fuso local. `toISOString()` é UTC, e em UTC-3 ele vira o dia seguinte a partir das 21h. */
+const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 /** Data da próxima reavaliação (da avaliação mais recente do aluno). */

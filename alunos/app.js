@@ -22,7 +22,7 @@ import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-
 import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../aluno/gamificacao.js';
-import { semanaDoAluno, datasDaSemana, ORDEM_DIAS } from '../aluno/semana.js';
+import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../aluno/semana.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -36,9 +36,19 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
-const hoje = () => new Date().toISOString().slice(0, 10);
+/**
+ * A data de HOJE no fuso de quem está usando.
+ *
+ * `toISOString()` devolve UTC, e o box fica em UTC-3: das 21h à meia-noite ele
+ * já aponta para o dia seguinte. Como é exatamente nessa janela que o check-in
+ * das aulas da noite acontece, a presença ia parar na data errada todo dia.
+ */
+function isoLocal(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const hoje = () => isoLocal();
 function fmtData(iso) { if (!iso) return '—'; const [a, m, d] = iso.split('-'); return `${d}/${m}/${a}`; }
-function addDias(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+function addDias(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return isoLocal(d); }
 function calcIdade(iso) { if (!iso) return ''; const n = new Date(iso + 'T00:00:00'); const h = new Date(); let i = h.getFullYear() - n.getFullYear(); const mm = h.getMonth() - n.getMonth(); if (mm < 0 || (mm === 0 && h.getDate() < n.getDate())) i--; return i >= 0 && i < 130 ? String(i) : ''; }
 function waLink(tel) { const d = String(tel || '').replace(/\D/g, ''); if (!d) return ''; const full = d.startsWith('55') ? d : '55' + d; return `https://wa.me/${full}`; }
 const STATUS_LABEL = { ativo: 'Ativo', inativo: 'Inativo', pendente: 'Pendente' };
@@ -846,37 +856,50 @@ function renderCheckin() {
     : '';
 }
 
-/* ---------- A grade da semana, um quadrado por sessão ---------- */
+/* ============================================================
+   A grade da semana — uma aula por quadrado
+
+   Cada quadrado responde: essa aula aconteceu? São três saídas.
+     CHECK-IN     ele compareceu na aula, no dia e na hora dela.
+     ALTERAR DIA  avisou antes que não pode; a aula muda de dia e/ou de hora,
+                  DENTRO DA SEMANA.
+     ATESTADO     conta como falta, mas ele ganha o direito de repor a aula —
+                  e essa reposição pode cair em qualquer semana.
+   Sem nenhuma delas, o prazo passa e a aula vira falta.
+   ============================================================ */
 
 const DIA_EXT = { seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' };
 const DIA_MIN = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };
-/** Qual sessão está com o seletor de "outro dia" aberto (`${id}|${isoPlanejado}`). */
-let chkSeletor = null;
-/** Recado preso a uma sessão (`${id}|${isoPlanejado}`), mostrado no próprio quadrado. */
-let chkAviso = null;
 
 /**
- * Em que dia cada sessão da semana do aluno acontece — o próprio dia, ou o
- * remarcado. Usado para impedir que uma presença sirva a duas sessões.
- * @returns {Map<string,string>} data efetiva → data planejada que a reivindica
+ * O painel aberto no momento — um só por vez.
+ * `{ tipo:'troca'|'reposicao', chave, data, hora }`, onde `chave` é
+ * `${idAluno}|${dataDaAula}` e data/hora são a escolha ainda não confirmada.
  */
+let chkPainel = null;
+/** Recado preso a uma aula (`${id}|${iso}`), mostrado no próprio quadrado. */
+let chkAviso = null;
+
+/** Em que dia cada aula da semana acontece — usado para não dar o mesmo dia a duas. */
 function diasReivindicados(a, semana) {
-  const rem = a.remarcacoes || {};
+  const rem = a.remarcacoes || {}, atest = a.atestados || {};
   const mapa = new Map();
   for (const k of (a.diasTreino || [])) {
     const iso = semana[k];
-    if (iso) mapa.set(rem[iso] || iso, iso);
+    if (!iso || atest[iso]) continue; // atestado não ocupa dia nenhum da semana
+    const r = rem[iso];
+    mapa.set(typeof r === 'string' ? r : (r && r.data) || iso, iso);
+  }
+  for (const [origem, v] of Object.entries(atest)) {
+    if (v && v.reposicao && v.reposicao.data) mapa.set(v.reposicao.data, origem);
   }
   return mapa;
 }
 
-/** O dia da semana ('seg'…'dom') de uma data ISO. */
-const chaveDoDia = (iso) => ORDEM_DIAS[(new Date(iso + 'T00:00:00').getDay() + 6) % 7];
-
 /**
  * Linha do aluno SEM dias de treino cadastrados: continua o botão simples de
- * sempre. Sem grade não há sessão para resolver — e obrigar o coach a preencher
- * o perfil antes de conseguir marcar uma presença seria trocar uma tela que
+ * sempre. Sem grade não há aula para resolver — e obrigar o coach a preencher o
+ * perfil antes de conseguir marcar uma presença seria trocar uma tela que
  * funciona por uma porta trancada.
  */
 function linhaSimples(a) {
@@ -889,30 +912,54 @@ function linhaSimples(a) {
   </div>`;
 }
 
-/** Linha do aluno COM grade: uma sessão por quadrado, cada uma resolvível. */
+/** Linha do aluno COM grade: uma aula por quadrado, cada uma resolvível. */
 function linhaGrade(a) {
   const semana = datasDaSemana(new Date(chkData + 'T00:00:00'));
   const quadrados = semanaDoAluno({
-    diasTreino: a.diasTreino, presencas: a.presencas || [],
-    horas: a.presencaHoras || {}, remarcacoes: a.remarcacoes || {},
+    diasTreino: a.diasTreino, horarios: a.horarios || {},
+    presencas: a.presencas || [], horas: a.presencaHoras || {},
+    remarcacoes: a.remarcacoes || {}, atestados: a.atestados || {},
     hoje: new Date(chkData + 'T00:00:00'),
   });
-  const fixos = quadrados.filter((q) => !q.extra);
-  const feitos = quadrados.filter((q) => q.estado === 'ok').length;
+  // O contador é sobre as aulas DA SEMANA. Reposição vem de outra semana e
+  // treino extra é bônus: nenhum dos dois entra no "3 de 4", senão o número
+  // passa do total e deixa de querer dizer alguma coisa.
+  const fixos = quadrados.filter((q) => q.tipo === 'fixo');
+  const feitos = fixos.filter((q) => q.estado === 'ok').length;
+  const pendentes = reposicoesPendentes(a.atestados);
+
+  const painelAberto = chkPainel && chkPainel.tipo === 'reposicao' && chkPainel.chave.split('|')[0] === a.id;
+  const chip = pendentes.length
+    ? ` · <button class="chk-chip" data-id="${esc(a.id)}" data-origem="${pendentes[0]}" type="button">${pendentes.length} reposição${pendentes.length > 1 ? 'ões' : ''} a agendar</button>`
+    : '';
 
   return `<div class="fin-row chk-linha">
     <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div>
-      <div class="fin-sub">${feitos} de ${fixos.length} treinos desta semana</div></div>
+      <div class="fin-sub">${feitos} de ${fixos.length} treinos desta semana${chip}</div>
+      ${painelAberto ? painelReposicao(a) : ''}</div>
     <div class="chk-grade">${quadrados.map((q) => quadrado(a, q, semana)).join('')}</div>
   </div>`;
 }
 
-/** Um quadrado: o estado da sessão e o que dá para fazer com ela. */
+/** A frase de rodapé do quadrado: o que aconteceu com aquela aula. */
+function notaDaAula(q) {
+  if (q.estado === 'ok') {
+    if (q.veioEm) return `veio ${DIA_MIN[chaveDoDia(q.veioEm)]}${q.hora ? ' · ' + q.hora : ''}`;
+    return q.hora ? `chegou ${q.hora}` : 'presente';
+  }
+  if (q.estado === 'atestado') return 'atestado · a repor';
+  if (q.estado === 'falta') return q.remarcado ? `não veio (era ${DIA_MIN[chaveDoDia(q.efetivo)]})` : 'não veio';
+  if (q.remarcado) return `passou para ${DIA_MIN[chaveDoDia(q.efetivo)]}`;
+  if (q.alterado) return 'horário alterado';
+  return q.iso === chkData ? 'é hoje' : '';
+}
+
+/** Um quadrado: o estado da aula e o que dá para fazer com ela. */
 function quadrado(a, q, semana) {
   const alvo = `data-id="${esc(a.id)}" data-dia="${q.iso}"`;
-  const aberto = chkSeletor === `${a.id}|${q.iso}`;
+  const aberto = chkPainel && chkPainel.tipo === 'troca' && chkPainel.chave === `${a.id}|${q.iso}`;
 
-  if (q.extra) {
+  if (q.tipo === 'extra') {
     return `<div class="chk-cel ok">
       <span class="chk-cel-dia">Extra</span>
       <span class="chk-cel-h">${esc(DIA_EXT[q.chave] || fmtDataCurta(q.iso))}${q.hora ? ' · ' + q.hora : ''}</span>
@@ -920,136 +967,235 @@ function quadrado(a, q, semana) {
     </div>`;
   }
 
-  const nota = q.estado === 'ok'
-    ? (q.veioEm ? `veio ${DIA_MIN[chaveDoDia(q.veioEm)]}${q.hora ? ' · ' + q.hora : ''}` : (q.hora ? `chegou ${q.hora}` : 'presente'))
-    : q.estado === 'falta' ? (q.remarcado ? `não veio (era ${DIA_MIN[chaveDoDia(q.efetivo)]})` : 'não veio')
-      : q.remarcado ? `vai ${DIA_MIN[chaveDoDia(q.efetivo)]}`
-        : q.iso === chkData ? 'é hoje' : '';
+  // A reposição é a aula que nasceu de um atestado. Ela já foi agendada, então
+  // não se "altera o dia" dela — ou o aluno veio, ou o coach desmarca e o
+  // crédito volta para a fila, livre para cair em qualquer outra semana.
+  if (q.tipo === 'reposicao') {
+    const acoesRep = q.estado === 'ok'
+      ? `<button class="btn btn-sm chk-desfazer" ${alvo} data-rep="1" data-origem="${q.origem}" type="button">Desfazer</button>`
+      : `<button class="btn btn-sm chk-checkin" ${alvo} data-rep="1" type="button">Check-in</button>
+         <button class="btn ghost btn-sm chk-desmarcar" data-id="${esc(a.id)}" data-origem="${q.origem}" type="button">Desmarcar</button>`;
+    const notaRep = q.estado === 'ok' ? (q.hora ? `chegou ${q.hora}` : 'presente')
+      : q.estado === 'falta' ? 'não veio' : `da aula de ${fmtDataCurta(q.origem)}`;
+    return `<div class="chk-cel ${q.estado} reposicao">
+      <span class="chk-cel-dia">Reposição</span>
+      <span class="chk-cel-h">${esc(DIA_EXT[q.chave])}${q.horaPrevista ? ' · ' + horaLegivel(q.horaPrevista) : ''}</span>
+      <span class="chk-cel-nota">${esc(notaRep)}</span>
+      <div class="chk-cel-acoes">${acoesRep}</div>
+    </div>`;
+  }
 
-  // Só a sessão CUMPRIDA vira "Alterar" (que desfaz). Todo o resto — pendente,
-  // remarcada ou já vermelha — continua oferecendo as duas saídas do esboço.
-  // "Não veio" é um estado calculado pelo prazo, não uma porta trancada: o coach
-  // que marcou errado precisa poder dizer, no dia seguinte, em que dia ela veio.
-  const acoes = q.estado === 'ok'
-    ? `<button class="btn btn-sm chk-alterar" ${alvo} type="button">Alterar</button>`
-    : `<button class="btn btn-sm chk-hoje" ${alvo} type="button">Hoje</button>
-       <button class="btn ghost btn-sm chk-outro" ${alvo} type="button">Outro dia</button>`;
+  // Resolvida (veio ou atestado) → só desfazer. Pendente ou vermelha → as três
+  // saídas. "Não veio" é estado calculado pelo prazo, não porta trancada: quem
+  // marcou errado precisa poder corrigir no dia seguinte.
+  const acoes = (q.estado === 'ok' || q.estado === 'atestado')
+    ? `<button class="btn btn-sm chk-desfazer" ${alvo} type="button">Desfazer</button>`
+    : `<button class="btn btn-sm chk-checkin" ${alvo} type="button">Check-in</button>
+       <button class="btn ghost btn-sm chk-trocar" ${alvo} type="button">Alterar dia</button>
+       <button class="btn ghost btn-sm chk-atestado" ${alvo} type="button">Atestado</button>`;
 
   const aviso = chkAviso && chkAviso.chave === `${a.id}|${q.iso}` ? chkAviso.texto : '';
+  const nota = notaDaAula(q);
 
   return `<div class="chk-cel ${q.estado}${aberto ? ' aberto' : ''}">
     <span class="chk-cel-dia">${esc(DIA_EXT[q.chave])}</span>
-    <span class="chk-cel-h">${esc(horaDoDia(a, q.chave) || fmtDataCurta(q.iso))}</span>
+    <span class="chk-cel-h">${esc(horaLegivel(q.horaPrevista) || fmtDataCurta(q.iso))}</span>
     ${nota ? `<span class="chk-cel-nota">${esc(nota)}</span>` : ''}
     ${aviso ? `<span class="chk-cel-aviso">${esc(aviso)}</span>` : ''}
     <div class="chk-cel-acoes">${acoes}</div>
-    ${aberto ? seletorDias(a, q, semana) : ''}
+    ${aberto ? painelTroca(a, q, semana) : ''}
   </div>`;
 }
 
 /**
- * Os 7 dias da semana como fichas — o "Outro dia" aberto.
+ * O painel de "Alterar dia": os sete dias da semana e a hora.
  *
- * A ficha do dia ORIGINAL fica marcada: escolher ela desfaz a remarcação e
- * devolve a sessão ao dia dela. É como o coach cancela uma troca sem precisar
- * apagar a sessão inteira pelo "Alterar".
+ * Escolher a ficha só marca; quem grava é o "Confirmar". Sem isso não daria para
+ * trocar só o horário — clicar no dia já teria salvado com a hora antiga, que é
+ * metade do que o coach queria mudar.
  */
-function seletorDias(a, q, semana) {
+function painelTroca(a, q, semana) {
   const fichas = ORDEM_DIAS.map((k) => {
     const iso = semana[k];
-    const cls = [iso === q.efetivo ? 'atual' : '', iso === q.iso && q.remarcado ? 'origem' : ''].filter(Boolean).join(' ');
-    const dica = iso === q.iso ? ' title="Dia original desta sessão"' : '';
-    return `<button class="chk-ficha ${cls}"${dica} data-id="${esc(a.id)}" data-dia="${q.iso}" data-para="${iso}" type="button">${DIA_EXT[k].slice(0, 3)}</button>`;
+    const cls = [iso === chkPainel.data ? 'atual' : '', iso === q.iso && q.remarcado ? 'origem' : ''].filter(Boolean).join(' ');
+    const dica = iso === q.iso ? ' title="Dia original desta aula"' : '';
+    return `<button class="chk-ficha ${cls}"${dica} data-dia-sel="${iso}" type="button">${DIA_EXT[k].slice(0, 3)}</button>`;
   }).join('');
-  return `<div class="chk-seletor"><span class="chk-seletor-cap">Este treino aconteceu (ou acontece) em:</span><div class="chk-fichas">${fichas}</div></div>`;
+  return `<div class="chk-seletor">
+    <span class="chk-seletor-cap">Esta aula passa para:</span>
+    <div class="chk-fichas">${fichas}</div>
+    <div class="chk-linha-hora">
+      <input class="chk-hora-inp" type="time" value="${esc(chkPainel.hora)}" data-hora-sel />
+      <button class="btn btn-sm chk-confirma-troca" data-id="${esc(a.id)}" data-dia="${q.iso}" type="button">Confirmar</button>
+    </div>
+  </div>`;
+}
+
+/** O painel de agendar reposição: data livre (qualquer semana) e hora. */
+function painelReposicao(a) {
+  const origem = chkPainel.chave.split('|')[1];
+  const aviso = chkAviso && chkAviso.chave === `${a.id}|${origem}` ? chkAviso.texto : '';
+  return `<div class="chk-seletor solto">
+    <span class="chk-seletor-cap">Repor a aula de ${esc(fmtData(origem))} em:</span>
+    ${aviso ? `<span class="chk-cel-aviso">${esc(aviso)}</span>` : ''}
+    <div class="chk-linha-hora">
+      <input class="chk-data-inp" type="date" value="${esc(chkPainel.data)}" data-data-sel />
+      <input class="chk-hora-inp" type="time" value="${esc(chkPainel.hora)}" data-hora-sel />
+      <button class="btn btn-sm chk-confirma-rep" data-id="${esc(a.id)}" data-origem="${esc(origem)}" type="button">Agendar</button>
+    </div>
+  </div>`;
 }
 
 /* ---------- Ações ---------- */
 
 /**
- * Um dia da semana só pode fechar UMA sessão. Sem esta trava, marcar "Hoje" num
- * segundo quadrado no mesmo dia deixaria a mesma presença valendo por dois
- * treinos — e o "2 de 4 treinos desta semana", que é a manchete das duas telas,
- * passaria a contar uma visita como duas. Em vez de somar errado em silêncio, o
- * quadrado diz qual sessão já está usando aquele dia.
+ * Um dia só pode fechar UMA aula. Sem esta trava, mandar duas aulas para o mesmo
+ * dia deixaria a mesma presença valendo por dois treinos — e o "2 de 4 treinos
+ * desta semana", que é a manchete das duas telas, contaria uma visita como duas.
+ * Em vez de somar errado em silêncio, o quadrado diz quem já usa aquele dia.
  * @returns {boolean} true = o dia está ocupado (a ação foi recusada)
  */
 function diaOcupado(a, diaPlanejado, diaAlvo) {
-  const semana = datasDaSemana(new Date(chkData + 'T00:00:00'));
+  // A semana que importa é a do DIA ALVO, não a que está na tela: agendar uma
+  // reposição para dali a duas semanas conferia a agenda da semana errada, e
+  // deixava a reposição cair em cima de uma aula que o aluno já tem.
+  const semana = datasDaSemana(new Date(diaAlvo + 'T00:00:00'));
   const dono = diasReivindicados(a, semana).get(diaAlvo);
   if (!dono || dono === diaPlanejado) return false;
-  const k = ORDEM_DIAS[(new Date(dono + 'T00:00:00').getDay() + 6) % 7];
-  chkAviso = { chave: `${a.id}|${diaPlanejado}`, texto: `${DIA_EXT[k]} já usa esse dia` };
-  chkSeletor = null;
-  renderCheckin();
+  chkAviso = { chave: `${a.id}|${diaPlanejado}`, texto: `${DIA_EXT[chaveDoDia(dono)]} já usa esse dia` };
+  renderCheckin(); // o painel fica aberto: o coach precisa escolher outra data
   return true;
 }
 
+/** A data em que uma aula acontece de fato — a dela, ou a que o coach trocou. */
+function diaEfetivo(a, diaPlanejado) {
+  const r = (a.remarcacoes || {})[diaPlanejado];
+  if (typeof r === 'string') return r;
+  return (r && r.data) || diaPlanejado;
+}
+
+/** Alguma OUTRA aula da semana também acontece nesse dia? */
+function outraAulaUsa(a, diaPlanejado, dia) {
+  const semana = datasDaSemana(new Date(dia + 'T00:00:00'));
+  for (const [alvo, dono] of diasReivindicados(a, semana)) {
+    if (alvo === dia && dono !== diaPlanejado) return true;
+  }
+  return false;
+}
+
 /**
- * Registra a presença de uma data e, se a sessão planejada era outro dia, deixa
- * a remarcação gravada — é ela que amarra "a segunda dela aconteceu na quinta".
- * @param {string} id @param {string} diaPlanejado @param {string} diaFeito
+ * CHECK-IN — o aluno compareceu na aula. A presença é gravada no dia em que a
+ * aula acontece (o dela, ou o trocado), e não na data que está na tela: quem
+ * responde "aconteceu?" é a aula, não o calendário.
+ * @param {string} id @param {string} diaPlanejado @param {boolean} [ehReposicao]
  */
-function resolverSessao(id, diaPlanejado, diaFeito) {
+function fazerCheckin(id, diaPlanejado, ehReposicao) {
   const a = db.obter(id); if (!a) return;
-  if (diaOcupado(a, diaPlanejado, diaFeito)) return;
+  const dia = ehReposicao ? diaPlanejado : diaEfetivo(a, diaPlanejado);
   const presencas = new Set(a.presencas || []);
   const horas = { ...(a.presencaHoras || {}) };
-  const remarcacoes = { ...(a.remarcacoes || {}) };
-
-  presencas.add(diaFeito);
-  // Só grava a hora quando o check-in é do próprio dia. Marcando um dia passado,
-  // o relógio de agora não diz nada sobre quando o aluno veio — melhor não ter
-  // hora do que ter uma inventada.
-  if (diaFeito === hoje() && !horas[diaFeito]) horas[diaFeito] = new Date().toTimeString().slice(0, 5);
-  if (diaFeito === diaPlanejado) delete remarcacoes[diaPlanejado];
-  else remarcacoes[diaPlanejado] = diaFeito;
-
-  db.atualizar(id, { presencas: [...presencas].sort(), presencaHoras: horas, remarcacoes });
+  presencas.add(dia);
+  // A hora só é gravada quando a aula é hoje. Confirmando uma aula passada, o
+  // relógio de agora não diz nada sobre quando o aluno chegou.
+  if (dia === hoje() && !horas[dia]) horas[dia] = new Date().toTimeString().slice(0, 5);
+  // Fazer check-in numa aula com atestado é dizer que ela aconteceu — o crédito
+  // de reposição perde o sentido e sai junto.
+  const atestados = { ...(a.atestados || {}) };
+  if (!ehReposicao) delete atestados[diaPlanejado];
+  db.atualizar(id, { presencas: [...presencas].sort(), presencaHoras: horas, atestados });
   agendarPublicarPortal();
+  chkPainel = null;
   renderCheckin();
 }
 
-/**
- * Agenda a sessão para um dia que ainda vem — sem presença nenhuma, que só
- * existe quando ele aparece. Se esse dia passar em branco, a sessão vira falta,
- * e nenhuma outra presença da semana a resgata (ver semana.js).
- */
-function remarcarSessao(id, diaPlanejado, diaEscolhido) {
+/** ALTERAR DIA — move a aula para outro dia e/ou hora, dentro da semana. */
+function trocarAula(id, diaPlanejado, data, hora) {
   const a = db.obter(id); if (!a) return;
-  if (diaEscolhido <= hoje()) { resolverSessao(id, diaPlanejado, diaEscolhido); return; }
-  if (diaOcupado(a, diaPlanejado, diaEscolhido)) return;
+  if (data !== diaPlanejado && diaOcupado(a, diaPlanejado, data)) return;
   const remarcacoes = { ...(a.remarcacoes || {}) };
-  if (diaEscolhido === diaPlanejado) delete remarcacoes[diaPlanejado];
-  else remarcacoes[diaPlanejado] = diaEscolhido;
-  db.atualizar(id, { remarcacoes });
+  const horaOriginal = (a.horarios || {})[chaveDoDia(diaPlanejado)] || '';
+  // Voltar ao dia E à hora originais é desfazer a troca, não gravar uma igual.
+  if (data === diaPlanejado && (!hora || hora === horaOriginal)) delete remarcacoes[diaPlanejado];
+  else remarcacoes[diaPlanejado] = { data, hora: hora || '' };
+  const atestados = { ...(a.atestados || {}) };
+  delete atestados[diaPlanejado]; // trocar o dia substitui o atestado
+  db.atualizar(id, { remarcacoes, atestados });
   agendarPublicarPortal();
+  chkPainel = null;
   renderCheckin();
 }
 
-/**
- * Devolve a sessão ao estado aberto: some a remarcação e some a presença que
- * ELA tinha registrado — a menos que outra sessão da semana também aconteça
- * naquele dia, caso em que a presença é das duas e não pode sair.
- */
-function reabrirSessao(id, diaPlanejado) {
+/** ATESTADO — falta, com direito a repor a aula em qualquer semana. */
+function lancarAtestado(id, diaPlanejado) {
   const a = db.obter(id); if (!a) return;
-  const semana = datasDaSemana(new Date(chkData + 'T00:00:00'));
+  const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em: Date.now(), reposicao: null } };
+  // O atestado é a resolução da aula: a troca de dia que houvesse antes sai, e a
+  // presença que porventura estivesse gravada também.
+  const efetivo = diaEfetivo(a, diaPlanejado);
+  const usaOutra = outraAulaUsa(a, diaPlanejado, efetivo);
   const remarcacoes = { ...(a.remarcacoes || {}) };
-  const efetivo = remarcacoes[diaPlanejado] || diaPlanejado;
   delete remarcacoes[diaPlanejado];
-
-  const outrasSessoes = (a.diasTreino || [])
-    .map((k) => semana[k])
-    .filter((iso) => iso && iso !== diaPlanejado)
-    .map((iso) => remarcacoes[iso] || iso);
-
   const presencas = new Set(a.presencas || []);
   const horas = { ...(a.presencaHoras || {}) };
-  if (!outrasSessoes.includes(efetivo)) { presencas.delete(efetivo); delete horas[efetivo]; }
-
-  db.atualizar(id, { presencas: [...presencas].sort(), presencaHoras: horas, remarcacoes });
+  if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
+  db.atualizar(id, { atestados, remarcacoes, presencas: [...presencas].sort(), presencaHoras: horas });
   agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+/**
+ * DESFAZER — devolve a aula ao estado aberto: some a troca, some o atestado, e
+ * some a presença que ELA registrou — a menos que outra aula da semana também
+ * aconteça naquele dia, caso em que a presença é das duas e fica.
+ */
+function desfazerAula(id, diaPlanejado, ehReposicao, origem) {
+  const a = db.obter(id); if (!a) return;
+  const efetivo = ehReposicao ? diaPlanejado : diaEfetivo(a, diaPlanejado);
+  // Uma reposição é identificada pela aula que a gerou, não pela data em que foi
+  // encaixada. Passando a data, ela se veria na lista de aulas do dia e concluiria
+  // que "outra aula usa esse dia" — segurando a própria presença que ia apagar.
+  const identidade = ehReposicao ? origem : diaPlanejado;
+  const usaOutra = outraAulaUsa(a, identidade, efetivo);
+  const remarcacoes = { ...(a.remarcacoes || {}) };
+  const atestados = { ...(a.atestados || {}) };
+  if (!ehReposicao) { delete remarcacoes[diaPlanejado]; delete atestados[diaPlanejado]; }
+  const presencas = new Set(a.presencas || []);
+  const horas = { ...(a.presencaHoras || {}) };
+  if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
+  db.atualizar(id, { remarcacoes, atestados, presencas: [...presencas].sort(), presencaHoras: horas });
+  agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+/** Agenda a reposição de um atestado numa data qualquer (pode ser outra semana). */
+function agendarReposicao(id, origem, data, hora) {
+  const a = db.obter(id); if (!a || !data) return;
+  if (diaOcupado(a, origem, data)) return; // já tem aula nesse dia
+  const atestados = { ...(a.atestados || {}) };
+  if (!atestados[origem]) return;
+  atestados[origem] = { ...atestados[origem], reposicao: { data, hora: hora || '' } };
+  db.atualizar(id, { atestados });
+  agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+/** Desmarca a reposição: o crédito volta para a fila, livre para outra data. */
+function desmarcarReposicao(id, origem) {
+  const a = db.obter(id); if (!a) return;
+  const atestados = { ...(a.atestados || {}) };
+  if (!atestados[origem]) return;
+  const rep = atestados[origem].reposicao;
+  const usaOutra = rep && rep.data ? outraAulaUsa(a, origem, rep.data) : true;
+  atestados[origem] = { ...atestados[origem], reposicao: null };
+  const presencas = new Set(a.presencas || []);
+  const horas = { ...(a.presencaHoras || {}) };
+  if (rep && rep.data && !usaOutra) { presencas.delete(rep.data); delete horas[rep.data]; }
+  db.atualizar(id, { atestados, presencas: [...presencas].sort(), presencaHoras: horas });
+  agendarPublicarPortal();
+  chkPainel = null;
   renderCheckin();
 }
 
@@ -1071,28 +1217,78 @@ function toggleCheckin(id) {
   renderCheckin();
 }
 
-$('#btn-checkin').addEventListener('click', () => { chkData = hoje(); chkSeletor = null; renderCheckin(); mostrarTela('tela-checkin'); });
+/** Lê o que está digitado no painel aberto antes de um redesenho apagá-lo. */
+function lerPainel(raiz) {
+  if (!chkPainel) return;
+  const d = $('[data-data-sel]', raiz), h = $('[data-hora-sel]', raiz);
+  if (d) chkPainel.data = d.value;
+  if (h) chkPainel.hora = h.value;
+}
+
+$('#btn-checkin').addEventListener('click', () => { chkData = hoje(); chkPainel = null; chkAviso = null; renderCheckin(); mostrarTela('tela-checkin'); });
 $('#chk-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
-$('#chk-prev').addEventListener('click', () => { chkData = addDias(chkData, -1); chkSeletor = null; renderCheckin(); });
-$('#chk-next').addEventListener('click', () => { chkData = addDias(chkData, 1); chkSeletor = null; renderCheckin(); });
+$('#chk-prev').addEventListener('click', () => { chkData = addDias(chkData, -1); chkPainel = null; renderCheckin(); });
+$('#chk-next').addEventListener('click', () => { chkData = addDias(chkData, 1); chkPainel = null; renderCheckin(); });
+
 $('#chk-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
   // Qualquer clique novo apaga o recado anterior: ele é sobre a ação que acabou
-  // de ser recusada, não um estado da sessão.
-  if (e.target.closest('button')) chkAviso = null;
-  const ficha = e.target.closest('.chk-ficha');
-  if (ficha) { chkSeletor = null; remarcarSessao(ficha.dataset.id, ficha.dataset.dia, ficha.dataset.para); return; }
-  const hj = e.target.closest('.chk-hoje');
-  if (hj) { chkSeletor = null; resolverSessao(hj.dataset.id, hj.dataset.dia, chkData); return; }
-  const outro = e.target.closest('.chk-outro');
-  if (outro) {
-    const chave = `${outro.dataset.id}|${outro.dataset.dia}`;
-    chkSeletor = chkSeletor === chave ? null : chave; // o mesmo botão fecha o seletor
+  // de ser recusada, não um estado da aula.
+  chkAviso = null;
+  const lista = $('#chk-list');
+
+  // Ficha de dia dentro do painel: só marca a escolha; quem grava é o Confirmar.
+  if (btn.classList.contains('chk-ficha')) {
+    lerPainel(lista); chkPainel.data = btn.dataset.diaSel; renderCheckin(); return;
+  }
+  if (btn.classList.contains('chk-checkin')) {
+    fazerCheckin(btn.dataset.id, btn.dataset.dia, !!btn.dataset.rep); return;
+  }
+  if (btn.classList.contains('chk-trocar')) {
+    const chave = `${btn.dataset.id}|${btn.dataset.dia}`;
+    if (chkPainel && chkPainel.chave === chave) chkPainel = null; // o mesmo botão fecha
+    else {
+      const a = db.obter(btn.dataset.id);
+      const r = (a && a.remarcacoes || {})[btn.dataset.dia];
+      const atual = typeof r === 'string' ? { data: r, hora: '' } : r;
+      chkPainel = {
+        tipo: 'troca', chave,
+        data: (atual && atual.data) || btn.dataset.dia,
+        hora: (atual && atual.hora) || (a && a.horarios || {})[chaveDoDia(btn.dataset.dia)] || '',
+      };
+    }
     renderCheckin(); return;
   }
-  const alt = e.target.closest('.chk-alterar');
-  if (alt) { chkSeletor = null; reabrirSessao(alt.dataset.id, alt.dataset.dia); return; }
-  const b = e.target.closest('.chk-toggle');
-  if (b) toggleCheckin(b.dataset.id);
+  if (btn.classList.contains('chk-confirma-troca')) {
+    lerPainel(lista); trocarAula(btn.dataset.id, btn.dataset.dia, chkPainel.data, chkPainel.hora); return;
+  }
+  if (btn.classList.contains('chk-atestado')) {
+    lancarAtestado(btn.dataset.id, btn.dataset.dia); return;
+  }
+  if (btn.classList.contains('chk-desfazer')) {
+    desfazerAula(btn.dataset.id, btn.dataset.dia, !!btn.dataset.rep, btn.dataset.origem); return;
+  }
+  // Abre o painel de agendar reposição, já sugerindo o dia seguinte.
+  if (btn.classList.contains('chk-chip')) {
+    const chave = `${btn.dataset.id}|${btn.dataset.origem}`;
+    if (chkPainel && chkPainel.chave === chave) chkPainel = null;
+    else {
+      const a = db.obter(btn.dataset.id);
+      chkPainel = {
+        tipo: 'reposicao', chave, data: addDias(hoje(), 1),
+        hora: (a && a.horarios || {})[chaveDoDia(btn.dataset.origem)] || '',
+      };
+    }
+    renderCheckin(); return;
+  }
+  if (btn.classList.contains('chk-confirma-rep')) {
+    lerPainel(lista); agendarReposicao(btn.dataset.id, btn.dataset.origem, chkPainel.data, chkPainel.hora); return;
+  }
+  if (btn.classList.contains('chk-desmarcar')) {
+    desmarcarReposicao(btn.dataset.id, btn.dataset.origem); return;
+  }
+  if (btn.classList.contains('chk-toggle')) toggleCheckin(btn.dataset.id);
 });
 
 /* ============================================================
@@ -1798,7 +1994,6 @@ function semanaSegSab() {
   const mon = new Date(hoje); mon.setDate(hoje.getDate() + (dow === 0 ? -6 : 1 - dow));
   return Array.from({ length: 6 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
 }
-function isoLocal(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 
 /** Gráfico de barras Seg–Sáb (kcal), no mesmo estilo dos gráficos do progresso. */
 function barrasNutri(valores, labels, hojeIso, dias) {
