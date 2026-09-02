@@ -57,10 +57,13 @@ function fatia(a, todos) {
     // vínculo viaja já resolvido: o dependente recebe o NOME de quem acerta por
     // ele, e o responsável recebe os pedaços que precisa somar. Só isso — nem
     // telefone, nem presença, nem avaliação de terceiro entram na fatia.
+    // A parceria vai junto para o Portal mostrar a mensalidade cheia e o desconto
+    // na notinha — o aluno enxerga o benefício, e não um preço que sobe e desce.
+    parceria: a.parceria || null,
     pagoPor: vinculoPagador(a, todos),
     dependentes: (todos || []).filter((x) => x.pagoPor && x.pagoPor.id === a.id).map((x) => ({
       nome: x.nome || '', escopo: x.pagoPor.escopo === 'plano' ? 'plano' : 'tudo',
-      mensalidade: x.mensalidade || '', consumos: x.consumos || [],
+      mensalidade: x.mensalidade || '', consumos: x.consumos || [], parceria: x.parceria || null,
     })),
     presencas: a.presencas || [],
     presencaHoras: a.presencaHoras || {},

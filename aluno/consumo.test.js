@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mesIdDoConsumo, mesIdParaLancar, consumosDoMes, totalConsumos, faturaDoMes,
-  parteCoberta, faturaPropria, faturaComDependentes } from './consumo.js';
+  parteCoberta, faturaPropria, faturaComDependentes, descontoParceria, PERCENTUAIS_PARCERIA } from './consumo.js';
 
 const c = (data, mesId, preco, nome = 'Energético') => ({ id: data + nome, nome, preco, data, mesId });
 
@@ -77,8 +77,12 @@ test('consumo de outra fatura não entra na conta', () => {
 
 test('sem consumo nenhum a conta é só a mensalidade', () => {
   assert.equal(totalConsumos(undefined, '2026-09'), 0);
-  assert.deepEqual(faturaDoMes({ mensalidade: '150' }, '2026-09'),
-    { mensalidade: 150, consumos: [], extras: 0, total: 150 });
+  const f = faturaDoMes({ mensalidade: '150' }, '2026-09');
+  assert.equal(f.total, 150);
+  assert.equal(f.mensalidade, 150);
+  assert.equal(f.desconto, 0);
+  assert.equal(f.parceria, null);
+  assert.deepEqual(f.consumos, []);
 });
 
 test('a fatura soma mensalidade e consumíveis', () => {
@@ -181,4 +185,91 @@ test('no Portal o dependente chega com o escopo solto, sem a ficha inteira', () 
   const f = faturaComDependentes(andre, '2026-09', [fatia]);
   assert.equal(f.dependentes[0].total, 150);
   assert.equal(f.total, 300);
+});
+
+/* ---------- Parcerias: desconto registrado, não valor apagado ---------- */
+
+const COM_PARCERIA = (percentual, mensalidade = '150') => ({
+  nome: 'Parceiro', mensalidade,
+  parceria: percentual ? { nome: 'Clínica X', percentual } : null,
+});
+
+test('os percentuais oferecidos são 10, 25, 50 e 100', () => {
+  assert.deepEqual(PERCENTUAIS_PARCERIA, [10, 25, 50, 100]);
+});
+
+test('sem parceria não há desconto nenhum', () => {
+  assert.equal(descontoParceria(COM_PARCERIA(0)), null);
+  assert.equal(faturaDoMes(COM_PARCERIA(0), '2026-09').desconto, 0);
+});
+
+test('cada percentual tira a fatia certa de R$ 150', () => {
+  const esperado = { 10: 15, 25: 37.5, 50: 75, 100: 150 };
+  for (const pct of PERCENTUAIS_PARCERIA) {
+    const f = faturaDoMes(COM_PARCERIA(pct), '2026-09');
+    assert.equal(f.desconto, esperado[pct], `${pct}%`);
+    assert.equal(f.mensalidade, 150 - esperado[pct], `${pct}% — o que ele paga`);
+    assert.equal(f.mensalidadeCheia, 150, 'a mensalidade cheia continua registrada');
+  }
+});
+
+test('100% é cortesia: ele não paga nada e o box registra os R$ 150', () => {
+  const f = faturaDoMes(COM_PARCERIA(100), '2026-09');
+  assert.equal(f.total, 0);
+  assert.equal(f.desconto, 150);
+  assert.equal(f.parceria.nome, 'Clínica X');
+});
+
+test('a conta sempre fecha: cheia = o que ele paga + o que o box banca', () => {
+  // Ao CENTAVO: as duas metades são exatas, mas somá-las em ponto flutuante
+  // devolve 99,899999… — é o formato do dinheiro que manda, não o do double.
+  const aoCentavo = (v) => Math.round(v * 100) / 100;
+  for (const pct of [0, ...PERCENTUAIS_PARCERIA]) {
+    for (const valor of ['150', '171', '99,90', '210,50']) {
+      const f = faturaDoMes(COM_PARCERIA(pct, valor), '2026-09');
+      assert.equal(aoCentavo(f.mensalidade + f.desconto), f.mensalidadeCheia, `${pct}% de ${valor}`);
+    }
+  }
+});
+
+test('centavos não escapam: 25% de R$ 171 é R$ 42,75 exatos', () => {
+  const f = faturaDoMes(COM_PARCERIA(25, '171'), '2026-09');
+  assert.equal(f.desconto, 42.75);
+  assert.equal(f.mensalidade, 128.25);
+});
+
+test('o desconto vale só sobre o plano — consumível não entra na parceria', () => {
+  const aluno = { ...COM_PARCERIA(50), consumos: [c('2026-09-02', '2026-09', 10)] };
+  const f = faturaDoMes(aluno, '2026-09');
+  assert.equal(f.desconto, 75, 'o desconto não cresce por causa do energético');
+  assert.equal(f.extras, 10, 'o energético é cobrado cheio');
+  assert.equal(f.total, 85);
+});
+
+test('mesmo com 100% de parceria, o que ele consome ele paga', () => {
+  const aluno = { ...COM_PARCERIA(100), consumos: [c('2026-09-02', '2026-09', 3, 'Dose')] };
+  const f = faturaDoMes(aluno, '2026-09');
+  assert.equal(f.total, 3);
+});
+
+test('mudar o preço do plano recalcula o investimento sozinho', () => {
+  assert.equal(faturaDoMes(COM_PARCERIA(50, '150'), '2026-09').desconto, 75);
+  assert.equal(faturaDoMes(COM_PARCERIA(50, '200'), '2026-09').desconto, 100);
+});
+
+test('quem paga por outro paga o valor JÁ com a parceria do outro', () => {
+  const filho = { ...COM_PARCERIA(50), nome: 'Filho', pagoPor: { id: 'pai', escopo: 'tudo' } };
+  const pai = { nome: 'Pai', mensalidade: '150' };
+  const f = faturaComDependentes(pai, '2026-09', [filho]);
+  assert.equal(f.dependentes[0].total, 75, 'o desconto do filho não pode virar cobrança do pai');
+  assert.equal(f.total, 225);
+});
+
+test('com parceria, as duas metades do vínculo continuam fechando', () => {
+  const filho = { ...COM_PARCERIA(25), pagoPor: { id: 'pai', escopo: 'plano' },
+    consumos: [c('2026-09-02', '2026-09', 10)] };
+  assert.equal(parteCoberta(filho, '2026-09').total + faturaPropria(filho, '2026-09').total,
+    faturaDoMes(filho, '2026-09').total);
+  assert.equal(parteCoberta(filho, '2026-09').total, 112.5, 'o pai paga a mensalidade com desconto');
+  assert.equal(faturaPropria(filho, '2026-09').total, 10, 'o energético continua sendo do filho');
 });

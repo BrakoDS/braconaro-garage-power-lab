@@ -486,6 +486,14 @@ button{font-family:inherit}
 /* Marca de vínculo ao lado do nome: quem tem a conta acertada por outro. */
 /* Consumo que ja foi lancado, mas numa fatura mais a frente do que a em tela. */
 .fin-adiante{display:inline-block;margin-left:8px;color:var(--warn);font-size:.8rem}
+/* Parceria: o selo ao lado do nome e o quanto o box banca no detalhe da linha.
+   Verde porque e investimento do box, nao pendencia do aluno. */
+.fin-parceria{margin-left:9px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;font-size:.64rem;color:var(--accent);border:1px solid var(--accent);
+  padding:2px 7px;white-space:nowrap}
+.fin-investido{color:var(--accent);font-size:.8rem}
+.fin-card-v.parceria{color:var(--accent)}
+.fin-badge.cortesia{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
 .fin-vinculo{margin-left:9px;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;
   letter-spacing:.06em;font-size:.64rem;color:var(--mut-2);border:1px solid var(--line-2);padding:2px 7px;
   white-space:nowrap}
