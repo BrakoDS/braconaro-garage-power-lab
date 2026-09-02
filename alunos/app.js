@@ -23,7 +23,7 @@ import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../aluno/gamificacao.js';
 import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../aluno/semana.js';
-import { mesIdParaLancar, faturaDoMes, faturaComDependentes } from '../aluno/consumo.js';
+import { mesIdParaLancar, faturaDoMes, faturaComDependentes, consumosDoMes, totalConsumos } from '../aluno/consumo.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -441,19 +441,27 @@ function statusFin(a, mesId) {
   return hoje() > venc ? 'vencido' : 'pendente';
 }
 
-/** O balcão: um botão por produto, para lançar na conta do aluno. */
-function balcaoConsumo(a, fatura) {
+/**
+ * O balcão: um botão por produto, para lançar na conta do aluno.
+ *
+ * Tudo aqui — o rótulo e a lista — fala da fatura de DESTINO, não da que está na
+ * tela. Com o mês em tela já quitado, o lançamento pula para o seguinte; listando
+ * o mês em tela, o coach clicava no produto e a tela não mexia em nada. Parecia
+ * que o botão não funcionava, e clicar de novo enfiava consumos repetidos numa
+ * fatura que ele nem estava vendo.
+ */
+function balcaoConsumo(a) {
   const produtos = db.listarProdutos();
-  // O rótulo tem que dizer para ONDE o consumo vai de verdade, e não em que mês
-  // a tela está: com a fatura do mês já quitada, o lançamento pula para a
-  // seguinte, e prometer o mês em tela seria mentir na hora do clique.
   const destino = mesIdParaLancar(hoje(), a.vencimento, a.pagamentos);
+  const lancadosNoDestino = consumosDoMes(a.consumos, destino);
   const botoes = produtos.length
     ? produtos.map((p) => `<button class="btn ghost btn-sm fin-add" data-id="${esc(a.id)}" data-prod="${esc(p.id)}" type="button">${esc(p.nome)} · ${brl(p.preco)}</button>`).join('')
     : '<span class="fin-vazio">Nenhum produto cadastrado. Use “Produtos” lá em cima.</span>';
 
-  const lancados = fatura.consumos.length
-    ? `<ul class="fin-consumos">${fatura.consumos.map((c) => `
+  const soma = lancadosNoDestino.reduce((t, c) => t + (Number(c.preco) || 0), 0);
+  const lancados = lancadosNoDestino.length
+    ? `<span class="fin-balcao-cap">Já nesta fatura · ${brl(soma)}</span>
+       <ul class="fin-consumos">${lancadosNoDestino.map((c) => `
         <li><span>${esc(c.nome)}</span><span class="fin-consumo-v">+ ${brl(c.preco)}</span>
           <span class="fin-consumo-d">${esc(fmtDataCurta(c.data))}</span>
           <button class="fin-x" data-id="${esc(a.id)}" data-consumo="${esc(c.id)}" type="button" aria-label="Remover">×</button></li>`).join('')}</ul>`
@@ -532,6 +540,14 @@ function renderFinanceiro() {
       ? `acertado por <b>${esc(resp.nome || resp.id)}</b>`
       : (partes.length > 1 ? `${partes.join(' + ')} = <b>${brl(conta.total)}</b>` : brl(conta.total));
 
+    // Consumo lançado numa fatura à frente não aparece na linha do mês em tela.
+    // Sem este aviso, o dinheiro fica invisível até alguém navegar de mês.
+    const destino = mesIdParaLancar(hoje(), a.vencimento, a.pagamentos);
+    const adiante = destino !== finMes ? totalConsumos(a.consumos, destino) : 0;
+    const aviso = adiante > 0
+      ? ` <span class="fin-adiante">· ${brl(adiante)} em consumo já vai para ${esc(rotuloMesFin(destino))}</span>`
+      : '';
+
     const btn = conta.total === 0
       ? ''
       : st === 'pago'
@@ -542,13 +558,13 @@ function renderFinanceiro() {
     const marca = resp ? `<span class="fin-vinculo">conta de ${esc(resp.nome || resp.id)}</span>` : '';
     return `<div class="fin-row fin-row-consumo">
       <div class="fin-info"><div class="fin-nome">${esc(a.nome)}${marca}</div>
-        <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}</div></div>
+        <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}${aviso}</div></div>
       <span class="fin-badge ${stExibido}">${lbl}</span>
       <div class="fin-acoes">
         <button class="btn ghost btn-sm fin-balcao-btn${aberto ? ' on' : ''}" data-id="${esc(a.id)}" type="button">${aberto ? 'Fechar' : '+ Consumo'}</button>
         ${btn}
       </div>
-      ${aberto ? balcaoConsumo(a, propria) : ''}
+      ${aberto ? balcaoConsumo(a) : ''}
     </div>`;
   }).join('');
 
