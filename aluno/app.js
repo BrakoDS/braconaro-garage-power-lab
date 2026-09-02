@@ -330,13 +330,18 @@ function renderHorarios() {
     diasTreino: PORTAL.diasTreino,
     presencas: PORTAL.presencas || [],
     horas: PORTAL.presencaHoras || {},
+    remarcacoes: PORTAL.remarcacoes || {},
   });
 
   const diaDe = (iso) => DIA_CURTO[ORDEM_DIAS[(new Date(iso + 'T00:00:00').getDay() + 6) % 7]];
   const nota = (q) => {
     if (q.veioEm) return `veio ${diaDe(q.veioEm)}${q.hora ? ` · ${q.hora}` : ''}`;
     if (q.estado === 'ok') return q.hora ? `chegou ${q.hora}` : '';
-    if (q.estado === 'falta') return 'não veio';
+    // Remarcado: o aluno precisa saber para quando ficou — senão o quadrado da
+    // segunda fica mudo num dia em que a segunda já passou, e o vermelho parece
+    // injusto para quem combinou a troca com o coach.
+    if (q.estado === 'falta') return q.remarcado ? `não veio (era ${diaDe(q.efetivo)})` : 'não veio';
+    if (q.remarcado) return `vai ${diaDe(q.efetivo)}`;
     return q.iso === hojeIso ? 'é hoje' : '';
   };
 

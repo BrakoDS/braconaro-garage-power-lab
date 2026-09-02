@@ -92,3 +92,71 @@ test('sem check-in registrado a hora simplesmente não aparece', () => {
   assert.equal(q[0].estado, 'ok');
   assert.equal(q[0].hora, undefined);
 });
+
+/* ---------- Remarcação: o coach diz em que dia a sessão vale ---------- */
+
+test('remarcada para um dia que ainda vem: fica aguardando, apontando o novo dia', () => {
+  const q = semanaDoAluno({
+    diasTreino: FIXOS, presencas: [SEG, TER], remarcacoes: { [QUA]: SEX }, hoje: QUINTA,
+  });
+  const quarta = q[2];
+  assert.equal(quarta.estado, 'aguardando', 'a sexta ainda não chegou');
+  assert.equal(quarta.remarcado, true);
+  assert.equal(quarta.efetivo, SEX);
+});
+
+test('remarcada e cumprida: fica verde e conta o dia em que ele veio', () => {
+  const q = semanaDoAluno({
+    diasTreino: FIXOS, presencas: [SEG, TER, SEX], horas: { [SEX]: '18:40' },
+    remarcacoes: { [QUA]: SEX }, hoje: new Date(2026, 7, 9, 12),
+  });
+  assert.equal(q.length, 3, 'a presença de sexta é da quarta remarcada, não um treino extra');
+  assert.equal(q[2].estado, 'ok');
+  assert.equal(q[2].veioEm, SEX);
+  assert.equal(q[2].hora, '18:40');
+});
+
+test('remarcada e perdida vira falta — e nenhuma outra presença a resgata', () => {
+  // Quarta remarcada para quinta, não foi na quinta, mas apareceu no sábado.
+  // A cobertura automática NÃO entra: o coach já disse onde essa sessão vivia.
+  const q = semanaDoAluno({
+    diasTreino: FIXOS, presencas: [SEG, TER, SAB],
+    remarcacoes: { [QUA]: QUI }, hoje: new Date(2026, 7, 9, 12),
+  });
+  assert.equal(q[2].estado, 'falta');
+  assert.equal(q[2].efetivo, QUI);
+  assert.equal(q.length, 4, 'o sábado sobra como treino extra, sem cobrir a quarta');
+  assert.equal(q[3].extra, true);
+  assert.equal(q[3].iso, SAB);
+});
+
+test('a cobertura automática continua valendo nas sessões que o coach não tocou', () => {
+  // Quarta remarcada para sexta (e cumprida); a terça ninguém tocou e é coberta
+  // pelo sábado, que nenhuma remarcação reservou.
+  const q = semanaDoAluno({
+    diasTreino: FIXOS, presencas: [SEG, SEX, SAB],
+    remarcacoes: { [QUA]: SEX }, hoje: new Date(2026, 7, 9, 12),
+  });
+  assert.deepEqual(q.map((x) => x.estado), ['ok', 'ok', 'ok']);
+  assert.equal(q[1].veioEm, SAB, 'a terça é coberta pelo sábado');
+  assert.equal(q[2].veioEm, SEX, 'a quarta foi cumprida na sexta remarcada');
+});
+
+test('o dia reservado por uma remarcação não cobre outra falta também', () => {
+  // Segunda remarcada para sexta e cumprida. A terça e a quarta ficam sem nada:
+  // a presença de sexta já é da segunda, não pode contar duas vezes.
+  const q = semanaDoAluno({
+    diasTreino: FIXOS, presencas: [SEX], remarcacoes: { [SEG]: SEX }, hoje: new Date(2026, 7, 9, 12),
+  });
+  assert.deepEqual(q.map((x) => x.estado), ['ok', 'falta', 'falta']);
+  assert.equal(q.length, 3, 'a sexta está reservada — não sobra como extra');
+});
+
+test('remarcar para o próprio dia é o mesmo que não remarcar', () => {
+  const q = semanaDoAluno({
+    diasTreino: ['seg'], presencas: [SEG], remarcacoes: { [SEG]: SEG }, hoje: QUINTA,
+  });
+  assert.equal(q[0].estado, 'ok');
+  assert.equal(q[0].remarcado, false);
+  assert.equal(q[0].veioEm, undefined);
+});

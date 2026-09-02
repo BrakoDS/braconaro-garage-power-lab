@@ -1,15 +1,22 @@
 // @ts-check
 /**
- * A semana de treino do aluno — quem veio, quem faltou, quem compensou.
+ * A semana de treino do aluno — quem veio, quem faltou, quem trocou de dia.
  *
  * Módulo puro: sem DOM e sem Firebase, para poder ser testado direto no Node
- * (veja semana.test.js). Quem desenha os quadrados é o app.js.
+ * (veja semana.test.js). É usado dos dois lados: o painel de check-in do coach
+ * desenha os quadrados a partir daqui, e o Portal do Aluno mostra os mesmos.
  *
- * Regra combinada com o coach: o que conta é o número de treinos na semana, não
- * o comparecimento em cada dia marcado. Uma presença fora dos dias fixos "cobre"
- * uma falta num dia fixo — o quadrado continua verde e passa a dizer quando o
- * aluno realmente veio. Só fica vermelho o dia fixo que já passou e não teve
- * nenhuma presença sobrando para cobri-lo.
+ * DUAS FORMAS DE UM TREINO MUDAR DE DIA
+ *
+ * 1. REMARCAÇÃO EXPLÍCITA — o coach diz, no check-in, que a sessão de segunda
+ *    aconteceu (ou vai acontecer) na quinta. Isso é final: se a quinta passar
+ *    sem presença, a segunda é falta, e nenhuma outra presença da semana a
+ *    resgata. Quem marcou foi o coach; o sistema não discute.
+ *
+ * 2. COBERTURA AUTOMÁTICA — a rede para o dia em que ninguém marcou nada. Uma
+ *    presença fora da grade cobre uma falta num dia fixo, da mais antiga para a
+ *    mais nova. Só entra em sessões que o coach não tocou, e só usa presenças
+ *    que nenhuma remarcação reservou.
  */
 
 /** Ordem da semana do box: começa na segunda. */
@@ -28,14 +35,25 @@ export function segundaDaSemana(d = new Date()) {
   return x;
 }
 
+/** As 7 datas da semana de `d`, indexadas por 'seg'…'dom'. @returns {Record<string,string>} */
+export function datasDaSemana(d = new Date()) {
+  const seg = segundaDaSemana(d);
+  /** @type {Record<string,string>} */
+  const mapa = {};
+  ORDEM_DIAS.forEach((k, i) => { const x = new Date(seg); x.setDate(x.getDate() + i); mapa[k] = dataIso(x); });
+  return mapa;
+}
+
 /**
  * @typedef {Object} Quadrado
- * @property {string} chave     dia da semana ('seg'…'dom'); '' nos treinos extras
- * @property {string} iso       data do quadrado
+ * @property {string} chave         dia da semana ('seg'…'dom'); nos extras, o dia em que veio
+ * @property {string} iso           data planejada da sessão (a data do quadrado)
  * @property {'ok'|'falta'|'aguardando'} estado
- * @property {string} [veioEm]  data em que o aluno veio, quando trocou de dia
- * @property {string} [hora]    hora do check-in, quando registrada
- * @property {boolean} extra    true = treino além dos dias fixos
+ * @property {string} efetivo       data em que a sessão vale — igual a `iso`, ou a remarcada
+ * @property {boolean} remarcado    o coach mudou o dia desta sessão
+ * @property {string} [veioEm]      data em que o aluno veio, quando é diferente da planejada
+ * @property {string} [hora]        hora do check-in, quando registrada
+ * @property {boolean} extra        true = treino além dos dias fixos
  */
 
 /**
@@ -44,41 +62,52 @@ export function segundaDaSemana(d = new Date()) {
  * @param {Object} p
  * @param {string[]} p.diasTreino    dias fixos do aluno (ex.: ['seg','ter','qua'])
  * @param {string[]} p.presencas     datas 'YYYY-MM-DD' com check-in
- * @param {Record<string,string>} [p.horas]  data → 'HH:MM' do check-in
+ * @param {Record<string,string>} [p.horas]        data → 'HH:MM' do check-in
+ * @param {Record<string,string>} [p.remarcacoes]  data planejada → data escolhida pelo coach
  * @param {Date} [p.hoje]
  * @returns {Quadrado[]} os dias fixos na ordem da semana, seguidos dos extras
  */
-export function semanaDoAluno({ diasTreino = [], presencas = [], horas = {}, hoje = new Date() } = {}) {
-  const seg = segundaDaSemana(hoje);
+export function semanaDoAluno({ diasTreino = [], presencas = [], horas = {}, remarcacoes = {}, hoje = new Date() } = {}) {
+  const daSemana = datasDaSemana(hoje);
   const hojeIso = dataIso(hoje);
-
-  /** @type {Record<string,string>} chave do dia → data desta semana */
-  const daSemana = {};
-  ORDEM_DIAS.forEach((k, i) => { const d = new Date(seg); d.setDate(d.getDate() + i); daSemana[k] = dataIso(d); });
   const isosDaSemana = new Set(Object.values(daSemana));
 
   const fixos = ORDEM_DIAS.filter((k) => diasTreino.includes(k));
-  const isosFixos = new Set(fixos.map((k) => daSemana[k]));
   const presentes = new Set(presencas.filter((iso) => isosDaSemana.has(iso)));
 
-  // Presenças fora dos dias fixos ficam na fila para cobrir faltas, da mais
-  // antiga para a mais nova — assim a compensação segue a ordem dos fatos.
-  const sobrando = [...presentes].filter((iso) => !isosFixos.has(iso)).sort();
+  // Cada sessão reserva o dia em que ela vale — o próprio, ou o remarcado. O que
+  // fica de fora dessas reservas é presença solta, e só ela alimenta a cobertura
+  // automática. Sem esta reserva, a presença de quinta poderia cobrir a segunda
+  // por conta própria E ainda contar como o cumprimento da quinta.
+  const reservados = new Set(fixos.map((k) => remarcacoes[daSemana[k]] || daSemana[k]));
+  const sobrando = [...presentes].filter((iso) => !reservados.has(iso)).sort();
 
   const quadrados = fixos.map((k) => {
     const iso = daSemana[k];
-    if (presentes.has(iso)) return { chave: k, iso, estado: 'ok', hora: horas[iso], extra: false };
+    const efetivo = remarcacoes[iso] || iso;
+    const remarcado = efetivo !== iso;
+    const base = { chave: k, iso, efetivo, remarcado, extra: false };
+
+    if (presentes.has(efetivo)) {
+      return { ...base, estado: /** @type {'ok'} */ ('ok'), veioEm: remarcado ? efetivo : undefined, hora: horas[efetivo] };
+    }
+    // Remarcada e ainda sem presença: quem decide é o prazo do dia REMARCADO.
+    // A cobertura automática não entra aqui — o coach já disse onde essa sessão vive.
+    if (remarcado) {
+      return { ...base, estado: /** @type {'falta'|'aguardando'} */ (efetivo < hojeIso ? 'falta' : 'aguardando') };
+    }
     if (sobrando.length) {
       const veioEm = sobrando.shift();
-      return { chave: k, iso, estado: 'ok', veioEm, hora: horas[veioEm], extra: false };
+      return { ...base, estado: /** @type {'ok'} */ ('ok'), veioEm, hora: horas[veioEm] };
     }
-    return { chave: k, iso, estado: iso < hojeIso ? 'falta' : 'aguardando', extra: false };
+    return { ...base, estado: /** @type {'falta'|'aguardando'} */ (iso < hojeIso ? 'falta' : 'aguardando') };
   });
 
   // O que sobrou depois de cobrir todas as faltas é treino a mais na semana.
   const extras = sobrando.map((iso) => ({
     chave: ORDEM_DIAS.find((k) => daSemana[k] === iso) || '',
-    iso, estado: /** @type {'ok'} */ ('ok'), hora: horas[iso], extra: true,
+    iso, efetivo: iso, remarcado: false,
+    estado: /** @type {'ok'} */ ('ok'), hora: horas[iso], extra: true,
   }));
 
   return [...quadrados, ...extras];
