@@ -11,7 +11,7 @@ import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
 import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from './semana.js';
-import { faturaDoMes } from './consumo.js';
+import { faturaComDependentes, parteCoberta } from './consumo.js';
 import { renderTreinoDia } from './treino-dia.js';
 import { COR_MODALIDADE } from '../montador/config/cores-modalidade.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=2';
@@ -608,22 +608,26 @@ function statusFin(mesId) {
 
 function renderFinanceiro() {
   const mesId = mesIdLocal();
-  // A conta do mês é mensalidade + o que ele consumiu no box. O Pix, o total em
-  // destaque e a notinha saem todos daqui — três números que não podem divergir.
-  const fatura = faturaDoMes(PORTAL, mesId);
-  const valor = fatura.total;
-  if (!valor) {
+  // A conta do mês é a mensalidade, o que ele consumiu no box e o que ele paga
+  // por outro. O Pix, o total em destaque e a notinha saem todos daqui — três
+  // números que não podem divergir.
+  const conta = faturaComDependentes(PORTAL, mesId, PORTAL.dependentes || []);
+  const fatura = conta.propria;
+  const valor = conta.total;
+  const resp = PORTAL.pagoPor;
+  const coberta = parteCoberta(PORTAL, mesId, resp ? resp.escopo : '');
+  if (!valor && !coberta.total) {
     $('#financeiro').innerHTML = `<div class="fin-box"><div><div class="fin-cap">Mensalidade</div><div class="fin-val">—</div></div><span class="fin-badge pendente">Não cadastrada</span></div>`;
     return;
   }
-  const st = statusFin(mesId);
-  const lbl = st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
+  const st = valor ? statusFin(mesId) : 'pago';
+  const lbl = !valor ? (resp ? 'Acertado' : 'Sem cobrança') : st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
   const M = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const mesNome = M[Number(mesId.split('-')[1]) - 1];
 
   // Painel Pix — só quando ainda não está pago
   const payload = pixCopiaECola(valor);
-  const pixHtml = st === 'pago' ? '' : `
+  const pixHtml = (st === 'pago' || !valor) ? '' : `
     <button class="btn pix-btn" id="btn-pix" type="button">
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 2 12l10 10 10-10L12 2zm0 3.2L18.8 12 12 18.8 5.2 12 12 5.2z"/></svg>
       Pagar com Pix
@@ -658,21 +662,29 @@ function renderFinanceiro() {
       </a>
     </div>`;
 
-  // A notinha só aparece quando há consumo: sem ela, um aluno que nunca comprou
-  // nada veria uma tabela vazia perguntando o que ele deixou de entender.
-  const notinha = fatura.consumos.length ? `
+  // A notinha só aparece quando há mais de uma parcela na conta: sem isso, quem
+  // só tem a mensalidade veria uma tabela de uma linha repetindo o valor de cima.
+  const temDetalhe = fatura.consumos.length || conta.dependentes.length || (resp && coberta.total > 0);
+  // `acertada` apaga e risca o valor: ele aparece para o aluno saber quanto foi,
+  // mas não entra no total dele nem no Pix — e a linha precisa dizer isso sozinha,
+  // porque o título da seção some quando alguém lê só a linha.
+  const linhaConsumo = (c, deOutro) => `<div class="nota-l${deOutro ? ' acertada' : ''}"><span>${esc(c.nome)}<i>${esc(fmtDataCurta(c.data))}</i></span><span>+ ${brl(c.preco)}</span></div>`;
+  const notinha = temDetalhe ? `
     <div class="nota">
-      <div class="nota-l"><span>Mensalidade · ${esc(mesNome)}</span><span>${brl(fatura.mensalidade)}</span></div>
-      <div class="nota-cap">Consumíveis</div>
-      ${fatura.consumos.map((c) => `
-        <div class="nota-l"><span>${esc(c.nome)}<i>${esc(fmtDataCurta(c.data))}</i></span><span>+ ${brl(c.preco)}</span></div>`).join('')}
-      <div class="nota-l total"><span>Total</span><span>${brl(fatura.total)}</span></div>
+      ${resp && coberta.mensalidade > 0
+        ? `<div class="nota-l acertada"><span>Mensalidade · ${esc(mesNome)}<i>acertada por ${esc(resp.nome || 'seu responsável')}</i></span><span>${brl(coberta.mensalidade)}</span></div>`
+        : `<div class="nota-l"><span>Mensalidade · ${esc(mesNome)}</span><span>${brl(fatura.mensalidade)}</span></div>`}
+      ${fatura.consumos.length ? `<div class="nota-cap">Consumíveis</div>${fatura.consumos.map((c) => linhaConsumo(c, false)).join('')}` : ''}
+      ${resp && coberta.consumos.length ? `<div class="nota-cap">Consumíveis · acertados por ${esc(resp.nome || 'seu responsável')}</div>${coberta.consumos.map((c) => linhaConsumo(c, true)).join('')}` : ''}
+      ${conta.dependentes.length ? `<div class="nota-cap">Por sua conta</div>${conta.dependentes.map((d) => `
+        <div class="nota-l"><span>${esc(d.nome)}<i>${d.escopo === 'plano' ? 'plano' : 'plano e consumíveis'}</i></span><span>+ ${brl(d.total)}</span></div>`).join('')}` : ''}
+      <div class="nota-l total"><span>${valor ? 'Total a pagar' : 'Você não tem nada a pagar'}</span><span>${brl(valor)}</span></div>
     </div>` : '';
 
   $('#financeiro').innerHTML = `
     <div class="fin-box">
       <div>
-        <div class="fin-cap">${fatura.extras > 0 ? 'A pagar' : 'Mensalidade'} · ${mesNome}</div>
+        <div class="fin-cap">${!valor ? 'Sua conta' : (fatura.extras > 0 || conta.dependentes.length) ? 'A pagar' : 'Mensalidade'} · ${mesNome}</div>
         <div class="fin-val">${brl(valor)}</div>
         ${PORTAL.vencimento ? `<div class="av-sub">vence dia ${esc(PORTAL.vencimento)}</div>` : ''}
       </div>

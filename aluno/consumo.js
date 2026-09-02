@@ -92,3 +92,68 @@ export function faturaDoMes(aluno, mesId) {
   const extras = consumos.reduce((s, c) => s + (Number(c.preco) || 0), 0);
   return { mensalidade, consumos, extras, total: mensalidade + extras };
 }
+
+/* ============================================================
+   Quem paga a conta de quem
+
+   Um aluno pode ter a conta acertada por outro — o pai que paga a mensalidade do
+   filho, o casal em que um resolve os dois. O vínculo mora na ficha do DEPENDENTE
+   (`pagoPor: { id, escopo }`), e não na do responsável: um responsável pode ter
+   vários dependentes, e cada dependente tem no máximo um pagador. Guardando do
+   lado de cá, a lista nunca fica com duas versões da verdade.
+
+   O escopo decide o que o responsável cobre:
+     'plano'  só a mensalidade — o que o dependente consumir no box é dele.
+     'tudo'   mensalidade e consumíveis.
+   ============================================================ */
+
+/**
+ * O pedaço da conta de um aluno que o responsável assume.
+ * @param {any} aluno @param {string} mesId
+ * @param {'plano'|'tudo'|''} [escopo] o do próprio aluno, quando não informado
+ * @returns {{mensalidade:number, consumos:any[], extras:number, total:number}}
+ */
+export function parteCoberta(aluno, mesId, escopo) {
+  const esc = escopo !== undefined ? escopo : (aluno && aluno.pagoPor && aluno.pagoPor.escopo);
+  const vazia = { mensalidade: 0, consumos: [], extras: 0, total: 0 };
+  if (!esc) return vazia;
+  const f = faturaDoMes(aluno, mesId);
+  if (esc === 'tudo') return f;
+  return { mensalidade: f.mensalidade, consumos: [], extras: 0, total: f.mensalidade };
+}
+
+/**
+ * O que o próprio aluno ainda deve, já descontado o que o responsável cobre.
+ * Sem responsável, é a conta inteira.
+ * @param {any} aluno @param {string} mesId
+ */
+export function faturaPropria(aluno, mesId) {
+  const f = faturaDoMes(aluno, mesId);
+  const esc = aluno && aluno.pagoPor && aluno.pagoPor.escopo;
+  if (!esc) return f;
+  if (esc === 'tudo') return { mensalidade: 0, consumos: [], extras: 0, total: 0 };
+  // 'plano': a mensalidade é do responsável, o consumo continua sendo dele.
+  return { mensalidade: 0, consumos: f.consumos, extras: f.extras, total: f.extras };
+}
+
+/**
+ * A conta fechada de um responsável: a dele mais o que cobre dos dependentes.
+ *
+ * `dependentes` chega pronto dos dois lados — no painel do coach vem da lista de
+ * alunos, no Portal vem publicado na fatia do responsável, porque lá ele não tem
+ * acesso à ficha de mais ninguém.
+ *
+ * @param {any} aluno @param {string} mesId
+ * @param {any[]} [dependentes] fichas (ou fatias) de quem ele paga
+ */
+export function faturaComDependentes(aluno, mesId, dependentes = []) {
+  const propria = faturaPropria(aluno, mesId);
+  const cobertos = dependentes.map((d) => {
+    const escopo = (d.pagoPor && d.pagoPor.escopo) || d.escopo || 'tudo';
+    return { nome: d.nome || '', escopo, ...parteCoberta(d, mesId, escopo) };
+  }).filter((d) => d.total > 0 || d.consumos.length);
+  return {
+    propria, dependentes: cobertos,
+    total: propria.total + cobertos.reduce((s, d) => s + d.total, 0),
+  };
+}

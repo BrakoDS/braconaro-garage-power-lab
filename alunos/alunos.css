@@ -483,6 +483,10 @@ button{font-family:inherit}
 .fin-prods{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
 .fin-balcao-btn.on{border-color:var(--accent);color:var(--accent)}
 .fin-vazio{color:var(--mut-2);font-size:.82rem}
+/* Marca de vínculo ao lado do nome: quem tem a conta acertada por outro. */
+.fin-vinculo{margin-left:9px;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;
+  letter-spacing:.06em;font-size:.64rem;color:var(--mut-2);border:1px solid var(--line-2);padding:2px 7px;
+  white-space:nowrap}
 .fin-consumos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .fin-consumos li{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:10px;
   font-size:.86rem;padding:5px 0;border-top:1px solid var(--line)}

@@ -27,8 +27,19 @@ async function init() {
 
 const emailKey = (e) => String(e || '').trim().toLowerCase();
 
-/** A fatia publicada de um aluno (o que o portal precisa mostrar). */
-function fatia(a) {
+/** `{ nome, escopo }` de quem paga a conta deste aluno, ou null. */
+function vinculoPagador(a, todos) {
+  const id = a.pagoPor && a.pagoPor.id;
+  if (!id) return null;
+  const resp = (todos || []).find((x) => x.id === id);
+  return { nome: (resp && resp.nome) || '', escopo: a.pagoPor.escopo === 'plano' ? 'plano' : 'tudo' };
+}
+
+/**
+ * A fatia publicada de um aluno (o que o portal precisa mostrar).
+ * @param {any} a @param {any[]} todos a lista inteira, para resolver os vínculos
+ */
+function fatia(a, todos) {
   return {
     id: a.id, nome: a.nome || '', email: emailKey(a.email), fotoUrl: a.fotoUrl || '',
     status: a.status || 'ativo', objetivo: a.objetivo || '', nivel: a.nivel || '',
@@ -42,6 +53,15 @@ function fatia(a) {
     freqHorario: a.freqHorario || '',
     // Consumíveis do box: a notinha do Portal e o valor do Pix saem daqui.
     consumos: a.consumos || [],
+    // Quem paga a conta de quem. O Portal não lê a ficha de mais ninguém, então o
+    // vínculo viaja já resolvido: o dependente recebe o NOME de quem acerta por
+    // ele, e o responsável recebe os pedaços que precisa somar. Só isso — nem
+    // telefone, nem presença, nem avaliação de terceiro entram na fatia.
+    pagoPor: vinculoPagador(a, todos),
+    dependentes: (todos || []).filter((x) => x.pagoPor && x.pagoPor.id === a.id).map((x) => ({
+      nome: x.nome || '', escopo: x.pagoPor.escopo === 'plano' ? 'plano' : 'tudo',
+      mensalidade: x.mensalidade || '', consumos: x.consumos || [],
+    })),
     presencas: a.presencas || [],
     presencaHoras: a.presencaHoras || {},
     // Remarcações: "a segunda dela aconteceu na quinta". O Portal precisa delas
@@ -69,7 +89,7 @@ export async function publicarPortal(alunos) {
     await init();
     const comEmail = (alunos || []).filter((a) => emailKey(a.email));
     await Promise.all(comEmail.map((a) =>
-      _fns.setDoc(_fns.doc(_db, 'portal', emailKey(a.email)), JSON.parse(JSON.stringify(fatia(a))))
+      _fns.setDoc(_fns.doc(_db, 'portal', emailKey(a.email)), JSON.parse(JSON.stringify(fatia(a, alunos))))
     ));
   } catch (e) {
     console.warn('Falha ao publicar o Portal do Aluno:', e?.code || e);
