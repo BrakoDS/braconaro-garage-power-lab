@@ -181,11 +181,39 @@ test('sem presença e sem plano, o padrão moderado com aviso honesto', () => {
   assert.match(r.explicacao, /Ainda não temos treinos registrados/);
 });
 
-test('aluno que sumiu de vez vira sedentário — o TDEE segue a realidade', () => {
-  // Treinou em julho e parou. As quatro semanas fechadas estão zeradas.
+test('janela inteiramente muda cai no plano e diz por quê — não é prova de que ele não treinou', () => {
+  // Um registro antigo e nada nas quatro semanas fechadas. Era o caso que
+  // chamava o coach de sedentário: um gasto lançado meses atrás mais o
+  // check-in que ninguém faz nele mesmo.
   const r = nivelAutomatico({ dias: semana('2026-07-06', 5), planoVezes: '5', hoje: HOJE });
+  assert.equal(r.fonte, 'plano');
+  assert.equal(r.janelaVazia, true);
+  assert.equal(r.nivel.fator, '1.55', 'o plano de 5x, não sedentário');
+  assert.match(r.explicacao, /Sem registro das últimas 4 semanas/);
+  assert.match(r.explicacao, /plano de 5x/);
+});
+
+test('UM registro na janela já é evidência e a média vale, mesmo baixa', () => {
+  // Apareceu uma única vez, na primeira das quatro semanas, e sumiu. Isso o box
+  // sabe — e é perto de sedentário mesmo. O que não vale é o silêncio absoluto.
+  const r = nivelAutomatico({ dias: ['2026-08-03'], planoVezes: '5', hoje: HOJE });
   assert.equal(r.fonte, 'presenca');
+  assert.equal(r.janelaVazia, false);
   assert.equal(r.nivel.fator, '1.2');
+});
+
+test('sem plano cadastrado e com a janela muda, sobra o moderado padrão', () => {
+  const r = nivelAutomatico({ dias: semana('2026-07-06', 5), hoje: HOJE });
+  assert.equal(r.fonte, 'nenhuma');
+  assert.equal(r.nivel.fator, FATOR_PADRAO);
+});
+
+test('quem treina pouco mas aparece não é confundido com quem sumiu', () => {
+  const some = nivelAutomatico({ dias: semana('2026-07-06', 5), planoVezes: '4', hoje: HOJE });
+  const vem = nivelAutomatico({ dias: [...semana('2026-08-17', 1), ...semana('2026-08-24', 1)], planoVezes: '4', hoje: HOJE });
+  assert.equal(some.fonte, 'plano');
+  assert.equal(vem.fonte, 'presenca');
+  assert.notEqual(some.nivel.fator, vem.nivel.fator);
 });
 
 /* ---------- a migração de quem já tinha um valor salvo ---------- */
