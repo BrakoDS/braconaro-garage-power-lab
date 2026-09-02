@@ -471,6 +471,47 @@ button{font-family:inherit}
 .fin-badge.pago{color:var(--ok);border-color:rgba(63,185,80,.4)}
 .fin-badge.vencido{color:var(--bad);border-color:rgba(255,91,80,.4)}
 .fin-badge.pendente{color:var(--warn);border-color:rgba(255,158,27,.4)}
+
+/* ---------- Consumíveis no Financeiro ---------- */
+/* A linha do aluno ganha um balcão que se abre embaixo, ocupando a largura toda —
+   por isso ela sai do grid de 3 colunas quando está aberta. */
+.fin-row-consumo{grid-template-columns:1fr auto auto}
+.fin-acoes{display:flex;gap:8px;flex-wrap:wrap}
+.fin-balcao{grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.fin-balcao-cap{display:block;font-family:var(--font-cond);text-transform:uppercase;
+  letter-spacing:.1em;font-size:.68rem;color:var(--mut-2);margin-bottom:7px}
+.fin-prods{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.fin-balcao-btn.on{border-color:var(--accent);color:var(--accent)}
+.fin-vazio{color:var(--mut-2);font-size:.82rem}
+.fin-consumos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.fin-consumos li{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:10px;
+  font-size:.86rem;padding:5px 0;border-top:1px solid var(--line)}
+.fin-consumo-v{color:var(--accent);font-variant-numeric:tabular-nums}
+.fin-consumo-d{color:var(--mut-2);font-size:.78rem;font-variant-numeric:tabular-nums}
+.fin-x{background:none;border:0;color:var(--mut-2);cursor:pointer;font-size:1.1rem;line-height:1;padding:0 2px}
+.fin-x:hover{color:var(--bad)}
+
+/* Cadastro de produtos */
+.prod-painel{background:var(--card);border:1px solid var(--line-2);padding:14px 16px;margin-bottom:12px}
+.prod-linha{display:grid;grid-template-columns:1fr 110px auto;align-items:center;gap:8px;margin-bottom:6px}
+.prod-nome,.prod-preco{padding:.5em .7em;background:var(--bg-2);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font-body);font-size:.9rem;outline:none;min-width:0}
+.prod-nome:focus,.prod-preco:focus{border-color:var(--accent)}
+.prod-acoes{display:flex;gap:8px;margin:10px 0 6px}
+/* No celular o .fin-row vira uma grade nomeada ('info badge' / 'btn btn') para
+   acomodar o botão único das outras telas. A linha com balcão tem mais peças:
+   sem desligar as áreas, o nome do aluno espremia até uma palavra por linha e o
+   balcão caía por cima dos botões. */
+@media(max-width:560px){
+  .fin-row-consumo{grid-template-columns:1fr;grid-template-areas:none}
+  .fin-row-consumo .fin-info,
+  .fin-row-consumo .fin-badge,
+  .fin-row-consumo .fin-toggle{grid-area:auto}
+  .fin-row-consumo .fin-badge{justify-self:start}
+  .fin-consumos li{grid-template-columns:1fr auto auto}
+  .fin-consumo-d{grid-column:1/-1;order:3}
+  .prod-linha{grid-template-columns:1fr 90px auto}
+}
 @media(max-width:560px){
   .fin-tot{grid-template-columns:1fr}
   .fin-row{grid-template-columns:1fr auto;grid-template-areas:'info badge' 'btn btn';gap:8px 12px}

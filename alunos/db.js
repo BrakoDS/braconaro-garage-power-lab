@@ -65,6 +65,36 @@ export async function iniciarSync(uid, aoAtualizar) {
 }
 
 /* ---------- API ---------- */
+
+/**
+ * Catálogo de consumíveis do box (energético, dose de pré-treino, o que vier).
+ *
+ * Mora no mesmo documento dos alunos, e não num arquivo de configuração: é o
+ * coach que acrescenta produto, e mexer em código para cadastrar um energético
+ * novo não é opção. Vai junto na sincronização, então o celular e o computador
+ * mostram a mesma lista.
+ */
+const PRODUTOS_PADRAO = [
+  { id: 'energetico', nome: 'Energético', preco: 10 },
+  { id: 'pre_meia', nome: '1/2 Dose Pré-Treino', preco: 1.5 },
+  { id: 'pre_inteira', nome: '1 Dose Pré-Treino', preco: 3 },
+];
+
+/** @returns {{id:string, nome:string, preco:number}[]} */
+export function listarProdutos() {
+  const d = ler();
+  // Lista vazia é uma escolha do coach (ele apagou tudo) e precisa ser
+  // respeitada; ausente é banco novo, e aí entram os três que o box já vende.
+  return Array.isArray(d.produtos) ? d.produtos : PRODUTOS_PADRAO.slice();
+}
+
+/** @param {{id:string, nome:string, preco:number}[]} lista */
+export function salvarProdutos(lista) {
+  const d = ler();
+  d.produtos = lista;
+  gravar(d);
+}
+
 /** @returns {any[]} todos os alunos (mais recentes primeiro) */
 export function listar() {
   return ler().alunos.slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
