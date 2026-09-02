@@ -36,7 +36,10 @@ function fatia(a) {
     mensalidade: a.mensalidade || '', vencimento: a.vencimento || '', pagamentos: a.pagamentos || {},
     // Plano e grade de horários: o Portal monta com isso o bloco "Seu plano" e os
     // quadrados de "Seu horário" (verde = veio, vermelho = faltou).
-    freqVezes: a.freqVezes || '', freqHorario: a.freqHorario || '', diasTreino: a.diasTreino || [],
+    freqVezes: a.freqVezes || '', diasTreino: a.diasTreino || [], horarios: a.horarios || {},
+    // `freqHorario` era UMA hora para a semana toda. Continua sendo publicado
+    // como reserva: aluno cadastrado antes da hora por dia ainda mostra a dele.
+    freqHorario: a.freqHorario || '',
     presencas: a.presencas || [],
     presencaHoras: a.presencaHoras || {},
     // Remarcações: "a segunda dela aconteceu na quinta". O Portal precisa delas

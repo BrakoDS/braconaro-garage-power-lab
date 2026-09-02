@@ -12,6 +12,27 @@ const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); r
 function fmtData(iso) { if (!iso) return '—'; const [a, m, dd] = iso.split('-'); return `${dd}/${m}/${a}`; }
 function row(k, v) { return v ? `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>` : ''; }
 
+const DIA_FICHA = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb', dom: 'Dom' };
+/** 'HH:MM' → '19h' / '6h30', que é como se fala a hora no box. */
+function horaLegivel(hhmm) {
+  const m = String(hhmm || '').match(/^(\d{2}):(\d{2})$/);
+  if (!m) return String(hhmm || '').trim();
+  return `${Number(m[1])}h${m[2] === '00' ? '' : m[2]}`;
+}
+/**
+ * "Seg 19h · Ter 19h · Qua 6h · Qui 19h" — a grade da semana do aluno.
+ * Dia sem hora própria cai no `freqHorario` antigo, que valia para a semana
+ * inteira; sem nenhum dos dois, sai só o dia.
+ */
+function gradeSemanal(aluno) {
+  const horas = aluno.horarios || {};
+  const geral = String(aluno.freqHorario || '').trim();
+  return (aluno.diasTreino || []).map((d) => {
+    const h = horas[d] ? horaLegivel(horas[d]) : geral;
+    return `${DIA_FICHA[d] || d}${h ? ' ' + h : ''}`;
+  }).join(' · ');
+}
+
 const PARQ_Q = [
   'Algum médico já disse que você possui um problema cardíaco e que só deveria praticar atividade física sob supervisão médica?',
   'Você sente dor no peito quando pratica atividade física?',

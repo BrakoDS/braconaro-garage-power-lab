@@ -107,13 +107,26 @@ button{font-family:inherit}
 .aval-tag.atrasada{color:var(--bad);border-color:rgba(255,91,80,.5)}
 .aval-tag.avencer{color:var(--warn);border-color:rgba(255,158,27,.5)}
 
-.dias-treino{display:flex;flex-wrap:wrap;gap:8px;width:100%}
-.dias-treino label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+/* Dias e horários: cada dia é uma coluna com a caixinha em cima e a hora dele
+   embaixo. O horário mora ao lado do dia — separá-los em dois campos era o que
+   obrigava o aluno inteiro a treinar sempre na mesma hora. */
+.dias-treino{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;width:100%}
+.dia-linha{display:flex;flex-direction:column;gap:6px;
+  border:1px solid var(--line-2);background:var(--card);padding:9px 10px}
+.dia-check{display:flex;align-items:center;gap:7px;cursor:pointer;
   font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:.82rem;
-  color:var(--mut);border:1px solid var(--line-2);background:var(--card);padding:7px 11px}
-.dias-treino label:hover{border-color:var(--accent);color:var(--txt)}
-.dias-treino input{accent-color:var(--accent);width:15px;height:15px;margin:0}
-.dias-treino input:checked + *{color:var(--accent)}
+  color:var(--mut)}
+.dia-linha:hover{border-color:var(--accent)}
+/* Especificidade acima do `.field input{width:100%}` de cima: sem isso a
+   caixinha estica pela célula inteira e empurra o nome do dia para fora. */
+.dias-treino .dia-check input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;
+  min-width:15px;padding:0;margin:0;flex:0 0 auto;background:transparent;border:0}
+.dia-check input:checked + span{color:var(--accent)}
+.dias-treino .dia-hora{width:100%;padding:.45em .5em;background:var(--bg-2);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font-body);font-size:.92rem;outline:none;
+  color-scheme:dark;transition:border-color .2s,opacity .2s}
+.dias-treino .dia-hora:focus{border-color:var(--accent)}
+.dias-treino .dia-hora:disabled{opacity:.32;cursor:not-allowed}
 
 .aluno-list{display:flex;flex-direction:column;gap:10px}
 .aluno-row{display:grid;grid-template-columns:46px 1fr auto;align-items:center;gap:14px;

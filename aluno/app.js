@@ -324,7 +324,6 @@ function renderHorarios() {
     return;
   }
   sec.hidden = false;
-  const hora = String(PORTAL?.freqHorario || '').trim();
   const hojeIso = dateIdDe();
   const quadrados = semanaDoAluno({
     diasTreino: PORTAL.diasTreino,
@@ -334,6 +333,14 @@ function renderHorarios() {
   });
 
   const diaDe = (iso) => DIA_CURTO[ORDEM_DIAS[(new Date(iso + 'T00:00:00').getDay() + 6) % 7]];
+  // A hora é de cada dia. O `freqHorario` (uma hora para a semana toda) sobrou
+  // dos cadastros antigos e vale enquanto o coach não preencher o dia.
+  const horaDoDia = (chave) => {
+    const h = (PORTAL?.horarios || {})[chave];
+    if (!h) return String(PORTAL?.freqHorario || '').trim();
+    const m = h.match(/^(\d{2}):(\d{2})$/);
+    return m ? `${Number(m[1])}h${m[2] === '00' ? '' : m[2]}` : h;
+  };
   const nota = (q) => {
     if (q.veioEm) return `veio ${diaDe(q.veioEm)}${q.hora ? ` · ${q.hora}` : ''}`;
     if (q.estado === 'ok') return q.hora ? `chegou ${q.hora}` : '';
@@ -348,7 +355,7 @@ function renderHorarios() {
   $('#horarios').innerHTML = quadrados.map((q) => `
     <div class="hor-cel ${q.estado}">
       <span class="hor-dia">${esc(q.extra ? 'Treino extra' : DIA_EXT[q.chave])}</span>
-      <span class="hor-hora">${esc(q.extra ? `${diaDe(q.iso)}${q.hora ? ` · ${q.hora}` : ''}` : (hora || '—'))}</span>
+      <span class="hor-hora">${esc(q.extra ? `${diaDe(q.iso)}${q.hora ? ` · ${q.hora}` : ''}` : (horaDoDia(q.chave) || '—'))}</span>
       ${!q.extra && nota(q) ? `<span class="hor-nota-cel">${esc(nota(q))}</span>` : ''}
     </div>`).join('');
 

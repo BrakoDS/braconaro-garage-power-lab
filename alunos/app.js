@@ -99,13 +99,60 @@ const SEXOS = ['Masculino', 'Feminino', 'Outro'];
 
 function opt(val, atual) { return `<option value="${esc(val)}"${val === atual ? ' selected' : ''}>${esc(val)}</option>`; }
 
+/** Os dias que o box abre, na ordem da semana. */
+const DIAS_FORM = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb']];
+
+/**
+ * Tenta ler uma hora de texto livre para o formato do `<input type="time">`.
+ *
+ * O campo antigo era digitado à mão e vem de tudo quanto é jeito: "19 Horas",
+ * "19h", "18h–19h", "6:30". Pega a primeira hora que aparecer — nas faixas, é o
+ * começo, que é o que interessa. Sem nada reconhecível, devolve vazio: melhor o
+ * campo em branco do que uma hora inventada na ficha de um aluno.
+ * @param {string} [txt] @returns {string} 'HH:MM' ou ''
+ */
+function horaParaInput(txt) {
+  const m = String(txt || '').match(/(\d{1,2})\s*[:h]?\s*(\d{2})?/);
+  if (!m) return '';
+  const h = Number(m[1]);
+  if (!(h >= 0 && h <= 23)) return '';
+  const min = m[2] && Number(m[2]) < 60 ? m[2] : '00';
+  return `${String(h).padStart(2, '0')}:${min}`;
+}
+
+/** 'HH:MM' → '19h' / '6h30', que é como se fala a hora no box. */
+function horaLegivel(hhmm) {
+  const m = String(hhmm || '').match(/^(\d{2}):(\d{2})$/);
+  if (!m) return String(hhmm || '').trim();
+  return `${Number(m[1])}h${m[2] === '00' ? '' : m[2]}`;
+}
+
+/**
+ * A hora de um dia da semana, já formatada. Cai no `freqHorario` antigo enquanto
+ * o coach não tiver preenchido a hora daquele dia.
+ * @param {any} a @param {string} chave 'seg'…'sab'
+ */
+function horaDoDia(a, chave) {
+  const h = (a?.horarios || {})[chave];
+  return h ? horaLegivel(h) : String(a?.freqHorario || '').trim();
+}
+
 function formDadosHTML(a = {}, opts = {}) {
   const sexoOpts = `<option value="">—</option>` + SEXOS.map((s) => opt(s, a.sexo)).join('');
   const objOpts = `<option value="">—</option>` + OBJETIVOS.map((s) => opt(s, a.objetivo)).join('');
   const freqOpts = `<option value="">—</option>` + [1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${String(n) === String(a.freqVezes) ? ' selected' : ''}>${n}x por semana</option>`).join('');
   const nivelOpts = `<option value="">—</option>` + [['iniciante', 'Iniciante'], ['intermediario', 'Intermediário'], ['avancado', 'Avançado']].map(([v, l]) => `<option value="${v}"${a.nivel === v ? ' selected' : ''}>${l}</option>`).join('');
   const diasSel = new Set(a.diasTreino || []);
-  const diasHTML = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb']].map(([v, l]) => `<label><input type="checkbox" name="diasTreino" value="${v}"${diasSel.has(v) ? ' checked' : ''}/>${l}</label>`).join('');
+  const horas = a.horarios || {};
+  // Cada dia carrega a própria hora. O `freqHorario` antigo (uma hora só para a
+  // semana toda) entra como valor inicial de quem ainda não tem hora por dia —
+  // assim uma ficha antiga não abre vazia e o coach só confirma o que já valia.
+  const horaAntiga = horaParaInput(a.freqHorario);
+  const diasHTML = DIAS_FORM.map(([v, l]) => `
+    <div class="dia-linha">
+      <label class="dia-check"><input type="checkbox" name="diasTreino" value="${v}"${diasSel.has(v) ? ' checked' : ''}/><span>${l}</span></label>
+      <input class="dia-hora" type="time" name="hora_${v}" value="${esc(horas[v] || horaAntiga)}"${diasSel.has(v) ? '' : ' disabled'} />
+    </div>`).join('');
   const stOpts = ['ativo', 'inativo', 'pendente'].map((s) => `<option value="${s}"${(a.status || 'ativo') === s ? ' selected' : ''}>${STATUS_LABEL[s]}</option>`).join('');
   const idField = opts.idEditavel
     ? `<div class="field full"><label>ID do aluno</label><input name="id" type="text" value="${esc(a.id)}" placeholder="Use o seu padrão de ID — ou deixe vazio para gerar (001, 002…)" /><span class="hint">Precisa ser único. Vazio = numeração automática.</span></div>`
@@ -131,9 +178,8 @@ function formDadosHTML(a = {}, opts = {}) {
       <div class="field"><label>Peso atual (kg)</label><input name="peso" type="number" min="0" step="0.1" value="${esc(a.peso)}" placeholder="80" /></div>
       <div class="field"><label>Objetivo</label><select name="objetivo">${objOpts}</select></div>
       <div class="field"><label>Nível de treino</label><select name="nivel">${nivelOpts}</select></div>
-      <div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select></div>
-      <div class="field"><label>Horário do treino</label><input name="freqHorario" type="text" value="${esc(a.freqHorario)}" placeholder="Ex.: 18h–19h" /></div>
-      <div class="field full"><label>Dias de treino na semana</label><div class="dias-treino">${diasHTML}</div><span class="hint">Usado pelo Montador para o acumulado mensal do aluno.</span></div>
+      <div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>
+      <div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>
       <div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>
     </div>
   </div>
@@ -151,6 +197,16 @@ function wireForm(root) {
   const nasc = $('input[name=nascimento]', root);
   const idadeEl = $('[data-idade]', root);
   if (nasc && idadeEl) nasc.addEventListener('input', () => { const i = calcIdade(nasc.value); idadeEl.textContent = i ? `Idade: ${i} anos` : ''; });
+  // O campo de hora só faz sentido no dia marcado: desabilitado, ele não vai no
+  // FormData e a hora não fica pendurada num dia que o aluno não treina.
+  $$('.dia-linha', root).forEach((linha) => {
+    const chk = $('input[type=checkbox]', linha), hora = $('.dia-hora', linha);
+    if (!chk || !hora) return;
+    chk.addEventListener('change', () => {
+      hora.disabled = !chk.checked;
+      if (chk.checked && !hora.value) hora.value = '19:00';
+    });
+  });
   const tel = $('input[name=telefone]', root);
   const wa = $('[data-wa]', root);
   if (tel && wa) {
@@ -165,6 +221,15 @@ function lerForm(form) {
   const o = {};
   for (const [k, v] of fd.entries()) o[k] = typeof v === 'string' ? v.trim() : v;
   o.diasTreino = fd.getAll('diasTreino'); // checkboxes múltiplos
+  // As horas viram um mapa `{seg:'19:00'}`; os campos soltos `hora_seg` saem do
+  // objeto para não virarem colunas fantasma na ficha do aluno. Só entra a hora
+  // de dia marcado — hora de dia desmarcado é lixo esperando confundir depois.
+  o.horarios = {};
+  for (const [v] of DIAS_FORM) {
+    const h = String(fd.get('hora_' + v) || '');
+    if (o.diasTreino.includes(v) && h) o.horarios[v] = h;
+    delete o['hora_' + v];
+  }
   if (o.nascimento) o.idade = calcIdade(o.nascimento);
   return o;
 }
@@ -832,19 +897,18 @@ function linhaGrade(a) {
     horas: a.presencaHoras || {}, remarcacoes: a.remarcacoes || {},
     hoje: new Date(chkData + 'T00:00:00'),
   });
-  const horario = String(a.freqHorario || '').trim();
   const fixos = quadrados.filter((q) => !q.extra);
   const feitos = quadrados.filter((q) => q.estado === 'ok').length;
 
   return `<div class="fin-row chk-linha">
     <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div>
       <div class="fin-sub">${feitos} de ${fixos.length} treinos desta semana</div></div>
-    <div class="chk-grade">${quadrados.map((q) => quadrado(a, q, horario, semana)).join('')}</div>
+    <div class="chk-grade">${quadrados.map((q) => quadrado(a, q, semana)).join('')}</div>
   </div>`;
 }
 
 /** Um quadrado: o estado da sessão e o que dá para fazer com ela. */
-function quadrado(a, q, horario, semana) {
+function quadrado(a, q, semana) {
   const alvo = `data-id="${esc(a.id)}" data-dia="${q.iso}"`;
   const aberto = chkSeletor === `${a.id}|${q.iso}`;
 
@@ -875,7 +939,7 @@ function quadrado(a, q, horario, semana) {
 
   return `<div class="chk-cel ${q.estado}${aberto ? ' aberto' : ''}">
     <span class="chk-cel-dia">${esc(DIA_EXT[q.chave])}</span>
-    <span class="chk-cel-h">${esc(horario || fmtDataCurta(q.iso))}</span>
+    <span class="chk-cel-h">${esc(horaDoDia(a, q.chave) || fmtDataCurta(q.iso))}</span>
     ${nota ? `<span class="chk-cel-nota">${esc(nota)}</span>` : ''}
     ${aviso ? `<span class="chk-cel-aviso">${esc(aviso)}</span>` : ''}
     <div class="chk-cel-acoes">${acoes}</div>
