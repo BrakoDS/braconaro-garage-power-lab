@@ -102,8 +102,12 @@ export function nivelPorVezes(vezes) {
 /**
  * O nível automático do aluno e a frase que explica de onde ele veio.
  *
- * Cai para o plano cadastrado (quantas vezes por semana ele contratou) enquanto
- * não houver semana fechada — aluno novo tem meta, não tem histórico.
+ * Cai para o plano cadastrado (quantas vezes por semana ele contratou) em dois
+ * casos: enquanto não houver semana fechada — aluno novo tem meta, não tem
+ * histórico — e quando a janela inteira está muda, que é falta de anotação e
+ * não prova de que ele não treinou (veja o comentário no corpo).
+ *
+ * @returns além do nível, `janelaVazia` diz qual dos dois casos levou ao plano.
  *
  * Devolve duas frases: `explicacao` é a que aparece quando o automático está
  * valendo; `sugestao` é a mesma informação dita de fora, para quem escolheu na
@@ -113,14 +117,29 @@ export function nivelPorVezes(vezes) {
  * @returns {{nivel: any, vezes: number|null, fonte: 'presenca'|'plano'|'nenhuma', explicacao: string, sugestao: string, semanasContadas: number}}
  */
 export function nivelAutomatico({ dias = [], planoVezes = '', planoDias = [], hoje = new Date(), semanas = 4 } = {}) {
-  const { media, semanasContadas } = mediaSemanal({ dias, hoje, semanas });
-  if (media != null) {
+  const { media, semanasContadas, porSemana } = mediaSemanal({ dias, hoje, semanas });
+
+  // Janela inteiramente muda não é prova de que ele não treinou.
+  //
+  // Quatro semanas seguidas sem NENHUM registro — nem check-in, nem treino
+  // lançado — é muito mais provavelmente marcação atrasada do que um aluno
+  // matriculado que treinou zero vezes num mês. Foi o que aconteceu com a ficha
+  // do próprio coach: um gasto lançado meses atrás dizia "ele já treinava
+  // aqui", as semanas seguintes vazias viraram quatro zeros, e a tela afirmou
+  // "Sedentário" com uma convicção que ela não tinha.
+  //
+  // Um único registro na janela já é evidência e vale, mesmo puxando a média
+  // para baixo: 1 treino em 4 semanas é perto de sedentário mesmo. O que não
+  // vale é o silêncio absoluto.
+  const janelaVazia = media != null && !porSemana.some((v) => v > 0);
+
+  if (media != null && !janelaVazia) {
     const vezes = Math.round(media);
     const nivel = nivelPorVezes(vezes);
     const plural = semanasContadas === 1 ? 'na última semana' : `nas últimas ${semanasContadas} semanas`;
     const quanto = `${fmtMedia(media)} ${media === 1 ? 'treino' : 'treinos'} por semana ${plural}`;
     return {
-      nivel, vezes, fonte: 'presenca', semanasContadas,
+      nivel, vezes, fonte: 'presenca', janelaVazia: false, semanasContadas,
       explicacao: `Calculado pelo seu histórico: ${quanto}.`,
       sugestao: `Pelo seu histórico — ${quanto} — o automático colocaria você em ${nivel.rotulo}.`,
     };
@@ -130,14 +149,16 @@ export function nivelAutomatico({ dias = [], planoVezes = '', planoDias = [], ho
   if (doPlano > 0) {
     const nivel = nivelPorVezes(doPlano);
     return {
-      nivel, vezes: doPlano, fonte: 'plano', semanasContadas: 0,
-      explicacao: `Pelo seu plano de ${doPlano}x por semana — assim que tiver semanas registradas, passa a valer sua presença real.`,
+      nivel, vezes: doPlano, fonte: 'plano', janelaVazia, semanasContadas: janelaVazia ? semanasContadas : 0,
+      explicacao: janelaVazia
+        ? `Sem registro das últimas ${semanasContadas} semanas — usando seu plano de ${doPlano}x por semana. Assim que houver check-in ou treino lançado, volta a valer sua presença real.`
+        : `Pelo seu plano de ${doPlano}x por semana — assim que tiver semanas registradas, passa a valer sua presença real.`,
       sugestao: `Pelo seu plano de ${doPlano}x por semana, o automático colocaria você em ${nivel.rotulo}.`,
     };
   }
 
   return {
-    nivel: nivelDoFator(FATOR_PADRAO), vezes: null, fonte: 'nenhuma', semanasContadas: 0,
+    nivel: nivelDoFator(FATOR_PADRAO), vezes: null, fonte: 'nenhuma', janelaVazia, semanasContadas: 0,
     explicacao: 'Ainda não temos treinos registrados para calcular. Enquanto isso usamos o nível moderado.',
     sugestao: 'Sem treinos registrados, o automático usaria o nível moderado.',
   };
