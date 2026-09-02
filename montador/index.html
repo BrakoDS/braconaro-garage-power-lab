@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Montador de Treinos — Garage Power Lab</title>
-  <link rel="stylesheet" href="./app.css?v=3" />
+  <link rel="stylesheet" href="./app.css?v=4" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -18,6 +18,7 @@
       <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
       <button class="btn" type="submit">Entrar</button>
       <div id="gate-erro" class="gate-erro">Senha incorreta.</div>
+      <a class="gate-voltar" href="../index.html">← Voltar ao site</a>
     </form>
   </div>
 
@@ -27,6 +28,10 @@
       <button class="tab active" data-view="unico">Treino Automático</button>
       <button class="tab" data-view="manual">Treino Manual</button>
       <button class="tab" data-view="historico">Histórico</button>
+    </nav>
+    <nav class="topbar-sai">
+      <a class="sai-btn sai-coach" href="../coach/index.html"><span class="tb-longo">← Voltar ao Coach</span><span class="tb-curto">Coach</span></a>
+      <a class="sai-btn" href="../index.html"><span class="tb-longo">Voltar ao site</span><span class="tb-curto">Site</span></a>
     </nav>
   </header>
 

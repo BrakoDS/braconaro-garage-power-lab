@@ -18,7 +18,25 @@ a { color: var(--acc); }
 .brand { font-weight: 800; letter-spacing: .5px; }
 .brand b { color: var(--acc); }
 .brand small { display: block; color: var(--mut); font-weight: 400; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; }
-.tabs { display: flex; gap: 6px; margin-left: auto; }
+.tabs { display: flex; gap: 6px; }
+/* As saídas ficam na ponta direita, longe das abas: abas trocam de tela DENTRO
+   do Montador, estes dois links saem dele. Mesma divisão da barra do Portal —
+   marca à esquerda, para onde ir embora à direita. */
+.topbar-sai { display: flex; gap: 8px; margin-left: auto; }
+.sai-btn { display: inline-flex; align-items: center; white-space: nowrap; text-decoration: none;
+  color: var(--mut); border: 1px solid transparent; border-radius: 10px; padding: 8px 14px;
+  font-size: 14px; font-weight: 600; }
+.sai-btn:hover { color: var(--txt); border-color: var(--line); }
+/* O Coach é de onde o Montador foi aberto: é a volta esperada, e por isso a
+   única com contorno. O site é a saída para fora, e fica discreta. */
+.sai-coach { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 45%, transparent); }
+.sai-coach:hover { background: var(--acc); color: #1a1300; border-color: var(--acc); }
+.tb-curto { display: none; }
+/* A porta não tinha saída: quem caísse aqui sem a senha ficava sem caminho de
+   volta. `order` porque o gate.js APPENDA "criar conta" e "esqueci a senha" ao
+   formulário — sem isso, a saída ficaria espremida no meio dos links de conta. */
+.gate-voltar { order: 99; margin-top: 4px; color: var(--mut); text-decoration: none; font-size: 13px; }
+.gate-voltar:hover { color: var(--txt); }
 .tab { background: transparent; color: var(--mut); border: 1px solid transparent; border-radius: 10px; padding: 8px 14px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .tab:hover { color: var(--txt); }
 .tab.active { color: #1a1300; background: var(--acc); }
@@ -176,14 +194,33 @@ tr.bad-row td { color: var(--warn); }
   body { background: #fff; color: #000; }
   .card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
 }
+/* Marca + três abas + duas saídas por extenso somam perto de 900px. Numa janela
+   menor que isso a barra quebrava em duas linhas e comia o topo da tela, então
+   a palavra encurta antes de a linha estourar: dentro do Montador, "Coach" e
+   "Site" já se explicam. */
+@media (max-width: 900px) {
+  .tb-longo { display: none; }
+  .tb-curto { display: inline; }
+  .sai-btn { padding: 8px 12px; }
+}
 @media (max-width: 640px) {
   /* As três abas não cabem ao lado da marca num telefone: vazavam para fora da
      tela e esticavam a página inteira (a porta de acesso ia junto, por ser
      `inset: 0`). Descem para a própria linha e quebram entre si conforme a
      largura — sem encolher fonte e sem tira rolável, onde a última aba ficaria
      escondida atrás de um arrasto que ninguém adivinha. */
-  .topbar { flex-wrap: wrap; }
-  .tabs { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .topbar { flex-wrap: wrap; padding: 12px 14px; gap: 10px; }
+  /* No telefone as saídas ficam ao lado da marca e as abas descem inteiras para
+     a segunda linha — se as abas viessem antes, empurrariam as saídas para uma
+     terceira linha e a barra fixa comeria o topo da tela.
+     A marca encolhe só o suficiente para caber ao lado delas (217 + 114 em 375):
+     é o que faz a barra terminar em 145px em vez de 198px. Se ainda não couber,
+     em telas mais estreitas, as saídas descem para a própria linha — feio, mas
+     nada some. */
+  .topbar .brand { font-size: 12.5px; }
+  .topbar-sai { order: 2; }
+  .tabs { order: 3; margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .sai-btn { padding: 7px 11px; font-size: 13px; }
 
   .bar-row { grid-template-columns: 100px 1fr 30px; }
   .panel { gap: 10px; }
