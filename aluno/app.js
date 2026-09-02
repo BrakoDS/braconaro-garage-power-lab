@@ -16,6 +16,7 @@ import { renderTreinoDia } from './treino-dia.js';
 import { COR_MODALIDADE } from '../montador/config/cores-modalidade.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=3';
 import { NIVEIS, FATOR_PADRAO, nivelDoFator, nivelAutomatico } from './atividade.js';
+import { metaAgua, emLitros, emGarrafas } from './hidratacao.js';
 import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
 import { carregarDesafios, carregarProgressoDesafios, salvarProgressoDesafios } from './desafios-db.js';
@@ -948,6 +949,31 @@ function desenharNutricao() {
     macros = { protG, protK, gordG, gordK, carbG, carbK };
   }
 
+  // Água: duas metas, porque o dia de treino cobra mais que o de descanso. A do
+  // dia de hoje vem na frente — é a que ele precisa agora, e não a média das
+  // duas. Hoje é dia de treino se está na grade do coach ou se ele já registrou
+  // gasto (corrida por fora, aula reposta: o corpo suou do mesmo jeito).
+  const hojeIso = isoLocal(new Date());
+  const treinaHoje = (PORTAL?.diasTreino || []).includes(chaveDoDia(hojeIso))
+    || NUT.gastos.some((g) => g.data === hojeIso);
+  const agua = metaAgua(b.peso);
+  const aguaHoje = agua && (treinaHoje ? agua.comTreino : agua.base);
+  const aguaHtml = !agua ? '' : `
+    <section class="nut-sec">
+      <h3 class="sec-titulo">Água</h3>
+      <div class="nut-metas">
+        <div class="nut-card accent">
+          <span class="nm-l">Seu mínimo hoje${treinaHoje ? ' · dia de treino' : ''}</span>
+          <span class="nm-v">${emLitros(aguaHoje)}<i>litros</i></span>
+          <span class="nm-s">${emGarrafas(aguaHoje)} garrafas de 500 ml</span>
+        </div>
+      </div>
+      <p class="sec-sub">${treinaHoje
+        ? `Em dia sem treino são <b>${emLitros(agua.base)} L</b> — o treino pede os ${agua.mlTreino} ml a mais que saem no suor.`
+        : `Em dia de treino sobe para <b>${emLitros(agua.comTreino)} L</b>: são ${agua.mlTreino} ml a mais para repor o suor.`}</p>
+      <p class="nut-nota">${agua.mlPorKg} ml por quilo (${fmt(b.peso, 0)} kg), mais ${agua.mlTreino} ml nos dias de treino. Em dia quente ou de treino longo, beba além disso. Orientação geral — quem tem restrição de líquidos por indicação médica segue a orientação do médico, não esta conta.</p>
+    </section>`;
+
   // Creatina: dose de manutenção baseada no peso (~0,04 g/kg, entre 3 e 5 g),
   // arredondada a 0,5 g. Só aparece quando há peso da avaliação.
   const doseCreat = b.peso ? Math.min(5, Math.max(3, Math.round(b.peso * 0.04 * 2) / 2)) : null;
@@ -1019,6 +1045,7 @@ function desenharNutricao() {
       <h3 class="sec-titulo">Suas metas diárias</h3>
       ${metasHtml}
     </section>
+    ${aguaHtml}
     ${creatinaHtml}
     <section class="nut-sec">
       <h3 class="sec-titulo">Registrar gasto do treino</h3>
