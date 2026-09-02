@@ -489,6 +489,48 @@ button{font-family:inherit}
    Check-in / frequência
    ============================================================ */
 .fin-row.chk-pres{border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.06)}
+
+/* ---------- Grade da semana no check-in ---------- */
+/* A linha do aluno com grade quebra o padrão de 3 colunas do .fin-row: o nome
+   fica em cima e os quadrados descem, senão 4 sessões espremem o nome a nada. */
+.fin-row.chk-linha{grid-template-columns:1fr;align-items:stretch;gap:10px}
+.chk-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:8px}
+.chk-cel{display:flex;flex-direction:column;gap:3px;padding:10px 12px;
+  background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--line-2)}
+.chk-cel.ok{border-left-color:var(--ok);background:rgba(63,185,80,.07)}
+.chk-cel.falta{border-left-color:var(--bad);background:rgba(255,91,80,.07)}
+.chk-cel.aberto{border-color:var(--accent)}
+.chk-cel-dia{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.1em;font-size:.74rem;color:var(--mut)}
+.chk-cel.ok .chk-cel-dia{color:var(--ok)}
+.chk-cel.falta .chk-cel-dia{color:var(--bad)}
+.chk-cel-h{font-size:.98rem;font-weight:600}
+.chk-cel-nota{color:var(--mut-2);font-size:.78rem}
+.chk-cel-aviso{color:var(--warn);font-size:.78rem}
+.chk-cel-acoes{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chk-cel-acoes .btn{flex:1 1 auto;min-width:64px}
+
+/* Seletor de "outro dia": fichas dos 7 dias, dentro do próprio quadrado — um
+   menu solto por cima da lista esconderia justamente a sessão que está em jogo. */
+.chk-seletor{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.chk-seletor-cap{display:block;font-family:var(--font-cond);text-transform:uppercase;
+  letter-spacing:.1em;font-size:.68rem;color:var(--mut-2);margin-bottom:5px}
+.chk-fichas{display:flex;flex-wrap:wrap;gap:4px}
+.chk-ficha{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;font-size:.72rem;padding:5px 8px;cursor:pointer;
+  background:transparent;color:var(--txt);border:1px solid var(--line-2)}
+.chk-ficha:hover{border-color:var(--accent);color:var(--accent)}
+.chk-ficha.atual{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+/* O dia original da sessão, quando ela está remarcada: escolher de novo desfaz a troca. */
+.chk-ficha.origem{border-style:dashed;border-color:var(--mut);color:var(--mut)}
+/* No celular o .fin-row vira uma grade nomeada ('info badge' / 'btn btn') para
+   acomodar o botão único das outras telas. A linha com grade não tem badge nem
+   botão solto: sem desligar as áreas, os quadrados caem por cima do nome. */
+@media(max-width:560px){
+  .fin-row.chk-linha{grid-template-columns:1fr;grid-template-areas:none}
+  .fin-row.chk-linha .fin-info{grid-area:auto}
+  .chk-grade{grid-template-columns:1fr}
+}
 .chk-titulo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
   font-size:.86rem;color:var(--bad);margin:24px 0 10px}
 .chk-sumido{display:flex;align-items:center;justify-content:space-between;gap:12px;

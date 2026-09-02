@@ -22,6 +22,7 @@ import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-
 import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../aluno/gamificacao.js';
+import { semanaDoAluno, datasDaSemana, ORDEM_DIAS } from '../aluno/semana.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -765,15 +766,9 @@ function renderCheckin() {
     `<div class="fin-card"><span class="fin-card-l">Alunos ativos</span><span class="fin-card-v">${alunos.length}</span></div>` +
     `<div class="fin-card"><span class="fin-card-l">Sumidos (${SUMIDO_DIAS}+ dias)</span><span class="fin-card-v${alunos.some((a) => { const u = ultimaPresenca(a); return !u || diasDesde(u) >= SUMIDO_DIAS; }) ? ' bad' : ''}">${alunos.filter((a) => { const u = ultimaPresenca(a); return !u || diasDesde(u) >= SUMIDO_DIAS; }).length}</span></div>`;
 
-  $('#chk-list').innerHTML = alunos.length ? alunos.map((a) => {
-    const pres = (a.presencas || []).includes(chkData);
-    const u = ultimaPresenca(a);
-    const sub = u ? `última presença: ${fmtData(u)}` : 'sem check-in ainda';
-    return `<div class="fin-row${pres ? ' chk-pres' : ''}">
-      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">${sub}</div></div>
-      <button class="btn ${pres ? '' : 'ghost '}btn-sm chk-toggle" data-id="${esc(a.id)}" type="button">${pres ? '✓ Presente' : 'Marcar presente'}</button>
-    </div>`;
-  }).join('') : `<div class="empty"><b>Nenhum aluno ativo</b>Cadastre alunos para registrar presença.</div>`;
+  $('#chk-list').innerHTML = alunos.length
+    ? alunos.map((a) => ((a.diasTreino || []).length ? linhaGrade(a) : linhaSimples(a))).join('')
+    : `<div class="empty"><b>Nenhum aluno ativo</b>Cadastre alunos para registrar presença.</div>`;
 
   const sumidos = alunos
     .map((a) => ({ nome: a.nome, u: ultimaPresenca(a) }))
@@ -784,6 +779,214 @@ function renderCheckin() {
     ? `<h4 class="chk-titulo">Quem sumiu (${SUMIDO_DIAS}+ dias sem vir)</h4>` +
       sumidos.map((s) => `<div class="chk-sumido"><span class="li-nome">${esc(s.nome)}</span><span class="aval-tag atrasada">${s.dias == null ? 'nunca veio' : 'há ' + s.dias + 'd'}</span></div>`).join('')
     : '';
+}
+
+/* ---------- A grade da semana, um quadrado por sessão ---------- */
+
+const DIA_EXT = { seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' };
+const DIA_MIN = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };
+/** Qual sessão está com o seletor de "outro dia" aberto (`${id}|${isoPlanejado}`). */
+let chkSeletor = null;
+/** Recado preso a uma sessão (`${id}|${isoPlanejado}`), mostrado no próprio quadrado. */
+let chkAviso = null;
+
+/**
+ * Em que dia cada sessão da semana do aluno acontece — o próprio dia, ou o
+ * remarcado. Usado para impedir que uma presença sirva a duas sessões.
+ * @returns {Map<string,string>} data efetiva → data planejada que a reivindica
+ */
+function diasReivindicados(a, semana) {
+  const rem = a.remarcacoes || {};
+  const mapa = new Map();
+  for (const k of (a.diasTreino || [])) {
+    const iso = semana[k];
+    if (iso) mapa.set(rem[iso] || iso, iso);
+  }
+  return mapa;
+}
+
+/** O dia da semana ('seg'…'dom') de uma data ISO. */
+const chaveDoDia = (iso) => ORDEM_DIAS[(new Date(iso + 'T00:00:00').getDay() + 6) % 7];
+
+/**
+ * Linha do aluno SEM dias de treino cadastrados: continua o botão simples de
+ * sempre. Sem grade não há sessão para resolver — e obrigar o coach a preencher
+ * o perfil antes de conseguir marcar uma presença seria trocar uma tela que
+ * funciona por uma porta trancada.
+ */
+function linhaSimples(a) {
+  const pres = (a.presencas || []).includes(chkData);
+  const u = ultimaPresenca(a);
+  const sub = u ? `última presença: ${fmtData(u)}` : 'sem check-in ainda';
+  return `<div class="fin-row${pres ? ' chk-pres' : ''}">
+    <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">${esc(sub)}</div></div>
+    <button class="btn ${pres ? '' : 'ghost '}btn-sm chk-toggle" data-id="${esc(a.id)}" type="button">${pres ? '✓ Presente' : 'Marcar presente'}</button>
+  </div>`;
+}
+
+/** Linha do aluno COM grade: uma sessão por quadrado, cada uma resolvível. */
+function linhaGrade(a) {
+  const semana = datasDaSemana(new Date(chkData + 'T00:00:00'));
+  const quadrados = semanaDoAluno({
+    diasTreino: a.diasTreino, presencas: a.presencas || [],
+    horas: a.presencaHoras || {}, remarcacoes: a.remarcacoes || {},
+    hoje: new Date(chkData + 'T00:00:00'),
+  });
+  const horario = String(a.freqHorario || '').trim();
+  const fixos = quadrados.filter((q) => !q.extra);
+  const feitos = quadrados.filter((q) => q.estado === 'ok').length;
+
+  return `<div class="fin-row chk-linha">
+    <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div>
+      <div class="fin-sub">${feitos} de ${fixos.length} treinos desta semana</div></div>
+    <div class="chk-grade">${quadrados.map((q) => quadrado(a, q, horario, semana)).join('')}</div>
+  </div>`;
+}
+
+/** Um quadrado: o estado da sessão e o que dá para fazer com ela. */
+function quadrado(a, q, horario, semana) {
+  const alvo = `data-id="${esc(a.id)}" data-dia="${q.iso}"`;
+  const aberto = chkSeletor === `${a.id}|${q.iso}`;
+
+  if (q.extra) {
+    return `<div class="chk-cel ok">
+      <span class="chk-cel-dia">Extra</span>
+      <span class="chk-cel-h">${esc(DIA_EXT[q.chave] || fmtDataCurta(q.iso))}${q.hora ? ' · ' + q.hora : ''}</span>
+      <span class="chk-cel-nota">treino a mais</span>
+    </div>`;
+  }
+
+  const nota = q.estado === 'ok'
+    ? (q.veioEm ? `veio ${DIA_MIN[chaveDoDia(q.veioEm)]}${q.hora ? ' · ' + q.hora : ''}` : (q.hora ? `chegou ${q.hora}` : 'presente'))
+    : q.estado === 'falta' ? (q.remarcado ? `não veio (era ${DIA_MIN[chaveDoDia(q.efetivo)]})` : 'não veio')
+      : q.remarcado ? `vai ${DIA_MIN[chaveDoDia(q.efetivo)]}`
+        : q.iso === chkData ? 'é hoje' : '';
+
+  // Só a sessão CUMPRIDA vira "Alterar" (que desfaz). Todo o resto — pendente,
+  // remarcada ou já vermelha — continua oferecendo as duas saídas do esboço.
+  // "Não veio" é um estado calculado pelo prazo, não uma porta trancada: o coach
+  // que marcou errado precisa poder dizer, no dia seguinte, em que dia ela veio.
+  const acoes = q.estado === 'ok'
+    ? `<button class="btn btn-sm chk-alterar" ${alvo} type="button">Alterar</button>`
+    : `<button class="btn btn-sm chk-hoje" ${alvo} type="button">Hoje</button>
+       <button class="btn ghost btn-sm chk-outro" ${alvo} type="button">Outro dia</button>`;
+
+  const aviso = chkAviso && chkAviso.chave === `${a.id}|${q.iso}` ? chkAviso.texto : '';
+
+  return `<div class="chk-cel ${q.estado}${aberto ? ' aberto' : ''}">
+    <span class="chk-cel-dia">${esc(DIA_EXT[q.chave])}</span>
+    <span class="chk-cel-h">${esc(horario || fmtDataCurta(q.iso))}</span>
+    ${nota ? `<span class="chk-cel-nota">${esc(nota)}</span>` : ''}
+    ${aviso ? `<span class="chk-cel-aviso">${esc(aviso)}</span>` : ''}
+    <div class="chk-cel-acoes">${acoes}</div>
+    ${aberto ? seletorDias(a, q, semana) : ''}
+  </div>`;
+}
+
+/**
+ * Os 7 dias da semana como fichas — o "Outro dia" aberto.
+ *
+ * A ficha do dia ORIGINAL fica marcada: escolher ela desfaz a remarcação e
+ * devolve a sessão ao dia dela. É como o coach cancela uma troca sem precisar
+ * apagar a sessão inteira pelo "Alterar".
+ */
+function seletorDias(a, q, semana) {
+  const fichas = ORDEM_DIAS.map((k) => {
+    const iso = semana[k];
+    const cls = [iso === q.efetivo ? 'atual' : '', iso === q.iso && q.remarcado ? 'origem' : ''].filter(Boolean).join(' ');
+    const dica = iso === q.iso ? ' title="Dia original desta sessão"' : '';
+    return `<button class="chk-ficha ${cls}"${dica} data-id="${esc(a.id)}" data-dia="${q.iso}" data-para="${iso}" type="button">${DIA_EXT[k].slice(0, 3)}</button>`;
+  }).join('');
+  return `<div class="chk-seletor"><span class="chk-seletor-cap">Este treino aconteceu (ou acontece) em:</span><div class="chk-fichas">${fichas}</div></div>`;
+}
+
+/* ---------- Ações ---------- */
+
+/**
+ * Um dia da semana só pode fechar UMA sessão. Sem esta trava, marcar "Hoje" num
+ * segundo quadrado no mesmo dia deixaria a mesma presença valendo por dois
+ * treinos — e o "2 de 4 treinos desta semana", que é a manchete das duas telas,
+ * passaria a contar uma visita como duas. Em vez de somar errado em silêncio, o
+ * quadrado diz qual sessão já está usando aquele dia.
+ * @returns {boolean} true = o dia está ocupado (a ação foi recusada)
+ */
+function diaOcupado(a, diaPlanejado, diaAlvo) {
+  const semana = datasDaSemana(new Date(chkData + 'T00:00:00'));
+  const dono = diasReivindicados(a, semana).get(diaAlvo);
+  if (!dono || dono === diaPlanejado) return false;
+  const k = ORDEM_DIAS[(new Date(dono + 'T00:00:00').getDay() + 6) % 7];
+  chkAviso = { chave: `${a.id}|${diaPlanejado}`, texto: `${DIA_EXT[k]} já usa esse dia` };
+  chkSeletor = null;
+  renderCheckin();
+  return true;
+}
+
+/**
+ * Registra a presença de uma data e, se a sessão planejada era outro dia, deixa
+ * a remarcação gravada — é ela que amarra "a segunda dela aconteceu na quinta".
+ * @param {string} id @param {string} diaPlanejado @param {string} diaFeito
+ */
+function resolverSessao(id, diaPlanejado, diaFeito) {
+  const a = db.obter(id); if (!a) return;
+  if (diaOcupado(a, diaPlanejado, diaFeito)) return;
+  const presencas = new Set(a.presencas || []);
+  const horas = { ...(a.presencaHoras || {}) };
+  const remarcacoes = { ...(a.remarcacoes || {}) };
+
+  presencas.add(diaFeito);
+  // Só grava a hora quando o check-in é do próprio dia. Marcando um dia passado,
+  // o relógio de agora não diz nada sobre quando o aluno veio — melhor não ter
+  // hora do que ter uma inventada.
+  if (diaFeito === hoje() && !horas[diaFeito]) horas[diaFeito] = new Date().toTimeString().slice(0, 5);
+  if (diaFeito === diaPlanejado) delete remarcacoes[diaPlanejado];
+  else remarcacoes[diaPlanejado] = diaFeito;
+
+  db.atualizar(id, { presencas: [...presencas].sort(), presencaHoras: horas, remarcacoes });
+  agendarPublicarPortal();
+  renderCheckin();
+}
+
+/**
+ * Agenda a sessão para um dia que ainda vem — sem presença nenhuma, que só
+ * existe quando ele aparece. Se esse dia passar em branco, a sessão vira falta,
+ * e nenhuma outra presença da semana a resgata (ver semana.js).
+ */
+function remarcarSessao(id, diaPlanejado, diaEscolhido) {
+  const a = db.obter(id); if (!a) return;
+  if (diaEscolhido <= hoje()) { resolverSessao(id, diaPlanejado, diaEscolhido); return; }
+  if (diaOcupado(a, diaPlanejado, diaEscolhido)) return;
+  const remarcacoes = { ...(a.remarcacoes || {}) };
+  if (diaEscolhido === diaPlanejado) delete remarcacoes[diaPlanejado];
+  else remarcacoes[diaPlanejado] = diaEscolhido;
+  db.atualizar(id, { remarcacoes });
+  agendarPublicarPortal();
+  renderCheckin();
+}
+
+/**
+ * Devolve a sessão ao estado aberto: some a remarcação e some a presença que
+ * ELA tinha registrado — a menos que outra sessão da semana também aconteça
+ * naquele dia, caso em que a presença é das duas e não pode sair.
+ */
+function reabrirSessao(id, diaPlanejado) {
+  const a = db.obter(id); if (!a) return;
+  const semana = datasDaSemana(new Date(chkData + 'T00:00:00'));
+  const remarcacoes = { ...(a.remarcacoes || {}) };
+  const efetivo = remarcacoes[diaPlanejado] || diaPlanejado;
+  delete remarcacoes[diaPlanejado];
+
+  const outrasSessoes = (a.diasTreino || [])
+    .map((k) => semana[k])
+    .filter((iso) => iso && iso !== diaPlanejado)
+    .map((iso) => remarcacoes[iso] || iso);
+
+  const presencas = new Set(a.presencas || []);
+  const horas = { ...(a.presencaHoras || {}) };
+  if (!outrasSessoes.includes(efetivo)) { presencas.delete(efetivo); delete horas[efetivo]; }
+
+  db.atualizar(id, { presencas: [...presencas].sort(), presencaHoras: horas, remarcacoes });
+  agendarPublicarPortal();
+  renderCheckin();
 }
 
 function toggleCheckin(id) {
@@ -797,9 +1000,6 @@ function toggleCheckin(id) {
     set.delete(chkData); delete horas[chkData];
   } else {
     set.add(chkData);
-    // Só grava a hora quando o check-in é do próprio dia. Marcando um dia
-    // passado, o relógio de agora não diz nada sobre quando o aluno veio —
-    // melhor não ter hora do que ter uma inventada.
     if (chkData === hoje()) horas[chkData] = new Date().toTimeString().slice(0, 5);
   }
   db.atualizar(id, { presencas: [...set].sort(), presencaHoras: horas });
@@ -807,11 +1007,29 @@ function toggleCheckin(id) {
   renderCheckin();
 }
 
-$('#btn-checkin').addEventListener('click', () => { chkData = hoje(); renderCheckin(); mostrarTela('tela-checkin'); });
+$('#btn-checkin').addEventListener('click', () => { chkData = hoje(); chkSeletor = null; renderCheckin(); mostrarTela('tela-checkin'); });
 $('#chk-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
-$('#chk-prev').addEventListener('click', () => { chkData = addDias(chkData, -1); renderCheckin(); });
-$('#chk-next').addEventListener('click', () => { chkData = addDias(chkData, 1); renderCheckin(); });
-$('#chk-list').addEventListener('click', (e) => { const b = e.target.closest('.chk-toggle'); if (b) toggleCheckin(b.dataset.id); });
+$('#chk-prev').addEventListener('click', () => { chkData = addDias(chkData, -1); chkSeletor = null; renderCheckin(); });
+$('#chk-next').addEventListener('click', () => { chkData = addDias(chkData, 1); chkSeletor = null; renderCheckin(); });
+$('#chk-list').addEventListener('click', (e) => {
+  // Qualquer clique novo apaga o recado anterior: ele é sobre a ação que acabou
+  // de ser recusada, não um estado da sessão.
+  if (e.target.closest('button')) chkAviso = null;
+  const ficha = e.target.closest('.chk-ficha');
+  if (ficha) { chkSeletor = null; remarcarSessao(ficha.dataset.id, ficha.dataset.dia, ficha.dataset.para); return; }
+  const hj = e.target.closest('.chk-hoje');
+  if (hj) { chkSeletor = null; resolverSessao(hj.dataset.id, hj.dataset.dia, chkData); return; }
+  const outro = e.target.closest('.chk-outro');
+  if (outro) {
+    const chave = `${outro.dataset.id}|${outro.dataset.dia}`;
+    chkSeletor = chkSeletor === chave ? null : chave; // o mesmo botão fecha o seletor
+    renderCheckin(); return;
+  }
+  const alt = e.target.closest('.chk-alterar');
+  if (alt) { chkSeletor = null; reabrirSessao(alt.dataset.id, alt.dataset.dia); return; }
+  const b = e.target.closest('.chk-toggle');
+  if (b) toggleCheckin(b.dataset.id);
+});
 
 /* ============================================================
    TELA — Agenda (calendário: reavaliações + aniversários)

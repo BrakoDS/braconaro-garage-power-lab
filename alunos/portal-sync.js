@@ -39,6 +39,9 @@ function fatia(a) {
     freqVezes: a.freqVezes || '', freqHorario: a.freqHorario || '', diasTreino: a.diasTreino || [],
     presencas: a.presencas || [],
     presencaHoras: a.presencaHoras || {},
+    // Remarcações: "a segunda dela aconteceu na quinta". O Portal precisa delas
+    // para pintar o quadrado certo — sem isso, a semana lá e a do coach divergem.
+    remarcacoes: a.remarcacoes || {},
     avaliacoes: a.avaliacoes || [],
     metas: a.metas || [],
     criadoEm: a.criadoEm || null,
