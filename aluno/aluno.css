@@ -133,6 +133,8 @@ button{font-family:inherit}
    mas apagado — ele não entra no total nem no Pix dele. */
 .nota-l.acertada{color:var(--mut-2)}
 .nota-l.acertada span:last-child{text-decoration:line-through}
+/* Linha de desconto de parceria: valor negativo, na cor do box. */
+.nota-l.desconto span:last-child{color:var(--ok)}
 
 /* ---------- Menu "Pra você" ---------- */
 .pv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}

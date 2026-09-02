@@ -23,7 +23,8 @@ import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../aluno/gamificacao.js';
 import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../aluno/semana.js';
-import { mesIdParaLancar, faturaDoMes, faturaComDependentes, consumosDoMes, totalConsumos } from '../aluno/consumo.js';
+import { mesIdParaLancar, faturaDoMes, faturaComDependentes, consumosDoMes, totalConsumos,
+  PERCENTUAIS_PARCERIA } from '../aluno/consumo.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -177,6 +178,9 @@ function formDadosHTML(a = {}, opts = {}) {
   const escopoAtual = (a.pagoPor && a.pagoPor.escopo) || 'tudo';
   const escopoOpts = [['tudo', 'Plano e consumíveis'], ['plano', 'Só o plano']]
     .map(([v, l]) => `<option value="${v}"${escopoAtual === v ? ' selected' : ''}>${l}</option>`).join('');
+  const pctAtual = String((a.parceria && a.parceria.percentual) || '');
+  const parceriaOpts = `<option value="">Sem parceria</option>`
+    + PERCENTUAIS_PARCERIA.map((n) => `<option value="${n}"${String(n) === pctAtual ? ' selected' : ''}>${n}% de desconto${n === 100 ? ' (cortesia)' : ''}</option>`).join('');
   const idField = opts.idEditavel
     ? `<div class="field full"><label>ID do aluno</label><input name="id" type="text" value="${esc(a.id)}" placeholder="Use o seu padrão de ID — ou deixe vazio para gerar (001, 002…)" /><span class="hint">Precisa ser único. Vazio = numeração automática.</span></div>`
     : `<div class="field full"><label>ID do aluno</label><input type="text" value="${esc(a.id)}" disabled /><span class="hint">O ID é definido no cadastro e não muda (mantém as fotos no lugar).</span></div>`;
@@ -211,6 +215,8 @@ function formDadosHTML(a = {}, opts = {}) {
     <div class="grid-form">
       <div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /></div>
       <div class="field"><label>Dia de vencimento</label><input name="vencimento" type="number" min="1" max="31" value="${esc(a.vencimento)}" placeholder="10" /><span class="hint">Dia do mês (1–31) em que a mensalidade vence.</span></div>
+      <div class="field"><label>Parceria (desconto)</label><select name="parceriaPct">${parceriaOpts}</select><span class="hint">A mensalidade cheia continua acima. O desconto entra como investimento do box, não como preço menor.</span></div>
+      <div class="field"><label>Nome da parceria</label><input name="parceriaNome" type="text" value="${esc((a.parceria && a.parceria.nome) || '')}" placeholder="Ex.: Clínica São Jorge"${a.parceria && a.parceria.percentual ? '' : ' disabled'} /><span class="hint">Para saber quanto o box investe em cada uma.</span></div>
       <div class="field"><label>Quem paga esta conta</label><select name="pagoPorId">${pagadorOpts}</select><span class="hint">${temDependentes ? 'Este aluno já paga a conta de outro, então não pode ter um responsável.' : 'A conta dele entra somada na do responsável, e o Portal dele mostra quem acertou.'}</span></div>
       <div class="field"><label>O responsável cobre</label><select name="pagoPorEscopo"${a.pagoPor && a.pagoPor.id ? '' : ' disabled'}>${escopoOpts}</select><span class="hint">“Só o plano” deixa o que ele consumir no box por conta dele.</span></div>
     </div>
@@ -235,6 +241,9 @@ function wireForm(root) {
   const pagador = $('select[name=pagoPorId]', root);
   const escopo = $('select[name=pagoPorEscopo]', root);
   if (pagador && escopo) pagador.addEventListener('change', () => { escopo.disabled = !pagador.value; });
+  const parcPct = $('select[name=parceriaPct]', root);
+  const parcNome = $('input[name=parceriaNome]', root);
+  if (parcPct && parcNome) parcPct.addEventListener('change', () => { parcNome.disabled = !parcPct.value; });
   const tel = $('input[name=telefone]', root);
   const wa = $('[data-wa]', root);
   if (tel && wa) {
@@ -262,6 +271,12 @@ function lerForm(form) {
   // selects saem do objeto para não virarem colunas soltas na ficha.
   o.pagoPor = o.pagoPorId ? { id: o.pagoPorId, escopo: o.pagoPorEscopo === 'plano' ? 'plano' : 'tudo' } : null;
   delete o.pagoPorId; delete o.pagoPorEscopo;
+  // A mensalidade cheia fica onde sempre esteve; a parceria é só o percentual e
+  // o nome. O desconto em reais nunca é gravado — ele é derivado, e assim mudar
+  // o preço do plano recalcula o investimento do box sozinho.
+  const pct = parseInt(o.parceriaPct, 10);
+  o.parceria = pct ? { nome: (o.parceriaNome || '').trim(), percentual: pct } : null;
+  delete o.parceriaPct; delete o.parceriaNome;
   if (o.nascimento) o.idade = calcIdade(o.nascimento);
   return o;
 }
@@ -518,15 +533,23 @@ function linhasDoFinanceiro(mesId) {
 function renderFinanceiro() {
   $('#fin-mes-lbl').textContent = rotuloMesFin(finMes);
   const itens = linhasDoFinanceiro(finMes);
-  let previsto = 0, recebido = 0, extras = 0;
+  let previsto = 0, recebido = 0, extras = 0, investido = 0;
 
   const linhas = itens.map(({ a, deps, resp, conta, propria }) => {
     extras += propria.extras;
+    // O que o box banca: o desconto dele mais o dos dependentes que ele cobre.
+    // Contado na linha de quem TEM a parceria, e não na de quem paga a conta —
+    // senão o relatório diria que a parceria é do pai.
+    investido += propria.desconto;
     const st = statusFin(a, finMes);
     // O dependente sem nada próprio a pagar espelha a situação do responsável:
     // ele não tem conta, então não pode ficar "vencido" por conta nenhuma.
     const stExibido = (resp && conta.total === 0) ? statusFin(resp, finMes) : st;
-    const lbl = stExibido === 'pago' ? 'Pago' : stExibido === 'vencido' ? 'Vencido' : 'Pendente';
+    // Quem não deve nada não pode aparecer vencido. Sem responsável e sem conta,
+    // o motivo é a parceria — e é isso que o selo tem que dizer.
+    const cortesia = !resp && conta.total === 0 && propria.desconto > 0;
+    const lbl = cortesia ? 'Cortesia'
+      : stExibido === 'pago' ? 'Pago' : stExibido === 'vencido' ? 'Vencido' : 'Pendente';
     if (conta.total > 0) {
       previsto += conta.total;
       if (st === 'pago') recebido += conta.total;
@@ -534,6 +557,7 @@ function renderFinanceiro() {
 
     const partes = [];
     if (conta.propria.mensalidade > 0) partes.push(brl(conta.propria.mensalidade));
+    else if (propria.desconto > 0 && !resp) partes.push(brl(0));
     if (conta.propria.extras > 0) partes.push(`${brl(conta.propria.extras)} em consumo`);
     conta.dependentes.forEach((d) => partes.push(`${brl(d.total)} de ${esc(d.nome)}`));
     const detalhe = conta.total === 0 && resp
@@ -556,10 +580,18 @@ function renderFinanceiro() {
 
     const aberto = finBalcao === a.id;
     const marca = resp ? `<span class="fin-vinculo">conta de ${esc(resp.nome || resp.id)}</span>` : '';
+    // A parceria fica ao lado do nome, e o quanto o box banca sai no detalhe: o
+    // desconto tem que ser visível na linha, senão vira só uma mensalidade menor.
+    const selo = propria.parceria
+      ? `<span class="fin-parceria">${propria.parceria.percentual}%${propria.parceria.nome ? ' · ' + esc(propria.parceria.nome) : ''}</span>`
+      : '';
+    const custo = propria.desconto > 0
+      ? ` <span class="fin-investido">· box banca ${brl(propria.desconto)}</span>`
+      : '';
     return `<div class="fin-row fin-row-consumo">
-      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}${marca}</div>
-        <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}${aviso}</div></div>
-      <span class="fin-badge ${stExibido}">${lbl}</span>
+      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}${selo}${marca}</div>
+        <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}${custo}${aviso}</div></div>
+      <span class="fin-badge ${cortesia ? 'cortesia' : stExibido}">${lbl}</span>
       <div class="fin-acoes">
         <button class="btn ghost btn-sm fin-balcao-btn${aberto ? ' on' : ''}" data-id="${esc(a.id)}" type="button">${aberto ? 'Fechar' : '+ Consumo'}</button>
         ${btn}
@@ -572,7 +604,8 @@ function renderFinanceiro() {
     <div class="fin-card"><span class="fin-card-l">Recebido</span><span class="fin-card-v ok">${brl(recebido)}</span></div>
     <div class="fin-card"><span class="fin-card-l">A receber</span><span class="fin-card-v${previsto - recebido > 0 ? ' bad' : ''}">${brl(previsto - recebido)}</span></div>
     <div class="fin-card"><span class="fin-card-l">Previsto no mês</span><span class="fin-card-v">${brl(previsto)}</span></div>
-    <div class="fin-card"><span class="fin-card-l">Consumíveis</span><span class="fin-card-v">${brl(extras)}</span></div>`;
+    <div class="fin-card"><span class="fin-card-l">Consumíveis</span><span class="fin-card-v">${brl(extras)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Investido em parcerias</span><span class="fin-card-v${investido > 0 ? ' parceria' : ''}">${brl(investido)}</span></div>`;
   $('#fin-list').innerHTML = (finEditandoProdutos ? painelProdutos() : '')
     + (linhas || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade no perfil do aluno (aba Dados → Financeiro).</div>`);
   $('#fin-produtos').textContent = finEditandoProdutos ? 'Fechar produtos' : 'Produtos';

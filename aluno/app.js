@@ -11,7 +11,7 @@ import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
 import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from './semana.js';
-import { faturaComDependentes, parteCoberta } from './consumo.js';
+import { faturaComDependentes, parteCoberta, faturaDoMes } from './consumo.js';
 import { renderTreinoDia } from './treino-dia.js';
 import { COR_MODALIDADE } from '../montador/config/cores-modalidade.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=2';
@@ -664,7 +664,8 @@ function renderFinanceiro() {
 
   // A notinha só aparece quando há mais de uma parcela na conta: sem isso, quem
   // só tem a mensalidade veria uma tabela de uma linha repetindo o valor de cima.
-  const temDetalhe = fatura.consumos.length || conta.dependentes.length || (resp && coberta.total > 0);
+  const cheia = faturaDoMes(PORTAL, mesId);
+  const temDetalhe = fatura.consumos.length || conta.dependentes.length || (resp && coberta.total > 0) || cheia.desconto > 0;
   // `acertada` apaga e risca o valor: ele aparece para o aluno saber quanto foi,
   // mas não entra no total dele nem no Pix — e a linha precisa dizer isso sozinha,
   // porque o título da seção some quando alguém lê só a linha.
@@ -673,7 +674,10 @@ function renderFinanceiro() {
     <div class="nota">
       ${resp && coberta.mensalidade > 0
         ? `<div class="nota-l acertada"><span>Mensalidade · ${esc(mesNome)}<i>acertada por ${esc(resp.nome || 'seu responsável')}</i></span><span>${brl(coberta.mensalidade)}</span></div>`
-        : `<div class="nota-l"><span>Mensalidade · ${esc(mesNome)}</span><span>${brl(fatura.mensalidade)}</span></div>`}
+        : `<div class="nota-l"><span>Mensalidade · ${esc(mesNome)}</span><span>${brl(cheia.desconto > 0 ? cheia.mensalidadeCheia : fatura.mensalidade)}</span></div>`}
+      ${cheia.desconto > 0 && !(resp && coberta.mensalidade > 0)
+        ? `<div class="nota-l desconto"><span>Parceria${cheia.parceria.nome ? ' · ' + esc(cheia.parceria.nome) : ''}<i>${cheia.parceria.percentual}% de desconto</i></span><span>− ${brl(cheia.desconto)}</span></div>`
+        : ''}
       ${fatura.consumos.length ? `<div class="nota-cap">Consumíveis</div>${fatura.consumos.map((c) => linhaConsumo(c, false)).join('')}` : ''}
       ${resp && coberta.consumos.length ? `<div class="nota-cap">Consumíveis · acertados por ${esc(resp.nome || 'seu responsável')}</div>${coberta.consumos.map((c) => linhaConsumo(c, true)).join('')}` : ''}
       ${conta.dependentes.length ? `<div class="nota-cap">Por sua conta</div>${conta.dependentes.map((d) => `

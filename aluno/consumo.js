@@ -81,16 +81,52 @@ export function totalConsumos(consumos, mesId) {
   return consumosDoMes(consumos, mesId).reduce((s, c) => s + (Number(c.preco) || 0), 0);
 }
 
+/** Os descontos de parceria que o box oferece. */
+export const PERCENTUAIS_PARCERIA = [10, 25, 50, 100];
+
+/** Arredonda para centavos — 171 × 25% dá 42,75 e não 42,749999. */
+const centavos = (v) => Math.round(v * 100) / 100;
+
 /**
- * A conta fechada de uma fatura: mensalidade + consumíveis.
- * @param {{mensalidade?:any, consumos?:any[]}} aluno @param {string} mesId
- * @returns {{mensalidade:number, consumos:any[], extras:number, total:number}}
+ * O desconto de parceria de um aluno, em reais.
+ *
+ * A mensalidade CHEIA continua cadastrada na ficha: zerar o valor daria a conta
+ * certa e apagaria a informação: o box deixaria de saber quanto investe em cada
+ * parceria. O desconto é derivado do percentual, então mudar o preço do plano
+ * recalcula o investimento sozinho.
+ *
+ * @param {any} aluno @returns {{nome:string, percentual:number, valor:number}|null}
+ */
+export function descontoParceria(aluno) {
+  const p = aluno && aluno.parceria;
+  const pct = Number(p && p.percentual) || 0;
+  if (!pct) return null;
+  const cheia = Number(String(aluno?.mensalidade ?? '').replace(',', '.')) || 0;
+  return { nome: (p.nome || '').trim(), percentual: pct, valor: centavos(cheia * pct / 100) };
+}
+
+/**
+ * A conta fechada de uma fatura: mensalidade (já com o desconto da parceria)
+ * mais os consumíveis.
+ *
+ * O desconto vale só sobre o PLANO. Consumível é mercadoria comprada no balcão —
+ * a parceria dá acesso ao treino, não energético de graça.
+ *
+ * @param {{mensalidade?:any, consumos?:any[], parceria?:any}} aluno @param {string} mesId
+ * @returns {{mensalidadeCheia:number, desconto:number, parceria:any, mensalidade:number,
+ *            consumos:any[], extras:number, total:number}}
  */
 export function faturaDoMes(aluno, mesId) {
-  const mensalidade = Number(String(aluno?.mensalidade ?? '').replace(',', '.')) || 0;
+  const mensalidadeCheia = Number(String(aluno?.mensalidade ?? '').replace(',', '.')) || 0;
+  const parc = descontoParceria(aluno);
+  const desconto = parc ? Math.min(parc.valor, mensalidadeCheia) : 0;
+  const mensalidade = centavos(mensalidadeCheia - desconto);
   const consumos = consumosDoMes(aluno?.consumos, mesId);
-  const extras = consumos.reduce((s, c) => s + (Number(c.preco) || 0), 0);
-  return { mensalidade, consumos, extras, total: mensalidade + extras };
+  const extras = centavos(consumos.reduce((s, c) => s + (Number(c.preco) || 0), 0));
+  return {
+    mensalidadeCheia, desconto, parceria: parc, mensalidade,
+    consumos, extras, total: centavos(mensalidade + extras),
+  };
 }
 
 /* ============================================================
@@ -154,6 +190,9 @@ export function faturaComDependentes(aluno, mesId, dependentes = []) {
   }).filter((d) => d.total > 0 || d.consumos.length);
   return {
     propria, dependentes: cobertos,
-    total: propria.total + cobertos.reduce((s, d) => s + d.total, 0),
+    // Somar valores já arredondados reintroduz o erro do ponto flutuante
+    // (89,91 + 9,99 = 99,899999…). Este total vai para o Pix, então volta ao
+    // centavo aqui em vez de depender do toFixed lá na ponta.
+    total: centavos(propria.total + cobertos.reduce((s, d) => s + d.total, 0)),
   };
 }
