@@ -423,6 +423,10 @@ function statusFin(a, mesId) {
 /** O balcão: um botão por produto, para lançar na conta do aluno. */
 function balcaoConsumo(a, fatura) {
   const produtos = db.listarProdutos();
+  // O rótulo tem que dizer para ONDE o consumo vai de verdade, e não em que mês
+  // a tela está: com a fatura do mês já quitada, o lançamento pula para a
+  // seguinte, e prometer o mês em tela seria mentir na hora do clique.
+  const destino = mesIdParaLancar(hoje(), a.vencimento, a.pagamentos);
   const botoes = produtos.length
     ? produtos.map((p) => `<button class="btn ghost btn-sm fin-add" data-id="${esc(a.id)}" data-prod="${esc(p.id)}" type="button">${esc(p.nome)} · ${brl(p.preco)}</button>`).join('')
     : '<span class="fin-vazio">Nenhum produto cadastrado. Use “Produtos” lá em cima.</span>';
@@ -435,7 +439,7 @@ function balcaoConsumo(a, fatura) {
     : '<span class="fin-vazio">Nada lançado nesta fatura ainda.</span>';
 
   return `<div class="fin-balcao">
-    <span class="fin-balcao-cap">Lançar consumo (entra na fatura de ${esc(rotuloMesFin(finMes))})</span>
+    <span class="fin-balcao-cap">Lançar consumo · vai para a fatura de ${esc(rotuloMesFin(destino))}${destino !== finMes ? ' <b>(a de ' + esc(rotuloMesFin(finMes)) + ' já está paga)</b>' : ''}</span>
     <div class="fin-prods">${botoes}</div>
     ${lancados}
   </div>`;
