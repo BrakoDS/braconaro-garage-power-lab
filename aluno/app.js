@@ -14,7 +14,8 @@ import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from './semana.js';
 import { faturaComDependentes, parteCoberta, faturaDoMes } from './consumo.js';
 import { renderTreinoDia } from './treino-dia.js';
 import { COR_MODALIDADE } from '../montador/config/cores-modalidade.js';
-import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=2';
+import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=3';
+import { NIVEIS, FATOR_PADRAO, nivelDoFator, nivelAutomatico } from './atividade.js';
 import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
 import { carregarDesafios, carregarProgressoDesafios, salvarProgressoDesafios } from './desafios-db.js';
@@ -839,15 +840,31 @@ $$('.modal-bg:not(#modal-lgpd)').forEach((m) => m.addEventListener('click', (e) 
 /* ============================================================
    Nutrição Básica
    ============================================================ */
-const ATIVIDADE = [
-  ['1.2', 'Sedentário', 'pouco ou nenhum exercício'],
-  ['1.375', 'Leve', '1–3 treinos/semana'],
-  ['1.55', 'Moderado', '3–5 treinos/semana'],
-  ['1.725', 'Intenso', '6–7 treinos/semana'],
-  ['1.9', 'Muito intenso', 'treino pesado + trabalho físico'],
-];
 /** @type {any} */
-let NUT = null; // { nivelAtividade, gastos:[] } — carregado sob demanda
+let NUT = null; // { nivelAtividade, nivelModo, gastos:[] } — carregado sob demanda
+
+/**
+ * O nível de atividade de hoje.
+ *
+ * No modo automático ele sai dos registros — check-in do coach mais os treinos
+ * que o próprio aluno lança aqui — em vez de pedir ao aluno a conta que o box
+ * já tem pronta. A regra mora em `atividade.js` (puro, com testes).
+ *
+ * `NUT.nivelAtividade` guarda sempre o fator já resolvido, mesmo no automático:
+ * quem lê este documento de fora continua achando um número.
+ */
+function resolverNivel() {
+  const auto = nivelAutomatico({
+    dias: game.diasTreino(PORTAL?.presencas, NUT.gastos),
+    planoVezes: PORTAL?.freqVezes,
+    planoDias: PORTAL?.diasTreino || [],
+  });
+  const modo = NUT.nivelModo === 'manual' ? 'manual' : 'auto';
+  const nivel = modo === 'manual' ? nivelDoFator(NUT.nivelAtividade) : auto.nivel;
+  const mudou = NUT.nivelAtividade !== nivel.fator;
+  NUT.nivelAtividade = nivel.fator;
+  return { auto, modo, nivel, mudou };
+}
 
 /** Peso/altura/idade/sexo a partir da última avaliação + cadastro. */
 function baseNutri() {
@@ -899,8 +916,12 @@ async function abrirNutricao() {
   if (NUT == null) {
     $('#nut-conteudo').innerHTML = '<div class="empty">Carregando…</div>';
     try { NUT = await carregarNutricao(emailAluno()); }
-    catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [], creatina: { checks: [] } }; }
+    catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: FATOR_PADRAO, nivelModo: 'auto', gastos: [], creatina: { checks: [] } }; }
   }
+  // No automático o fator acompanha a presença, então ele muda sozinho quando a
+  // semana vira. Grava o novo valor uma vez, para quem lê de fora não ficar com
+  // o número velho — sem segurar a tela.
+  if (resolverNivel().mudou) persistirNutricao();
   desenharNutricao();
 }
 function fecharNutricao() {
@@ -915,7 +936,8 @@ function desenharNutricao() {
   if (!NUT.creatina || !Array.isArray(NUT.creatina.checks)) NUT.creatina = { checks: [] };
   const b = baseNutri();
   const tmb = tmbMifflin(b.peso, b.altura, b.idade, b.cod);
-  const fator = parseFloat(NUT.nivelAtividade) || 1.55;
+  const { auto, modo, nivel } = resolverNivel();
+  const fator = parseFloat(nivel.fator) || parseFloat(FATOR_PADRAO);
   const tdee = tmb != null ? tmb * fator : null;
 
   let macros = null;
@@ -953,12 +975,27 @@ function desenharNutricao() {
       <p class="nut-nota">Dose de manutenção estimada pelo seu peso (~0,04 g/kg, entre 3 e 5 g). Orientação geral — não substitui um nutricionista.</p>
     </section>`;
 
-  const selAtiv = `<select id="nut-ativ">${ATIVIDADE.map(([v, l, d]) => `<option value="${v}"${v === NUT.nivelAtividade ? ' selected' : ''}>${l} — ${d}</option>`).join('')}</select>`;
+  const selAtiv = `<select id="nut-ativ" aria-label="Seu nível de atividade">${NIVEIS.map((n) => `<option value="${n.fator}"${n.fator === nivel.fator ? ' selected' : ''}>${n.rotulo} — ${n.faixa}</option>`).join('')}</select>`;
+  const nivelHtml = `
+    <div class="nut-nivel">
+      <div class="nn-topo">
+        <span class="nn-rot">Seu nível de atividade</span>
+        <div class="nn-modo" role="group" aria-label="Como definir o nível">
+          <button type="button" data-modo="auto" class="${modo === 'auto' ? 'on' : ''}" aria-pressed="${modo === 'auto'}">Automático</button>
+          <button type="button" data-modo="manual" class="${modo === 'manual' ? 'on' : ''}" aria-pressed="${modo === 'manual'}">Escolher</button>
+        </div>
+      </div>
+      ${modo === 'auto'
+        ? `<div class="nn-auto"><b>${esc(nivel.rotulo)}</b><span>${esc(nivel.faixa)}</span></div>
+           <p class="nn-exp">${esc(auto.explicacao)}</p>`
+        : `${selAtiv}
+           <p class="nn-exp">${esc(auto.sugestao)}</p>`}
+    </div>`;
   const metasHtml = tmb == null ? `
     <div class="empty"><b>Faltam dados da avaliação</b>
     Para calcular suas metas precisamos de peso, altura, sexo e data de nascimento. Fale com seu coach para registrar sua avaliação física.</div>`
     : `
-    <div class="nut-nivel"><label for="nut-ativ">Seu nível de atividade</label>${selAtiv}</div>
+    ${nivelHtml}
     <div class="nut-metas">
       <div class="nut-card"><span class="nm-l">TMB · Taxa Metabólica Basal</span><span class="nm-v">${fmt(tmb, 0)}<i>kcal/dia</i></span><span class="nm-s">energia em repouso</span></div>
       <div class="nut-card accent"><span class="nm-l">TDEE · Gasto Calórico Total</span><span class="nm-v">${fmt(tdee, 0)}<i>kcal/dia</i></span><span class="nm-s">com seu nível de atividade</span></div>
@@ -999,6 +1036,12 @@ function desenharNutricao() {
       ${lanc.length ? `<div class="nut-lanc">${lanc.map((g) => `<div class="nl-row"><span class="nl-d">${fmtData(g.data)}</span><span class="nl-k">${fmt(numf(g.calorias), 0)} kcal</span><button class="nl-x" data-id="${esc(g.id)}" type="button" aria-label="Remover lançamento">×</button></div>`).join('')}</div>` : '<p class="nut-nota">Nenhum treino registrado nesta semana ainda.</p>'}
     </section>`;
 
+  $$('#nut-conteudo .nn-modo button').forEach((btn) => btn.addEventListener('click', () => {
+    // Ao assumir o volante o aluno parte do nível que estava valendo, e não de
+    // um padrão qualquer: o número na tela não muda no clique.
+    NUT.nivelModo = btn.dataset.modo === 'manual' ? 'manual' : 'auto';
+    desenharNutricao(); persistirNutricao();
+  }));
   $('#nut-ativ')?.addEventListener('change', (e) => { NUT.nivelAtividade = e.target.value; desenharNutricao(); persistirNutricao(); });
   $('#nut-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
