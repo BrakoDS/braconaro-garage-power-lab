@@ -129,6 +129,10 @@ button{font-family:inherit}
 .nota-l.total{border-top:1px solid var(--line-2);margin-top:4px;padding-top:10px;
   font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:1rem}
 .nota-l.total span:last-child{color:var(--accent)}
+/* Linha que outra pessoa acerta: o valor aparece para o aluno saber quanto é,
+   mas apagado — ele não entra no total nem no Pix dele. */
+.nota-l.acertada{color:var(--mut-2)}
+.nota-l.acertada span:last-child{text-decoration:line-through}
 
 /* ---------- Menu "Pra você" ---------- */
 .pv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}

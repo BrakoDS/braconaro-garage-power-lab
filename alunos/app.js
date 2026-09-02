@@ -23,7 +23,7 @@ import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../aluno/gamificacao.js';
 import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../aluno/semana.js';
-import { mesIdParaLancar, totalConsumos, faturaDoMes } from '../aluno/consumo.js';
+import { mesIdParaLancar, faturaDoMes, faturaComDependentes } from '../aluno/consumo.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
@@ -165,6 +165,18 @@ function formDadosHTML(a = {}, opts = {}) {
       <input class="dia-hora" type="time" name="hora_${v}" value="${esc(horas[v] || horaAntiga)}"${diasSel.has(v) ? '' : ' disabled'} />
     </div>`).join('');
   const stOpts = ['ativo', 'inativo', 'pendente'].map((s) => `<option value="${s}"${(a.status || 'ativo') === s ? ' selected' : ''}>${STATUS_LABEL[s]}</option>`).join('');
+  // Quem pode ser responsável: qualquer aluno ativo que não seja ele mesmo e que
+  // não tenha responsável próprio. Sem esse corte dava para montar corrente (A
+  // paga B que paga C) e a soma passaria a depender da ordem em que se lê.
+  const temDependentes = db.listar().some((x) => x.pagoPor && x.pagoPor.id === a.id);
+  const candidatos = temDependentes ? [] : db.listar()
+    .filter((x) => x.id !== a.id && (x.status || 'ativo') !== 'inativo' && !(x.pagoPor && x.pagoPor.id));
+  const pagoPorId = (a.pagoPor && a.pagoPor.id) || '';
+  const pagadorOpts = `<option value="">O próprio aluno</option>`
+    + candidatos.map((x) => `<option value="${esc(x.id)}"${x.id === pagoPorId ? ' selected' : ''}>${esc(x.nome || x.id)}</option>`).join('');
+  const escopoAtual = (a.pagoPor && a.pagoPor.escopo) || 'tudo';
+  const escopoOpts = [['tudo', 'Plano e consumíveis'], ['plano', 'Só o plano']]
+    .map(([v, l]) => `<option value="${v}"${escopoAtual === v ? ' selected' : ''}>${l}</option>`).join('');
   const idField = opts.idEditavel
     ? `<div class="field full"><label>ID do aluno</label><input name="id" type="text" value="${esc(a.id)}" placeholder="Use o seu padrão de ID — ou deixe vazio para gerar (001, 002…)" /><span class="hint">Precisa ser único. Vazio = numeração automática.</span></div>`
     : `<div class="field full"><label>ID do aluno</label><input type="text" value="${esc(a.id)}" disabled /><span class="hint">O ID é definido no cadastro e não muda (mantém as fotos no lugar).</span></div>`;
@@ -199,6 +211,8 @@ function formDadosHTML(a = {}, opts = {}) {
     <div class="grid-form">
       <div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /></div>
       <div class="field"><label>Dia de vencimento</label><input name="vencimento" type="number" min="1" max="31" value="${esc(a.vencimento)}" placeholder="10" /><span class="hint">Dia do mês (1–31) em que a mensalidade vence.</span></div>
+      <div class="field"><label>Quem paga esta conta</label><select name="pagoPorId">${pagadorOpts}</select><span class="hint">${temDependentes ? 'Este aluno já paga a conta de outro, então não pode ter um responsável.' : 'A conta dele entra somada na do responsável, e o Portal dele mostra quem acertou.'}</span></div>
+      <div class="field"><label>O responsável cobre</label><select name="pagoPorEscopo"${a.pagoPor && a.pagoPor.id ? '' : ' disabled'}>${escopoOpts}</select><span class="hint">“Só o plano” deixa o que ele consumir no box por conta dele.</span></div>
     </div>
   </div>`;
 }
@@ -218,6 +232,9 @@ function wireForm(root) {
       if (chk.checked && !hora.value) hora.value = '19:00';
     });
   });
+  const pagador = $('select[name=pagoPorId]', root);
+  const escopo = $('select[name=pagoPorEscopo]', root);
+  if (pagador && escopo) pagador.addEventListener('change', () => { escopo.disabled = !pagador.value; });
   const tel = $('input[name=telefone]', root);
   const wa = $('[data-wa]', root);
   if (tel && wa) {
@@ -241,6 +258,10 @@ function lerForm(form) {
     if (o.diasTreino.includes(v) && h) o.horarios[v] = h;
     delete o['hora_' + v];
   }
+  // `pagoPor` guarda o vínculo inteiro (quem e quanto) num campo só; os dois
+  // selects saem do objeto para não virarem colunas soltas na ficha.
+  o.pagoPor = o.pagoPorId ? { id: o.pagoPorId, escopo: o.pagoPorEscopo === 'plano' ? 'plano' : 'tudo' } : null;
+  delete o.pagoPorId; delete o.pagoPorEscopo;
   if (o.nascimento) o.idade = calcIdade(o.nascimento);
   return o;
 }
@@ -464,35 +485,70 @@ function painelProdutos() {
   </div>`;
 }
 
+/**
+ * Quem cobra de quem no mês.
+ *
+ * Cada aluno vira uma linha, mas nem toda linha é uma COBRANÇA: o dependente com
+ * a conta inteira no responsável aparece para o coach ver, sem entrar nos totais.
+ * Contar duas vezes o mesmo dinheiro é o erro fácil aqui — o pai somando o filho
+ * e o filho somando sozinho — e o painel inteiro sai errado por isso.
+ */
+function linhasDoFinanceiro(mesId) {
+  const todos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  return todos.map((a) => {
+    const deps = todos.filter((x) => x.pagoPor && x.pagoPor.id === a.id);
+    const resp = a.pagoPor && a.pagoPor.id ? todos.find((x) => x.id === a.pagoPor.id) : null;
+    // Vínculo órfão (o responsável saiu, ou está inativo) não pode zerar a conta
+    // de ninguém: sem responsável na lista, ele volta a pagar a própria.
+    const efetivo = (a.pagoPor && !resp) ? { ...a, pagoPor: null } : a;
+    const conta = faturaComDependentes(efetivo, mesId, deps);
+    const propria = faturaDoMes(a, mesId);
+    return { a, deps, resp, conta, propria, cobravel: conta.total > 0 };
+  }).filter((l) => l.cobravel || l.resp || numMoney(l.a.mensalidade) > 0);
+}
+
 function renderFinanceiro() {
   $('#fin-mes-lbl').textContent = rotuloMesFin(finMes);
-  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo'
-    && (numMoney(a.mensalidade) > 0 || totalConsumos(a.consumos, finMes) > 0));
+  const itens = linhasDoFinanceiro(finMes);
   let previsto = 0, recebido = 0, extras = 0;
 
-  const linhas = alunos.map((a) => {
-    const f = faturaDoMes(a, finMes);
-    previsto += f.total;
-    extras += f.extras;
+  const linhas = itens.map(({ a, deps, resp, conta, propria }) => {
+    extras += propria.extras;
     const st = statusFin(a, finMes);
-    if (st === 'pago') recebido += f.total;
-    const lbl = st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
-    const btn = st === 'pago'
-      ? `<button class="btn ghost btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="0" type="button">Desfazer</button>`
-      : `<button class="btn btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="1" type="button">Marcar pago</button>`;
-    const detalhe = f.extras > 0
-      ? `${brl(f.mensalidade)} + ${brl(f.extras)} em consumo = <b>${brl(f.total)}</b>`
-      : brl(f.total);
+    // O dependente sem nada próprio a pagar espelha a situação do responsável:
+    // ele não tem conta, então não pode ficar "vencido" por conta nenhuma.
+    const stExibido = (resp && conta.total === 0) ? statusFin(resp, finMes) : st;
+    const lbl = stExibido === 'pago' ? 'Pago' : stExibido === 'vencido' ? 'Vencido' : 'Pendente';
+    if (conta.total > 0) {
+      previsto += conta.total;
+      if (st === 'pago') recebido += conta.total;
+    }
+
+    const partes = [];
+    if (conta.propria.mensalidade > 0) partes.push(brl(conta.propria.mensalidade));
+    if (conta.propria.extras > 0) partes.push(`${brl(conta.propria.extras)} em consumo`);
+    conta.dependentes.forEach((d) => partes.push(`${brl(d.total)} de ${esc(d.nome)}`));
+    const detalhe = conta.total === 0 && resp
+      ? `acertado por <b>${esc(resp.nome || resp.id)}</b>`
+      : (partes.length > 1 ? `${partes.join(' + ')} = <b>${brl(conta.total)}</b>` : brl(conta.total));
+
+    const btn = conta.total === 0
+      ? ''
+      : st === 'pago'
+        ? `<button class="btn ghost btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="0" type="button">Desfazer</button>`
+        : `<button class="btn btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="1" type="button">Marcar pago</button>`;
+
     const aberto = finBalcao === a.id;
+    const marca = resp ? `<span class="fin-vinculo">conta de ${esc(resp.nome || resp.id)}</span>` : '';
     return `<div class="fin-row fin-row-consumo">
-      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div>
+      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}${marca}</div>
         <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}</div></div>
-      <span class="fin-badge ${st}">${lbl}</span>
+      <span class="fin-badge ${stExibido}">${lbl}</span>
       <div class="fin-acoes">
         <button class="btn ghost btn-sm fin-balcao-btn${aberto ? ' on' : ''}" data-id="${esc(a.id)}" type="button">${aberto ? 'Fechar' : '+ Consumo'}</button>
         ${btn}
       </div>
-      ${aberto ? balcaoConsumo(a, f) : ''}
+      ${aberto ? balcaoConsumo(a, propria) : ''}
     </div>`;
   }).join('');
 

@@ -1,7 +1,8 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mesIdDoConsumo, mesIdParaLancar, consumosDoMes, totalConsumos, faturaDoMes } from './consumo.js';
+import { mesIdDoConsumo, mesIdParaLancar, consumosDoMes, totalConsumos, faturaDoMes,
+  parteCoberta, faturaPropria, faturaComDependentes } from './consumo.js';
 
 const c = (data, mesId, preco, nome = 'Energético') => ({ id: data + nome, nome, preco, data, mesId });
 
@@ -101,4 +102,83 @@ test('mensalidade com vírgula é lida como número', () => {
 test('aluno sem mensalidade cadastrada ainda soma os consumíveis', () => {
   const aluno = { consumos: [c('2026-09-02', '2026-09', 10)] };
   assert.equal(faturaDoMes(aluno, '2026-09').total, 10);
+});
+
+/* ---------- Quem paga a conta de quem ---------- */
+
+const MATHEUS = (escopo) => ({
+  nome: 'Matheus', mensalidade: '150',
+  consumos: [c('2026-09-02', '2026-09', 10), c('2026-09-03', '2026-09', 3, 'Dose')],
+  ...(escopo ? { pagoPor: { id: 'andre', escopo } } : {}),
+});
+
+test('sem responsável, a conta inteira é do próprio aluno', () => {
+  assert.equal(faturaPropria(MATHEUS(), '2026-09').total, 163);
+  assert.equal(parteCoberta(MATHEUS(), '2026-09').total, 0);
+});
+
+test('escopo "tudo": o responsável assume mensalidade e consumíveis', () => {
+  assert.equal(parteCoberta(MATHEUS('tudo'), '2026-09').total, 163);
+  assert.equal(faturaPropria(MATHEUS('tudo'), '2026-09').total, 0, 'o dependente não deve nada');
+});
+
+test('escopo "plano": o responsável assume só a mensalidade', () => {
+  const coberta = parteCoberta(MATHEUS('plano'), '2026-09');
+  assert.equal(coberta.mensalidade, 150);
+  assert.equal(coberta.extras, 0);
+  assert.equal(coberta.total, 150);
+  const propria = faturaPropria(MATHEUS('plano'), '2026-09');
+  assert.equal(propria.mensalidade, 0);
+  assert.equal(propria.total, 13, 'o que ele consumiu continua sendo dele');
+  assert.equal(propria.consumos.length, 2, 'e ele vê o que consumiu na notinha');
+});
+
+test('as duas metades sempre fecham a conta cheia', () => {
+  for (const escopo of ['tudo', 'plano', undefined]) {
+    const m = MATHEUS(escopo);
+    assert.equal(parteCoberta(m, '2026-09').total + faturaPropria(m, '2026-09').total,
+      faturaDoMes(m, '2026-09').total, `escopo ${escopo}`);
+  }
+});
+
+test('a conta do André soma a dele e a do filho', () => {
+  const andre = { nome: 'André', mensalidade: '150', consumos: [c('2026-09-01', '2026-09', 10)] };
+  const f = faturaComDependentes(andre, '2026-09', [MATHEUS('tudo')]);
+  assert.equal(f.propria.total, 160);
+  assert.equal(f.dependentes.length, 1);
+  assert.equal(f.dependentes[0].nome, 'Matheus');
+  assert.equal(f.dependentes[0].total, 163);
+  assert.equal(f.total, 323);
+});
+
+test('com escopo "plano", o André só leva a mensalidade do filho', () => {
+  const andre = { nome: 'André', mensalidade: '150' };
+  const f = faturaComDependentes(andre, '2026-09', [MATHEUS('plano')]);
+  assert.equal(f.dependentes[0].total, 150);
+  assert.equal(f.total, 300);
+});
+
+test('dois dependentes somam os dois', () => {
+  const andre = { nome: 'André', mensalidade: '150' };
+  const outro = { nome: 'Ana', mensalidade: '171', pagoPor: { id: 'andre', escopo: 'tudo' } };
+  const f = faturaComDependentes(andre, '2026-09', [MATHEUS('tudo'), outro]);
+  assert.deepEqual(f.dependentes.map((d) => d.nome), ['Matheus', 'Ana']);
+  assert.equal(f.total, 150 + 163 + 171);
+});
+
+test('dependente sem nada a cobrar naquele mês não polui a notinha', () => {
+  const andre = { nome: 'André', mensalidade: '150' };
+  const semNada = { nome: 'Zé', mensalidade: '', consumos: [], pagoPor: { id: 'andre', escopo: 'tudo' } };
+  const f = faturaComDependentes(andre, '2026-09', [semNada]);
+  assert.equal(f.dependentes.length, 0);
+  assert.equal(f.total, 150);
+});
+
+test('no Portal o dependente chega com o escopo solto, sem a ficha inteira', () => {
+  // A fatia publicada do responsável carrega {nome, escopo, mensalidade, consumos}.
+  const andre = { nome: 'André', mensalidade: '150' };
+  const fatia = { nome: 'Matheus', escopo: 'plano', mensalidade: '150', consumos: [c('2026-09-02', '2026-09', 10)] };
+  const f = faturaComDependentes(andre, '2026-09', [fatia]);
+  assert.equal(f.dependentes[0].total, 150);
+  assert.equal(f.total, 300);
 });

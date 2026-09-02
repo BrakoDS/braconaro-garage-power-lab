@@ -135,6 +135,12 @@ export function atualizar(id, dados) {
 export function remover(id) {
   const d = ler();
   d.alunos = d.alunos.filter((a) => a.id !== id);
+  // Quem tinha a conta acertada por ele volta a pagar a própria: um vínculo
+  // apontando para uma ficha que não existe mais some do painel do coach — o
+  // dependente aparece devendo zero e nunca mais entra numa cobrança.
+  for (const a of d.alunos) {
+    if (a.pagoPor && a.pagoPor.id === id) a.pagoPor = null;
+  }
   gravar(d);
 }
 
