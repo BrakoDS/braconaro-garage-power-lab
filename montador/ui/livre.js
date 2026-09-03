@@ -252,4 +252,64 @@ function renderResumo() {
   $('#l-volume').innerHTML = nItens
     ? `<article class="card"><h4>Volume por músculo (séries equivalentes)</h4>${renderVolume(vol)}</article>`
     : '';
+  renderSalvar(nItens);
+}
+
+/* ---------- salvar ---------- */
+/** Linhas com exercício escolhido mas sem séries — o coach precisa saber quais. */
+function linhasIncompletas() {
+  const fora = [];
+  est.blocos.forEach((b, bi) => (b.exercicios || []).forEach((l, li) => {
+    const temEx = !!(l.id && porId(l.id));
+    const series = parseFloat(String(l.series ?? b.series ?? '').replace(',', '.'));
+    if (temEx && !(series > 0)) fora.push(`${b.nome || `Bloco ${bi + 1}`} · linha ${li + 1}`);
+  }));
+  return fora;
+}
+
+function renderSalvar(nItens) {
+  const d = dateId();
+  const jaTem = store.getTreino(d);
+  const dataTxt = store.dataDe(d).toLocaleDateString('pt-BR');
+  const incompletas = linhasIncompletas();
+  $('#l-salvar').innerHTML = nItens ? `<div class="card salvar-bar">
+    <div>Salvar na data <b>${dataTxt}</b>${jaTem ? ' <span class="chip warn">já há treino nesse dia</span>' : ''} e publicar no <b>Portal do Aluno</b>.
+      ${incompletas.length ? `<div class="lv-aviso">Sem séries, não vão para o aluno: ${esc(incompletas.join(', '))}.</div>` : ''}
+    </div>
+    <button class="btn" id="btn-salvar-livre" type="button">Salvar no histórico</button>
+  </div>` : '';
+  $('#btn-salvar-livre')?.addEventListener('click', salvar);
+}
+
+function snapshot() {
+  const { vol, extra } = montagem();
+  return {
+    dia: store.diaSemanaDe(dateId()),
+    modalidade: est.classificacao,
+    geradoEm: new Date().toISOString(),
+    manual: true,
+    volPorPadrao: vol.porPadrao,
+    nAlunos: nAlunos(),
+    ...extra,
+  };
+}
+
+async function salvar() {
+  const d = dateId();
+  if (!montagem().nItens) return;
+  const dataTxt = store.dataDe(d).toLocaleDateString('pt-BR');
+  if (store.getTreino(d)) {
+    const ok = await confirmar({
+      titulo: 'Substituir treino?',
+      texto: `Já existe um treino registrado em <b>${dataTxt}</b>. Ele será trocado por este treino livre, no histórico e no Portal do Aluno.`,
+      ok: 'Substituir', perigo: true,
+    });
+    if (!ok) return;
+  }
+  const snap = snapshot();
+  store.salvarTreino(d, snap);
+  publicarTreino(d, snap);
+  $('#l-salvar').innerHTML = `<div class="card salvar-bar"><span class="ok">✓ Treino livre salvo em ${dataTxt} e enviado ao Portal do Aluno.</span></div>`;
+  // Redesenha a meta já contando o treino que acabou de entrar na semana.
+  renderResumo();
 }
