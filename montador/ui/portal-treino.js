@@ -22,14 +22,37 @@ async function init() {
   _fns = { doc: fsMod.doc, setDoc: fsMod.setDoc, updateDoc: fsMod.updateDoc, deleteField: fsMod.deleteField };
 }
 
-/** Enxuga um dia salvo para o que o Portal precisa (mantém o formato do dia). */
-function diaEnxuto(d) {
+/**
+ * Enxuga um dia salvo para o que o Portal precisa (mantém o formato do dia).
+ * Exportada só para o teste de verificação chamar a função real (em vez de um
+ * harness que simula o formato) — nada dentro do app importa isto de fora.
+ */
+export function diaEnxuto(d) {
   const base = { dia: d.dia, modalidade: d.modalidade };
   if (d.hyrox) return { ...base, hyrox: d.hyrox };
   if (d.hiit) return { ...base, hiit: d.hiit };
   if (d.gap) return { ...base, gap: d.gap };
   if (d.hibrido) return { ...base, hibrido: d.hibrido };
   if (d.murph) return { ...base, murph: d.murph };
+  if (d.livre) {
+    // Mesma poda do ramo plano abaixo, só que por bloco: o aluno não usa `id`,
+    // `equipamento` nem os músculos — e sem cortar isso o doc do Portal carrega
+    // dado que só o coach precisa.
+    return {
+      ...base,
+      aquecimento: (d.aquecimento || []).map((a) => ({ nome: a.nome, duracaoSeg: a.duracaoSeg })),
+      livre: {
+        blocos: (d.livre.blocos || []).map((b) => ({
+          nome: b.nome,
+          porNivel: b.porNivel,
+          exercicios: (b.exercicios || []).map((e) => ({
+            nome: e.nome, padrao: e.padrao, reps: e.reps, descansoSeg: e.descansoSeg, niveis: e.niveis,
+            tecnica: e.tecnica || null,
+          })),
+        })),
+      },
+    };
+  }
   return {
     ...base,
     // `aquecimento` e `tecnica` são o que o aluno precisa para executar sozinho:

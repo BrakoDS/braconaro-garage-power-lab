@@ -397,6 +397,41 @@ function corpoTreino(id) {
 }
 
 /**
+ * Card de um dia do Treino Livre salvo: cada bloco vira sua própria tabela de 3
+ * níveis (reusa `linhaNiveis`/`tabelaNiveis`, os mesmos do dia plano). Sem
+ * "trocar" — editar um dia livre já salvo está fora de escopo, então nem
+ * `acoesHTML` nem `altsHTML` são oferecidos aqui.
+ * @param {any} d  snapshot do dia (com `d.livre`)
+ */
+function renderLivreSalvo(d) {
+  const man = Boolean(d.manual);
+  const totalAquec = (d.aquecimento || []).reduce((a, x) => a + (x.duracaoSeg || 0), 0);
+  const aquec = d.aquecimento?.length
+    ? `<h4>Aquecimento / Mobilidade <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— ${d.aquecimento.length} exercícios · ${mmss(totalAquec)}</span></h4>
+       <ul class="aquec">${d.aquecimento.map((a) => `<li>${esc(a.nome)} — <b>${a.duracaoSeg}s</b></li>`).join('')}</ul>`
+    : '';
+
+  const t = d.tempos;
+  const tempos = t
+    ? `<div class="tempos">🔥 aquec ${mmss(t.aquecimentoSeg)} · 🏋️ principal ${mmss(t.principalSeg)} · ⏱ total ~${mmss(t.totalSeg)} <span class="mut">(ref. intermediário)</span></div>`
+    : '';
+
+  // Bloco que não abre por nível deu o MESMO número pros três — sem o aviso o
+  // coach lê a tabela e acha que o avançado ficou com a prescrição errada.
+  const blocos = (d.livre?.blocos || []).map((b) => {
+    const linhas = (b.exercicios || []).map((e, i) => linhaNiveis(i, e, '', '')).join('');
+    const igual = b.porNivel ? '' : ' <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— mesma série para os três níveis</span>';
+    return `<h4>${esc(b.nome)}${igual}</h4>${tabelaNiveis(linhas)}`;
+  }).join('');
+
+  return `<article class="card">
+    <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}${man ? ' <span class="chip acc">manual</span>' : ''}</h3>
+    ${tempos}
+    ${aquec}
+    ${blocos}</article>`;
+}
+
+/**
  * Card de um dia salvo, a partir do snapshot.
  * @param {any} d @param {boolean} [editavel]  Mostra o botão "trocar" (só na aba Programa)
  */
@@ -410,6 +445,7 @@ export function renderDiaSalvo(d, editavel = true) {
   if (d.gap) return renderGap(d.gap, d.dia, man);       // GAP é aula estruturada (sem "trocar")
   if (d.hibrido) return renderHibrido(d.hibrido, d.dia, man); // Híbrido é gerado (sem "trocar" nesta leva)
   if (d.murph) return renderMurph(d.murph, d.dia, man);       // Murph é desafio fixo (sem "trocar")
+  if (d.livre) return renderLivreSalvo(d);                    // Treino Livre: sem `exercicios[]` no topo, sem "trocar"
   // A edição do dia salvo é sempre sobre o formato plano — os estruturados já
   // retornaram acima. `diaEditavel` confirma antes de oferecer os botões.
   const podeEditar = editavel && diaEditavel(d);
