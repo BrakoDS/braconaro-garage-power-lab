@@ -38,6 +38,7 @@ import { EXERCICIOS } from '../data/exercicios.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
 import { formatoManual } from '../core/formato-manual.js';
 import { duracaoMobilidade } from '../core/gerador.js';
+import { idsUsadosEm } from '../core/usados.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
@@ -210,14 +211,7 @@ const alunosAtual = () => Math.min(20, Math.max(1, Number($('#m-alunos')?.value)
 const semanaAtual = () => Math.min(4, Math.max(1, Number($('#m-semana')?.value) || 1));
 
 /** IDs já usados em OUTROS dias da mesma semana (marcados na lista, mas selecionáveis). */
-function idsUsadosNaSemana(dateId) {
-  const ids = new Set();
-  for (const t of store.treinosDaSemana(dateId)) {
-    if (t.dateId === dateId) continue;
-    for (const e of (t.exercicios || [])) if (e.id) ids.add(e.id);
-  }
-  return ids;
-}
+const idsUsadosNaSemana = (dateId) => idsUsadosEm(store.treinosDaSemana(dateId), dateId);
 
 /** @returns {CtxManual} */
 function ctx() {
