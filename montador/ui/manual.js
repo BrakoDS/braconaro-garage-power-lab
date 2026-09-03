@@ -39,6 +39,7 @@ import { MOV_GAP_POR_ID } from '../data/gap.js';
 import { formatoManual } from '../core/formato-manual.js';
 import { duracaoMobilidade } from '../core/gerador.js';
 import { idsUsadosEm } from '../core/usados.js';
+import { congelarTecnica } from '../core/tecnicas-auto.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
@@ -151,7 +152,7 @@ export function optionsTecnica(sel) {
  *  Academia e pode até ser apagada depois — o treino salvo guarda o nome do dia. */
 export function tecnicaSalva(id) {
   const t = tecnicaPorId(id);
-  return t ? { tipo: t.id, label: t.nome, detalhe: t.resumo || t.objetivo || '' } : null;
+  return t ? congelarTecnica(t) : null;
 }
 
 /** Rótulo do orçamento de mobilidade: quanto as escolhas gastam do tempo previsto. */
