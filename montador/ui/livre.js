@@ -261,8 +261,12 @@ function linhasIncompletas() {
   const fora = [];
   est.blocos.forEach((b, bi) => (b.exercicios || []).forEach((l, li) => {
     const temEx = !!(l.id && porId(l.id));
-    const series = parseFloat(String(l.series ?? b.series ?? '').replace(',', '.'));
-    if (temEx && !(series > 0)) fora.push(`${b.nome || `Bloco ${bi + 1}`} · linha ${li + 1}`);
+    // Mesma regra de herança do `herdar()` em core/livre.js: '' herda do bloco
+    // igual undefined/null. Divergir daria um aviso que mente pro coach — a
+    // linha herda e SERÁ salva, mas apareceria aqui como incompleta.
+    const daLinha = l.series === undefined || l.series === null || l.series === '' ? b.series : l.series;
+    const series = parseFloat(String(daLinha ?? '').replace(',', '.'));
+    if (temEx && !(series > 0)) fora.push(`${String(b.nome || '').trim() || `Bloco ${bi + 1}`} · linha ${li + 1}`);
   }));
   return fora;
 }
@@ -289,7 +293,7 @@ function snapshot() {
     geradoEm: new Date().toISOString(),
     manual: true,
     volPorPadrao: vol.porPadrao,
-    nAlunos: nAlunos(),
+    nAlunos: nAlunos(), // a edição do dia salvo precisa da turma p/ recalcular viabilidade
     ...extra,
   };
 }
@@ -310,6 +314,10 @@ async function salvar() {
   store.salvarTreino(d, snap);
   publicarTreino(d, snap);
   $('#l-salvar').innerHTML = `<div class="card salvar-bar"><span class="ok">✓ Treino livre salvo em ${dataTxt} e enviado ao Portal do Aluno.</span></div>`;
-  // Redesenha a meta já contando o treino que acabou de entrar na semana.
-  renderResumo();
+  // Redesenha só a meta, contando o treino que acabou de entrar na semana.
+  // NÃO chama renderResumo(): ele termina redesenhando #l-salvar de volta pra
+  // barra normal, e o navegador só pinta o estado final — a confirmação acima
+  // nunca apareceria na tela.
+  const daSemana = store.treinosDaSemana(d).map((t) => t.volPorPadrao || {});
+  $('#l-meta').innerHTML = renderMetaVolume(daSemana, null);
 }
