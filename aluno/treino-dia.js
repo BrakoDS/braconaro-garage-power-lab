@@ -188,6 +188,31 @@ function corpoHibrido(h, nivel) {
 }
 
 /**
+ * Treino Livre: blocos nomeados pelo coach, cada um com sua prescrição.
+ *
+ * O bloco que não abre por nível mostra o mesmo número para todos e diz isso —
+ * sem o aviso, o aluno avançado acharia que o app errou a conta dele.
+ * @param {any} l  o `treino.livre` do snapshot
+ * @param {string} nivel
+ */
+function corpoLivre(l, nivel) {
+  return (l.blocos || []).map((b) => {
+    const linhas = (b.exercicios || []).map((e, i) => {
+      const v = e.niveis && e.niveis[nivel];
+      const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}` : esc(e.reps || '');
+      const tec = e.tecnica ? ` · <i>${esc(rotuloTecnica(e.tecnica))}</i>` : '';
+      return `<li class="td-ex">
+        <span class="td-ex-nome">${i + 1}. ${esc(e.nome)}</span>
+        <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}${tec}</span>
+        <span class="td-ex-presc">${prescricao}</span>
+      </li>`;
+    }).join('');
+    const igual = b.porNivel ? '' : ' <span class="td-nota-inline">· igual para todos</span>';
+    return `<div class="td-parte-h">${esc(b.nome)}${igual}</div><ul class="td-lista">${linhas}</ul>`;
+  }).join('');
+}
+
+/**
  * Card do treino de hoje.
  * @param {any} treino  dia (exercicios/hyrox/hiit/gap/hibrido)
  * @param {string} nivel  nível do aluno
@@ -202,6 +227,14 @@ export function renderTreinoDia(treino, nivel) {
   else if (treino.gap) { corpo = corpoGap(treino.gap); porNivel = false; }
   else if (treino.hibrido) { corpo = corpoHibrido(treino.hibrido, n); porNivel = true; }
   else if (treino.murph) { corpo = corpoMurph(treino.murph, n); porNivel = true; }
+  else if (treino.livre) {
+    // O aquecimento do dia livre usa a MESMA forma dos outros formatos, então
+    // reaproveita o trecho de `corpoExercicios` em vez de repetir a marcação.
+    const aquec = (treino.aquecimento || []).length
+      ? `<div class="td-parte-h">Aquecimento / Mobilidade</div><ul class="td-lista">${treino.aquecimento.map((a) => `<li>${esc(a.nome)}${a.duracaoSeg ? ` — <b>${a.duracaoSeg}s</b>` : ''}</li>`).join('')}</ul>`
+      : '';
+    corpo = aquec + corpoLivre(treino.livre, n); porNivel = true;
+  }
   else { corpo = corpoExercicios(treino, n); porNivel = true; }
   // só mostra o "seu nível" nos formatos que variam por nível (força/hyrox)
   const badgeNivel = porNivel ? `<span class="td-nivel">seu nível: ${esc(NIVEL_LABEL[n] || n)}</span>` : '';

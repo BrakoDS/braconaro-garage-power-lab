@@ -576,6 +576,7 @@ button.crono-hoje:hover,button.crono-hoje:focus-visible{border-color:var(--line-
 .td-slots i{color:var(--accent-2);font-style:normal}
 .td-parte{margin-top:12px}
 .td-parte-h{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:6px}
+.td-nota-inline{font-weight:400;font-size:.8rem;color:var(--mut-2);text-transform:none;letter-spacing:0}
 .td-descanso{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);padding:16px 18px}
 .td-descanso-ic{font-size:1.8rem}
 .td-descanso p{margin:2px 0 0;color:var(--mut);font-size:.9rem}
