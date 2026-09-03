@@ -207,7 +207,10 @@ function corpoLivre(l, nivel) {
   return (l.blocos || []).map((b) => {
     const linhas = (b.exercicios || []).map((e, i) => {
       const v = e.niveis && e.niveis[nivel];
-      const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}` : esc(e.reps || '');
+      // O intervalo só aparece se o coach preencheu algo — o próprio campo do
+      // bloco herda 0/vazio quando ele não mexeu, e mostrar "· 0s" seria ruído.
+      const desc = e.descansoSeg ? ` · ${e.descansoSeg}s` : '';
+      const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}${desc}` : `${esc(e.reps || '')}${desc}`;
       const tec = e.tecnica ? ` · <i>${esc(rotuloTecnica(e.tecnica))}</i>` : '';
       return `<li class="td-ex">
         <span class="td-ex-nome">${i + 1}. ${esc(e.nome)}</span>
@@ -235,7 +238,12 @@ export function renderTreinoDia(treino, nivel) {
   else if (treino.gap) { corpo = corpoGap(treino.gap); porNivel = false; }
   else if (treino.hibrido) { corpo = corpoHibrido(treino.hibrido, n); porNivel = true; }
   else if (treino.murph) { corpo = corpoMurph(treino.murph, n); porNivel = true; }
-  else if (treino.livre) { corpo = blocoAquecimento(treino.aquecimento) + corpoLivre(treino.livre, n); porNivel = true; }
+  else if (treino.livre) {
+    corpo = blocoAquecimento(treino.aquecimento) + corpoLivre(treino.livre, n);
+    // Só promete personalização se ALGUM bloco de fato abre por nível — um dia
+    // 100% WOD (todo porNivel:false) não pode estampar "seu nível" no card.
+    porNivel = (treino.livre.blocos || []).some((b) => b.porNivel);
+  }
   else { corpo = corpoExercicios(treino, n); porNivel = true; }
   // só mostra o "seu nível" nos formatos que variam por nível (força/hyrox)
   const badgeNivel = porNivel ? `<span class="td-nivel">seu nível: ${esc(NIVEL_LABEL[n] || n)}</span>` : '';

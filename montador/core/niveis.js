@@ -23,12 +23,21 @@ export const NIVEL_LABEL = { iniciante: 'Iniciante', intermediario: 'Intermediá
  * Séries de um exercício num nível, escalando a partir das séries do intermediário
  * (âncora). Como o intermediário tem fator 1.0, isto aplica só a diferença de nível
  * sobre o valor já ajustado por semana/tempo — mantendo a proporção do trim.
- * @param {number} seriesAncora  séries geradas para o intermediário
+ *
+ * O piso de 2 é a proteção do GERADOR: a âncora ali é calculada (periodização,
+ * arredondamentos), então nunca chega ao coach como "1 série" por acidente. Quando
+ * a âncora foi DIGITADA pelo coach (Treino Livre), esse piso vira mentira — ele
+ * escreveu "1" e o sistema mostraria "2" para o próprio nível que ele mandou abrir
+ * por nível. `opcoes.seriesDigitadas` troca o piso para 1, o mínimo que ainda é um
+ * treino.
+ * @param {number} seriesAncora  séries geradas (ou digitadas) para o intermediário
  * @param {Nivel} nivel
+ * @param {{seriesDigitadas?: boolean}} [opcoes]
  */
-export function seriesDoNivel(seriesAncora, nivel) {
+export function seriesDoNivel(seriesAncora, nivel, opcoes = {}) {
   const base = fatorNivel('intermediario'); // 1.0 — deixa explícita a âncora
-  return Math.max(2, Math.round(seriesAncora * fatorNivel(nivel) / base));
+  const piso = opcoes.seriesDigitadas ? 1 : 2;
+  return Math.max(piso, Math.round(seriesAncora * fatorNivel(nivel) / base));
 }
 
 /**
@@ -36,8 +45,10 @@ export function seriesDoNivel(seriesAncora, nivel) {
  * @param {Exercicio} ex
  * @param {number} seriesAncora  séries do intermediário para este exercício
  * @param {ModalidadeId} modalidade
- * @param {{seriesFixas?: boolean}} [opcoes]  Híbrido usa `seriesFixas`: lá as séries
- *        são função do nº de postos (seguram a duração da aula), e o nível age na carga.
+ * @param {{seriesFixas?: boolean, seriesDigitadas?: boolean}} [opcoes]  Híbrido usa
+ *        `seriesFixas`: lá as séries são função do nº de postos (seguram a duração da
+ *        aula), e o nível age na carga. Treino Livre usa `seriesDigitadas`: ver
+ *        `seriesDoNivel`.
  * @returns {Record<Nivel, { series: number, carga: string }>}
  */
 export function variantesNivel(ex, seriesAncora, modalidade, opcoes = {}) {
@@ -45,7 +56,7 @@ export function variantesNivel(ex, seriesAncora, modalidade, opcoes = {}) {
   const out = {};
   for (const n of NIVEIS) {
     out[n] = {
-      series: opcoes.seriesFixas ? seriesAncora : seriesDoNivel(seriesAncora, n),
+      series: opcoes.seriesFixas ? seriesAncora : seriesDoNivel(seriesAncora, n, opcoes),
       carga: sugerirCarga(ex, n, modalidade).texto,
     };
   }

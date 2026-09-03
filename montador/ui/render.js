@@ -66,9 +66,9 @@ function linhaNiveis(i, item, acoesHTML, altsHTML) {
     <td>
       <div class="ex-row">
         <div>
-          <b>${item.nome}</b> ${seloTecnica(item.tecnica)}<br>
+          <b>${esc(item.nome)}</b> ${seloTecnica(item.tecnica)}<br>
           <small>${PADRAO_LABEL[item.padrao] || item.padrao} · ${equipNomes(item.equipamento || [])}</small>${musculos}<br>
-          <small class="mut">${item.reps}${desc}</small>
+          <small class="mut">${esc(item.reps)}${desc}</small>
         </div>
         ${acoesHTML}
       </div>
@@ -397,6 +397,21 @@ function corpoTreino(id) {
 }
 
 /**
+ * As técnicas do dia, com o texto do que fazer. O selo na linha do exercício
+ * guarda a explicação num `title` — que não serve para quem está copiando no
+ * quadro, e nem existe no celular. Comum ao dia plano e ao Treino Livre: os
+ * dois guardam a técnica no mesmo formato por exercício.
+ * @param {any[]} exercicios
+ */
+function blocoTecnicasDoDia(exercicios) {
+  const comTecnica = (exercicios || []).filter((e) => e.tecnica?.detalhe);
+  return comTecnica.length
+    ? `<h4>Técnicas do dia</h4><ul class="aquec">${comTecnica.map((e) =>
+        `<li><b>${esc(e.tecnica.label || e.tecnica.tipo)}</b> em ${esc(e.nome)} — <span class="mut">${esc(e.tecnica.detalhe)}</span></li>`).join('')}</ul>`
+    : '';
+}
+
+/**
  * Card de um dia do Treino Livre salvo: cada bloco vira sua própria tabela de 3
  * níveis (reusa `linhaNiveis`/`tabelaNiveis`, os mesmos do dia plano). Sem
  * "trocar" — editar um dia livre já salvo está fora de escopo, então nem
@@ -424,11 +439,17 @@ function renderLivreSalvo(d) {
     return `<h4>${esc(b.nome)}${igual}</h4>${tabelaNiveis(linhas)}`;
   }).join('');
 
+  // As técnicas somam de TODOS os blocos — o seletor por linha existe em cada um,
+  // e sem isto o coach só encontraria a escolha dele num tooltip.
+  const todosExercicios = (d.livre?.blocos || []).flatMap((b) => b.exercicios || []);
+  const tecnicas = blocoTecnicasDoDia(todosExercicios);
+
   return `<article class="card">
     <h3>${d.dia.toUpperCase()} · ${MODALIDADES[d.modalidade]?.nome || d.modalidade}${man ? ' <span class="chip acc">manual</span>' : ''}</h3>
     ${tempos}
     ${aquec}
-    ${blocos}</article>`;
+    ${blocos}
+    ${tecnicas}</article>`;
 }
 
 /**
@@ -493,14 +514,7 @@ export function renderDiaSalvo(d, editavel = true) {
     ? `<div class="tempos">🔥 aquec ${mmss(t.aquecimentoSeg)} · 🏋️ principal ${mmss(t.principalSeg)} · ⏱ total ~${mmss(t.totalSeg)} <span class="mut">(ref. intermediário)</span></div>`
     : '';
 
-  // As técnicas do dia, com o texto do que fazer. O selo na linha do exercício
-  // guarda a explicação num `title` — que não serve para quem está copiando no
-  // quadro, e nem existe no celular.
-  const comTecnica = (d.exercicios || []).filter((e) => e.tecnica?.detalhe);
-  const tecnicas = comTecnica.length
-    ? `<h4>Técnicas do dia</h4><ul class="aquec">${comTecnica.map((e) =>
-        `<li><b>${esc(e.tecnica.label || e.tecnica.tipo)}</b> em ${esc(e.nome)} — <span class="mut">${esc(e.tecnica.detalhe)}</span></li>`).join('')}</ul>`
-    : '';
+  const tecnicas = blocoTecnicasDoDia(d.exercicios);
 
   // Um dia gerado e depois editado à mão não pode parecer igual a um gerado.
   const selosEdicao = (d.trocas?.length)

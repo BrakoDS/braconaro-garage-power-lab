@@ -60,7 +60,7 @@ export function montarLivre({ classificacao = 'hipertrofia', aquecimento = [], b
       // Linha sem séries é linha pela metade: não conta no volume e não vai ao
       // aluno. Some em silêncio aqui; quem avisa o coach é a tela.
       const series = num(herdar(l.series, b.series));
-      if (!series || series <= 0) continue;
+      if (!(series > 0)) continue; // espelha `linhasIncompletas` em ui/livre.js
       const reps = String(herdar(l.reps, b.reps) ?? '').trim();
       const descansoSeg = Math.max(0, num(herdar(l.descansoSeg, b.descansoSeg)) || 0);
 
@@ -76,8 +76,12 @@ export function montarLivre({ classificacao = 'hipertrofia', aquecimento = [], b
         descansoSeg,
         seriesRef: series,
         // `seriesFixas` quando o bloco não abre por nível: os três níveis recebem
-        // o mesmo número, e a diferenciação sobra na carga.
-        niveis: variantesNivel(e, series, /** @type {any} */ (classificacao), { seriesFixas: !b.porNivel }),
+        // o mesmo número, e a diferenciação sobra na carga. `seriesDigitadas`
+        // sempre ligado: aqui a âncora é o número que o coach escreveu, não um
+        // cálculo do gerador — o piso de 2 séries do gerador não se aplica.
+        niveis: variantesNivel(e, series, /** @type {any} */ (classificacao), {
+          seriesFixas: !b.porNivel, seriesDigitadas: true,
+        }),
         musculosPrimarios: e.musculosPrimarios || [],
         musculosSecundarios: e.musculosSecundarios || [],
         tecnica: l.tecnica || null,

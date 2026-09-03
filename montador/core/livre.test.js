@@ -117,6 +117,35 @@ test('bloco com "abrir por nível" desligado dá o mesmo número para todos — 
   assert.equal(n.avancado.series, 3);
 });
 
+test('série digitada 1 com "abrir por nível" dá exatamente 1 ao intermediário — o piso do gerador não se aplica', () => {
+  // Antes do ajuste, seriesDoNivel tinha piso 2 fixo e o intermediário virava "2"
+  // mesmo o coach tendo digitado "1" — a mesma prescrição que itensVolume contava
+  // como 1, contradizendo o card do aluno.
+  const r = montarLivre(base({ blocos: [
+    { nome: 'A', series: 1, reps: '10', descansoSeg: 60, porNivel: true, exercicios: [{ id: 'supino' }] },
+  ] }));
+  const n = r.extra.livre.blocos[0].exercicios[0].niveis;
+  assert.equal(n.intermediario.series, 1);
+});
+
+test('o volume contado bate com a série prescrita ao intermediário, mesmo digitando 1', () => {
+  const r = montarLivre(base({ blocos: [
+    { nome: 'A', series: 1, reps: '10', descansoSeg: 60, porNivel: true, exercicios: [{ id: 'supino' }] },
+  ] }));
+  const n = r.extra.livre.blocos[0].exercicios[0].niveis;
+  assert.equal(r.vol.totalSeries, n.intermediario.series);
+});
+
+test('série digitada 4 com "abrir por nível" ainda escala 3/4/5 — comportamento inalterado', () => {
+  const r = montarLivre(base({ blocos: [
+    { nome: 'A', series: 4, reps: '10', descansoSeg: 60, porNivel: true, exercicios: [{ id: 'supino' }] },
+  ] }));
+  const n = r.extra.livre.blocos[0].exercicios[0].niveis;
+  assert.equal(n.iniciante.series, 3);
+  assert.equal(n.intermediario.series, 4);
+  assert.equal(n.avancado.series, 5);
+});
+
 test('mesmo com séries fixas, a carga sugerida continua existindo por nível', () => {
   const r = montarLivre(base({ blocos: [
     { nome: 'WOD', series: 3, reps: '12', descansoSeg: 30, porNivel: false, exercicios: [{ id: 'supino' }] },

@@ -182,9 +182,10 @@ function escolher(input, id) {
 
 /* ---------- eventos ----------
    TUDO delegado na seção, e ligado UMA vez em `ligarEventosUmaVez()`.
-   `render()` troca o innerHTML de `#l-corpo` a cada tecla de séries; se os
-   listeners fossem religados ali, cada render empilharia mais um, e depois de
-   dez ajustes o mesmo clique rodaria dez vezes. */
+   `render()` troca o innerHTML de `#l-corpo` a cada busca digitada e a cada
+   troca de bloco/linha (`change`, no blur/commit — não a cada tecla de séries
+   ou reps); se os listeners fossem religados ali, cada render empilharia mais
+   um, e depois de dez ajustes o mesmo clique rodaria dez vezes. */
 let eventosLigados = false;
 
 function ligarEventosUmaVez() {
@@ -247,7 +248,7 @@ function montagem() {
 
 function renderResumo() {
   const { vol, nItens } = montagem();
-  const daSemana = store.treinosDaSemana(dateId()).filter((t) => t.dateId !== dateId()).map((t) => t.volPorPadrao);
+  const daSemana = store.treinosDaSemana(dateId()).filter((t) => t.dateId !== dateId()).map((t) => t.volPorPadrao || {});
   $('#l-meta').innerHTML = renderMetaVolume(daSemana, vol.porPadrao);
   $('#l-volume').innerHTML = nItens
     ? `<article class="card"><h4>Volume por músculo (séries equivalentes)</h4>${renderVolume(vol)}</article>`
