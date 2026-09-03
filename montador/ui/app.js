@@ -16,6 +16,7 @@ import { ladoSalvo } from '../core/hibrido.js';
 import * as academia from '../../academia/db.js';
 import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
 import { initManual } from './manual.js';
+import { iniciarLivre } from './livre.js';
 import { confirmar, painel } from './dialogo.js';
 
 /** A geração ancora no intermediário; as colunas iniciante/avançado derivam dele. */
@@ -36,6 +37,7 @@ $$('.tab').forEach((tab) => tab.addEventListener('click', () => {
   $$('.view').forEach((v) => v.classList.remove('active'));
   tab.classList.add('active');
   $('#view-' + tab.dataset.view).classList.add('active');
+  if (tab.dataset.view === 'livre') iniciarLivre();
   if (tab.dataset.view === 'historico') renderHistorico();
 }));
 

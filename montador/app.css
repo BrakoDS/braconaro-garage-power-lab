@@ -189,6 +189,39 @@ tr.bad-row td { color: var(--warn); }
 .cal-leg-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mut); }
 .cal-leg-cor { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
 
+/* ---------- Treino Livre ---------- */
+.lv-sec { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; margin-bottom: 14px; }
+.lv-sec-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.lv-sec-h h4 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--mut); }
+.lv-bloco-nome { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; color: var(--txt);
+  font: inherit; font-weight: 700; padding: 7px 10px; min-width: 160px; }
+.lv-campo { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--mut); }
+.lv-campo input { width: 66px; }
+.lv-campo input.lv-reps { width: 92px; }
+/* A chave de nível é a decisão mais consequente do bloco: fica visível, não escondida num menu. */
+.lv-nivel { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--mut); cursor: pointer; }
+.lv-nivel input { accent-color: var(--acc); }
+.lv-linha { display: grid; grid-template-columns: 1fr 70px 100px 150px auto; gap: 8px; align-items: center; margin: 6px 0; }
+.lv-linha .lv-busca-wrap { position: relative; }
+.lv-linha input, .lv-linha select { width: 100%; }
+.lv-x { background: transparent; border: 1px solid var(--line); border-radius: 8px; color: var(--mut); cursor: pointer; padding: 6px 10px; }
+.lv-x:hover { color: var(--bad); border-color: var(--bad); }
+.lv-add { margin-top: 6px; }
+/* Sugestões da busca: lista sobreposta, porque o campo fica dentro de uma grade
+   e empurrar as linhas para baixo faria o cursor perseguir o campo. */
+.lv-sug { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 2px); max-height: 260px; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+.lv-sug button { display: block; width: 100%; text-align: left; background: transparent; border: 0; color: var(--txt);
+  cursor: pointer; padding: 8px 10px; font: inherit; font-size: 13px; }
+.lv-sug button:hover, .lv-sug button.sel { background: var(--bg2); }
+.lv-sug .lv-usado { color: var(--mut); font-size: 11.5px; }
+.lv-vazio { padding: 8px 10px; font-size: 12.5px; color: var(--mut); }
+.lv-vazio a { color: var(--acc); }
+.lv-aviso { color: var(--bad); font-size: 12.5px; margin-top: 6px; }
+@media (max-width: 720px) {
+  .lv-linha { grid-template-columns: 1fr; }
+}
+
 @media print {
   .topbar, .panel, .tab, .swap, .alts, button, .cal-nav, .salvar-bar { display: none !important; }
   body { background: #fff; color: #000; }
