@@ -234,7 +234,12 @@ button.crono-hoje:hover,button.crono-hoje:focus-visible{border-color:var(--line-
 .indique-ic{font-size:1.8rem;line-height:1;flex:0 0 auto}
 .indique-tx b{font-size:1.02rem;display:block;margin-bottom:2px}
 .indique-tx p{margin:0;color:var(--mut);font-size:.88rem;line-height:1.45}
-.indique-actions{display:flex;gap:10px;flex-wrap:wrap;flex:0 0 auto}
+/* `flex:0 0 auto` impedia o bloco de encolher, e aí o `flex-wrap` de dentro nunca
+   disparava: os dois botões ficavam lado a lado em 367px e furavam a tela de
+   375px, jogando o portal inteiro para o lado. Deixando encolher (`0 1 auto` +
+   `min-width:0`), eles empilham quando não cabem — que é o que o wrap sempre
+   quis fazer. */
+.indique-actions{display:flex;gap:10px;flex-wrap:wrap;flex:0 1 auto;min-width:0}
 
 /* ---------- Nutrição Básica (view) ---------- */
 .nut-voltar{background:none;border:0;color:var(--mut);cursor:pointer;font:inherit;font-size:.9rem;padding:4px 0;margin-top:6px}
