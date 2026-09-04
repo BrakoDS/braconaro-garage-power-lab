@@ -467,3 +467,45 @@ test('movimento de WOD sai com id, nome, padrao, equipamento e prescricao — é
     id: 'burpee', nome: 'Burpee', padrao: 'corpo_inteiro', equipamento: ['corporal'], prescricao: '10 reps',
   });
 });
+
+test('o EMOM do Livre é rotação por minuto — e NÃO o texto do Híbrido', async () => {
+  // Os dois têm o mesmo nome e execuções diferentes: aqui o minuto 1 é o primeiro
+  // movimento e a lista reinicia; no Híbrido a aluna faz o bloco inteiro e descansa
+  // o resto do minuto. Este teste existe para que ninguém unifique os dois textos
+  // achando que é duplicação — ver DESCRICAO_EMOM_ROTACAO em config/wod-formatos.js.
+  const { DESCRICAO_EMOM_ROTACAO, DESCRICAO_FORMATO } = await import('../config/wod-formatos.js');
+  const r = montarLivre({ blocos: [{ tipo: 'wod', formato: 'EMOM', duracaoMin: 16,
+    exercicios: [{ id: 'burpee' }] }], porId });
+  assert.equal(r.extra.livre.blocos[0].descricaoFormato, DESCRICAO_EMOM_ROTACAO);
+  assert.notEqual(DESCRICAO_EMOM_ROTACAO, DESCRICAO_FORMATO.EMOM,
+    'se estes dois textos ficarem iguais, um dos dois lados passou a mentir');
+});
+
+test('os outros três formatos usam a descrição compartilhada, sem texto próprio', async () => {
+  const { DESCRICAO_FORMATO } = await import('../config/wod-formatos.js');
+  for (const formato of ['AMRAP', 'For Time', 'Chipper']) {
+    const r = montarLivre({ blocos: [{ tipo: 'wod', formato, exercicios: [{ id: 'burpee' }] }], porId });
+    assert.equal(r.extra.livre.blocos[0].descricaoFormato, DESCRICAO_FORMATO[formato]);
+  }
+});
+
+test('rodadas fracionária arredonda — meia rodada não existe na sala', () => {
+  const r = montarLivre({ blocos: [{ tipo: 'wod', formato: 'For Time', rodadas: '3,5',
+    exercicios: [{ id: 'burpee' }] }], porId });
+  assert.equal(r.extra.livre.blocos[0].rodadas, 4);
+});
+
+test('bloco de WOD sem formato nenhum cai em AMRAP', () => {
+  const r = montarLivre({ blocos: [{ tipo: 'wod', exercicios: [{ id: 'burpee' }] }], porId });
+  assert.equal(r.extra.livre.blocos[0].formato, 'AMRAP');
+});
+
+test('tipo desconhecido é lido como bloco de série', () => {
+  // Fallback deliberado: só 'wod' desvia: qualquer outra coisa — inclusive um typo —
+  // é tratada como bloco de série, que é a forma que todo dia salvo já tem.
+  const r = montarLivre(base({ blocos: [
+    { tipo: 'srie', series: 3, reps: '10', descansoSeg: 60, exercicios: [{ id: 'supino' }] },
+  ] }));
+  assert.equal(r.extra.livre.blocos[0].tipo, 'series');
+  assert.equal(r.vol.totalSeries, 3);
+});

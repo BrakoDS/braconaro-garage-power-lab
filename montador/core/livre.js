@@ -69,8 +69,9 @@ function montarBlocoWod(b, porId) {
     descricaoFormato: formato === 'EMOM' ? DESCRICAO_EMOM_ROTACAO : DESCRICAO_FORMATO[formato],
     duracaoMin: Math.max(0, num(b.duracaoMin) || 0),
     // Rodadas só fazem sentido no For Time: no AMRAP e no EMOM quem manda é o
-    // relógio, e o Chipper é uma volta só por definição.
-    rodadas: formato === 'For Time' && rodadasNum > 0 ? rodadasNum : null,
+    // relógio, e o Chipper é uma volta só por definição. Arredondada porque meia
+    // rodada não existe na sala — ou a turma fecha a volta ou não fecha.
+    rodadas: formato === 'For Time' && rodadasNum > 0 ? Math.round(rodadasNum) : null,
     exercicios,
   };
 }
