@@ -230,12 +230,31 @@ tr.bad-row td { color: var(--warn); }
 .lv-vazio { padding: 8px 10px; font-size: 12.5px; color: var(--mut); }
 .lv-vazio a { color: var(--acc); }
 .lv-aviso { color: var(--bad); font-size: 12.5px; margin-top: 6px; }
+/* Alternador séries/WOD: par de botões-pílula, o mesmo padrão visual de
+   `.tab.active` (fundo âmbar, texto escuro) para o lado ativo — o coach já
+   reconhece essa cor como "é isto que está selecionado" no resto da tela. */
+.lv-tipo { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.lv-tipo button { background: transparent; border: 0; color: var(--mut); font: inherit; font-size: 12.5px;
+  font-weight: 600; padding: 6px 14px; cursor: pointer; }
+.lv-tipo button:hover { color: var(--txt); }
+.lv-tipo button.lv-tipo-on { background: var(--acc); color: #1a1300; }
+/* Linha de ajuda do bloco de WOD: explica o formato (e, no EMOM, a conta da
+   rotação) — informativo, não um aviso, por isso o tom neutro em vez do
+   vermelho de `.lv-aviso`. */
+.lv-wod-ajuda { color: var(--mut); font-size: 12.5px; margin-bottom: 8px; }
+/* Linha do bloco de WOD: só busca + prescrição (sem série/reps/técnica —
+   nenhum deles descreve um AMRAP), por isso não usa o grid de 6 colunas de
+   `.lv-linha` — forçar as duas nele deixaria colunas vazias e tortas. */
+.lv-linha-wod { display: grid; grid-template-columns: 1fr 240px auto; gap: 8px; align-items: center; margin: 6px 0; }
+.lv-linha-wod .lv-busca-wrap { position: relative; }
+.lv-linha-wod input { width: 100%; }
 @media (max-width: 720px) {
   .lv-linha { grid-template-columns: 1fr; }
   /* Numa coluna só, o botão de corrente esticado a largura da tela vira um
      alvo de toque confuso — mantém do tamanho do ícone, à esquerda. */
   .lv-link, .lv-link-vazio { width: auto; justify-self: start; }
   .lv-link-vazio { display: none; }
+  .lv-linha-wod { grid-template-columns: 1fr; }
 }
 
 @media print {

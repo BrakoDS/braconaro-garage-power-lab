@@ -21,6 +21,7 @@ import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
 import { confirmar } from './dialogo.js';
 import { publicarTreino } from './portal-treino.js';
+import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -28,8 +29,12 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
 /** O catálogo efetivo já está em EXERCICIOS: `construirCatalogoEfetivo()` o substitui no boot. */
 const porId = (id) => EXERCICIOS.find((e) => e.id === id) || null;
 
-/** Estado da aba. Um objeto só, porque a tela inteira se redesenha a partir dele. */
-const est = {
+/** Estado da aba. Um objeto só, porque a tela inteira se redesenha a partir dele.
+ * Exportado só para o teste de paridade em `livre.test.js` montar `est.blocos`
+ * direto e chamar `linhasIncompletas()` de verdade — sem isso o teste teria de
+ * reimplementar a leitura do estado, e essa reimplementação é exatamente o tipo
+ * de cópia que já mentiu para o coach uma vez nesta aba. */
+export const est = {
   classificacao: 'hipertrofia',
   aquecimento: /** @type {{id:string, duracaoSeg:number}[]} */ ([]),
   blocos: /** @type {any[]} */ ([]),
@@ -55,10 +60,18 @@ export function iniciarLivre() {
   render();
 }
 
-/** Bloco novo já nasce com o descanso da classificação — ponto de partida, não imposição. */
+/** Bloco novo já nasce com o descanso da classificação — ponto de partida, não imposição.
+ * Os campos de WOD (formato/duração/rodadas) vêm de fábrica mesmo num bloco de
+ * série: assim trocar o alternador de tipo nunca precisa inicializar nada — só
+ * troca qual metade dos campos a tela mostra e o core lê. */
 function blocoNovo() {
   const m = MODALIDADES[est.classificacao];
-  return { nome: '', series: m?.series || 3, reps: m?.reps || '', descansoSeg: m?.descansoSeg || 60, porNivel: true, exercicios: [] };
+  return {
+    tipo: 'series',
+    nome: '', series: m?.series || 3, reps: m?.reps || '', descansoSeg: m?.descansoSeg || 60, porNivel: true,
+    formato: 'AMRAP', duracaoMin: 16, rodadas: '',
+    exercicios: [],
+  };
 }
 
 /* ---------- contexto ---------- */
@@ -79,14 +92,17 @@ const chave = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').to
    têm que dar exatamente a mesma resposta, ou o aviso mente pro coach: foi
    esse o bug caro da leva anterior desta aba. */
 
-/** Número a partir de campo de formulário (vem string), ou null se não der. Mesma regra de `core/livre.js`. */
-function num(v) {
+/** Número a partir de campo de formulário (vem string), ou null se não der. Mesma regra de `core/livre.js`.
+ * Exportada (com `herdar`, `gruposDoBloco` e `linhasIncompletas`) para o teste de
+ * paridade em `livre.test.js` — sem export, a única forma de testar essa regra
+ * era copiá-la de novo, e uma cópia só prova a cópia, nunca o arquivo real. */
+export function num(v) {
   const n = parseFloat(String(v ?? '').replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 }
 
 /** O primeiro valor definido da linha, senão o do bloco. Mesma regra de `core/livre.js`. */
-const herdar = (daLinha, doBloco) => (daLinha === undefined || daLinha === null || daLinha === '' ? doBloco : daLinha);
+export const herdar = (daLinha, doBloco) => (daLinha === undefined || daLinha === null || daLinha === '' ? doBloco : daLinha);
 
 /**
  * Agrupa as linhas de um bloco exatamente como `montarLivre` agrupa: só linhas
@@ -95,7 +111,12 @@ const herdar = (daLinha, doBloco) => (daLinha === undefined || daLinha === null 
  * @param {any} b
  * @returns {{membros: {l:any, li:number, e:any}[], series: number|null}[]}
  */
-function gruposDoBloco(b) {
+export function gruposDoBloco(b) {
+  // O core desvia bloco de WOD para `montarBlocoWod`, que nem olha para série —
+  // aplicar a regra de série aqui acusaria "incompleto" um bloco que o core já
+  // salva normalmente (achado da revisão da Task 3). Nenhum grupo de bi-set
+  // existe num WOD, então a resposta certa é a lista vazia, espelhando o core.
+  if (b && b.tipo === 'wod') return [];
   const validas = [];
   (b.exercicios || []).forEach((l, li) => {
     const e = l && l.id ? porId(l.id) : null;
@@ -144,6 +165,17 @@ function htmlAquecimento() {
 }
 
 function htmlBloco(b, bi, u) {
+  // O alternador é do cabeçalho dos dois tipos — monta uma vez e injeta em
+  // qualquer um dos dois HTMLs abaixo.
+  const tipo = b.tipo === 'wod' ? 'wod' : 'series';
+  const tipoBtns = `<div class="lv-tipo" role="group" aria-label="Tipo do bloco">
+      <button type="button" class="${tipo === 'series' ? 'lv-tipo-on' : ''}" data-set-tipo="series" data-b="${bi}">séries</button>
+      <button type="button" class="${tipo === 'wod' ? 'lv-tipo-on' : ''}" data-set-tipo="wod" data-b="${bi}">WOD</button>
+    </div>`;
+  return tipo === 'wod' ? htmlBlocoWod(b, bi, u, tipoBtns) : htmlBlocoSeries(b, bi, u, tipoBtns);
+}
+
+function htmlBlocoSeries(b, bi, u, tipoBtns) {
   const tecs = tecnicasAtivas();
   // Mesmo agrupamento que `montarLivre` vai fazer — decide o botão de
   // corrente, o campo de série travado e a etiqueta, antes de existir
@@ -166,8 +198,13 @@ function htmlBloco(b, bi, u) {
     const seguidor = !!(info && !info.ehLider);
     // Botão de corrente só a partir da 2ª linha (não há a quem linkar na
     // primeira); um espaço vazio mantém as colunas alinhadas nas demais.
+    // O aceso segue `seguidor` (participação REAL no grupo), não `l.linkado`
+    // cru: linkar uma linha cujo líder ainda não tem exercício escolhido deixa
+    // a corrente inerte, e mostrá-la acesa ali mentiria — achado da revisão da
+    // Task 3. `l.linkado` continua sendo o dado que o clique alterna; só o
+    // destaque visual muda.
     const linkBtn = li > 0
-      ? `<button type="button" class="lv-link${l.linkado ? ' lv-link-on' : ''}" data-link="${bi}:${li}"
+      ? `<button type="button" class="lv-link${seguidor ? ' lv-link-on' : ''}" data-link="${bi}:${li}"
           title="Linkar com a linha de cima — bi-set: alterna com a parceira a cada série">⛓</button>`
       : '<span class="lv-link-vazio" aria-hidden="true"></span>';
     const tag = info && info.ehLider && info.tamanho >= 2
@@ -188,6 +225,7 @@ function htmlBloco(b, bi, u) {
   return `<section class="lv-sec">
     <div class="lv-sec-h">
       <input class="lv-bloco-nome" data-b="${bi}" type="text" placeholder="Bloco ${bi + 1}" value="${esc(b.nome)}" />
+      ${tipoBtns}
       <label class="lv-campo">séries <input type="number" min="1" class="lv-b-series" data-b="${bi}" value="${b.series}" /></label>
       <label class="lv-campo">reps <input type="text" class="lv-reps lv-b-reps" data-b="${bi}" value="${esc(b.reps)}" /></label>
       <label class="lv-campo">descanso <input type="number" min="0" step="5" class="lv-b-desc" data-b="${bi}" value="${b.descansoSeg}" /></label>
@@ -198,6 +236,61 @@ function htmlBloco(b, bi, u) {
     </div>
     ${linhas}
     <button class="btn ghost lv-add" data-add-linha="${bi}" type="button">+ exercício</button>
+  </section>`;
+}
+
+/** Texto de ajuda do bloco de WOD: a descrição do formato e, só no EMOM, a
+ * conta da rotação por minuto (decisão do coach — ver DESCRICAO_EMOM_ROTACAO
+ * em config/wod-formatos.js). Espelha a mesma escolha de texto que o core faz
+ * em `montarBlocoWod`, para a tela nunca prometer uma execução e o card
+ * salvo mostrar outra. */
+function htmlWodAjuda(b) {
+  const formato = FORMATOS_WOD.includes(b.formato) ? b.formato : 'AMRAP';
+  const desc = formato === 'EMOM' ? DESCRICAO_EMOM_ROTACAO : DESCRICAO_FORMATO[formato];
+  let conta = '';
+  if (formato === 'EMOM') {
+    // n = quantos movimentos já têm exercício escolhido — uma linha vazia não
+    // ocupa minuto nenhum na rotação. Sem nenhum movimento a conta não existe
+    // (não dá pra dividir por zero, e não há o que mostrar ainda).
+    const n = (b.exercicios || []).filter((l) => l.id).length;
+    const d = Math.max(0, Math.round(num(b.duracaoMin) || 0));
+    if (n > 0) {
+      const voltas = Math.floor(d / n);
+      const resto = d % n;
+      conta = ` Com ${d} min e ${n} movimento${n === 1 ? '' : 's'}: ${voltas} volta${voltas === 1 ? '' : 's'} completa${voltas === 1 ? '' : 's'}`
+        + (resto ? ', a última fica pela metade' : '') + '.';
+    }
+  }
+  return `<div class="lv-wod-ajuda">${esc(desc)}${conta}</div>`;
+}
+
+function htmlBlocoWod(b, bi, u, tipoBtns) {
+  const formato = FORMATOS_WOD.includes(b.formato) ? b.formato : 'AMRAP';
+  const opts = FORMATOS_WOD.map((f) => `<option value="${f}"${f === formato ? ' selected' : ''}>${f}</option>`).join('');
+  const linhas = (b.exercicios || []).map((l, li) => {
+    const e = l.id ? porId(l.id) : null;
+    const jaNaSemana = e && u.has(e.id) ? '<span class="lv-usado"> · já na semana</span>' : '';
+    return `<div class="lv-linha-wod" data-b="${bi}" data-l="${li}">
+      <span class="lv-busca-wrap">
+        <input class="lv-busca" data-alvo="ex" data-b="${bi}" data-l="${li}" type="text"
+               placeholder="Buscar exercício…" value="${esc(e ? e.nome : '')}" autocomplete="off" />${jaNaSemana}
+      </span>
+      <input type="text" class="lv-prescricao" data-b="${bi}" data-l="${li}" value="${esc(l.prescricao ?? '')}" placeholder="12 reps · 200m · 10 cal" />
+      <button class="lv-x" data-rm-linha="${bi}:${li}" type="button" aria-label="Remover">×</button>
+    </div>`;
+  }).join('');
+  return `<section class="lv-sec">
+    <div class="lv-sec-h">
+      <input class="lv-bloco-nome" data-b="${bi}" type="text" placeholder="WOD" value="${esc(b.nome)}" />
+      ${tipoBtns}
+      <label class="lv-campo">formato <select class="lv-wod-formato" data-b="${bi}">${opts}</select></label>
+      <label class="lv-campo">duração (min) <input type="number" min="0" class="lv-wod-duracao" data-b="${bi}" value="${b.duracaoMin ?? 16}" /></label>
+      ${formato === 'For Time' ? `<label class="lv-campo">rodadas <input type="number" min="0" class="lv-wod-rodadas" data-b="${bi}" value="${b.rodadas ?? ''}" /></label>` : ''}
+      ${est.blocos.length > 1 ? `<button class="lv-x" data-rm-bloco="${bi}" type="button">remover bloco</button>` : ''}
+    </div>
+    ${htmlWodAjuda(b)}
+    ${linhas}
+    <button class="btn ghost lv-add" data-add-linha="${bi}" type="button">+ movimento</button>
   </section>`;
 }
 
@@ -292,7 +385,15 @@ function aoMudar(ev) {
   if (el.classList.contains('lv-tec')) {
     const t = tecnicasAtivas().find((x) => x.id === el.value);
     est.blocos[Number(d.b)].exercicios[Number(d.l)].tecnica = t ? congelarTecnica(t) : null;
+    return;
   }
+  // Formato e duração mudam a linha de ajuda (conta do EMOM) e o campo de
+  // rodadas (só existe no For Time) — precisam de render() inteiro, não só
+  // do resumo. Rodadas não muda nada visível além do próprio campo.
+  if (el.classList.contains('lv-wod-formato')) { est.blocos[Number(d.b)].formato = el.value; render(); return; }
+  if (el.classList.contains('lv-wod-duracao')) { est.blocos[Number(d.b)].duracaoMin = el.value; render(); return; }
+  if (el.classList.contains('lv-wod-rodadas')) { est.blocos[Number(d.b)].rodadas = el.value; renderResumo(); return; }
+  if (el.classList.contains('lv-prescricao')) { est.blocos[Number(d.b)].exercicios[Number(d.l)].prescricao = el.value; renderResumo(); return; }
 }
 
 /** Fecha o buraco sem deixar corrente pendurada no vazio: se a linha removida
@@ -310,7 +411,7 @@ function aoClicar(ev) {
   const alvo = /** @type {HTMLElement} */ (ev.target);
   if (alvo.closest('#l-add-aquec')) { est.aquecimento.push({ id: '', duracaoSeg: 60 }); render(); return; }
   if (alvo.closest('#l-add-bloco')) { est.blocos.push(blocoNovo()); render(); return; }
-  const el = alvo.closest('[data-add-linha],[data-rm-linha],[data-rm-bloco],[data-rm-aquec],[data-link]');
+  const el = alvo.closest('[data-add-linha],[data-rm-linha],[data-rm-bloco],[data-rm-aquec],[data-link],[data-set-tipo]');
   if (!el) return;
   const d = /** @type {HTMLElement} */ (el).dataset;
   if (d.addLinha != null) est.blocos[Number(d.addLinha)].exercicios.push({ id: '' });
@@ -318,6 +419,10 @@ function aoClicar(ev) {
   else if (d.rmBloco != null) est.blocos.splice(Number(d.rmBloco), 1);
   else if (d.rmAquec != null) est.aquecimento.splice(Number(d.rmAquec), 1);
   else if (d.link) { const [b, l] = d.link.split(':').map(Number); const ex = est.blocos[b].exercicios[l]; ex.linkado = !ex.linkado; }
+  // Trocar o tipo só troca o rótulo — as duas metades de campo (série/wod)
+  // continuam no mesmo objeto de linha/bloco, nunca apagadas: é assim que a
+  // ida e volta entre os dois tipos não perde nada que o coach já digitou.
+  else if (d.setTipo) est.blocos[Number(d.b)].tipo = d.setTipo;
   render();
 }
 
@@ -342,13 +447,32 @@ function renderResumo() {
  * e se a série dele não presta o grupo INTEIRO cai, não só ele — por isso o
  * aviso nomeia todas as linhas do grupo, não só a primeira. Divergir daria um
  * aviso que mente: foi o bug caro da leva anterior desta aba. */
-function linhasIncompletas() {
+export function linhasIncompletas() {
   const fora = [];
   est.blocos.forEach((b, bi) => {
     const nome = String(b.nome || '').trim() || `Bloco ${bi + 1}`;
+    // `gruposDoBloco` já devolve [] para bloco de WOD — nada aqui precisa saber
+    // que WOD existe, e é exatamente por isso que os dois nunca podem divergir
+    // de novo (achado da revisão da Task 3).
     gruposDoBloco(b).forEach((g) => {
       if (g.series > 0) return;
       g.membros.forEach(({ li }) => fora.push(`${nome} · linha ${li + 1}`));
+    });
+  });
+  return fora;
+}
+
+/** Movimentos de bloco WOD sem prescrição — aviso PRÓPRIO, separado de
+ * `linhasIncompletas` (que fala de série, e WOD não tem série). É aviso, não
+ * bloqueio: o core salva o movimento mesmo com `prescricao: ''` (o coach pode
+ * querer só o nome, tipo "burpee"), então a tela avisa mas não descarta nada. */
+function wodsSemPrescricao() {
+  const fora = [];
+  est.blocos.forEach((b) => {
+    if (b.tipo !== 'wod') return;
+    (b.exercicios || []).forEach((l) => {
+      const e = l && l.id ? porId(l.id) : null;
+      if (e && !String(l.prescricao ?? '').trim()) fora.push(e.nome);
     });
   });
   return fora;
@@ -359,9 +483,11 @@ function renderSalvar(nItens) {
   const jaTem = store.getTreino(d);
   const dataTxt = store.dataDe(d).toLocaleDateString('pt-BR');
   const incompletas = linhasIncompletas();
+  const semPrescricao = wodsSemPrescricao();
   $('#l-salvar').innerHTML = nItens ? `<div class="card salvar-bar">
     <div>Salvar na data <b>${dataTxt}</b>${jaTem ? ' <span class="chip warn">já há treino nesse dia</span>' : ''} e publicar no <b>Portal do Aluno</b>.
       ${incompletas.length ? `<div class="lv-aviso">Sem séries, não vão para o aluno: ${esc(incompletas.join(', '))}.</div>` : ''}
+      ${semPrescricao.length ? `<div class="lv-aviso">Sem prescrição, o aluno vê só o nome: ${esc(semPrescricao.join(', '))}.</div>` : ''}
     </div>
     <button class="btn" id="btn-salvar-livre" type="button">Salvar no histórico</button>
   </div>` : '';
