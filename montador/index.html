@@ -27,6 +27,7 @@
     <nav class="tabs">
       <button class="tab active" data-view="unico">Treino Automático</button>
       <button class="tab" data-view="manual">Treino Manual</button>
+      <button class="tab" data-view="livre">Treino Livre</button>
       <button class="tab" data-view="historico">Histórico</button>
     </nav>
     <nav class="topbar-sai">
@@ -83,6 +84,20 @@
       <div id="m-salvar"></div>
     </section>
 
+    <!-- ============ TREINO LIVRE (montagem solta) ============ -->
+    <section class="view" id="view-livre">
+      <div class="panel">
+        <div class="field"><label>Classificação</label><select id="l-modalidade"></select></div>
+        <div class="field"><label>Nº de alunos</label><input id="l-alunos" type="number" min="1" max="20" value="8" style="min-width:90px" /></div>
+        <div class="field"><label>Data do treino</label><input id="l-data" type="date" style="min-width:150px" /></div>
+      </div>
+      <div class="mut" style="margin:0 0 12px">A classificação define só a <b>cor no calendário</b>, o título no Portal e os valores de partida de descanso e carga. Ela não filtra exercício e não muda a estrutura: monte o dia como quiser.</div>
+      <div id="l-meta"></div>
+      <div id="l-corpo"></div>
+      <div id="l-volume"></div>
+      <div id="l-salvar"></div>
+    </section>
+
     <!-- ============ HISTÓRICO (calendário) ============ -->
     <section class="view" id="view-historico">
       <div class="grid" id="h-saida"></div>
@@ -102,6 +117,6 @@
     </div>
   </div>
 
-  <script type="module" src="./ui/gate.js?v=33"></script>
+  <script type="module" src="./ui/gate.js?v=34"></script>
 </body>
 </html>

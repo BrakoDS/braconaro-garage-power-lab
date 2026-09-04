@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { atribuirTecnicasAuto, TECNICAS_DE_UM_EXERCICIO } from './tecnicas-auto.js';
+import { atribuirTecnicasAuto, TECNICAS_DE_UM_EXERCICIO, congelarTecnica } from './tecnicas-auto.js';
 import { gerarTreino } from './gerador.js';
 import { TECNICAS_SEED } from '../../academia/data/seed.js';
 import { sugerirCarga } from './cargas.js';
@@ -81,6 +81,14 @@ test('a técnica congelada guarda nome e texto — a Academia pode mudar depois'
   for (const t of r) {
     assert.ok(t.tipo && t.label && t.detalhe, `técnica incompleta: ${JSON.stringify(t)}`);
   }
+});
+
+test('quando resumo e objetivo faltam, detalhe recebe o nome', () => {
+  // ui/render.js:463 filtra técnicas com detalhe vazio, então a fallback
+  // para nome evita que uma técnica incompleta desapareça do cartão do coach.
+  const tecnica = { id: 'drop_set', nome: 'Drop Set Firme' };
+  const congelada = congelarTecnica(tecnica);
+  assert.equal(congelada.detalhe, 'Drop Set Firme');
 });
 
 test('o gerador anexa a técnica ao exercício da Hipertrofia', () => {

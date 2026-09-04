@@ -22,12 +22,20 @@ function nivelEfetivo(nivel) {
   return NIV_OK[n] ? n : 'intermediario';
 }
 
+/**
+ * Aquecimento persistido no snapshot. O Treino Manual e o Treino Livre gravam
+ * essa parte na MESMA forma, e a aluna vê a mesma lista nos dois — então ela
+ * mora aqui, e não copiada nos dois lugares.
+ * @param {Array<{nome: string, duracaoSeg?: number}>} [aquecimento]
+ */
+function blocoAquecimento(aquecimento) {
+  if (!(aquecimento || []).length) return '';
+  return `<div class="td-parte-h">Aquecimento / Mobilidade</div><ul class="td-lista">${aquecimento.map((a) => `<li>${esc(a.nome)}${a.duracaoSeg ? ` — <b>${a.duracaoSeg}s</b>` : ''}</li>`).join('')}</ul>`;
+}
+
 /** Força/Hipertrofia (e Treino Manual): exercícios no nível do aluno. */
 function corpoExercicios(d, nivel) {
-  // Aquecimento persistido no snapshot (Treino Manual do coach)
-  const aquec = (d.aquecimento || []).length
-    ? `<div class="td-parte-h">Aquecimento / Mobilidade</div><ul class="td-lista">${d.aquecimento.map((a) => `<li>${esc(a.nome)}${a.duracaoSeg ? ` — <b>${a.duracaoSeg}s</b>` : ''}</li>`).join('')}</ul>`
-    : '';
+  const aquec = blocoAquecimento(d.aquecimento);
   const linhas = (d.exercicios || []).map((e, i) => {
     const v = e.niveis && e.niveis[nivel];
     const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}` : esc(e.reps || '');
@@ -188,6 +196,34 @@ function corpoHibrido(h, nivel) {
 }
 
 /**
+ * Treino Livre: blocos nomeados pelo coach, cada um com sua prescrição.
+ *
+ * O bloco que não abre por nível mostra o mesmo número para todos e diz isso —
+ * sem o aviso, o aluno avançado acharia que o app errou a conta dele.
+ * @param {any} l  o `treino.livre` do snapshot
+ * @param {string} nivel
+ */
+function corpoLivre(l, nivel) {
+  return (l.blocos || []).map((b) => {
+    const linhas = (b.exercicios || []).map((e, i) => {
+      const v = e.niveis && e.niveis[nivel];
+      // O intervalo só aparece se o coach preencheu algo — o próprio campo do
+      // bloco herda 0/vazio quando ele não mexeu, e mostrar "· 0s" seria ruído.
+      const desc = e.descansoSeg ? ` · ${e.descansoSeg}s` : '';
+      const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}${desc}` : `${esc(e.reps || '')}${desc}`;
+      const tec = e.tecnica ? ` · <i>${esc(rotuloTecnica(e.tecnica))}</i>` : '';
+      return `<li class="td-ex">
+        <span class="td-ex-nome">${i + 1}. ${esc(e.nome)}</span>
+        <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}${tec}</span>
+        <span class="td-ex-presc">${prescricao}</span>
+      </li>`;
+    }).join('');
+    const igual = b.porNivel ? '' : ' <span class="td-nota-inline">· igual para todos</span>';
+    return `<div class="td-parte-h">${esc(b.nome)}${igual}</div><ul class="td-lista">${linhas}</ul>`;
+  }).join('');
+}
+
+/**
  * Card do treino de hoje.
  * @param {any} treino  dia (exercicios/hyrox/hiit/gap/hibrido)
  * @param {string} nivel  nível do aluno
@@ -202,6 +238,12 @@ export function renderTreinoDia(treino, nivel) {
   else if (treino.gap) { corpo = corpoGap(treino.gap); porNivel = false; }
   else if (treino.hibrido) { corpo = corpoHibrido(treino.hibrido, n); porNivel = true; }
   else if (treino.murph) { corpo = corpoMurph(treino.murph, n); porNivel = true; }
+  else if (treino.livre) {
+    corpo = blocoAquecimento(treino.aquecimento) + corpoLivre(treino.livre, n);
+    // Só promete personalização se ALGUM bloco de fato abre por nível — um dia
+    // 100% WOD (todo porNivel:false) não pode estampar "seu nível" no card.
+    porNivel = (treino.livre.blocos || []).some((b) => b.porNivel);
+  }
   else { corpo = corpoExercicios(treino, n); porNivel = true; }
   // só mostra o "seu nível" nos formatos que variam por nível (força/hyrox)
   const badgeNivel = porNivel ? `<span class="td-nivel">seu nível: ${esc(NIVEL_LABEL[n] || n)}</span>` : '';

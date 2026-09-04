@@ -12,10 +12,12 @@ import {
 import { trocarExercicioDoDia } from '../core/editar-dia.js';
 import { gerarTreino } from '../core/gerador.js';
 import { variantesNivel } from '../core/niveis.js';
+import { idsUsadosEm } from '../core/usados.js';
 import { ladoSalvo } from '../core/hibrido.js';
 import * as academia from '../../academia/db.js';
 import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
 import { initManual } from './manual.js';
+import { iniciarLivre } from './livre.js';
 import { confirmar, painel } from './dialogo.js';
 
 /** A geração ancora no intermediário; as colunas iniciante/avançado derivam dele. */
@@ -36,6 +38,7 @@ $$('.tab').forEach((tab) => tab.addEventListener('click', () => {
   $$('.view').forEach((v) => v.classList.remove('active'));
   tab.classList.add('active');
   $('#view-' + tab.dataset.view).classList.add('active');
+  if (tab.dataset.view === 'livre') iniciarLivre();
   if (tab.dataset.view === 'historico') renderHistorico();
 }));
 
@@ -107,14 +110,15 @@ function diaSnapshotDe(t, dateId) {
 /** @type {any} */
 let treinoGerado = null;
 
-/** IDs de exercício já usados em OUTROS dias da mesma semana (não-repetição). */
+/**
+ * IDs de exercício já usados em OUTROS dias da mesma semana (não-repetição).
+ * `idsUsadosEm` (core/usados.js) já lê os dois formatos que guardam exercício de
+ * musculação — `exercicios` (Automático/Manual em blocos) e `livre.blocos[]`
+ * (Treino Livre) — é a mesma regra que os avisos "· já na semana" da tela usam.
+ * Sem ela aqui, o gerador ficava cego ao que o Treino Livre montou na semana.
+ */
 function idsUsadosNaSemana(dateId) {
-  const ids = new Set();
-  for (const t of store.treinosDaSemana(dateId)) {
-    if (t.dateId === dateId) continue; // o próprio dia será substituído — não conta
-    for (const e of (t.exercicios || [])) if (e.id) ids.add(e.id);
-  }
-  return [...ids];
+  return [...idsUsadosEm(store.treinosDaSemana(dateId), dateId)];
 }
 
 function renderMetaPanel(dateId, treino) {

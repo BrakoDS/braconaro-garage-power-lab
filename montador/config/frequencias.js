@@ -4,10 +4,10 @@
  * Cada combinação define em quais dias o aluno treina; o motor de volume usa
  * isso para distribuir estímulo e respeitar descanso entre dias consecutivos.
  *
- * @typedef {'seg'|'ter'|'qua'|'qui'|'sex'} Dia
+ * @typedef {'seg'|'ter'|'qua'|'qui'|'sex'|'sab'} Dia
  * @typedef {Object} CombinacaoDias
  * @property {string} id
- * @property {3|4|5} frequencia
+ * @property {3|4|5|6} frequencia
  * @property {Dia[]} dias
  * @property {string} rotulo
  */
@@ -23,6 +23,8 @@ export const COMBINACOES = [
   { id: '4x-seg-ter-qui-sex', frequencia: 4, dias: ['seg', 'ter', 'qui', 'sex'], rotulo: 'SEG / TER / QUI / SEX' },
   // 5x
   { id: '5x-seg-sex', frequencia: 5, dias: ['seg', 'ter', 'qua', 'qui', 'sex'], rotulo: 'SEG a SEX' },
+  // 6x — o box abre no sábado, e há aluno que vem os seis dias.
+  { id: '6x-seg-sab', frequencia: 6, dias: ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'], rotulo: 'SEG a SÁB' },
 ];
 
 /** @type {Record<string, CombinacaoDias>} */
@@ -41,11 +43,11 @@ export const MINIMO_SEMANAL = {
   estabilizadores: 0, // informativo: coberto por carries, aquecimento e estabilização secundária
 };
 
-export const ORDEM_DIAS = /** @type {Dia[]} */ (['seg', 'ter', 'qua', 'qui', 'sex']);
+export const ORDEM_DIAS = /** @type {Dia[]} */ (['seg', 'ter', 'qua', 'qui', 'sex', 'sab']);
 
 /**
  * Combinações de dias válidas para uma frequência.
- * @param {3|4|5} frequencia
+ * @param {3|4|5|6} frequencia
  */
 export function combosPorFrequencia(frequencia) {
   return COMBINACOES.filter((c) => c.frequencia === frequencia);

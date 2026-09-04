@@ -38,7 +38,7 @@ const MAX_COM_TECNICA = 2;
  * nome e o texto que valiam no dia.
  * @param {Tecnica} t
  */
-function congelar(t) {
+export function congelarTecnica(t) {
   return { tipo: t.id, label: t.nome, detalhe: t.resumo || t.objetivo || t.nome };
 }
 
@@ -53,7 +53,7 @@ function congelar(t) {
  * @param {Tecnica[]} tecnicas            Banco da Academia (só as ativas)
  * @param {() => number} rng
  * @param {string} modalidade
- * @returns {(ReturnType<typeof congelar>|null)[]}  Uma entrada por exercício, na ordem
+ * @returns {(ReturnType<typeof congelarTecnica>|null)[]}  Uma entrada por exercício, na ordem
  */
 export function atribuirTecnicasAuto(principal, tecnicas, rng, modalidade) {
   const vazio = principal.map(() => null);
@@ -75,7 +75,7 @@ export function atribuirTecnicasAuto(principal, tecnicas, rng, modalidade) {
   for (const idx of escolhidos) {
     if (!disponiveis.length) break;
     const k = Math.floor(rng() * disponiveis.length);
-    vazio[idx] = congelar(disponiveis.splice(k, 1)[0]); // sem repetir técnica no mesmo dia
+    vazio[idx] = congelarTecnica(disponiveis.splice(k, 1)[0]); // sem repetir técnica no mesmo dia
   }
   return vazio;
 }
