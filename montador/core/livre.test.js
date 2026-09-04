@@ -18,6 +18,8 @@ const CAT = {
     musculosPrimarios: ['corpo'], musculosSecundarios: [], tempoMedioSeg: 30 },
   mob: { id: 'mob', nome: 'Mobilidade de quadril', padrao: 'mobilidade', equipamento: ['corporal'],
     musculosPrimarios: [], musculosSecundarios: [], tempoMedioSeg: 30 },
+  agacho: { id: 'agacho', nome: 'Agachamento livre', padrao: 'agachar', equipamento: ['barra'],
+    musculosPrimarios: ['pernas'], musculosSecundarios: ['gluteos'], tempoMedioSeg: 45 },
 };
 const porId = (id) => CAT[id] || null;
 
@@ -234,4 +236,90 @@ test('o tempo total soma aquecimento, parte principal e a folga de transição',
   // 2 × (35 + 60) + 20 = 210
   assert.equal(r.extra.tempos.principalSeg, 210);
   assert.equal(r.extra.tempos.totalSeg, 100 + 210 + 300);
+});
+
+/* ---------- bi-set (linhas linkadas) ---------- */
+
+test('linhas linkadas formam um grupo e herdam a série do líder', () => {
+  const r = montarLivre({
+    blocos: [{ series: 3, reps: '10', descansoSeg: 60, exercicios: [
+      { id: 'supino', series: 4 },
+      { id: 'remada', series: 2, linkado: true },   // ignorado: o grupo manda
+      { id: 'agacho' },
+    ] }],
+    porId,
+  });
+  const ex = r.extra.livre.blocos[0].exercicios;
+  assert.deepEqual(ex.map((e) => e.grupo), [0, 0, 1]);
+  assert.deepEqual(ex.map((e) => e.seriesRef), [4, 4, 3]);
+});
+
+test('o grupo cai inteiro quando o líder não tem série', () => {
+  const r = montarLivre({
+    blocos: [{ series: '', exercicios: [
+      { id: 'supino', series: '' },
+      { id: 'remada', series: 5, linkado: true },
+      { id: 'agacho', series: 3 },
+    ] }],
+    porId,
+  });
+  const ex = r.extra.livre.blocos[0].exercicios;
+  assert.deepEqual(ex.map((e) => e.id), ['agacho']);
+  assert.equal(ex[0].grupo, 1, 'o grupo do agacho não renumera quando o de cima cai');
+});
+
+test('linkado na primeira linha válida não tem a quem linkar', () => {
+  const r = montarLivre(base({ blocos: [
+    { series: 3, descansoSeg: 60, exercicios: [
+      { id: 'supino', linkado: true },   // primeira linha: nada acima para linkar
+      { id: 'remada' },
+    ] },
+  ] }));
+  const ex = r.extra.livre.blocos[0].exercicios;
+  assert.deepEqual(ex.map((e) => e.grupo), [0, 1]);
+});
+
+test('o bi-set cobra o descanso uma vez só', () => {
+  // dois exercícios de tempoMedioSeg 40 (remada), 3 séries, descanso 60:
+  //   soltos  → 3×(40+60)+20 + 3×(40+60)+20 = 640
+  //   linkados→ 3×(40+40+60) + 20×2 = 460
+  const soltos = montarLivre(base({ blocos: [
+    { series: 3, descansoSeg: 60, exercicios: [{ id: 'remada' }, { id: 'remada' }] },
+  ] }));
+  const linkados = montarLivre(base({ blocos: [
+    { series: 3, descansoSeg: 60, exercicios: [{ id: 'remada' }, { id: 'remada', linkado: true }] },
+  ] }));
+  assert.equal(soltos.extra.tempos.principalSeg, 640);
+  assert.equal(linkados.extra.tempos.principalSeg, 460);
+});
+
+test('grupo de um membro produz o mesmo tempo de antes', () => {
+  // não-regressão: sem linkado, a fórmula do bi-set com 1 membro tem de bater
+  // exatamente com a fórmula de hoje (série × (tempo + descanso) + 20).
+  const r = montarLivre(base({ blocos: [
+    { series: 2, descansoSeg: 60, exercicios: [{ id: 'supino' }] },
+  ] }));
+  assert.equal(r.extra.tempos.principalSeg, 2 * (35 + 60) + 20);
+});
+
+test('o volume não muda por linkar — os dois exercícios foram executados', () => {
+  const soltos = montarLivre(base({ blocos: [
+    { series: 3, descansoSeg: 60, exercicios: [{ id: 'remada' }, { id: 'supino' }] },
+  ] }));
+  const linkados = montarLivre(base({ blocos: [
+    { series: 3, descansoSeg: 60, exercicios: [{ id: 'remada' }, { id: 'supino', linkado: true }] },
+  ] }));
+  assert.deepEqual(linkados.vol.porMusculo, soltos.vol.porMusculo);
+});
+
+test('o descansoSeg de cada linha no snapshot continua sendo o efetivo dela, não o do grupo', () => {
+  const r = montarLivre(base({ blocos: [
+    { series: 3, descansoSeg: 60, exercicios: [
+      { id: 'supino' },
+      { id: 'remada', descansoSeg: 90, linkado: true },
+    ] },
+  ] }));
+  const [a, b] = r.extra.livre.blocos[0].exercicios;
+  assert.equal(a.descansoSeg, 60);
+  assert.equal(b.descansoSeg, 90, 'o dado da linha não muda, só a conta de tempo usa o do líder');
 });

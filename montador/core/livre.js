@@ -54,39 +54,76 @@ export function montarLivre({ classificacao = 'hipertrofia', aquecimento = [], b
 
   (blocos || []).forEach((b, i) => {
     const exercicios = [];
+
+    // 1) só as linhas com exercício de verdade participam do agrupamento —
+    // uma linha fantasma não pode servir de líder nem quebrar uma cadeia de link.
+    const validas = [];
     for (const l of (b && b.exercicios) || []) {
       const e = l && porId(l.id);
-      if (!e) continue;
-      // Linha sem séries é linha pela metade: não conta no volume e não vai ao
-      // aluno. Some em silêncio aqui; quem avisa o coach é a tela.
-      const series = num(herdar(l.series, b.series));
-      if (!(series > 0)) continue; // espelha `linhasIncompletas` em ui/livre.js
-      const reps = String(herdar(l.reps, b.reps) ?? '').trim();
-      const descansoSeg = Math.max(0, num(herdar(l.descansoSeg, b.descansoSeg)) || 0);
-
-      itensVolume.push({ exercicio: e, series });
-      principalSeg += series * ((e.tempoMedioSeg || 40) + descansoSeg) + 20;
-
-      exercicios.push({
-        id: e.id,
-        nome: e.nome,
-        padrao: e.padrao,
-        equipamento: e.equipamento || [],
-        reps,
-        descansoSeg,
-        seriesRef: series,
-        // `seriesFixas` quando o bloco não abre por nível: os três níveis recebem
-        // o mesmo número, e a diferenciação sobra na carga. `seriesDigitadas`
-        // sempre ligado: aqui a âncora é o número que o coach escreveu, não um
-        // cálculo do gerador — o piso de 2 séries do gerador não se aplica.
-        niveis: variantesNivel(e, series, /** @type {any} */ (classificacao), {
-          seriesFixas: !b.porNivel, seriesDigitadas: true,
-        }),
-        musculosPrimarios: e.musculosPrimarios || [],
-        musculosSecundarios: e.musculosSecundarios || [],
-        tecnica: l.tecnica || null,
-      });
+      if (e) validas.push({ l, e });
     }
+
+    // 2) `linkado` cola a linha no grupo anterior; a primeira linha válida
+    // nunca linka (não há a quem) — o campo é ignorado nela de propósito.
+    /** @type {Map<number, {l: any, e: any}[]>} */
+    const porGrupo = new Map();
+    let grupoAtual = -1;
+    validas.forEach(({ l, e }, idx) => {
+      if (idx === 0 || !l.linkado) grupoAtual += 1;
+      if (!porGrupo.has(grupoAtual)) porGrupo.set(grupoAtual, []);
+      porGrupo.get(grupoAtual).push({ l, e });
+    });
+
+    for (const [grupo, membros] of porGrupo) {
+      // A série do grupo é a da PRIMEIRA linha (o líder) — quem linka abre mão
+      // da própria série e assina embaixo da prescrição de quem abriu a cadeia.
+      const lider = membros[0].l;
+      const series = num(herdar(lider.series, b.series));
+      // Grupo sem série é grupo pela metade: cai inteiro, não só o líder — não
+      // dá pra fazer bi-set de "faça isso 'NaN' vezes". Some em silêncio aqui;
+      // quem avisa o coach é a tela (mesma regra de `linhasIncompletas` em
+      // ui/livre.js, agora por grupo em vez de por linha).
+      if (!(series > 0)) continue;
+      // Descanso também é do líder — é ele quem é cobrado uma vez só entre os
+      // membros do grupo; os demais membros não têm descanso próprio na conta.
+      const descansoGrupo = Math.max(0, num(herdar(lider.descansoSeg, b.descansoSeg)) || 0);
+
+      let tempoMembrosSeg = 0;
+      for (const { l, e } of membros) {
+        const reps = String(herdar(l.reps, b.reps) ?? '').trim();
+        // O dado de descanso da linha continua sendo o efetivo dela — só a
+        // conta de tempo do grupo cobra uma vez (do líder), não o snapshot.
+        const descansoSeg = Math.max(0, num(herdar(l.descansoSeg, b.descansoSeg)) || 0);
+
+        itensVolume.push({ exercicio: e, series });
+        tempoMembrosSeg += e.tempoMedioSeg || 40;
+
+        exercicios.push({
+          id: e.id,
+          nome: e.nome,
+          padrao: e.padrao,
+          equipamento: e.equipamento || [],
+          reps,
+          descansoSeg,
+          seriesRef: series,
+          grupo,
+          // `seriesFixas` quando o bloco não abre por nível: os três níveis recebem
+          // o mesmo número, e a diferenciação sobra na carga. `seriesDigitadas`
+          // sempre ligado: aqui a âncora é o número que o coach escreveu, não um
+          // cálculo do gerador — o piso de 2 séries do gerador não se aplica.
+          niveis: variantesNivel(e, series, /** @type {any} */ (classificacao), {
+            seriesFixas: !b.porNivel, seriesDigitadas: true,
+          }),
+          musculosPrimarios: e.musculosPrimarios || [],
+          musculosSecundarios: e.musculosSecundarios || [],
+          tecnica: l.tecnica || null,
+        });
+      }
+      // Série × (soma dos tempos dos membros + UM descanso) + 20s de transição
+      // por membro (trocar de estação continua custando, mesmo linkado).
+      principalSeg += series * (tempoMembrosSeg + descansoGrupo) + 20 * membros.length;
+    }
+
     if (!exercicios.length) return; // bloco vazio não vira nada
     blocosSaida.push({
       // O nome posicional usa o índice de ENTRADA: se o bloco 1 ficou vazio, o
