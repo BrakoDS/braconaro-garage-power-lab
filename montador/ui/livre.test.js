@@ -10,7 +10,7 @@
  *
  * Este arquivo importa `./livre.js` DE VERDADE (não uma terceira cópia — uma
  * cópia só prova a cópia) e prova, cenário a cenário, que o conjunto de linhas
- * que `linhasIncompletas()` acusa é exatamente o COMPLEMENTO do que
+ * que `linhasIncompletas(blocos)` acusa é exatamente o COMPLEMENTO do que
  * `montarLivre()` de fato salva.
  *
  * `livre.js` só toca `document`/`localStorage`/`window` DENTRO de funções de
@@ -44,7 +44,7 @@ if (!globalThis.localStorage) {
   globalThis.localStorage = /** @type {any} */ ({ getItem: () => null, setItem: () => {} });
 }
 
-const { est, gruposDoBloco, linhasIncompletas, num, herdar } = await import('./livre.js');
+const { gruposDoBloco, linhasIncompletas, num, herdar } = await import('./livre.js');
 const { montarLivre } = await import('../core/livre.js');
 const { EXERCICIOS } = await import('../data/exercicios.js');
 
@@ -63,8 +63,9 @@ const IDS = EXERCICIOS.slice(0, 10).map((e) => e.id);
  * @param {any[]} blocos
  */
 function checarParidade(blocos) {
-  est.blocos = blocos;
-  const incompletas = new Set(linhasIncompletas());
+  // Os blocos entram por PARÂMETRO: a função de produção é a mesma, e nenhum
+  // estado do módulo precisa ficar exposto para o teste existir.
+  const incompletas = new Set(linhasIncompletas(blocos));
   const { extra } = montarLivre({ blocos, porId });
   const idsSalvos = new Set();
   extra.livre.blocos.forEach((b) => b.exercicios.forEach((e) => idsSalvos.add(e.id)));
@@ -91,25 +92,25 @@ test('série vazia na linha E no bloco — grupo cai, linha some dos dois lados 
   checarParidade(blocos);
   const { nItens } = montarLivre({ blocos, porId });
   assert.equal(nItens, 0, 'sem série em lugar nenhum, nada é salvo');
-  assert.deepEqual(linhasIncompletas(), ['A · linha 1']);
+  assert.deepEqual(linhasIncompletas(blocos), ['A · linha 1']);
 });
 
 test('série 0 — zero não é série que preste, nos dois lados', () => {
   const blocos = [{ nome: 'A', series: 3, exercicios: [{ id: IDS[0], series: 0 }] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), ['A · linha 1']);
+  assert.deepEqual(linhasIncompletas(blocos), ['A · linha 1']);
 });
 
 test('série negativa — igualmente inválida nos dois lados', () => {
   const blocos = [{ nome: 'A', series: 3, exercicios: [{ id: IDS[0], series: -3 }] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), ['A · linha 1']);
+  assert.deepEqual(linhasIncompletas(blocos), ['A · linha 1']);
 });
 
 test('série com vírgula decimal — "3,5" é série válida nos dois lados', () => {
   const blocos = [{ nome: 'A', series: '', exercicios: [{ id: IDS[0], series: '3,5' }] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), [], 'vírgula decimal não pode acusar incompleta');
+  assert.deepEqual(linhasIncompletas(blocos), [], 'vírgula decimal não pode acusar incompleta');
   const { nItens } = montarLivre({ blocos, porId });
   assert.equal(nItens, 1, 'e o core tem de ter salvo a linha de verdade — não é só as duas concordarem em estar erradas');
 });
@@ -120,13 +121,13 @@ test('líder sem exercício válido — a 2ª linha válida vira líder e ignora
     { id: IDS[0], linkado: true },                // primeira linha VÁLIDA: linkado é ignorado por design
   ] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), [], 'o líder (linha 2, a única válida) herda a série do bloco e fecha o grupo');
+  assert.deepEqual(linhasIncompletas(blocos), [], 'o líder (linha 2, a única válida) herda a série do bloco e fecha o grupo');
 });
 
 test('linkado na primeira linha do bloco — não há a quem linkar, e o próprio linkado é ignorado', () => {
   const blocos = [{ nome: 'A', series: 4, exercicios: [{ id: IDS[0], linkado: true }] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), []);
+  assert.deepEqual(linhasIncompletas(blocos), []);
 });
 
 test('linha vazia no meio de uma cadeia — a linha 3 linka através da linha 2 vazia, direto na linha 1', () => {
@@ -136,7 +137,7 @@ test('linha vazia no meio de uma cadeia — a linha 3 linka através da linha 2 
     { id: IDS[1], linkado: true },                  // linka com o líder, "pulando" a linha vazia
   ] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), [], 'as duas linhas válidas fecham o grupo pela série do líder');
+  assert.deepEqual(linhasIncompletas(blocos), [], 'as duas linhas válidas fecham o grupo pela série do líder');
   const grupos = gruposDoBloco(blocos[0]);
   assert.equal(grupos.length, 1, 'líder + linha 3 formam UM grupo só — a vazia não quebra a cadeia');
   assert.equal(grupos[0].membros.length, 2);
@@ -145,7 +146,7 @@ test('linha vazia no meio de uma cadeia — a linha 3 linka através da linha 2 
 test('bloco inteiro sem série — todas as linhas caem nos dois lados', () => {
   const blocos = [{ nome: 'A', series: '', exercicios: [{ id: IDS[0] }, { id: IDS[1], linkado: true }, { id: IDS[2] }] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), ['A · linha 1', 'A · linha 2', 'A · linha 3']);
+  assert.deepEqual(linhasIncompletas(blocos), ['A · linha 1', 'A · linha 2', 'A · linha 3']);
   const { nItens } = montarLivre({ blocos, porId });
   assert.equal(nItens, 0);
 });
@@ -156,7 +157,7 @@ test('bloco de WOD nunca aparece em linhasIncompletas — a regra de série não
   const blocos = [{ tipo: 'wod', nome: 'Metcon', formato: 'AMRAP', duracaoMin: 12,
     exercicios: [{ id: IDS[0], prescricao: '10 reps' }, { id: IDS[1], prescricao: '' }] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), [], 'WOD não tem série — a regra de série jamais se aplica a ele');
+  assert.deepEqual(linhasIncompletas(blocos), [], 'WOD não tem série — a regra de série jamais se aplica a ele');
   const { nItens } = montarLivre({ blocos, porId });
   assert.equal(nItens, 2, 'os dois movimentos são salvos, com ou sem prescrição — isso é outro aviso, não este');
 });
@@ -168,7 +169,7 @@ test('bloco de WOD sem NENHUMA linha com série no objeto ainda não é incomple
   // salvava normal.
   const blocos = [{ tipo: 'wod', formato: 'EMOM', duracaoMin: 16, exercicios: [{ id: IDS[0], prescricao: '' }] }];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), []);
+  assert.deepEqual(linhasIncompletas(blocos), []);
 });
 
 /* ---------- mistura: um bloco de série e um de WOD no mesmo dia ---------- */
@@ -179,7 +180,7 @@ test('bloco de série incompleto ao lado de um WOD completo — cada um só acus
     { tipo: 'wod', nome: 'Cardio', formato: 'For Time', rodadas: 3, exercicios: [{ id: IDS[1], prescricao: '400m' }] },
   ];
   checarParidade(blocos);
-  assert.deepEqual(linhasIncompletas(), ['Força · linha 1']);
+  assert.deepEqual(linhasIncompletas(blocos), ['Força · linha 1']);
 });
 
 /* ---------- num / herdar: a regra que sustenta tudo acima ---------- */

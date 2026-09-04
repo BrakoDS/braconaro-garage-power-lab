@@ -30,11 +30,10 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
 const porId = (id) => EXERCICIOS.find((e) => e.id === id) || null;
 
 /** Estado da aba. Um objeto só, porque a tela inteira se redesenha a partir dele.
- * Exportado só para o teste de paridade em `livre.test.js` montar `est.blocos`
- * direto e chamar `linhasIncompletas()` de verdade — sem isso o teste teria de
- * reimplementar a leitura do estado, e essa reimplementação é exatamente o tipo
- * de cópia que já mentiu para o coach uma vez nesta aba. */
-export const est = {
+ * NÃO é exportado: `linhasIncompletas(blocos)` recebe os blocos por parâmetro,
+ * então o teste de paridade chama a função de verdade sem que ninguém de fora
+ * possa mexer no estado da aba. */
+const est = {
   classificacao: 'hipertrofia',
   aquecimento: /** @type {{id:string, duracaoSeg:number}[]} */ ([]),
   blocos: /** @type {any[]} */ ([]),
@@ -252,7 +251,10 @@ function htmlWodAjuda(b) {
     // n = quantos movimentos já têm exercício escolhido — uma linha vazia não
     // ocupa minuto nenhum na rotação. Sem nenhum movimento a conta não existe
     // (não dá pra dividir por zero, e não há o que mostrar ainda).
-    const n = (b.exercicios || []).filter((l) => l.id).length;
+    // `porId` e não só `l.id`: um id que não resolve mais no catálogo (exercício
+    // apagado da Academia depois do rascunho) não vira movimento no core, e a
+    // conta na tela contaria um minuto que não existe.
+    const n = (b.exercicios || []).filter((l) => l.id && porId(l.id)).length;
     const d = Math.max(0, Math.round(num(b.duracaoMin) || 0));
     if (n > 0) {
       const voltas = Math.floor(d / n);
@@ -447,9 +449,9 @@ function renderResumo() {
  * e se a série dele não presta o grupo INTEIRO cai, não só ele — por isso o
  * aviso nomeia todas as linhas do grupo, não só a primeira. Divergir daria um
  * aviso que mente: foi o bug caro da leva anterior desta aba. */
-export function linhasIncompletas() {
+export function linhasIncompletas(blocos = est.blocos) {
   const fora = [];
-  est.blocos.forEach((b, bi) => {
+  blocos.forEach((b, bi) => {
     const nome = String(b.nome || '').trim() || `Bloco ${bi + 1}`;
     // `gruposDoBloco` já devolve [] para bloco de WOD — nada aqui precisa saber
     // que WOD existe, e é exatamente por isso que os dois nunca podem divergir
