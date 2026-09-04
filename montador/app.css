@@ -392,3 +392,9 @@ tr.bad-row td { color: var(--warn); }
 .hib-lado { padding: 4px 0; }
 .hib-biset { font-size: .85em; padding: 2px 0 2px 4px; border-left: 2px solid var(--acc); margin: 2px 0; }
 .hib-tec { margin-top: 6px; font-size: .9em; }
+
+/* ---------- Treino Livre no histórico do coach: bi-set/tri-set/série gigante ----------
+   Mesmo conceito do bi-set do Híbrido acima (borda de acento amarrando o par) — aqui
+   adaptado à célula da tabela de 3 níveis, já que as linhas do grupo continuam cada
+   uma na sua própria <tr> (cargas diferentes por exercício, mesma série do líder). */
+.t-niveis tr.livre-grupo td:nth-child(2) { border-left: 2px solid var(--acc); }
