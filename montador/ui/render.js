@@ -9,6 +9,7 @@ import { NIVEIS_HYROX, NIVEL_HYROX_LABEL } from '../core/hyrox.js';
 import { agruparPorSemana, analisarSemana, analisarMes } from '../core/analise.js';
 import { alternativasDoDia, diaEditavel } from '../core/editar-dia.js';
 import { COR_MODALIDADE } from '../config/cores-modalidade.js';
+import { rotuloGrupo } from '../config/livre-grupo.js';
 
 /* Cor por modalidade (calendário do histórico). Mora em config/ porque o Portal
    do Aluno desenha o mesmo calendário; o re-export mantém os imports de cá.
@@ -51,8 +52,12 @@ function seloTecnica(tecnica) {
  * Uma linha (<tr>) da tabela de 3 níveis para um exercício já normalizado.
  * @param {number} i @param {{nome:string,padrao:string,equipamento:string[],reps:string,descansoSeg?:number,niveis:Record<string,{series:number,carga:string}>,tecnica?:any}} item
  * @param {string} acoesHTML  botão "trocar" (ou '') @param {string} altsHTML  container de alternativas (ou '')
+ * @param {{rotuloHTML?: string, classeTr?: string}} [opts]  usado só pelo Treino Livre: o
+ *   selo de bi-set/tri-set/série gigante (só na primeira linha do grupo) e a classe que
+ *   amarra visualmente as linhas do grupo — ver `blocoSeriesLivre`.
  */
-function linhaNiveis(i, item, acoesHTML, altsHTML) {
+function linhaNiveis(i, item, acoesHTML, altsHTML, opts = {}) {
+  const { rotuloHTML = '', classeTr = '' } = opts;
   const desc = item.descansoSeg != null ? ` · ${item.descansoSeg}s desc.` : '';
   // Músculos: o padrão de movimento diz COMO, os músculos dizem O QUÊ — e é o que
   // o coach precisa para explicar o exercício e montar o quadro.
@@ -61,12 +66,12 @@ function linhaNiveis(i, item, acoesHTML, altsHTML) {
   const musculos = prim.length
     ? `<br><small class="mut">💪 ${prim.join(', ')}${sec.length ? ` <span style="opacity:.7">+ ${sec.join(', ')}</span>` : ''}</small>`
     : '';
-  return `<tr>
+  return `<tr${classeTr ? ` class="${classeTr}"` : ''}>
     <td>${i + 1}</td>
     <td>
       <div class="ex-row">
         <div>
-          <b>${esc(item.nome)}</b> ${seloTecnica(item.tecnica)}<br>
+          ${rotuloHTML}<b>${esc(item.nome)}</b> ${seloTecnica(item.tecnica)}<br>
           <small>${PADRAO_LABEL[item.padrao] || item.padrao} · ${equipNomes(item.equipamento || [])}</small>${musculos}<br>
           <small class="mut">${esc(item.reps)}${desc}</small>
         </div>
@@ -412,10 +417,90 @@ function blocoTecnicasDoDia(exercicios) {
 }
 
 /**
- * Card de um dia do Treino Livre salvo: cada bloco vira sua própria tabela de 3
- * níveis (reusa `linhaNiveis`/`tabelaNiveis`, os mesmos do dia plano). Sem
+ * Agrupa exercícios consecutivos do mesmo `grupo` (linhas linkadas no Treino Livre)
+ * num bi-set/tri-set/série gigante. `grupo` ausente ou não-numérico — dia salvo
+ * ANTES desta feature — nunca agrupa: cada linha nasce sozinha no próprio grupo,
+ * que é exatamente o card de antes, sem migração nenhuma.
+ * @param {any[]} exercicios
+ */
+function agruparBisetLivre(exercicios) {
+  /** @type {{grupo: any, membros: any[]}[]} */
+  const grupos = [];
+  for (const e of exercicios || []) {
+    const anterior = grupos[grupos.length - 1];
+    const linka = anterior && typeof e.grupo === 'number' && e.grupo === anterior.grupo;
+    if (linka) anterior.membros.push(e);
+    else grupos.push({ grupo: e.grupo, membros: [e] });
+  }
+  return grupos;
+}
+
+/**
+ * Bloco de séries do Treino Livre: mesma tabela de 3 níveis do dia plano
+ * (`linhaNiveis`/`tabelaNiveis`), com as linhas de um mesmo grupo amarradas pela
+ * borda de acento — mesmo conceito de `.hib-biset` (Híbrido), adaptado à célula da
+ * tabela em vez de nota entre divs — e o rótulo só na PRIMEIRA linha do grupo:
+ * repetir "Bi-set" em cada linha do par é ruído que o coach não pediu.
+ * @param {any} b  bloco `tipo:'series'` (ou legado, sem `tipo`) de core/livre.js
+ */
+function blocoSeriesLivre(b) {
+  let numero = 0;
+  const linhas = agruparBisetLivre(b.exercicios).map((g) => {
+    if (g.membros.length === 1) {
+      const linha = linhaNiveis(numero, g.membros[0], '', '');
+      numero += 1;
+      return linha;
+    }
+    const rotulo = `<div class="hib-biset mut" style="margin:0 0 4px">🔗 ${rotuloGrupo(g.membros.length)}</div>`;
+    const linhasGrupo = g.membros.map((e, j) => linhaNiveis(numero + j, e, '', '', {
+      rotuloHTML: j === 0 ? rotulo : '',
+      classeTr: 'livre-grupo',
+    })).join('');
+    numero += g.membros.length;
+    return linhasGrupo;
+  }).join('');
+  const igual = b.porNivel ? '' : ' <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— mesma série para os três níveis</span>';
+  return `<h4>${esc(b.nome)}${igual}</h4>${tabelaNiveis(linhas)}`;
+}
+
+/**
+ * Bloco de WOD do Treino Livre: NÃO passa por `tabelaNiveis` — não há três níveis
+ * num AMRAP, e forçar a tabela faria o coach ler uma prescrição que não existe.
+ * Mesmo vocabulário do WOD do Híbrido (`renderHibrido`, `.hib-wod`/`.hib-wod-h`/
+ * `.hib-wod-list`) para não inventar uma segunda leitura de WOD no mesmo app.
+ *
+ * O EMOM aqui é ROTAÇÃO — decisão do coach, ver `DESCRICAO_EMOM_ROTACAO` em
+ * config/wod-formatos.js: minuto 1 é o primeiro movimento, minuto 2 o segundo, e a
+ * lista reinicia até fechar o tempo. Por isso a numeração "min N" abaixo. É
+ * DIFERENTE do EMOM do Híbrido (bloco fixo por minuto, sem rotação) — os dois não
+ * podem compartilhar o mesmo texto.
+ * @param {any} b  bloco `tipo:'wod'` de core/livre.js
+ */
+function blocoWodLivre(b) {
+  const emom = b.formato === 'EMOM';
+  const rodadas = b.formato === 'For Time' && b.rodadas
+    ? ` · ${b.rodadas} rodada${b.rodadas === 1 ? '' : 's'}` : '';
+  const movs = (b.exercicios || []).map((m, i) =>
+    `<li>${emom ? `<b>min ${i + 1}.</b> ` : ''}<b>${esc(m.nome)}</b> — ${esc(m.prescricao)}</li>`).join('');
+  return `<h4>${esc(b.nome)} — ${esc(b.formato)} · ${b.duracaoMin} min${rodadas}</h4>
+    <div class="hib-wod">
+      <div class="hib-wod-h"><span class="hiit-badge">${esc(b.formato)}</span> <b>${b.duracaoMin} min</b></div>
+      <div class="mut" style="margin:4px 0 8px">${esc(b.descricaoFormato)}</div>
+      <ul class="hib-wod-list">${movs}</ul>
+    </div>`;
+}
+
+/**
+ * Card de um dia do Treino Livre salvo: cada bloco vira sua própria seção. Sem
  * "trocar" — editar um dia livre já salvo está fora de escopo, então nem
  * `acoesHTML` nem `altsHTML` são oferecidos aqui.
+ *
+ * Despacho por `b.tipo` — `'wod'` (ou qualquer bloco que já trouxer `formato`,
+ * defensivo contra um dia salvo com o tipo perdido no meio do caminho, mesma
+ * regra do Portal do Aluno) vai para o card de WOD; o resto é o bloco de séries de
+ * sempre. Bloco sem `tipo` nenhum — dia salvo ANTES desta feature — cai no de
+ * séries, que é o comportamento de sempre: NADA aqui lê `d.exercicios` no topo, e
+ * é exatamente essa leitura que quebrava o histórico na leva anterior.
  * @param {any} d  snapshot do dia (com `d.livre`)
  */
 function renderLivreSalvo(d) {
@@ -433,14 +518,16 @@ function renderLivreSalvo(d) {
 
   // Bloco que não abre por nível deu o MESMO número pros três — sem o aviso o
   // coach lê a tabela e acha que o avançado ficou com a prescrição errada.
-  const blocos = (d.livre?.blocos || []).map((b) => {
-    const linhas = (b.exercicios || []).map((e, i) => linhaNiveis(i, e, '', '')).join('');
-    const igual = b.porNivel ? '' : ' <span class="mut" style="font-weight:400;text-transform:none;letter-spacing:0">— mesma série para os três níveis</span>';
-    return `<h4>${esc(b.nome)}${igual}</h4>${tabelaNiveis(linhas)}`;
-  }).join('');
+  const blocos = (d.livre?.blocos || [])
+    .map((b) => (b.tipo === 'wod' || b.formato ? blocoWodLivre(b) : blocoSeriesLivre(b)))
+    .join('');
 
-  // As técnicas somam de TODOS os blocos — o seletor por linha existe em cada um,
-  // e sem isto o coach só encontraria a escolha dele num tooltip.
+  // As técnicas somam de TODOS os blocos de série — o seletor por linha existe em
+  // cada um, e sem isto o coach só encontraria a escolha dele num tooltip. Um
+  // movimento de WOD não tem `.exercicios[].tecnica` (não existe técnica avançada
+  // num AMRAP): entra no `flatMap` do mesmo jeito, mas sai sem `tecnica`, e
+  // `blocoTecnicasDoDia` já filtra por `e.tecnica?.detalhe` — não quebra, só não
+  // aparece na lista.
   const todosExercicios = (d.livre?.blocos || []).flatMap((b) => b.exercicios || []);
   const tecnicas = blocoTecnicasDoDia(todosExercicios);
 

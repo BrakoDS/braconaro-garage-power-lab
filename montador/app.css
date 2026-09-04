@@ -201,11 +201,23 @@ tr.bad-row td { color: var(--warn); }
 /* A chave de nível é a decisão mais consequente do bloco: fica visível, não escondida num menu. */
 .lv-nivel { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--mut); cursor: pointer; }
 .lv-nivel input { accent-color: var(--acc); }
-.lv-linha { display: grid; grid-template-columns: 1fr 70px 100px 150px auto; gap: 8px; align-items: center; margin: 6px 0; }
+.lv-linha { display: grid; grid-template-columns: 28px 1fr 70px 100px 150px auto; gap: 8px; align-items: center; margin: 6px 0; }
 .lv-linha .lv-busca-wrap { position: relative; }
 .lv-linha input, .lv-linha select { width: 100%; }
 .lv-x { background: transparent; border: 1px solid var(--line); border-radius: 8px; color: var(--mut); cursor: pointer; padding: 6px 10px; }
 .lv-x:hover { color: var(--bad); border-color: var(--bad); }
+/* Corrente do bi-set: mesmo estilo do lv-x, porque é o mesmo tipo de botão de
+   linha — só liga/desliga em vez de remover. Esmaecido quando solta, cor de
+   destaque quando linka (o coach vê de longe quais linhas viraram par). */
+.lv-link { background: transparent; border: 1px solid var(--line); border-radius: 8px; color: var(--mut); cursor: pointer; padding: 6px 4px; font-size: 13px; line-height: 1; }
+.lv-link:hover { color: var(--acc); border-color: var(--acc); }
+.lv-link.lv-link-on { color: var(--acc); border-color: var(--acc); }
+.lv-link-vazio { display: block; }
+/* A linha que segue o líder ganha a mesma barra do bi-set do Híbrido — é o
+   mesmo conceito na cabeça do coach — e um recuo que a separa visualmente de
+   quem abriu o grupo. */
+.lv-linha.lv-linkada { border-left: 2px solid var(--acc); padding-left: 8px; margin-left: -2px; }
+.lv-grupo-tag { font-size: 11px; color: var(--mut); margin-left: 8px; }
 .lv-add { margin-top: 6px; }
 /* Sugestões da busca: lista sobreposta, porque o campo fica dentro de uma grade
    e empurrar as linhas para baixo faria o cursor perseguir o campo. */
@@ -218,8 +230,31 @@ tr.bad-row td { color: var(--warn); }
 .lv-vazio { padding: 8px 10px; font-size: 12.5px; color: var(--mut); }
 .lv-vazio a { color: var(--acc); }
 .lv-aviso { color: var(--bad); font-size: 12.5px; margin-top: 6px; }
+/* Alternador séries/WOD: par de botões-pílula, o mesmo padrão visual de
+   `.tab.active` (fundo âmbar, texto escuro) para o lado ativo — o coach já
+   reconhece essa cor como "é isto que está selecionado" no resto da tela. */
+.lv-tipo { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.lv-tipo button { background: transparent; border: 0; color: var(--mut); font: inherit; font-size: 12.5px;
+  font-weight: 600; padding: 6px 14px; cursor: pointer; }
+.lv-tipo button:hover { color: var(--txt); }
+.lv-tipo button.lv-tipo-on { background: var(--acc); color: #1a1300; }
+/* Linha de ajuda do bloco de WOD: explica o formato (e, no EMOM, a conta da
+   rotação) — informativo, não um aviso, por isso o tom neutro em vez do
+   vermelho de `.lv-aviso`. */
+.lv-wod-ajuda { color: var(--mut); font-size: 12.5px; margin-bottom: 8px; }
+/* Linha do bloco de WOD: só busca + prescrição (sem série/reps/técnica —
+   nenhum deles descreve um AMRAP), por isso não usa o grid de 6 colunas de
+   `.lv-linha` — forçar as duas nele deixaria colunas vazias e tortas. */
+.lv-linha-wod { display: grid; grid-template-columns: 1fr 240px auto; gap: 8px; align-items: center; margin: 6px 0; }
+.lv-linha-wod .lv-busca-wrap { position: relative; }
+.lv-linha-wod input { width: 100%; }
 @media (max-width: 720px) {
   .lv-linha { grid-template-columns: 1fr; }
+  /* Numa coluna só, o botão de corrente esticado a largura da tela vira um
+     alvo de toque confuso — mantém do tamanho do ícone, à esquerda. */
+  .lv-link, .lv-link-vazio { width: auto; justify-self: start; }
+  .lv-link-vazio { display: none; }
+  .lv-linha-wod { grid-template-columns: 1fr; }
 }
 
 @media print {
@@ -357,3 +392,9 @@ tr.bad-row td { color: var(--warn); }
 .hib-lado { padding: 4px 0; }
 .hib-biset { font-size: .85em; padding: 2px 0 2px 4px; border-left: 2px solid var(--acc); margin: 2px 0; }
 .hib-tec { margin-top: 6px; font-size: .9em; }
+
+/* ---------- Treino Livre no histórico do coach: bi-set/tri-set/série gigante ----------
+   Mesmo conceito do bi-set do Híbrido acima (borda de acento amarrando o par) — aqui
+   adaptado à célula da tabela de 3 níveis, já que as linhas do grupo continuam cada
+   uma na sua própria <tr> (cargas diferentes por exercício, mesma série do líder). */
+.t-niveis tr.livre-grupo td:nth-child(2) { border-left: 2px solid var(--acc); }

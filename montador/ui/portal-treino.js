@@ -38,18 +38,42 @@ export function diaEnxuto(d) {
     // Mesma poda do ramo plano abaixo, só que por bloco: o aluno não usa `id`,
     // `equipamento` nem os músculos — e sem cortar isso o doc do Portal carrega
     // dado que só o coach precisa.
+    //
+    // `tipo` sai SEMPRE explícito ('wod' só quando o bloco é mesmo um WOD; tudo o
+    // mais — inclusive o dia salvo antes desta feature, que nem tinha o campo —
+    // vira 'series'). É essa checagem que evita a versão pequena do bug desta
+    // task: publicar um WOD como se fosse um bloco de séries, ou vice-versa.
     return {
       ...base,
       aquecimento: (d.aquecimento || []).map((a) => ({ nome: a.nome, duracaoSeg: a.duracaoSeg })),
       livre: {
-        blocos: (d.livre.blocos || []).map((b) => ({
-          nome: b.nome,
-          porNivel: b.porNivel,
-          exercicios: (b.exercicios || []).map((e) => ({
-            nome: e.nome, padrao: e.padrao, reps: e.reps, descansoSeg: e.descansoSeg, niveis: e.niveis,
-            tecnica: e.tecnica || null,
-          })),
-        })),
+        blocos: (d.livre.blocos || []).map((b) => {
+          if (b.tipo === 'wod') {
+            return {
+              tipo: 'wod',
+              nome: b.nome,
+              formato: b.formato,
+              descricaoFormato: b.descricaoFormato,
+              duracaoMin: b.duracaoMin,
+              rodadas: b.rodadas,
+              exercicios: (b.exercicios || []).map((e) => ({
+                nome: e.nome, padrao: e.padrao, prescricao: e.prescricao,
+              })),
+            };
+          }
+          return {
+            tipo: 'series',
+            nome: b.nome,
+            porNivel: b.porNivel,
+            exercicios: (b.exercicios || []).map((e) => ({
+              nome: e.nome, padrao: e.padrao, reps: e.reps, descansoSeg: e.descansoSeg, niveis: e.niveis,
+              tecnica: e.tecnica || null,
+              // `?? null`, não `|| 0`: o grupo 0 é o primeiro grupo do bloco, e
+              // "falsy" apagaria justamente o líder de cada bloco.
+              grupo: e.grupo ?? null,
+            })),
+          };
+        }),
       },
     };
   }

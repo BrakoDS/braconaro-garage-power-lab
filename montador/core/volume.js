@@ -20,6 +20,18 @@ const PESO_PRIMARIO = 1.0;
 const PESO_SECUNDARIO = 0.5;
 
 /**
+ * Crédito de volume de um movimento de WOD (Híbrido ou bloco de WOD do Livre).
+ * É NOMINAL, não medido: um WOD mistura reps/tempo/rodadas de um jeito que não dá
+ * pra contar "séries" de verdade, então cada movimento entra com um peso fixo só
+ * para não sumir da tabela de padrão de movimento e do total de séries do dia.
+ * Por isso NUNCA entra em `porMusculo` — ali o número precisa ser volume real de
+ * músculo, e um crédito inventado distorceria a leitura de quanto cada grupo
+ * trabalhou. Mesma constante para o Híbrido (`hibrido.js`) e o Treino Livre
+ * (`livre.js`) — os dois têm que combinar sempre, nunca divergir em silêncio.
+ */
+export const CREDITO_WOD = 2.5;
+
+/**
  * Volume de uma lista de itens de treino.
  * @param {ItemTreino[]} itens
  * @returns {Volume}

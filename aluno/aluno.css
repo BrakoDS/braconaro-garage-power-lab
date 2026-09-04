@@ -581,6 +581,17 @@ button.crono-hoje:hover,button.crono-hoje:focus-visible{border-color:var(--line-
 .td-slots i{color:var(--accent-2);font-style:normal}
 .td-parte{margin-top:12px}
 .td-parte-h{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:6px}
+/* Bi-set/tri-set/série gigante do Treino Livre: `.td-ex` é uma grade de 2
+   colunas pensada pra 1 nome + 1 prescrição, e quebra com mais de uma linha de
+   apoio (2+ nomes de grupo não cabem nela). Em vez de forçar isso na mesma
+   grade, o grupo vira um bloco próprio, empilhado por flexbox — cresce em
+   altura à vontade, nunca precisa encolher fonte pra caber em 375px. */
+.td-grupo{padding-bottom:8px;border-bottom:1px solid var(--line)}
+.td-lista .td-grupo:last-child{border-bottom:0;padding-bottom:0}
+.td-grupo-cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.td-grupo-rotulo{font-weight:700;font-size:.94rem;color:var(--accent)}
+.td-grupo-membros{display:flex;flex-direction:column;gap:2px;margin-top:3px}
+.td-grupo .td-biset-vs{display:block;margin-top:2px}
 .td-nota-inline{font-weight:400;font-size:.8rem;color:var(--mut-2);text-transform:none;letter-spacing:0}
 .td-descanso{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);padding:16px 18px}
 .td-descanso-ic{font-size:1.8rem}

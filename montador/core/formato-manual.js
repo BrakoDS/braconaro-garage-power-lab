@@ -25,6 +25,7 @@
  */
 import { MODALIDADES } from '../config/modalidades.js';
 import { padroesObrigatorios } from '../config/padroes.js';
+import { FORMATOS_WOD } from '../config/wod-formatos.js';
 import { HIIT_ESTACOES, TABATA as TABATA_HIIT } from './hiitTabata.js';
 import { TABATA as TABATA_GAP } from './gap.js';
 import { HYROX_ESTACOES, HYROX_CORRIDA } from './hyrox.js';
@@ -66,8 +67,13 @@ const MOB_MAX_SLOTS = 8;
 const MOB_HIBRIDO_SEG = { normal: 240, deload: 720 };
 /** Espelha o `nItens` de `montarMobilidade` (core/hibrido.js). */
 const MOB_HIBRIDO_SLOTS = { normal: 3, deload: 6 };
-/** Espelha FORMATOS_WOD de core/hibrido.js. No deload o WOD trava em EMOM. */
-const FORMATOS_WOD_MANUAL = ['AMRAP', 'EMOM', 'For Time', 'Chipper'];
+/**
+ * A lista vinha copiada à mão daqui de dentro porque importar de `core/hibrido.js`
+ * arrastaria o catálogo real junto. Agora ela mora em `config/wod-formatos.js`,
+ * que não depende de nada — então este módulo pode usar a fonte de verdade e
+ * parar de espelhar. No deload o WOD trava em EMOM.
+ */
+const FORMATOS_WOD_MANUAL = FORMATOS_WOD;
 /** Quantos movimentos o WOD comporta — mesma faixa que `montarWod` sorteia (3 + 0..2). */
 const WOD_MOVIMENTOS = /** @type {[number,number]} */ ([3, 5]);
 
