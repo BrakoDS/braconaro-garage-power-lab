@@ -15,8 +15,9 @@
  *
  * @typedef {import('./niveis.js').Nivel} Nivel
  */
-import { calcularVolume } from './volume.js';
+import { calcularVolume, CREDITO_WOD } from './volume.js';
 import { variantesNivel } from './niveis.js';
+import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
 
 /** Folga fixa de transição/explicação do dia, igual à das outras abas (5 min). */
 const FOLGA_SEG = 300;
@@ -29,6 +30,50 @@ function num(v) {
 
 /** O primeiro valor definido da linha, senão o do bloco. */
 const herdar = (daLinha, doBloco) => (daLinha === undefined || daLinha === null || daLinha === '' ? doBloco : daLinha);
+
+/**
+ * Um bloco de WOD: formato, tempo e uma lista de movimentos com prescrição livre.
+ *
+ * Não tem série, reps, técnica nem "abrir por nível" — nenhum deles descreve um
+ * AMRAP. A forma de saída é a mesma que `core/hibrido.js` já produz, para que o
+ * card do coach e o do aluno falem de WOD numa língua só.
+ * @param {any} b  bloco de entrada (`tipo: 'wod'`)
+ * @param {(id: string) => any} porId
+ * @returns {any|null}  null quando não sobrou movimento nenhum
+ */
+function montarBlocoWod(b, porId) {
+  const exercicios = [];
+  for (const l of (b && b.exercicios) || []) {
+    const e = l && porId(l.id);
+    if (!e) continue;
+    exercicios.push({
+      id: e.id,
+      nome: e.nome,
+      padrao: e.padrao,
+      equipamento: e.equipamento || [],
+      // Movimento sem prescrição entra assim mesmo: "burpee" ainda é um movimento
+      // do WOD. Quem cobra o número é a tela, não a regra.
+      prescricao: String(l.prescricao ?? '').trim(),
+    });
+  }
+  if (!exercicios.length) return null;
+
+  const formato = FORMATOS_WOD.includes(b.formato) ? b.formato : 'AMRAP';
+  const rodadasNum = num(b.rodadas);
+  return {
+    tipo: 'wod',
+    // Sem nome ele é "WOD", e não "Bloco 3": o coach reconhece esse bloco pelo
+    // que ele é, não pela posição.
+    nome: String((b && b.nome) || '').trim() || 'WOD',
+    formato,
+    descricaoFormato: formato === 'EMOM' ? DESCRICAO_EMOM_ROTACAO : DESCRICAO_FORMATO[formato],
+    duracaoMin: Math.max(0, num(b.duracaoMin) || 0),
+    // Rodadas só fazem sentido no For Time: no AMRAP e no EMOM quem manda é o
+    // relógio, e o Chipper é uma volta só por definição.
+    rodadas: formato === 'For Time' && rodadasNum > 0 ? rodadasNum : null,
+    exercicios,
+  };
+}
 
 /**
  * Monta volume e snapshot de um dia livre.
@@ -50,9 +95,20 @@ export function montarLivre({ classificacao = 'hipertrofia', aquecimento = [], b
   /** @type {{exercicio: any, series: number}[]} */
   const itensVolume = [];
   const blocosSaida = [];
+  /** Padrões de movimento creditados pelos WODs — somados DEPOIS de calcularVolume. */
+  const creditosWod = [];
   let principalSeg = 0;
 
   (blocos || []).forEach((b, i) => {
+    if (b && b.tipo === 'wod') {
+      const bloco = montarBlocoWod(b, porId);
+      if (!bloco) return; // WOD sem movimento não vira nada, igual ao bloco vazio
+      for (const m of bloco.exercicios) creditosWod.push(m.padrao);
+      principalSeg += bloco.duracaoMin * 60;
+      blocosSaida.push(bloco);
+      return;
+    }
+
     const exercicios = [];
 
     // 1) só as linhas com exercício de verdade participam do agrupamento —
@@ -128,15 +184,27 @@ export function montarLivre({ classificacao = 'hipertrofia', aquecimento = [], b
     blocosSaida.push({
       // O nome posicional usa o índice de ENTRADA: se o bloco 1 ficou vazio, o
       // segundo continua sendo "Bloco 2" — é o que o coach vê na tela.
+      tipo: 'series',
       nome: String((b && b.nome) || '').trim() || `Bloco ${i + 1}`,
       porNivel: !!(b && b.porNivel),
       exercicios,
     });
   });
 
+  // O crédito do WOD entra DEPOIS da conta real, e só em `porPadrao`/`totalSeries`:
+  // ver o porquê em CREDITO_WOD (volume.js). É a mesma soma que `volumeHibrido`
+  // faz — as duas abas precisam contar o mesmo WOD do mesmo jeito.
+  const vol = calcularVolume(itensVolume);
+  for (const padrao of creditosWod) {
+    vol.porPadrao[padrao] = (vol.porPadrao[padrao] || 0) + CREDITO_WOD;
+    vol.totalSeries += CREDITO_WOD;
+  }
+
   return {
-    vol: calcularVolume(itensVolume),
-    nItens: itensVolume.length,
+    vol,
+    // Os movimentos do WOD contam: sem isso um dia 100% WOD não teria barra de
+    // salvar — e é justamente o dia que a aba passou a existir para montar.
+    nItens: itensVolume.length + creditosWod.length,
     extra: {
       tempos: {
         aquecimentoSeg,

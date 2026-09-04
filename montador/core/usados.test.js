@@ -61,6 +61,20 @@ test('id repetido em dias diferentes aparece uma vez só', () => {
   assert.deepEqual([...ids], ['burpee']);
 });
 
+test('movimento de bloco de WOD conta como usado na semana', () => {
+  // O bloco de WOD guarda os movimentos em `exercicios` com `id`, exatamente como
+  // o bloco de séries — é por isso que este módulo não precisou de UMA linha nova
+  // para enxergar o WOD do Treino Livre. Se alguém renomear aquela lista, este
+  // teste cai, e o aviso "já na semana" fica cego para o WOD sem ninguém notar.
+  const ids = idsUsadosEm([
+    { dateId: '2026-09-01', livre: { blocos: [
+      { tipo: 'series', exercicios: [{ id: 'supino' }] },
+      { tipo: 'wod', formato: 'EMOM', exercicios: [{ id: 'burpee' }, { id: 'box_jump' }] },
+    ] } },
+  ]);
+  assert.deepEqual([...ids].sort(), ['box_jump', 'burpee', 'supino']);
+});
+
 test('entrada malformada não quebra', () => {
   const ids = idsUsadosEm([
     { dateId: '2026-09-01', exercicios: [null, { nome: 'sem id' }, { id: '' }] },

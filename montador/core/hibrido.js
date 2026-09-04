@@ -70,6 +70,8 @@ import { variantesNivel } from './niveis.js';
 import {
   PARES_ANTAGONISTAS, calcularPostos, calcularSeries, prescricaoSemana, SERIE_SEG, duracaoWodPorSemana,
 } from './hibrido-postos.js';
+import { FORMATOS_WOD, DESCRICAO_FORMATO } from '../config/wod-formatos.js';
+import { CREDITO_WOD } from './volume.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const MOBILIDADE_SEG = 240;          // 4 min nas semanas 1–3
@@ -312,13 +314,10 @@ function grupoWod(ex) {
   if (ex.equipamento.length === 1 && ex.equipamento[0] === 'corporal') return 'corporal';
   return 'peso';
 }
-export const FORMATOS_WOD = /** @type {const} */ (['AMRAP', 'EMOM', 'For Time', 'Chipper']);
-export const DESCRICAO_FORMATO = {
-  'AMRAP': 'Máximo de rodadas possíveis no tempo — cronômetro corre até o fim.',
-  'EMOM': 'A cada minuto, execute o bloco de movimentos e descanse o restante do minuto.',
-  'For Time': 'Complete tudo o mais rápido possível — cronometra o tempo total.',
-  'Chipper': 'Uma lista longa de movimentos, na ordem, sem repetir rodada (cada um só 1×).',
-};
+// FORMATOS_WOD e DESCRICAO_FORMATO moraram aqui; agora vivem em
+// `config/wod-formatos.js` — reexportadas abaixo para não quebrar quem já
+// importava daqui (ex.: telas do Híbrido).
+export { FORMATOS_WOD, DESCRICAO_FORMATO };
 /** Prescrição textual por grupo (reps p/ peso/corporal, distância/tempo p/ monoestrutural). */
 function prescricaoWod(ex, rng) {
   const g = grupoWod(ex);
@@ -493,7 +492,8 @@ export function volumeHibrido(postos, wod) {
     { exercicio: p.b, series: p.series },
   ]);
   const real = calcularVolume(itens);
-  const CREDITO_WOD = 2.5;
+  // CREDITO_WOD agora vive em volume.js — mesma constante que o Treino Livre usa
+  // para o bloco de WOD, para os dois nunca divergirem silenciosamente.
   for (const m of wod.movimentos) {
     real.porPadrao[m.padraoDominante] = (real.porPadrao[m.padraoDominante] || 0) + CREDITO_WOD;
     real.totalSeries += CREDITO_WOD;
