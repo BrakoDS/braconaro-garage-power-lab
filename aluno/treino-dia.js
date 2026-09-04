@@ -195,32 +195,148 @@ function corpoHibrido(h, nivel) {
     <ul class="td-lista">${movs}</ul>`;
 }
 
+/** Rótulo do grupo pelo tamanho — 2 é bi-set, 3 é tri-set, 4+ é série gigante,
+ * a mesma régua que o Treino Livre usa na tela do coach pra nomear o que ele
+ * linkou. */
+const rotuloGrupo = (n) => (n === 2 ? 'Bi-set' : n === 3 ? 'Tri-set' : 'Série gigante');
+
+/**
+ * Agrupa exercícios consecutivos do mesmo `grupo` (linhas linkadas no Treino
+ * Livre) num item só. `grupo` ausente ou não-numérico (dia salvo antes desta
+ * feature) nunca agrupa — cada linha nasce sozinha no próprio grupo, que é
+ * exatamente o card de hoje.
+ * @param {any[]} exercicios
+ */
+function agruparLivre(exercicios) {
+  /** @type {{grupo: any, membros: any[]}[]} */
+  const grupos = [];
+  for (const e of exercicios || []) {
+    const anterior = grupos[grupos.length - 1];
+    const linka = anterior && typeof e.grupo === 'number' && e.grupo === anterior.grupo;
+    if (linka) anterior.membros.push(e);
+    else grupos.push({ grupo: e.grupo, membros: [e] });
+  }
+  return grupos;
+}
+
+/** Uma linha solta, fora de grupo — o card de hoje, sem mudança nenhuma. */
+function linhaLivreSolo(e, numero, nivel) {
+  const v = e.niveis && e.niveis[nivel];
+  // O intervalo só aparece se o coach preencheu algo — o próprio campo do
+  // bloco herda 0/vazio quando ele não mexeu, e mostrar "· 0s" seria ruído.
+  const desc = e.descansoSeg ? ` · ${e.descansoSeg}s` : '';
+  const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}${desc}` : `${esc(e.reps || '')}${desc}`;
+  const tec = e.tecnica ? ` · <i>${esc(rotuloTecnica(e.tecnica))}</i>` : '';
+  return `<li class="td-ex">
+    <span class="td-ex-nome">${numero}. ${esc(e.nome)}</span>
+    <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}${tec}</span>
+    <span class="td-ex-presc">${prescricao}</span>
+  </li>`;
+}
+
+/**
+ * Um grupo linkado (bi-set/tri-set/série gigante) vira UM item: rótulo, cada
+ * membro com nome e carga do nível, a nota de revezamento — mesma frase que o
+ * Híbrido já usa pro bi-set dele — e a prescrição uma vez só, do líder (é ele
+ * quem define série e descanso pro grupo inteiro, ver o porquê em core/livre.js).
+ *
+ * Não usa a grade `.td-ex`: ela é uma coluna fixa pra 1 nome + 1 prescrição, e
+ * um grupo pode ter 2, 3 ou mais nomes — por isso o layout próprio em `.td-grupo`
+ * (aluno.css), em vez de empilhar mais `.td-ex-sub` na mesma grade.
+ */
+function linhaLivreGrupo(membros, nivel) {
+  const lider = membros[0];
+  const vLider = lider.niveis && lider.niveis[nivel];
+  const descLider = lider.descansoSeg ? ` · ${lider.descansoSeg}s` : '';
+  const prescricao = vLider
+    ? `<b>${vLider.series}×</b> ${esc(lider.reps || '')}${descLider}`
+    : `${esc(lider.reps || '')}${descLider}`;
+  const nomes = membros.map((e) => {
+    const v = e.niveis && e.niveis[nivel];
+    const carga = v && v.carga ? ` · ${esc(v.carga)}` : '';
+    const tec = e.tecnica ? ` · <i>${esc(rotuloTecnica(e.tecnica))}</i>` : '';
+    return `<span class="td-ex-sub">${esc(e.nome)}${carga}${tec}</span>`;
+  }).join('');
+  return `<li class="td-grupo">
+    <div class="td-grupo-cab">
+      <span class="td-grupo-rotulo">${rotuloGrupo(membros.length)}</span>
+      <span class="td-ex-presc">${prescricao}</span>
+    </div>
+    <div class="td-grupo-membros">${nomes}</div>
+    <span class="td-ex-sub td-biset-vs">↕ alterna com a parceira a cada série</span>
+  </li>`;
+}
+
+/** Bloco de séries: agrupa bi-set/tri-set/série gigante antes de desenhar, e
+ * numera as linhas soltas pela posição real no bloco — um grupo no meio não
+ * "pula" a numeração de quem vem depois dele. */
+function blocoLivreSeries(b, nivel) {
+  let numero = 0;
+  const linhas = agruparLivre(b.exercicios).map((g) => {
+    if (g.membros.length === 1) { numero += 1; return linhaLivreSolo(g.membros[0], numero, nivel); }
+    numero += g.membros.length;
+    return linhaLivreGrupo(g.membros, nivel);
+  }).join('');
+  const igual = b.porNivel ? '' : ' <span class="td-nota-inline">· igual para todos</span>';
+  return `<div class="td-parte-h">${esc(b.nome)}${igual}</div><ul class="td-lista">${linhas}</ul>`;
+}
+
+/**
+ * Quantas voltas completas cabem na rotação do EMOM, e avisa quando a última
+ * fecha pela metade — sem isso a aluna contaria com um ciclo inteiro que o
+ * relógio não dá tempo de fechar.
+ */
+function notaEmomRotacao(duracaoMin, nMovimentos) {
+  if (!nMovimentos) return '';
+  const voltas = Math.floor(duracaoMin / nMovimentos);
+  const resto = duracaoMin % nMovimentos;
+  const base = `${voltas} volta${voltas === 1 ? '' : 's'} completa${voltas === 1 ? '' : 's'} de rotação em ${duracaoMin} min`;
+  return resto ? `${base} — os últimos ${resto} min repetem só o começo da lista.` : `${base}.`;
+}
+
+/**
+ * Bloco de WOD (AMRAP/EMOM/For Time/Chipper): cabeçalho com formato e tempo, a
+ * frase do formato e os movimentos como "nome — prescrição" — o mesmo padrão
+ * que o WOD do Híbrido já usa, pra não inventar uma segunda leitura pro aluno.
+ *
+ * O EMOM aqui é ROTAÇÃO (decisão do coach — ver DESCRICAO_EMOM_ROTACAO no core):
+ * minuto 1 é o primeiro movimento da lista, minuto 2 o segundo, e ela reinicia
+ * até fechar o tempo. Por isso a numeração "min N" e a nota de quantas voltas
+ * fecham — é DIFERENTE do EMOM do Híbrido (bloco fixo por minuto, sem rotação),
+ * e as duas telas não podem compartilhar o mesmo texto.
+ */
+function corpoLivreWod(b) {
+  const emom = b.formato === 'EMOM';
+  const nMovimentos = (b.exercicios || []).length;
+  const movs = (b.exercicios || []).map((m, i) => {
+    const prefixo = emom ? `min ${i + 1}. ` : '';
+    return `<li>${prefixo}${esc(m.nome)} — ${esc(m.prescricao)}</li>`;
+  }).join('');
+  const rodadasTx = b.formato === 'For Time' && b.rodadas
+    ? `<div class="td-nota"><b>${b.rodadas} rodada${b.rodadas === 1 ? '' : 's'} de:</b></div>` : '';
+  const emomTx = emom ? `<div class="td-nota">${esc(notaEmomRotacao(b.duracaoMin, nMovimentos))}</div>` : '';
+  return `<div class="td-parte-h">${esc(b.nome)} — ${esc(b.formato)} · ${b.duracaoMin} min</div>
+    <div class="td-nota">${esc(b.descricaoFormato)}</div>
+    ${rodadasTx}${emomTx}
+    <ul class="td-lista">${movs}</ul>`;
+}
+
 /**
  * Treino Livre: blocos nomeados pelo coach, cada um com sua prescrição.
  *
- * O bloco que não abre por nível mostra o mesmo número para todos e diz isso —
- * sem o aviso, o aluno avançado acharia que o app errou a conta dele.
+ * Despacha por `b.tipo` — 'wod' (ou qualquer bloco que trouxer `formato`,
+ * defensivo contra um dia salvo com o tipo perdido no meio do caminho) vai pro
+ * card de WOD; o resto é o bloco de séries de sempre, com agrupamento de
+ * bi-set/tri-set. O bloco que não abre por nível mostra o mesmo número para
+ * todos e diz isso — sem o aviso, o aluno avançado acharia que o app errou a
+ * conta dele.
  * @param {any} l  o `treino.livre` do snapshot
  * @param {string} nivel
  */
 function corpoLivre(l, nivel) {
-  return (l.blocos || []).map((b) => {
-    const linhas = (b.exercicios || []).map((e, i) => {
-      const v = e.niveis && e.niveis[nivel];
-      // O intervalo só aparece se o coach preencheu algo — o próprio campo do
-      // bloco herda 0/vazio quando ele não mexeu, e mostrar "· 0s" seria ruído.
-      const desc = e.descansoSeg ? ` · ${e.descansoSeg}s` : '';
-      const prescricao = v ? `<b>${v.series}×</b> ${esc(e.reps || '')}${v.carga ? ` · ${esc(v.carga)}` : ''}${desc}` : `${esc(e.reps || '')}${desc}`;
-      const tec = e.tecnica ? ` · <i>${esc(rotuloTecnica(e.tecnica))}</i>` : '';
-      return `<li class="td-ex">
-        <span class="td-ex-nome">${i + 1}. ${esc(e.nome)}</span>
-        <span class="td-ex-sub">${PADRAO_LABEL[e.padrao] || esc(e.padrao || '')}${tec}</span>
-        <span class="td-ex-presc">${prescricao}</span>
-      </li>`;
-    }).join('');
-    const igual = b.porNivel ? '' : ' <span class="td-nota-inline">· igual para todos</span>';
-    return `<div class="td-parte-h">${esc(b.nome)}${igual}</div><ul class="td-lista">${linhas}</ul>`;
-  }).join('');
+  return (l.blocos || []).map((b) => (
+    b.tipo === 'wod' || b.formato ? corpoLivreWod(b) : blocoLivreSeries(b, nivel)
+  )).join('');
 }
 
 /**
