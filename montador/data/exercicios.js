@@ -592,6 +592,17 @@ export const EXERCICIOS = [
     nivel: 'iniciante', tempoMedioSeg: 35, unilateral: true,
   },
   {
+    // Fica FORA de 'musculacao' de propósito: é salto, não estação de carga. Numa
+    // série de hipertrofia ele não tem o que progredir, e o lugar dele é o
+    // metabólico — por isso HIIT e CROSS, com `cardio` ligado para servir à
+    // estação de cardio do TABATA, como o burpee.
+    id: 'box_jump', nome: 'Box jump',
+    descricao: 'Salto com os dois pés no caixote de 30 cm, aterrissando com os joelhos flexionados. Descer em step-down poupa o tendão de Aquiles.',
+    padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha', 'posterior_coxa'],
+    categorias: ['hiit', 'wod'], equipamento: ['caixote'],
+    nivel: 'intermediario', tempoMedioSeg: 30, cardio: true,
+  },
+  {
     id: 'wall_ball_shot', nome: 'Wall ball shot',
     descricao: 'Agachar e arremessar a bola no alvo da parede.',
     padrao: 'quadriceps', musculosPrimarios: ['quadriceps', 'ombro'], musculosSecundarios: ['gluteo'],
