@@ -22,6 +22,7 @@ import { renderMetaVolume, renderVolume } from './render.js';
 import { confirmar } from './dialogo.js';
 import { publicarTreino } from './portal-treino.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
+import { rotuloGrupo } from '../config/livre-grupo.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -127,13 +128,6 @@ export function gruposDoBloco(b) {
     grupos[grupos.length - 1].membros.push(item);
   });
   return grupos.map((g) => ({ membros: g.membros, series: num(herdar(g.membros[0].l.series, b.series)) }));
-}
-
-/** Rótulo pelo tamanho do grupo — a etiqueta que o coach reconhece de cabeça. */
-function rotuloGrupo(tamanho) {
-  if (tamanho === 2) return 'Bi-set';
-  if (tamanho === 3) return 'Tri-set';
-  return 'Série gigante';
 }
 
 /* ---------- render ---------- */

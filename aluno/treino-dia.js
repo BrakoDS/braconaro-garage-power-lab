@@ -1,9 +1,15 @@
 // @ts-check
 /**
- * Render do "Treino do dia" no Portal (lado aluno). Auto-contido: não importa o
- * render.js do Montador (que é do app do coach). Mostra o treino de hoje no NÍVEL
- * do aluno (força/hipertrofia); Hyrox/HIIT/GAP têm prescrição única.
+ * Render do "Treino do dia" no Portal (lado aluno). Não importa o render.js do
+ * Montador — aquele é o app do coach, e o card do aluno é outra coisa. De
+ * `montador/config/` importa sim: são constantes puras, sem tela e sem estado, e
+ * é de onde `aluno/app.js` já tira as cores das modalidades. Uma régua que as
+ * duas telas precisam ler igual mora lá, não copiada aqui.
+ *
+ * Mostra o treino de hoje no NÍVEL do aluno (força/hipertrofia); Hyrox/HIIT/GAP
+ * têm prescrição única.
  */
+import { rotuloGrupo } from '../montador/config/livre-grupo.js';
 
 const MOD_NOME = { forca: 'Força', hipertrofia: 'Hipertrofia', hiit: 'HIIT', hyrox: 'Hyrox', hibrido: 'Híbrido', gap: 'GAP', murph: 'Murph' };
 const PADRAO_LABEL = {
@@ -194,11 +200,6 @@ function corpoHibrido(h, nivel) {
     <div class="td-parte-h">WOD — ${esc(wod.formato || '')} · ${wod.duracaoMin || ''} min</div>
     <ul class="td-lista">${movs}</ul>`;
 }
-
-/** Rótulo do grupo pelo tamanho — 2 é bi-set, 3 é tri-set, 4+ é série gigante,
- * a mesma régua que o Treino Livre usa na tela do coach pra nomear o que ele
- * linkou. */
-const rotuloGrupo = (n) => (n === 2 ? 'Bi-set' : n === 3 ? 'Tri-set' : 'Série gigante');
 
 /**
  * Agrupa exercícios consecutivos do mesmo `grupo` (linhas linkadas no Treino

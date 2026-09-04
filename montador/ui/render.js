@@ -9,6 +9,7 @@ import { NIVEIS_HYROX, NIVEL_HYROX_LABEL } from '../core/hyrox.js';
 import { agruparPorSemana, analisarSemana, analisarMes } from '../core/analise.js';
 import { alternativasDoDia, diaEditavel } from '../core/editar-dia.js';
 import { COR_MODALIDADE } from '../config/cores-modalidade.js';
+import { rotuloGrupo } from '../config/livre-grupo.js';
 
 /* Cor por modalidade (calendário do histórico). Mora em config/ porque o Portal
    do Aluno desenha o mesmo calendário; o re-export mantém os imports de cá.
@@ -415,12 +416,6 @@ function blocoTecnicasDoDia(exercicios) {
     : '';
 }
 
-/** Rótulo do grupo pelo tamanho — mesma régua do Portal do Aluno (aluno/treino-dia.js):
- * 2 é bi-set, 3 é tri-set, 4+ é série gigante. As duas telas duplicam a régua (não
- * há import entre `aluno/` e `montador/`), mas não a estrutura de dados — ambas leem
- * `grupo` de `core/livre.js`. */
-const rotuloGrupoLivre = (n) => (n === 2 ? 'Bi-set' : n === 3 ? 'Tri-set' : 'Série gigante');
-
 /**
  * Agrupa exercícios consecutivos do mesmo `grupo` (linhas linkadas no Treino Livre)
  * num bi-set/tri-set/série gigante. `grupo` ausente ou não-numérico — dia salvo
@@ -456,7 +451,7 @@ function blocoSeriesLivre(b) {
       numero += 1;
       return linha;
     }
-    const rotulo = `<div class="hib-biset mut" style="margin:0 0 4px">🔗 ${rotuloGrupoLivre(g.membros.length)}</div>`;
+    const rotulo = `<div class="hib-biset mut" style="margin:0 0 4px">🔗 ${rotuloGrupo(g.membros.length)}</div>`;
     const linhasGrupo = g.membros.map((e, j) => linhaNiveis(numero + j, e, '', '', {
       rotuloHTML: j === 0 ? rotulo : '',
       classeTr: 'livre-grupo',
