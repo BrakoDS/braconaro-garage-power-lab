@@ -72,6 +72,50 @@ const tecnicasAtivas = () => academia.listarTecnicas().filter((t) => t.ativo !==
 /** Normaliza para busca: sem acento, sem caixa — "agach" acha "Agachamento". */
 const chave = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+/* ---------- grupos (bi-set) ----------
+   Cópia deliberada da regra de agrupamento de `core/livre.js` — não import,
+   porque esta tela decide o que aparece (botão de corrente, série travada,
+   aviso da barra de salvar) antes de existir snapshot nenhum. As duas cópias
+   têm que dar exatamente a mesma resposta, ou o aviso mente pro coach: foi
+   esse o bug caro da leva anterior desta aba. */
+
+/** Número a partir de campo de formulário (vem string), ou null se não der. Mesma regra de `core/livre.js`. */
+function num(v) {
+  const n = parseFloat(String(v ?? '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** O primeiro valor definido da linha, senão o do bloco. Mesma regra de `core/livre.js`. */
+const herdar = (daLinha, doBloco) => (daLinha === undefined || daLinha === null || daLinha === '' ? doBloco : daLinha);
+
+/**
+ * Agrupa as linhas de um bloco exatamente como `montarLivre` agrupa: só linhas
+ * com exercício válido entram, a primeira delas nunca linka (não há a quem), e
+ * a série do grupo é a da primeira linha (o líder).
+ * @param {any} b
+ * @returns {{membros: {l:any, li:number, e:any}[], series: number|null}[]}
+ */
+function gruposDoBloco(b) {
+  const validas = [];
+  (b.exercicios || []).forEach((l, li) => {
+    const e = l && l.id ? porId(l.id) : null;
+    if (e) validas.push({ l, li, e });
+  });
+  const grupos = [];
+  validas.forEach((item, idx) => {
+    if (idx === 0 || !item.l.linkado) grupos.push({ membros: [] });
+    grupos[grupos.length - 1].membros.push(item);
+  });
+  return grupos.map((g) => ({ membros: g.membros, series: num(herdar(g.membros[0].l.series, b.series)) }));
+}
+
+/** Rótulo pelo tamanho do grupo — a etiqueta que o coach reconhece de cabeça. */
+function rotuloGrupo(tamanho) {
+  if (tamanho === 2) return 'Bi-set';
+  if (tamanho === 3) return 'Tri-set';
+  return 'Série gigante';
+}
+
 /* ---------- render ---------- */
 function render() {
   const u = usados();
@@ -83,6 +127,7 @@ function render() {
 function htmlAquecimento() {
   const linhas = est.aquecimento.map((a, i) => `
     <div class="lv-linha" data-aquec="${i}">
+      <span class="lv-link-vazio" aria-hidden="true"></span>
       <span class="lv-busca-wrap">
         <input class="lv-busca" data-alvo="aquec" data-i="${i}" type="text" placeholder="Buscar exercício ou mobilidade…"
                value="${esc(a.id ? (porId(a.id)?.nome || '') : '')}" autocomplete="off" />
@@ -100,18 +145,41 @@ function htmlAquecimento() {
 
 function htmlBloco(b, bi, u) {
   const tecs = tecnicasAtivas();
+  // Mesmo agrupamento que `montarLivre` vai fazer — decide o botão de
+  // corrente, o campo de série travado e a etiqueta, antes de existir
+  // snapshot nenhum.
+  const infoPorLinha = new Map();
+  gruposDoBloco(b).forEach((g) => {
+    g.membros.forEach(({ li }, idx) => {
+      infoPorLinha.set(li, { ehLider: idx === 0, tamanho: g.membros.length, series: g.series });
+    });
+  });
   const linhas = (b.exercicios || []).map((l, li) => {
     const e = l.id ? porId(l.id) : null;
     const jaNaSemana = e && u.has(e.id) ? '<span class="lv-usado"> · já na semana</span>' : '';
     const opts = ['<option value="">— sem técnica —</option>']
       .concat(tecs.map((t) => `<option value="${esc(t.id)}"${l.tecnica && l.tecnica.tipo === t.id ? ' selected' : ''}>${esc(t.nome)}</option>`))
       .join('');
-    return `<div class="lv-linha" data-b="${bi}" data-l="${li}">
+    const info = infoPorLinha.get(li);
+    // Segue o líder: não tem série própria, mostra a dele e trava o campo — um
+    // campo vazio ali mentiria pro coach sobre o que vai valer pro aluno.
+    const seguidor = !!(info && !info.ehLider);
+    // Botão de corrente só a partir da 2ª linha (não há a quem linkar na
+    // primeira); um espaço vazio mantém as colunas alinhadas nas demais.
+    const linkBtn = li > 0
+      ? `<button type="button" class="lv-link${l.linkado ? ' lv-link-on' : ''}" data-link="${bi}:${li}"
+          title="Linkar com a linha de cima — bi-set: alterna com a parceira a cada série">⛓</button>`
+      : '<span class="lv-link-vazio" aria-hidden="true"></span>';
+    const tag = info && info.ehLider && info.tamanho >= 2
+      ? `<span class="lv-grupo-tag">${rotuloGrupo(info.tamanho)}</span>` : '';
+    const seriesVal = seguidor ? (info.series > 0 ? info.series : '') : (l.series ?? '');
+    return `<div class="lv-linha${seguidor ? ' lv-linkada' : ''}" data-b="${bi}" data-l="${li}">
+      ${linkBtn}
       <span class="lv-busca-wrap">
         <input class="lv-busca" data-alvo="ex" data-b="${bi}" data-l="${li}" type="text"
-               placeholder="Buscar exercício…" value="${esc(e ? e.nome : '')}" autocomplete="off" />${jaNaSemana}
+               placeholder="Buscar exercício…" value="${esc(e ? e.nome : '')}" autocomplete="off" />${tag}${jaNaSemana}
       </span>
-      <input type="number" min="1" class="lv-series" data-b="${bi}" data-l="${li}" value="${l.series ?? ''}" placeholder="${b.series}" />
+      <input type="number" min="1" class="lv-series" data-b="${bi}" data-l="${li}" value="${seriesVal}" placeholder="${b.series}"${seguidor ? ' disabled' : ''} />
       <input type="text" class="lv-reps" data-b="${bi}" data-l="${li}" value="${esc(l.reps ?? '')}" placeholder="${esc(b.reps)}" />
       <select class="lv-tec" data-b="${bi}" data-l="${li}">${opts}</select>
       <button class="lv-x" data-rm-linha="${bi}:${li}" type="button" aria-label="Remover">×</button>
@@ -227,17 +295,29 @@ function aoMudar(ev) {
   }
 }
 
+/** Fecha o buraco sem deixar corrente pendurada no vazio: se a linha removida
+ * era a cabeça de um grupo de 2+, o próximo membro vira a nova cabeça — e a
+ * primeira linha do bloco nunca pode ficar linkada (não há a quem, ali). */
+function removerLinha(bi, li) {
+  const arr = est.blocos[bi].exercicios;
+  const grupo = gruposDoBloco(est.blocos[bi]).find((g) => g.membros[0].li === li);
+  if (grupo && grupo.membros.length >= 2) grupo.membros[1].l.linkado = false;
+  arr.splice(li, 1);
+  if (arr[0]) arr[0].linkado = false;
+}
+
 function aoClicar(ev) {
   const alvo = /** @type {HTMLElement} */ (ev.target);
   if (alvo.closest('#l-add-aquec')) { est.aquecimento.push({ id: '', duracaoSeg: 60 }); render(); return; }
   if (alvo.closest('#l-add-bloco')) { est.blocos.push(blocoNovo()); render(); return; }
-  const el = alvo.closest('[data-add-linha],[data-rm-linha],[data-rm-bloco],[data-rm-aquec]');
+  const el = alvo.closest('[data-add-linha],[data-rm-linha],[data-rm-bloco],[data-rm-aquec],[data-link]');
   if (!el) return;
   const d = /** @type {HTMLElement} */ (el).dataset;
   if (d.addLinha != null) est.blocos[Number(d.addLinha)].exercicios.push({ id: '' });
-  else if (d.rmLinha) { const [b, l] = d.rmLinha.split(':').map(Number); est.blocos[b].exercicios.splice(l, 1); }
+  else if (d.rmLinha) { const [b, l] = d.rmLinha.split(':').map(Number); removerLinha(b, l); }
   else if (d.rmBloco != null) est.blocos.splice(Number(d.rmBloco), 1);
   else if (d.rmAquec != null) est.aquecimento.splice(Number(d.rmAquec), 1);
+  else if (d.link) { const [b, l] = d.link.split(':').map(Number); const ex = est.blocos[b].exercicios[l]; ex.linkado = !ex.linkado; }
   render();
 }
 
@@ -257,18 +337,20 @@ function renderResumo() {
 }
 
 /* ---------- salvar ---------- */
-/** Linhas com exercício escolhido mas sem séries — o coach precisa saber quais. */
+/** Linhas cujo GRUPO não vai ter série que preste — o coach precisa saber
+ * quais. Mesma regra de agrupamento de `montarLivre`: quem decide é o líder,
+ * e se a série dele não presta o grupo INTEIRO cai, não só ele — por isso o
+ * aviso nomeia todas as linhas do grupo, não só a primeira. Divergir daria um
+ * aviso que mente: foi o bug caro da leva anterior desta aba. */
 function linhasIncompletas() {
   const fora = [];
-  est.blocos.forEach((b, bi) => (b.exercicios || []).forEach((l, li) => {
-    const temEx = !!(l.id && porId(l.id));
-    // Mesma regra de herança do `herdar()` em core/livre.js: '' herda do bloco
-    // igual undefined/null. Divergir daria um aviso que mente pro coach — a
-    // linha herda e SERÁ salva, mas apareceria aqui como incompleta.
-    const daLinha = l.series === undefined || l.series === null || l.series === '' ? b.series : l.series;
-    const series = parseFloat(String(daLinha ?? '').replace(',', '.'));
-    if (temEx && !(series > 0)) fora.push(`${String(b.nome || '').trim() || `Bloco ${bi + 1}`} · linha ${li + 1}`);
-  }));
+  est.blocos.forEach((b, bi) => {
+    const nome = String(b.nome || '').trim() || `Bloco ${bi + 1}`;
+    gruposDoBloco(b).forEach((g) => {
+      if (g.series > 0) return;
+      g.membros.forEach(({ li }) => fora.push(`${nome} · linha ${li + 1}`));
+    });
+  });
   return fora;
 }
 
