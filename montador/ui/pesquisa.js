@@ -23,9 +23,13 @@
 import { firebaseConfig } from '../cloud-config.js';
 
 const V = '10.12.2'; // mesma versão do SDK já usada em cloud.js e loja/precos.js
-/** Bem acima dos 10-20s esperados (mesmo espírito do timeout de `pedirAtualizacao`): sobra
- * margem para fila/cold start sem deixar o coach esperando pra sempre numa function travada. */
-const TIMEOUT_MS = 90000;
+/** Maior que o `timeoutSeconds: 120` da própria function (ver `pesquisarItem` em
+ * functions/src/index.ts), de propósito. Se o cliente desistir ANTES do servidor,
+ * o coach vê erro enquanto a busca ainda está rodando com sucesso — e clica de
+ * novo, gastando cota e disparando duas chamadas para a mesma coisa. É o mesmo
+ * problema que o comentário de `pedirAtualizacao` em loja/precos.js descreve.
+ * Quem desiste primeiro tem que ser o servidor, que sabe o que estava fazendo. */
+const TIMEOUT_MS = 130000;
 
 /** Mensagem amigável para erro de TRANSPORTE (a function não chegou a responder).
  * Erro que a própria function lança (nome ausente, sem padrão etc.) já vem com
