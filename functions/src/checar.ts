@@ -11,6 +11,11 @@
 import { extrairAnalise, num } from './analise';
 import { extrairPreco, decidirRodada, ehLinkMercadoLivre, type ItemFeed } from './precos';
 import { HTML_SOCIAL } from './fixtures/social-ml';
+import { extrairProposta, montarSchema, type Equip, type PropostaExercicio, type PropostaTecnica } from './pesquisa';
+import {
+  BOA_EXERCICIO, BOA_TECNICA, SEM_PADRAO, PADRAO_INVENTADO, MUSCULO_INVENTADO,
+  EQUIP_FORA_DO_INVENTARIO, JSON_QUEBRADO, VAZIA, MALICIOSA,
+} from './fixtures/pesquisa';
 
 let falhas = 0;
 
@@ -20,6 +25,16 @@ function ok(condicao: boolean, descricao: string, detalhe = ''): void {
   } else {
     falhas++;
     console.log(`  ✗ ${descricao}${detalhe ? ` — ${detalhe}` : ''}`);
+  }
+}
+
+/** `true` quando a função lança qualquer erro — usado para os casos de recusa. */
+function lanca(fn: () => unknown): boolean {
+  try {
+    fn();
+    return false;
+  } catch {
+    return true;
   }
 }
 
@@ -247,6 +262,118 @@ const falhouComUrl = decidirRodada(
 // o link novo nunca foi tentado, não há falha que justifique tirá-lo do ar.
 ok(falhouComUrl.itens.zz?.url === 'https://meli.la/tentada',
   'item que falhou guarda a URL que a rodada tentou ler');
+
+/* ============================================================
+   PESQUISA DE EXERCÍCIO / MOBILIDADE / TÉCNICA
+   ============================================================ */
+console.log('\nPESQUISA DE EXERCÍCIO E TÉCNICA\n');
+
+const EQUIP: Equip[] = [{ id: 'barra', nome: 'Barra' }, { id: 'caixote', nome: 'Caixote 30cm' }];
+
+/* ---------- exercício bem formado ---------- */
+
+const boa = extrairProposta(BOA_EXERCICIO, 'exercicio', EQUIP) as PropostaExercicio;
+ok(boa.tipo === 'exercicio', 'reconhece o tipo exercício');
+ok(boa.padrao === 'quadriceps', 'lê o padrão');
+ok(boa.nome === 'Agachamento búlgaro com halteres', 'lê o nome');
+ok(boa.musculos.join() === 'Quadríceps,Glúteo', 'lê os músculos válidos');
+ok(boa.equipamentoIds.join() === 'barra', 'mantém só o equipamento que está no inventário do box');
+ok(boa.equipamentoFaltante.join() === 'Banco búlgaro', 'equipamento que falta vai em texto livre, não em id');
+ok(boa.fontes.join() === 'https://exemplo.com/agachamento-bulgaro', 'guarda a fonte http');
+
+/* ---------- técnica bem formada ---------- */
+
+const boaTecnica = extrairProposta(BOA_TECNICA, 'tecnica', EQUIP) as PropostaTecnica;
+ok(boaTecnica.tipo === 'tecnica', 'reconhece o tipo técnica');
+ok(boaTecnica.nome === 'Myo-reps', 'lê o nome da técnica');
+ok(boaTecnica.comoExecutar.startsWith('1. Faça uma série de ativação'),
+  'comoExecutar preserva os passos numerados');
+ok(boaTecnica.comoExecutar.split('\n').length === 5, 'um passo por linha, como em academia/data/seed.js');
+
+/* ---------- padrão de movimento é a única coisa que derruba a proposta ---------- */
+
+ok(lanca(() => extrairProposta(SEM_PADRAO, 'exercicio', EQUIP)),
+  'exercício sem padrão é recusado — sem isso o montador descartaria em silêncio');
+ok(lanca(() => extrairProposta(PADRAO_INVENTADO, 'exercicio', EQUIP)),
+  'padrão fora do vocabulário fechado é recusado igual à ausência dele');
+
+try {
+  extrairProposta(SEM_PADRAO, 'exercicio', EQUIP);
+  ok(false, 'deveria ter lançado');
+} catch (e) {
+  ok(String(e instanceof Error ? e.message : e).includes('/academia'),
+    'a mensagem manda cadastrar em /academia, o caminho manual que ainda funciona');
+}
+
+/* ---------- vocabulário fechado: descarta o item torto, não a proposta ---------- */
+
+const musculoTorto = extrairProposta(MUSCULO_INVENTADO, 'exercicio', EQUIP) as PropostaExercicio;
+ok(musculoTorto.musculos.join() === 'Costas',
+  'músculo fora do vocabulário some, o válido sobrevive');
+ok(musculoTorto.tags.join() === 'MUSCULAÇÃO',
+  'tag fora do vocabulário (aqui, uma modalidade inventada) some, a válida sobrevive');
+
+ok((extrairProposta(EQUIP_FORA_DO_INVENTARIO, 'exercicio', EQUIP) as PropostaExercicio).equipamentoIds.length === 0,
+  'equipamento que o box não tem é descartado, nunca aceito');
+
+/* ---------- inventário vazio: nunca aceita nenhum id ---------- */
+
+ok((extrairProposta(EQUIP_FORA_DO_INVENTARIO, 'exercicio', []) as PropostaExercicio).equipamentoIds.length === 0,
+  'sem inventário nenhum, equipamentoIds vem sempre vazio');
+
+/* ---------- números fora da faixa caem no padrão do contexto ---------- */
+
+/** Envelope cru, igual ao das fixtures — usado aqui para variar um campo de cada vez sem tocar no JSON já serializado. */
+const envelopeTeste = (dados: object) => ({ output: [{ content: [{ type: 'output_text', text: JSON.stringify(dados) }] }] });
+
+const EXERCICIO_BASE = {
+  tipo: 'exercicio', nome: 'Exercício de teste', padrao: 'quadriceps',
+  musculos: [] as string[], tags: [] as string[], equipamentoIds: [] as string[],
+  nivel: 'intermediario', tempoMedioSeg: 35, obs: '', equipamentoFaltante: [] as string[], fontes: [] as string[],
+};
+
+const semTempo = extrairProposta(
+  envelopeTeste({ ...EXERCICIO_BASE, tempoMedioSeg: 9999 }), 'exercicio', EQUIP,
+) as PropostaExercicio;
+ok(semTempo.tempoMedioSeg === 35, 'tempoMedioSeg fora de 5..600 cai no padrão do exercício (35)');
+
+const mobilidadeSemTempo = extrairProposta(
+  envelopeTeste({ ...EXERCICIO_BASE, tempoMedioSeg: 'muito' as unknown as number }), 'mobilidade', EQUIP,
+) as PropostaExercicio;
+ok(mobilidadeSemTempo.tempoMedioSeg === 40, 'tempoMedioSeg não numérico cai no padrão da mobilidade (40)');
+
+/* ---------- nome vazio, JSON quebrado, resposta vazia ---------- */
+
+ok(lanca(() => extrairProposta(envelopeTeste({ ...EXERCICIO_BASE, nome: '' }), 'exercicio', EQUIP)),
+  'nome vazio é recusado');
+
+ok(lanca(() => extrairProposta(JSON_QUEBRADO, 'exercicio', EQUIP)), 'JSON quebrado é recusado');
+ok(lanca(() => extrairProposta(VAZIA, 'exercicio', EQUIP)), 'resposta vazia é recusada');
+
+/* ---------- a resposta da IA é dado, nunca instrução ---------- */
+
+ok(extrairProposta(MALICIOSA, 'exercicio', EQUIP).nome.includes('<script>'),
+  'o módulo NÃO escapa — quem escapa é a tela; aqui só provamos que não executa nada');
+ok((extrairProposta(MALICIOSA, 'exercicio', EQUIP) as PropostaExercicio).obs.includes('onload=alert'),
+  'obs malicioso também chega intacto, sem quebrar a leitura');
+
+/* ---------- o schema que vai para a OpenAI ---------- */
+
+const schemaExercicio = montarSchema('exercicio', EQUIP) as any;
+ok(schemaExercicio.additionalProperties === false, 'schema de exercício não aceita campo extra');
+ok(schemaExercicio.properties.equipamentoIds.items.enum.join() === 'barra,caixote',
+  'o enum de equipamento é exatamente o inventário enviado');
+ok(Object.keys(schemaExercicio.properties).every((k) => schemaExercicio.required.includes(k)),
+  'todo campo do schema de exercício está em required (exigência do strict mode)');
+
+const schemaSemInventario = montarSchema('exercicio', []) as any;
+ok(!('enum' in schemaSemInventario.properties.equipamentoIds.items),
+  'inventário vazio não gera enum impossível de satisfazer');
+
+const schemaTecnica = montarSchema('tecnica', EQUIP) as any;
+ok(schemaTecnica.properties.tipo.enum.join() === 'tecnica', 'schema de técnica trava o tipo em "tecnica"');
+ok(Object.keys(schemaTecnica.properties).every((k) => schemaTecnica.required.includes(k)),
+  'todo campo do schema de técnica está em required');
 
 console.log(
   falhas === 0
