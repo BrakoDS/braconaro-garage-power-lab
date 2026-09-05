@@ -90,6 +90,7 @@ export type PropostaExercicio = {
   tipo: 'exercicio';
   nome: string; padrao: string; musculos: string[]; tags: string[];
   equipamentoIds: string[]; nivel: string; tempoMedioSeg: number; obs: string;
+  multiarticular: boolean;
   equipamentoFaltante: string[]; fontes: string[];
 };
 export type PropostaTecnica = {
@@ -143,7 +144,7 @@ export function montarSchema(contexto: Contexto, equipamentos: Equip[]): object 
     additionalProperties: false,
     required: [
       'tipo', 'nome', 'padrao', 'musculos', 'tags', 'equipamentoIds',
-      'nivel', 'tempoMedioSeg', 'obs', 'equipamentoFaltante', 'fontes',
+      'nivel', 'tempoMedioSeg', 'multiarticular', 'obs', 'equipamentoFaltante', 'fontes',
     ],
     properties: {
       tipo: { type: 'string', enum: ['exercicio'] },
@@ -154,6 +155,7 @@ export function montarSchema(contexto: Contexto, equipamentos: Equip[]): object 
       equipamentoIds: equipamentoIdsSchema,
       nivel: { type: 'string', enum: [...NIVEIS] },
       tempoMedioSeg: { type: 'number' },
+      multiarticular: { type: 'boolean' },
       obs: { type: 'string' },
       equipamentoFaltante: { type: 'array', items: { type: 'string' } },
       fontes: { type: 'array', items: { type: 'string' } },
@@ -215,6 +217,10 @@ export function instrucoes(contexto: Contexto, equipamentos: Equip[]): string {
     '- Em "equipamentoIds" marque SÓ equipamento da lista acima. O que o',
     '  exercício normalmente pede e este box NÃO tem vai em texto livre (o nome',
     '  do aparelho, não um id) em "equipamentoFaltante".',
+    '- "multiarticular": true quando o movimento envolve mais de uma articulação',
+    '  (supino, agachamento, remada); false quando é ISOLAMENTO de um músculo só',
+    '  (rosca direta, extensora, elevação lateral). O gerador usa isso para não',
+    '  sortear isolamento nos dias de Força.',
     '- "obs" em uma ou duas frases: como executa + o detalhe prático que evita',
     '  lesão ou perda de tempo — o mesmo tom das descrições curtas do catálogo',
     '  do box (ex.: "Empurrar horizontal na barra guiada, deitado no banco reto.").',
@@ -345,6 +351,12 @@ export function extrairProposta(
     // silêncio" é usar o padrão do resto do catálogo.
     nivel: (NIVEIS as readonly string[]).includes(nivel) ? nivel : NIVEL_PADRAO,
     tempoMedioSeg: numEmFaixa(d.tempoMedioSeg, tempoPadrao),
+    // `!== false` e não `Boolean(...)`: o padrão do catálogo é COMPOSTO (ver
+    // `converter()` em montador/ui/catalogo.js, que resolve ausente como true),
+    // e é o isolamento que precisa ser declarado. Sem este campo, todo exercício
+    // cadastrado pela pesquisa nasceria composto — e uma rosca direta entraria no
+    // sorteio dos dias de Força, que `servePraForca` existe justamente para evitar.
+    multiarticular: d.multiarticular !== false,
     obs: texto(d.obs),
     equipamentoFaltante: arrayDeString(d.equipamentoFaltante),
     fontes: fontesValidas(d.fontes),

@@ -444,3 +444,4 @@ tr.bad-row td { color: var(--warn); }
 
 .pesq-fontes { margin: 0; padding-left: 18px; }
 .pesq-fontes li { margin: 3px 0; font-size: 13px; word-break: break-all; }
+.pesq-erro-form { color: var(--bad); margin: 10px 0 0; min-height: 0; }

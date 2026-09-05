@@ -23,16 +23,10 @@ import * as academia from '../../academia/db.js';
 import { pesquisarItem } from './pesquisa.js';
 import { PADROES, PADRAO_LABEL, MUSCULOS } from '../config/padroes.js';
 import { MUSC_MAP } from '../../academia/data/seed.js';
+import { NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const $ = (s) => /** @type {HTMLElement} */ (document.querySelector(s));
-
-/** `Exercicio.nivel` (`montador/data/exercicios.js`) — mesma duplicação documentada
- * em `functions/src/pesquisa.ts` (`NIVEIS`): não há um módulo de onde importar isto
- * sem o site ganhar um build step, então os três lugares precisam ser lembrados juntos
- * se um dia a lista mudar. */
-const NIVEIS = ['iniciante', 'intermediario', 'avancado'];
-const NIVEL_LABEL = { iniciante: 'Iniciante', intermediario: 'Intermediário', avancado: 'Avançado' };
 
 /** Os mesmos 11 músculos que o schema da IA aceita (`MUSCULOS_LABEL` em
  * `functions/src/pesquisa.ts`) — mas construído aqui a partir das fontes REAIS
@@ -131,6 +125,8 @@ export function formularioExercicioHTML({ proposta: p, equipamentos, restantes, 
         <select id="pesq-nivel" name="nivel">${opcoesHTML(NIVEIS.map((k) => [k, NIVEL_LABEL[k]]), p.nivel)}</select></div>
       <div class="field"><label for="pesq-tempo">Tempo médio (segundos)</label>
         <input type="number" id="pesq-tempo" name="tempoMedioSeg" min="5" max="600" value="${esc(tempo)}" /></div>
+      <div class="field"><label for="pesq-multi">Tipo de movimento</label>
+        <select id="pesq-multi" name="multiarticular">${opcoesHTML([['1', 'Composto (várias articulações)'], ['0', 'Isolamento (um músculo só)']], p.multiarticular === false ? '0' : '1')}</select></div>
     </div>
     <div class="field full"><label for="pesq-obs">Observação</label>
       <textarea id="pesq-obs" name="obs" rows="3">${esc(p.obs)}</textarea></div>
@@ -178,13 +174,13 @@ export function corpoErroHTML(mensagem) {
 
 const CAMPOS_EDITAVEIS = {
   tecnica: ['nome', 'resumo', 'comoExecutar', 'objetivo'],
-  exercicio: ['nome', 'padrao', 'musculos', 'tags', 'equipamentoIds', 'nivel', 'tempoMedioSeg', 'obs'],
+  exercicio: ['nome', 'padrao', 'musculos', 'tags', 'equipamentoIds', 'nivel', 'tempoMedioSeg', 'multiarticular', 'obs'],
 };
 
 /** Compara por valor — inclusive arrays de checkbox, onde ordem não importa. */
 function difere(a, b) {
   if (Array.isArray(a) || Array.isArray(b)) {
-    const norm = (v) => [...new Set(Array.isArray(v) ? v : [])].sort().join(' ');
+    const norm = (v) => [...new Set(Array.isArray(v) ? v : [])].sort().join('\u0000');
     return norm(a) !== norm(b);
   }
   return a !== b;
@@ -282,6 +278,7 @@ export function abrirPesquisa({ termo, contexto }) {
       return {
         tipo, nome: val('nome'), padrao: val('padrao'), nivel: val('nivel'),
         tempoMedioSeg: Number(val('tempoMedioSeg')) || 0, obs: val('obs'),
+        multiarticular: val('multiarticular') !== '0',
         musculos: marcados('musculos'), tags: marcados('tags'), equipamentoIds: marcados('equipamentoIds'),
       };
     }
@@ -290,7 +287,10 @@ export function abrirPesquisa({ termo, contexto }) {
       const corpo = proposta.tipo === 'tecnica'
         ? formularioTecnicaHTML({ proposta, restantes, buscou })
         : formularioExercicioHTML({ proposta, equipamentos, restantes, buscou });
-      $('#pesq-modal-corpo').innerHTML = `<form id="pesq-form">${corpo}</form>`;
+      // O aviso de validação vive FORA do <form>: `renderProposta` só é chamado
+      // quando chega proposta nova, então um aviso dentro do form sumiria junto
+      // com ele — e o coach clicaria em "Cadastrar" de novo sem entender.
+      $('#pesq-modal-corpo').innerHTML = `<form id="pesq-form">${corpo}</form><p class="pesq-erro-form" id="pesq-erro-form"></p>`;
       $('#pesq-modal-acoes').innerHTML = `
         <button class="btn ghost" type="button" id="pesq-btn-cancelar">Cancelar</button>
         <button class="btn ghost" type="button" id="pesq-btn-web">Pesquisar na internet</button>
@@ -319,13 +319,22 @@ export function abrirPesquisa({ termo, contexto }) {
 
     function salvar() {
       const v = lerFormulario(contexto);
+      // Mesma exigência do formulário de /academia: exercício sem NENHUM
+      // equipamento fica de fora da conta de viabilidade e escapa da regra do
+      // Híbrido, que reconhece peso corporal por `equipamento === ['corporal']`
+      // e não por lista vazia. Sem isto, um "muscle up" cadastrado sem marcar
+      // nada viraria um exercício que o gerador nunca classifica direito.
+      if (contexto !== 'tecnica' && !v.equipamentoIds.length) {
+        $('#pesq-erro-form').textContent = 'Marque ao menos um equipamento — use "Peso corporal" se o exercício não usa aparelho.';
+        return;
+      }
       // Só grava no clique — nunca antes. A proposta é uma sugestão; quem decide é o coach.
       const criado = contexto === 'tecnica'
         ? academia.salvarTecnica({ nome: v.nome, resumo: v.resumo, comoExecutar: v.comoExecutar, objetivo: v.objetivo, ativo: true })
         : academia.salvarExerc({
           nome: v.nome, padrao: v.padrao, musculos: v.musculos, tags: v.tags,
           equipamentoIds: v.equipamentoIds, nivel: v.nivel, tempoMedioSeg: v.tempoMedioSeg,
-          obs: v.obs, ativo: true,
+          multiarticular: v.multiarticular, obs: v.obs, ativo: true,
         });
       encerrar({ id: criado.id });
     }
