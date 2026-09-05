@@ -564,8 +564,13 @@ function validarEquipamentos(v: unknown): Equip[] {
     .slice(0, MAX_EQUIPAMENTOS)
     .map((e): Equip | null => {
       if (!e || typeof e !== 'object') return null;
-      const id = String((e as Record<string, unknown>).id ?? '').trim();
-      const nome = String((e as Record<string, unknown>).nome ?? '').trim();
+      // `typeof === 'string'` e não `String(...)`: coagir faria um id numérico
+      // virar "42" e um objeto virar "[object Object]", e esse lixo entraria no
+      // `enum` do schema e no prompt. O que não é string não é id — descarta.
+      const bruto = e as Record<string, unknown>;
+      if (typeof bruto.id !== 'string' || typeof bruto.nome !== 'string') return null;
+      const id = bruto.id.trim();
+      const nome = bruto.nome.trim();
       return id && nome ? { id, nome } : null;
     })
     .filter((e): e is Equip => e !== null);
@@ -619,12 +624,19 @@ async function chamarResponses(corpo: object, timeoutMs: number): Promise<Chamad
  * — a pesquisa falha do jeito normal (mensagem de indisponibilidade), nunca
  * trava ou entra num loop silencioso.
  */
-function pareceIncompatibilidadeFerramentaFormato(status: number, corpo: string): boolean {
-  if (status !== 400) return false;
-  const c = corpo.toLowerCase();
-  const falaDeFerramenta = c.includes('web_search') || c.includes('"tools"') || c.includes('tool_choice');
-  const falaDeFormato = c.includes('text.format') || c.includes('response_format') || c.includes('json_schema');
-  return falaDeFerramenta && falaDeFormato;
+function pareceIncompatibilidadeFerramentaFormato(status: number, _corpo: string): boolean {
+  // QUALQUER 400 na via com busca aciona o recuo, sem tentar reconhecer o texto
+  // do erro. Casar string de mensagem de API é frágil pelo motivo de sempre: se a
+  // OpenAI escrever o erro com outras palavras, o recuo nunca dispara, a busca na
+  // web simplesmente não funciona, e o único vestígio fica num log que ninguém lê
+  // — enquanto a via rápida segue ok e esconde o problema.
+  //
+  // Recuar sem perguntar é barato: a segunda via não é recursiva (roda uma vez),
+  // a cota é debitada uma vez por invocação e não por chamada de rede, e um 400
+  // estrutural (schema errado, por exemplo) falha nas duas etapas igualmente, sem
+  // laço. O pior caso é uma tentativa extra que também falha; o pior caso da
+  // heurística de texto era a feature nascer morta em produção.
+  return status === 400;
 }
 
 /** Mesmo caminho duplo de `textoDaResposta` em `analise.ts`/`pesquisa.ts` — aqui só para ler o RESUMO em texto livre da primeira chamada da via de duas chamadas, que não passa por `extrairProposta`. */

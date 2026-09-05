@@ -41,7 +41,9 @@
  *                          `montador/ui/catalogo.js` (`MUSC_INV`) espera de
  *                          volta na hora de converter para o motor.
  *   - `TAGS`            ← `academia/db.js` (`TAGS`, 6 valores).
- *   - `NIVEIS`          ← `montador/data/exercicios.js` (typedef `Exercicio.nivel`).
+ *   - `NIVEIS`          ← `montador/core/niveis.js` (`NIVEIS`, os 3 valores). É a
+ *                          fonte EXECUTÁVEL, e é contra ela que `checar.ts`
+ *                          compara — não contra o typedef de `data/exercicios.js`.
  * Se uma dessas listas mudar na fonte e ninguém lembrar de mudar aqui, a
  * pesquisa passa a recusar ou descartar coisa válida — nada explode, mas o
  * vocabulário diverge em silêncio. Um jeito melhor (fora do escopo desta task):
@@ -321,7 +323,11 @@ export function extrairProposta(
   if (!(PADROES as readonly string[]).includes(padrao)) throw new Error(ERRO_SEM_PADRAO);
 
   const idsDoInventario = new Set(equipamentos.map((e) => e.id));
-  const equipamentoIds = arrayDeString(d.equipamentoIds).filter((id) => idsDoInventario.has(id));
+  // `Set` também DEDUPLICA: a IA repetir 'barra' duas vezes não pode virar dois
+  // checkboxes iguais na tela nem dois ids iguais no banco da academia.
+  const equipamentoIds = [...new Set(
+    arrayDeString(d.equipamentoIds).filter((id) => idsDoInventario.has(id)),
+  )];
 
   const tempoPadrao = contexto === 'mobilidade' ? TEMPO_PADRAO_MOBILIDADE : TEMPO_PADRAO_EXERCICIO;
   const nivel = texto(d.nivel);

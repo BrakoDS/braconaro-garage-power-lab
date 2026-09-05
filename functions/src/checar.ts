@@ -366,8 +366,8 @@ const schemaExercicio = montarSchema('exercicio', EQUIP) as any;
 ok(schemaExercicio.additionalProperties === false, 'schema de exercício não aceita campo extra');
 ok(schemaExercicio.properties.equipamentoIds.items.enum.join() === 'barra,caixote',
   'o enum de equipamento é exatamente o inventário enviado');
-ok(Object.keys(schemaExercicio.properties).every((k) => schemaExercicio.required.includes(k)),
-  'todo campo do schema de exercício está em required (exigência do strict mode)');
+ok(mesmoConjunto(Object.keys(schemaExercicio.properties), schemaExercicio.required),
+  'required do schema de exercício é EXATAMENTE properties (strict mode recusa campo fantasma nos dois sentidos)');
 
 const schemaSemInventario = montarSchema('exercicio', []) as any;
 ok(!('enum' in schemaSemInventario.properties.equipamentoIds.items),
@@ -375,8 +375,8 @@ ok(!('enum' in schemaSemInventario.properties.equipamentoIds.items),
 
 const schemaTecnica = montarSchema('tecnica', EQUIP) as any;
 ok(schemaTecnica.properties.tipo.enum.join() === 'tecnica', 'schema de técnica trava o tipo em "tecnica"');
-ok(Object.keys(schemaTecnica.properties).every((k) => schemaTecnica.required.includes(k)),
-  'todo campo do schema de técnica está em required');
+ok(mesmoConjunto(Object.keys(schemaTecnica.properties), schemaTecnica.required),
+  'required do schema de técnica é EXATAMENTE properties');
 
 /* ============================================================
    VOCABULÁRIOS DE pesquisa.ts CONTRA A FONTE REAL NO SITE
