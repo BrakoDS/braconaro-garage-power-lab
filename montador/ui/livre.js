@@ -362,13 +362,26 @@ function abrirSugestoes(input) {
  * @param {HTMLInputElement} input
  */
 export async function pesquisarEAdicionar(input) {
-  const contexto = input.dataset.alvo === 'aquec' ? 'mobilidade' : 'exercicio';
+  const d = input.dataset;
+  const contexto = d.alvo === 'aquec' ? 'mobilidade' : 'exercicio';
   const termo = input.value;
+  // O DESTINO é guardado por REFERÊNCIA antes do await, do mesmo jeito que
+  // `pesquisarTecnica` faz logo abaixo. `escolher()` resolve `dataset.b/.l` de
+  // novo, e resolver índice depois de uma espera de até 20s significa indexar os
+  // arrays de AGORA: se uma linha ou um bloco tiver sumido no meio, a escrita cai
+  // noutra linha em silêncio. Hoje o modal cobre a tela inteira e nada consegue
+  // mexer nos blocos durante a espera — mas isso é um acaso do CSS, não uma
+  // garantia deste arquivo, e evapora no dia em que alguém trocar o overlay.
+  const destino = d.alvo === 'aquec'
+    ? est.aquecimento[Number(d.i)]
+    : est.blocos[Number(d.b)].exercicios[Number(d.l)];
   fecharSugestoes();
   const resultado = await _abrirPesquisa({ termo, contexto });
   if (!resultado) return;
   construirCatalogoEfetivo();
-  escolher(input, resultado.id);
+  destino.id = resultado.id;
+  fecharSugestoes();
+  render();
 }
 
 /**

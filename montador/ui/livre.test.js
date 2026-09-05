@@ -415,3 +415,31 @@ test('restaura os dublês de pesquisa para as funções reais', () => {
   _definirAbrirPesquisaDeTeste();
   _definirPedirTermoTecnicaDeTeste();
 });
+
+test('porta do exercício: linha removida durante a pesquisa não faz o id cair na linha errada', async () => {
+  // A pesquisa é assíncrona e pode demorar 20s. Se o destino fosse resolvido pelo
+  // `dataset` DEPOIS da espera, ele indexaria os arrays de agora — e um bloco que
+  // encolheu no meio faria o exercício novo aterrissar noutra linha, em silêncio.
+  // Hoje o modal cobre a tela e nada consegue mexer nos blocos durante a espera,
+  // mas isso é um acaso do CSS, não uma garantia deste arquivo: este teste é o que
+  // impede o conserto de ser desfeito sem ninguém perceber.
+  const est = _estadoParaTeste();
+  est.blocos.length = 0;
+  const alvo = { id: '', series: 3 };
+  const vizinha = { id: IDS[1], series: 5 };
+  est.blocos.push({ tipo: 'series', nome: 'A', series: 3, exercicios: [alvo, vizinha] });
+
+  _definirAbrirPesquisaDeTeste(async () => {
+    // O mundo muda enquanto o coach espera: some a PRIMEIRA linha do bloco, e o
+    // índice 0 do dataset passa a apontar para a vizinha.
+    est.blocos[0].exercicios.shift();
+    const criado = academia.salvarExerc({ nome: 'Exercício Fantasma Teste', padrao: 'quadriceps', ativo: true });
+    return { id: criado.id };
+  });
+
+  const input = /** @type {any} */ ({ value: 'Exercício Fantasma Teste', dataset: { alvo: 'ex', b: '0', l: '0' } });
+  await pesquisarEAdicionar(input);
+
+  assert.ok(alvo.id, 'o id foi para a linha que o coach realmente estava preenchendo');
+  assert.equal(vizinha.id, IDS[1], 'a vizinha, que passou a ocupar o índice 0, ficou intacta');
+});
