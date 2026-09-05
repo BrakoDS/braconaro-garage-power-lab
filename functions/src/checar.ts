@@ -8,6 +8,9 @@
  * modelo NÃO colabora — que são os que dão tela de erro para o aluno se
  * passarem batido.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import * as ts from 'typescript';
 import { extrairAnalise, num } from './analise';
 import { extrairPreco, decidirRodada, ehLinkMercadoLivre, type ItemFeed } from './precos';
 import { HTML_SOCIAL } from './fixtures/social-ml';
@@ -374,6 +377,153 @@ const schemaTecnica = montarSchema('tecnica', EQUIP) as any;
 ok(schemaTecnica.properties.tipo.enum.join() === 'tecnica', 'schema de técnica trava o tipo em "tecnica"');
 ok(Object.keys(schemaTecnica.properties).every((k) => schemaTecnica.required.includes(k)),
   'todo campo do schema de técnica está em required');
+
+/* ============================================================
+   VOCABULÁRIOS DE pesquisa.ts CONTRA A FONTE REAL NO SITE
+   ============================================================
+   `pesquisa.ts` explica no cabeçalho por que PADROES/MUSCULOS_LABEL/TAGS/NIVEIS
+   são CÓPIAS à mão (functions/ é um pacote à parte, sem import para os .js do
+   site) — e avisa que, se a fonte mudar e a cópia não acompanhar, a pesquisa
+   passa a recusar ou descartar coisa válida EM SILÊNCIO.
+   `npm run checar` roda local, com o repositório inteiro em disco — então dá
+   para ler os .js do site de verdade e comparar, sem criar dependência de
+   runtime nenhuma (a function em produção continua com as constantes
+   embutidas) e sem passo de build novo. O que seguirmos abaixo é sempre uma
+   CONSTANTE LITERAL (array de string ou objeto de string→string) num arquivo
+   .js do site — nunca o typedef de um JSDoc, que não é código executável e não
+   dá para extrair com confiança. Por isso NIVEIS vem de `montador/core/niveis.js`
+   (o array de verdade que os módulos do motor importam), não do comentário em
+   `montador/data/exercicios.js:35` — aquele é só a anotação de tipo do campo,
+   nunca a fonte que alguém precisaria lembrar de atualizar. */
+console.log('\nVOCABULÁRIOS: A CÓPIA EM pesquisa.ts BATE COM A FONTE DO SITE?\n');
+
+/** Da pasta compilada (`functions/lib/`) para a raiz do repo, onde moram `montador/` e `academia/`. */
+const RAIZ_SITE = join(__dirname, '..', '..');
+
+/** Lê um .js do site e devolve a AST — o parser real da TypeScript, não regex. */
+function parseSite(caminhoRelativo: string): ts.SourceFile {
+  const caminho = join(RAIZ_SITE, caminhoRelativo);
+  const texto = readFileSync(caminho, 'utf8');
+  return ts.createSourceFile(caminho, texto, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
+}
+
+/**
+ * Acha `export const <nome> = <inicializador>` no arquivo. Lança se não achar —
+ * a constante mudou de nome, de arquivo, ou deixou de ser um `const` de topo, e
+ * é exatamente esse tipo de mudança estrutural que não pode passar em silêncio.
+ */
+function acharConst(sf: ts.SourceFile, nome: string): ts.Expression {
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    for (const decl of stmt.declarationList.declarations) {
+      if (ts.isIdentifier(decl.name) && decl.name.text === nome && decl.initializer) {
+        return decl.initializer;
+      }
+    }
+  }
+  throw new Error(`"${nome}" não foi encontrado em ${sf.fileName} — a extração precisa ser atualizada.`);
+}
+
+/** Array literal só de strings → string[]. Lança diante de qualquer elemento que não seja literal simples. */
+function comoArrayDeString(no: ts.Expression, origem: string): string[] {
+  if (!ts.isArrayLiteralExpression(no)) throw new Error(`esperava um array literal em ${origem}.`);
+  return no.elements.map((el) => {
+    if (!ts.isStringLiteral(el)) throw new Error(`elemento não é uma string literal simples em ${origem}.`);
+    return el.text;
+  });
+}
+
+/** Objeto literal `{ chave: 'valor' }` → mapa chave→valor. Mesma exigência de literal simples. */
+function comoMapaDeString(no: ts.Expression, origem: string): Record<string, string> {
+  if (!ts.isObjectLiteralExpression(no)) throw new Error(`esperava um objeto literal em ${origem}.`);
+  const mapa: Record<string, string> = {};
+  for (const prop of no.properties) {
+    if (!ts.isPropertyAssignment(prop)) throw new Error(`propriedade não é um par chave/valor simples em ${origem}.`);
+    const chave = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : null;
+    if (chave === null || !ts.isStringLiteral(prop.initializer)) {
+      throw new Error(`chave ou valor não é uma string literal simples em ${origem}.`);
+    }
+    mapa[chave] = prop.initializer.text;
+  }
+  return mapa;
+}
+
+/** Mesmo conjunto de valores, ignorando ordem — a cópia não precisa preservar a ordem da fonte. */
+function mesmoConjunto(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const ordenadoA = [...a].sort();
+  const ordenadoB = [...b].sort();
+  return ordenadoA.every((v, i) => v === ordenadoB[i]);
+}
+
+/** Compara uma cópia de pesquisa.ts com sua fonte no site; extração que falha vira falha do check, não exceção solta. */
+function checarVocabulario(nome: string, extrairFonte: () => string[], copia: string[]): void {
+  try {
+    const fonte = extrairFonte();
+    ok(
+      mesmoConjunto(fonte, copia),
+      `${nome}: pesquisa.ts bate com a fonte no site`,
+      `fonte=[${fonte.join(', ')}] cópia=[${copia.join(', ')}]`,
+    );
+  } catch (e) {
+    falhas += 1;
+    console.log(`  ✗ ${nome}: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+  }
+}
+
+// A cópia sai do PRÓPRIO schema que `pesquisa.ts` monta para a OpenAI — não há
+// necessidade de exportar as constantes privadas do módulo só para o teste; o
+// schema já é a superfície pública que carrega o vocabulário inteiro.
+const schemaVocab = montarSchema('exercicio', []) as {
+  properties: {
+    padrao: { enum: string[] };
+    musculos: { items: { enum: string[] } };
+    tags: { items: { enum: string[] } };
+    nivel: { enum: string[] };
+  };
+};
+
+checarVocabulario(
+  'PADROES',
+  () => comoArrayDeString(acharConst(parseSite('montador/config/padroes.js'), 'PADROES'), 'montador/config/padroes.js:PADROES'),
+  schemaVocab.properties.padrao.enum,
+);
+
+checarVocabulario(
+  'MUSCULOS_LABEL',
+  () => {
+    // MUSCULOS_LABEL não é uma constante única em lugar nenhum do site: é
+    // `MUSCULOS` (as 11 chaves internas, em `padroes.js`) traduzida pelo mapa
+    // `MUSC_MAP` (`academia/data/seed.js`) — a mesma cadeia que o cabeçalho de
+    // `pesquisa.ts` documenta. Reproduzimos os dois passos aqui, não um atalho.
+    const chaves = comoArrayDeString(
+      acharConst(parseSite('montador/config/padroes.js'), 'MUSCULOS'),
+      'montador/config/padroes.js:MUSCULOS',
+    );
+    const mapa = comoMapaDeString(
+      acharConst(parseSite('academia/data/seed.js'), 'MUSC_MAP'),
+      'academia/data/seed.js:MUSC_MAP',
+    );
+    return chaves.map((k) => {
+      const rotulo = mapa[k];
+      if (!rotulo) throw new Error(`a chave "${k}" de MUSCULOS não tem rótulo em MUSC_MAP.`);
+      return rotulo;
+    });
+  },
+  schemaVocab.properties.musculos.items.enum,
+);
+
+checarVocabulario(
+  'TAGS',
+  () => comoArrayDeString(acharConst(parseSite('academia/db.js'), 'TAGS'), 'academia/db.js:TAGS'),
+  schemaVocab.properties.tags.items.enum,
+);
+
+checarVocabulario(
+  'NIVEIS',
+  () => comoArrayDeString(acharConst(parseSite('montador/core/niveis.js'), 'NIVEIS'), 'montador/core/niveis.js:NIVEIS'),
+  schemaVocab.properties.nivel.enum,
+);
 
 console.log(
   falhas === 0

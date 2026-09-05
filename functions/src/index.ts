@@ -23,6 +23,10 @@ import {
   decidirRodada, ehLinkMercadoLivre, extrairPreco,
   type ItemFeed, type Leitura, type ResultadoProduto, type Rodada,
 } from './precos';
+import {
+  montarSchema, instrucoes, extrairProposta,
+  type Equip, type Contexto, type Proposta,
+} from './pesquisa';
 
 initializeApp();
 
@@ -93,6 +97,56 @@ async function consumirCota(email: string): Promise<number> {
     }, { merge: true });
 
     return LIMITE_DIARIO - (usadas + 1);
+  });
+}
+
+/** Quantas pesquisas de exercício/mobilidade/técnica o coach pode fazer por dia. */
+const LIMITE_PESQUISA = 60;
+
+/**
+ * Cota diária da pesquisa de exercício — mesmo padrão transacional de
+ * `consumirCota` acima, num documento PRÓPRIO (`pesquisaUso/{email}`, não
+ * `nutricaoUso`): são cotas de coisas diferentes, e misturar as duas faria uma
+ * pesquisa do coach gastar o limite de análise de refeição do aluno (ou o
+ * contrário, um aluno comendo o teto da pesquisa do coach).
+ *
+ * Este limite NÃO é proteção contra abuso de terceiro — a pesquisa é
+ * `permission-denied` para qualquer email fora de `EMAILS_COACH`, e o próprio
+ * coach pediu isto para uso pessoal dele ("somente eu irei usar esse
+ * sistema"). Com um único usuário autorizado não existe "mal-intencionado" do
+ * qual se defender. A cota está aqui contra BUG: um laço de renderização, um
+ * clique que reenvia, um retry de rede — nada disso tem freio próprio, e sem
+ * este teto qualquer um deles queimaria o crédito do mês na OpenAI numa
+ * tarde. Se no futuro alguém olhar para 60/dia achando pouco para "proteção
+ * contra abuso" e for aumentar por esse motivo: o motivo está errado, o
+ * número não é sobre abuso.
+ */
+async function consumirCotaPesquisa(email: string): Promise<number> {
+  const db = getFirestore();
+  const ref = db.collection('pesquisaUso').doc(email);
+  const hoje = diaSaoPaulo();
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.exists ? (snap.data() ?? {}) : {};
+    const mesmoDia = d.dia === hoje;
+    const usadas = mesmoDia && typeof d.usadas === 'number' ? d.usadas : 0;
+
+    if (usadas >= LIMITE_PESQUISA) {
+      throw new HttpsError(
+        'resource-exhausted',
+        `Limite de segurança de ${LIMITE_PESQUISA} pesquisas por dia atingido — é trava contra ` +
+        'bug (loop, clique duplicado), não limite de uso normal. Dá para cadastrar na mão em /academia.',
+      );
+    }
+
+    tx.set(ref, {
+      dia: hoje,
+      usadas: usadas + 1,
+      atualizadoEm: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return LIMITE_PESQUISA - (usadas + 1);
   });
 }
 
@@ -469,5 +523,288 @@ export const atualizarPrecos = onCall(
     }
 
     return rodar();
+  },
+);
+
+/* ============================================================
+   PESQUISA DE EXERCÍCIO / MOBILIDADE / TÉCNICA (Treino Livre)
+   ============================================================
+
+   O coach digita, no Treino Livre, um exercício que não existe no catálogo do
+   box. Esta função pesquisa (opcionalmente na web) e devolve uma PROPOSTA no
+   vocabulário fechado da Academia dele, pronta para revisão na tela — o
+   cadastro em si é a próxima etapa. `montarSchema`/`instrucoes`/
+   `extrairProposta` (`pesquisa.ts`) são a parte pura testada em `npm run
+   checar`; aqui só a chamada de rede e as travas que só existem em produção
+   (allowlist, cota, timeout). */
+
+/** Um termo digitado por engano ('a') ou colado inteiro ('Descrição completa...') não é pesquisa válida. */
+const TERMO_MIN = 2;
+const TERMO_MAX = 80;
+/** Teto de itens de equipamento aceitos — o inventário real do box não chega perto disto. */
+const MAX_EQUIPAMENTOS = 200;
+
+const CONTEXTOS_VALIDOS: readonly Contexto[] = ['exercicio', 'mobilidade', 'tecnica'];
+
+/** Sem ferramenta: pergunta fechada, resposta curta — 15 s bastam e sobra margem no `timeoutSeconds`. */
+const TIMEOUT_PESQUISA_SEM_BUSCA_MS = 15_000;
+/** Com `web_search`: a OpenAI navega antes de responder — 45 s, igual ao teto de `analisarRefeicao`. */
+const TIMEOUT_PESQUISA_COM_BUSCA_MS = 45_000;
+
+/**
+ * `equipamentos` truncado e saneado: no máximo `MAX_EQUIPAMENTOS`, e só o item
+ * que tem `id`/`nome` de verdade sobrevive. Truncar em vez de recusar segue o
+ * espírito do resto do arquivo (`base64.length > MAX_BASE64` também corta, não
+ * derruba a chamada) — um inventário grande demais não é ataque, é só um box
+ * com catálogo extenso, e a pesquisa funciona igual com os 200 primeiros.
+ */
+function validarEquipamentos(v: unknown): Equip[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .slice(0, MAX_EQUIPAMENTOS)
+    .map((e): Equip | null => {
+      if (!e || typeof e !== 'object') return null;
+      const id = String((e as Record<string, unknown>).id ?? '').trim();
+      const nome = String((e as Record<string, unknown>).nome ?? '').trim();
+      return id && nome ? { id, nome } : null;
+    })
+    .filter((e): e is Equip => e !== null);
+}
+
+/** Resultado de uma chamada ao Responses API — sucesso com o JSON já decodificado, ou falha com o suficiente para decidir o que fazer a seguir. */
+type ChamadaOpenAI =
+  | { ok: true; json: unknown }
+  | { ok: false; status: number; corpo: string; abortou: boolean };
+
+async function chamarResponses(corpo: object, timeoutMs: number): Promise<ChamadaOpenAI> {
+  const controle = new AbortController();
+  const timer = setTimeout(() => controle.abort(), timeoutMs);
+  try {
+    const resposta = await fetch(URL_OPENAI, {
+      method: 'POST',
+      signal: controle.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${CHAVE_OPENAI.value()}`,
+      },
+      body: JSON.stringify(corpo),
+    });
+    if (!resposta.ok) {
+      const texto = await resposta.text().catch(() => '');
+      return { ok: false, status: resposta.status, corpo: texto, abortou: false };
+    }
+    return { ok: true, json: await resposta.json() };
+  } catch (e) {
+    return { ok: false, status: 0, corpo: String(e), abortou: e instanceof Error && e.name === 'AbortError' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * O RISCO DOCUMENTADO NO SPEC: a documentação da OpenAI é ambígua sobre usar
+ * `tools` (busca na web) junto de `text.format` estrito na MESMA chamada. Há
+ * fonte afirmando que são mutuamente exclusivos — mas isso é confirmado para o
+ * `response_format` do Chat Completions antigo, não claramente para o
+ * `text.format` do Responses API (que é o que usamos aqui). Por isso o caminho
+ * de UMA chamada é o principal, e esta função só entra em cena quando a
+ * própria API reclamar.
+ *
+ * Não temos como testar isto contra a API real nesta task: a chave vive no
+ * Secret Manager e a função exige a conta do coach logada — não é algo que dá
+ * para simular localmente. Por isso a heurística abaixo é deliberadamente
+ * conservadora: só reconhece incompatibilidade num erro 400 que fale de
+ * FERRAMENTA e de FORMATO ao mesmo tempo. Se a OpenAI usar um texto de erro
+ * diferente do que imaginamos, esta função simplesmente não reconhece o caso
+ * — a pesquisa falha do jeito normal (mensagem de indisponibilidade), nunca
+ * trava ou entra num loop silencioso.
+ */
+function pareceIncompatibilidadeFerramentaFormato(status: number, corpo: string): boolean {
+  if (status !== 400) return false;
+  const c = corpo.toLowerCase();
+  const falaDeFerramenta = c.includes('web_search') || c.includes('"tools"') || c.includes('tool_choice');
+  const falaDeFormato = c.includes('text.format') || c.includes('response_format') || c.includes('json_schema');
+  return falaDeFerramenta && falaDeFormato;
+}
+
+/** Mesmo caminho duplo de `textoDaResposta` em `analise.ts`/`pesquisa.ts` — aqui só para ler o RESUMO em texto livre da primeira chamada da via de duas chamadas, que não passa por `extrairProposta`. */
+function textoBruto(r: unknown): string {
+  if (!r || typeof r !== 'object') return '';
+  const o = r as Record<string, unknown>;
+  if (typeof o.output_text === 'string' && o.output_text.trim()) return o.output_text;
+  let texto = '';
+  if (Array.isArray(o.output)) {
+    for (const bloco of o.output) {
+      const conteudo = (bloco as { content?: unknown })?.content;
+      if (!Array.isArray(conteudo)) continue;
+      for (const parte of conteudo) {
+        const t = (parte as { text?: unknown })?.text;
+        if (typeof t === 'string') texto += t;
+      }
+    }
+  }
+  return texto;
+}
+
+/** A via rápida: uma chamada só, com ou sem `web_search` conforme `buscarNaWeb`. */
+async function pesquisarUmaChamada(
+  termo: string, contexto: Contexto, equipamentos: Equip[], buscarNaWeb: boolean,
+): Promise<ChamadaOpenAI> {
+  const corpo: Record<string, unknown> = {
+    model: MODELO,
+    instructions: instrucoes(contexto, equipamentos),
+    input: [{ role: 'user', content: [{ type: 'input_text', text: `Pesquise e prepare o cadastro de: ${termo}` }] }],
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'pesquisa_item',
+        strict: true,
+        schema: montarSchema(contexto, equipamentos),
+      },
+    },
+    // Com busca a resposta tende a vir mais longa (o modelo cita o que achou antes do JSON final).
+    max_output_tokens: buscarNaWeb ? 1500 : 700,
+  };
+  if (buscarNaWeb) corpo.tools = [{ type: 'web_search' }];
+
+  const timeoutMs = buscarNaWeb ? TIMEOUT_PESQUISA_COM_BUSCA_MS : TIMEOUT_PESQUISA_SEM_BUSCA_MS;
+  return chamarResponses(corpo, timeoutMs);
+}
+
+/**
+ * O recuo de duas chamadas — só acionado quando a primeira devolve o erro de
+ * incompatibilidade acima. Primeira chamada: `web_search` ligado, SEM formato
+ * estrito, pedindo um resumo em texto livre do que a busca encontrou. Segunda
+ * chamada: sem ferramenta, com o mesmo schema estrito da via rápida,
+ * convertendo aquele resumo na proposta estruturada — a mesma forma que
+ * `extrairProposta` já sabe ler.
+ */
+async function pesquisarDuasChamadas(
+  termo: string, contexto: Contexto, equipamentos: Equip[],
+): Promise<ChamadaOpenAI> {
+  const alvo = contexto === 'tecnica' ? 'uma técnica de treino'
+    : contexto === 'mobilidade' ? 'um exercício de mobilidade/aquecimento'
+      : 'um exercício de treino';
+
+  const primeira = await chamarResponses({
+    model: MODELO,
+    instructions: [
+      `Pesquise na web sobre "${termo}", ${alvo} que o coach do Garage Power Lab quer cadastrar.`,
+      'Devolva um RESUMO em texto corrido (não em JSON, sem formatação) com o que encontrar:',
+      'como se executa, para que serve, padrão de movimento predominante, músculos envolvidos,',
+      'equipamento tipicamente usado, e as URLs das fontes. Um parágrafo curto basta — outra',
+      'etapa vai converter este resumo no cadastro estruturado.',
+    ].join('\n'),
+    input: [{ role: 'user', content: [{ type: 'input_text', text: termo }] }],
+    tools: [{ type: 'web_search' }],
+    max_output_tokens: 1200,
+  }, TIMEOUT_PESQUISA_COM_BUSCA_MS);
+  if (!primeira.ok) return primeira;
+
+  const resumo = textoBruto(primeira.json).trim();
+  if (!resumo) {
+    // Sem resumo não há o que converter na segunda chamada — mesmo tratamento
+    // de "falha" da função, para o coach ver a mensagem amigável de sempre.
+    return { ok: false, status: 0, corpo: 'A busca voltou sem texto para resumir.', abortou: false };
+  }
+
+  return chamarResponses({
+    model: MODELO,
+    instructions: instrucoes(contexto, equipamentos),
+    input: [{
+      role: 'user',
+      content: [{
+        type: 'input_text',
+        text: `Termo original digitado pelo coach: "${termo}".\n\nResumo da pesquisa na web:\n${resumo}`,
+      }],
+    }],
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'pesquisa_item',
+        strict: true,
+        schema: montarSchema(contexto, equipamentos),
+      },
+    },
+    max_output_tokens: 700,
+  }, TIMEOUT_PESQUISA_SEM_BUSCA_MS);
+}
+
+export const pesquisarItem = onCall(
+  // 120 s cobre o pior caso real: a via de duas chamadas soma os timeouts de
+  // rede dos dois passos (45 s + 15 s) mais a folga de processamento — bem
+  // abaixo do teto, ao contrário do cálculo apertado de `PRAZO_RODADA_MS`
+  // acima, porque aqui não há um laço de dezenas de itens sequenciais.
+  { secrets: [CHAVE_OPENAI], timeoutSeconds: 120, memory: '512MiB' },
+  async (req): Promise<{ proposta: Proposta; restantes: number; buscou: boolean }> => {
+    // Allowlist do coach — mesmo padrão de `atualizarPrecos` acima. Esta busca
+    // gasta rede contra a OpenAI (custo real) e, com `buscarNaWeb`, contra a
+    // web também; "somente eu irei usar esse sistema" foi pedido explícito do
+    // coach, e é esta checagem que transforma o pedido em trava de verdade —
+    // sem ela, qualquer conta autenticada (as regras do Firestore deixam
+    // qualquer uma criar o próprio `academia/{uid}`) poderia chamar a função.
+    const token = req.auth?.token;
+    const email = typeof token?.email === 'string' ? token.email.trim().toLowerCase() : '';
+    const naAllowlist = !!email && EMAILS_COACH.includes(email) && token?.email_verified !== false;
+    if (!naAllowlist) {
+      throw new HttpsError('permission-denied', 'Só o coach usa a pesquisa.');
+    }
+
+    // Entrada validada, não confiada: quem chama é sempre o app, mas o app
+    // pode ter um bug, e a função é a última linha antes da chamada paga à
+    // OpenAI.
+    const dados = (req.data ?? {}) as {
+      termo?: unknown; contexto?: unknown; equipamentos?: unknown; buscarNaWeb?: unknown;
+    };
+
+    const termo = typeof dados.termo === 'string' ? dados.termo.trim() : '';
+    if (termo.length < TERMO_MIN || termo.length > TERMO_MAX) {
+      throw new HttpsError('invalid-argument', `O termo pesquisado deve ter entre ${TERMO_MIN} e ${TERMO_MAX} caracteres.`);
+    }
+
+    const contexto = dados.contexto as Contexto;
+    if (!CONTEXTOS_VALIDOS.includes(contexto)) {
+      throw new HttpsError('invalid-argument', 'Contexto inválido — use exercicio, mobilidade ou tecnica.');
+    }
+
+    const equipamentos = validarEquipamentos(dados.equipamentos);
+    const buscarNaWeb = dados.buscarNaWeb === true;
+
+    const restantes = await consumirCotaPesquisa(email);
+
+    try {
+      let resultado = await pesquisarUmaChamada(termo, contexto, equipamentos, buscarNaWeb);
+
+      if (!resultado.ok && buscarNaWeb && pareceIncompatibilidadeFerramentaFormato(resultado.status, resultado.corpo)) {
+        logger.warn('Pesquisa: OpenAI recusou ferramenta + formato estrito juntos; caindo para a via de duas chamadas.', {
+          status: resultado.status, corpo: resultado.corpo.slice(0, 500),
+        });
+        resultado = await pesquisarDuasChamadas(termo, contexto, equipamentos);
+      }
+
+      if (!resultado.ok) {
+        // O corpo pode conter detalhe da conta OpenAI; fica só no log, nunca vai para o coach.
+        logger.error('OpenAI recusou a pesquisa.', { status: resultado.status, corpo: resultado.corpo.slice(0, 500) });
+        throw new HttpsError(
+          'unavailable',
+          resultado.abortou
+            ? 'A pesquisa demorou demais. Tente de novo ou cadastre em /academia.'
+            : 'O Coach IA está indisponível agora. Dá para cadastrar em /academia.',
+        );
+      }
+
+      const proposta = extrairProposta(resultado.json, contexto, equipamentos);
+      logger.info('Pesquisa concluída.', { contexto, buscarNaWeb, restantes });
+      return { proposta, restantes, buscou: buscarNaWeb };
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      // `extrairProposta` lança Error com mensagem já legível (ver pesquisa.ts)
+      // — é segura para o coach ver, ao contrário do corpo cru da OpenAI acima.
+      logger.error('Falha ao processar a pesquisa.', { erro: String(e) });
+      throw new HttpsError(
+        'unavailable',
+        e instanceof Error && e.message ? e.message : 'Não deu para concluir a pesquisa agora. Cadastre em /academia.',
+      );
+    }
   },
 );
