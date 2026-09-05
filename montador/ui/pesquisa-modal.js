@@ -331,15 +331,21 @@ export function abrirPesquisa({ termo, contexto }) {
     }
 
     async function buscar(buscarNaWeb) {
+      // PRIMEIRA COISA, antes de qualquer troca de innerHTML: se já existe um
+      // formulário na tela (é um refetch, não a primeira busca), captura o que o
+      // coach editou. A ordem aqui não é estilo — `corpoProcurandoHTML` substitui
+      // `#pesq-modal-corpo`, e com ele some o `#pesq-form` que `lerFormulario`
+      // procura. Ler depois devolvia null e estourava, travando o modal em
+      // "Pesquisando…" em toda segunda busca — justamente o caminho normal de uso
+      // (a busca rápida acha algo e o coach pede para enriquecer com a web).
+      const edicoes = baseProposta ? lerFormulario(contexto) : null;
+
       $('#pesq-modal-corpo').innerHTML = corpoProcurandoHTML(termo, buscarNaWeb);
       $('#pesq-modal-acoes').innerHTML = `<button class="btn ghost" type="button" id="pesq-btn-cancelar">Cancelar</button>`;
       $('#pesq-btn-cancelar').onclick = () => encerrar(null);
       bg.hidden = false;
       document.body.style.overflow = 'hidden';
 
-      // Se já existe um formulário na tela (é um refetch, não a primeira busca),
-      // captura o que o coach editou ANTES de o corpo virar a tela de "procurando".
-      const edicoes = baseProposta ? lerFormulario(contexto) : null;
       const equipamentos = academia.listarInventario().map((e) => ({ id: e.id, nome: e.nome }));
       try {
         const r = await pesquisarItem({ termo, contexto, equipamentos, buscarNaWeb });

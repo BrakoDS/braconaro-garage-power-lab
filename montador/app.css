@@ -49,10 +49,15 @@ main { max-width: 1000px; margin: 0 auto; padding: 22px; }
 .panel { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin-bottom: 18px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); }
-select, input[type=text], input[type=number] {
+select, input[type=text], input[type=number], textarea {
   background: var(--bg2); color: var(--txt); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; font-size: 14px; min-width: 150px;
 }
-select:focus, input:focus { outline: none; border-color: var(--acc); }
+/* `textarea` entrou na regra acima (e não numa própria) porque sem ela o navegador
+   desenha caixa BRANCA com texto preto no meio de um modal escuro — foi o que
+   aconteceu com os campos de execução da pesquisa. `font: inherit` porque a
+   textarea é o único campo que o navegador insiste em desenhar com monoespaçada. */
+textarea { font-family: inherit; line-height: 1.45; resize: vertical; }
+select:focus, input:focus, textarea:focus { outline: none; border-color: var(--acc); }
 button.btn { background: var(--acc); color: #1a1300; border: 0; border-radius: 9px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
 button.btn:hover { background: var(--acc2); }
 button.btn.ghost { background: transparent; color: var(--acc); border: 1px solid var(--acc); }
@@ -319,7 +324,11 @@ tr.bad-row td { color: var(--warn); }
 @media (max-width: 640px) {
   .modal-bg { padding: 10px; }
   .modal-ft { justify-content: stretch; }
-  .modal-ft .btn { flex: 1; }
+  /* `flex-basis:auto` e não 0: com `flex:1` puro os três botões dividiam a largura
+     em partes iguais, e o de texto mais longo ("Pesquisar na internet") quebrava em
+     três linhas enquanto os vizinhos ficavam com metade da altura vazia. Partindo do
+     tamanho do conteúdo, cada botão cresce a partir do que ele precisa. */
+  .modal-ft .btn { flex: 1 1 auto; }
 }
 
 /* ---------- Treino Manual (montagem por seleção) ---------- */
