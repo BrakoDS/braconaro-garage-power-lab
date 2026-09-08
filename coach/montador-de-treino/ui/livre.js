@@ -19,7 +19,7 @@ import { congelarTecnica } from '../core/tecnicas-auto.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
-import { confirmar, painel } from './dialogo.js';
+import { confirmar, painel } from '../../../compartilhado/ui/dialogo.js';
 import { publicarTreino } from './portal-treino.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
 import { rotuloGrupo } from '../../../compartilhado/config/livre-grupo.js';

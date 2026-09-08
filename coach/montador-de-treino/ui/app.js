@@ -18,7 +18,7 @@ import * as academia from '../../academia/db.js';
 import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
 import { initManual } from './manual.js';
 import { iniciarLivre } from './livre.js';
-import { confirmar, painel } from './dialogo.js';
+import { confirmar, painel } from '../../../compartilhado/ui/dialogo.js';
 
 /** A geração ancora no intermediário; as colunas iniciante/avançado derivam dele. */
 const NIVEL_ANCORA = 'intermediario';

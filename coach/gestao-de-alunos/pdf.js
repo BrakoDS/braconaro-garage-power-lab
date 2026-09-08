@@ -5,6 +5,8 @@
  *  - exportarFicha(aluno): ficha completa (dados + anamnese + PAR-Q + histórico).
  */
 import * as calc from '../../compartilhado/regras/calc.js?v=5';
+// Aviso pelo diálogo do site, não pelo alert() nativo, que o Chrome pode suprimir.
+import { avisar } from '../../compartilhado/ui/dialogo.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (v, d = 1) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -135,7 +137,7 @@ function abrirImpressao(title, inner) {
     <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});<\/script>
   </body></html>`;
   const w = window.open('', '_blank');
-  if (!w) { alert('Permita pop-ups para exportar o PDF.'); return; }
+  if (!w) { avisar({ titulo: 'Pop-up bloqueado', texto: 'Permita pop-ups neste site para exportar o PDF.' }); return; }
   w.document.open(); w.document.write(html); w.document.close();
 }
 

@@ -8,6 +8,10 @@ import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
 import * as db from './db.js';
+// `confirmar`/`avisar` do próprio site em vez do confirm()/alert() nativos: o
+// Chrome deixa o usuario SUPRIMIR diálogos nativos, e a partir daí eles respondem
+// sozinhos sem mostrar nada -- foi assim que a exclusão parou de funcionar.
+import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js';
 import * as calc from '../../compartilhado/regras/calc.js?v=5';
 import * as storage from '../../compartilhado/regras/storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
@@ -72,7 +76,7 @@ async function uploadFoto(path, file, maxDim) {
 }
 function avisoStorage(e) {
   console.warn('Falha no upload da foto:', e?.code || e);
-  alert('Não foi possível enviar a foto. Confirme que você está logado e que o Firebase Storage está ativado com as regras publicadas (ver storage.rules).');
+  avisar({ titulo: 'Foto não enviada', texto: 'Não foi possível enviar a foto. Confirme que você está logado e que o Firebase Storage está ativado com as regras publicadas (ver storage.rules).' });
 }
 /** Apaga do Storage as fotos de uma avaliação. */
 function apagarFotosDaAvaliacao(id, av) {
@@ -804,7 +808,7 @@ $('#aviso-copiar').addEventListener('click', async () => {
 $('#aviso-list').addEventListener('click', (e) => {
   const b = e.target.closest('.aviso-send'); if (!b) return;
   const msg = $('#aviso-msg').value.trim();
-  if (!msg) { alert('Escreva a mensagem primeiro.'); $('#aviso-msg').focus(); return; }
+  if (!msg) { avisar({ texto: 'Escreva a mensagem primeiro.' }); $('#aviso-msg').focus(); return; }
   const link = waMsg(b.dataset.tel, msg);
   if (link) window.open(link, '_blank');
   avisoEnviados.add(b.dataset.id);
@@ -881,7 +885,7 @@ $('#mural-list').addEventListener('click', async (e) => {
     muralEdit = id; $('#mural-titulo').value = av.titulo || ''; $('#mural-texto').value = av.texto || ''; $('#mural-tipo').value = av.tipo || 'info';
     $('#mural-add').textContent = 'Salvar alteração'; $('#mural-cancelar').hidden = false; $('#mural-titulo').focus();
   } else if (e.target.closest('.mural-excluir')) {
-    if (!confirm('Excluir este aviso? Ele sai do Portal do Aluno.')) return;
+    if (!(await confirmar({ titulo: 'Excluir aviso?', texto: 'Ele sai do Portal do Aluno.', ok: 'Excluir', perigo: true }))) return;
     await avisos_salvar(arr.filter((x) => x.id !== id));
     if (muralEdit === id) muralReset();
     renderMural();
@@ -952,7 +956,7 @@ $('#des-list').addEventListener('click', async (e) => {
     $('#des-titulo').value = d.titulo || ''; $('#des-texto').value = d.descricao || ''; $('#des-meta').value = String(d.metaDias || 5); $('#des-categoria').value = d.categoria || 'geral';
     $('#des-add').textContent = 'Salvar alteração'; $('#des-cancelar').hidden = false; renderDesEmojis(); $('#des-titulo').focus();
   } else if (e.target.closest('.des-excluir')) {
-    if (!confirm('Excluir este desafio? Ele sai do Portal do Aluno.')) return;
+    if (!(await confirmar({ titulo: 'Excluir desafio?', texto: 'Ele sai do Portal do Aluno.', ok: 'Excluir', perigo: true }))) return;
     await des_salvar(arr.filter((x) => x.id !== id));
     if (desEdit === id) desReset();
     renderDesafios();
@@ -1051,7 +1055,7 @@ $('#leads-list').addEventListener('change', async (e) => {
 });
 $('#leads-list').addEventListener('click', async (e) => {
   const btn = e.target.closest('.lead-excluir'); if (!btn) return;
-  if (!confirm('Excluir este lead?')) return;
+  if (!(await confirmar({ titulo: 'Excluir lead?', texto: 'O contato sai da lista de interessados.', ok: 'Excluir', perigo: true }))) return;
   try { await excluirLead(btn.dataset.id); } catch (err) { console.warn('Leads:', err?.code || err); }
   LEADS_CACHE = LEADS_CACHE.filter((x) => x.id !== btn.dataset.id);
   desenharLeads();
@@ -1618,8 +1622,8 @@ function abrirPerfil(id) {
     const s2 = $('#p-status'); s2.className = 'status ' + (alunoAtual.status || 'ativo'); s2.textContent = STATUS_LABEL[alunoAtual.status] || 'Ativo';
     const flag = $('[data-saved]', form); flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1600);
   });
-  $('#btn-excluir-aluno').addEventListener('click', () => {
-    if (confirm(`Excluir o aluno "${a.nome || a.id}"? Esta ação não pode ser desfeita.`)) {
+  $('#btn-excluir-aluno').addEventListener('click', async () => {
+    if (await confirmar({ titulo: 'Excluir aluno?', texto: `Excluir <b>${esc(a.nome || a.id)}</b>? Esta ação <b>não pode ser desfeita</b>.`, ok: 'Excluir', perigo: true })) {
       apagarFotosDoAluno(a);
       db.remover(a.id); renderLista(); mostrarTela('tela-lista');
     }
@@ -1713,9 +1717,9 @@ $('#fab-novo').addEventListener('click', () => {
 $('#form-novo').addEventListener('submit', (e) => {
   e.preventDefault();
   const dados = lerForm(e.target);
-  if (!dados.nome) { alert('Informe o nome do aluno.'); return; }
+  if (!dados.nome) { avisar({ texto: 'Informe o nome do aluno.' }); return; }
   const novo = db.criar(dados);
-  if (!novo) { alert('Já existe um aluno com esse ID. Escolha outro.'); return; }
+  if (!novo) { avisar({ texto: 'Já existe um aluno com esse ID. Escolha outro.' }); return; }
   fecharModal('modal-aluno');
   renderLista();
   abrirPerfil(novo.id);
@@ -1839,7 +1843,7 @@ function abrirFormAvaliacao(num) {
   renderFotosAval();
   $('#aval-fotos').addEventListener('click', onFotoAvalClick);
   $('#btn-pdf').addEventListener('click', () => {
-    if (avalAberta == null) { alert('Salve a avaliação primeiro para exportar o PDF.'); return; }
+    if (avalAberta == null) { avisar({ texto: 'Salve a avaliação primeiro para exportar o PDF.' }); return; }
     const cur = (alunoAtual.avaliacoes || []).find((x) => x.num === avalAberta);
     if (cur) exportarAvaliacao(alunoAtual, cur);
   });
@@ -1896,7 +1900,7 @@ async function adicionarFotoAval(slot, file) {
 }
 async function removerFotoAval(slot) {
   const a = alunoAtual, av = avalAtual(); if (!a || !av || !av.fotos) return;
-  if (!confirm('Remover esta foto?')) return;
+  if (!(await confirmar({ titulo: 'Remover foto?', texto: 'A foto sai desta avaliação.', ok: 'Remover', perigo: true }))) return;
   delete av.fotos[slot];
   db.atualizar(a.id, { avaliacoes: a.avaliacoes });
   alunoAtual = db.obter(a.id);
@@ -1904,9 +1908,9 @@ async function removerFotoAval(slot) {
   storage.apagar(`gestao/${UID}/${a.id}/aval-${av.num}-${slot}.webp`).catch(() => {});
 }
 
-$('#btn-del-aval').addEventListener('click', () => {
+$('#btn-del-aval').addEventListener('click', async () => {
   const a = alunoAtual; if (!a || avalAberta == null) return;
-  if (confirm(`Excluir a Avaliação #${String(avalAberta).padStart(2, '0')}?`)) {
+  if (await confirmar({ titulo: 'Excluir avaliação?', texto: `Excluir a <b>Avaliação #${String(avalAberta).padStart(2, '0')}</b>?`, ok: 'Excluir', perigo: true })) {
     apagarFotosDaAvaliacao(a.id, (a.avaliacoes || []).find((x) => x.num === avalAberta));
     db.removerAvaliacao(a.id, avalAberta);
     alunoAtual = db.obter(a.id);
@@ -1923,7 +1927,7 @@ $('#btn-comparar').addEventListener('click', abrirComparar);
 function abrirComparar() {
   const a = alunoAtual; if (!a) return;
   const avs = (a.avaliacoes || []).slice().sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
-  if (avs.length < 2) { alert('Cadastre ao menos 2 avaliações para comparar.'); return; }
+  if (avs.length < 2) { avisar({ texto: 'Cadastre ao menos 2 avaliações para comparar.' }); return; }
   const opts = (sel) => avs.map((av) => `<option value="${av.num}"${av.num === sel ? ' selected' : ''}>#${String(av.num).padStart(2, '0')} · ${fmtData(av.dataRealizada)}</option>`).join('');
   const aNum = avs[0].num, bNum = avs[avs.length - 1].num;
   $('#modal-comparar').querySelector('.modal').classList.add('lg');

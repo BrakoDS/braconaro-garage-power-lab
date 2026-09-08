@@ -8,6 +8,10 @@ import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js'
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { PADROES, PADRAO_LABEL } from '../../compartilhado/config/padroes.js';
 import * as db from './db.js';
+// `confirmar`/`avisar` do próprio site: o `confirm()`/`alert()` do navegador pode
+// estar suprimido pelo Chrome e responder sozinho, sem mostrar nada — foi assim
+// que a exclusão de exercícios parou de funcionar sem deixar rastro.
+import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js';
 
 /* ============================================================
    Helpers
@@ -443,11 +447,11 @@ $('#form-equip').addEventListener('submit', (e) => {
   fecharModal('modal-equip');
   renderTudo();
 });
-$('#btn-del-equip').addEventListener('click', () => {
+$('#btn-del-equip').addEventListener('click', async () => {
   if (!equipEdit) return;
   const n = db.exerciciosComEquip(equipEdit.id);
   const aviso = n ? `\n\nAtenção: ${n} exercício(s) usam este equipamento e ficarão INDISPONÍVEIS até serem ajustados.` : '';
-  if (!confirm(`Excluir "${equipEdit.nome}"?${aviso}`)) return;
+  if (!(await confirmar({ titulo: 'Excluir equipamento?', texto: `Excluir <b>${esc(equipEdit.nome)}</b>?${aviso}`, ok: 'Excluir', perigo: true }))) return;
   db.removerEquip(equipEdit.id);
   fecharModal('modal-equip');
   renderTudo();
@@ -594,9 +598,9 @@ $('#form-exerc').addEventListener('submit', (e) => {
   fecharModal('modal-exerc');
   renderTudo(); // marcar/desmarcar MOBILIDADE move o item entre as abas
 });
-$('#btn-del-exerc').addEventListener('click', () => {
+$('#btn-del-exerc').addEventListener('click', async () => {
   if (!exercEdit) return;
-  if (!confirm(`Excluir o exercício "${exercEdit.nome}"?`)) return;
+  if (!(await confirmar({ titulo: 'Excluir exercício?', texto: `Excluir <b>${esc(exercEdit.nome)}</b> do catálogo da academia?`, ok: 'Excluir', perigo: true }))) return;
   db.removerExerc(exercEdit.id);
   fecharModal('modal-exerc');
   renderTudo();
@@ -636,9 +640,9 @@ $('#form-tecnica').addEventListener('submit', (e) => {
   fecharModal('modal-tecnica');
   renderTecnicas();
 });
-$('#btn-del-tecnica').addEventListener('click', () => {
+$('#btn-del-tecnica').addEventListener('click', async () => {
   if (!tecEdit) return;
-  if (!confirm(`Excluir a técnica "${tecEdit.nome}"?`)) return;
+  if (!(await confirmar({ titulo: 'Excluir técnica?', texto: `Excluir <b>${esc(tecEdit.nome)}</b>?`, ok: 'Excluir', perigo: true }))) return;
   db.removerTecnica(tecEdit.id);
   tecAbertas.delete(tecEdit.id);
   fecharModal('modal-tecnica');
@@ -766,7 +770,7 @@ $('#form-negocio').addEventListener('submit', (e) => {
   renderNegocio();
 });
 
-$('#btn-del-negocio').addEventListener('click', () => {
+$('#btn-del-negocio').addEventListener('click', async () => {
   if (!negEdit || negSec === 'perfil') return;
   // Horário e plano não têm campo de nome — o que identifica a linha é a combinação
   // que o coach vê na tela. Sem isto a confirmação viraria "Excluir este horário?",
@@ -774,7 +778,7 @@ $('#btn-del-negocio').addEventListener('click', () => {
   const rotulo = negSec === 'horarios' ? `${negEdit.dia} ${negEdit.hora}`
     : negSec === 'planos' ? `${negEdit.prazo} ${negEdit.frequencia}`
     : negEdit.nome || negEdit.titulo || negEdit.concorrente || negEdit.texto || `este ${TITULO_NEGOCIO[negSec].nome}`;
-  if (!confirm(`Excluir “${String(rotulo).slice(0, 80)}”?`)) return;
+  if (!(await confirmar({ titulo: 'Excluir item?', texto: `Excluir <b>${esc(String(rotulo).slice(0, 80))}</b>?`, ok: 'Excluir', perigo: true }))) return;
   db.removerItemNegocio(negSec, negEdit.id);
   fecharModal('modal-negocio');
   renderNegocio();

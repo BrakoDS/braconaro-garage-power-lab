@@ -17,6 +17,10 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
 import * as db from '../academia/db.js';
+// `confirmar`/`avisar` do próprio site em vez do confirm()/alert() nativos: o
+// Chrome deixa o usuario SUPRIMIR diálogos nativos, e a partir daí eles respondem
+// sozinhos sem mostrar nada -- foi assim que a exclusão parou de funcionar.
+import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js';
 import { publicarLoja, carregarVitrine, assinatura, assinaturaPublicada } from '../../garage-store/loja-portal.js';
 import { cardProduto, gridVitrine, filtrar, chipsCategoria, formatarPreco, esc, norm, CATEGORIAS, SUBCATEGORIAS } from '../../garage-store/vitrine-card.js';
 import { analisarUrl, lerPreco, buscarMetadados } from './loja-url.js';
@@ -285,9 +289,9 @@ $('#form-produto').addEventListener('submit', (ev) => {
   renderTudo();
 });
 
-$('#btn-del-produto').addEventListener('click', () => {
+$('#btn-del-produto').addEventListener('click', async () => {
   if (!prodEdit) return;
-  if (!confirm(`Excluir o produto "${prodEdit.nome}"?`)) return;
+  if (!(await confirmar({ titulo: 'Excluir produto?', texto: `Excluir <b>${esc(prodEdit.nome)}</b> da vitrine?`, ok: 'Excluir', perigo: true }))) return;
   db.removerProduto(prodEdit.id);
   fecharModal();
   renderTudo();
@@ -348,7 +352,11 @@ $('#btn-precos').addEventListener('click', async () => {
   // promessa de quantas buscas vão rodar: a função ainda descarta dali os
   // produtos cujo link não é do Mercado Livre, e essa regra vive só no código
   // dela — não duplicar aqui.
-  if (!confirm(`Buscar preços atuais no Mercado Livre para os produtos da vitrine publicada (${qtd} ao todo)?\nPode levar alguns minutos.`)) return;
+  if (!(await confirmar({
+    titulo: 'Buscar preços agora?',
+    texto: `Buscar preços atuais no Mercado Livre para os <b>${qtd}</b> produto(s) da vitrine publicada.<br><br>Pode levar alguns minutos.`,
+    ok: 'Buscar',
+  }))) return;
 
   // Desabilitar é obrigatório, não só cosmético: a função só atende uma chamada
   // por vez, então um segundo clique não roda em paralelo — fica na fila e o
