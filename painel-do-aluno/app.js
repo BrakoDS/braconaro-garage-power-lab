@@ -21,6 +21,24 @@ import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
 import { carregarDesafios, carregarProgressoDesafios, salvarProgressoDesafios } from './desafios-db.js';
 import { carregarConsentimento, registrarAceite, precisaAceitar } from './consentimento-db.js';
+
+/**
+ * Envolve uma função de ESCRITA para que ela não faça nada na prévia.
+ *
+ * Um lugar só, em vez de um `if` espalhado por seis chamadas: guarda espalhada é
+ * guarda que alguém esquece de repetir na sétima. Se um dia aparecer outra
+ * escrita, ela precisa passar por aqui — e o teste de prévia cobra isso.
+ */
+const soLeitura = (fn, nome) => async (...args) => {
+  if (PREVIA) { console.info(`prévia do coach: escrita bloqueada (${nome})`); return null; }
+  return fn(...args);
+};
+const _enviarFotoPerfil = soLeitura(enviarFotoPerfil, 'foto de perfil');
+const _enviarFeedback = soLeitura(enviarFeedback, 'feedback');
+const _salvarNutricao = soLeitura(salvarNutricao, 'nutrição');
+const _salvarProgressoDesafios = soLeitura(salvarProgressoDesafios, 'desafios');
+const _salvarCargas = soLeitura(salvarCargas, 'cargas');
+const _registrarAceite = soLeitura(registrarAceite, 'aceite LGPD');
 import * as game from '../compartilhado/regras/gamificacao.js';
 import * as calc from '../compartilhado/regras/calc.js?v=5';
 
@@ -45,8 +63,35 @@ function sinal(v, d = 1) { return v == null ? '—' : (v > 0 ? '+' : v < 0 ? '�
 
 /** @type {any} */
 let PORTAL = null;
+
+/* ============================================================
+   MODO PRÉVIA — o coach vendo o Portal DESTE aluno
+   ------------------------------------------------------------
+   A Gestão de Alunos abre esta página num quadro e manda, por mensagem, a mesma
+   fatia que ela publica em `portal/{email}`. É por isso que a prévia é fiel por
+   construção: não há segunda implementação da tela: é ESTA página.
+
+   Por que os dados vêm por mensagem em vez de o coach ler do Firestore: a regra
+   de `portal/{email}` só deixa o próprio aluno ler. O coach não lê — ele ESCREVE.
+   Como ele é quem monta o documento, ele já tem o conteúdo na mão.
+
+   Duas travas, porque aqui se está olhando dado de outra pessoa:
+    - só liga com `?previa=1` E dentro de um quadro (`window.top !== self`), o que
+      nenhum link de aluno tem;
+    - TODA escrita é bloqueada. O coach navegando não pode registrar carga,
+      concluir desafio nem aceitar termo no lugar do aluno — seria dado falso na
+      ficha dele, e ninguém saberia de onde veio.
+   ============================================================ */
+const PREVIA = new URLSearchParams(location.search).get('previa') === '1'
+  && typeof window !== 'undefined' && window.top !== window.self;
+/** E-mail do aluno que está sendo espiado (só na prévia). */
+let _previaEmail = '';
+/** Data de referência da semana — as setas do coach navegam por aqui. */
+let _previaHoje = null;
 /** E-mail do aluno logado (usa a fatia como fallback se a sessão ainda não resolveu). */
-const emailAluno = () => (usuario()?.email || PORTAL?.email || '').toLowerCase();
+// Na prévia, o usuário logado é o COACH — usar o e-mail dele aqui faria a tela
+// buscar cargas e desafios da pessoa errada. O alvo vem sempre primeiro.
+const emailAluno = () => (_previaEmail || usuario()?.email || PORTAL?.email || '').toLowerCase();
 
 /* ============================================================
    Navegação entre telas
@@ -190,7 +235,7 @@ function wireFoto() {
     if (!file) return;
     btn.classList.add('carregando'); diz('Enviando foto…', false);
     try {
-      const url = await enviarFotoPerfil(email, file);
+      const url = await _enviarFotoPerfil(email, file);
       PORTAL.fotoUrl = url;
       const av = $('#wel-avatar');
       if (av) av.querySelector('img')?.remove(), av.insertAdjacentHTML('afterbegin', `<img src="${esc(url)}" alt="" />`);
@@ -341,6 +386,8 @@ function renderHorarios() {
     horas: PORTAL.presencaHoras || {},
     remarcacoes: PORTAL.remarcacoes || {},
     atestados: PORTAL.atestados || {},
+    // Na prévia o coach navega semanas com as setas; fora dela é sempre hoje.
+    ...(_previaHoje ? { hoje: _previaHoje } : {}),
     // Dias em que o box não abriu (feriado confirmado pelo coach). Vem publicado
     // junto da fatia do aluno: sem isso o Portal diria "não veio" num dia em que
     // a academia estava fechada — e o aluno não teria como saber por quê.
@@ -785,7 +832,7 @@ function renderFeedback() {
     const st = $('#fb-status'), btn = $('#fb-enviar');
     const fb = { id: 'fb' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), data: $('#fb-data').value || hj, esforco: Number(rpe.value), dor, obs: $('#fb-obs').value.trim(), criadoEm: Date.now() };
     btn.disabled = true; st.hidden = false; st.classList.remove('erro'); st.textContent = 'Enviando…';
-    try { await enviarFeedback(email, fb); st.textContent = 'Enviado ao coach ✓'; $('#fb-obs').value = ''; }
+    try { await _enviarFeedback(email, fb); st.textContent = 'Enviado ao coach ✓'; $('#fb-obs').value = ''; }
     catch (err) { console.warn('Feedback:', err?.code || err); st.classList.add('erro'); st.textContent = 'Não foi possível enviar agora.'; }
     finally { btn.disabled = false; }
   });
@@ -936,7 +983,7 @@ function fecharNutricao() {
   voltar();
 }
 async function persistirNutricao() {
-  try { await salvarNutricao(emailAluno(), NUT); }
+  try { await _salvarNutricao(emailAluno(), NUT); }
   catch (e) { console.warn('Nutrição:', e?.code || e); }
 }
 
@@ -1244,7 +1291,7 @@ async function toggleDesafioDia(id, iso) {
     if (feitos < meta && jaTem) DES_PROG.concluidos = DES_PROG.concluidos.filter((c) => !(c.id === id && c.semana === seg));
   }
   desenharConquistas();
-  try { await salvarProgressoDesafios(emailAluno(), DES_PROG); } catch (e) { console.warn('Desafios:', e?.code || e); }
+  try { await _salvarProgressoDesafios(emailAluno(), DES_PROG); } catch (e) { console.warn('Desafios:', e?.code || e); }
 }
 
 $('#ir-conquistas')?.addEventListener('click', abrirConquistas);
@@ -1271,7 +1318,7 @@ function fecharCargas() {
   voltar();
 }
 async function persistirCargas() {
-  try { await salvarCargas(emailAluno(), CARGAS); }
+  try { await _salvarCargas(emailAluno(), CARGAS); }
   catch (e) { console.warn('Cargas:', e?.code || e); }
 }
 
@@ -1361,10 +1408,41 @@ function pedirConsentimento(email) {
   btn.onclick = async () => {
     if (!chk.checked) return;
     btn.disabled = true; btn.textContent = 'Enviando…';
-    try { await registrarAceite(email); } catch (e) { console.warn('LGPD:', e?.code || e); }
+    try { await _registrarAceite(email); } catch (e) { console.warn('LGPD:', e?.code || e); }
     modal.classList.remove('open');
     btn.disabled = false; btn.textContent = 'Continuar';
   };
+}
+
+/**
+ * Entrada da PRÉVIA: em vez de logar e buscar a fatia, recebe-a pronta da Gestão.
+ * Nada de gate, nada de leitura de `portal/{email}` — que o coach nem poderia ler.
+ * @param {{dados:any, email:string, hoje?:string}} msg
+ */
+async function entrarPrevia({ dados, email, hoje }) {
+  _previaEmail = String(email || '').toLowerCase();
+  _previaHoje = hoje ? new Date(hoje + 'T12:00:00') : null;
+  PORTAL = dados || null;
+  gate.style.display = 'none';
+  $('#app').removeAttribute('hidden');
+  document.body.classList.add('previa-coach');
+  render();
+  carregarAvisos().then(renderAvisos);
+  renderCronograma();
+}
+
+if (PREVIA) {
+  // Só aceita mensagem da MESMA origem: a Gestão do coach. Sem isto, qualquer
+  // página que embutisse esta num quadro poderia mandar dados e desenhar o que
+  // quisesse na tela, com a marca do box.
+  window.addEventListener('message', (ev) => {
+    if (ev.origin !== location.origin) return;
+    const m = ev.data;
+    if (!m || m.tipo !== 'portal-previa') return;
+    entrarPrevia(m).catch((e) => console.warn('Prévia:', e));
+  });
+  // Avisa a Gestão que já pode mandar os dados.
+  try { window.parent.postMessage({ tipo: 'portal-previa-pronto' }, location.origin); } catch { /* sem parent */ }
 }
 
 async function entrar(user) {
@@ -1425,7 +1503,7 @@ if (cloudAtivo()) {
     if (criando && !gLgpd.checked) { erroMsg('Você precisa aceitar o Termo de Consentimento e Uso de Dados para criar sua conta.'); return; }
     try {
       const user = criando ? await criarConta(gEmail.value.trim(), gSenha.value) : await login(gEmail.value.trim(), gSenha.value);
-      if (criando) { try { await registrarAceite(gEmail.value.trim()); } catch (er) { console.warn('LGPD:', er?.code || er); } }
+      if (criando) { try { await _registrarAceite(gEmail.value.trim()); } catch (er) { console.warn('LGPD:', er?.code || er); } }
       entrar(user);
     } catch (err) { erroMsg(msgAuth(err)); }
   });

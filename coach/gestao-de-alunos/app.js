@@ -16,7 +16,7 @@ import { feriadosDoMes, feriadoEm } from '../../compartilhado/regras/feriados.js
 import * as calc from '../../compartilhado/regras/calc.js?v=5';
 import * as storage from '../../compartilhado/regras/storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
-import { publicarPortal } from './portal-sync.js';
+import { publicarPortal, fatia } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
 import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizarDesafios } from './desafios.js';
@@ -1712,11 +1712,75 @@ async function carregarConsentimentoAluno(a) {
 function ativarAba(nome) {
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === nome));
   $$('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + nome));
-  if (nome === 'progresso') renderProgresso();
+  if (nome === 'portal') renderPortalPrevia();
+  else if (nome === 'progresso') renderProgresso();
   else if (nome === 'anamnese') renderAnamnese();
   else if (nome === 'parq') renderParq();
 }
 $$('.tab').forEach((t) => t.addEventListener('click', () => ativarAba(t.dataset.tab)));
+
+/* ============================================================
+   ABA PORTAL — o Portal do Aluno deste aluno, em prévia
+   ------------------------------------------------------------
+   Abre a PÁGINA REAL do Portal num quadro e manda para ela a mesma fatia que
+   `publicarPortal` grava em `portal/{email}`. É a mesma função — por isso o que
+   aparece aqui é, por construção, o que o aluno vê: não existe uma segunda
+   implementação da tela para divergir.
+
+   Por que mandar em vez de deixar a página buscar: a regra do Firestore só
+   permite ao ALUNO ler `portal/{email}`. O coach escreve, não lê. Como é ele
+   quem monta o documento, ele já tem o conteúdo — e a prévia não precisa (nem
+   ganha) permissão nenhuma a mais.
+   ============================================================ */
+let prvSemana = 0;   // 0 = semana de hoje; -1 = a anterior, e assim por diante
+let prvPronto = false;
+
+/** Segunda-feira da semana deslocada em `n` semanas, em ISO. */
+function prvDataRef(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n * 7);
+  return isoLocal(d);
+}
+
+function prvEnviar() {
+  const a = alunoAtual;
+  const frame = $('#prv-frame');
+  if (!a || !frame || !frame.contentWindow || !prvPronto) return;
+  frame.contentWindow.postMessage({
+    tipo: 'portal-previa',
+    dados: fatia(a, db.listar(), db.diasFechados()),
+    email: (a.email || '').toLowerCase(),
+    hoje: prvDataRef(prvSemana),
+  }, location.origin);
+  $('#prv-lbl').textContent = prvSemana === 0 ? 'Semana atual'
+    : prvSemana < 0 ? `${-prvSemana} semana(s) atrás` : `${prvSemana} semana(s) à frente`;
+}
+
+function renderPortalPrevia() {
+  const a = alunoAtual;
+  const frame = /** @type {HTMLIFrameElement} */ ($('#prv-frame'));
+  if (!a || !frame) return;
+  if (!a.email) {
+    $('#prv-lbl').textContent = 'Este aluno não tem e-mail cadastrado — sem e-mail não há Portal.';
+    frame.removeAttribute('src');
+    return;
+  }
+  prvSemana = 0;
+  prvPronto = false;
+  // `?previa=1` é o que liga o modo no Portal, e ele só aceita dentro de quadro.
+  frame.src = `../../painel-do-aluno/index.html?previa=1&t=${Date.now()}`;
+}
+
+// O Portal avisa quando terminou de carregar; só então os dados são enviados —
+// mandar antes seria falar com uma página que ainda não tem quem escute.
+window.addEventListener('message', (ev) => {
+  if (ev.origin !== location.origin) return;
+  if (ev.data && ev.data.tipo === 'portal-previa-pronto') { prvPronto = true; prvEnviar(); }
+});
+
+$('#prv-prev').addEventListener('click', () => { prvSemana -= 1; prvEnviar(); });
+$('#prv-next').addEventListener('click', () => { prvSemana += 1; prvEnviar(); });
+$('#prv-hoje').addEventListener('click', () => { prvSemana = 0; prvEnviar(); });
 
 /* ============================================================
    ABA 2 — Avaliações

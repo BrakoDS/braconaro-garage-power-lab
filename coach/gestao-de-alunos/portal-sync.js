@@ -40,7 +40,7 @@ function vinculoPagador(a, todos) {
  * @param {any} a @param {any[]} todos a lista inteira, para resolver os vínculos
  * @param {string[]} fechadosDoBox dias em que o box não abriu (feriado confirmado)
  */
-function fatia(a, todos, fechadosDoBox = []) {
+export function fatia(a, todos, fechadosDoBox = []) {
   return {
     id: a.id, nome: a.nome || '', email: emailKey(a.email), fotoUrl: a.fotoUrl || '',
     status: a.status || 'ativo', objetivo: a.objetivo || '', nivel: a.nivel || '',

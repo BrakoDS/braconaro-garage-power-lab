@@ -236,6 +236,7 @@
           <button class="tab" data-tab="parq" type="button">PAR-Q</button>
           <button class="tab" data-tab="avaliacoes" type="button">Avaliações</button>
           <button class="tab" data-tab="progresso" type="button">Progresso</button>
+          <button class="tab" data-tab="portal" type="button">Portal</button>
         </nav>
 
         <!-- ABA 1: DADOS -->
@@ -257,6 +258,18 @@
             </div>
           </div>
           <div id="aval-list" class="aval-list"></div>
+        </div>
+
+        <!-- ABA: PORTAL — o Portal do Aluno deste aluno, em prévia -->
+        <div class="tab-panel" id="tab-portal">
+          <div class="prv-barra">
+            <button class="btn btn-sm" id="prv-prev" type="button">← semana</button>
+            <span class="prv-lbl" id="prv-lbl"></span>
+            <button class="btn btn-sm" id="prv-next" type="button">semana →</button>
+            <button class="btn btn-sm ghost" id="prv-hoje" type="button">hoje</button>
+            <span class="prv-nota">Somente leitura — nada que você fizer aqui é gravado na conta do aluno.</span>
+          </div>
+          <div class="prv-quadro"><iframe id="prv-frame" title="Portal do Aluno (prévia)" loading="lazy"></iframe></div>
         </div>
 
         <!-- ABA 3: PROGRESSO -->
