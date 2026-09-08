@@ -131,7 +131,7 @@ const fmtBr = (iso) => { const [a, m, d] = iso.split('-'); return `${d}/${m}`; }
 
 async function montarPainel(user) {
   let db;
-  try { db = await import('../alunos/db.js'); } catch { return; } // painel é opcional
+  try { db = await import('./gestao-de-alunos/db.js'); } catch { return; } // painel é opcional
   const render = () => renderPainel(db.listar());
   render();
   if (user?.uid) { try { await db.iniciarSync(user.uid, render); } catch { /* offline/regra: usa local */ } }
@@ -173,7 +173,7 @@ function renderPainel(alunos) {
     stat(`Aniversários de ${MESES[mesAtual - 1].slice(0, 3)}`, aniv.length, 'este mês');
 
   if (!alunos.length) {
-    $('#painel-cols').innerHTML = `<div class="painel-vazio">Nenhum aluno cadastrado ainda. Abra a <a href="../alunos/index.html">Gestão de Alunos</a> para começar — o resumo aparece aqui.</div>`;
+    $('#painel-cols').innerHTML = `<div class="painel-vazio">Nenhum aluno cadastrado ainda. Abra a <a href="./gestao-de-alunos/index.html">Gestão de Alunos</a> para começar — o resumo aparece aqui.</div>`;
     return;
   }
 
@@ -189,7 +189,7 @@ function renderPainel(alunos) {
 
   $('#painel-cols').innerHTML = `
     <div class="painel-card">
-      <div class="pc-head"><h3>Agenda de reavaliações</h3><a href="../alunos/index.html">ver alunos →</a></div>
+      <div class="pc-head"><h3>Agenda de reavaliações</h3><a href="./gestao-de-alunos/index.html">ver alunos →</a></div>
       <ul class="pc-list">${itensAgenda}</ul>
     </div>
     <div class="painel-card">

@@ -35,11 +35,11 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 
 /** Caminhos dos módulos — a ÚNICA parte deste arquivo que muda quando as pastas mudam. */
 const MODULOS = {
-  treinoDia: '../aluno/treino-dia.js',
-  render: '../montador/ui/render.js',
-  livre: '../montador/core/livre.js',
-  hibrido: '../montador/core/hibrido.js',
-  pesquisaModal: '../montador/ui/pesquisa-modal.js',
+  treinoDia: '../painel-do-aluno/treino-dia.js',
+  render: '../coach/montador-de-treino/ui/render.js',
+  livre: '../coach/montador-de-treino/core/livre.js',
+  hibrido: '../coach/montador-de-treino/core/hibrido.js',
+  pesquisaModal: '../coach/montador-de-treino/ui/pesquisa-modal.js',
   exercicios: '../compartilhado/dados/exercicios.js',
 };
 

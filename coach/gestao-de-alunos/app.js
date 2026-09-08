@@ -1,0 +1,2469 @@
+// @ts-check
+/**
+ * Gestão de Alunos — app principal.
+ * Gate de acesso reaproveitando o login do Coach/Montador (Firebase) e toda a
+ * UI das telas 1 (listagem) e 2 (perfil com 3 abas). Dados via ./db.js.
+ */
+import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../../compartilhado/firebase/cloud.js';
+import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
+import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
+import * as db from './db.js';
+import * as calc from '../../compartilhado/regras/calc.js?v=5';
+import * as storage from '../../compartilhado/regras/storage-alunos.js';
+import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
+import { publicarPortal } from './portal-sync.js';
+import { mergarInboxes } from './portal-merge.js';
+import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
+import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizarDesafios } from './desafios.js';
+import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
+import { publicarRanking } from './ranking-sync.js';
+import { carregarCargasAluno } from './cargas-read.js';
+import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
+import { carregarConsentimentoLGPD } from './consentimento-read.js';
+import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
+import * as game from '../../compartilhado/regras/gamificacao.js';
+import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js';
+import { mesIdParaLancar, faturaDoMes, faturaComDependentes, consumosDoMes, totalConsumos,
+  PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
+
+/* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
+let _portalTimer = null;
+function agendarPublicarPortal() { clearTimeout(_portalTimer); _portalTimer = setTimeout(() => publicarPortal(db.listar()), 1500); }
+db.aoGravar(agendarPublicarPortal);
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+/**
+ * A data de HOJE no fuso de quem está usando.
+ *
+ * `toISOString()` devolve UTC, e o box fica em UTC-3: das 21h à meia-noite ele
+ * já aponta para o dia seguinte. Como é exatamente nessa janela que o check-in
+ * das aulas da noite acontece, a presença ia parar na data errada todo dia.
+ */
+function isoLocal(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const hoje = () => isoLocal();
+function fmtData(iso) { if (!iso) return '—'; const [a, m, d] = iso.split('-'); return `${d}/${m}/${a}`; }
+function addDias(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return isoLocal(d); }
+function calcIdade(iso) { if (!iso) return ''; const n = new Date(iso + 'T00:00:00'); const h = new Date(); let i = h.getFullYear() - n.getFullYear(); const mm = h.getMonth() - n.getMonth(); if (mm < 0 || (mm === 0 && h.getDate() < n.getDate())) i--; return i >= 0 && i < 130 ? String(i) : ''; }
+function waLink(tel) { const d = String(tel || '').replace(/\D/g, ''); if (!d) return ''; const full = d.startsWith('55') ? d : '55' + d; return `https://wa.me/${full}`; }
+const STATUS_LABEL = { ativo: 'Ativo', inativo: 'Inativo', pendente: 'Pendente' };
+
+/* ---- Fotos (Firebase Storage) ---- */
+let UID = null;
+function iniciais(nome) { return ((nome || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('') || '?').toUpperCase(); }
+/** Abre o seletor de arquivos de imagem e chama cb(file). */
+function escolherFoto(cb) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) cb(f); inp.remove(); });
+  document.body.appendChild(inp); inp.click();
+}
+async function uploadFoto(path, file, maxDim) {
+  if (!storage.storageAtivo() || !UID) throw new Error('storage-indisponivel');
+  const blob = await storage.comprimir(file, maxDim);
+  return await storage.enviar(path, blob);
+}
+function avisoStorage(e) {
+  console.warn('Falha no upload da foto:', e?.code || e);
+  alert('Não foi possível enviar a foto. Confirme que você está logado e que o Firebase Storage está ativado com as regras publicadas (ver storage.rules).');
+}
+/** Apaga do Storage as fotos de uma avaliação. */
+function apagarFotosDaAvaliacao(id, av) {
+  if (!UID || !storage.storageAtivo() || !av) return;
+  Object.keys(av.fotos || {}).forEach((slot) => storage.apagar(`gestao/${UID}/${id}/aval-${av.num}-${slot}.webp`).catch(() => {}));
+}
+/** Apaga do Storage o avatar + todas as fotos de avaliação de um aluno. */
+function apagarFotosDoAluno(a) {
+  if (!UID || !storage.storageAtivo() || !a) return;
+  if (a.fotoUrl) storage.apagar(`gestao/${UID}/${a.id}/avatar.webp`).catch(() => {});
+  (a.avaliacoes || []).forEach((av) => apagarFotosDaAvaliacao(a.id, av));
+}
+function renderAvatar() {
+  const a = alunoAtual; const el = $('#p-avatar'); if (!a || !el) return;
+  el.innerHTML = a.fotoUrl ? `<img src="${esc(a.fotoUrl)}" alt="Foto de ${esc(a.nome)}" />` : `<span>${esc(iniciais(a.nome))}</span>`;
+}
+$('#p-avatar')?.addEventListener('click', () => {
+  const a = alunoAtual; if (!a) return;
+  escolherFoto(async (file) => {
+    const el = $('#p-avatar'); if (el) el.classList.add('loading');
+    try {
+      const url = await uploadFoto(`gestao/${UID}/${a.id}/avatar.webp`, file, 600);
+      db.atualizar(a.id, { fotoUrl: url });
+      alunoAtual = db.obter(a.id);
+      renderAvatar(); renderLista();
+    } catch (e) { avisoStorage(e); }
+    finally { const el2 = $('#p-avatar'); if (el2) el2.classList.remove('loading'); }
+  });
+});
+
+/* ============================================================
+   Formulário de DADOS (reusado no cadastro e na aba 1)
+   ============================================================ */
+const OBJETIVOS = ['Emagrecimento', 'Hipertrofia', 'Condicionamento', 'Saúde / qualidade de vida', 'Outro'];
+const SEXOS = ['Masculino', 'Feminino', 'Outro'];
+
+function opt(val, atual) { return `<option value="${esc(val)}"${val === atual ? ' selected' : ''}>${esc(val)}</option>`; }
+
+/** Os dias que o box abre, na ordem da semana. */
+const DIAS_FORM = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb']];
+
+/**
+ * Tenta ler uma hora de texto livre para o formato do `<input type="time">`.
+ *
+ * O campo antigo era digitado à mão e vem de tudo quanto é jeito: "19 Horas",
+ * "19h", "18h–19h", "6:30". Pega a primeira hora que aparecer — nas faixas, é o
+ * começo, que é o que interessa. Sem nada reconhecível, devolve vazio: melhor o
+ * campo em branco do que uma hora inventada na ficha de um aluno.
+ * @param {string} [txt] @returns {string} 'HH:MM' ou ''
+ */
+function horaParaInput(txt) {
+  const m = String(txt || '').match(/(\d{1,2})\s*[:h]?\s*(\d{2})?/);
+  if (!m) return '';
+  const h = Number(m[1]);
+  if (!(h >= 0 && h <= 23)) return '';
+  const min = m[2] && Number(m[2]) < 60 ? m[2] : '00';
+  return `${String(h).padStart(2, '0')}:${min}`;
+}
+
+/** 'HH:MM' → '19h' / '6h30', que é como se fala a hora no box. */
+function horaLegivel(hhmm) {
+  const m = String(hhmm || '').match(/^(\d{2}):(\d{2})$/);
+  if (!m) return String(hhmm || '').trim();
+  return `${Number(m[1])}h${m[2] === '00' ? '' : m[2]}`;
+}
+
+/**
+ * A hora de um dia da semana, já formatada. Cai no `freqHorario` antigo enquanto
+ * o coach não tiver preenchido a hora daquele dia.
+ * @param {any} a @param {string} chave 'seg'…'sab'
+ */
+function horaDoDia(a, chave) {
+  const h = (a?.horarios || {})[chave];
+  return h ? horaLegivel(h) : String(a?.freqHorario || '').trim();
+}
+
+function formDadosHTML(a = {}, opts = {}) {
+  const sexoOpts = `<option value="">—</option>` + SEXOS.map((s) => opt(s, a.sexo)).join('');
+  const objOpts = `<option value="">—</option>` + OBJETIVOS.map((s) => opt(s, a.objetivo)).join('');
+  const freqOpts = `<option value="">—</option>` + [1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${String(n) === String(a.freqVezes) ? ' selected' : ''}>${n}x por semana</option>`).join('');
+  const nivelOpts = `<option value="">—</option>` + [['iniciante', 'Iniciante'], ['intermediario', 'Intermediário'], ['avancado', 'Avançado']].map(([v, l]) => `<option value="${v}"${a.nivel === v ? ' selected' : ''}>${l}</option>`).join('');
+  const diasSel = new Set(a.diasTreino || []);
+  const horas = a.horarios || {};
+  // Cada dia carrega a própria hora. O `freqHorario` antigo (uma hora só para a
+  // semana toda) entra como valor inicial de quem ainda não tem hora por dia —
+  // assim uma ficha antiga não abre vazia e o coach só confirma o que já valia.
+  const horaAntiga = horaParaInput(a.freqHorario);
+  const diasHTML = DIAS_FORM.map(([v, l]) => `
+    <div class="dia-linha">
+      <label class="dia-check"><input type="checkbox" name="diasTreino" value="${v}"${diasSel.has(v) ? ' checked' : ''}/><span>${l}</span></label>
+      <input class="dia-hora" type="time" name="hora_${v}" value="${esc(horas[v] || horaAntiga)}"${diasSel.has(v) ? '' : ' disabled'} />
+    </div>`).join('');
+  const stOpts = ['ativo', 'inativo', 'pendente'].map((s) => `<option value="${s}"${(a.status || 'ativo') === s ? ' selected' : ''}>${STATUS_LABEL[s]}</option>`).join('');
+  // Quem pode ser responsável: qualquer aluno ativo que não seja ele mesmo e que
+  // não tenha responsável próprio. Sem esse corte dava para montar corrente (A
+  // paga B que paga C) e a soma passaria a depender da ordem em que se lê.
+  const temDependentes = db.listar().some((x) => x.pagoPor && x.pagoPor.id === a.id);
+  const candidatos = temDependentes ? [] : db.listar()
+    .filter((x) => x.id !== a.id && (x.status || 'ativo') !== 'inativo' && !(x.pagoPor && x.pagoPor.id));
+  const pagoPorId = (a.pagoPor && a.pagoPor.id) || '';
+  const pagadorOpts = `<option value="">O próprio aluno</option>`
+    + candidatos.map((x) => `<option value="${esc(x.id)}"${x.id === pagoPorId ? ' selected' : ''}>${esc(x.nome || x.id)}</option>`).join('');
+  const escopoAtual = (a.pagoPor && a.pagoPor.escopo) || 'tudo';
+  const escopoOpts = [['tudo', 'Plano e consumíveis'], ['plano', 'Só o plano']]
+    .map(([v, l]) => `<option value="${v}"${escopoAtual === v ? ' selected' : ''}>${l}</option>`).join('');
+  const pctAtual = String((a.parceria && a.parceria.percentual) || '');
+  const parceriaOpts = `<option value="">Sem parceria</option>`
+    + PERCENTUAIS_PARCERIA.map((n) => `<option value="${n}"${String(n) === pctAtual ? ' selected' : ''}>${n}% de desconto${n === 100 ? ' (cortesia)' : ''}</option>`).join('');
+  const idField = opts.idEditavel
+    ? `<div class="field full"><label>ID do aluno</label><input name="id" type="text" value="${esc(a.id)}" placeholder="Use o seu padrão de ID — ou deixe vazio para gerar (001, 002…)" /><span class="hint">Precisa ser único. Vazio = numeração automática.</span></div>`
+    : `<div class="field full"><label>ID do aluno</label><input type="text" value="${esc(a.id)}" disabled /><span class="hint">O ID é definido no cadastro e não muda (mantém as fotos no lugar).</span></div>`;
+  return `
+  <div class="form-sec">
+    <h3>Dados pessoais</h3>
+    <div class="grid-form">
+      ${idField}
+      <div class="field full"><label>Nome completo *</label><input name="nome" type="text" required value="${esc(a.nome)}" placeholder="Nome do aluno" /></div>
+      <div class="field"><label>Data de nascimento</label><input name="nascimento" type="date" value="${esc(a.nascimento)}" /><span class="hint" data-idade>${a.nascimento ? 'Idade: ' + calcIdade(a.nascimento) + ' anos' : ''}</span></div>
+      <div class="field"><label>Sexo</label><select name="sexo">${sexoOpts}</select></div>
+      <div class="field"><label>Telefone / WhatsApp</label><input name="telefone" type="tel" value="${esc(a.telefone)}" placeholder="(14) 99999-9999" /><a class="wa" data-wa target="_blank" rel="noopener" style="display:none">Abrir no WhatsApp →</a></div>
+      <div class="field"><label>E-mail</label><input name="email" type="email" value="${esc(a.email)}" placeholder="email@exemplo.com" /></div>
+      <div class="field full"><label>Endereço</label><input name="endereco" type="text" value="${esc(a.endereco)}" placeholder="Rua, número, bairro, cidade" /></div>
+      <div class="field"><label>Status</label><select name="status">${stOpts}</select></div>
+    </div>
+  </div>
+  <div class="form-sec">
+    <h3>Dados do treino</h3>
+    <div class="grid-form">
+      <div class="field"><label>Altura (cm)</label><input name="altura" type="number" min="0" step="0.1" value="${esc(a.altura)}" placeholder="175" /></div>
+      <div class="field"><label>Peso atual (kg)</label><input name="peso" type="number" min="0" step="0.1" value="${esc(a.peso)}" placeholder="80" /></div>
+      <div class="field"><label>Objetivo</label><select name="objetivo">${objOpts}</select></div>
+      <div class="field"><label>Nível de treino</label><select name="nivel">${nivelOpts}</select></div>
+      <div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>
+      <div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>
+      <div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>
+    </div>
+  </div>
+  <div class="form-sec">
+    <h3>Financeiro</h3>
+    <div class="grid-form">
+      <div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /></div>
+      <div class="field"><label>Dia de vencimento</label><input name="vencimento" type="number" min="1" max="31" value="${esc(a.vencimento)}" placeholder="10" /><span class="hint">Dia do mês (1–31) em que a mensalidade vence.</span></div>
+      <div class="field"><label>Parceria (desconto)</label><select name="parceriaPct">${parceriaOpts}</select><span class="hint">A mensalidade cheia continua acima. O desconto entra como investimento do box, não como preço menor.</span></div>
+      <div class="field"><label>Nome da parceria</label><input name="parceriaNome" type="text" value="${esc((a.parceria && a.parceria.nome) || '')}" placeholder="Ex.: Clínica São Jorge"${a.parceria && a.parceria.percentual ? '' : ' disabled'} /><span class="hint">Para saber quanto o box investe em cada uma.</span></div>
+      <div class="field"><label>Quem paga esta conta</label><select name="pagoPorId">${pagadorOpts}</select><span class="hint">${temDependentes ? 'Este aluno já paga a conta de outro, então não pode ter um responsável.' : 'A conta dele entra somada na do responsável, e o Portal dele mostra quem acertou.'}</span></div>
+      <div class="field"><label>O responsável cobre</label><select name="pagoPorEscopo"${a.pagoPor && a.pagoPor.id ? '' : ' disabled'}>${escopoOpts}</select><span class="hint">“Só o plano” deixa o que ele consumir no box por conta dele.</span></div>
+    </div>
+  </div>`;
+}
+
+/** Liga o cálculo de idade e o link do WhatsApp dentro de um container de form. */
+function wireForm(root) {
+  const nasc = $('input[name=nascimento]', root);
+  const idadeEl = $('[data-idade]', root);
+  if (nasc && idadeEl) nasc.addEventListener('input', () => { const i = calcIdade(nasc.value); idadeEl.textContent = i ? `Idade: ${i} anos` : ''; });
+  // O campo de hora só faz sentido no dia marcado: desabilitado, ele não vai no
+  // FormData e a hora não fica pendurada num dia que o aluno não treina.
+  $$('.dia-linha', root).forEach((linha) => {
+    const chk = $('input[type=checkbox]', linha), hora = $('.dia-hora', linha);
+    if (!chk || !hora) return;
+    chk.addEventListener('change', () => {
+      hora.disabled = !chk.checked;
+      if (chk.checked && !hora.value) hora.value = '19:00';
+    });
+  });
+  const pagador = $('select[name=pagoPorId]', root);
+  const escopo = $('select[name=pagoPorEscopo]', root);
+  if (pagador && escopo) pagador.addEventListener('change', () => { escopo.disabled = !pagador.value; });
+  const parcPct = $('select[name=parceriaPct]', root);
+  const parcNome = $('input[name=parceriaNome]', root);
+  if (parcPct && parcNome) parcPct.addEventListener('change', () => { parcNome.disabled = !parcPct.value; });
+  const tel = $('input[name=telefone]', root);
+  const wa = $('[data-wa]', root);
+  if (tel && wa) {
+    const upd = () => { const l = waLink(tel.value); if (l) { wa.href = l; wa.style.display = 'inline-flex'; } else wa.style.display = 'none'; };
+    tel.addEventListener('input', upd); upd();
+  }
+}
+
+/** Lê os campos de um <form> de dados para um objeto. */
+function lerForm(form) {
+  const fd = new FormData(form);
+  const o = {};
+  for (const [k, v] of fd.entries()) o[k] = typeof v === 'string' ? v.trim() : v;
+  o.diasTreino = fd.getAll('diasTreino'); // checkboxes múltiplos
+  // As horas viram um mapa `{seg:'19:00'}`; os campos soltos `hora_seg` saem do
+  // objeto para não virarem colunas fantasma na ficha do aluno. Só entra a hora
+  // de dia marcado — hora de dia desmarcado é lixo esperando confundir depois.
+  o.horarios = {};
+  for (const [v] of DIAS_FORM) {
+    const h = String(fd.get('hora_' + v) || '');
+    if (o.diasTreino.includes(v) && h) o.horarios[v] = h;
+    delete o['hora_' + v];
+  }
+  // `pagoPor` guarda o vínculo inteiro (quem e quanto) num campo só; os dois
+  // selects saem do objeto para não virarem colunas soltas na ficha.
+  o.pagoPor = o.pagoPorId ? { id: o.pagoPorId, escopo: o.pagoPorEscopo === 'plano' ? 'plano' : 'tudo' } : null;
+  delete o.pagoPorId; delete o.pagoPorEscopo;
+  // A mensalidade cheia fica onde sempre esteve; a parceria é só o percentual e
+  // o nome. O desconto em reais nunca é gravado — ele é derivado, e assim mudar
+  // o preço do plano recalcula o investimento do box sozinho.
+  const pct = parseInt(o.parceriaPct, 10);
+  o.parceria = pct ? { nome: (o.parceriaNome || '').trim(), percentual: pct } : null;
+  delete o.parceriaPct; delete o.parceriaNome;
+  if (o.nascimento) o.idade = calcIdade(o.nascimento);
+  return o;
+}
+
+/* ============================================================
+   TELA 1 — Listagem
+   ============================================================ */
+const elLista = $('#lista-alunos');
+let filtro = '';
+let filtroStatus = 'todos'; // 'todos' | 'atrasada' | 'avencer'
+
+function statusTag(s) { const k = (s || 'ativo').toLowerCase(); return `<span class="status ${k}">${STATUS_LABEL[k] || 'Ativo'}</span>`; }
+
+/** Situação da próxima avaliação do aluno (pela avaliação mais recente). */
+function statusAvaliacao(a) {
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
+  if (!avs.length) return { tipo: 'sem' };
+  const ultima = avs.reduce((m, x) => (x.dataRealizada > m.dataRealizada ? x : m), avs[0]);
+  if (!ultima.dataProxima) return { tipo: 'sem' };
+  const dias = Math.round((new Date(ultima.dataProxima + 'T00:00:00') - new Date(hoje() + 'T00:00:00')) / 86400000);
+  if (dias < 0) return { tipo: 'atrasada', dias: -dias };
+  if (dias <= 7) return { tipo: 'avencer', dias };
+  return { tipo: 'emdia', dias };
+}
+
+function avalBadge(s) {
+  if (s.tipo === 'atrasada') return `<span class="aval-tag atrasada">⚠ Atrasada ${s.dias}d</span>`;
+  if (s.tipo === 'avencer') return `<span class="aval-tag avencer">Reavaliar ${s.dias === 0 ? 'hoje' : 'em ' + s.dias + 'd'}</span>`;
+  return '';
+}
+
+function renderResumoAval(nAtr, nVenc) {
+  const el = $('#aval-resumo'); if (!el) return;
+  if (!nAtr && !nVenc) { el.innerHTML = ''; return; }
+  const chip = (f, cls, txt) => `<button class="filtro-chip ${cls}${filtroStatus === f ? ' on' : ''}" data-f="${f}" type="button">${txt}</button>`;
+  let html = chip('todos', '', 'Todos');
+  if (nAtr) html += chip('atrasada', 'atrasada', `${nAtr} atrasada${nAtr > 1 ? 's' : ''}`);
+  if (nVenc) html += chip('avencer', 'avencer', `${nVenc} a vencer`);
+  el.innerHTML = html;
+}
+
+function renderLista() {
+  const todos = db.listar();
+  let nAtr = 0, nVenc = 0;
+  todos.forEach((a) => { const t = statusAvaliacao(a).tipo; if (t === 'atrasada') nAtr++; else if (t === 'avencer') nVenc++; });
+  renderResumoAval(nAtr, nVenc);
+
+  const q = filtro.toLowerCase();
+  let alunos = todos.filter((a) => {
+    if (filtroStatus !== 'todos' && statusAvaliacao(a).tipo !== filtroStatus) return false;
+    if (!filtro) return true;
+    return (a.nome || '').toLowerCase().includes(q) || (a.id || '').includes(q);
+  });
+  // atrasadas no topo, depois a vencer
+  const prio = (a) => { const t = statusAvaliacao(a).tipo; return t === 'atrasada' ? 0 : t === 'avencer' ? 1 : 2; };
+  alunos = alunos.slice().sort((x, y) => prio(x) - prio(y));
+
+  if (!alunos.length) {
+    elLista.innerHTML = `<div class="empty"><b>${todos.length ? 'Nenhum aluno encontrado' : 'Nenhum aluno cadastrado'}</b>${todos.length ? 'Tente outro filtro, nome ou ID.' : 'Use o botão “Cadastrar novo aluno” para começar.'}</div>`;
+    return;
+  }
+  elLista.innerHTML = alunos.map((a) => `
+    <button class="aluno-row" data-id="${esc(a.id)}" type="button">
+      <span class="rav">${a.fotoUrl ? `<img src="${esc(a.fotoUrl)}" alt="" />` : esc(iniciais(a.nome))}</span>
+      <span><span class="rnome">${esc(a.nome || 'Sem nome')}</span><br><span class="rsub">#${esc(a.id)} · ${esc(a.objetivo || 'Sem objetivo definido')}${avalBadge(statusAvaliacao(a))}${nutriChip(a)}${medalChip(a)}</span></span>
+      ${statusTag(a.status)}
+    </button>`).join('');
+}
+
+/* Selo do total de treino queimado na semana (Seg–Sáb), vindo do Portal do Aluno. */
+let gastoSemanaMap = new Map(); // emailKey → total kcal da semana
+function nutriChip(a) {
+  const email = (a.email || '').trim().toLowerCase();
+  const total = email ? gastoSemanaMap.get(email) : 0;
+  if (!total) return '';
+  return ` <span class="rkcal" title="Treino queimado nesta semana (Seg–Sáb)">🔥 ${fmtN(total, 0)} kcal</span>`;
+}
+/** Busca todos os gastos numa consulta, soma a semana corrente por aluno e atualiza a listagem. */
+async function atualizarGastoSemana() {
+  try {
+    const bruto = await carregarTodosGastos(); // Map(email → gastos[])
+    const dias = semanaSegSab().map(isoLocal);
+    const ini = dias[0], fim = dias[5];
+    const nf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+    const m = new Map();
+    bruto.forEach((gastos, email) => {
+      const total = (gastos || []).filter((g) => g.data >= ini && g.data <= fim).reduce((s, g) => s + nf(g.calorias), 0);
+      if (total > 0) m.set(email, total);
+    });
+    gastoSemanaMap = m;
+    if ($('#tela-lista').classList.contains('active')) renderLista();
+    publicarRanking(db.listar(), bruto); // publica o ranking do box (mesmo mapa)
+    atualizarMedalhasLista(bruto); // selo de medalhas na listagem (reaproveita o mapa de gastos)
+  } catch (e) { console.warn('Nutrição (lista):', e?.code || e); }
+}
+
+/* Selo do total de medalhas conquistadas, na listagem. */
+let medalhasMap = new Map(); // aluno.id → nº de medalhas
+function medalChip(a) {
+  const n = medalhasMap.get(a.id);
+  if (!n) return '';
+  return ` <span class="rmed" title="Medalhas conquistadas">🏅 ${n}</span>`;
+}
+/** Conta as medalhas de cada aluno (mesma lógica do Portal) e atualiza a listagem. */
+async function atualizarMedalhasLista(mapaGastos) {
+  try {
+    const conclMap = await carregarTodasConclusoes(); // Map(email → concluidos[])
+    const mm = new Map();
+    db.listar().forEach((a) => {
+      const email = (a.email || '').trim().toLowerCase();
+      const gastos = email ? (mapaGastos.get(email) || []) : [];
+      const concl = email ? (conclMap.get(email) || []) : [];
+      const dias = game.diasTreino(a.presencas, gastos);
+      const c = game.contadores(dias);
+      const meds = game.medalhas({
+        total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias),
+        nAvaliacoes: (a.avaliacoes || []).filter((x) => x.dataRealizada).length,
+        desafios: concl.length,
+        desAgua: concl.filter((x) => x.categoria === 'agua').length,
+        desAcucar: concl.filter((x) => x.categoria === 'acucar').length,
+        meses: Object.values(a.pagamentos || {}).filter(Boolean).length,
+        calMaxTreino: game.maxCaloriasTreino(gastos),
+        calMaxSemana: game.maxCaloriasSemana(gastos),
+        feedbacks: Array.isArray(a.feedbacks) ? a.feedbacks.length : 0,
+      });
+      const n = meds.filter((m) => m.ok).length;
+      if (n > 0) mm.set(a.id, n);
+    });
+    medalhasMap = mm;
+    if ($('#tela-lista').classList.contains('active')) renderLista();
+  } catch (e) { console.warn('Medalhas (lista):', e?.code || e); }
+}
+
+elLista.addEventListener('click', (e) => {
+  const row = e.target.closest('.aluno-row');
+  if (row) abrirPerfil(row.dataset.id);
+});
+$('#aval-resumo').addEventListener('click', (e) => {
+  const chip = e.target.closest('.filtro-chip');
+  if (chip) { filtroStatus = chip.dataset.f; renderLista(); }
+});
+$('#busca').addEventListener('input', (e) => { filtro = e.target.value; renderLista(); });
+
+/* ============================================================
+   Navegação entre telas
+   ============================================================ */
+function mostrarTela(id) {
+  $$('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
+  window.scrollTo(0, 0);
+}
+$('#btn-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#btn-ficha-pdf').addEventListener('click', () => { if (alunoAtual) exportarFicha(alunoAtual); });
+
+/* ============================================================
+   TELA — Financeiro (mensalidades)
+   ============================================================ */
+const MESES_FIN = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const brl = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const numMoney = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+function mesIdAtual() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+function rotuloMesFin(mesId) { const [a, m] = mesId.split('-').map(Number); return `${MESES_FIN[m - 1]} / ${a}`; }
+function addMesFin(mesId, n) { const [a, m] = mesId.split('-').map(Number); const d = new Date(a, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+
+let finMes = mesIdAtual();
+/** Qual aluno está com o balcão de consumíveis aberto na tela. */
+let finBalcao = null;
+/** O catálogo está aberto para edição? */
+let finEditandoProdutos = false;
+
+/** 'pago' | 'vencido' | 'pendente' para um aluno num mês. */
+function statusFin(a, mesId) {
+  if (a.pagamentos && a.pagamentos[mesId]) return 'pago';
+  const [ano, m] = mesId.split('-').map(Number);
+  const ultimoDia = new Date(ano, m, 0).getDate();
+  const dia = Math.min(Math.max(1, parseInt(a.vencimento, 10) || 10), ultimoDia);
+  const venc = `${ano}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+  return hoje() > venc ? 'vencido' : 'pendente';
+}
+
+/**
+ * O balcão: um botão por produto, para lançar na conta do aluno.
+ *
+ * Tudo aqui — o rótulo e a lista — fala da fatura de DESTINO, não da que está na
+ * tela. Com o mês em tela já quitado, o lançamento pula para o seguinte; listando
+ * o mês em tela, o coach clicava no produto e a tela não mexia em nada. Parecia
+ * que o botão não funcionava, e clicar de novo enfiava consumos repetidos numa
+ * fatura que ele nem estava vendo.
+ */
+function balcaoConsumo(a) {
+  const produtos = db.listarProdutos();
+  const destino = mesIdParaLancar(hoje(), a.vencimento, a.pagamentos);
+  const lancadosNoDestino = consumosDoMes(a.consumos, destino);
+  const botoes = produtos.length
+    ? produtos.map((p) => `<button class="btn ghost btn-sm fin-add" data-id="${esc(a.id)}" data-prod="${esc(p.id)}" type="button">${esc(p.nome)} · ${brl(p.preco)}</button>`).join('')
+    : '<span class="fin-vazio">Nenhum produto cadastrado. Use “Produtos” lá em cima.</span>';
+
+  const soma = lancadosNoDestino.reduce((t, c) => t + (Number(c.preco) || 0), 0);
+  const lancados = lancadosNoDestino.length
+    ? `<span class="fin-balcao-cap">Já nesta fatura · ${brl(soma)}</span>
+       <ul class="fin-consumos">${lancadosNoDestino.map((c) => `
+        <li><span>${esc(c.nome)}</span><span class="fin-consumo-v">+ ${brl(c.preco)}</span>
+          <span class="fin-consumo-d">${esc(fmtDataCurta(c.data))}</span>
+          <button class="fin-x" data-id="${esc(a.id)}" data-consumo="${esc(c.id)}" type="button" aria-label="Remover">×</button></li>`).join('')}</ul>`
+    : '<span class="fin-vazio">Nada lançado nesta fatura ainda.</span>';
+
+  return `<div class="fin-balcao">
+    <span class="fin-balcao-cap">Lançar consumo · vai para a fatura de ${esc(rotuloMesFin(destino))}${destino !== finMes ? ' <b>(a de ' + esc(rotuloMesFin(finMes)) + ' já está paga)</b>' : ''}</span>
+    <div class="fin-prods">${botoes}</div>
+    ${lancados}
+  </div>`;
+}
+
+/** O painel de cadastro de produtos — some da tela até alguém pedir. */
+function painelProdutos() {
+  const linhas = db.listarProdutos().map((p, i) => `
+    <div class="prod-linha">
+      <input class="prod-nome" type="text" value="${esc(p.nome)}" data-i="${i}" placeholder="Nome do produto" />
+      <input class="prod-preco" type="number" min="0" step="0.01" value="${esc(p.preco)}" data-i="${i}" placeholder="0,00" />
+      <button class="fin-x" data-prod-rm="${i}" type="button" aria-label="Remover produto">×</button>
+    </div>`).join('');
+  return `<div class="prod-painel">
+    <span class="fin-balcao-cap">Produtos vendidos no box</span>
+    ${linhas || '<span class="fin-vazio">Nenhum produto cadastrado.</span>'}
+    <div class="prod-acoes">
+      <button class="btn ghost btn-sm" id="prod-add" type="button">+ Produto</button>
+      <button class="btn btn-sm" id="prod-salvar" type="button">Salvar produtos</button>
+    </div>
+    <span class="hint">Mudar o preço aqui não mexe no que já foi lançado: cada consumo guarda o preço do dia da venda.</span>
+  </div>`;
+}
+
+/**
+ * Quem cobra de quem no mês.
+ *
+ * Cada aluno vira uma linha, mas nem toda linha é uma COBRANÇA: o dependente com
+ * a conta inteira no responsável aparece para o coach ver, sem entrar nos totais.
+ * Contar duas vezes o mesmo dinheiro é o erro fácil aqui — o pai somando o filho
+ * e o filho somando sozinho — e o painel inteiro sai errado por isso.
+ */
+function linhasDoFinanceiro(mesId) {
+  const todos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  return todos.map((a) => {
+    const deps = todos.filter((x) => x.pagoPor && x.pagoPor.id === a.id);
+    const resp = a.pagoPor && a.pagoPor.id ? todos.find((x) => x.id === a.pagoPor.id) : null;
+    // Vínculo órfão (o responsável saiu, ou está inativo) não pode zerar a conta
+    // de ninguém: sem responsável na lista, ele volta a pagar a própria.
+    const efetivo = (a.pagoPor && !resp) ? { ...a, pagoPor: null } : a;
+    const conta = faturaComDependentes(efetivo, mesId, deps);
+    const propria = faturaDoMes(a, mesId);
+    return { a, deps, resp, conta, propria, cobravel: conta.total > 0 };
+  }).filter((l) => l.cobravel || l.resp || numMoney(l.a.mensalidade) > 0);
+}
+
+function renderFinanceiro() {
+  $('#fin-mes-lbl').textContent = rotuloMesFin(finMes);
+  const itens = linhasDoFinanceiro(finMes);
+  let previsto = 0, recebido = 0, extras = 0, investido = 0;
+
+  const linhas = itens.map(({ a, deps, resp, conta, propria }) => {
+    extras += propria.extras;
+    // O que o box banca: o desconto dele mais o dos dependentes que ele cobre.
+    // Contado na linha de quem TEM a parceria, e não na de quem paga a conta —
+    // senão o relatório diria que a parceria é do pai.
+    investido += propria.desconto;
+    const st = statusFin(a, finMes);
+    // O dependente sem nada próprio a pagar espelha a situação do responsável:
+    // ele não tem conta, então não pode ficar "vencido" por conta nenhuma.
+    const stExibido = (resp && conta.total === 0) ? statusFin(resp, finMes) : st;
+    // Quem não deve nada não pode aparecer vencido. Sem responsável e sem conta,
+    // o motivo é a parceria — e é isso que o selo tem que dizer.
+    const cortesia = !resp && conta.total === 0 && propria.desconto > 0;
+    const lbl = cortesia ? 'Cortesia'
+      : stExibido === 'pago' ? 'Pago' : stExibido === 'vencido' ? 'Vencido' : 'Pendente';
+    if (conta.total > 0) {
+      previsto += conta.total;
+      if (st === 'pago') recebido += conta.total;
+    }
+
+    const partes = [];
+    if (conta.propria.mensalidade > 0) partes.push(brl(conta.propria.mensalidade));
+    else if (propria.desconto > 0 && !resp) partes.push(brl(0));
+    if (conta.propria.extras > 0) partes.push(`${brl(conta.propria.extras)} em consumo`);
+    conta.dependentes.forEach((d) => partes.push(`${brl(d.total)} de ${esc(d.nome)}`));
+    const detalhe = conta.total === 0 && resp
+      ? `acertado por <b>${esc(resp.nome || resp.id)}</b>`
+      : (partes.length > 1 ? `${partes.join(' + ')} = <b>${brl(conta.total)}</b>` : brl(conta.total));
+
+    // Consumo lançado numa fatura à frente não aparece na linha do mês em tela.
+    // Sem este aviso, o dinheiro fica invisível até alguém navegar de mês.
+    const destino = mesIdParaLancar(hoje(), a.vencimento, a.pagamentos);
+    const adiante = destino !== finMes ? totalConsumos(a.consumos, destino) : 0;
+    const aviso = adiante > 0
+      ? ` <span class="fin-adiante">· ${brl(adiante)} em consumo já vai para ${esc(rotuloMesFin(destino))}</span>`
+      : '';
+
+    const btn = conta.total === 0
+      ? ''
+      : st === 'pago'
+        ? `<button class="btn ghost btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="0" type="button">Desfazer</button>`
+        : `<button class="btn btn-sm fin-toggle" data-id="${esc(a.id)}" data-op="1" type="button">Marcar pago</button>`;
+
+    const aberto = finBalcao === a.id;
+    const marca = resp ? `<span class="fin-vinculo">conta de ${esc(resp.nome || resp.id)}</span>` : '';
+    // A parceria fica ao lado do nome, e o quanto o box banca sai no detalhe: o
+    // desconto tem que ser visível na linha, senão vira só uma mensalidade menor.
+    const selo = propria.parceria
+      ? `<span class="fin-parceria">${propria.parceria.percentual}%${propria.parceria.nome ? ' · ' + esc(propria.parceria.nome) : ''}</span>`
+      : '';
+    const custo = propria.desconto > 0
+      ? ` <span class="fin-investido">· box banca ${brl(propria.desconto)}</span>`
+      : '';
+    return `<div class="fin-row fin-row-consumo">
+      <div class="fin-info"><div class="fin-nome">${esc(a.nome)}${selo}${marca}</div>
+        <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}${custo}${aviso}</div></div>
+      <span class="fin-badge ${cortesia ? 'cortesia' : stExibido}">${lbl}</span>
+      <div class="fin-acoes">
+        <button class="btn ghost btn-sm fin-balcao-btn${aberto ? ' on' : ''}" data-id="${esc(a.id)}" type="button">${aberto ? 'Fechar' : '+ Consumo'}</button>
+        ${btn}
+      </div>
+      ${aberto ? balcaoConsumo(a) : ''}
+    </div>`;
+  }).join('');
+
+  $('#fin-tot').innerHTML = `
+    <div class="fin-card"><span class="fin-card-l">Recebido</span><span class="fin-card-v ok">${brl(recebido)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">A receber</span><span class="fin-card-v${previsto - recebido > 0 ? ' bad' : ''}">${brl(previsto - recebido)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Previsto no mês</span><span class="fin-card-v">${brl(previsto)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Consumíveis</span><span class="fin-card-v">${brl(extras)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Investido em parcerias</span><span class="fin-card-v${investido > 0 ? ' parceria' : ''}">${brl(investido)}</span></div>`;
+  $('#fin-list').innerHTML = (finEditandoProdutos ? painelProdutos() : '')
+    + (linhas || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade no perfil do aluno (aba Dados → Financeiro).</div>`);
+  $('#fin-produtos').textContent = finEditandoProdutos ? 'Fechar produtos' : 'Produtos';
+}
+
+function toggleFin(id, pago) {
+  const a = db.obter(id); if (!a) return;
+  const pg = { ...(a.pagamentos || {}) };
+  if (pago) pg[finMes] = true; else delete pg[finMes];
+  db.atualizar(id, { pagamentos: pg });
+  agendarPublicarPortal();
+  renderFinanceiro();
+}
+
+/**
+ * Lança um consumo na conta do aluno.
+ *
+ * O nome e o preço são copiados do catálogo AGORA e ficam gravados no consumo:
+ * a notinha de agosto não pode se reescrever quando o energético subir de preço.
+ * A fatura também é carimbada aqui (ver consumo.js) — a data manda, e uma fatura
+ * já quitada empurra a compra para a seguinte.
+ */
+function lancarConsumo(id, produtoId) {
+  const a = db.obter(id); if (!a) return;
+  const p = db.listarProdutos().find((x) => x.id === produtoId);
+  if (!p) return;
+  const data = hoje();
+  const consumos = [...(a.consumos || []), {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    produtoId: p.id, nome: p.nome, preco: Number(p.preco) || 0,
+    data, mesId: mesIdParaLancar(data, a.vencimento, a.pagamentos),
+  }];
+  db.atualizar(id, { consumos });
+  agendarPublicarPortal();
+  renderFinanceiro();
+}
+
+function removerConsumo(id, consumoId) {
+  const a = db.obter(id); if (!a) return;
+  db.atualizar(id, { consumos: (a.consumos || []).filter((c) => c.id !== consumoId) });
+  agendarPublicarPortal();
+  renderFinanceiro();
+}
+
+/** Lê os campos do painel de produtos e grava. Linha sem nome é descartada. */
+function salvarProdutos() {
+  const lista = $$('.prod-linha').map((linha, i) => {
+    const nome = $('.prod-nome', linha).value.trim();
+    const preco = numMoney($('.prod-preco', linha).value);
+    const antigo = db.listarProdutos()[i];
+    // O id é o que amarra o botão ao produto; mantém o antigo quando existe para
+    // não perder o vínculo, e gera um novo só para linha recém-criada.
+    return { id: (antigo && antigo.id) || `p${Date.now()}${i}`, nome, preco };
+  }).filter((p) => p.nome);
+  db.salvarProdutos(lista);
+  renderFinanceiro();
+}
+
+$('#btn-financeiro').addEventListener('click', () => { finMes = mesIdAtual(); finBalcao = null; finEditandoProdutos = false; renderFinanceiro(); mostrarTela('tela-financeiro'); });
+$('#fin-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#fin-prev').addEventListener('click', () => { finMes = addMesFin(finMes, -1); renderFinanceiro(); });
+$('#fin-next').addEventListener('click', () => { finMes = addMesFin(finMes, 1); renderFinanceiro(); });
+$('#fin-produtos').addEventListener('click', () => { finEditandoProdutos = !finEditandoProdutos; renderFinanceiro(); });
+
+$('#fin-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.classList.contains('fin-toggle')) { toggleFin(btn.dataset.id, btn.dataset.op === '1'); return; }
+  if (btn.classList.contains('fin-balcao-btn')) {
+    finBalcao = finBalcao === btn.dataset.id ? null : btn.dataset.id;
+    renderFinanceiro(); return;
+  }
+  if (btn.classList.contains('fin-add')) { lancarConsumo(btn.dataset.id, btn.dataset.prod); return; }
+  if (btn.dataset.consumo) { removerConsumo(btn.dataset.id, btn.dataset.consumo); return; }
+  if (btn.dataset.prodRm != null) {
+    const lista = db.listarProdutos().filter((_, i) => i !== Number(btn.dataset.prodRm));
+    db.salvarProdutos(lista); renderFinanceiro(); return;
+  }
+  if (btn.id === 'prod-add') {
+    db.salvarProdutos([...db.listarProdutos(), { id: `p${Date.now()}`, nome: '', preco: 0 }]);
+    renderFinanceiro(); return;
+  }
+  if (btn.id === 'prod-salvar') { salvarProdutos(); return; }
+});
+
+/* ============================================================
+   TELA — Cobranças (lembrete de mensalidade)
+   ============================================================ */
+const PIX_CHAVE_FMT = '66.567.011/0001-66';   // CNPJ do box (para o lembrete)
+const PIX_NOME = 'Guilherme Braconaro';
+const cobLembrados = new Set();               // ids já avisados nesta sessão
+
+/** Dias até o vencimento no mês (negativo = atrasado). */
+function diasAteVenc(a, mesId) {
+  const [ano, m] = mesId.split('-').map(Number);
+  const ultimoDia = new Date(ano, m, 0).getDate();
+  const dia = Math.min(Math.max(1, parseInt(a.vencimento, 10) || 10), ultimoDia);
+  const venc = new Date(ano, m - 1, dia); venc.setHours(0, 0, 0, 0);
+  const h = new Date(); h.setHours(0, 0, 0, 0);
+  return Math.round((venc - h) / 86400000);
+}
+function msgCobranca(a, mesId) {
+  const nome = (a.nome || '').trim().split(/\s+/)[0] || '';
+  const mesNome = MESES_FIN[Number(mesId.split('-')[1]) - 1];
+  const valor = brl(numMoney(a.mensalidade));
+  const d = diasAteVenc(a, mesId);
+  const quando = d < 0 ? `venceu dia ${a.vencimento}` : d === 0 ? 'vence hoje' : `vence dia ${a.vencimento}`;
+  return `Olá, ${nome}! 😊 Passando pra lembrar da mensalidade de ${mesNome} (${valor}), que ${quando}. Pra facilitar, o Pix é a chave CNPJ ${PIX_CHAVE_FMT} (${PIX_NOME}) — dá pra pagar direto pelo Portal do Aluno também. Qualquer dúvida é só chamar! 💪`;
+}
+
+function renderCobrancas() {
+  const mesId = mesIdAtual();
+  $('#cob-mes-lbl').textContent = rotuloMesFin(mesId);
+  const pend = db.listar()
+    .filter((a) => (a.status || 'ativo') !== 'inativo' && numMoney(a.mensalidade) > 0 && statusFin(a, mesId) !== 'pago')
+    .map((a) => ({ a, d: diasAteVenc(a, mesId) }))
+    .sort((x, y) => x.d - y.d);
+  const vencidas = pend.filter((x) => x.d < 0);
+  const totalAtraso = vencidas.reduce((s, x) => s + numMoney(x.a.mensalidade), 0);
+  const totalPend = pend.reduce((s, x) => s + numMoney(x.a.mensalidade), 0);
+  $('#cob-tot').innerHTML = `
+    <div class="fin-card"><span class="fin-card-l">Vencidas</span><span class="fin-card-v${vencidas.length ? ' bad' : ''}">${vencidas.length}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Em atraso (R$)</span><span class="fin-card-v${totalAtraso > 0 ? ' bad' : ''}">${brl(totalAtraso)}</span></div>
+    <div class="fin-card"><span class="fin-card-l">A receber no mês</span><span class="fin-card-v">${brl(totalPend)}</span></div>`;
+
+  const row = ({ a, d }) => {
+    const tel = String(a.telefone || '').replace(/\D/g, '');
+    const urg = d < 0 ? `<span class="cob-badge vencido">Atrasada ${Math.abs(d)}d</span>`
+      : d === 0 ? `<span class="cob-badge hoje">Vence hoje</span>`
+        : `<span class="cob-badge breve">Em ${d}d</span>`;
+    const feito = cobLembrados.has(a.id);
+    const wa = tel.length >= 10
+      ? `<a class="btn btn-sm cob-wa" href="${waMsg(a.telefone, msgCobranca(a, mesId))}" target="_blank" rel="noopener" data-id="${esc(a.id)}">${feito ? 'Reenviar' : 'WhatsApp'}</a>`
+      : `<span class="cob-semtel">sem telefone</span>`;
+    return `<div class="cob-row${feito ? ' lembrado' : ''}">
+      <div class="cob-info"><div class="fin-nome">${esc(a.nome)}${feito ? ' <span class="cob-ok">avisado ✓</span>' : ''}</div><div class="fin-sub">${brl(numMoney(a.mensalidade))} · vence dia ${esc(a.vencimento || '—')}</div></div>
+      ${urg}${wa}
+      <button class="btn ghost btn-sm cob-pago" data-id="${esc(a.id)}" type="button">Pago</button>
+    </div>`;
+  };
+  const grupo = (titulo, arr) => (arr.length ? `<h4 class="cob-grupo">${titulo}</h4>${arr.map(row).join('')}` : '');
+  const html = grupo('Vencidas', vencidas) + grupo('Vencem em breve (até 5 dias)', pend.filter((x) => x.d >= 0 && x.d <= 5)) + grupo('A vencer', pend.filter((x) => x.d > 5));
+  $('#cob-list').innerHTML = html || `<div class="empty"><b>Tudo em dia! 🎉</b>Nenhuma mensalidade pendente neste mês.</div>`;
+}
+
+$('#btn-cobrancas').addEventListener('click', () => { renderCobrancas(); mostrarTela('tela-cobrancas'); });
+$('#cob-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#cob-list').addEventListener('click', (e) => {
+  const wa = e.target.closest('.cob-wa');
+  if (wa) { cobLembrados.add(wa.dataset.id); setTimeout(renderCobrancas, 100); return; }
+  const pg = e.target.closest('.cob-pago');
+  if (pg) { const a = db.obter(pg.dataset.id); if (a) { const p = { ...(a.pagamentos || {}) }; p[mesIdAtual()] = true; db.atualizar(pg.dataset.id, { pagamentos: p }); renderCobrancas(); } }
+});
+
+/* ============================================================
+   TELA — Aviso em massa (WhatsApp)
+   ============================================================ */
+const AVISO_TPLS = [
+  'Amanhã não tem aula! ⚠️',
+  'Bom treino a todos! 💪',
+  'Lembrete: sua mensalidade vence esta semana. 🙏',
+  'Atenção: novo horário a partir de segunda-feira.',
+];
+const avisoEnviados = new Set();
+
+function waMsg(tel, msg) {
+  const d = String(tel || '').replace(/\D/g, '');
+  if (!d) return '';
+  const full = d.startsWith('55') ? d : '55' + d;
+  return `https://wa.me/${full}${msg ? '?text=' + encodeURIComponent(msg) : ''}`;
+}
+function avisoDestinatarios() {
+  return db.listar().filter((a) => (a.status || 'ativo') !== 'inativo' && String(a.telefone || '').replace(/\D/g, '').length >= 10);
+}
+function renderAviso() {
+  $('#aviso-tpls').innerHTML = AVISO_TPLS.map((t) => `<button class="aviso-tpl" type="button" data-t="${esc(t)}">${esc(t)}</button>`).join('');
+  const alunos = avisoDestinatarios();
+  $('#aviso-count').textContent = `${avisoEnviados.size} de ${alunos.length} enviados`;
+  $('#aviso-list').innerHTML = alunos.length ? alunos.map((a) => {
+    const env = avisoEnviados.has(a.id);
+    return `<div class="aviso-row${env ? ' enviado' : ''}">
+      <div class="aviso-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">${esc(a.telefone)}</div></div>
+      ${env ? '<span class="aviso-ok">Enviado ✓</span>' : ''}
+      <button class="btn ${env ? 'ghost ' : ''}btn-sm aviso-send" data-id="${esc(a.id)}" data-tel="${esc(a.telefone)}" type="button">${env ? 'Reenviar' : 'Enviar'}</button>
+    </div>`;
+  }).join('') : `<div class="empty"><b>Nenhum destinatário</b>Cadastre alunos ativos com telefone/WhatsApp para avisar aqui.</div>`;
+}
+
+$('#btn-aviso').addEventListener('click', () => { renderAviso(); mostrarTela('tela-aviso'); });
+$('#aviso-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#aviso-tpls').addEventListener('click', (e) => { const c = e.target.closest('.aviso-tpl'); if (c) { $('#aviso-msg').value = c.dataset.t; $('#aviso-msg').focus(); } });
+$('#aviso-copiar').addEventListener('click', async () => {
+  const m = $('#aviso-msg').value.trim(); if (!m) return;
+  try { await navigator.clipboard.writeText(m); const b = $('#aviso-copiar'), t = b.textContent; b.textContent = 'Copiado ✓'; setTimeout(() => (b.textContent = t), 1500); } catch {}
+});
+$('#aviso-list').addEventListener('click', (e) => {
+  const b = e.target.closest('.aviso-send'); if (!b) return;
+  const msg = $('#aviso-msg').value.trim();
+  if (!msg) { alert('Escreva a mensagem primeiro.'); $('#aviso-msg').focus(); return; }
+  const link = waMsg(b.dataset.tel, msg);
+  if (link) window.open(link, '_blank');
+  avisoEnviados.add(b.dataset.id);
+  renderAviso();
+});
+
+/* ============================================================
+   TELA — Mural de Avisos do Portal do Aluno
+   ============================================================ */
+const MURAL_TIPO = { info: 'Informativo', importante: 'Importante', evento: 'Evento' };
+let muralEdit = null; // id em edição, ou null
+
+function renderMural() {
+  const avisos = avisos_listar().slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  const list = $('#mural-list');
+  if (!avisos.length) {
+    list.innerHTML = `<div class="empty"><b>Nenhum aviso</b>Publique o primeiro recado — ele aparece no Portal do Aluno.</div>`;
+    return;
+  }
+  list.innerHTML = avisos.map((av) => {
+    const d = av.criadoEm ? new Date(av.criadoEm).toLocaleDateString('pt-BR') : '';
+    return `<div class="mural-item tipo-${esc(av.tipo || 'info')}${av.ativo === false ? ' off' : ''}">
+      <div class="mural-item-head">
+        <span class="mural-tag">${esc(MURAL_TIPO[av.tipo] || 'Informativo')}</span>
+        <span class="mural-data">${d}</span>
+        <span class="mural-estado">${av.ativo === false ? 'Oculto' : 'No ar'}</span>
+      </div>
+      <h4>${esc(av.titulo || '')}</h4>
+      <p>${esc(av.texto || '')}</p>
+      <div class="mural-item-actions">
+        <button class="btn ghost btn-sm mural-toggle" data-id="${esc(av.id)}" type="button">${av.ativo === false ? 'Reativar' : 'Ocultar'}</button>
+        <button class="btn ghost btn-sm mural-editar" data-id="${esc(av.id)}" type="button">Editar</button>
+        <button class="btn ghost btn-sm mural-excluir" data-id="${esc(av.id)}" type="button">Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function muralReset() {
+  muralEdit = null;
+  $('#mural-titulo').value = ''; $('#mural-texto').value = ''; $('#mural-tipo').value = 'info';
+  $('#mural-add').textContent = 'Publicar aviso';
+  $('#mural-cancelar').hidden = true;
+}
+
+$('#btn-mural').addEventListener('click', () => { muralReset(); renderMural(); mostrarTela('tela-mural'); });
+$('#mural-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#mural-cancelar').addEventListener('click', muralReset);
+
+$('#mural-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const titulo = $('#mural-titulo').value.trim(), texto = $('#mural-texto').value.trim();
+  if (!titulo || !texto) return;
+  const tipo = $('#mural-tipo').value;
+  const arr = avisos_listar();
+  if (muralEdit) {
+    const av = arr.find((x) => x.id === muralEdit);
+    if (av) { av.titulo = titulo; av.texto = texto; av.tipo = tipo; }
+  } else {
+    arr.push({ id: 'av' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), titulo, texto, tipo, ativo: true, criadoEm: Date.now() });
+  }
+  await avisos_salvar(arr);
+  muralReset(); renderMural();
+});
+
+$('#mural-list').addEventListener('click', async (e) => {
+  const id = e.target.closest('[data-id]')?.dataset.id; if (!id) return;
+  const arr = avisos_listar();
+  if (e.target.closest('.mural-toggle')) {
+    const av = arr.find((x) => x.id === id); if (av) av.ativo = av.ativo === false;
+    await avisos_salvar(arr); renderMural();
+  } else if (e.target.closest('.mural-editar')) {
+    const av = arr.find((x) => x.id === id); if (!av) return;
+    muralEdit = id; $('#mural-titulo').value = av.titulo || ''; $('#mural-texto').value = av.texto || ''; $('#mural-tipo').value = av.tipo || 'info';
+    $('#mural-add').textContent = 'Salvar alteração'; $('#mural-cancelar').hidden = false; $('#mural-titulo').focus();
+  } else if (e.target.closest('.mural-excluir')) {
+    if (!confirm('Excluir este aviso? Ele sai do Portal do Aluno.')) return;
+    await avisos_salvar(arr.filter((x) => x.id !== id));
+    if (muralEdit === id) muralReset();
+    renderMural();
+  }
+});
+
+/* ============================================================
+   TELA — Desafios da Semana
+   ============================================================ */
+const DES_EMOJIS = ['💧', '🚫🍬', '🥗', '😴', '🏃', '🔥', '🧘', '⭐', '🥦', '🚭'];
+let desEmoji = '💧', desEdit = null;
+
+function renderDesEmojis() {
+  $('#des-emojis').innerHTML = DES_EMOJIS.map((e) => `<button type="button" class="des-emoji${e === desEmoji ? ' on' : ''}" data-e="${e}">${e}</button>`).join('');
+}
+function renderDesafios() {
+  const arr = des_listar().slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  const list = $('#des-list');
+  if (!arr.length) { list.innerHTML = `<div class="empty"><b>Nenhum desafio</b>Lance o primeiro — ele aparece nas Conquistas do aluno.</div>`; return; }
+  list.innerHTML = arr.map((d) => `
+    <div class="mural-item${d.ativo === false ? ' off' : ''}">
+      <div class="mural-item-head"><span class="mural-tag">${esc(d.icone || '⭐')} ${esc(d.titulo || '')}</span><span class="mural-estado">${d.ativo === false ? 'Oculto' : 'No ar'} · meta ${esc(String(d.metaDias || 5))} dias</span></div>
+      <p>${esc(d.descricao || '')}</p>
+      <div class="mural-item-actions">
+        <button class="btn ghost btn-sm des-toggle" data-id="${esc(d.id)}" type="button">${d.ativo === false ? 'Reativar' : 'Ocultar'}</button>
+        <button class="btn ghost btn-sm des-editar" data-id="${esc(d.id)}" type="button">Editar</button>
+        <button class="btn ghost btn-sm des-excluir" data-id="${esc(d.id)}" type="button">Excluir</button>
+      </div>
+    </div>`).join('');
+}
+function desReset() {
+  desEdit = null; desEmoji = '💧';
+  $('#des-titulo').value = ''; $('#des-texto').value = ''; $('#des-meta').value = '5'; $('#des-categoria').value = 'geral';
+  $('#des-add').textContent = 'Publicar desafio'; $('#des-cancelar').hidden = true;
+  renderDesEmojis();
+}
+
+$('#btn-desafios').addEventListener('click', () => { desReset(); renderDesafios(); mostrarTela('tela-desafios'); });
+$('#des-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#des-cancelar').addEventListener('click', desReset);
+$('#des-emojis').addEventListener('click', (e) => { const b = e.target.closest('.des-emoji'); if (b) { desEmoji = b.dataset.e; renderDesEmojis(); } });
+
+$('#des-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const titulo = $('#des-titulo').value.trim(), descricao = $('#des-texto').value.trim();
+  const metaDias = Math.min(7, Math.max(1, parseInt($('#des-meta').value, 10) || 5));
+  const categoria = $('#des-categoria').value || 'geral';
+  if (!titulo || !descricao) return;
+  const arr = des_listar();
+  if (desEdit) {
+    const d = arr.find((x) => x.id === desEdit);
+    if (d) { d.titulo = titulo; d.descricao = descricao; d.icone = desEmoji; d.metaDias = metaDias; d.categoria = categoria; }
+  } else {
+    arr.push({ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), icone: desEmoji, titulo, descricao, metaDias, categoria, ativo: true, criadoEm: Date.now() });
+  }
+  await des_salvar(arr);
+  desReset(); renderDesafios();
+});
+$('#des-list').addEventListener('click', async (e) => {
+  const id = e.target.closest('[data-id]')?.dataset.id; if (!id) return;
+  const arr = des_listar();
+  if (e.target.closest('.des-toggle')) {
+    const d = arr.find((x) => x.id === id); if (d) d.ativo = d.ativo === false;
+    await des_salvar(arr); renderDesafios();
+  } else if (e.target.closest('.des-editar')) {
+    const d = arr.find((x) => x.id === id); if (!d) return;
+    desEdit = id; desEmoji = d.icone || '💧';
+    $('#des-titulo').value = d.titulo || ''; $('#des-texto').value = d.descricao || ''; $('#des-meta').value = String(d.metaDias || 5); $('#des-categoria').value = d.categoria || 'geral';
+    $('#des-add').textContent = 'Salvar alteração'; $('#des-cancelar').hidden = false; renderDesEmojis(); $('#des-titulo').focus();
+  } else if (e.target.closest('.des-excluir')) {
+    if (!confirm('Excluir este desafio? Ele sai do Portal do Aluno.')) return;
+    await des_salvar(arr.filter((x) => x.id !== id));
+    if (desEdit === id) desReset();
+    renderDesafios();
+  }
+});
+
+/* ============================================================
+   TELA — Leads (formulário de aula experimental)
+   ============================================================ */
+const LEAD_STATUS_LABEL = { novo: 'Novo', contatado: 'Contatado', convertido: 'Convertido', descartado: 'Descartado' };
+let LEADS_CACHE = [];
+
+// Follow-up: lead "novo" há ≥2 dias (nunca contatado) ou "contatado" há ≥4 dias
+// (sem retorno). Objetivo: não deixar lead esfriar sem ação.
+const LEAD_DIA = 86400000;
+const LEAD_LIMIAR_NOVO = 2, LEAD_LIMIAR_CONTATADO = 4;
+function leadDiasDesde(ts) { return ts ? Math.floor((Date.now() - ts) / LEAD_DIA) : null; }
+/** @returns {{precisa:boolean, dias:number, motivo:string}} */
+function followUpLead(l) {
+  const st = l.status || 'novo';
+  if (st === 'novo') { const d = leadDiasDesde(l.criadoEm); if (d != null && d >= LEAD_LIMIAR_NOVO) return { precisa: true, dias: d, motivo: 'sem contato' }; }
+  else if (st === 'contatado') { const d = leadDiasDesde(l.statusEm || l.criadoEm); if (d != null && d >= LEAD_LIMIAR_CONTATADO) return { precisa: true, dias: d, motivo: 'sem retorno' }; }
+  return { precisa: false, dias: 0, motivo: '' };
+}
+
+/** Atualiza o selo de follow-up no botão "Leads" da listagem (lembrete sem abrir a tela). */
+function atualizarBadgeLeads() {
+  const btn = $('#btn-leads'); if (!btn) return;
+  const n = LEADS_CACHE.filter((l) => l.status !== 'descartado' && followUpLead(l).precisa).length;
+  let badge = btn.querySelector('.btn-badge');
+  if (!n) { if (badge) badge.remove(); return; }
+  if (!badge) { badge = document.createElement('span'); badge.className = 'btn-badge'; btn.appendChild(badge); }
+  badge.textContent = String(n);
+  badge.title = `${n} lead(s) precisam de follow-up`;
+}
+
+/** Carrega os leads em cache (para o selo do botão) — silencioso. */
+async function carregarBadgeLeads() {
+  try { LEADS_CACHE = await carregarLeads(); atualizarBadgeLeads(); } catch (e) { console.warn('Leads badge:', e?.code || e); }
+}
+
+async function renderLeads() {
+  $('#leads-list').innerHTML = `<div class="prog-ph">Carregando…</div>`;
+  try { LEADS_CACHE = await carregarLeads(); }
+  catch (e) { console.warn('Leads:', e?.code || e); $('#leads-list').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`; return; }
+  desenharLeads();
+}
+
+function desenharLeads() {
+  const ativos = LEADS_CACHE.filter((l) => l.status !== 'descartado');
+  const novos = ativos.filter((l) => l.status === 'novo' || !l.status);
+  const contatados = ativos.filter((l) => l.status === 'contatado');
+  const convertidos = ativos.filter((l) => l.status === 'convertido');
+  const precisam = ativos.filter((l) => followUpLead(l).precisa).length;
+  $('#leads-tot').innerHTML = `
+    <div class="fin-card"><span class="fin-card-l">Novos</span><span class="fin-card-v${novos.length ? ' bad' : ''}">${novos.length}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Contatados</span><span class="fin-card-v">${contatados.length}</span></div>
+    <div class="fin-card"><span class="fin-card-l">Convertidos em aluno</span><span class="fin-card-v ok">${convertidos.length}</span></div>
+    <div class="fin-card"><span class="fin-card-l">⏰ Follow-up</span><span class="fin-card-v${precisam ? ' bad' : ' ok'}">${precisam}</span></div>`;
+
+  if (!ativos.length) { $('#leads-list').innerHTML = `<div class="empty"><b>Nenhum lead ainda</b>Assim que alguém preencher o formulário de aula grátis no site, aparece aqui.</div>`; return; }
+
+  const row = (l) => {
+    const d = l.criadoEm ? new Date(l.criadoEm).toLocaleDateString('pt-BR') : '—';
+    const st = l.status || 'novo';
+    const fu = followUpLead(l);
+    const sub = [l.objetivo, l.horario ? 'prefere ' + l.horario : '', l.indicadoPor ? 'indicado por ' + l.indicadoPor : ''].filter(Boolean).join(' · ');
+    const alerta = fu.precisa ? `<span class="lead-followup">⏰ ${fu.motivo} há ${fu.dias}d</span>` : '';
+    return `<div class="cob-row${fu.precisa ? ' lead-parado' : ''}">
+      <div class="cob-info"><div class="fin-nome">${esc(l.nome || 'Sem nome')} <span class="lead-badge ${st}">${LEAD_STATUS_LABEL[st] || st}</span>${alerta}</div><div class="fin-sub">${d}${sub ? ' · ' + esc(sub) : ''}</div></div>
+      <a class="btn btn-sm cob-wa" href="${waMsg(l.whatsapp, 'Olá, ' + (l.nome || '').split(' ')[0] + '! Vi seu interesse na aula experimental do Garage Power Lab. Vamos agendar? 💪')}" target="_blank" rel="noopener">WhatsApp</a>
+      <select class="lead-status" data-id="${esc(l.id)}">
+        ${Object.entries(LEAD_STATUS_LABEL).map(([v, l2]) => `<option value="${v}"${v === st ? ' selected' : ''}>${l2}</option>`).join('')}
+      </select>
+      <button class="btn ghost btn-sm lead-excluir" data-id="${esc(l.id)}" type="button">Excluir</button>
+    </div>`;
+  };
+  // quem precisa de follow-up primeiro (mais atrasado no topo), depois o resto por recência
+  const ordenados = ativos.slice().sort((a, b) => {
+    const fa = followUpLead(a), fb = followUpLead(b);
+    if (fa.precisa !== fb.precisa) return fa.precisa ? -1 : 1;
+    if (fa.precisa && fb.precisa) return fb.dias - fa.dias;
+    return (b.criadoEm || 0) - (a.criadoEm || 0);
+  });
+  $('#leads-list').innerHTML = ordenados.map(row).join('');
+  atualizarBadgeLeads();
+}
+
+$('#btn-leads').addEventListener('click', () => { renderLeads(); mostrarTela('tela-leads'); });
+$('#leads-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#leads-list').addEventListener('change', async (e) => {
+  const sel = e.target.closest('.lead-status'); if (!sel) return;
+  try { await atualizarStatusLead(sel.dataset.id, sel.value); } catch (err) { console.warn('Leads:', err?.code || err); }
+  const l = LEADS_CACHE.find((x) => x.id === sel.dataset.id); if (l) l.status = sel.value;
+  desenharLeads();
+});
+$('#leads-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.lead-excluir'); if (!btn) return;
+  if (!confirm('Excluir este lead?')) return;
+  try { await excluirLead(btn.dataset.id); } catch (err) { console.warn('Leads:', err?.code || err); }
+  LEADS_CACHE = LEADS_CACHE.filter((x) => x.id !== btn.dataset.id);
+  desenharLeads();
+});
+
+/* ============================================================
+   TELA — Check-in / frequência
+   ============================================================ */
+const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const SUMIDO_DIAS = 7;
+let chkData = hoje();
+
+const diasDesde = (iso) => Math.round((new Date(hoje() + 'T00:00:00') - new Date(iso + 'T00:00:00')) / 86400000);
+function labelDia(iso) { const d = new Date(iso + 'T00:00:00'); return `${DIAS_SEM[d.getDay()]} · ${fmtData(iso)}`; }
+function ultimaPresenca(a) { const p = (a.presencas || []).slice().sort(); return p.length ? p[p.length - 1] : null; }
+
+function renderCheckin() {
+  $('#chk-data-lbl').textContent = labelDia(chkData);
+  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  const presentes = alunos.filter((a) => (a.presencas || []).includes(chkData)).length;
+  $('#chk-resumo').innerHTML =
+    `<div class="fin-card"><span class="fin-card-l">Presentes no dia</span><span class="fin-card-v ok">${presentes}</span></div>` +
+    `<div class="fin-card"><span class="fin-card-l">Alunos ativos</span><span class="fin-card-v">${alunos.length}</span></div>` +
+    `<div class="fin-card"><span class="fin-card-l">Sumidos (${SUMIDO_DIAS}+ dias)</span><span class="fin-card-v${alunos.some((a) => { const u = ultimaPresenca(a); return !u || diasDesde(u) >= SUMIDO_DIAS; }) ? ' bad' : ''}">${alunos.filter((a) => { const u = ultimaPresenca(a); return !u || diasDesde(u) >= SUMIDO_DIAS; }).length}</span></div>`;
+
+  $('#chk-list').innerHTML = alunos.length
+    ? alunos.map((a) => ((a.diasTreino || []).length ? linhaGrade(a) : linhaSimples(a))).join('')
+    : `<div class="empty"><b>Nenhum aluno ativo</b>Cadastre alunos para registrar presença.</div>`;
+
+  const sumidos = alunos
+    .map((a) => ({ nome: a.nome, u: ultimaPresenca(a) }))
+    .filter((s) => !s.u || diasDesde(s.u) >= SUMIDO_DIAS)
+    .map((s) => ({ nome: s.nome, dias: s.u ? diasDesde(s.u) : null }))
+    .sort((x, y) => (y.dias ?? 99999) - (x.dias ?? 99999));
+  $('#chk-sumidos').innerHTML = sumidos.length
+    ? `<h4 class="chk-titulo">Quem sumiu (${SUMIDO_DIAS}+ dias sem vir)</h4>` +
+      sumidos.map((s) => `<div class="chk-sumido"><span class="li-nome">${esc(s.nome)}</span><span class="aval-tag atrasada">${s.dias == null ? 'nunca veio' : 'há ' + s.dias + 'd'}</span></div>`).join('')
+    : '';
+}
+
+/* ============================================================
+   A grade da semana — uma aula por quadrado
+
+   Cada quadrado responde: essa aula aconteceu? São três saídas.
+     CHECK-IN     ele compareceu na aula, no dia e na hora dela.
+     ALTERAR DIA  avisou antes que não pode; a aula muda de dia e/ou de hora,
+                  DENTRO DA SEMANA.
+     ATESTADO     conta como falta, mas ele ganha o direito de repor a aula —
+                  e essa reposição pode cair em qualquer semana.
+   Sem nenhuma delas, o prazo passa e a aula vira falta.
+   ============================================================ */
+
+const DIA_EXT = { seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' };
+const DIA_MIN = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };
+
+/**
+ * O painel aberto no momento — um só por vez.
+ * `{ tipo:'troca'|'reposicao', chave, data, hora }`, onde `chave` é
+ * `${idAluno}|${dataDaAula}` e data/hora são a escolha ainda não confirmada.
+ */
+let chkPainel = null;
+/** Recado preso a uma aula (`${id}|${iso}`), mostrado no próprio quadrado. */
+let chkAviso = null;
+
+/** Em que dia cada aula da semana acontece — usado para não dar o mesmo dia a duas. */
+function diasReivindicados(a, semana) {
+  const rem = a.remarcacoes || {}, atest = a.atestados || {};
+  const mapa = new Map();
+  for (const k of (a.diasTreino || [])) {
+    const iso = semana[k];
+    if (!iso || atest[iso]) continue; // atestado não ocupa dia nenhum da semana
+    const r = rem[iso];
+    mapa.set(typeof r === 'string' ? r : (r && r.data) || iso, iso);
+  }
+  for (const [origem, v] of Object.entries(atest)) {
+    if (v && v.reposicao && v.reposicao.data) mapa.set(v.reposicao.data, origem);
+  }
+  return mapa;
+}
+
+/**
+ * Linha do aluno SEM dias de treino cadastrados: continua o botão simples de
+ * sempre. Sem grade não há aula para resolver — e obrigar o coach a preencher o
+ * perfil antes de conseguir marcar uma presença seria trocar uma tela que
+ * funciona por uma porta trancada.
+ */
+function linhaSimples(a) {
+  const pres = (a.presencas || []).includes(chkData);
+  const u = ultimaPresenca(a);
+  const sub = u ? `última presença: ${fmtData(u)}` : 'sem check-in ainda';
+  return `<div class="fin-row${pres ? ' chk-pres' : ''}">
+    <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">${esc(sub)}</div></div>
+    <button class="btn ${pres ? '' : 'ghost '}btn-sm chk-toggle" data-id="${esc(a.id)}" type="button">${pres ? '✓ Presente' : 'Marcar presente'}</button>
+  </div>`;
+}
+
+/** Linha do aluno COM grade: uma aula por quadrado, cada uma resolvível. */
+function linhaGrade(a) {
+  const semana = datasDaSemana(new Date(chkData + 'T00:00:00'));
+  const quadrados = semanaDoAluno({
+    diasTreino: a.diasTreino, horarios: a.horarios || {},
+    presencas: a.presencas || [], horas: a.presencaHoras || {},
+    remarcacoes: a.remarcacoes || {}, atestados: a.atestados || {},
+    hoje: new Date(chkData + 'T00:00:00'),
+  });
+  // O contador é sobre as aulas DA SEMANA. Reposição vem de outra semana e
+  // treino extra é bônus: nenhum dos dois entra no "3 de 4", senão o número
+  // passa do total e deixa de querer dizer alguma coisa.
+  const fixos = quadrados.filter((q) => q.tipo === 'fixo');
+  const feitos = fixos.filter((q) => q.estado === 'ok').length;
+  const pendentes = reposicoesPendentes(a.atestados);
+
+  const painelAberto = chkPainel && chkPainel.tipo === 'reposicao' && chkPainel.chave.split('|')[0] === a.id;
+  const chip = pendentes.length
+    ? ` · <button class="chk-chip" data-id="${esc(a.id)}" data-origem="${pendentes[0]}" type="button">${pendentes.length} reposição${pendentes.length > 1 ? 'ões' : ''} a agendar</button>`
+    : '';
+
+  return `<div class="fin-row chk-linha">
+    <div class="fin-info"><div class="fin-nome">${esc(a.nome)}</div>
+      <div class="fin-sub">${feitos} de ${fixos.length} treinos desta semana${chip}</div>
+      ${painelAberto ? painelReposicao(a) : ''}</div>
+    <div class="chk-grade">${quadrados.map((q) => quadrado(a, q, semana)).join('')}</div>
+  </div>`;
+}
+
+/** A frase de rodapé do quadrado: o que aconteceu com aquela aula. */
+function notaDaAula(q) {
+  if (q.estado === 'ok') {
+    if (q.veioEm) return `veio ${DIA_MIN[chaveDoDia(q.veioEm)]}${q.hora ? ' · ' + q.hora : ''}`;
+    return q.hora ? `chegou ${q.hora}` : 'presente';
+  }
+  if (q.estado === 'atestado') return 'atestado · a repor';
+  if (q.estado === 'falta') return q.remarcado ? `não veio (era ${DIA_MIN[chaveDoDia(q.efetivo)]})` : 'não veio';
+  if (q.remarcado) return `passou para ${DIA_MIN[chaveDoDia(q.efetivo)]}`;
+  if (q.alterado) return 'horário alterado';
+  return q.iso === chkData ? 'é hoje' : '';
+}
+
+/** Um quadrado: o estado da aula e o que dá para fazer com ela. */
+function quadrado(a, q, semana) {
+  const alvo = `data-id="${esc(a.id)}" data-dia="${q.iso}"`;
+  const aberto = chkPainel && chkPainel.tipo === 'troca' && chkPainel.chave === `${a.id}|${q.iso}`;
+
+  if (q.tipo === 'extra') {
+    return `<div class="chk-cel ok">
+      <span class="chk-cel-dia">Extra</span>
+      <span class="chk-cel-h">${esc(DIA_EXT[q.chave] || fmtDataCurta(q.iso))}${q.hora ? ' · ' + q.hora : ''}</span>
+      <span class="chk-cel-nota">treino a mais</span>
+    </div>`;
+  }
+
+  // A reposição é a aula que nasceu de um atestado. Ela já foi agendada, então
+  // não se "altera o dia" dela — ou o aluno veio, ou o coach desmarca e o
+  // crédito volta para a fila, livre para cair em qualquer outra semana.
+  if (q.tipo === 'reposicao') {
+    const acoesRep = q.estado === 'ok'
+      ? `<button class="btn btn-sm chk-desfazer" ${alvo} data-rep="1" data-origem="${q.origem}" type="button">Desfazer</button>`
+      : `<button class="btn btn-sm chk-checkin" ${alvo} data-rep="1" type="button">Check-in</button>
+         <button class="btn ghost btn-sm chk-desmarcar" data-id="${esc(a.id)}" data-origem="${q.origem}" type="button">Desmarcar</button>`;
+    const notaRep = q.estado === 'ok' ? (q.hora ? `chegou ${q.hora}` : 'presente')
+      : q.estado === 'falta' ? 'não veio' : `da aula de ${fmtDataCurta(q.origem)}`;
+    return `<div class="chk-cel ${q.estado} reposicao">
+      <span class="chk-cel-dia">Reposição</span>
+      <span class="chk-cel-h">${esc(DIA_EXT[q.chave])}${q.horaPrevista ? ' · ' + horaLegivel(q.horaPrevista) : ''}</span>
+      <span class="chk-cel-nota">${esc(notaRep)}</span>
+      <div class="chk-cel-acoes">${acoesRep}</div>
+    </div>`;
+  }
+
+  // Resolvida (veio ou atestado) → só desfazer. Pendente ou vermelha → as três
+  // saídas. "Não veio" é estado calculado pelo prazo, não porta trancada: quem
+  // marcou errado precisa poder corrigir no dia seguinte.
+  const acoes = (q.estado === 'ok' || q.estado === 'atestado')
+    ? `<button class="btn btn-sm chk-desfazer" ${alvo} type="button">Desfazer</button>`
+    : `<button class="btn btn-sm chk-checkin" ${alvo} type="button">Check-in</button>
+       <button class="btn ghost btn-sm chk-trocar" ${alvo} type="button">Alterar dia</button>
+       <button class="btn ghost btn-sm chk-atestado" ${alvo} type="button">Atestado</button>`;
+
+  const aviso = chkAviso && chkAviso.chave === `${a.id}|${q.iso}` ? chkAviso.texto : '';
+  const nota = notaDaAula(q);
+
+  return `<div class="chk-cel ${q.estado}${aberto ? ' aberto' : ''}">
+    <span class="chk-cel-dia">${esc(DIA_EXT[q.chave])}</span>
+    <span class="chk-cel-h">${esc(horaLegivel(q.horaPrevista) || fmtDataCurta(q.iso))}</span>
+    ${nota ? `<span class="chk-cel-nota">${esc(nota)}</span>` : ''}
+    ${aviso ? `<span class="chk-cel-aviso">${esc(aviso)}</span>` : ''}
+    <div class="chk-cel-acoes">${acoes}</div>
+    ${aberto ? painelTroca(a, q, semana) : ''}
+  </div>`;
+}
+
+/**
+ * O painel de "Alterar dia": os sete dias da semana e a hora.
+ *
+ * Escolher a ficha só marca; quem grava é o "Confirmar". Sem isso não daria para
+ * trocar só o horário — clicar no dia já teria salvado com a hora antiga, que é
+ * metade do que o coach queria mudar.
+ */
+function painelTroca(a, q, semana) {
+  const fichas = ORDEM_DIAS.map((k) => {
+    const iso = semana[k];
+    const cls = [iso === chkPainel.data ? 'atual' : '', iso === q.iso && q.remarcado ? 'origem' : ''].filter(Boolean).join(' ');
+    const dica = iso === q.iso ? ' title="Dia original desta aula"' : '';
+    return `<button class="chk-ficha ${cls}"${dica} data-dia-sel="${iso}" type="button">${DIA_EXT[k].slice(0, 3)}</button>`;
+  }).join('');
+  return `<div class="chk-seletor">
+    <span class="chk-seletor-cap">Esta aula passa para:</span>
+    <div class="chk-fichas">${fichas}</div>
+    <div class="chk-linha-hora">
+      <input class="chk-hora-inp" type="time" value="${esc(chkPainel.hora)}" data-hora-sel />
+      <button class="btn btn-sm chk-confirma-troca" data-id="${esc(a.id)}" data-dia="${q.iso}" type="button">Confirmar</button>
+    </div>
+  </div>`;
+}
+
+/** O painel de agendar reposição: data livre (qualquer semana) e hora. */
+function painelReposicao(a) {
+  const origem = chkPainel.chave.split('|')[1];
+  const aviso = chkAviso && chkAviso.chave === `${a.id}|${origem}` ? chkAviso.texto : '';
+  return `<div class="chk-seletor solto">
+    <span class="chk-seletor-cap">Repor a aula de ${esc(fmtData(origem))} em:</span>
+    ${aviso ? `<span class="chk-cel-aviso">${esc(aviso)}</span>` : ''}
+    <div class="chk-linha-hora">
+      <input class="chk-data-inp" type="date" value="${esc(chkPainel.data)}" data-data-sel />
+      <input class="chk-hora-inp" type="time" value="${esc(chkPainel.hora)}" data-hora-sel />
+      <button class="btn btn-sm chk-confirma-rep" data-id="${esc(a.id)}" data-origem="${esc(origem)}" type="button">Agendar</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- Ações ---------- */
+
+/**
+ * Um dia só pode fechar UMA aula. Sem esta trava, mandar duas aulas para o mesmo
+ * dia deixaria a mesma presença valendo por dois treinos — e o "2 de 4 treinos
+ * desta semana", que é a manchete das duas telas, contaria uma visita como duas.
+ * Em vez de somar errado em silêncio, o quadrado diz quem já usa aquele dia.
+ * @returns {boolean} true = o dia está ocupado (a ação foi recusada)
+ */
+function diaOcupado(a, diaPlanejado, diaAlvo) {
+  // A semana que importa é a do DIA ALVO, não a que está na tela: agendar uma
+  // reposição para dali a duas semanas conferia a agenda da semana errada, e
+  // deixava a reposição cair em cima de uma aula que o aluno já tem.
+  const semana = datasDaSemana(new Date(diaAlvo + 'T00:00:00'));
+  const dono = diasReivindicados(a, semana).get(diaAlvo);
+  if (!dono || dono === diaPlanejado) return false;
+  chkAviso = { chave: `${a.id}|${diaPlanejado}`, texto: `${DIA_EXT[chaveDoDia(dono)]} já usa esse dia` };
+  renderCheckin(); // o painel fica aberto: o coach precisa escolher outra data
+  return true;
+}
+
+/** A data em que uma aula acontece de fato — a dela, ou a que o coach trocou. */
+function diaEfetivo(a, diaPlanejado) {
+  const r = (a.remarcacoes || {})[diaPlanejado];
+  if (typeof r === 'string') return r;
+  return (r && r.data) || diaPlanejado;
+}
+
+/** Alguma OUTRA aula da semana também acontece nesse dia? */
+function outraAulaUsa(a, diaPlanejado, dia) {
+  const semana = datasDaSemana(new Date(dia + 'T00:00:00'));
+  for (const [alvo, dono] of diasReivindicados(a, semana)) {
+    if (alvo === dia && dono !== diaPlanejado) return true;
+  }
+  return false;
+}
+
+/**
+ * CHECK-IN — o aluno compareceu na aula. A presença é gravada no dia em que a
+ * aula acontece (o dela, ou o trocado), e não na data que está na tela: quem
+ * responde "aconteceu?" é a aula, não o calendário.
+ * @param {string} id @param {string} diaPlanejado @param {boolean} [ehReposicao]
+ */
+function fazerCheckin(id, diaPlanejado, ehReposicao) {
+  const a = db.obter(id); if (!a) return;
+  const dia = ehReposicao ? diaPlanejado : diaEfetivo(a, diaPlanejado);
+  const presencas = new Set(a.presencas || []);
+  const horas = { ...(a.presencaHoras || {}) };
+  presencas.add(dia);
+  // A hora só é gravada quando a aula é hoje. Confirmando uma aula passada, o
+  // relógio de agora não diz nada sobre quando o aluno chegou.
+  if (dia === hoje() && !horas[dia]) horas[dia] = new Date().toTimeString().slice(0, 5);
+  // Fazer check-in numa aula com atestado é dizer que ela aconteceu — o crédito
+  // de reposição perde o sentido e sai junto.
+  const atestados = { ...(a.atestados || {}) };
+  if (!ehReposicao) delete atestados[diaPlanejado];
+  db.atualizar(id, { presencas: [...presencas].sort(), presencaHoras: horas, atestados });
+  agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+/** ALTERAR DIA — move a aula para outro dia e/ou hora, dentro da semana. */
+function trocarAula(id, diaPlanejado, data, hora) {
+  const a = db.obter(id); if (!a) return;
+  if (data !== diaPlanejado && diaOcupado(a, diaPlanejado, data)) return;
+  const remarcacoes = { ...(a.remarcacoes || {}) };
+  const horaOriginal = (a.horarios || {})[chaveDoDia(diaPlanejado)] || '';
+  // Voltar ao dia E à hora originais é desfazer a troca, não gravar uma igual.
+  if (data === diaPlanejado && (!hora || hora === horaOriginal)) delete remarcacoes[diaPlanejado];
+  else remarcacoes[diaPlanejado] = { data, hora: hora || '' };
+  const atestados = { ...(a.atestados || {}) };
+  delete atestados[diaPlanejado]; // trocar o dia substitui o atestado
+  db.atualizar(id, { remarcacoes, atestados });
+  agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+/** ATESTADO — falta, com direito a repor a aula em qualquer semana. */
+function lancarAtestado(id, diaPlanejado) {
+  const a = db.obter(id); if (!a) return;
+  const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em: Date.now(), reposicao: null } };
+  // O atestado é a resolução da aula: a troca de dia que houvesse antes sai, e a
+  // presença que porventura estivesse gravada também.
+  const efetivo = diaEfetivo(a, diaPlanejado);
+  const usaOutra = outraAulaUsa(a, diaPlanejado, efetivo);
+  const remarcacoes = { ...(a.remarcacoes || {}) };
+  delete remarcacoes[diaPlanejado];
+  const presencas = new Set(a.presencas || []);
+  const horas = { ...(a.presencaHoras || {}) };
+  if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
+  db.atualizar(id, { atestados, remarcacoes, presencas: [...presencas].sort(), presencaHoras: horas });
+  agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+/**
+ * DESFAZER — devolve a aula ao estado aberto: some a troca, some o atestado, e
+ * some a presença que ELA registrou — a menos que outra aula da semana também
+ * aconteça naquele dia, caso em que a presença é das duas e fica.
+ */
+function desfazerAula(id, diaPlanejado, ehReposicao, origem) {
+  const a = db.obter(id); if (!a) return;
+  const efetivo = ehReposicao ? diaPlanejado : diaEfetivo(a, diaPlanejado);
+  // Uma reposição é identificada pela aula que a gerou, não pela data em que foi
+  // encaixada. Passando a data, ela se veria na lista de aulas do dia e concluiria
+  // que "outra aula usa esse dia" — segurando a própria presença que ia apagar.
+  const identidade = ehReposicao ? origem : diaPlanejado;
+  const usaOutra = outraAulaUsa(a, identidade, efetivo);
+  const remarcacoes = { ...(a.remarcacoes || {}) };
+  const atestados = { ...(a.atestados || {}) };
+  if (!ehReposicao) { delete remarcacoes[diaPlanejado]; delete atestados[diaPlanejado]; }
+  const presencas = new Set(a.presencas || []);
+  const horas = { ...(a.presencaHoras || {}) };
+  if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
+  db.atualizar(id, { remarcacoes, atestados, presencas: [...presencas].sort(), presencaHoras: horas });
+  agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+/** Agenda a reposição de um atestado numa data qualquer (pode ser outra semana). */
+function agendarReposicao(id, origem, data, hora) {
+  const a = db.obter(id); if (!a || !data) return;
+  if (diaOcupado(a, origem, data)) return; // já tem aula nesse dia
+  const atestados = { ...(a.atestados || {}) };
+  if (!atestados[origem]) return;
+  atestados[origem] = { ...atestados[origem], reposicao: { data, hora: hora || '' } };
+  db.atualizar(id, { atestados });
+  agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+/** Desmarca a reposição: o crédito volta para a fila, livre para outra data. */
+function desmarcarReposicao(id, origem) {
+  const a = db.obter(id); if (!a) return;
+  const atestados = { ...(a.atestados || {}) };
+  if (!atestados[origem]) return;
+  const rep = atestados[origem].reposicao;
+  const usaOutra = rep && rep.data ? outraAulaUsa(a, origem, rep.data) : true;
+  atestados[origem] = { ...atestados[origem], reposicao: null };
+  const presencas = new Set(a.presencas || []);
+  const horas = { ...(a.presencaHoras || {}) };
+  if (rep && rep.data && !usaOutra) { presencas.delete(rep.data); delete horas[rep.data]; }
+  db.atualizar(id, { atestados, presencas: [...presencas].sort(), presencaHoras: horas });
+  agendarPublicarPortal();
+  chkPainel = null;
+  renderCheckin();
+}
+
+function toggleCheckin(id) {
+  const a = db.obter(id); if (!a) return;
+  const set = new Set(a.presencas || []);
+  // A hora vai num mapa à parte, e não dentro de `presencas`: essa lista é
+  // consultada com `.includes(data)` em meia dúzia de lugares (aqui, na
+  // gamificação, no Portal) e virar objeto quebraria todos de uma vez.
+  const horas = { ...(a.presencaHoras || {}) };
+  if (set.has(chkData)) {
+    set.delete(chkData); delete horas[chkData];
+  } else {
+    set.add(chkData);
+    if (chkData === hoje()) horas[chkData] = new Date().toTimeString().slice(0, 5);
+  }
+  db.atualizar(id, { presencas: [...set].sort(), presencaHoras: horas });
+  agendarPublicarPortal(); // é o check-in que pinta os quadrados de "Seu horário"
+  renderCheckin();
+}
+
+/** Lê o que está digitado no painel aberto antes de um redesenho apagá-lo. */
+function lerPainel(raiz) {
+  if (!chkPainel) return;
+  const d = $('[data-data-sel]', raiz), h = $('[data-hora-sel]', raiz);
+  if (d) chkPainel.data = d.value;
+  if (h) chkPainel.hora = h.value;
+}
+
+$('#btn-checkin').addEventListener('click', () => { chkData = hoje(); chkPainel = null; chkAviso = null; renderCheckin(); mostrarTela('tela-checkin'); });
+$('#chk-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#chk-prev').addEventListener('click', () => { chkData = addDias(chkData, -1); chkPainel = null; renderCheckin(); });
+$('#chk-next').addEventListener('click', () => { chkData = addDias(chkData, 1); chkPainel = null; renderCheckin(); });
+
+$('#chk-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  // Qualquer clique novo apaga o recado anterior: ele é sobre a ação que acabou
+  // de ser recusada, não um estado da aula.
+  chkAviso = null;
+  const lista = $('#chk-list');
+
+  // Ficha de dia dentro do painel: só marca a escolha; quem grava é o Confirmar.
+  if (btn.classList.contains('chk-ficha')) {
+    lerPainel(lista); chkPainel.data = btn.dataset.diaSel; renderCheckin(); return;
+  }
+  if (btn.classList.contains('chk-checkin')) {
+    fazerCheckin(btn.dataset.id, btn.dataset.dia, !!btn.dataset.rep); return;
+  }
+  if (btn.classList.contains('chk-trocar')) {
+    const chave = `${btn.dataset.id}|${btn.dataset.dia}`;
+    if (chkPainel && chkPainel.chave === chave) chkPainel = null; // o mesmo botão fecha
+    else {
+      const a = db.obter(btn.dataset.id);
+      const r = (a && a.remarcacoes || {})[btn.dataset.dia];
+      const atual = typeof r === 'string' ? { data: r, hora: '' } : r;
+      chkPainel = {
+        tipo: 'troca', chave,
+        data: (atual && atual.data) || btn.dataset.dia,
+        hora: (atual && atual.hora) || (a && a.horarios || {})[chaveDoDia(btn.dataset.dia)] || '',
+      };
+    }
+    renderCheckin(); return;
+  }
+  if (btn.classList.contains('chk-confirma-troca')) {
+    lerPainel(lista); trocarAula(btn.dataset.id, btn.dataset.dia, chkPainel.data, chkPainel.hora); return;
+  }
+  if (btn.classList.contains('chk-atestado')) {
+    lancarAtestado(btn.dataset.id, btn.dataset.dia); return;
+  }
+  if (btn.classList.contains('chk-desfazer')) {
+    desfazerAula(btn.dataset.id, btn.dataset.dia, !!btn.dataset.rep, btn.dataset.origem); return;
+  }
+  // Abre o painel de agendar reposição, já sugerindo o dia seguinte.
+  if (btn.classList.contains('chk-chip')) {
+    const chave = `${btn.dataset.id}|${btn.dataset.origem}`;
+    if (chkPainel && chkPainel.chave === chave) chkPainel = null;
+    else {
+      const a = db.obter(btn.dataset.id);
+      chkPainel = {
+        tipo: 'reposicao', chave, data: addDias(hoje(), 1),
+        hora: (a && a.horarios || {})[chaveDoDia(btn.dataset.origem)] || '',
+      };
+    }
+    renderCheckin(); return;
+  }
+  if (btn.classList.contains('chk-confirma-rep')) {
+    lerPainel(lista); agendarReposicao(btn.dataset.id, btn.dataset.origem, chkPainel.data, chkPainel.hora); return;
+  }
+  if (btn.classList.contains('chk-desmarcar')) {
+    desmarcarReposicao(btn.dataset.id, btn.dataset.origem); return;
+  }
+  if (btn.classList.contains('chk-toggle')) toggleCheckin(btn.dataset.id);
+});
+
+/* ============================================================
+   TELA — Agenda (calendário: reavaliações + aniversários)
+   ============================================================ */
+let agMes = mesIdAtual();
+
+/** Próxima reavaliação (dataProxima da avaliação mais recente) ou null. */
+function proxReav(a) {
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
+  if (!avs.length) return null;
+  const ult = avs.reduce((m, x) => (x.dataRealizada > m.dataRealizada ? x : m), avs[0]);
+  return ult.dataProxima || null;
+}
+
+function renderAgenda() {
+  $('#ag-mes-lbl').textContent = rotuloMesFin(agMes);
+  const [ano, mes] = agMes.split('-').map(Number);
+  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+
+  /** @type {Record<number, {tipo:string, nome:string}[]>} */
+  const evs = {};
+  const add = (dia, tipo, nome) => { (evs[dia] = evs[dia] || []).push({ tipo, nome }); };
+  for (const a of alunos) {
+    const prox = proxReav(a);
+    if (prox) { const [pa, pm, pd] = prox.split('-').map(Number); if (pa === ano && pm === mes) add(pd, 'reav', a.nome); }
+    if (a.nascimento) { const [, nm, nd] = a.nascimento.split('-').map(Number); if (nm === mes) add(nd, 'aniv', a.nome); }
+  }
+
+  const primeiroDiaSem = new Date(ano, mes - 1, 1).getDay();
+  const totalDias = new Date(ano, mes, 0).getDate();
+  const hojeIso = hoje();
+
+  let html = `<div class="ag-grid ag-hdr">${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d) => `<div class="ag-wd">${d}</div>`).join('')}</div><div class="ag-grid">`;
+  for (let i = 0; i < primeiroDiaSem; i++) html += '<div class="ag-cell vazio"></div>';
+  for (let d = 1; d <= totalDias; d++) {
+    const iso = `${ano}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayEvs = evs[d] || [];
+    const chips = dayEvs.slice(0, 2).map((e) =>
+      `<span class="ag-chip ${e.tipo}" title="${esc((e.tipo === 'reav' ? 'Reavaliação: ' : 'Aniversário: ') + e.nome)}">${e.tipo === 'reav' ? '🔄' : '🎂'} ${esc(e.nome.split(' ')[0])}</span>`).join('');
+    const mais = dayEvs.length > 2 ? `<span class="ag-mais">+${dayEvs.length - 2}</span>` : '';
+    html += `<div class="ag-cell${iso === hojeIso ? ' hoje' : ''}"><span class="ag-dia">${d}</span>${chips}${mais}</div>`;
+  }
+  html += '</div>';
+  $('#ag-cal').innerHTML = html;
+}
+
+$('#btn-agenda').addEventListener('click', () => { agMes = mesIdAtual(); renderAgenda(); mostrarTela('tela-agenda'); });
+$('#ag-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#ag-prev').addEventListener('click', () => { agMes = addMesFin(agMes, -1); renderAgenda(); });
+$('#ag-next').addEventListener('click', () => { agMes = addMesFin(agMes, 1); renderAgenda(); });
+
+/* ============================================================
+   TELA 2 — Perfil
+   ============================================================ */
+let alunoAtual = null;
+
+function abrirPerfil(id) {
+  const a = db.obter(id);
+  if (!a) return;
+  alunoAtual = a;
+  $('#p-id').textContent = '#' + a.id;
+  $('#p-nome').textContent = a.nome || 'Sem nome';
+  const st = $('#p-status');
+  st.className = 'status ' + (a.status || 'ativo');
+  st.textContent = STATUS_LABEL[a.status] || 'Ativo';
+  renderAvatar();
+  // aba dados
+  $('#tab-dados').innerHTML = `
+    <div class="lgpd-tag" id="lgpd-tag">Consentimento LGPD: <span>verificando…</span></div>
+    <form id="form-dados">
+      ${formDadosHTML(a)}
+      <div class="form-actions">
+        <button class="btn" type="submit">Salvar alterações</button>
+        <span class="saved-flag" data-saved>Salvo ✓</span>
+        <span style="flex:1"></span>
+        <button class="btn danger btn-sm" type="button" id="btn-excluir-aluno">Excluir aluno</button>
+      </div>
+    </form>`;
+  carregarConsentimentoAluno(a);
+  const form = $('#form-dados');
+  wireForm(form);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    db.atualizar(a.id, lerForm(form));
+    // Republica: o Portal mostra plano, dias e horário direto desta fatia, e sem
+    // isto o aluno só veria a mudança quando o coach reabrisse a Gestão.
+    agendarPublicarPortal();
+    alunoAtual = db.obter(a.id);
+    $('#p-nome').textContent = alunoAtual.nome || 'Sem nome';
+    const s2 = $('#p-status'); s2.className = 'status ' + (alunoAtual.status || 'ativo'); s2.textContent = STATUS_LABEL[alunoAtual.status] || 'Ativo';
+    const flag = $('[data-saved]', form); flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1600);
+  });
+  $('#btn-excluir-aluno').addEventListener('click', () => {
+    if (confirm(`Excluir o aluno "${a.nome || a.id}"? Esta ação não pode ser desfeita.`)) {
+      apagarFotosDoAluno(a);
+      db.remover(a.id); renderLista(); mostrarTela('tela-lista');
+    }
+  });
+  // demais abas
+  renderAvaliacoes();
+  // volta sempre para a aba Dados ao abrir
+  ativarAba('dados');
+  mostrarTela('tela-perfil');
+}
+
+/** Indicador (read-only) de consentimento LGPD do aluno, na aba Dados. */
+async function carregarConsentimentoAluno(a) {
+  const alvoId = a.id;
+  const el = $('#lgpd-tag'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  if (!email) { el.innerHTML = 'Consentimento LGPD: <span class="semdado">sem e-mail cadastrado</span>'; return; }
+  let c = null;
+  try { c = await carregarConsentimentoLGPD(email); } catch (e) { console.warn('LGPD:', e?.code || e); }
+  if (!$('#lgpd-tag') || alunoAtual?.id !== alvoId) return; // trocou de aluno enquanto carregava
+  if (c && c.aceitoEm) {
+    const d = new Date(c.aceitoEm).toLocaleDateString('pt-BR');
+    $('#lgpd-tag').innerHTML = `Consentimento LGPD: <span class="ok">✓ aceito em ${d}</span>`;
+  } else {
+    $('#lgpd-tag').innerHTML = 'Consentimento LGPD: <span class="pendente">⚠ ainda não aceito</span>';
+  }
+}
+
+/* ---- Abas ---- */
+function ativarAba(nome) {
+  $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === nome));
+  $$('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + nome));
+  if (nome === 'progresso') renderProgresso();
+  else if (nome === 'anamnese') renderAnamnese();
+  else if (nome === 'parq') renderParq();
+}
+$$('.tab').forEach((t) => t.addEventListener('click', () => ativarAba(t.dataset.tab)));
+
+/* ============================================================
+   ABA 2 — Avaliações
+   ============================================================ */
+function renderAvaliacoes() {
+  const a = alunoAtual; if (!a) return;
+  const avs = (a.avaliacoes || []).slice().sort((x, y) => (y.num || 0) - (x.num || 0));
+  const lista = $('#aval-list');
+  if (!avs.length) {
+    lista.innerHTML = `<div class="empty"><b>Nenhuma avaliação</b>Clique em “Nova avaliação” para registrar a primeira.</div>`;
+    return;
+  }
+  const hj = hoje();
+  lista.innerHTML = avs.map((av) => {
+    const atrasada = av.dataProxima && av.dataProxima < hj;
+    const r = calc.calcular(av, a);
+    const resumo = [];
+    if (av.peso) resumo.push(`${(+av.peso).toLocaleString('pt-BR')} kg`);
+    if (r.perc != null) resumo.push(`${r.perc.toFixed(1)}% gordura`);
+    return `
+    <button class="aval-row" data-num="${av.num}" type="button">
+      <span class="anum">Avaliação #${String(av.num).padStart(2, '0')}</span>
+      <span class="adatas">
+        <span class="adata">Realizada: ${fmtData(av.dataRealizada)}${resumo.length ? ' · ' + resumo.join(' · ') : ''}</span>
+        <span class="aprox${atrasada ? ' atrasada' : ''}">Próxima: ${fmtData(av.dataProxima)}</span>
+      </span>
+      ${atrasada ? '<span class="badge-late">Atrasada</span>' : '<span class="badge-ok">Em dia</span>'}
+    </button>`;
+  }).join('');
+}
+$('#aval-list').addEventListener('click', (e) => {
+  const row = e.target.closest('.aval-row');
+  if (row) abrirFormAvaliacao(Number(row.dataset.num));
+});
+$('#btn-nova-aval').addEventListener('click', () => abrirFormAvaliacao(null));
+
+/* ============================================================
+   Modais
+   ============================================================ */
+function abrirModal(id) { $('#' + id).classList.add('open'); }
+function fecharModal(id) { $('#' + id).classList.remove('open'); }
+$$('.modal-bg').forEach((bg) => {
+  bg.addEventListener('click', (e) => { if (e.target === bg || e.target.closest('[data-close]')) bg.classList.remove('open'); });
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal-bg.open').forEach((m) => m.classList.remove('open')); });
+
+/* ---- Modal: novo aluno ---- */
+$('#fab-novo').addEventListener('click', () => {
+  $('#modal-aluno-body').innerHTML = formDadosHTML({}, { idEditavel: true });
+  wireForm($('#modal-aluno-body'));
+  abrirModal('modal-aluno');
+  setTimeout(() => $('input[name=id]', $('#modal-aluno-body'))?.focus(), 50);
+});
+$('#form-novo').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const dados = lerForm(e.target);
+  if (!dados.nome) { alert('Informe o nome do aluno.'); return; }
+  const novo = db.criar(dados);
+  if (!novo) { alert('Já existe um aluno com esse ID. Escolha outro.'); return; }
+  fecharModal('modal-aluno');
+  renderLista();
+  abrirPerfil(novo.id);
+});
+
+/* ---- Modal: formulário da avaliação ---- */
+let avalAberta = null;
+
+function fmtN(v, dec = 1) { return v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
+function fmtDataCurta(iso) { if (!iso) return ''; const [a, m, d] = iso.split('-'); return `${d}/${m}`; }
+
+function lerAval(form) {
+  const fd = new FormData(form);
+  const g = (k) => (fd.get(k) ?? '').toString().trim();
+  const av = {
+    dataRealizada: g('dataRealizada'), dataProxima: g('dataProxima'),
+    peso: g('peso'), estatura: g('estatura'), obs: g('obs'),
+    pas: g('pas'), pad: g('pad'), fc: g('fc'), spo2: g('spo2'),
+    aguaCorporal: g('aguaCorporal'), gorduraVisceral: g('gorduraVisceral'), massaOssea: g('massaOssea'),
+    cond: { jejum: !!fd.get('cond_jejum'), semTreino: !!fd.get('cond_semTreino'), roupasLeves: !!fd.get('cond_roupasLeves'), bexiga: !!fd.get('cond_bexiga') },
+    dobras: {}, perimetros: {},
+  };
+  for (const k of ['peitoral', 'axilarMedia', 'triceps', 'subescapular', 'abdominal', 'suprailiaca', 'coxa']) { const v = g('dobra_' + k); if (v !== '') av.dobras[k] = v; }
+  for (const p of calc.PERIMETROS) { const v = g('perim_' + p.key); if (v !== '') av.perimetros[p.key] = v; }
+  av.testes = {};
+  for (const k of ['flexoes', 'prancha', 'agachamentos', 'abdominais']) { const v = g('teste_' + k); if (v !== '') av.testes[k] = v; }
+  av.mobilidade = {};
+  for (const k of ['tornozeloD', 'tornozeloE', 'ombroD', 'ombroE', 'sentarAlcancar']) { const v = g('mob_' + k); if (v !== '') av.mobilidade[k] = v; }
+  return av;
+}
+
+function renderResultados(av, aluno) {
+  const r = calc.calcular(av, aluno);
+  const rceVal = calc.rcest(av.perimetros?.cintura, av.estatura);
+  const percSub = r.perc != null ? r.percClass
+    : (r.faltaSexo ? 'Defina o sexo na aba Dados' : r.faltaIdade ? 'Informe a data de nascimento (aba Dados)' : 'Preencha as 3 dobras');
+  const cards = [
+    { t: '% Gordura corporal', v: r.perc != null ? fmtN(r.perc, 1) + '%' : '—', s: percSub, hi: true },
+    { t: 'IMC', v: r.imc != null ? fmtN(r.imc, 1) : '—', s: r.imcClass },
+    { t: 'Massa gorda', v: r.massaGorda != null ? fmtN(r.massaGorda, 1) + ' kg' : '—', s: '' },
+    { t: 'Massa magra', v: r.massaMagra != null ? fmtN(r.massaMagra, 1) + ' kg' : '—', s: '' },
+    { t: 'RCQ', v: r.rcq != null ? fmtN(r.rcq, 2) : '—', s: r.rcqClass },
+    { t: 'Cintura/estatura', v: rceVal != null ? fmtN(rceVal, 2) : '—', s: calc.classifRcest(rceVal) },
+    { t: 'Σ dobras', v: r.soma != null ? fmtN(r.soma, 0) + ' mm' : '—', s: r.protocolo || '' },
+  ];
+  if (av.pas && av.pad) cards.push({ t: 'Pressão arterial', v: `${av.pas}/${av.pad}`, s: 'mmHg · ' + calc.classifPressao(av.pas, av.pad) });
+  if (av.fc) cards.push({ t: 'Freq. cardíaca', v: `${av.fc}`, s: 'bpm' });
+  if (av.spo2) cards.push({ t: 'Saturação SpO₂', v: `${av.spo2}%`, s: calc.classifSpo2(av.spo2) });
+  if (av.aguaCorporal) cards.push({ t: 'Água corporal', v: `${av.aguaCorporal}%`, s: calc.classifAgua(numf(av.aguaCorporal), r.cod) });
+  if (av.gorduraVisceral) cards.push({ t: 'Gordura visceral', v: `Nível ${av.gorduraVisceral}`, s: calc.classifVisceral(numf(av.gorduraVisceral)) });
+  if (av.massaOssea) cards.push({ t: 'Massa óssea', v: `${av.massaOssea} kg`, s: '' });
+  $('#aval-resultados').innerHTML = cards.map((c) => `<div class="res${c.hi ? ' hi' : ''}"><span class="rt">${c.t}</span><span class="rv">${c.v}</span>${c.s ? `<span class="rs">${esc(c.s)}</span>` : ''}</div>`).join('');
+}
+
+function abrirFormAvaliacao(num) {
+  const a = alunoAtual; if (!a) return;
+  const novo = num == null;
+  let av;
+  if (novo) av = { dataRealizada: hoje(), dataProxima: addDias(hoje(), 90), peso: a.peso || '', estatura: a.altura || '', cond: {}, dobras: {}, perimetros: {} };
+  else { av = (a.avaliacoes || []).find((x) => x.num === num); if (!av) return; }
+  avalAberta = novo ? null : num;
+  const cod = calc.sexoCod(a);
+  const dobras = calc.DOBRAS_7;
+  $('#modal-aval').querySelector('.modal').classList.add('lg');
+  $('#modal-aval-titulo').textContent = novo ? 'Nova avaliação' : `Avaliação #${String(num).padStart(2, '0')}`;
+  $('#btn-del-aval').style.display = novo ? 'none' : '';
+  const cond = av.cond || {}, dz = av.dobras || {}, pz = av.perimetros || {}, tz = av.testes || {}, mz = av.mobilidade || {};
+  const chk = (k, l) => `<label class="chk"><input type="checkbox" name="cond_${k}"${cond[k] ? ' checked' : ''}/> ${l}</label>`;
+  const f = (name, val, ph = '') => `<input name="${name}" type="number" inputmode="decimal" min="0" step="any" value="${esc(val ?? '')}" placeholder="${ph}"/>`;
+  const avisoSexo = cod ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Defina o <b>sexo</b> do aluno na aba <b>Dados</b> para calcular o % de gordura.</div>`;
+  const avisoIdade = (a.nascimento || a.idade) ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Informe a <b>data de nascimento</b> na aba Dados (a fórmula usa a idade).</div>`;
+  $('#modal-aval-body').innerHTML = `
+    <form id="form-aval">
+      <div class="form-sec"><h3>Datas</h3><div class="grid-form">
+        <div class="field"><label>Data realizada</label><input name="dataRealizada" type="date" value="${esc(av.dataRealizada || '')}"/></div>
+        <div class="field"><label>Próxima avaliação</label><input name="dataProxima" type="date" value="${esc(av.dataProxima || '')}"/></div>
+      </div></div>
+      <div class="form-sec"><h3>Condições do aluno</h3><div class="chks">${chk('jejum', 'Jejum 2–4h')}${chk('semTreino', 'Sem treino intenso 12h')}${chk('roupasLeves', 'Roupas leves')}${chk('bexiga', 'Bexiga vazia')}</div></div>
+      <div class="form-sec"><h3>Medidas básicas</h3><div class="grid-form">
+        <div class="field"><label>Peso (kg)</label>${f('peso', av.peso, '80')}</div>
+        <div class="field"><label>Estatura (cm)</label>${f('estatura', av.estatura, '175')}</div>
+      </div></div>
+      <div class="form-sec"><h3>Sinais vitais</h3><div class="grid-form g3">
+        <div class="field"><label>Pressão arterial (mmHg)</label><div class="pa-row"><input name="pas" type="number" inputmode="numeric" min="0" step="any" value="${esc(av.pas ?? '')}" placeholder="120" /><span>/</span><input name="pad" type="number" inputmode="numeric" min="0" step="any" value="${esc(av.pad ?? '')}" placeholder="80" /></div></div>
+        <div class="field"><label>Freq. cardíaca (bpm)</label>${f('fc', av.fc, '70')}</div>
+        <div class="field"><label>Saturação SpO₂ (%)</label>${f('spo2', av.spo2, '98')}</div>
+      </div></div>
+      <div class="form-sec"><h3>Bioimpedância (opcional)</h3><p class="hint" style="margin:0 0 10px">Preencha se tiver os dados de uma balança de bioimpedância. Sem ela, deixe em branco.</p><div class="grid-form g3">
+        <div class="field"><label>Água corporal (%)</label>${f('aguaCorporal', av.aguaCorporal, '55')}</div>
+        <div class="field"><label>Gordura visceral (nível)</label>${f('gorduraVisceral', av.gorduraVisceral, '4')}</div>
+        <div class="field"><label>Massa óssea (kg)</label>${f('massaOssea', av.massaOssea, '2.5')}</div>
+      </div></div>
+      <div class="form-sec"><h3>Dobras cutâneas (mm) · Pollock 7</h3>${avisoSexo}${avisoIdade}
+        <div class="grid-form g3">${dobras.map((d) => `<div class="field"><label>${d.label}</label>${f('dobra_' + d.key, dz[d.key])}</div>`).join('')}</div>
+      </div>
+      <div class="form-sec"><h3>Perímetros (cm)</h3>
+        <div class="grid-form g3">${calc.PERIMETROS.map((p) => `<div class="field"><label>${p.label}</label>${f('perim_' + p.key, pz[p.key], '', '0.1')}</div>`).join('')}</div>
+      </div>
+      <div class="form-sec"><h3>Testes físicos</h3><div class="grid-form g3">
+        <div class="field"><label>Flexões (máx.)</label>${f('teste_flexoes', tz.flexoes)}</div>
+        <div class="field"><label>Prancha (segundos)</label>${f('teste_prancha', tz.prancha)}</div>
+        <div class="field"><label>Agachamentos (1 min)</label>${f('teste_agachamentos', tz.agachamentos)}</div>
+        <div class="field"><label>Abdominais (1 min)</label>${f('teste_abdominais', tz.abdominais)}</div>
+      </div></div>
+      <div class="form-sec"><h3>Mobilidade (cm)</h3><div class="grid-form g3">
+        <div class="field"><label>Tornozelo dir.</label>${f('mob_tornozeloD', mz.tornozeloD)}</div>
+        <div class="field"><label>Tornozelo esq.</label>${f('mob_tornozeloE', mz.tornozeloE)}</div>
+        <div class="field"><label>Ombro dir.</label>${f('mob_ombroD', mz.ombroD)}</div>
+        <div class="field"><label>Ombro esq.</label>${f('mob_ombroE', mz.ombroE)}</div>
+        <div class="field"><label>Sentar-e-alcançar</label>${f('mob_sentarAlcancar', mz.sentarAlcancar)}</div>
+      </div></div>
+      <div class="form-sec"><h3>Resultados</h3><div id="aval-resultados" class="resultados"></div></div>
+      <div class="form-sec"><h3>Fotos de progresso</h3><div id="aval-fotos" class="fotos-grid"></div></div>
+      <div class="field full"><label>Observações</label><textarea name="obs" placeholder="Observações desta avaliação…">${esc(av.obs || '')}</textarea></div>
+      <div class="form-actions" style="margin-top:14px"><button class="btn" type="submit">${novo ? 'Salvar avaliação' : 'Salvar alterações'}</button><button class="btn ghost" type="button" id="btn-pdf">Exportar PDF</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
+    </form>`;
+  const form = $('#form-aval');
+  const recalc = () => renderResultados(lerAval(form), a);
+  form.addEventListener('input', recalc);
+  recalc();
+  renderFotosAval();
+  $('#aval-fotos').addEventListener('click', onFotoAvalClick);
+  $('#btn-pdf').addEventListener('click', () => {
+    if (avalAberta == null) { alert('Salve a avaliação primeiro para exportar o PDF.'); return; }
+    const cur = (alunoAtual.avaliacoes || []).find((x) => x.num === avalAberta);
+    if (cur) exportarAvaliacao(alunoAtual, cur);
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const dados = lerAval(form);
+    if (avalAberta == null) {
+      const nv = db.addAvaliacao(a.id, dados);
+      avalAberta = nv.num;
+      $('#modal-aval-titulo').textContent = `Avaliação #${String(nv.num).padStart(2, '0')}`;
+      $('#btn-del-aval').style.display = '';
+    } else {
+      const cur = (a.avaliacoes || []).find((x) => x.num === avalAberta);
+      if (cur) Object.assign(cur, dados);
+      db.atualizar(a.id, { avaliacoes: a.avaliacoes });
+    }
+    alunoAtual = db.obter(a.id);
+    renderAvaliacoes();
+    renderFotosAval();
+    const flag = $('#form-aval [data-saved]'); flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1500);
+  });
+  abrirModal('modal-aval');
+}
+
+/* ---- Fotos de progresso da avaliação ---- */
+const FOTO_SLOTS = [['frente', 'Frente'], ['lado', 'Lado'], ['costas', 'Costas']];
+function avalAtual() { return alunoAtual && avalAberta != null ? (alunoAtual.avaliacoes || []).find((x) => x.num === avalAberta) : null; }
+function renderFotosAval() {
+  const cont = $('#aval-fotos'); if (!cont) return;
+  if (avalAberta == null) { cont.innerHTML = `<div class="note">Salve a avaliação para anexar fotos de progresso (frente, lado e costas).</div>`; return; }
+  const av = avalAtual(); const fotos = (av && av.fotos) || {};
+  cont.innerHTML = FOTO_SLOTS.map(([k, l]) => `
+    <div class="foto-slot" data-slot="${k}">
+      ${fotos[k] ? `<img src="${esc(fotos[k])}" alt="${l}" /><button class="foto-del" data-del="${k}" type="button" title="Remover">×</button>` : `<span class="foto-add">+ ${l}</span>`}
+      <span class="foto-cap">${l}</span>
+    </div>`).join('');
+}
+function onFotoAvalClick(e) {
+  const del = e.target.closest('[data-del]');
+  if (del) { removerFotoAval(del.dataset.del); return; }
+  const slotEl = e.target.closest('.foto-slot');
+  if (slotEl) escolherFoto((file) => adicionarFotoAval(slotEl.dataset.slot, file));
+}
+async function adicionarFotoAval(slot, file) {
+  const a = alunoAtual, av = avalAtual(); if (!a || !av) return;
+  const slotEl = $(`#aval-fotos .foto-slot[data-slot=${slot}]`); if (slotEl) slotEl.classList.add('loading');
+  try {
+    const url = await uploadFoto(`gestao/${UID}/${a.id}/aval-${av.num}-${slot}.webp`, file, 1200);
+    av.fotos = av.fotos || {}; av.fotos[slot] = url;
+    db.atualizar(a.id, { avaliacoes: a.avaliacoes });
+    alunoAtual = db.obter(a.id);
+    renderFotosAval();
+  } catch (e) { avisoStorage(e); if (slotEl) slotEl.classList.remove('loading'); }
+}
+async function removerFotoAval(slot) {
+  const a = alunoAtual, av = avalAtual(); if (!a || !av || !av.fotos) return;
+  if (!confirm('Remover esta foto?')) return;
+  delete av.fotos[slot];
+  db.atualizar(a.id, { avaliacoes: a.avaliacoes });
+  alunoAtual = db.obter(a.id);
+  renderFotosAval();
+  storage.apagar(`gestao/${UID}/${a.id}/aval-${av.num}-${slot}.webp`).catch(() => {});
+}
+
+$('#btn-del-aval').addEventListener('click', () => {
+  const a = alunoAtual; if (!a || avalAberta == null) return;
+  if (confirm(`Excluir a Avaliação #${String(avalAberta).padStart(2, '0')}?`)) {
+    apagarFotosDaAvaliacao(a.id, (a.avaliacoes || []).find((x) => x.num === avalAberta));
+    db.removerAvaliacao(a.id, avalAberta);
+    alunoAtual = db.obter(a.id);
+    renderAvaliacoes();
+    fecharModal('modal-aval');
+  }
+});
+
+/* ============================================================
+   Comparar duas avaliações
+   ============================================================ */
+$('#btn-comparar').addEventListener('click', abrirComparar);
+
+function abrirComparar() {
+  const a = alunoAtual; if (!a) return;
+  const avs = (a.avaliacoes || []).slice().sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
+  if (avs.length < 2) { alert('Cadastre ao menos 2 avaliações para comparar.'); return; }
+  const opts = (sel) => avs.map((av) => `<option value="${av.num}"${av.num === sel ? ' selected' : ''}>#${String(av.num).padStart(2, '0')} · ${fmtData(av.dataRealizada)}</option>`).join('');
+  const aNum = avs[0].num, bNum = avs[avs.length - 1].num;
+  $('#modal-comparar').querySelector('.modal').classList.add('lg');
+  $('#modal-comparar-body').innerHTML = `
+    <div class="cmp-selects">
+      <select id="cmp-a">${opts(aNum)}</select>
+      <span class="cmp-x">→</span>
+      <select id="cmp-b">${opts(bNum)}</select>
+    </div>
+    <div id="cmp-resultado"></div>`;
+  const upd = () => renderComparacao(Number($('#cmp-a').value), Number($('#cmp-b').value));
+  $('#cmp-a').addEventListener('change', upd);
+  $('#cmp-b').addEventListener('change', upd);
+  upd();
+  abrirModal('modal-comparar');
+}
+
+function renderComparacao(numA, numB) {
+  const a = alunoAtual; if (!a) return;
+  const avA = (a.avaliacoes || []).find((x) => x.num === numA);
+  const avB = (a.avaliacoes || []).find((x) => x.num === numB);
+  if (!avA || !avB) return;
+  const rA = calc.calcular(avA, a), rB = calc.calcular(avB, a);
+  const nf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const rows = [];
+  const sec = (t) => rows.push(`<tr class="cmp-sec"><td colspan="4">${t}</td></tr>`);
+  const lin = (label, va, vb, un, dec, melhorSe) => {
+    if (va == null && vb == null) return;
+    let d = '—', cls = '';
+    if (va != null && vb != null) {
+      const dd = vb - va;
+      if (Math.abs(dd) < Math.pow(10, -dec) / 2) { d = '='; }
+      else {
+        const bom = melhorSe === 'down' ? dd < 0 : melhorSe === 'up' ? dd > 0 : null;
+        cls = bom === true ? 'bom' : bom === false ? 'ruim' : '';
+        d = `${dd > 0 ? '+' : '−'}${fmtN(Math.abs(dd), dec)}${un ? ' ' + un : ''}`;
+      }
+    }
+    const cel = (v) => (v != null ? fmtN(v, dec) + (un ? ' ' + un : '') : '—');
+    rows.push(`<tr><td>${label}</td><td>${cel(va)}</td><td>${cel(vb)}</td><td class="${cls}">${d}</td></tr>`);
+  };
+
+  sec('Composição corporal');
+  lin('Peso', nf(avA.peso), nf(avB.peso), 'kg', 1, null);
+  lin('IMC', rA.imc, rB.imc, '', 1, null);
+  lin('% Gordura', rA.perc, rB.perc, '%', 1, 'down');
+  lin('Massa gorda', rA.massaGorda, rB.massaGorda, 'kg', 1, 'down');
+  lin('Massa magra', rA.massaMagra, rB.massaMagra, 'kg', 1, 'up');
+  lin('RCQ', rA.rcq, rB.rcq, '', 2, 'down');
+  lin('Cintura/estatura', calc.rcest(avA.perimetros?.cintura, avA.estatura), calc.rcest(avB.perimetros?.cintura, avB.estatura), '', 2, 'down');
+  lin('Σ dobras', rA.soma, rB.soma, 'mm', 0, 'down');
+
+  sec('Perímetros (cm)');
+  const perimMelhor = { cintura: 'down', abdomen: 'down', quadril: null, bracoContraido: null, coxa: null, panturrilha: null };
+  calc.PERIMETROS.forEach((p) => lin(p.label, nf(avA.perimetros?.[p.key]), nf(avB.perimetros?.[p.key]), 'cm', 1, perimMelhor[p.key]));
+
+  if (avA.pas || avB.pas || avA.fc || avB.fc || avA.spo2 || avB.spo2) {
+    sec('Sinais vitais');
+    if (avA.pas || avB.pas) rows.push(`<tr><td>Pressão arterial</td><td>${avA.pas && avA.pad ? esc(avA.pas + '/' + avA.pad) : '—'}</td><td>${avB.pas && avB.pad ? esc(avB.pas + '/' + avB.pad) : '—'}</td><td></td></tr>`);
+    lin('Freq. cardíaca', nf(avA.fc), nf(avB.fc), 'bpm', 0, 'down');
+    lin('Saturação SpO₂', nf(avA.spo2), nf(avB.spo2), '%', 0, 'up');
+  }
+
+  if (avA.aguaCorporal || avB.aguaCorporal || avA.gorduraVisceral || avB.gorduraVisceral || avA.massaOssea || avB.massaOssea) {
+    sec('Bioimpedância');
+    lin('Água corporal', nf(avA.aguaCorporal), nf(avB.aguaCorporal), '%', 1, null);
+    lin('Gordura visceral', nf(avA.gorduraVisceral), nf(avB.gorduraVisceral), '', 0, 'down');
+    lin('Massa óssea', nf(avA.massaOssea), nf(avB.massaOssea), 'kg', 2, null);
+  }
+
+  sec('Testes físicos');
+  lin('Flexões', nf(avA.testes?.flexoes), nf(avB.testes?.flexoes), '', 0, 'up');
+  lin('Prancha', nf(avA.testes?.prancha), nf(avB.testes?.prancha), 's', 0, 'up');
+  lin('Agachamentos', nf(avA.testes?.agachamentos), nf(avB.testes?.agachamentos), '', 0, 'up');
+  lin('Abdominais', nf(avA.testes?.abdominais), nf(avB.testes?.abdominais), '', 0, 'up');
+
+  sec('Mobilidade (cm)');
+  lin('Tornozelo dir.', nf(avA.mobilidade?.tornozeloD), nf(avB.mobilidade?.tornozeloD), 'cm', 1, null);
+  lin('Tornozelo esq.', nf(avA.mobilidade?.tornozeloE), nf(avB.mobilidade?.tornozeloE), 'cm', 1, null);
+  lin('Ombro dir.', nf(avA.mobilidade?.ombroD), nf(avB.mobilidade?.ombroD), 'cm', 1, null);
+  lin('Ombro esq.', nf(avA.mobilidade?.ombroE), nf(avB.mobilidade?.ombroE), 'cm', 1, null);
+  lin('Sentar-e-alcançar', nf(avA.mobilidade?.sentarAlcancar), nf(avB.mobilidade?.sentarAlcancar), 'cm', 1, 'up');
+
+  const fotos = [['frente', 'Frente'], ['lado', 'Lado'], ['costas', 'Costas']].map(([k, l]) => {
+    const fa = avA.fotos?.[k], fb = avB.fotos?.[k];
+    if (!fa && !fb) return '';
+    const cel = (u) => (u ? `<img src="${esc(u)}" alt="${l}" />` : '<span class="cmp-foto-vazio">sem foto</span>');
+    return `<div class="cmp-foto-row"><span class="cmp-foto-cap">${l}</span><div class="cmp-foto-par"><div>${cel(fa)}</div><div>${cel(fb)}</div></div></div>`;
+  }).join('');
+
+  $('#cmp-resultado').innerHTML = `
+    <table class="cmp-table">
+      <tr class="cmp-head"><th>Métrica</th><th>#${String(numA).padStart(2, '0')} · ${fmtData(avA.dataRealizada)}</th><th>#${String(numB).padStart(2, '0')} · ${fmtData(avB.dataRealizada)}</th><th>Δ</th></tr>
+      ${rows.join('')}
+    </table>
+    ${fotos ? `<h4 class="cmp-fotos-titulo">Fotos de progresso</h4>${fotos}` : ''}`;
+}
+
+/* ============================================================
+   ABA 3 — Progresso (gráficos + insights)
+   ============================================================ */
+function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
+  const W = 600, H = 180, pad = { l: 46, r: 14, t: 16, b: 28 };
+  const ys = serie.map((p) => p.y);
+  let min = Math.min(...ys), max = Math.max(...ys);
+  if (min === max) { min -= 1; max += 1; }
+  const rng = max - min; min -= rng * 0.15; max += rng * 0.15;
+  const n = serie.length;
+  const X = (i) => pad.l + (n === 1 ? 0 : (i / (n - 1)) * (W - pad.l - pad.r));
+  const Y = (v) => pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b);
+  const pts = serie.map((p, i) => [X(i), Y(p.y)]);
+  const linha = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = linha + ` L ${pts[n - 1][0].toFixed(1)} ${H - pad.b} L ${pts[0][0].toFixed(1)} ${H - pad.b} Z`;
+  const dots = pts.map((p) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="${cor}"/>`).join('');
+  const yMax = Math.max(...ys), yMin = Math.min(...ys);
+  const gid = 'g' + Math.random().toString(36).slice(2, 7);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cor}" stop-opacity="0.25"/><stop offset="1" stop-color="${cor}" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H - pad.b}" class="ax"/>
+    <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" class="ax"/>
+    <text x="${pad.l - 6}" y="${(Y(yMax) + 4).toFixed(1)}" class="clbl" text-anchor="end">${fmtN(yMax, 1)}</text>
+    <text x="${pad.l - 6}" y="${(Y(yMin) + 4).toFixed(1)}" class="clbl" text-anchor="end">${fmtN(yMin, 1)}</text>
+    <path d="${area}" fill="url(#${gid})"/>
+    <path d="${linha}" fill="none" stroke="${cor}" stroke-width="2.5" stroke-linejoin="round"/>
+    ${dots}
+    <text x="${X(0).toFixed(1)}" y="${H - 9}" class="clbl" text-anchor="start">${fmtDataCurta(serie[0].d)}</text>
+    <text x="${X(n - 1).toFixed(1)}" y="${H - 9}" class="clbl" text-anchor="end">${fmtDataCurta(serie[n - 1].d)}</text>
+  </svg>`;
+}
+
+function insightsHTML(a, avs) {
+  if (avs.length < 2) return `<div class="note">Cadastre ao menos 2 avaliações para ver a evolução.</div>`;
+  const pri = avs[0], ult = avs[avs.length - 1];
+  const rp = calc.calcular(pri, a), ru = calc.calcular(ult, a);
+  const items = [];
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const push = (label, va, vb, unidade, melhorSe) => {
+    if (va == null || vb == null) return;
+    const d = vb - va; if (Math.abs(d) < 1e-9) return;
+    const bom = melhorSe === 'down' ? d < 0 : melhorSe === 'up' ? d > 0 : null;
+    const cls = bom === true ? 'bom' : bom === false ? 'ruim' : '';
+    items.push(`<div class="insight ${cls}"><span class="ic">${d < 0 ? '▼' : '▲'}</span><span><span class="it">${label}: ${d > 0 ? '+' : '−'}${fmtN(Math.abs(d), 1)} ${unidade}</span><br><span class="iv">de ${fmtN(va, 1)} para ${fmtN(vb, 1)} ${unidade}</span></span></div>`);
+  };
+  push('Peso', numf(pri.peso), numf(ult.peso), 'kg', null);
+  push('% Gordura', rp.perc, ru.perc, '%', 'down');
+  push('Massa magra', rp.massaMagra, ru.massaMagra, 'kg', 'up');
+  push('Cintura', numf(pri.perimetros?.cintura), numf(ult.perimetros?.cintura), 'cm', 'down');
+  push('Abdômen', numf(pri.perimetros?.abdomen), numf(ult.perimetros?.abdomen), 'cm', 'down');
+  if (!items.length) return `<div class="note">Ainda não há dados comparáveis entre as avaliações.</div>`;
+  return `<div class="note" style="margin-bottom:8px">Comparando a 1ª avaliação (${fmtDataCurta(pri.dataRealizada)}) com a última (${fmtDataCurta(ult.dataRealizada)}).</div>` + items.join('');
+}
+
+function renderProgresso() {
+  const a = alunoAtual; if (!a) return;
+  const panel = $('#tab-progresso');
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada).sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const serie = (fn) => avs.map((av) => ({ d: av.dataRealizada, y: fn(av) })).filter((p) => p.y != null && !isNaN(p.y));
+  const sPeso = serie((av) => numf(av.peso));
+  const sPerc = serie((av) => calc.calcular(av, a).perc);
+  const sMagra = serie((av) => calc.calcular(av, a).massaMagra);
+  const sCintura = serie((av) => numf(av.perimetros?.cintura));
+  const sFlex = serie((av) => numf(av.testes?.flexoes));
+  const sPrancha = serie((av) => numf(av.testes?.prancha));
+  const sAgach = serie((av) => numf(av.testes?.agachamentos));
+  const sAbd = serie((av) => numf(av.testes?.abdominais));
+  const vazio = (s) => `<div class="prog-ph">${avs.length ? 'Cadastre ao menos 2 avaliações com este dado.' : 'Nenhuma avaliação cadastrada ainda.'}</div>`;
+  const chart = (s, opt) => (s.length >= 2 ? chartSVG(s, opt) : vazio(s));
+  const temDesempenho = [sFlex, sPrancha, sAgach, sAbd].some((s) => s.length >= 2);
+  panel.innerHTML = `
+    <div class="prog-grid">
+      <div class="prog-card full"><h4>Medalhas do aluno</h4><div id="prog-medalhas"><div class="prog-ph">Carregando…</div></div></div>
+      <div class="prog-card full"><h4>Metas do aluno</h4><div id="prog-metas"></div></div>
+      <div class="prog-card full"><h4>Evolução do peso corporal</h4>${chart(sPeso, { cor: 'var(--accent)' })}</div>
+      <div class="prog-card"><h4>% Gordura corporal</h4>${chart(sPerc, { cor: '#ff5b50' })}</div>
+      <div class="prog-card"><h4>Massa magra</h4>${chart(sMagra, { cor: '#3fb950' })}</div>
+      <div class="prog-card full"><h4>Evolução da cintura</h4>${chart(sCintura, { cor: 'var(--accent-2)' })}</div>
+      ${temDesempenho ? `
+      <div class="prog-card"><h4>Flexões (máx.)</h4>${chart(sFlex, { cor: 'var(--accent)' })}</div>
+      <div class="prog-card"><h4>Prancha (s)</h4>${chart(sPrancha, { cor: '#3fb950' })}</div>
+      <div class="prog-card"><h4>Agachamentos (1 min)</h4>${chart(sAgach, { cor: 'var(--accent-2)' })}</div>
+      <div class="prog-card"><h4>Abdominais (1 min)</h4>${chart(sAbd, { cor: '#ff5b50' })}</div>` : ''}
+      <div class="prog-card full"><h4>Pontos que foram melhorados</h4><div class="insights">${insightsHTML(a, avs)}</div></div>
+      <div class="prog-card full"><h4>Gasto calórico de treino (semana)</h4><div id="prog-nutri"><div class="prog-ph">Carregando…</div></div></div>
+      <div class="prog-card full"><h4>Evolução de força (registro de cargas)</h4><div id="prog-cargas"><div class="prog-ph">Carregando…</div></div></div>
+      <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
+    </div>`;
+  renderMetasCoach(a);
+  carregarMedalhasAluno(a);
+  carregarGastoSemana(a);
+  carregarCargasForca(a);
+}
+
+/** Resumo das medalhas do aluno (mesma lógica do Portal) — para parabenizar. */
+async function carregarMedalhasAluno(a) {
+  const alvoId = a.id;
+  const el = $('#prog-medalhas'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  let gastos = [], concl = [];
+  if (email) {
+    try { const g = await carregarGastoTreino(email); gastos = (g && g.gastos) || []; } catch (e) { console.warn('Medalhas:', e?.code || e); }
+    try { concl = await carregarConclusoesDesafios(email); } catch (e) { console.warn('Medalhas:', e?.code || e); }
+  }
+  if (!$('#prog-medalhas') || alunoAtual?.id !== alvoId) return;
+  const dias = game.diasTreino(a.presencas, gastos);
+  const c = game.contadores(dias);
+  const meds = game.medalhas({
+    total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias),
+    nAvaliacoes: (a.avaliacoes || []).filter((x) => x.dataRealizada).length,
+    desafios: concl.length,
+    desAgua: concl.filter((x) => x.categoria === 'agua').length,
+    desAcucar: concl.filter((x) => x.categoria === 'acucar').length,
+    meses: Object.values(a.pagamentos || {}).filter(Boolean).length,
+    calMaxTreino: game.maxCaloriasTreino(gastos),
+    calMaxSemana: game.maxCaloriasSemana(gastos),
+    feedbacks: Array.isArray(a.feedbacks) ? a.feedbacks.length : 0,
+  });
+  const ok = meds.filter((m) => m.ok);
+  const prox = meds.find((m) => !m.ok);
+  const nome1 = (a.nome || '').trim().split(/\s+/)[0] || 'o aluno';
+  const wa = String(a.telefone || '').replace(/\D/g, '');
+  el.innerHTML = `
+    <div class="med-resumo">
+      <span class="med-cont">${ok.length}<small>/${meds.length}</small></span>
+      <span class="med-cont-l">medalhas conquistadas</span>
+      ${wa.length >= 10 && ok.length ? `<a class="btn btn-sm med-wa" href="${waMsg(a.telefone, `Parabéns, ${nome1}! 🏅 Você já desbloqueou ${ok.length} de ${meds.length} medalhas no Portal do Aluno. Bora pra próxima! 💪`)}" target="_blank" rel="noopener">Parabenizar no WhatsApp</a>` : ''}
+    </div>
+    ${ok.length ? `<div class="med-grid">${ok.map((m) => `<div class="med-chip" title="${esc(m.desc)}"><span>${m.ic}</span>${esc(m.nome)}</div>`).join('')}</div>` : '<div class="prog-ph">Ainda sem medalhas. Conforme treina, avalia e cumpre desafios, elas aparecem aqui.</div>'}
+    ${prox ? `<div class="med-prox">Próxima: <b>${prox.ic} ${esc(prox.nome)}</b> — ${esc(prox.desc)}</div>` : ''}`;
+}
+
+/** Card read-only de evolução de força (registro de cargas do Portal). */
+async function carregarCargasForca(a) {
+  const alvoId = a.id;
+  const el = $('#prog-cargas'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  if (!email) { el.innerHTML = `<div class="prog-ph">Aluno sem e-mail — sem registro de cargas.</div>`; return; }
+  let regs;
+  try { regs = await carregarCargasAluno(email); }
+  catch (e) { console.warn('Cargas:', e?.code || e); if ($('#prog-cargas') && alunoAtual?.id === alvoId) $('#prog-cargas').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`; return; }
+  if (!$('#prog-cargas') || alunoAtual?.id !== alvoId) return;
+  if (!regs.length) { $('#prog-cargas').innerHTML = `<div class="prog-ph">O aluno ainda não registrou cargas no Portal.</div>`; return; }
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const grupos = new Map();
+  regs.forEach((r) => { const k = norm(r.exercicio); if (!grupos.has(k)) grupos.set(k, { nome: r.exercicio, itens: [] }); grupos.get(k).itens.push(r); });
+  const lista = [...grupos.values()].sort((x, y) => (Math.max(...y.itens.map((i) => i.criadoEm || 0)) - Math.max(...x.itens.map((i) => i.criadoEm || 0))));
+  $('#prog-cargas').innerHTML = lista.map((g) => {
+    const porDia = new Map();
+    g.itens.forEach((x) => { const c = numf(x.cargaKg); if (c != null) porDia.set(x.data, Math.max(porDia.get(x.data) || 0, c)); });
+    const serie = [...porDia.entries()].sort((p, q) => (p[0] < q[0] ? -1 : 1)).map(([d, y]) => ({ d, y }));
+    const melhor = Math.max(...g.itens.map((x) => numf(x.cargaKg) || 0));
+    const graf = serie.length >= 2 ? chartSVG(serie, { cor: 'var(--accent)' }) : `<div class="prog-ph" style="padding:14px">Só um dia registrado até agora.</div>`;
+    return `<div class="forca-item"><div class="forca-top"><b>${esc(g.nome)}</b><span>recorde ${fmtN(melhor, 1)} kg</span></div>${graf}</div>`;
+  }).join('');
+}
+
+/** Card de metas do aluno (definir/remover + barra de progresso). Publica no Portal ao salvar. */
+function renderMetasCoach(a) {
+  const el = $('#prog-metas'); if (!el) return;
+  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
+  const avsOrd = avs.slice().sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
+  const metas = Array.isArray(a.metas) ? a.metas : [];
+  const barras = metas.map((m) => {
+    const p = calc.progressoMeta(m, avs, a);
+    const t = calc.META_TIPOS[m.tipo] || { label: m.tipo, unidade: '', dec: 1 };
+    const pctTxt = p.pct != null ? Math.round(p.pct) + '% do caminho' : 'sem avaliação ainda';
+    return `<div class="meta-row">
+      <div class="meta-top"><span class="meta-nome">${esc(t.label)}${p.atingida ? ' <span class="meta-ok">✓ atingida</span>' : ''}</span><button class="meta-x" data-id="${esc(m.id)}" type="button" title="Remover meta">×</button></div>
+      <div class="meta-bar"><div class="meta-fill${p.atingida ? ' ok' : ''}" style="width:${p.pct != null ? p.pct.toFixed(0) : 0}%"></div></div>
+      <div class="meta-vals"><span>Início ${p.base != null ? fmtN(p.base, t.dec) : '—'}</span><b>Atual ${p.atual != null ? fmtN(p.atual, t.dec) : '—'} ${esc(t.unidade)}</b><span>Meta ${p.alvo != null ? fmtN(p.alvo, t.dec) : '—'}</span></div>
+      <div class="meta-foot">${pctTxt}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <form id="meta-form" class="meta-form">
+      <select id="meta-tipo">${Object.entries(calc.META_TIPOS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}</select>
+      <input id="meta-alvo" type="number" step="any" min="0" placeholder="Valor da meta" required>
+      <button class="btn btn-sm" type="submit">Definir meta</button>
+    </form>
+    ${barras || '<div class="prog-ph">Nenhuma meta ainda. Combine um objetivo com o aluno (peso, % de gordura ou cintura) — ele acompanha a barra no Portal.</div>'}`;
+  $('#meta-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const tipo = $('#meta-tipo').value;
+    const alvo = numf($('#meta-alvo').value);
+    if (alvo == null) return;
+    const base = calc.valorMetrica(tipo, avsOrd[avsOrd.length - 1], a);
+    const nova = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), tipo, alvo, base, baseData: avsOrd[avsOrd.length - 1]?.dataRealizada || null, criadoEm: Date.now() };
+    db.atualizar(a.id, { metas: [...metas, nova] });
+    alunoAtual = db.obter(a.id);
+    renderMetasCoach(alunoAtual);
+  });
+  $$('#prog-metas .meta-x').forEach((b) => b.addEventListener('click', () => {
+    db.atualizar(a.id, { metas: metas.filter((m) => m.id !== b.dataset.id) });
+    alunoAtual = db.obter(a.id);
+    renderMetasCoach(alunoAtual);
+  }));
+}
+
+/* ---- Gasto calórico de treino (semana, vindo do Portal do Aluno) ---- */
+function semanaSegSab() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dow = hoje.getDay();
+  const mon = new Date(hoje); mon.setDate(hoje.getDate() + (dow === 0 ? -6 : 1 - dow));
+  return Array.from({ length: 6 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
+}
+
+/** Gráfico de barras Seg–Sáb (kcal), no mesmo estilo dos gráficos do progresso. */
+function barrasNutri(valores, labels, hojeIso, dias) {
+  const W = 600, H = 190, pad = { l: 16, r: 12, t: 22, b: 28 };
+  const max = Math.max(1, ...valores);
+  const n = valores.length, areaW = W - pad.l - pad.r, step = areaW / n, bw = step * 0.56;
+  const Y = (v) => pad.t + (1 - v / max) * (H - pad.t - pad.b);
+  const bars = valores.map((v, i) => {
+    const x = pad.l + step * i + (step - bw) / 2, y = Y(v), h = (H - pad.b) - y;
+    const ehHoje = isoLocal(dias[i]) === hojeIso;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="4" fill="${ehHoje ? 'var(--accent)' : 'var(--accent-2)'}"/>
+      ${v > 0 ? `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" class="clbl" text-anchor="middle">${fmtN(v, 0)}</text>` : ''}
+      <text x="${(x + bw / 2).toFixed(1)}" y="${H - 9}" class="clbl" text-anchor="middle">${labels[i]}</text>`;
+  }).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gasto calórico por dia">
+    <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" class="ax"/>${bars}</svg>`;
+}
+
+async function carregarGastoSemana(a) {
+  const alvoId = a.id;
+  const el = $('#prog-nutri'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  if (!email) { el.innerHTML = `<div class="prog-ph">Aluno sem e-mail cadastrado — sem dados do Portal.</div>`; return; }
+  let dados;
+  try { dados = await carregarGastoTreino(email); }
+  catch (e) { console.warn('Nutrição:', e?.code || e); if ($('#prog-nutri') && alunoAtual?.id === alvoId) $('#prog-nutri').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`; return; }
+  if (!$('#prog-nutri') || alunoAtual?.id !== alvoId) return; // trocou de aluno enquanto carregava
+  const gastos = (dados && dados.gastos) || [];
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const dias = semanaSegSab();
+  const somaDia = dias.map((d) => { const iso = isoLocal(d); return gastos.filter((g) => g.data === iso).reduce((s, g) => s + (numf(g.calorias) || 0), 0); });
+  const total = somaDia.reduce((s, v) => s + v, 0);
+  if (!gastos.length) { $('#prog-nutri').innerHTML = `<div class="prog-ph">O aluno ainda não registrou treinos no Portal.</div>`; return; }
+  const hj = isoLocal(new Date());
+  $('#prog-nutri').innerHTML = `
+    <div class="nutri-total"><span>Total queimado (Seg–Sáb)</span><b>${fmtN(total, 0)} kcal</b></div>
+    ${barrasNutri(somaDia, ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], hj, dias)}`;
+}
+
+/** Lista os feedbacks pós-treino enviados pelo aluno no Portal (mais recentes primeiro). */
+function feedbacksHTML(a) {
+  const fbs = (Array.isArray(a.feedbacks) ? a.feedbacks : []).slice().sort((x, y) => (y.criadoEm || 0) - (x.criadoEm || 0));
+  if (!fbs.length) return `<div class="prog-ph">Nenhum feedback ainda. O aluno pode enviar pelo Portal do Aluno.</div>`;
+  const DOR = { nenhuma: ['Sem dor', 'ok'], leve: ['Dor leve', 'ok'], moderada: ['Dor moderada', 'warn'], forte: ['Dor forte', 'bad'] };
+  const fmtD = (iso) => { if (!iso) return ''; const [an, m, d] = String(iso).split('-'); return `${d}/${m}/${an}`; };
+  return `<ul class="fb-list">` + fbs.map((f) => {
+    const [dl, dc] = DOR[f.dor] || ['—', ''];
+    const rpe = Math.max(0, Math.min(10, Number(f.esforco) || 0));
+    return `<li class="fb-item">
+      <div class="fb-top">
+        <span class="fb-data">${fmtD(f.data)}</span>
+        <span class="fb-rpe">Esforço <b>${rpe}</b>/10</span>
+        <span class="fb-dor ${dc}">${dl}</span>
+      </div>
+      ${f.obs ? `<p class="fb-obs">${String(f.obs).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</p>` : ''}
+    </li>`;
+  }).join('') + `</ul>`;
+}
+
+/* ============================================================
+   ABA — Anamnese
+   ============================================================ */
+function optsSelect(arr, atual) { return `<option value="">—</option>` + arr.map((s) => opt(s, atual)).join(''); }
+
+function renderAnamnese() {
+  const a = alunoAtual; if (!a) return;
+  const an = a.anamnese || {};
+  $('#tab-anamnese').innerHTML = `
+    <form id="form-anamnese">
+      <div class="form-sec"><h3>Treino & rotina</h3><div class="grid-form">
+        <div class="field"><label>Experiência com treino</label><select name="experiencia">${optsSelect(['Iniciante', 'Intermediário', 'Avançado', 'Retornando'], an.experiencia)}</select></div>
+        <div class="field"><label>Histórico de treino (tempo, modalidades)</label><input name="historicoTreino" value="${esc(an.historicoTreino)}" /></div>
+        <div class="field"><label>Profissão / rotina de trabalho</label><input name="rotina" value="${esc(an.rotina)}" /></div>
+        <div class="field"><label>Horas de sono / noite</label><input name="sono" type="number" step="any" value="${esc(an.sono)}" /></div>
+        <div class="field"><label>Nível de estresse</label><select name="estresse">${optsSelect(['Baixo', 'Moderado', 'Alto'], an.estresse)}</select></div>
+      </div></div>
+      <div class="form-sec"><h3>Hábitos</h3><div class="grid-form">
+        <div class="field"><label>Refeições por dia</label><input name="refeicoes" type="number" step="any" value="${esc(an.refeicoes)}" /></div>
+        <div class="field"><label>Hidratação (L/dia)</label><input name="hidratacao" type="number" step="any" value="${esc(an.hidratacao)}" /></div>
+        <div class="field"><label>Tabagismo</label><select name="tabagismo">${optsSelect(['Não', 'Sim', 'Ex-fumante'], an.tabagismo)}</select></div>
+        <div class="field"><label>Álcool</label><select name="alcool">${optsSelect(['Não', 'Socialmente', 'Frequente'], an.alcool)}</select></div>
+      </div></div>
+      <div class="form-sec"><h3>Saúde</h3><div class="grid-form">
+        <div class="field full"><label>Doenças / condições / cirurgias prévias</label><textarea name="doencas">${esc(an.doencas)}</textarea></div>
+        <div class="field full"><label>Medicamentos em uso</label><textarea name="medicamentos">${esc(an.medicamentos)}</textarea></div>
+        <div class="field full"><label>Histórico familiar (cardíaco, diabetes, hipertensão…)</label><textarea name="histFamiliar">${esc(an.histFamiliar)}</textarea></div>
+        <div class="field full"><label>Dores ou lesões atuais</label><textarea name="doresLesoes">${esc(an.doresLesoes)}</textarea></div>
+      </div></div>
+      <div class="form-sec"><h3>Objetivo</h3><div class="grid-form">
+        <div class="field full"><label>Objetivo detalhado / expectativas</label><textarea name="objetivoDetalhe">${esc(an.objetivoDetalhe)}</textarea></div>
+      </div></div>
+      <div class="form-actions"><button class="btn" type="submit">Salvar anamnese</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
+    </form>`;
+  $('#form-anamnese').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target); const o = {};
+    for (const [k, v] of fd.entries()) o[k] = typeof v === 'string' ? v.trim() : v;
+    db.atualizar(a.id, { anamnese: o }); alunoAtual = db.obter(a.id);
+    const fl = $('#form-anamnese [data-saved]'); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
+  });
+}
+
+/* ============================================================
+   ABA — PAR-Q
+   ============================================================ */
+const PARQ = [
+  'Algum médico já disse que você possui um problema cardíaco e que só deveria praticar atividade física sob supervisão médica?',
+  'Você sente dor no peito quando pratica atividade física?',
+  'No último mês, você sentiu dor no peito sem estar praticando atividade física?',
+  'Você perde o equilíbrio por tontura ou já perdeu a consciência?',
+  'Você tem algum problema ósseo ou articular que poderia piorar com a mudança na atividade física?',
+  'Você toma atualmente algum medicamento para pressão arterial ou problema cardíaco?',
+  'Você sabe de alguma outra razão pela qual não deveria praticar atividade física?',
+];
+function renderParq() {
+  const a = alunoAtual; if (!a) return;
+  const p = a.parq || {}; const resp = p.respostas || {};
+  const linhas = PARQ.map((q, i) => `
+    <div class="parq-q">
+      <span class="parq-txt">${i + 1}. ${q}</span>
+      <div class="parq-opts">
+        <label class="chk"><input type="radio" name="q${i}" value="sim"${resp['q' + i] === 'sim' ? ' checked' : ''}/> Sim</label>
+        <label class="chk"><input type="radio" name="q${i}" value="nao"${resp['q' + i] === 'nao' ? ' checked' : ''}/> Não</label>
+      </div>
+    </div>`).join('');
+  $('#tab-parq').innerHTML = `
+    <form id="form-parq">
+      <div id="parq-result"></div>
+      <div class="form-sec"><h3>Questionário de prontidão para atividade física (PAR-Q)</h3><div class="parq-list">${linhas}</div></div>
+      <div class="form-sec"><div class="grid-form">
+        <div class="field"><label>Data da triagem</label><input name="data" type="date" value="${esc(p.data || '')}" /></div>
+        <div class="field full"><label>Observações</label><textarea name="obs">${esc(p.obs)}</textarea></div>
+      </div></div>
+      <div class="form-actions"><button class="btn" type="submit">Salvar PAR-Q</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
+    </form>`;
+  const form = $('#form-parq');
+  const avaliar = () => {
+    const fd = new FormData(form); let algumSim = false, faltam = 0;
+    for (let i = 0; i < PARQ.length; i++) { const v = fd.get('q' + i); if (!v) faltam++; else if (v === 'sim') algumSim = true; }
+    const el = $('#parq-result');
+    if (faltam === PARQ.length) { el.innerHTML = ''; return; }
+    if (algumSim) el.innerHTML = `<div class="parq-banner alerta">⚠️ Há resposta "Sim" — recomende avaliação médica antes de iniciar ou intensificar a atividade física.</div>`;
+    else if (faltam === 0) el.innerHTML = `<div class="parq-banner ok">✓ Todas as respostas "Não" — apto a iniciar atividade física com bom senso. Reavalie periodicamente.</div>`;
+    else el.innerHTML = `<div class="parq-banner">Responda todas as ${PARQ.length} perguntas para concluir a triagem.</div>`;
+  };
+  form.addEventListener('change', avaliar); avaliar();
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(form); const respostas = {};
+    for (let i = 0; i < PARQ.length; i++) { const v = fd.get('q' + i); if (v) respostas['q' + i] = v; }
+    db.atualizar(a.id, { parq: { respostas, data: fd.get('data') || '', obs: (fd.get('obs') || '').toString().trim() } });
+    alunoAtual = db.obter(a.id);
+    const fl = $('#form-parq [data-saved]'); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
+  });
+}
+
+/* ============================================================
+   GATE de acesso (mesmo login do Coach/Montador)
+   ============================================================ */
+const gate = $('#gate'), gform = $('#gate-form');
+const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-erro');
+const gToggle = $('#gate-toggle'), gReset = $('#gate-reset');
+const gBtn = gform.querySelector('button[type=submit]');
+
+async function entrar(user) {
+  if (user && cloudAtivo() && await bloquearSeNaoCoach(user)) return; // barra contas de aluno
+  UID = user?.uid || null;
+  gate.style.display = 'none';
+  $('#app').removeAttribute('hidden');
+  renderLista();
+  // Sincroniza com a nuvem (se houver usuário logado). Não bloqueia a UI.
+  if (user && user.uid) {
+    db.iniciarSync(user.uid, () => {
+      renderLista();
+      if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
+        const a = db.obter(alunoAtual.id);
+        if (a) { alunoAtual = a; renderAvaliacoes(); }
+      }
+    }).then(async () => {
+      // 1) puxa o que os alunos enviaram (foto/feedback) e mescla no coach
+      const n = await mergarInboxes(db.listar(), (id, patch) => db.atualizar(id, patch));
+      if (n) {
+        renderLista();
+        if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
+          const a = db.obter(alunoAtual.id);
+          if (a) { alunoAtual = a; if ($('#tab-progresso').classList.contains('active')) renderProgresso(); }
+        }
+      }
+      // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
+      publicarPortal(db.listar());
+      // 3) puxa o mural de avisos + desafios da nuvem (para editar no mesmo estado em qualquer aparelho)
+      sincronizarAvisos();
+      sincronizarDesafios();
+      // 4) total de treino queimado na semana, por aluno (selo na listagem)
+      atualizarGastoSemana();
+      // 5) leads que precisam de follow-up (selo no botão "Leads")
+      carregarBadgeLeads();
+    });
+  }
+}
+function erroMsg(m) { gErro.style.color = ''; gErro.textContent = m; gErro.style.display = 'block'; }
+function okMsg(m) { gErro.style.color = 'var(--ok)'; gErro.textContent = m; gErro.style.display = 'block'; }
+function msgAuth(e) {
+  const c = e?.code || '';
+  return ({
+    'auth/invalid-credential': 'E-mail ou senha incorretos. Sem conta? Use “Primeiro acesso? Criar conta”.',
+    'auth/user-not-found': 'Conta não encontrada. Use “Primeiro acesso? Criar conta”.',
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/email-already-in-use': 'Essa conta já existe — faça login normalmente.',
+    'auth/weak-password': 'Senha muito curta (mínimo 6 caracteres).',
+    'auth/network-request-failed': 'Sem conexão com a internet.',
+    'auth/too-many-requests': 'Muitas tentativas. Aguarde e tente de novo.',
+    'permission-denied': 'Login OK, mas o banco está bloqueado (regras do Firestore).',
+  })[c] || `Erro ao entrar (${c || 'desconhecido'}).`;
+}
+
+if (cloudAtivo()) {
+  gate.style.display = 'flex';
+  let criando = false;
+  gToggle.addEventListener('click', (e) => { e.preventDefault(); criando = !criando; gBtn.textContent = criando ? 'Criar conta e entrar' : 'Entrar'; gToggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta'; gErro.style.display = 'none'; });
+  gReset.addEventListener('click', async (e) => { e.preventDefault(); const m = gEmail.value.trim(); if (!m) { erroMsg('Digite seu e-mail acima primeiro.'); gEmail.focus(); return; } try { await resetarSenha(m); okMsg('Enviamos um link de redefinição para seu e-mail.'); } catch (err) { erroMsg(msgAuth(err)); } });
+  sessaoAtual().then((u) => { if (u) entrar(u); else gEmail.focus(); });
+  gform.addEventListener('submit', async (e) => {
+    e.preventDefault(); gErro.style.display = 'none';
+    try {
+      const user = criando ? await criarConta(gEmail.value.trim(), gSenha.value) : await login(gEmail.value.trim(), gSenha.value);
+      entrar(user);
+    }
+    catch (err) { erroMsg(msgAuth(err)); console.error('Auth:', err?.code, err?.message); }
+  });
+} else if (estaLiberado()) {
+  entrar();
+} else {
+  gate.style.display = 'flex';
+  gEmail?.remove(); gToggle?.remove(); gReset?.remove(); gSenha.focus();
+  gform.addEventListener('submit', async (e) => { e.preventDefault(); if (await tentarLiberar(gSenha.value)) entrar(); else { erroMsg('Senha incorreta.'); gSenha.value = ''; gSenha.focus(); } });
+}

@@ -54,13 +54,18 @@ export function bloquearNaoCoach() {
     <div class="gate-box" style="text-align:center;max-width:360px">
       <div class="brand"><b>GARAGE POWER LAB</b> · Área restrita</div>
       <p style="color:var(--mut,#a1a1aa);margin:14px 0 18px;line-height:1.5">Esta área é exclusiva do coach. Sua conta é de <b>aluno</b> — seu espaço é o Portal do Aluno.</p>
-      <a class="btn" href="../aluno/index.html" style="display:block">Ir para o Portal do Aluno</a>
+      <a class="btn" href="/painel-do-aluno/index.html" style="display:block">Ir para o Portal do Aluno</a>
       <a href="#" id="blk-sair" style="display:inline-block;margin-top:16px;color:var(--mut,#a1a1aa);font-size:.85rem">Sair desta conta</a>
     </div>`;
   document.getElementById('blk-sair')?.addEventListener('click', async (e) => { e.preventDefault(); try { await sair(); } catch {} location.reload(); });
 }
 
 /** Bloqueia (e mostra a tela) se o usuário logado não for coach. @returns {Promise<boolean>} true se bloqueou */
+/* O link do aviso acima é ABSOLUTO de propósito. Ele é renderizado por cinco
+   telas — o hub do coach (`/coach/`) e as quatro ferramentas (`/coach/algo/`) —
+   que ficam em profundidades DIFERENTES. Um `../` que acerta o hub erra as
+   outras quatro, e vice-versa. Antes da reorganização todas estavam no mesmo
+   nível e o relativo funcionava; não voltem a ele. */
 export async function bloquearSeNaoCoach(user) {
   if (!user) return false;
   if (await ehCoach(user)) return false;

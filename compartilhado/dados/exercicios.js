@@ -18,7 +18,7 @@
  *  - 'gap' está fora de todos até o sistema de GAP ser desenhado na plataforma.
  *
  * @typedef {import('../config/padroes.js').Padrao} Padrao
- * @typedef {import('../../montador/config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../../coach/montador-de-treino/config/modalidades.js').ModalidadeId} ModalidadeId
  *
  * @typedef {Object} Exercicio
  * @property {string} id

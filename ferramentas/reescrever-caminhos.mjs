@@ -49,6 +49,44 @@ const RENOMEADOS = {
   'cloud-config.js': 'compartilhado/firebase/config.js',
 };
 
+/**
+ * Pastas que mudaram de lugar. Resolver por AQUI é melhor que por nome-base:
+ * existem oito `index.html` e dois `db.js` no site, e escolher um deles pelo
+ * nome seria exatamente o chute caro que este script se recusa a dar. Com o
+ * mapa, `../alunos/index.html` vira um caminho único e verificável.
+ */
+const PASTAS = {
+  'aluno/': 'painel-do-aluno/',
+  'alunos/': 'coach/gestao-de-alunos/',
+  'montador/': 'coach/montador-de-treino/',
+  'academia/': 'coach/academia/',
+  'loja-gestao/': 'coach/gestao-garage-store/',
+  'loja/': 'garage-store/',
+};
+
+/** Aplica o mapa de pastas a um caminho relativo à RAIZ. Devolve o mesmo caminho se nada casar. */
+function aplicarMapa(doRepo) {
+  for (const [de, para] of Object.entries(PASTAS)) {
+    if (doRepo === de.slice(0, -1)) return para.slice(0, -1);
+    if (doRepo.startsWith(de)) return para + doRepo.slice(de.length);
+  }
+  return doRepo;
+}
+
+/**
+ * Onde este arquivo MORAVA antes da mudança. É a peça que faltava: um caminho
+ * relativo escrito num arquivo foi calculado a partir da pasta ANTIGA dele, e
+ * resolvê-lo a partir da pasta nova dá um alvo que nunca existiu. Ex.: o
+ * `../coach/index.html` do montador foi escrito quando ele estava em
+ * `montador/` — resolver de `coach/montador-de-treino/` daria `coach/coach/`.
+ */
+function origem(doRepo) {
+  for (const [de, para] of Object.entries(PASTAS)) {
+    if (doRepo.startsWith(para)) return de + doRepo.slice(para.length);
+  }
+  return doRepo;
+}
+
 const semQuery = (p) => p.split('?')[0].split('#')[0];
 const query = (p) => p.slice(semQuery(p).length);
 
@@ -71,6 +109,9 @@ for (const arquivo of todos) {
     for (const m of src.matchAll(/(?:src|href)\s*=\s*"([^"]+)"/g)) citados.add(m[1]);
   }
 
+  /** Este arquivo, de volta ao lugar de onde os caminhos dele foram escritos. */
+  const arquivoAntigo = origem(rel(arquivo));
+
   for (const citado of citados) {
     const limpo = semQuery(citado);
     if (!limpo.startsWith('.')) continue;                 // só relativo; absoluto e pacote ficam de fora
@@ -78,8 +119,12 @@ for (const arquivo of todos) {
     if (fs.existsSync(alvo)) continue;                    // já aponta certo
 
     const base = path.basename(limpo);
-    const candidatos = RENOMEADOS[base]
-      ? [path.join(RAIZ, RENOMEADOS[base])]
+    // 1º e melhor: resolve o caminho a partir da pasta ANTIGA deste arquivo e
+    // aplica o mapa. É determinístico — nada de escolher entre oito index.html.
+    const antesDoRepo = path.posix.normalize(path.posix.join(path.posix.dirname(arquivoAntigo), limpo));
+    const depois = path.join(RAIZ, aplicarMapa(antesDoRepo));
+    const candidatos = fs.existsSync(depois) ? [depois]
+      : RENOMEADOS[base] ? [path.join(RAIZ, RENOMEADOS[base])]
       : (porNome[base] || []);
     if (candidatos.length === 0) { semCandidato.push(`${rel(arquivo)}  →  ${citado}`); continue; }
     if (candidatos.length > 1) {
