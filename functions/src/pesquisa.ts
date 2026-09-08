@@ -11,7 +11,7 @@
  * tasks; aqui só o schema e a leitura.
  *
  * Por que a proposta sem `padrao` resolvível é RECUSADA (lança erro) em vez de
- * aceita com o campo vazio: `converter()` em `montador/ui/catalogo.js:44`
+ * aceita com o campo vazio: `converter()` em `coach/montador-de-treino/ui/catalogo.js:44`
  * devolve `null` para todo exercício sem padrão — ele desaparece do gerador, do
  * Treino Manual e da busca do Livre, EM SILÊNCIO. O coach cadastraria achando
  * que deu certo. Mesma lógica para `equipamentoIds`: só vale o que está no
@@ -29,19 +29,19 @@
  * acesso aos `.js` do site — o site é servido estático, as functions rodam no
  * servidor. Por isso os vocabulários abaixo são CÓPIAS, não imports, da fonte
  * real:
- *   - `PADROES`         ← `montador/config/padroes.js` (`PADROES`, 6 valores;
+ *   - `PADROES`         ← `compartilhado/config/padroes.js` (`PADROES`, 6 valores;
  *                          são as CHAVES, e é nesse formato que a Academia
- *                          grava `exercicio.padrao` — ver `academia/db.js`
+ *                          grava `exercicio.padrao` — ver `coach/academia/db.js`
  *                          `seedData()`, campo `padrao: x.padrao || ...`).
  *   - `MUSCULOS_LABEL`  ← as 11 chaves de `MUSCULOS` (mesmo arquivo), passadas
- *                          pelo mapa `MUSC_MAP` de `academia/data/seed.js`
+ *                          pelo mapa `MUSC_MAP` de `coach/academia/data/seed.js`
  *                          (rótulo legível). A Academia grava o RÓTULO, não a
  *                          chave — ver `seedData()`, campo `musculos:
  *                          [...].map((m) => MUSC_MAP[m])` — e é essa forma que
- *                          `montador/ui/catalogo.js` (`MUSC_INV`) espera de
+ *                          `coach/montador-de-treino/ui/catalogo.js` (`MUSC_INV`) espera de
  *                          volta na hora de converter para o motor.
- *   - `TAGS`            ← `academia/db.js` (`TAGS`, 6 valores).
- *   - `NIVEIS`          ← `montador/core/niveis.js` (`NIVEIS`, os 3 valores). É a
+ *   - `TAGS`            ← `coach/academia/db.js` (`TAGS`, 6 valores).
+ *   - `NIVEIS`          ← `coach/montador-de-treino/core/niveis.js` (`NIVEIS`, os 3 valores). É a
  *                          fonte EXECUTÁVEL, e é contra ela que `checar.ts`
  *                          compara — não contra o typedef de `data/exercicios.js`.
  * Se uma dessas listas mudar na fonte e ninguém lembrar de mudar aqui, a
@@ -51,14 +51,14 @@
  * copiar à mão.
  */
 
-/** `PADROES` de `montador/config/padroes.js` — chaves, não rótulos. */
+/** `PADROES` de `compartilhado/config/padroes.js` — chaves, não rótulos. */
 const PADROES = [
   'empurrar', 'puxar', 'quadriceps', 'posterior_gluteo', 'core', 'estabilizadores',
 ] as const;
 
 /**
- * Rótulos de `MUSCULOS` (`montador/config/padroes.js`) já traduzidos pelo
- * `MUSC_MAP` de `academia/data/seed.js` — é o rótulo que a Academia grava em
+ * Rótulos de `MUSCULOS` (`compartilhado/config/padroes.js`) já traduzidos pelo
+ * `MUSC_MAP` de `coach/academia/data/seed.js` — é o rótulo que a Academia grava em
  * `exercicio.musculos`, não a chave interna do montador.
  */
 const MUSCULOS_LABEL = [
@@ -66,19 +66,19 @@ const MUSCULOS_LABEL = [
   'Posterior de coxa', 'Glúteo', 'Panturrilha', 'Core/Abdômen', 'Antebraço',
 ] as const;
 
-/** `TAGS` de `academia/db.js`. */
+/** `TAGS` de `coach/academia/db.js`. */
 const TAGS = ['MUSCULAÇÃO', 'HYROX', 'HIIT', 'CROSS', 'GAP', 'MOBILIDADE'] as const;
 
-/** `Exercicio.nivel` de `montador/data/exercicios.js`. */
+/** `Exercicio.nivel` de `compartilhado/dados/exercicios.js`. */
 const NIVEIS = ['iniciante', 'intermediario', 'avancado'] as const;
 
-/** Nível padrão quando a IA manda algo fora do vocabulário — mesmo fallback de `academia/db.js` (`x.nivel || 'intermediario'`). */
+/** Nível padrão quando a IA manda algo fora do vocabulário — mesmo fallback de `coach/academia/db.js` (`x.nivel || 'intermediario'`). */
 const NIVEL_PADRAO = 'intermediario';
 
 /** `tempoMedioSeg` só é aceito nesta faixa; fora dela cai no padrão do contexto. */
 const TEMPO_MIN = 5;
 const TEMPO_MAX = 600;
-/** Padrão de exercício "normal" — mesmo valor usado em boa parte de `montador/data/exercicios.js`. */
+/** Padrão de exercício "normal" — mesmo valor usado em boa parte de `compartilhado/dados/exercicios.js`. */
 const TEMPO_PADRAO_EXERCICIO = 35;
 /** Padrão de mobilidade/aquecimento — dentro da faixa de 20–60s que `instrucoes()` pede à IA. */
 const TEMPO_PADRAO_MOBILIDADE = 40;
@@ -345,14 +345,14 @@ export function extrairProposta(
     musculos: arrayFiltrado(d.musculos, MUSCULOS_LABEL),
     tags: arrayFiltrado(d.tags, TAGS),
     equipamentoIds,
-    // Nível fora do vocabulário cai no mesmo padrão que `academia/db.js` já usa
+    // Nível fora do vocabulário cai no mesmo padrão que `coach/academia/db.js` já usa
     // para exercício sem nível (`x.nivel || 'intermediario'") — não há "array"
     // do qual descartar um valor único, então o equivalente a "descartar em
     // silêncio" é usar o padrão do resto do catálogo.
     nivel: (NIVEIS as readonly string[]).includes(nivel) ? nivel : NIVEL_PADRAO,
     tempoMedioSeg: numEmFaixa(d.tempoMedioSeg, tempoPadrao),
     // `!== false` e não `Boolean(...)`: o padrão do catálogo é COMPOSTO (ver
-    // `converter()` em montador/ui/catalogo.js, que resolve ausente como true),
+    // `converter()` em coach/montador-de-treino/ui/catalogo.js, que resolve ausente como true),
     // e é o isolamento que precisa ser declarado. Sem este campo, todo exercício
     // cadastrado pela pesquisa nasceria composto — e uma rosca direta entraria no
     // sorteio dos dias de Força, que `servePraForca` existe justamente para evitar.

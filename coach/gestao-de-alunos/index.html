@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Gestão de Alunos — Garage Power Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./alunos.css" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+  <!-- ============ GATE (login) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Alunos</div>
+      <p class="gate-sub">Área restrita ao coach.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links">
+        <a href="#" id="gate-toggle">Primeiro acesso? Criar conta</a>
+        <a href="#" id="gate-reset">Esqueci a senha</a>
+      </div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="tb-left">
+        <h1>Gestão de Alunos</h1>
+      </div>
+      <div style="display:flex;gap:10px">
+        <a class="btn ghost btn-sm" href="../index.html">Coach</a>
+        <a class="btn ghost btn-sm" href="../index.html">Voltar ao site</a>
+      </div>
+    </header>
+
+    <!-- ----------- TELA 1: LISTAGEM ----------- -->
+    <section id="tela-lista" class="screen active">
+      <div class="wrap">
+        <div class="lista-head">
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <span class="eyebrow">Banco de dados de alunos</span>
+            <button class="btn ghost btn-sm" id="btn-checkin" type="button">Check-in</button>
+            <button class="btn ghost btn-sm" id="btn-agenda" type="button">Agenda</button>
+            <button class="btn ghost btn-sm" id="btn-financeiro" type="button">Financeiro</button>
+            <button class="btn ghost btn-sm" id="btn-cobrancas" type="button">Cobranças</button>
+            <button class="btn ghost btn-sm" id="btn-aviso" type="button">Avisar (WhatsApp)</button>
+            <button class="btn ghost btn-sm" id="btn-mural" type="button">Avisos do Portal</button>
+            <button class="btn ghost btn-sm" id="btn-desafios" type="button">Desafios</button>
+            <button class="btn ghost btn-sm" id="btn-leads" type="button">Leads</button>
+          </div>
+          <div class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="busca" type="search" placeholder="Buscar por nome ou ID…" />
+          </div>
+        </div>
+        <div id="aval-resumo" class="filtros"></div>
+        <div id="lista-alunos" class="aluno-list"></div>
+      </div>
+      <button id="fab-novo" class="btn fab" type="button">+ Cadastrar novo aluno</button>
+    </section>
+
+    <!-- ----------- TELA: FINANCEIRO ----------- -->
+    <section id="tela-financeiro" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="fin-voltar" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head">
+          <span class="eyebrow">Financeiro</span>
+          <button class="btn ghost btn-sm" id="fin-produtos" type="button">Produtos</button>
+          <div class="fin-mes">
+            <button class="fin-nav" id="fin-prev" type="button" aria-label="Mês anterior">‹</button>
+            <span id="fin-mes-lbl">—</span>
+            <button class="fin-nav" id="fin-next" type="button" aria-label="Próximo mês">›</button>
+          </div>
+        </div>
+        <div class="fin-tot" id="fin-tot"></div>
+        <div class="fin-list" id="fin-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: COBRANÇAS ----------- -->
+    <section id="tela-cobrancas" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="cob-voltar" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head"><span class="eyebrow">Cobranças · <span id="cob-mes-lbl">—</span></span></div>
+        <p class="hint" style="margin:6px 0 14px">Quem ainda não pagou este mês, do mais urgente ao menos. Toque em <b>WhatsApp</b> para enviar o lembrete já com o Pix.</p>
+        <div class="fin-tot" id="cob-tot"></div>
+        <div id="cob-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: AGENDA ----------- -->
+    <section id="tela-agenda" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="ag-voltar" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head">
+          <span class="eyebrow">Agenda</span>
+          <div class="fin-mes">
+            <button class="fin-nav" id="ag-prev" type="button" aria-label="Mês anterior">‹</button>
+            <span id="ag-mes-lbl">—</span>
+            <button class="fin-nav" id="ag-next" type="button" aria-label="Próximo mês">›</button>
+          </div>
+        </div>
+        <div class="ag-legenda">
+          <span class="ag-leg"><span class="ag-dot reav"></span>🔄 Reavaliação</span>
+          <span class="ag-leg"><span class="ag-dot aniv"></span>🎂 Aniversário</span>
+        </div>
+        <div id="ag-cal"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: CHECK-IN ----------- -->
+    <section id="tela-checkin" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="chk-voltar" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head">
+          <span class="eyebrow">Check-in / frequência</span>
+          <div class="fin-mes">
+            <button class="fin-nav" id="chk-prev" type="button" aria-label="Dia anterior">‹</button>
+            <span id="chk-data-lbl">—</span>
+            <button class="fin-nav" id="chk-next" type="button" aria-label="Próximo dia">›</button>
+          </div>
+        </div>
+        <div class="fin-tot" id="chk-resumo"></div>
+        <div class="fin-list" id="chk-list"></div>
+        <div id="chk-sumidos"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: AVISO (WhatsApp) ----------- -->
+    <section id="tela-aviso" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="aviso-voltar" type="button">← Voltar para a listagem</button></div>
+        <span class="eyebrow">Aviso em massa · WhatsApp</span>
+        <div class="aviso-tpls" id="aviso-tpls"></div>
+        <textarea id="aviso-msg" placeholder="Escreva a mensagem… (ex.: Amanhã não tem aula!)"></textarea>
+        <div class="aviso-actions">
+          <button class="btn ghost btn-sm" id="aviso-copiar" type="button">Copiar mensagem</button>
+          <span class="aviso-count" id="aviso-count"></span>
+        </div>
+        <p class="hint" style="margin:0 0 12px">Toque em <b>Enviar</b> em cada aluno — abre a conversa já com a mensagem. É um por vez (limitação do WhatsApp).</p>
+        <div class="aviso-list" id="aviso-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: MURAL DE AVISOS DO PORTAL ----------- -->
+    <section id="tela-mural" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="mural-voltar" type="button">← Voltar para a listagem</button></div>
+        <span class="eyebrow">Avisos da Academia · Portal do Aluno</span>
+        <p class="hint" style="margin:6px 0 16px">Publique recados que aparecem no Portal do Aluno para todos os alunos. Desative para esconder sem apagar.</p>
+        <form id="mural-form" class="mural-form">
+          <div class="grid-form">
+            <div class="field"><label>Título</label><input id="mural-titulo" type="text" maxlength="80" placeholder="Ex.: Feriado — sem aula" required /></div>
+            <div class="field"><label>Tipo</label><select id="mural-tipo">
+              <option value="info">Informativo</option>
+              <option value="importante">Importante</option>
+              <option value="evento">Evento</option>
+            </select></div>
+          </div>
+          <div class="field"><label>Mensagem</label><textarea id="mural-texto" rows="3" maxlength="500" placeholder="Escreva o aviso…" required></textarea></div>
+          <div class="mural-actions">
+            <button class="btn" id="mural-add" type="submit">Publicar aviso</button>
+            <button class="btn ghost btn-sm" id="mural-cancelar" type="button" hidden>Cancelar edição</button>
+          </div>
+        </form>
+        <div class="mural-list" id="mural-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: DESAFIOS DA SEMANA ----------- -->
+    <section id="tela-desafios" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="des-voltar" type="button">← Voltar para a listagem</button></div>
+        <span class="eyebrow">Desafios da Semana · Portal do Aluno</span>
+        <p class="hint" style="margin:6px 0 16px">Lance desafios (ex.: beber 3L de água, sem açúcar). No Portal, o aluno marca os dias que cumpriu e ganha medalha ao concluir. Desative para esconder sem apagar.</p>
+        <form id="des-form" class="mural-form">
+          <div class="field"><label>Ícone</label><div class="des-emojis" id="des-emojis"></div></div>
+          <div class="grid-form">
+            <div class="field"><label>Título</label><input id="des-titulo" type="text" maxlength="60" placeholder="Ex.: Semana da hidratação" required /></div>
+            <div class="field"><label>Categoria</label><select id="des-categoria">
+              <option value="geral">Geral</option>
+              <option value="agua">Água / hidratação</option>
+              <option value="acucar">Sem açúcar</option>
+            </select></div>
+            <div class="field"><label>Meta (dias na semana)</label><input id="des-meta" type="number" min="1" max="7" value="5" required /></div>
+          </div>
+          <div class="field"><label>Descrição</label><textarea id="des-texto" rows="2" maxlength="240" placeholder="Ex.: Beba pelo menos 3 litros de água por dia." required></textarea></div>
+          <div class="mural-actions">
+            <button class="btn" id="des-add" type="submit">Publicar desafio</button>
+            <button class="btn ghost btn-sm" id="des-cancelar" type="button" hidden>Cancelar edição</button>
+          </div>
+        </form>
+        <div class="mural-list" id="des-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: LEADS (aula experimental) ----------- -->
+    <section id="tela-leads" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="leads-voltar" type="button">← Voltar para a listagem</button></div>
+        <span class="eyebrow">Leads · Formulário de aula experimental</span>
+        <p class="hint" style="margin:6px 0 16px">Toda vez que alguém preenche o formulário de aula grátis no site, o interessado cai aqui — mesmo que desista de mandar a mensagem no WhatsApp.</p>
+        <div class="fin-tot" id="leads-tot"></div>
+        <div id="leads-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA 2: PERFIL ----------- -->
+    <section id="tela-perfil" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn ghost btn-sm" id="btn-voltar" type="button">← Voltar para a listagem</button>
+          <button class="btn ghost btn-sm" id="btn-ficha-pdf" type="button">Exportar ficha (PDF)</button>
+        </div>
+        <div class="perfil-top">
+          <button id="p-avatar" class="avatar" type="button" aria-label="Foto do aluno"></button>
+          <span class="pid" id="p-id">#000</span>
+          <h2 class="pnome" id="p-nome">Nome do aluno</h2>
+          <span class="spacer"></span>
+          <span class="status ativo" id="p-status">Ativo</span>
+        </div>
+
+        <nav class="tabs" role="tablist">
+          <button class="tab active" data-tab="dados" type="button">Dados</button>
+          <button class="tab" data-tab="anamnese" type="button">Anamnese</button>
+          <button class="tab" data-tab="parq" type="button">PAR-Q</button>
+          <button class="tab" data-tab="avaliacoes" type="button">Avaliações</button>
+          <button class="tab" data-tab="progresso" type="button">Progresso</button>
+        </nav>
+
+        <!-- ABA 1: DADOS -->
+        <div class="tab-panel active" id="tab-dados"><!-- form injetado por JS --></div>
+
+        <!-- ABA: ANAMNESE -->
+        <div class="tab-panel" id="tab-anamnese"><!-- form injetado por JS --></div>
+
+        <!-- ABA: PAR-Q -->
+        <div class="tab-panel" id="tab-parq"><!-- form injetado por JS --></div>
+
+        <!-- ABA 2: AVALIAÇÕES -->
+        <div class="tab-panel" id="tab-avaliacoes">
+          <div class="aval-head">
+            <span class="eyebrow" style="font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.2em;font-size:.74rem;color:var(--accent)">Histórico de avaliações</span>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn ghost" id="btn-comparar" type="button">Comparar</button>
+              <button class="btn" id="btn-nova-aval" type="button">+ Nova avaliação</button>
+            </div>
+          </div>
+          <div id="aval-list" class="aval-list"></div>
+        </div>
+
+        <!-- ABA 3: PROGRESSO -->
+        <div class="tab-panel" id="tab-progresso">
+          <div class="prog-grid">
+            <div class="prog-card full">
+              <h4>Evolução do peso corporal</h4>
+              <div class="prog-ph">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 14 3-4 3 3 4-7"/></svg>
+                <span id="prog-peso-msg">Aqui um gráfico com o progresso do aluno.</span>
+              </div>
+            </div>
+            <div class="prog-card">
+              <h4>% Gordura / Massa magra</h4>
+              <div class="prog-ph">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="13" y="6" width="3" height="11"/></svg>
+                <span>Gráfico disponível após definirmos os dados da avaliação.</span>
+              </div>
+            </div>
+            <div class="prog-card">
+              <h4>Evolução de medidas</h4>
+              <div class="prog-ph">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 16 4-3 3 2 4-6"/></svg>
+                <span>Cintura, quadril, tórax, braço…</span>
+              </div>
+            </div>
+            <div class="prog-card full">
+              <h4>Pontos que foram melhorados</h4>
+              <div class="insights" id="prog-insights">
+                <div class="note">Os destaques de evolução aparecerão aqui assim que houver avaliações com dados comparáveis (definimos os campos e os cálculos na próxima etapa).</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ MODAL: novo/editar aluno ============ -->
+  <div class="modal-bg" id="modal-aluno">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3 id="modal-aluno-titulo">Cadastrar novo aluno</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="form-novo">
+        <div class="modal-bd" id="modal-aluno-body"><!-- form injetado por JS --></div>
+        <div class="modal-ft">
+          <button class="btn ghost" data-close type="button">Cancelar</button>
+          <button class="btn" type="submit">Salvar aluno</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: comparar avaliações ============ -->
+  <div class="modal-bg" id="modal-comparar">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3>Comparar avaliações</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-bd" id="modal-comparar-body"></div>
+      <div class="modal-ft">
+        <button class="btn ghost" data-close type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: detalhe da avaliação ============ -->
+  <div class="modal-bg" id="modal-aval">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-hd">
+        <h3 id="modal-aval-titulo">Avaliação</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-bd" id="modal-aval-body"></div>
+      <div class="modal-ft">
+        <button class="btn danger btn-sm" id="btn-del-aval" type="button">Excluir avaliação</button>
+        <button class="btn ghost" data-close type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js?v=17"></script>
+</body>
+</html>

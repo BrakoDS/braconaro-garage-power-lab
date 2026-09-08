@@ -1,0 +1,232 @@
+# Montador de Treinos FULL BODY — Garage Power Lab
+
+Gerador automático de treinos full body que respeita as **modalidades**, a **estrutura
+real do box** (inventário de aparelhos), a **frequência semanal** do aluno e o
+**equilíbrio entre padrões de movimento**, calculando **volume semanal e mensal**.
+
+> **Status: fluxo mensal** — app com 4 abas (**Programa da semana**, **Mesociclo**,
+> **Histórico**, **Alunos**). O mês é a unidade: cada semana tem um programa salvo e travado
+> (regerar = substituir), o gerador varia exercícios entre semanas, o Histórico mostra o
+> relatório do mês e o acumulado por aluno. Inclui balanceamento de volume entre dias,
+> mesociclos com progressão/deload, sugestão de carga e impressão/PDF.
+
+---
+
+## Sincronização em nuvem (opcional)
+
+Por padrão o app é **local** (localStorage, por navegador/aparelho). Para salvar online e
+ver em qualquer aparelho, há integração com **Firebase** (Auth e-mail/senha + Firestore),
+desligada por padrão. Passo a passo completo em `cloud-config.js`. Resumo:
+1. Criar projeto Firebase (grátis), ativar **Authentication (e-mail/senha)** e criar o usuário coach.
+2. Ativar **Firestore** e colar as regras (em `cloud-config.js`).
+3. Copiar o `firebaseConfig` do app web, colar em `cloud-config.js` e pôr `CLOUD_ATIVO = true`.
+
+Com a nuvem ligada, a tela de entrada vira **login real** (e-mail/senha) e os dados
+(`alunos`, `config`, `programas`) sincronizam no documento `coaches/{uid}`. Arquivos:
+`ui/cloud.js` (Firebase), `ui/gate.js` (login/senha), `ui/store.js` (cache local + ponte).
+
+## Acesso (senha)
+
+O montador tem uma **trava de senha** no navegador (`ui/auth.js` + `ui/gate.js`) — um
+**dissuasor**, não segurança real (é client-side, site estático, repositório público).
+Guarda só o **hash SHA-256** da senha; libera por sessão. Senha inicial **`braconaro2026`**
+(troque assim que puder). Para trocar: abra `/montador/`, no console rode
+`await montadorHashSenha('NOVA_SENHA')`, cole o hash em `SENHA_HASH` (`ui/auth.js`) e commite.
+O link do montador foi **removido do rodapé do site** (acesso só por URL direta).
+
+## Como rodar
+
+Não há build nem dependências (vanilla JS / ES Modules). Mas ES Modules exigem
+ser servidos por HTTP (não funcionam via `file://`).
+
+- **Aplicação (Fase 2):** `coach/montador-de-treino/index.html` — a ferramenta completa para o coach.
+- **Demo do núcleo (Fase 1):** `coach/montador-de-treino/demo.html` — geração rápida para validação.
+- **Local:** sirva a raiz do repositório com `.claude/serve-garage.ps1` (porta 8765) →
+  `http://localhost:8765/montador/index.html`.
+- **Produção:** no GitHub Pages, fica em `…/montador/index.html`.
+
+---
+
+## Stack e decisões de arquitetura
+
+| Decisão | Escolha | Porquê |
+|---|---|---|
+| Execução | **Client-side**, vanilla JS (ES Modules) | Mesmo modelo do site atual; deploy grátis no GitHub Pages; sem servidor para manter |
+| Build | **Nenhum** | Não há Node/npm no ambiente; evita passo de build que quebraria o deploy estático |
+| Tipagem | **JSDoc + `// @ts-check`** | Autocomplete e checagem no editor sem compilar |
+| Dados | **JSON/JS versionado** + (futuro) `localStorage` | Catálogo no repo; alunos/histórico no navegador (Fase 2) |
+| Auth | **Nenhuma** | Foco no gerador (decisão do cliente) |
+
+### Estrutura de pastas
+
+```
+montador/
+├── data/
+│   ├── equipamentos.js   # INVENTÁRIO REAL do box + capacidade por estação
+│   └── exercicios.js     # Catálogo mapeado 1:1 aos aparelhos existentes
+├── config/
+│   ├── padroes.js        # Padrões de movimento + músculos rastreados
+│   ├── modalidades.js    # Força / Hipertrofia / HIIT / Hyrox / Híbrido / GAP
+│   └── frequencias.js    # Combinações de dias (3x/4x/5x) + metas de volume
+├── core/
+│   ├── viabilidade.js    # Checagem de aparelhos p/ 8 alunos em circuito
+│   ├── volume.js         # Volume por músculo/padrão; semanal e mensal
+│   ├── periodizacao.js   # Progressão de volume/intensidade + deload + nível
+│   ├── gerador.js        # ALGORITMO de montagem (8 passos) + troca de exercício
+│   ├── programaSemanal.js # PROGRAMA do box (1 treino/dia, igual p/ todos) + cenários 3/4/5
+│   ├── mesociclo.js      # Encadeia N semanas do programa com progressão e deload
+│   ├── cargas.js         # Sugestão de carga inicial (snap aos pesos do box)
+│   └── tipos.js          # Typedefs JSDoc compartilhados
+├── ui/
+│   ├── store.js          # Persistência de alunos (localStorage)
+│   ├── render.js         # Cards de treino, volume e troca de exercício
+│   └── app.js            # Controlador das 3 abas
+├── index.html / app.css  # APLICAÇÃO (Fase 2)
+├── demo.js / demo.html   # Demo do núcleo (Fase 1)
+└── README.md
+```
+
+---
+
+## Modalidades (alinhadas ao site)
+
+Força, Hipertrofia, HIIT, Hyrox, Híbrido e **GAP**. Notas:
+- **GAP** = HIIT com protocolo **TABATA** (20s/10s), foco **glúteo/abdômen/perna + core**,
+  pouca carga. É a única modalidade **não full body** (`padroesAlvo` em `modalidades.js`).
+  **Substitui o HIIT 1×/mês** — no mesociclo isso acontece na semana configurada (`semanaGap`, padrão 3).
+- **Cross** não é uma modalidade separada: é a parte **WOD do Híbrido** (academia + crosstraining),
+  rotulada "Cross WOD" no finalizador.
+
+## Fluxo mensal (importante)
+
+O **mês** é a unidade. Cada **semana do mês** tem **um programa** (igual para todos), que é
+**gerado e salvo automaticamente** e fica **travado**: regerar pede confirmação
+(*"Deseja substituir o treino da semana X?"*). Ao montar uma semana, o gerador **varia os
+exercícios** em relação à semana anterior do mês (além de progredir pela periodização).
+O conjunto das semanas salvas é o **relatório do mês** (aba *Histórico*): cada semana pode
+ser **expandida ("Ver treino realizado")** para mostrar os 5 dias com exercícios e cargas
+(em leitura). Ao escolher um aluno vê-se o **acumulado dele** (soma só dos dias que treina). Mês e
+semana são detectados pela data de hoje (`store.semanaDoMes`/`mesIdDe`), com troca manual.
+Dois níveis de edição: **trocar** um exercício (ajuste fino — mantém padrão e séries,
+recalcula a carga e re-salva; relatório segue íntegro) e **substituir a semana** (regeração
+completa, com confirmação).
+
+## Modelo de frequência (importante)
+
+O box roda **um treino por dia, igual para todos** — não há treino individual. A frequência
+(3/4/5×) define apenas **quantos dias** o aluno pega do mesmo programa. Como **todo dia é
+full body**, qualquer combinação de dias soma sessões completas. O coach configura a
+**grade fixa SEG–SEX** (modalidade de cada dia) na aba *Programa da semana*, e o sistema
+prova nos **cenários de frequência** que quem vem **3 dias (pior combinação) atinge o
+mínimo** para bons resultados e quem vem **4–5 dias rende mais** — tudo a partir do mesmo
+programa. O mínimo semanal por padrão fica em `MINIMO_SEMANAL` (`config/frequencias.js`).
+
+## Modelo de dados (resumo)
+
+- **Equipamento** — `id, nome, categoria, unidades, compartilhavelDupla, cargasKg`.
+  `unidades` = quantas estações simultâneas o box suporta; é o que torna a checagem
+  de aparelhos *real*.
+- **Exercício** — `id, nome, descricao, padrao, musculosPrimarios[], musculosSecundarios[],
+  categorias[] (modalidades+mobilidade/tecnica/wod), equipamento[], nivel, tempoMedioSeg`.
+- **Modalidade** — `faixaExercicios, series, reps, descansoSeg, intensidadePctRM, formato,
+  finalizador, estimulo`.
+- **Combinação de dias** — `frequencia (3/4/5), dias[]` + `META_SERIES_SEMANAIS` por padrão.
+- **Treino (gerado)** — `aquecimento[], principal[], finalizador, volume, viabilidade, tempos`.
+
+> O cadastro de **Aluno** (`nome, nivel, frequência, combinação`) entra como entidade
+> persistida na Fase 2; o gerador já aceita esses campos como parâmetros.
+
+---
+
+## Lógica de viabilidade de aparelhos
+
+Um treino é um **circuito de K exercícios (estações)**. Os 8 alunos se dividem em
+K grupos de `ceil(8/K)`. Cada estação consome unidades do seu equipamento:
+
+```
+unidades necessárias = compartilhável em dupla ? ceil(grupo/2) : grupo
+```
+
+A soma da demanda por equipamento, em todas as estações, não pode exceder as
+unidades do box. Isso implementa as três regras do box de uma vez:
+sem exceder o que existe, permitir dupla, e **limitar aparelho único**
+(ex.: só 2 Air Bikes ⇒ no máximo 1 estação de bike por treino).
+
+---
+
+## Algoritmo de montagem (8 passos — `core/gerador.js`)
+
+1. **Modalidade do dia** define séries, reps, descanso, formato e finalizador.
+2. **Nº de exercícios** (4/5/6) sorteado na faixa da modalidade (mín. em semana de deload; teto 8).
+3. **Seleção FULL BODY**: garante os padrões obrigatórios (empurrar, puxar, quadríceps,
+   posterior/glúteo; +core e +estabilizadores quando há slots), pontuando candidatos.
+4. **Viabilidade de aparelhos** filtra cada inclusão (8 alunos) e **penaliza congestionar
+   um mesmo aparelho**, espalhando entre Smith/monocross/cavalinho/halteres/barra.
+5. **Volume por músculo** (primário 1.0, secundário 0.5 por série).
+6. **Anti-sobrecarga**: teto de séries por músculo + variedade vs. dia anterior.
+7. **Ajuste de tempo**: reduz séries e, se preciso, remove exercícios até caber em 45–50 min.
+8. **Montagem final**: aquecimento (mobilidade) + bloco principal + finalizador opcional (WOD).
+
+### Aquecimento dirigido ao foco do dia
+
+O bloco de mobilidade tem orçamento fixo de tempo — **7,5 min em Força, 4 min nas
+demais** — porque é ele que faz a aula caber em 55 min (ver `BUDGET_PRINCIPAL`).
+Dentro desse orçamento entram **até 8 movimentos de 30–60s**, e não 2–3 de 2,5 min:
+ficar dois minutos e meio no mesmo exercício cansa a turma antes do treino
+começar, e o aluno chega frio no que importa.
+
+A escolha não é sorteio. Cada mobilidade declara os músculos que prepara, e o
+gerador prioriza **cobrir músculo que o treino do dia ataca e ainda não tem
+mobilidade**: o segundo exercício de ombro vale menos que o primeiro de quadril.
+Na prática, dia de supino/remada aquece peito, escápula e torácica; dia de
+agachamento e terra aquece quadril, tornozelo e posterior. `core` entra sempre —
+o tronco sustenta qualquer movimento, e é a cobertura que
+`padroesObrigatorios()` já contava do aquecimento nos treinos curtos.
+
+O teto de 8 existe porque só o orçamento de tempo levava Força a 11–12 movimentos:
+aí já não é aquecimento, é circuito, e a troca de posição a cada meio minuto
+consome um tempo que a conta não enxerga. A sobra é bem-vinda.
+
+---
+
+## Validação automática (resultados atuais)
+
+Rodando 12 seeds por modalidade (nível intermediário), 100% dos treinos:
+
+| Modalidade | Cobre os 4 padrões grandes | Viável p/ 8 alunos | Dentro de 45–50 min |
+|---|---|---|---|
+| Força | 12/12 | 12/12 | 12/12 |
+| Hipertrofia | 12/12 | 12/12 | 12/12 |
+| HIIT | 12/12 | 12/12 | 12/12 |
+| Hyrox | 12/12 | 12/12 | 12/12 |
+| Híbrido | 12/12 | 12/12 | 12/12 |
+
+(Reproduza pela demo ou via `gerarTreino({...})` no console.)
+
+---
+
+## Roadmap
+
+- **Fase 2 — UI/UX (CONCLUÍDA):** app com 3 abas, cadastro de alunos (localStorage),
+  cards de treino imprimíveis, gráficos de volume, troca de exercício por alternativa viável.
+- **Fase 3 — Periodização avançada (CONCLUÍDA):** mesociclos com progressão de
+  intensidade e deload automático (semana 4 do ciclo), balanceamento de volume
+  entre os dias da semana (viés por déficit por padrão), contagem de exercícios
+  estável por template, export PDF via diálogo de impressão do navegador.
+  Validado: spread entre os 4 padrões grandes ~5 séries; progressão de volume e
+  intensidade monotônica 1→3 com deload em 5/5 seeds.
+- **Ajustes de tuning em aberto (do treinador):** os números de `META_SERIES_SEMANAIS`
+  em `config/frequencias.js` e os fatores de progressão em `core/periodizacao.js`
+  são pontos de calibração para a realidade do box.
+
+- **Fase 4 — Carga, histórico e integração (CONCLUÍDA):**
+  - **Sugestão de carga inicial** por exercício (nível + intensidade da modalidade,
+    com *snap* para os pesos reais do box — `core/cargas.js`).
+  - **Histórico por aluno**: salvar treinos gerados e revisar/remover depois
+    (aba Histórico, persistido em localStorage via `ui/store.js`).
+  - **Integração com o site**: link "Montador de treinos (coach)" no rodapé de `index.html`.
+
+## Próximos passos possíveis
+
+Biblioteca com vídeos/imagens dos exercícios (requer mídia), exportar histórico em PDF
+por período, e sugestão de carga personalizada a partir do 1RM informado do aluno.

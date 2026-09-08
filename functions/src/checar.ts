@@ -291,7 +291,7 @@ ok(boaTecnica.tipo === 'tecnica', 'reconhece o tipo técnica');
 ok(boaTecnica.nome === 'Myo-reps', 'lê o nome da técnica');
 ok(boaTecnica.comoExecutar.startsWith('1. Faça uma série de ativação'),
   'comoExecutar preserva os passos numerados');
-ok(boaTecnica.comoExecutar.split('\n').length === 5, 'um passo por linha, como em academia/data/seed.js');
+ok(boaTecnica.comoExecutar.split('\n').length === 5, 'um passo por linha, como em coach/academia/data/seed.js');
 
 /* ---------- padrão de movimento é a única coisa que derruba a proposta ---------- */
 
@@ -391,9 +391,9 @@ ok(mesmoConjunto(Object.keys(schemaTecnica.properties), schemaTecnica.required),
    embutidas) e sem passo de build novo. O que seguirmos abaixo é sempre uma
    CONSTANTE LITERAL (array de string ou objeto de string→string) num arquivo
    .js do site — nunca o typedef de um JSDoc, que não é código executável e não
-   dá para extrair com confiança. Por isso NIVEIS vem de `montador/core/niveis.js`
+   dá para extrair com confiança. Por isso NIVEIS vem de `coach/montador-de-treino/core/niveis.js`
    (o array de verdade que os módulos do motor importam), não do comentário em
-   `montador/data/exercicios.js:35` — aquele é só a anotação de tipo do campo,
+   `compartilhado/dados/exercicios.js:35` — aquele é só a anotação de tipo do campo,
    nunca a fonte que alguém precisaria lembrar de atualizar. */
 console.log('\nVOCABULÁRIOS: A CÓPIA EM pesquisa.ts BATE COM A FONTE DO SITE?\n');
 
@@ -485,7 +485,7 @@ const schemaVocab = montarSchema('exercicio', []) as {
 
 checarVocabulario(
   'PADROES',
-  () => comoArrayDeString(acharConst(parseSite('montador/config/padroes.js'), 'PADROES'), 'montador/config/padroes.js:PADROES'),
+  () => comoArrayDeString(acharConst(parseSite('compartilhado/config/padroes.js'), 'PADROES'), 'compartilhado/config/padroes.js:PADROES'),
   schemaVocab.properties.padrao.enum,
 );
 
@@ -494,15 +494,15 @@ checarVocabulario(
   () => {
     // MUSCULOS_LABEL não é uma constante única em lugar nenhum do site: é
     // `MUSCULOS` (as 11 chaves internas, em `padroes.js`) traduzida pelo mapa
-    // `MUSC_MAP` (`academia/data/seed.js`) — a mesma cadeia que o cabeçalho de
+    // `MUSC_MAP` (`coach/academia/data/seed.js`) — a mesma cadeia que o cabeçalho de
     // `pesquisa.ts` documenta. Reproduzimos os dois passos aqui, não um atalho.
     const chaves = comoArrayDeString(
-      acharConst(parseSite('montador/config/padroes.js'), 'MUSCULOS'),
-      'montador/config/padroes.js:MUSCULOS',
+      acharConst(parseSite('compartilhado/config/padroes.js'), 'MUSCULOS'),
+      'compartilhado/config/padroes.js:MUSCULOS',
     );
     const mapa = comoMapaDeString(
-      acharConst(parseSite('academia/data/seed.js'), 'MUSC_MAP'),
-      'academia/data/seed.js:MUSC_MAP',
+      acharConst(parseSite('coach/academia/data/seed.js'), 'MUSC_MAP'),
+      'coach/academia/data/seed.js:MUSC_MAP',
     );
     return chaves.map((k) => {
       const rotulo = mapa[k];
@@ -515,13 +515,13 @@ checarVocabulario(
 
 checarVocabulario(
   'TAGS',
-  () => comoArrayDeString(acharConst(parseSite('academia/db.js'), 'TAGS'), 'academia/db.js:TAGS'),
+  () => comoArrayDeString(acharConst(parseSite('coach/academia/db.js'), 'TAGS'), 'coach/academia/db.js:TAGS'),
   schemaVocab.properties.tags.items.enum,
 );
 
 checarVocabulario(
   'NIVEIS',
-  () => comoArrayDeString(acharConst(parseSite('montador/core/niveis.js'), 'NIVEIS'), 'montador/core/niveis.js:NIVEIS'),
+  () => comoArrayDeString(acharConst(parseSite('coach/montador-de-treino/core/niveis.js'), 'NIVEIS'), 'coach/montador-de-treino/core/niveis.js:NIVEIS'),
   schemaVocab.properties.nivel.enum,
 );
 

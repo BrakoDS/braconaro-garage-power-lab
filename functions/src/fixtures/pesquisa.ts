@@ -27,7 +27,7 @@ export const BOA_EXERCICIO = envelope(JSON.stringify({
   fontes: ['https://exemplo.com/agachamento-bulgaro'],
 }));
 
-/** Técnica bem formada, no formato de passos numerados de `academia/data/seed.js`. */
+/** Técnica bem formada, no formato de passos numerados de `coach/academia/data/seed.js`. */
 export const BOA_TECNICA = envelope(JSON.stringify({
   tipo: 'tecnica',
   nome: 'Myo-reps',

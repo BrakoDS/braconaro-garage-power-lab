@@ -41,7 +41,7 @@ export type ItemFeed = {
    * existente mantém o mesmo `id`, e sem este campo o preço lido do link velho
    * seria carimbado no produto novo — com "verificado hoje" fazendo o número
    * errado parecer mais confiável que o preço digitado. A vitrine confere a URL
-   * antes de aplicar o preço (ver `fundirPrecos` em `loja/precos.js`).
+   * antes de aplicar o preço (ver `fundirPrecos` em `garage-store/precos.js`).
    *
    * Opcional só por causa do feed já gravado em produção, que não tem o campo.
    */

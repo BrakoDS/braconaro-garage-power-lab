@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Montador de Treinos — Garage Power Lab</title>
+  <link rel="stylesheet" href="./app.css?v=4" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+  <!-- Porta de acesso (dissuasor client-side) -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Montador</div>
+      <p>Acesso restrito ao coach.</p>
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div id="gate-erro" class="gate-erro">Senha incorreta.</div>
+      <a class="gate-voltar" href="../index.html">← Voltar ao site</a>
+    </form>
+  </div>
+
+  <header class="topbar" hidden>
+    <div class="brand"><b>GARAGE POWER LAB</b> · Montador</div>
+    <nav class="tabs">
+      <button class="tab active" data-view="unico">Treino Automático</button>
+      <button class="tab" data-view="manual">Treino Manual</button>
+      <button class="tab" data-view="livre">Treino Livre</button>
+      <button class="tab" data-view="historico">Histórico</button>
+    </nav>
+    <nav class="topbar-sai">
+      <a class="sai-btn sai-coach" href="../index.html"><span class="tb-longo">← Voltar ao Coach</span><span class="tb-curto">Coach</span></a>
+      <a class="sai-btn" href="../index.html"><span class="tb-longo">Voltar ao site</span><span class="tb-curto">Site</span></a>
+    </nav>
+  </header>
+
+  <main hidden>
+    <!-- ============ TREINO (gerador único) ============ -->
+    <section class="view active" id="view-unico">
+      <div class="panel">
+        <div class="field"><label>Modalidade</label><select id="u-modalidade"></select></div>
+        <div class="field"><label>Nº de alunos</label><input id="u-alunos" type="number" min="1" max="20" value="8" style="min-width:90px" /></div>
+        <div class="field"><label>Semana do mesociclo</label>
+          <select id="u-semana" style="min-width:170px">
+            <option value="1">1 · Introdução</option>
+            <option value="2">2 · Acúmulo</option>
+            <option value="3">3 · Pico</option>
+            <option value="4">4 · Deload</option>
+          </select>
+        </div>
+        <div class="field"><label>Data do treino</label><input id="u-data" type="date" style="min-width:150px" /></div>
+        <button class="btn" id="u-gerar">Gerar treino</button>
+        <button class="btn ghost" id="u-imprimir">Imprimir</button>
+      </div>
+      <div class="mut" style="margin:0 0 12px">Gera o treino da modalidade, mostra a <b>meta de volume da semana</b> e permite <b>salvar na data</b> escolhida (publica no Portal do Aluno). Não repete exercícios já usados na mesma semana. Use “trocar” para ajustar Força/Hipertrofia.</div>
+      <div id="u-meta"></div>
+      <div class="grid" id="u-saida"></div>
+      <div id="u-salvar"></div>
+    </section>
+
+    <!-- ============ TREINO MANUAL (montagem por seleção) ============ -->
+    <section class="view" id="view-manual">
+      <div class="panel">
+        <div class="field"><label>Classificação / Objetivo</label><select id="m-modalidade"></select></div>
+        <div class="field"><label>Nº de alunos</label><input id="m-alunos" type="number" min="1" max="20" value="8" style="min-width:90px" /></div>
+        <div class="field" id="m-campo-semana" hidden><label>Semana do mesociclo</label>
+          <select id="m-semana" style="min-width:170px">
+            <option value="1">1 · Introdução</option>
+            <option value="2">2 · Acúmulo</option>
+            <option value="3">3 · Pico</option>
+            <option value="4">4 · Deload</option>
+          </select>
+        </div>
+        <div class="field"><label>Data do treino</label><input id="m-data" type="date" style="min-width:150px" /></div>
+        <button class="btn ghost" id="m-limpar" type="button">Limpar</button>
+      </div>
+      <div class="mut" style="margin:0 0 12px">Monte o treino <b>escolhendo nas listas</b> (sem digitar). A classificação define <b>a estrutura</b>: blocos na Força e na Hipertrofia, estações TABATA no HIIT, músicas no GAP, postos de bi-set no Híbrido e as estações da prova no Hyrox. A meta de volume da semana atualiza a cada seleção; salvar publica no Portal do Aluno, igual ao automático.</div>
+      <div id="m-editor"></div>
+      <div id="m-dist"></div>
+      <div id="m-meta"></div>
+      <div id="m-vol"></div>
+      <div id="m-salvar"></div>
+    </section>
+
+    <!-- ============ TREINO LIVRE (montagem solta) ============ -->
+    <section class="view" id="view-livre">
+      <div class="panel">
+        <div class="field"><label>Classificação</label><select id="l-modalidade"></select></div>
+        <div class="field"><label>Nº de alunos</label><input id="l-alunos" type="number" min="1" max="20" value="8" style="min-width:90px" /></div>
+        <div class="field"><label>Data do treino</label><input id="l-data" type="date" style="min-width:150px" /></div>
+      </div>
+      <div class="mut" style="margin:0 0 12px">A classificação define só a <b>cor no calendário</b>, o título no Portal e os valores de partida de descanso e carga. Ela não filtra exercício e não muda a estrutura: monte o dia como quiser.</div>
+      <div id="l-meta"></div>
+      <div id="l-corpo"></div>
+      <div id="l-volume"></div>
+      <div id="l-salvar"></div>
+    </section>
+
+    <!-- ============ HISTÓRICO (calendário) ============ -->
+    <section class="view" id="view-historico">
+      <div class="grid" id="h-saida"></div>
+    </section>
+
+  </main>
+
+  <!-- ============ MODAL genérico (confirmação + detalhes do histórico) ============ -->
+  <div class="modal-bg" id="modal-app" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-app-titulo">
+      <div class="modal-hd">
+        <h3 id="modal-app-titulo"></h3>
+        <button class="modal-x" data-fechar type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-bd" id="modal-app-corpo"></div>
+      <div class="modal-ft" id="modal-app-acoes"></div>
+    </div>
+  </div>
+
+  <script type="module" src="./ui/gate.js?v=34"></script>
+</body>
+</html>
