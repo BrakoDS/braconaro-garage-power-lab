@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * Testes do nível de atividade automático.
- * Rodar: node --test aluno/atividade.test.js
+ * Rodar: node --test painel-do-aluno/atividade.test.js
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

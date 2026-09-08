@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * Testes das combinações de dias.
- * Rodar: node --test montador/config/frequencias.test.js
+ * Rodar: node --test coach/montador-de-treino/config/frequencias.test.js
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

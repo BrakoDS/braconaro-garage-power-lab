@@ -19,7 +19,7 @@
  * tela (render, eventos, boot) — os helpers puros usados aqui
  * (`gruposDoBloco`, `linhasIncompletas`, `est`) não chamam nada disso. Os
  * stubs abaixo existem só porque o import em cadeia (`store.js`,
- * `academia/db.js`, `portal-treino.js`) referencia esses globais dentro de
+ * `coach/academia/db.js`, `portal-treino.js`) referencia esses globais dentro de
  * função, e o Node não os tem por padrão fora do browser — carregar o módulo
  * não exige mais do que isto.
  *
@@ -37,12 +37,12 @@
  * (não dá pra chamá-la de verdade neste teste — chave de API fica no Secret
  * Manager e a function exige a conta do coach).
  *
- * Rodar: node --test montador/ui/livre.test.js
+ * Rodar: node --test coach/montador-de-treino/ui/livre.test.js
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-// Os stubs têm de existir ANTES de `livre.js` carregar: `academia/db.js`, que
+// Os stubs têm de existir ANTES de `livre.js` carregar: `coach/academia/db.js`, que
 // entra na cadeia de import dele, chama `localStorage` no CARREGAMENTO do
 // módulo (`garantirSeed()` roda solto no topo do arquivo, não dentro de uma
 // função). Um `import` estático de `./livre.js` no topo deste arquivo rodaria

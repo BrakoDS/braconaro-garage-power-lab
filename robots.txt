@@ -1,9 +1,13 @@
 User-agent: *
 Allow: /
-Disallow: /aluno/
-Disallow: /alunos/
+
+# Áreas privadas. `/coach/` cobre as quatro ferramentas de uma vez
+# (montador-de-treino, gestao-de-alunos, academia, gestao-garage-store) —
+# é uma das vantagens de elas estarem todas sob o mesmo teto.
+Disallow: /painel-do-aluno/
 Disallow: /coach/
-Disallow: /montador/
-Disallow: /academia/
+
+# A vitrine (/garage-store/) e a home ficam liberadas de propósito: são
+# públicas e é por elas que o box aparece na busca.
 
 Sitemap: https://garagepowerlab.com.br/sitemap.xml

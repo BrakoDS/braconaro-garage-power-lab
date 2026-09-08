@@ -2,10 +2,10 @@
 /**
  * CARD DE PRODUTO da vitrine — fonte única.
  *
- * Usado pela loja pública (`loja/loja.js`) e pela aba de Prévia do app de gestão
+ * Usado pela loja pública (`garage-store/loja.js`) e pela aba de Prévia do app de gestão
  * (`loja-gestao/`). A prévia só é honesta se for o MESMO código; duplicar o markup
  * faria as duas divergirem no primeiro ajuste. O CSS que acompanha é
- * `loja/vitrine.css` — os dois andam juntos.
+ * `garage-store/vitrine.css` — os dois andam juntos.
  *
  * @typedef {Object} ProdutoVitrine
  * @property {string} id

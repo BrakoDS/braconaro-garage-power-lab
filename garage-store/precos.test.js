@@ -66,7 +66,7 @@ test('item de feed antigo, gravado sem URL, continua valendo (retrocompatibilida
 
 test('trocar o link de um produto não faz o preço do produto ANTIGO ser carimbado no novo', () => {
   // O risco: `id` é o slug do nome de quando o produto foi criado e SOBREVIVE à
-  // edição (`academia/db.js` preserva o id no ramo de atualização). Então:
+  // edição (`coach/academia/db.js` preserva o id no ramo de atualização). Então:
   //   05:00 — a rodada lê a Creatina Dux e grava R$ 39,09 "verificado hoje";
   //   10:00 — o link de afiliado morre, o coach aponta a mesma ficha para outra
   //           creatina, corrige nome e preço (R$ 78,90) e publica. O id não muda.

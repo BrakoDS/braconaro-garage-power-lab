@@ -15,7 +15,7 @@
  *
  * Mora em `config/` porque é pura e sem dependência: o Portal do Aluno pode
  * importar daqui (já importa `config/cores-modalidade.js`) sem puxar nada do app
- * do coach — o que `aluno/treino-dia.js` evita é o `ui/render.js`, não o `config/`.
+ * do coach — o que `painel-do-aluno/treino-dia.js` evita é o `ui/render.js`, não o `config/`.
  */
 
 /**

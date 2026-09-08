@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * Testes da meta de água.
- * Rodar: node --test aluno/hidratacao.test.js
+ * Rodar: node --test painel-do-aluno/hidratacao.test.js
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

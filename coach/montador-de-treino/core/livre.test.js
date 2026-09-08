@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * Testes da montagem livre.
- * Rodar: node --test montador/core/livre.test.js
+ * Rodar: node --test coach/montador-de-treino/core/livre.test.js
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -31,7 +31,7 @@ const $ = (s) => /** @type {HTMLElement} */ (document.querySelector(s));
 /** Os mesmos 11 músculos que o schema da IA aceita (`MUSCULOS_LABEL` em
  * `functions/src/pesquisa.ts`) — mas construído aqui a partir das fontes REAIS
  * do site (`MUSCULOS` de `config/padroes.js` traduzido pelo `MUSC_MAP` de
- * `academia/data/seed.js`), não copiado à mão: se um músculo for adicionado a
+ * `coach/academia/data/seed.js`), não copiado à mão: se um músculo for adicionado a
  * `MUSCULOS`, a lista de checkboxes acompanha sozinha. */
 const MUSCULOS_LABEL = MUSCULOS.map((m) => MUSC_MAP[m]).filter(Boolean);
 

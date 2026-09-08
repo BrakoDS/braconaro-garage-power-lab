@@ -44,14 +44,19 @@ const semQuery = (p) => p.split('?')[0].split('#')[0];
 const quebrados = [];
 let conferidos = 0;
 
-function conferir(arquivo, caminho, linha, base = path.dirname(arquivo)) {
+/**
+ * @param {boolean} ehImport  `true` para `from`/`import` de JS, `false` para
+ *   `href`/`src` de HTML. A diferença NÃO é cosmética: em JS, um especificador
+ *   sem `./` é PACOTE (`node:test`, `firebase-admin`) e não existe em disco; em
+ *   HTML não existe pacote, e `aluno/index.html` é um caminho como outro
+ *   qualquer. Tratar os dois igual foi um bug real desta ferramenta: ela deixou
+ *   passar dois links quebrados na home — justamente os que levam ao Portal do
+ *   Aluno e à loja — porque estavam escritos sem `./`.
+ */
+function conferir(arquivo, caminho, linha, base = path.dirname(arquivo), ehImport = true) {
   const limpo = semQuery(caminho);
   if (!limpo || EXTERNO.test(limpo)) return;
-  // Só caminho que começa com `.` ou `/` é arquivo NOSSO. `node:test`,
-  // `firebase-admin` e afins são pacote ou módulo nativo, e não existem em
-  // disco aqui. Esta regra também descarta de graça o falso positivo de um
-  // `from` que aparece dentro de comentário em prosa ("can't tell X from Y").
-  if (!limpo.startsWith('.') && !limpo.startsWith('/')) return;
+  if (ehImport && !limpo.startsWith('.') && !limpo.startsWith('/')) return;
   conferidos += 1;
   // Caminho começando com `/` é absoluto a partir da RAIZ do site publicado,
   // não do disco — é assim que o navegador resolve, e é assim que os manifests
@@ -77,7 +82,7 @@ for (const f of arquivos(RAIZ, ['.js', '.mjs', '.jsx'])) {
 for (const f of arquivos(RAIZ, ['.html'])) {
   const src = fs.readFileSync(f, 'utf8');
   for (const m of src.matchAll(/(?:src|href)\s*=\s*"([^"]+)"/g)) {
-    conferir(f, m[1], linhaDe(src, m.index));
+    conferir(f, m[1], linhaDe(src, m.index), path.dirname(f), false);
   }
 }
 

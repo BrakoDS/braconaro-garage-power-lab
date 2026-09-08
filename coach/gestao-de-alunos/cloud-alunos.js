@@ -5,7 +5,7 @@
  * Guarda um documento por coach em `gestao/{uid}` — separado do montador
  * (que usa `coaches/{uid}`), para que um app não sobrescreva o outro.
  *
- * Reaproveita o app Firebase já inicializado pelo login (montador/ui/cloud.js):
+ * Reaproveita o app Firebase já inicializado pelo login (compartilhado/firebase/cloud.js):
  * usa getApp() se existir, senão inicializa. A apiKey é pública por design;
  * a segurança vem do login + das regras do Firestore (ver /firestore.rules).
  */

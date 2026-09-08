@@ -510,7 +510,7 @@ export function salvarExerc(dados) {
 
 /**
  * Ativa/desativa um exercício sem apagá-lo. Desativado: some da montagem de treino
- * (ver `montador/ui/catalogo.js`), mas continua no catálogo da Academia p/ reativar.
+ * (ver `coach/montador-de-treino/ui/catalogo.js`), mas continua no catálogo da Academia p/ reativar.
  * @param {string} id @param {boolean} ativo
  */
 export function definirAtivoExerc(id, ativo) {
@@ -567,7 +567,7 @@ export function removerProduto(id) {
 /**
  * Material de referência do box (Drop Set, Bi-set, Pico de Contração, Rest-Pause…).
  * NÃO alimenta a geração de treino — o montador não lê esta coleção; o Híbrido
- * segue fazendo drop-set pela lógica dele em `montador/core/hibrido.js`.
+ * segue fazendo drop-set pela lógica dele em `coach/montador-de-treino/core/hibrido.js`.
  */
 export function listarTecnicas() { return ler().tecnicas.slice(); }
 /** @param {string} id */

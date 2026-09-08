@@ -5,7 +5,7 @@
  * Três abas: Painel (métricas), Produtos (CRUD + publicar) e Prévia (o que o aluno
  * vê). A loja pública (`loja/`) não tem nada disto — é só vitrine.
  *
- * A camada de dados continua sendo a do app Academia (`academia/db.js`, documento
+ * A camada de dados continua sendo a do app Academia (`coach/academia/db.js`, documento
  * `academia/{uid}`). Isso dita a ordem das coisas aqui:
  *
  *   `db.gravar()` só envia à nuvem depois de `iniciarSync(uid)`, e envia o documento

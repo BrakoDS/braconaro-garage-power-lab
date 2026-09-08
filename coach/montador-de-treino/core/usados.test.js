@@ -1,7 +1,7 @@
 // @ts-check
 /**
  * Testes de quem já apareceu na semana.
- * Rodar: node --test montador/core/usados.test.js
+ * Rodar: node --test coach/montador-de-treino/core/usados.test.js
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

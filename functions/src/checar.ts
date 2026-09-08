@@ -393,7 +393,7 @@ ok(mesmoConjunto(Object.keys(schemaTecnica.properties), schemaTecnica.required),
    .js do site — nunca o typedef de um JSDoc, que não é código executável e não
    dá para extrair com confiança. Por isso NIVEIS vem de `coach/montador-de-treino/core/niveis.js`
    (o array de verdade que os módulos do motor importam), não do comentário em
-   `montador/data/exercicios.js:35` — aquele é só a anotação de tipo do campo,
+   `compartilhado/dados/exercicios.js:35` — aquele é só a anotação de tipo do campo,
    nunca a fonte que alguém precisaria lembrar de atualizar. */
 console.log('\nVOCABULÁRIOS: A CÓPIA EM pesquisa.ts BATE COM A FONTE DO SITE?\n');
 
@@ -515,7 +515,7 @@ checarVocabulario(
 
 checarVocabulario(
   'TAGS',
-  () => comoArrayDeString(acharConst(parseSite('coach/academia/db.js'), 'TAGS'), 'academia/db.js:TAGS'),
+  () => comoArrayDeString(acharConst(parseSite('coach/academia/db.js'), 'TAGS'), 'coach/academia/db.js:TAGS'),
   schemaVocab.properties.tags.items.enum,
 );
 

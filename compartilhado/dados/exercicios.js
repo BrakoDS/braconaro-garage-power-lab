@@ -1107,7 +1107,7 @@ export const EXERCICIO_BASE_POR_ID = { ...EXERCICIO_POR_ID };
 
 /**
  * Renomeações e remoções aplicadas na reconstrução do catálogo. Usado pela Academia
- * (`academia/db.js`) para migrar o catálogo do coach sem criar duplicatas: cada
+ * (`coach/academia/db.js`) para migrar o catálogo do coach sem criar duplicatas: cada
  * entrada casa por id antigo OU pelo nome antigo (o id de um exercício criado na
  * Academia é o slug do nome). `para: null` = o exercício sai do catálogo.
  * @type {Array<{de: string[], para: string|null}>}

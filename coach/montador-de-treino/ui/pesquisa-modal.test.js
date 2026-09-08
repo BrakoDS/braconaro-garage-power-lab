@@ -14,13 +14,13 @@
  *      edição do coach) funciona campo a campo, inclusive para arrays de
  *      checkbox onde a ORDEM não deveria contar como "editado".
  *
- * O módulo importa `academia/db.js` na cadeia (`academia/data/seed.js` →
- * `montador/data/*.js` são puros, mas `academia/db.js` chama `localStorage` no
+ * O módulo importa `coach/academia/db.js` na cadeia (`coach/academia/data/seed.js` →
+ * `montador/data/*.js` são puros, mas `coach/academia/db.js` chama `localStorage` no
  * CARREGAMENTO do módulo — `garantirSeed()` roda solto no topo do arquivo).
  * Mesmo stub mínimo de `livre.test.js`: existe só para o import em cadeia não
  * quebrar em Node, os testes abaixo não usam `document` para nada.
  *
- * Rodar: node --test montador/ui/pesquisa-modal.test.js
+ * Rodar: node --test coach/montador-de-treino/ui/pesquisa-modal.test.js
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

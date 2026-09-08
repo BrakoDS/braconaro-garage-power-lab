@@ -374,7 +374,7 @@ export const EQUIP_COM_CARGA = new Set([
 
 /**
  * Fusões/remoções de itens do inventário do coach, aplicadas uma vez por versão de
- * semente (ver `academia/db.js`). Casa por id OU por nome (o id de um equipamento
+ * semente (ver `coach/academia/db.js`). Casa por id OU por nome (o id de um equipamento
  * criado na Academia é o slug do nome). `somarQuantidade` junta o estoque dos dois
  * itens no de destino; `para: null` remove. Exercícios que apontavam para o id
  * antigo são repontados para o novo.

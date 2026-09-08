@@ -7,7 +7,7 @@
  *   entrada: { termo, contexto: 'exercicio'|'mobilidade'|'tecnica', equipamentos: {id,nome}[], buscarNaWeb? }
  *   saída:   { proposta, restantes, buscou }
  *
- * Segue **exatamente** o padrão de `loja/precos.js` (`pedirAtualizacao`,
+ * Segue **exatamente** o padrão de `garage-store/precos.js` (`pedirAtualizacao`,
  * linhas ~262-269) para chamar uma callable: import dinâmico do SDK pela CDN,
  * `getFunctions(app, 'southamerica-east1')` e — o ponto que importa — um
  * TIMEOUT EXPLÍCITO no terceiro argumento de `httpsCallable`.
@@ -18,16 +18,16 @@
  * fila do servidor nem cold start da function. Sem um teto explícito bem acima
  * disso, o coach veria "erro" no navegador enquanto a function ainda está
  * rodando com sucesso do lado do servidor — e clicaria de novo, gerando
- * concorrência (mesmo raciocínio do comentário em `loja/precos.js`).
+ * concorrência (mesmo raciocínio do comentário em `garage-store/precos.js`).
  */
 import { firebaseConfig } from '../../../compartilhado/firebase/config.js';
 
-const V = '10.12.2'; // mesma versão do SDK já usada em cloud.js e loja/precos.js
+const V = '10.12.2'; // mesma versão do SDK já usada em cloud.js e garage-store/precos.js
 /** Maior que o `timeoutSeconds: 120` da própria function (ver `pesquisarItem` em
  * functions/src/index.ts), de propósito. Se o cliente desistir ANTES do servidor,
  * o coach vê erro enquanto a busca ainda está rodando com sucesso — e clica de
  * novo, gastando cota e disparando duas chamadas para a mesma coisa. É o mesmo
- * problema que o comentário de `pedirAtualizacao` em loja/precos.js descreve.
+ * problema que o comentário de `pedirAtualizacao` em garage-store/precos.js descreve.
  * Quem desiste primeiro tem que ser o servidor, que sabe o que estava fazendo. */
 const TIMEOUT_MS = 130000;
 

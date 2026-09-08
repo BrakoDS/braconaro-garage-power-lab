@@ -3,7 +3,7 @@
  * Render do "Treino do dia" no Portal (lado aluno). Não importa o render.js do
  * Montador — aquele é o app do coach, e o card do aluno é outra coisa. De
  * `montador/config/` importa sim: são constantes puras, sem tela e sem estado, e
- * é de onde `aluno/app.js` já tira as cores das modalidades. Uma régua que as
+ * é de onde `painel-do-aluno/app.js` já tira as cores das modalidades. Uma régua que as
  * duas telas precisam ler igual mora lá, não copiada aqui.
  *
  * Mostra o treino de hoje no NÍVEL do aluno (força/hipertrofia); Hyrox/HIIT/GAP

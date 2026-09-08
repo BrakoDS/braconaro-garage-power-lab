@@ -39,8 +39,8 @@ O link do montador foi **removido do rodapé do site** (acesso só por URL diret
 Não há build nem dependências (vanilla JS / ES Modules). Mas ES Modules exigem
 ser servidos por HTTP (não funcionam via `file://`).
 
-- **Aplicação (Fase 2):** `montador/index.html` — a ferramenta completa para o coach.
-- **Demo do núcleo (Fase 1):** `montador/demo.html` — geração rápida para validação.
+- **Aplicação (Fase 2):** `coach/montador-de-treino/index.html` — a ferramenta completa para o coach.
+- **Demo do núcleo (Fase 1):** `coach/montador-de-treino/demo.html` — geração rápida para validação.
 - **Local:** sirva a raiz do repositório com `.claude/serve-garage.ps1` (porta 8765) →
   `http://localhost:8765/montador/index.html`.
 - **Produção:** no GitHub Pages, fica em `…/montador/index.html`.

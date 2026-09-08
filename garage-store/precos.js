@@ -28,7 +28,7 @@ const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out
  *
  * O item só vale para o link de onde veio. A chave do feed é o `id`, e o `id` é
  * o slug do nome de quando o produto foi criado: ele SOBREVIVE à edição da ficha
- * (`academia/db.js` preserva o id ao atualizar). Reapontar um produto existente
+ * (`coach/academia/db.js` preserva o id ao atualizar). Reapontar um produto existente
  * para outra URL mantém o mesmo `id` — e sem conferir a URL o aluno veria o
  * produto novo com o preço do antigo, ainda por cima com a legenda "verificado
  * hoje" fazendo o número errado parecer mais confiável que o preço digitado.
@@ -69,7 +69,7 @@ export function fundirPrecos(produtos, feed) {
  * a janela na hora, sem esperar a madrugada. O risco de recusar é certo e vale
  * para os 22 produtos. Por isso a tolerância só existe para o item antigo: item
  * novo sempre tem `url` e é sempre conferido. De quebra, é essa tolerância que
- * desacopla os dois deploys: o front (`loja/precos.js`) pode ir ao ar antes ou
+ * desacopla os dois deploys: o front (`garage-store/precos.js`) pode ir ao ar antes ou
  * depois das functions, em qualquer ordem — o que não seria verdade se o item
  * sem `url` fosse recusado, porque aí o deploy do front na frente do das
  * functions já esvaziaria a vitrine sozinho.

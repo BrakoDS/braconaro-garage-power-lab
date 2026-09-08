@@ -6,7 +6,7 @@
  * do app Academia, mesmo com a Loja sendo um app à parte), e as regras do Firestore
  * fecham esse documento só para ele — nenhum aluno ou visitante lê de lá. Então a
  * vitrine tem um doc próprio, `lojaPortal/atual`, de leitura pública e escrita só do
- * coach. Mesmo desenho de `montador/ui/portal-treino.js` com `treinoPortal`.
+ * coach. Mesmo desenho de `coach/montador-de-treino/ui/portal-treino.js` com `treinoPortal`.
  *
  * Publica SÓ o que está ativo: desativar um produto tira ele do ar na próxima
  * publicação, sem apagar nada do catálogo do coach.

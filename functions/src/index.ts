@@ -375,7 +375,7 @@ async function rodar(): Promise<ResumoRodada> {
     // publicada na vitrine — e não a URL final que o `fetch` resolveu: os links
     // são encurtados (`meli.la/xxx`) e resolvem para um endereço completamente
     // diferente, que nunca bateria com `produto.url` em `ehDoMesmoLink`
-    // (`loja/precos.js`). Trocar para a URL resolvida faz todo item parecer
+    // (`garage-store/precos.js`). Trocar para a URL resolvida faz todo item parecer
     // "de outro link" e todo preço cair no catálogo em silêncio — sem erro, sem
     // log, sem trava, porque os testes cobrem a decisão da rodada, não esta
     // montagem.
@@ -459,7 +459,7 @@ const COOLDOWN_MS = 60_000;
  * então o coach clica cinco vezes. As cinco chamadas entram juntas, as cinco leem
  * o MESMO carimbo velho, as cinco passam pelo cooldown, e as cinco raspam em
  * paralelo — 110 requisições em rajada contra o Mercado Livre, que é exatamente
- * o muro de "suspicious-traffic" que `loja-gestao/loja-url.js` documenta.
+ * o muro de "suspicious-traffic" que `coach/gestao-garage-store/loja-url.js` documenta.
  *
  * Com `concurrency: 1` a sequência ler-carimbo → decidir → gravar do cooldown
  * passa a ser de fato serializada, e o segundo clique encontra o carimbo novo.
