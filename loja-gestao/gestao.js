@@ -14,8 +14,8 @@
  *   armadilha do `seedVersion`). Por isso o app só sai da tela de "sincronizando"
  *   depois do `await db.iniciarSync(uid)`; se falhar, nem mostra o painel.
  */
-import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../montador/ui/cloud.js';
-import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
+import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../compartilhado/firebase/cloud.js';
+import { bloquearSeNaoCoach } from '../compartilhado/firebase/coach-guard.js';
 import * as db from '../academia/db.js';
 import { publicarLoja, carregarVitrine, assinatura, assinaturaPublicada } from '../loja/loja-portal.js';
 import { cardProduto, gridVitrine, filtrar, chipsCategoria, formatarPreco, esc, norm, CATEGORIAS, SUBCATEGORIAS } from '../loja/vitrine-card.js';

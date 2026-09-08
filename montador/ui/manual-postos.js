@@ -13,8 +13,8 @@
  * pausa é o resto de 120s depois do trabalho, e é isso que faz mais carga significar
  * menos reps e mais descanso sem ninguém ter de calcular.
  */
-import { EXERCICIOS } from '../data/exercicios.js';
-import { unidadesDe } from '../data/equipamentos.js';
+import { EXERCICIOS } from '../../compartilhado/dados/exercicios.js';
+import { unidadesDe } from '../../compartilhado/dados/equipamentos.js';
 import { verificarViabilidade } from '../core/viabilidade.js';
 import {
   poolLado, montarPostosDe, movimentoWod, ladoSalvo, volumeHibrido,

@@ -14,9 +14,9 @@
  * do mesmo circuito pode usar aquele equipamento em paralelo — inclusive outro
  * exercício `ocupaTudo` do mesmo aparelho (dois crossovers não rodam juntos).
  *
- * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
  */
-import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesNecessarias, unidadesDe } from '../data/equipamentos.js';
+import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesNecessarias, unidadesDe } from '../../compartilhado/dados/equipamentos.js';
 
 /**
  * @param {Exercicio[]} exercicios  Estações do treino

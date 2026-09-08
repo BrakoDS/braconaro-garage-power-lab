@@ -6,8 +6,7 @@
  *
  * Carrega ao logar; envia (debounced) a cada mudança. Last-write-wins.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../cloud-config.js';
-import * as store from './store.js';
+import { CLOUD_ATIVO, firebaseConfig } from './config.js';
 
 const V = '10.12.2';
 let _auth = null, _db = null, _user = null, _fns = {};
@@ -83,7 +82,15 @@ function temDados(est) {
  *  - nuvem vazia + local com dados → semeia a nuvem com o local;
  *  - ambos vazios → nada.
  */
-export async function carregarParaStore() {
+/**
+ * O `store` entra por PARÂMETRO, não por import. Este arquivo é do núcleo
+ * compartilhado — a tela do aluno, a Academia, a gestão e a loja dependem dele
+ * para login. Importar o store do montador aqui faria o compartilhado depender
+ * de um projeto, e todo mundo que só quer logar carregaria o estado do montador
+ * junto. A dependência aponta para baixo: quem tem store é quem passa.
+ * @param {{setEstado:Function, getEstado:Function}} store
+ */
+export async function carregarParaStore(store) {
   if (!_user) return false;
   const ref = _fns.doc(_db, 'coaches', _user.uid);
   const snap = await _fns.getDoc(ref);
@@ -112,7 +119,8 @@ export function agendarEnvio(est) {
 }
 
 /** Conecta o store à nuvem: cada salvamento agenda um envio. */
-export function conectarStore() {
+/** @param {{aoSalvar:Function}} store */
+export function conectarStore(store) {
   store.aoSalvar((est) => agendarEnvio(est));
 }
 

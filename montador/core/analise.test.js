@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { somarVolume, analisarSemana, agruparPorSemana, analisarMes } from './analise.js';
 import { MINIMO_SEMANAL } from '../config/frequencias.js';
 import { diaEditavel, alternativasDoDia, trocarExercicioDoDia, alunosDoDia } from './editar-dia.js';
-import { EXERCICIO_POR_ID } from '../data/exercicios.js';
+import { EXERCICIO_POR_ID } from '../../compartilhado/dados/exercicios.js';
 
 const dia = (dateId, vol, modalidade = 'hipertrofia') => ({ dateId, modalidade, volPorPadrao: vol });
 /** Uma semana que fecha o mínimo em todos os padrões cobrados. */

@@ -6,7 +6,7 @@
  * alunos no Portal. O coach edita numa cópia local (localStorage) e cada
  * mudança é reenviada inteira à nuvem. Degrada para só-local se a nuvem faltar.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const KEY = 'braconaro_avisos_v1';
 const V = '10.12.2';

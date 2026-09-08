@@ -34,7 +34,7 @@
  * @property {(ctx: CtxManual) => string} [distribuicao]
  */
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
-import { EXERCICIOS } from '../data/exercicios.js';
+import { EXERCICIOS } from '../../compartilhado/dados/exercicios.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
 import { formatoManual } from '../core/formato-manual.js';
 import { duracaoMobilidade } from '../core/gerador.js';

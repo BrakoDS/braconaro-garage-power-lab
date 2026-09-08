@@ -3,7 +3,7 @@
  * Leitura do ranking do box (lado aluno). Doc único `rankingPortal/geral`,
  * publicado pelo coach. Qualquer aluno autenticado lê.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

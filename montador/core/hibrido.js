@@ -16,8 +16,8 @@
  * Nada aqui é fixo — os 3 blocos são montados a partir do catálogo real (nenhum
  * exercício específico está hardcoded como "o" treino híbrido).
  *
- * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
- * @typedef {import('../config/padroes.js').Padrao} Padrao
+ * @typedef {import('../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../compartilhado/config/padroes.js').Padrao} Padrao
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
  *
  * @typedef {Object} MobilidadeItem
@@ -62,8 +62,8 @@
  * @property {string} semanaRotulo
  * @property {{ok:boolean, nota:string}} viabilidade
  */
-import { EXERCICIOS } from '../data/exercicios.js';
-import { ALUNOS_POR_SESSAO, unidadesDe } from '../data/equipamentos.js';
+import { EXERCICIOS } from '../../compartilhado/dados/exercicios.js';
+import { ALUNOS_POR_SESSAO, unidadesDe } from '../../compartilhado/dados/equipamentos.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
 import { calcularVolume } from './volume.js';
 import { variantesNivel } from './niveis.js';

@@ -5,7 +5,7 @@
  * O coach edita numa cópia local (localStorage) e cada mudança reenvia a lista
  * inteira. Degrada para só-local se a nuvem faltar.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const KEY = 'braconaro_desafios_v1';
 const V = '10.12.2';

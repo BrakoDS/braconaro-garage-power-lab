@@ -14,7 +14,7 @@
     _promise = Promise.all([
       import('https://www.gstatic.com/firebasejs/' + V + '/firebase-app.js'),
       import('https://www.gstatic.com/firebasejs/' + V + '/firebase-firestore.js'),
-      import('./montador/cloud-config.js'),
+      import('./compartilhado/firebase/config.js'),
     ]).then(function (mods) {
       var appMod = mods[0], fsMod = mods[1], cfg = mods[2];
       if (!cfg.CLOUD_ATIVO || !cfg.firebaseConfig || !cfg.firebaseConfig.apiKey) throw new Error('cloud-inativa');

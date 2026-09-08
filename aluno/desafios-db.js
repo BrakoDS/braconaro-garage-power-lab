@@ -5,7 +5,7 @@
  *  - lê/grava o progresso do próprio aluno em `desafios/{email}`
  *    ({ checks: { [desafioId]: [isoDates] }, concluidos: [{id, semana, em}] }).
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

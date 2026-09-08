@@ -6,10 +6,10 @@
  * (faz "snap" para a carga disponível). Para exercícios de peso corporal/cardio,
  * devolve orientação de esforço em vez de kg.
  *
- * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
  * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
  */
-import { EQUIP_POR_ID } from '../data/equipamentos.js';
+import { EQUIP_POR_ID } from '../../compartilhado/dados/equipamentos.js';
 
 /** Carga-base por nível (kg) para cada tipo de implemento carregável. */
 const BASE = {

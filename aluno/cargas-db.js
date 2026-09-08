@@ -4,7 +4,7 @@
  * de séries registradas ({ id, exercicio, cargaKg, reps, data }). A regra do
  * Firestore permite ao aluno ler/gravar só o doc do próprio e-mail.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

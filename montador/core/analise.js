@@ -10,10 +10,10 @@
  * Não conhece localStorage, DOM nem o formato interno de cada modalidade — só
  * `volPorPadrao`, que TODA modalidade grava.
  *
- * @typedef {import('../config/padroes.js').Padrao} Padrao
+ * @typedef {import('../../compartilhado/config/padroes.js').Padrao} Padrao
  * @typedef {{dateId:string, modalidade:string, volPorPadrao?:Record<string,number>}} TreinoSalvo
  */
-import { PADROES, PADRAO_LABEL } from '../config/padroes.js';
+import { PADROES, PADRAO_LABEL } from '../../compartilhado/config/padroes.js';
 import { MINIMO_SEMANAL } from '../config/frequencias.js';
 
 /** Padrões que entram na conta. `estabilizadores` tem mínimo 0 — é informativo. */

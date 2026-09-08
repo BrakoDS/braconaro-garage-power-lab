@@ -6,7 +6,7 @@
  * que o aluno registrou no Portal (gastoTreinos). Publica só nome (1º nome) +
  * id + contagem, para o Portal exibir a competição sem expor e-mail.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

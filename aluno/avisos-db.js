@@ -5,7 +5,7 @@
  * Lê o mural único `avisosPortal/geral` (Firestore). A regra permite qualquer
  * aluno autenticado ler. Reaproveita o app Firebase já inicializado no login.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

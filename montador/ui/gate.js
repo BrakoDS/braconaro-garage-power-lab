@@ -5,12 +5,15 @@
  *  - Nuvem inativa: senha local simples (dissuasor), como antes.
  * Em ambos, o app (app.js) só é carregado após liberar.
  */
-import { estaLiberado, tentarLiberar } from './auth.js';
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, carregarParaStore, conectarStore, usuario } from './cloud.js';
-import { bloquearSeNaoCoach } from './coach-guard.js';
+import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
+import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, carregarParaStore, conectarStore, usuario } from '../../compartilhado/firebase/cloud.js';
+import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
 import { aplicarInventarioAcademia, sincronizarInventarioAcademia } from './inventario.js';
 import { construirCatalogoEfetivo } from './catalogo.js';
 import { sincronizarAlunos } from './gestao.js';
+// O store é do montador, e agora é ELE quem entrega o store ao núcleo
+// compartilhado, em vez de o núcleo ir buscar lá dentro.
+import * as store from './store.js';
 
 const gate = document.getElementById('gate');
 const form = document.getElementById('gate-form');
@@ -52,8 +55,8 @@ function msgErroAuth(e) {
 async function entrarComNuvem() {
   const u = usuario();
   if (u && await bloquearSeNaoCoach(u)) return; // barra contas de aluno
-  await carregarParaStore();
-  conectarStore();
+  await carregarParaStore(store);
+  conectarStore(store);
   const uid = usuario()?.uid;
   await sincronizarInventarioAcademia(uid); // inventário da Academia (nuvem → local)
   await sincronizarAlunos(uid);             // alunos da Gestão (nuvem → local)

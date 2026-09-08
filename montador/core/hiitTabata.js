@@ -9,11 +9,11 @@
  *
  * Monta a partir do catálogo EFETIVO (Academia + inventário do box).
  *
- * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
  * @typedef {import('./volume.js').Volume} Volume
  */
-import { EXERCICIOS } from '../data/exercicios.js';
-import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesDe } from '../data/equipamentos.js';
+import { EXERCICIOS } from '../../compartilhado/dados/exercicios.js';
+import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesDe } from '../../compartilhado/dados/equipamentos.js';
 
 export const TABATA = { trabalhoSeg: 20, descansoSeg: 10, roundsPorEstacao: 16, slotsPorEstacao: 4 };
 const DESCANSO_ENTRE_ESTACOES_SEG = 60;

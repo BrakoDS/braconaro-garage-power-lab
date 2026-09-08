@@ -6,7 +6,7 @@
  * coach (foto nova → fotoUrl; feedbacks → a.feedbacks, sem duplicar) e apaga a
  * caixa. Silencioso: se a nuvem/regra falhar, não quebra o app do coach.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

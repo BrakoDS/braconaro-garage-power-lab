@@ -11,7 +11,7 @@
  * @typedef {'iniciante'|'intermediario'|'avancado'|'competitivo'} Nivel
  * @typedef {import('./volume.js').Volume} Volume
  */
-import { EQUIP_POR_ID, ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
+import { EQUIP_POR_ID, ALUNOS_POR_SESSAO } from '../../compartilhado/dados/equipamentos.js';
 
 /**
  * Níveis do Hyrox — os três do resto do app MAIS o Competitivo.
@@ -53,8 +53,8 @@ export const HYROX_CORRIDA = {
  * @property {string} nome            Nome no box
  * @property {string} base            Estação equivalente na competição
  * @property {string[]} equipamento   IDs de equipamentos.js
- * @property {import('../config/padroes.js').Padrao} padrao
- * @property {import('../config/padroes.js').Padrao} [padraoSec]  Padrão secundário (volume nominal)
+ * @property {import('../../compartilhado/config/padroes.js').Padrao} padrao
+ * @property {import('../../compartilhado/config/padroes.js').Padrao} [padraoSec]  Padrão secundário (volume nominal)
  * @property {'reps'|'distancia'} tipo
  * @property {Record<Nivel, number>} prescricao
  * @property {string} carga

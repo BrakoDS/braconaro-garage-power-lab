@@ -6,7 +6,7 @@
  * atividade escolhido e a lista de lançamentos ({ id, data, calorias }). A
  * regra do Firestore permite ao aluno ler/gravar só o doc do próprio e-mail.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 import { FATOR_PADRAO, modoDoDoc } from './atividade.js';
 
 const V = '10.12.2';

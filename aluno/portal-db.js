@@ -6,7 +6,7 @@
  * o do próprio aluno logado — a regra do Firestore só permite ler o documento
  * cujo id == o e-mail autenticado. Reaproveita o app Firebase do login.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

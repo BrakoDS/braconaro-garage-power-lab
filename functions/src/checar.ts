@@ -485,7 +485,7 @@ const schemaVocab = montarSchema('exercicio', []) as {
 
 checarVocabulario(
   'PADROES',
-  () => comoArrayDeString(acharConst(parseSite('montador/config/padroes.js'), 'PADROES'), 'montador/config/padroes.js:PADROES'),
+  () => comoArrayDeString(acharConst(parseSite('compartilhado/config/padroes.js'), 'PADROES'), 'compartilhado/config/padroes.js:PADROES'),
   schemaVocab.properties.padrao.enum,
 );
 
@@ -497,8 +497,8 @@ checarVocabulario(
     // `MUSC_MAP` (`academia/data/seed.js`) — a mesma cadeia que o cabeçalho de
     // `pesquisa.ts` documenta. Reproduzimos os dois passos aqui, não um atalho.
     const chaves = comoArrayDeString(
-      acharConst(parseSite('montador/config/padroes.js'), 'MUSCULOS'),
-      'montador/config/padroes.js:MUSCULOS',
+      acharConst(parseSite('compartilhado/config/padroes.js'), 'MUSCULOS'),
+      'compartilhado/config/padroes.js:MUSCULOS',
     );
     const mapa = comoMapaDeString(
       acharConst(parseSite('academia/data/seed.js'), 'MUSC_MAP'),

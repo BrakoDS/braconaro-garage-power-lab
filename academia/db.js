@@ -8,8 +8,8 @@
  * vez (sem dados locais nem na nuvem) semeia com o inventário/catálogo reais.
  */
 import { seedData, clonarNegocio, FREQUENCIAS, PRAZOS } from './data/seed.js';
-import { MIGRACOES_CATALOGO } from '../montador/data/exercicios.js';
-import { MIGRACOES_INVENTARIO } from '../montador/data/equipamentos.js';
+import { MIGRACOES_CATALOGO } from '../compartilhado/dados/exercicios.js';
+import { MIGRACOES_INVENTARIO } from '../compartilhado/dados/equipamentos.js';
 
 const KEY = 'braconaro_academia_v1';
 

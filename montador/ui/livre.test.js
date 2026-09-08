@@ -101,7 +101,7 @@ const {
   _definirAbrirPesquisaDeTeste, _definirPedirTermoTecnicaDeTeste,
 } = await import('./livre.js');
 const { montarLivre } = await import('../core/livre.js');
-const { EXERCICIOS } = await import('../data/exercicios.js');
+const { EXERCICIOS } = await import('../../compartilhado/dados/exercicios.js');
 const academia = await import('../../academia/db.js');
 
 /** Mesmo `porId` que `livre.js` usa internamente — o catálogo é o mesmo array

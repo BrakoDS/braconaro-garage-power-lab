@@ -6,7 +6,7 @@ import {
 } from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
 import { calcularPostos, calcularSeries, SERIE_SEG } from './hibrido-postos.js';
-import { EXERCICIOS } from '../data/exercicios.js';
+import { EXERCICIOS } from '../../compartilhado/dados/exercicios.js';
 
 /** mulberry32 — mesmo RNG do gerador, pra teste determinístico. */
 function rngDe(seed) {

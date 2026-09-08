@@ -9,7 +9,7 @@
  * (gestao/{uid} ou coaches/{uid}), com uma lista de e-mails como reforço.
  * Assim nunca trancamos um coach ativo (ele sempre tem esses dados).
  */
-import { firebaseConfig } from '../cloud-config.js';
+import { firebaseConfig } from './config.js';
 import { sair } from './cloud.js';
 
 /** E-mails sempre liberados como coach (reforço; o principal é possuir dados). */

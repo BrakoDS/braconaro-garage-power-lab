@@ -4,7 +4,7 @@
  * `consentimentos/{email}`. Guarda a versão do termo aceita e quando, para
  * detectar se o termo mudou e pedir aceite de novo.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 /** Versão atual do termo — mude este valor se o texto mudar substancialmente (pede aceite de novo). */
 export const VERSAO_TERMO = '1.0';

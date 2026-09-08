@@ -3,7 +3,7 @@
  * Leitura do registro de cargas do aluno (lado coach). Doc `cargas/{email}`,
  * que o aluno preenche no Portal. A regra permite ao coach ler.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

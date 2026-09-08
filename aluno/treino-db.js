@@ -7,7 +7,7 @@
  * autenticado ler, inclusive meses passados — é o que deixa o aluno navegar o
  * cronograma para trás. Silencioso em falha.
  */
-import { firebaseConfig } from '../montador/cloud-config.js';
+import { firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

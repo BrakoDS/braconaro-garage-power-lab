@@ -20,7 +20,7 @@
  * rodando com sucesso do lado do servidor — e clicaria de novo, gerando
  * concorrência (mesmo raciocínio do comentário em `loja/precos.js`).
  */
-import { firebaseConfig } from '../cloud-config.js';
+import { firebaseConfig } from '../../compartilhado/firebase/config.js';
 
 const V = '10.12.2'; // mesma versão do SDK já usada em cloud.js e loja/precos.js
 /** Maior que o `timeoutSeconds: 120` da própria function (ver `pesquisarItem` em

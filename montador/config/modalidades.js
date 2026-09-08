@@ -17,7 +17,7 @@
  * @property {'estacoes'|'circuito'|'blocos'} formato
  * @property {boolean} finalizador       Tem finalizador (WOD/condicionamento)?
  * @property {string} estimulo
- * @property {import('./padroes.js').Padrao[]} [padroesAlvo]  Se definido, o treino NÃO é
+ * @property {import('../../compartilhado/config/padroes.js').Padrao[]} [padroesAlvo]  Se definido, o treino NÃO é
  *           full body: foca só nestes padrões (ex.: GAP = trem inferior + core).
  */
 

@@ -3,7 +3,7 @@
  * Leitura do consentimento LGPD do aluno (lado coach). Doc `consentimentos/{email}`.
  * A regra permite ao coach ler (auditoria — comprovar que o aluno aceitou).
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

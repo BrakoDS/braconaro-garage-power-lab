@@ -3,8 +3,8 @@
  * CÁLCULO DE VOLUME por grupamento muscular e por padrão de movimento.
  * Convenção: 1 série conta 1.0 para cada músculo PRIMÁRIO e 0.5 para SECUNDÁRIO.
  *
- * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
- * @typedef {import('../config/padroes.js').Padrao} Padrao
+ * @typedef {import('../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../compartilhado/config/padroes.js').Padrao} Padrao
  *
  * @typedef {Object} ItemTreino
  * @property {Exercicio} exercicio

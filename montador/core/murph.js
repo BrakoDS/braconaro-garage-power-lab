@@ -20,7 +20,7 @@
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
  * @typedef {import('./volume.js').Volume} Volume
  */
-import { ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
+import { ALUNOS_POR_SESSAO } from '../../compartilhado/dados/equipamentos.js';
 
 /**
  * Os três blocos. As repetições são IGUAIS em todos os níveis — o Murph é o
@@ -31,7 +31,7 @@ import { ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
  * @property {string} base           Movimento equivalente no Murph original
  * @property {string} exercicioId    Id no catálogo (data/exercicios.js)
  * @property {number} reps
- * @property {import('../config/padroes.js').Padrao} padrao
+ * @property {import('../../compartilhado/config/padroes.js').Padrao} padrao
  * @property {string[]} equipamento
  * @property {string} [nota]
  */

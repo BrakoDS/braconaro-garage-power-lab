@@ -1,21 +1,21 @@
 // @ts-check
 import { MODALIDADES } from '../config/modalidades.js';
-import { PADRAO_LABEL, PADROES } from '../config/padroes.js';
+import { PADRAO_LABEL, PADROES } from '../../compartilhado/config/padroes.js';
 import { MINIMO_SEMANAL } from '../config/frequencias.js';
-import { EQUIP_POR_ID } from '../data/equipamentos.js';
+import { EQUIP_POR_ID } from '../../compartilhado/dados/equipamentos.js';
 import { alternativasViaveis, alternativasLivres, aplicarTroca } from '../core/gerador.js';
 import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
 import { NIVEIS_HYROX, NIVEL_HYROX_LABEL } from '../core/hyrox.js';
 import { agruparPorSemana, analisarSemana, analisarMes } from '../core/analise.js';
 import { alternativasDoDia, diaEditavel } from '../core/editar-dia.js';
-import { COR_MODALIDADE } from '../config/cores-modalidade.js';
-import { rotuloGrupo } from '../config/livre-grupo.js';
+import { COR_MODALIDADE } from '../../compartilhado/config/cores-modalidade.js';
+import { rotuloGrupo } from '../../compartilhado/config/livre-grupo.js';
 
 /* Cor por modalidade (calendário do histórico). Mora em config/ porque o Portal
    do Aluno desenha o mesmo calendário; o re-export mantém os imports de cá.
    O import separado é necessário: `export ... from` não cria binding local, e
    renderCalendario() logo abaixo usa o mapa. */
-export { COR_MODALIDADE } from '../config/cores-modalidade.js';
+export { COR_MODALIDADE } from '../../compartilhado/config/cores-modalidade.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const mmss = (s) => `${Math.round(s / 60)}min`;

@@ -4,12 +4,12 @@
  * Gate de acesso reaproveitando o login do Coach/Montador (Firebase) e toda a
  * UI das telas 1 (listagem) e 2 (perfil com 3 abas). Dados via ./db.js.
  */
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../montador/ui/cloud.js';
-import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
-import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
+import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../compartilhado/firebase/cloud.js';
+import { estaLiberado, tentarLiberar } from '../compartilhado/firebase/auth.js';
+import { bloquearSeNaoCoach } from '../compartilhado/firebase/coach-guard.js';
 import * as db from './db.js';
-import * as calc from './calc.js?v=5';
-import * as storage from './storage-alunos.js';
+import * as calc from '../compartilhado/regras/calc.js?v=5';
+import * as storage from '../compartilhado/regras/storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
@@ -21,10 +21,10 @@ import { carregarCargasAluno } from './cargas-read.js';
 import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
 import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
-import * as game from '../aluno/gamificacao.js';
-import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../aluno/semana.js';
+import * as game from '../compartilhado/regras/gamificacao.js';
+import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../compartilhado/regras/semana.js';
 import { mesIdParaLancar, faturaDoMes, faturaComDependentes, consumosDoMes, totalConsumos,
-  PERCENTUAIS_PARCERIA } from '../aluno/consumo.js';
+  PERCENTUAIS_PARCERIA } from '../compartilhado/regras/consumo.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;

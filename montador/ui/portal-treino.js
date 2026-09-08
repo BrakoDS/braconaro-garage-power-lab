@@ -8,7 +8,7 @@
  * doc do mês atual e mostra o treino da data de hoje no seu nível. Reusa o app
  * Firebase já inicializado pelo cloud.js (login do coach).
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

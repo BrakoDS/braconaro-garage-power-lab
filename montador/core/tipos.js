@@ -3,20 +3,20 @@
  * Tipos compartilhados (apenas JSDoc — arquivo sem runtime).
  *
  * @typedef {Object} ItemPrincipal
- * @property {import('../data/exercicios.js').Exercicio} exercicio
+ * @property {import('../../compartilhado/dados/exercicios.js').Exercicio} exercicio
  * @property {number} series
  * @property {string} reps
  * @property {number} descansoSeg
  * @property {number} tempoSeg
  *
  * @typedef {Object} ItemAquecimento
- * @property {import('../data/exercicios.js').Exercicio} exercicio
+ * @property {import('../../compartilhado/dados/exercicios.js').Exercicio} exercicio
  * @property {number} duracaoSeg
  *
  * @typedef {Object} Finalizador
  * @property {string} tipo
  * @property {string} descricao
- * @property {import('../data/exercicios.js').Exercicio[]} itens
+ * @property {import('../../compartilhado/dados/exercicios.js').Exercicio[]} itens
  * @property {number} tempoSeg
  *
  * @typedef {Object} Treino

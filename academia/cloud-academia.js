@@ -7,7 +7,7 @@
  * o outro. Reaproveita o app Firebase já inicializado pelo login.
  * A apiKey é pública por design; a segurança vem do login + regras do Firestore.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

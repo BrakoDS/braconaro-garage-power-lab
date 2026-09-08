@@ -19,12 +19,12 @@
  * duas telas divergirem em silêncio.
  *
  * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
- * @typedef {import('../config/padroes.js').Padrao} Padrao
+ * @typedef {import('../../compartilhado/config/padroes.js').Padrao} Padrao
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
  * @typedef {'blocos'|'tabata4'|'gapMusicas'|'postosBiset'|'hyroxEstacoes'|'murphFixo'} FormatoManualId
  */
 import { MODALIDADES } from '../config/modalidades.js';
-import { padroesObrigatorios } from '../config/padroes.js';
+import { padroesObrigatorios } from '../../compartilhado/config/padroes.js';
 import { FORMATOS_WOD } from '../config/wod-formatos.js';
 import { HIIT_ESTACOES, TABATA as TABATA_HIIT } from './hiitTabata.js';
 import { TABATA as TABATA_GAP } from './gap.js';

@@ -40,7 +40,7 @@ const MODULOS = {
   livre: '../montador/core/livre.js',
   hibrido: '../montador/core/hibrido.js',
   pesquisaModal: '../montador/ui/pesquisa-modal.js',
-  exercicios: '../montador/data/exercicios.js',
+  exercicios: '../compartilhado/dados/exercicios.js',
 };
 
 const imp = async (chave) => import(new URL(MODULOS[chave], import.meta.url).href);

@@ -11,7 +11,7 @@
  * Publica SÓ o que está ativo: desativar um produto tira ele do ar na próxima
  * publicação, sem apagar nada do catálogo do coach.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 
 const V = '10.12.2';

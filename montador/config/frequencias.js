@@ -35,7 +35,7 @@ export const COMBINACAO_POR_ID = Object.fromEntries(COMBINACOES.map((c) => [c.id
  * O treino é o mesmo para todos; a frequência é só quantos dias o aluno pega.
  * Como cada dia é full body, este piso é o que um aluno de 3 dias precisa atingir
  * (pior caso). Quem vem 4–5 dias fica acima disso (resultado melhor).
- * @type {Record<import('./padroes.js').Padrao, number>}
+ * @type {Record<import('../../compartilhado/config/padroes.js').Padrao, number>}
  */
 export const MINIMO_SEMANAL = {
   empurrar: 9, puxar: 9, quadriceps: 9, posterior_gluteo: 9,

@@ -7,7 +7,7 @@
  * A fonte da verdade continua sendo `gestao/{uid}`; isto é só a projeção
  * de leitura para o aluno. Reaproveita o app Firebase já inicializado.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

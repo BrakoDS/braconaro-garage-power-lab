@@ -21,7 +21,7 @@
  */
 import * as academia from '../../academia/db.js';
 import { pesquisarItem } from './pesquisa.js';
-import { PADROES, PADRAO_LABEL, MUSCULOS } from '../config/padroes.js';
+import { PADROES, PADRAO_LABEL, MUSCULOS } from '../../compartilhado/config/padroes.js';
 import { MUSC_MAP } from '../../academia/data/seed.js';
 import { NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
 

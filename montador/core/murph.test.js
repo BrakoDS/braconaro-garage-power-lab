@@ -5,7 +5,7 @@ import {
   MURPH_BLOCOS, MURPH_TOTAL_REPS, MURPH_CARDIO, MURPH_EXECUCAO,
   CINDY_ROUNDS, CINDY_ROUND, gerarMurph, volumeMurph, estimarDuracaoSeg,
 } from './murph.js';
-import { EXERCICIO_POR_ID } from '../data/exercicios.js';
+import { EXERCICIO_POR_ID } from '../../compartilhado/dados/exercicios.js';
 import { MODALIDADES } from '../config/modalidades.js';
 
 test('o miolo é 100 / 200 / 300 e soma 600', () => {

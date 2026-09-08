@@ -12,17 +12,17 @@
  *  7. Ajusta o tempo total para caber em 45–50 min
  *  8. Gera treino final: aquecimento + principal + finalizador (opcional)
  *
- * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
  * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
- * @typedef {import('../config/padroes.js').Padrao} Padrao
+ * @typedef {import('../../compartilhado/config/padroes.js').Padrao} Padrao
  */
-import { EXERCICIOS, EXERCICIO_POR_ID, serveModalidade } from '../data/exercicios.js';
+import { EXERCICIOS, EXERCICIO_POR_ID, serveModalidade } from '../../compartilhado/dados/exercicios.js';
 import { MODALIDADES } from '../config/modalidades.js';
-import { padroesObrigatorios, PADROES } from '../config/padroes.js';
+import { padroesObrigatorios, PADROES } from '../../compartilhado/config/padroes.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
 import { calcularVolume } from './volume.js';
 import { seriesAjustadas, ehDeload } from './periodizacao.js';
-import { ALUNOS_POR_SESSAO } from '../data/equipamentos.js';
+import { ALUNOS_POR_SESSAO } from '../../compartilhado/dados/equipamentos.js';
 import { gerarHyrox, volumeHyrox, estimarDuracaoSeg } from './hyrox.js';
 import { gerarHiitTabata, volumeHiit, estimarDuracaoSeg as estimarDuracaoHiitSeg } from './hiitTabata.js';
 import { gerarGap, volumeGap, estimarDuracaoSeg as estimarDuracaoGapSeg } from './gap.js';

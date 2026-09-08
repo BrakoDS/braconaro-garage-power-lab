@@ -7,8 +7,8 @@
  * na primeira vez (quando não há dados locais nem na nuvem). A partir daí, a
  * fonte da verdade é o que você editar aqui (Firestore).
  */
-import { EQUIPAMENTOS } from '../../montador/data/equipamentos.js';
-import { EXERCICIOS } from '../../montador/data/exercicios.js';
+import { EQUIPAMENTOS } from '../../compartilhado/dados/equipamentos.js';
+import { EXERCICIOS } from '../../compartilhado/dados/exercicios.js';
 
 /** Categorias do montador → rótulos do inventário desta app. */
 export const CAT_MAP = {

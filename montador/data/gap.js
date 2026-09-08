@@ -20,7 +20,7 @@
  * ORDEM IMPORTA em `musculos`: o PRIMEIRO é o primário (conta 1,0 na série) e os
  * demais são secundários (0,5 cada) — a mesma convenção de core/volume.js.
  *
- * @typedef {import('../config/padroes.js').Padrao} Padrao
+ * @typedef {import('../../compartilhado/config/padroes.js').Padrao} Padrao
  *
  * @typedef {Object} MovGap
  * @property {string} id

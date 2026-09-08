@@ -4,7 +4,7 @@
  * As imagens são comprimidas (WebP) antes de subir; no Firestore guardamos só a
  * URL. Caminhos sob gestao/{uid}/... (ver /storage.rules).
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../firebase/config.js';
 
 const V = '10.12.2';
 let _st = null, _fns = null;

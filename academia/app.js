@@ -3,10 +3,10 @@
  * Academia — Inventário + Catálogo de Exercícios.
  * Mesmo login do Coach/Montador (Firebase). Dados via ./db.js (local + nuvem).
  */
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha } from '../montador/ui/cloud.js';
-import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
-import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
-import { PADROES, PADRAO_LABEL } from '../montador/config/padroes.js';
+import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha } from '../compartilhado/firebase/cloud.js';
+import { bloquearSeNaoCoach } from '../compartilhado/firebase/coach-guard.js';
+import { estaLiberado, tentarLiberar } from '../compartilhado/firebase/auth.js';
+import { PADROES, PADRAO_LABEL } from '../compartilhado/config/padroes.js';
 import * as db from './db.js';
 
 /* ============================================================

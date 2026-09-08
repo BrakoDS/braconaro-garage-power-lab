@@ -10,7 +10,7 @@
  * gerador automático (`preencherEstacao`), e existe porque um unilateral em 1 slot
  * faria a aluna trabalhar 20s de um lado só e nunca do outro.
  */
-import { EXERCICIOS } from '../data/exercicios.js';
+import { EXERCICIOS } from '../../compartilhado/dados/exercicios.js';
 import { grupoTabata, slotDe, volumeHiit, estimarDuracaoSeg, TABATA } from '../core/hiitTabata.js';
 import { esc, porId, optionsDe } from './manual.js';
 

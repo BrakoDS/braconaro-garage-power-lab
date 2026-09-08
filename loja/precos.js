@@ -13,7 +13,7 @@
  * que `vitrine-card.js` é compartilhado: prévia que não roda o código real não é
  * prévia.
  */
-import { firebaseConfig } from '../montador/cloud-config.js';
+import { firebaseConfig } from '../compartilhado/firebase/config.js';
 import { lojaCloudAtiva } from './loja-portal.js';
 
 const V = '10.12.2';

@@ -4,7 +4,7 @@
  * Coleção pública em escrita (qualquer visitante cria um lead), mas só o
  * coach (dono de gestao/{uid}) lê/atualiza/apaga — ver firestore.rules.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

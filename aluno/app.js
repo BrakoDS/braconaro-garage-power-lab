@@ -5,15 +5,15 @@
  * em portal/{email} e mostra boas-vindas, progresso, financeiro e avaliações
  * (com comparação). Reaproveita o design e o calc.js do app de alunos.
  */
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario } from '../montador/ui/cloud.js';
+import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario } from '../compartilhado/firebase/cloud.js';
 import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
-import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from './semana.js';
-import { faturaComDependentes, parteCoberta, faturaDoMes } from './consumo.js';
+import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from '../compartilhado/regras/semana.js';
+import { faturaComDependentes, parteCoberta, faturaDoMes } from '../compartilhado/regras/consumo.js';
 import { renderTreinoDia } from './treino-dia.js';
-import { COR_MODALIDADE } from '../montador/config/cores-modalidade.js';
+import { COR_MODALIDADE } from '../compartilhado/config/cores-modalidade.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=3';
 import { NIVEIS, FATOR_PADRAO, nivelDoFator, nivelAutomatico } from './atividade.js';
 import { metaAgua, emLitros, emGarrafas } from './hidratacao.js';
@@ -21,8 +21,8 @@ import { carregarRanking } from './ranking-db.js';
 import { carregarCargas, salvarCargas } from './cargas-db.js';
 import { carregarDesafios, carregarProgressoDesafios, salvarProgressoDesafios } from './desafios-db.js';
 import { carregarConsentimento, registrarAceite, precisaAceitar } from './consentimento-db.js';
-import * as game from './gamificacao.js';
-import * as calc from '../alunos/calc.js?v=5';
+import * as game from '../compartilhado/regras/gamificacao.js';
+import * as calc from '../compartilhado/regras/calc.js?v=5';
 
 /* ---------- Helpers ---------- */
 const $ = (s, r = document) => r.querySelector(s);

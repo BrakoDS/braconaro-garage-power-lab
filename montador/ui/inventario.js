@@ -11,7 +11,7 @@
  * deixa de usar exercícios que dependem dele.
  */
 import * as academia from '../../academia/db.js';
-import { aplicarDisponibilidade } from '../data/equipamentos.js';
+import { aplicarDisponibilidade } from '../../compartilhado/dados/equipamentos.js';
 
 /** Aplica o inventário local da Academia ao gerador. @returns {number} qtd de itens aplicados */
 export function aplicarInventarioAcademia() {

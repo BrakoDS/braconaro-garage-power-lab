@@ -7,7 +7,7 @@
  * Este módulo deriva, de um exercício já selecionado, as 3 variantes (iniciante /
  * intermediário / avançado) a partir das séries do INTERMEDIÁRIO (âncora da geração).
  *
- * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
  * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
  */

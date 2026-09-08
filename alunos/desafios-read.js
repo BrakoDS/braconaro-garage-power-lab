@@ -3,7 +3,7 @@
  * Leitura do progresso de desafios do aluno (lado coach). Doc `desafios/{email}`.
  * A regra permite ao coach ler. Retorna a lista de conclusões (com categoria).
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

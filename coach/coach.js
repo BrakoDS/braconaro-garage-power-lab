@@ -8,9 +8,9 @@
  * Diferente do montador, aqui o "liberar" apenas revela o hub de apps —
  * não carrega nenhum app nem sincroniza dados.
  */
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../montador/ui/cloud.js';
-import { estaLiberado, tentarLiberar } from '../montador/ui/auth.js';
-import { bloquearSeNaoCoach } from '../montador/ui/coach-guard.js';
+import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../compartilhado/firebase/cloud.js';
+import { estaLiberado, tentarLiberar } from '../compartilhado/firebase/auth.js';
+import { bloquearSeNaoCoach } from '../compartilhado/firebase/coach-guard.js';
 
 const gate  = document.getElementById('gate');
 const form  = document.getElementById('gate-form');

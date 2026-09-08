@@ -5,7 +5,7 @@ import { atribuirTecnicasAuto, TECNICAS_DE_UM_EXERCICIO, congelarTecnica } from 
 import { gerarTreino } from './gerador.js';
 import { TECNICAS_SEED } from '../../academia/data/seed.js';
 import { sugerirCarga } from './cargas.js';
-import { EXERCICIOS } from '../data/exercicios.js';
+import { EXERCICIOS } from '../../compartilhado/dados/exercicios.js';
 
 function rngDe(seed) {
   let a = seed >>> 0;

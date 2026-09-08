@@ -6,7 +6,7 @@
  * Firestore permite ao coach (dono de gestao/{uid}) ler qualquer um desses docs
  * para acompanhamento. Reaproveita o app Firebase já inicializado.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

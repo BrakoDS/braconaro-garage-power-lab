@@ -15,9 +15,9 @@
  * HIIT, GAP, Híbrido e Murph são estruturas próprias, onde trocar uma peça
  * descaracteriza o formato.
  *
- * @typedef {import('../data/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
  */
-import { EXERCICIOS, EXERCICIO_POR_ID, serveModalidade } from '../data/exercicios.js';
+import { EXERCICIOS, EXERCICIO_POR_ID, serveModalidade } from '../../compartilhado/dados/exercicios.js';
 import { verificarViabilidade } from './viabilidade.js';
 import { calcularVolume } from './volume.js';
 import { variantesNivel } from './niveis.js';

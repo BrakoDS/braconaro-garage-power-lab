@@ -7,8 +7,8 @@
  * uma caixa que o app do coach lê e mescla em gestao/{uid} (e depois limpa).
  * A regra do Firestore permite ao aluno ler/gravar só o doc do próprio e-mail.
  */
-import { CLOUD_ATIVO, firebaseConfig } from '../montador/cloud-config.js';
-import { comprimir, enviar } from '../alunos/storage-alunos.js';
+import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
+import { comprimir, enviar } from '../compartilhado/regras/storage-alunos.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

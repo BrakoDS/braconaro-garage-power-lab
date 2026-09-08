@@ -9,7 +9,7 @@
  * Mostra o treino de hoje no NÍVEL do aluno (força/hipertrofia); Hyrox/HIIT/GAP
  * têm prescrição única.
  */
-import { rotuloGrupo } from '../montador/config/livre-grupo.js';
+import { rotuloGrupo } from '../compartilhado/config/livre-grupo.js';
 
 const MOD_NOME = { forca: 'Força', hipertrofia: 'Hipertrofia', hiit: 'HIIT', hyrox: 'Hyrox', hibrido: 'Híbrido', gap: 'GAP', murph: 'Murph' };
 const PADRAO_LABEL = {
