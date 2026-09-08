@@ -81,7 +81,7 @@ function normalizarRemarcacao(v) {
  * @property {string} horaPrevista  'HH:MM' em que ela deveria acontecer ('' se não houver)
  * @property {boolean} alterado     o coach mexeu nesta aula (dia e/ou hora)
  * @property {boolean} remarcado    o DIA mudou (hora-só não conta)
- * @property {'ok'|'falta'|'aguardando'|'atestado'} estado
+ * @property {'ok'|'falta'|'aguardando'|'atestado'|'fechado'} estado
  * @property {string} [origem]      nas reposições, a data da aula perdida que gerou o crédito
  * @property {string} [veioEm]      data em que ele veio, quando é diferente da planejada
  * @property {string} [hora]        hora do check-in de verdade
@@ -116,8 +116,13 @@ export function reposicoesPendentes(atestados = {}) {
  */
 export function semanaDoAluno({
   diasTreino = [], horarios = {}, presencas = [], horas = {},
-  remarcacoes = {}, atestados = {}, hoje = new Date(),
+  remarcacoes = {}, atestados = {}, hoje = new Date(), fechados = [],
 } = {}) {
+  // `fechados`: dias em que o BOX não abriu (feriado que o coach confirmou). Não
+  // é falta nem presença — o aluno não podia ter vindo. Sem isto, todo feriado
+  // gerava uma falta falsa para cada aluno agendado naquele dia, e ele via
+  // "não veio" no Portal por um dia em que a porta estava fechada.
+  const semAula = new Set(Array.isArray(fechados) ? fechados : []);
   const daSemana = datasDaSemana(hoje);
   const hojeIso = dataIso(hoje);
   const isosDaSemana = new Set(Object.values(daSemana));
@@ -164,6 +169,7 @@ export function semanaDoAluno({
     if (presentes.has(efetivo)) {
       return { ...b, estado: /** @type {'ok'} */ ('ok'), veioEm: remarcado ? efetivo : undefined, hora: horas[efetivo] };
     }
+    if (semAula.has(efetivo)) return { ...b, estado: /** @type {'fechado'} */ ('fechado') };
     if (r) {
       return { ...b, estado: /** @type {'falta'|'aguardando'} */ (efetivo < hojeIso ? 'falta' : 'aguardando') };
     }
@@ -177,8 +183,8 @@ export function semanaDoAluno({
   const quadradosReposicao = reposicoes.map(({ origem, rep }) => ({
     tipo: /** @type {'reposicao'} */ ('reposicao'), chave: chaveDoDia(rep.data), iso: rep.data,
     efetivo: rep.data, horaPrevista: rep.hora || '', alterado: false, remarcado: false, origem,
-    estado: /** @type {'ok'|'falta'|'aguardando'} */ (
-      presentes.has(rep.data) ? 'ok' : rep.data < hojeIso ? 'falta' : 'aguardando'),
+    estado: /** @type {'ok'|'falta'|'aguardando'|'fechado'} */ (
+      presentes.has(rep.data) ? 'ok' : semAula.has(rep.data) ? 'fechado' : rep.data < hojeIso ? 'falta' : 'aguardando'),
     hora: horas[rep.data],
   }));
 

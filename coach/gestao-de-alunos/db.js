@@ -165,3 +165,37 @@ export function removerAvaliacao(id, num) {
   a.avaliacoes = a.avaliacoes.filter((x) => x.num !== num);
   gravar(d);
 }
+
+/* ---------- Feriados: o box abriu ou não? ---------- */
+/**
+ * O coach decide, feriado a feriado, se abriu. A lista de feriados é lei (vem de
+ * `compartilhado/regras/feriados.js`); esta parte é a realidade do box, que só
+ * ele sabe — em alguns feriados abre, em outros não.
+ *
+ * Guardado como mapa `{ 'YYYY-MM-DD': false }`, e SÓ os dias marcados como
+ * fechados entram. Um feriado sem decisão nenhuma continua contando presença
+ * normalmente: o padrão é "abriu", porque o silêncio não pode apagar falta de
+ * quem realmente não veio.
+ * @returns {Record<string, boolean>}
+ */
+export function feriadosDoBox() {
+  const d = ler();
+  return (d.feriados && typeof d.feriados === 'object') ? d.feriados : {};
+}
+
+/** Os dias em que o box NÃO abriu — é o que `semanaDoAluno` recebe em `fechados`. */
+export function diasFechados() {
+  return Object.entries(feriadosDoBox()).filter(([, abriu]) => abriu === false).map(([iso]) => iso);
+}
+
+/**
+ * Marca se o box abriu num feriado. `null` limpa a decisão (volta ao padrão).
+ * @param {string} iso @param {boolean|null} abriu
+ */
+export function marcarFeriado(iso, abriu) {
+  const d = ler();
+  d.feriados = d.feriados && typeof d.feriados === 'object' ? d.feriados : {};
+  if (abriu === null) delete d.feriados[iso];
+  else d.feriados[iso] = !!abriu;
+  gravar(d);
+}

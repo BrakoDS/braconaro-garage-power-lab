@@ -38,8 +38,9 @@ function vinculoPagador(a, todos) {
 /**
  * A fatia publicada de um aluno (o que o portal precisa mostrar).
  * @param {any} a @param {any[]} todos a lista inteira, para resolver os vínculos
+ * @param {string[]} fechadosDoBox dias em que o box não abriu (feriado confirmado)
  */
-function fatia(a, todos) {
+function fatia(a, todos, fechadosDoBox = []) {
   return {
     id: a.id, nome: a.nome || '', email: emailKey(a.email), fotoUrl: a.fotoUrl || '',
     status: a.status || 'ativo', objetivo: a.objetivo || '', nivel: a.nivel || '',
@@ -48,6 +49,9 @@ function fatia(a, todos) {
     // Plano e grade de horários: o Portal monta com isso o bloco "Seu plano" e os
     // quadrados de "Seu horário" (verde = veio, vermelho = faltou).
     freqVezes: a.freqVezes || '', diasTreino: a.diasTreino || [], horarios: a.horarios || {},
+    // Igual para todos os alunos, mas vai em cada fatia porque é assim que o
+    // Portal lê — ele só enxerga o próprio documento, nunca a lista inteira.
+    fechados: fechadosDoBox,
     // `freqHorario` era UMA hora para a semana toda. Continua sendo publicado
     // como reserva: aluno cadastrado antes da hora por dia ainda mostra a dele.
     freqHorario: a.freqHorario || '',
@@ -86,13 +90,13 @@ function fatia(a, todos) {
  * Silencioso: se a nuvem/regra falhar, não quebra o app do coach.
  * @param {any[]} alunos
  */
-export async function publicarPortal(alunos) {
+export async function publicarPortal(alunos, fechados = []) {
   if (!cloudAtivo()) return;
   try {
     await init();
     const comEmail = (alunos || []).filter((a) => emailKey(a.email));
     await Promise.all(comEmail.map((a) =>
-      _fns.setDoc(_fns.doc(_db, 'portal', emailKey(a.email)), JSON.parse(JSON.stringify(fatia(a, alunos))))
+      _fns.setDoc(_fns.doc(_db, 'portal', emailKey(a.email)), JSON.parse(JSON.stringify(fatia(a, alunos, fechados))))
     ));
   } catch (e) {
     console.warn('Falha ao publicar o Portal do Aluno:', e?.code || e);

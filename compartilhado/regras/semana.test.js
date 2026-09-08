@@ -230,3 +230,46 @@ test('reposição agendada e não cumprida fica vermelha quando o dia passa', ()
   assert.equal(reposicoesPendentes({ [TER]: { reposicao: { data: '2026-08-12', hora: '19:00' } } }).length, 0,
     'agendada é agendada: o crédito só volta se o coach desmarcar');
 });
+
+/* ---------- dia em que o box não abriu ---------- */
+
+test('feriado confirmado pelo coach não vira falta', () => {
+  // Sem `fechados`, uma segunda que já passou sem presença é falta. Com o dia
+  // marcado como fechado, o aluno não podia ter vindo — e o Portal parava de
+  // dizer "não veio" por um dia de porta fechada.
+  const base = {
+    diasTreino: ['seg', 'qua'], horarios: { seg: '10:00', qua: '10:00' },
+    presencas: [], hoje: new Date('2026-09-11T12:00:00Z'), // sexta
+  };
+  const seg = semanaDoAluno(base).find((q) => q.chave === 'seg');
+  assert.equal(seg.estado, 'falta', 'sem feriado, segunda sem presença é falta');
+
+  const comFeriado = semanaDoAluno({ ...base, fechados: [seg.iso] });
+  const segF = comFeriado.find((q) => q.chave === 'seg');
+  assert.equal(segF.estado, 'fechado');
+});
+
+test('dia fechado não apaga a presença de quem treinou assim mesmo', () => {
+  // Se o coach abriu por exceção e o aluno veio, presença vence: o registro é
+  // fato, e o feriado é só a expectativa.
+  const hoje = new Date('2026-09-11T12:00:00Z');
+  const seg = semanaDoAluno({ diasTreino: ['seg'], hoje })[0];
+  const r = semanaDoAluno({ diasTreino: ['seg'], hoje, presencas: [seg.iso], fechados: [seg.iso] });
+  assert.equal(r[0].estado, 'ok', 'quem veio, veio');
+});
+
+test('dia futuro fechado também não fica "aguardando"', () => {
+  const hoje = new Date('2026-09-07T12:00:00Z'); // segunda
+  const sex = semanaDoAluno({ diasTreino: ['sex'], hoje })[0];
+  assert.equal(sex.estado, 'aguardando');
+  const fechado = semanaDoAluno({ diasTreino: ['sex'], hoje, fechados: [sex.iso] });
+  assert.equal(fechado[0].estado, 'fechado', 'já dá para saber que não vai abrir');
+});
+
+test('`fechados` torto não quebra a semana', () => {
+  const hoje = new Date('2026-09-11T12:00:00Z');
+  for (const v of [null, undefined, 'nao-e-array', 42, {}]) {
+    const r = semanaDoAluno({ diasTreino: ['seg'], hoje, fechados: /** @type {any} */ (v) });
+    assert.equal(r.length, 1, `entrada ${JSON.stringify(v)}`);
+  }
+});

@@ -341,6 +341,10 @@ function renderHorarios() {
     horas: PORTAL.presencaHoras || {},
     remarcacoes: PORTAL.remarcacoes || {},
     atestados: PORTAL.atestados || {},
+    // Dias em que o box não abriu (feriado confirmado pelo coach). Vem publicado
+    // junto da fatia do aluno: sem isso o Portal diria "não veio" num dia em que
+    // a academia estava fechada — e o aluno não teria como saber por quê.
+    fechados: PORTAL.fechados || [],
   });
 
   const diaDe = (iso) => DIA_CURTO[chaveDoDia(iso)];
@@ -360,6 +364,9 @@ function renderHorarios() {
     // Remarcado: o aluno precisa saber para quando ficou — senão o quadrado da
     // segunda fica mudo num dia em que a segunda já passou, e o vermelho parece
     // injusto para quem combinou a troca com o coach.
+    // O aluno precisa saber POR QUE o dia não conta — sem isso o quadrado neutro
+    // parece erro do app num dia em que ele lembra de não ter treinado.
+    if (q.estado === 'fechado') return 'feriado · não teve treino';
     if (q.estado === 'falta') return q.remarcado ? `não veio (era ${diaDe(q.efetivo)})` : 'não veio';
     if (q.remarcado) return `passou para ${diaDe(q.efetivo)}`;
     if (q.alterado) return 'horário alterado';

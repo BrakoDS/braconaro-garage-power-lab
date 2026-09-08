@@ -11,7 +11,8 @@ import * as db from './db.js';
 // `confirmar`/`avisar` do próprio site em vez do confirm()/alert() nativos: o
 // Chrome deixa o usuario SUPRIMIR diálogos nativos, e a partir daí eles respondem
 // sozinhos sem mostrar nada -- foi assim que a exclusão parou de funcionar.
-import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js';
+import { confirmar, avisar, painel } from '../../compartilhado/ui/dialogo.js';
+import { feriadosDoMes, feriadoEm } from '../../compartilhado/regras/feriados.js';
 import * as calc from '../../compartilhado/regras/calc.js?v=5';
 import * as storage from '../../compartilhado/regras/storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
@@ -32,7 +33,7 @@ import { mesIdParaLancar, faturaDoMes, faturaComDependentes, consumosDoMes, tota
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
 let _portalTimer = null;
-function agendarPublicarPortal() { clearTimeout(_portalTimer); _portalTimer = setTimeout(() => publicarPortal(db.listar()), 1500); }
+function agendarPublicarPortal() { clearTimeout(_portalTimer); _portalTimer = setTimeout(() => publicarPortal(db.listar(), db.diasFechados()), 1500); }
 db.aoGravar(agendarPublicarPortal);
 
 /* ============================================================
@@ -1160,6 +1161,10 @@ function linhaGrade(a) {
     presencas: a.presencas || [], horas: a.presencaHoras || {},
     remarcacoes: a.remarcacoes || {}, atestados: a.atestados || {},
     hoje: new Date(chkData + 'T00:00:00'),
+    // Feriado que o coach marcou como "não abriu": ninguém leva falta por um dia
+    // de porta fechada. A mesma lista é publicada no Portal, para os dois lados
+    // contarem igual — divergir aqui faria o aluno ver falta que o coach não vê.
+    fechados: db.diasFechados(),
   });
   // O contador é sobre as aulas DA SEMANA. Reposição vem de outra semana e
   // treino extra é bônus: nenhum dos dois entra no "3 de 4", senão o número
@@ -1188,6 +1193,7 @@ function notaDaAula(q) {
     return q.hora ? `chegou ${q.hora}` : 'presente';
   }
   if (q.estado === 'atestado') return 'atestado · a repor';
+  if (q.estado === 'fechado') return 'feriado · box fechado';
   if (q.estado === 'falta') return q.remarcado ? `não veio (era ${DIA_MIN[chaveDoDia(q.efetivo)]})` : 'não veio';
   if (q.remarcado) return `passou para ${DIA_MIN[chaveDoDia(q.efetivo)]}`;
   if (q.alterado) return 'horário alterado';
@@ -1558,6 +1564,12 @@ function renderAgenda() {
     if (a.nascimento) { const [, nm, nd] = a.nascimento.split('-').map(Number); if (nm === mes) add(nd, 'aniv', a.nome); }
   }
 
+  // Feriados do mês: a lista é lei (compartilhado/regras/feriados.js) e a decisão
+  // "o box abriu?" é do coach (db.feriadosDoBox). O calendário mostra as duas
+  // coisas, porque são diferentes: o feriado existe independente de ele abrir.
+  const feriados = feriadosDoMes(ano, mes);
+  const decisao = db.feriadosDoBox();
+
   const primeiroDiaSem = new Date(ano, mes - 1, 1).getDay();
   const totalDias = new Date(ano, mes, 0).getDate();
   const hojeIso = hoje();
@@ -1570,11 +1582,55 @@ function renderAgenda() {
     const chips = dayEvs.slice(0, 2).map((e) =>
       `<span class="ag-chip ${e.tipo}" title="${esc((e.tipo === 'reav' ? 'Reavaliação: ' : 'Aniversário: ') + e.nome)}">${e.tipo === 'reav' ? '🔄' : '🎂'} ${esc(e.nome.split(' ')[0])}</span>`).join('');
     const mais = dayEvs.length > 2 ? `<span class="ag-mais">+${dayEvs.length - 2}</span>` : '';
-    html += `<div class="ag-cell${iso === hojeIso ? ' hoje' : ''}"><span class="ag-dia">${d}</span>${chips}${mais}</div>`;
+
+    const fer = feriados.find((f) => f.data === iso);
+    let fchip = '';
+    let cls = '';
+    if (fer) {
+      const abriu = decisao[iso];
+      // Três estados de propósito: sem decisão (o padrão conta presença normal),
+      // fechado (não gera falta) e aberto (o coach abriu por exceção).
+      const rot = abriu === false ? 'não abriu' : abriu === true ? 'abriu' : 'decidir';
+      cls = ` feriado ${fer.tipo}${abriu === false ? ' fechado' : ''}`;
+      fchip = `<button class="ag-fer" data-fer="${iso}" type="button"
+        title="${esc(fer.nome)} · ${fer.tipo === 'facultativo' ? 'ponto facultativo' : 'feriado ' + fer.tipo}">
+        ${esc(fer.nome.split('—')[0].split('(')[0].trim())}<small>${rot}</small></button>`;
+    }
+    html += `<div class="ag-cell${iso === hojeIso ? ' hoje' : ''}${cls}"><span class="ag-dia">${d}</span>${fchip}${chips}${mais}</div>`;
   }
   html += '</div>';
   $('#ag-cal').innerHTML = html;
 }
+
+/**
+ * Clique na ficha de feriado: pergunta se o box abriu. É delegado no container
+ * do calendário, que `renderAgenda()` redesenha inteiro a cada mês — ligar no
+ * botão empilharia um listener por navegação de mês.
+ */
+$('#ag-cal').addEventListener('click', async (ev) => {
+  const b = /** @type {HTMLElement} */ (ev.target).closest('[data-fer]');
+  if (!b) return;
+  const iso = /** @type {HTMLElement} */ (b).dataset.fer;
+  const fer = feriadoEm(iso);
+  if (!fer) return;
+  const atual = db.feriadosDoBox()[iso];
+  const acao = await painel({
+    titulo: fer.nome,
+    corpoHTML: `<p class="dlg-texto">${fmtDataCurta(iso)} · ${fer.tipo === 'facultativo' ? 'ponto facultativo' : `feriado ${fer.tipo}`}.</p>
+      <p class="dlg-texto mut">O box abriu neste dia? Marcando <b>não abriu</b>, ninguém recebe falta —
+      nem aqui, nem no Portal do aluno. ${atual === undefined ? 'Sem decisão, o dia conta presença normalmente.' : ''}</p>`,
+    acoes: [
+      { id: 'fechou', label: 'Não abriu' },
+      { id: 'abriu', label: 'Abriu normal' },
+      ...(atual === undefined ? [] : [{ id: 'limpar', label: 'Limpar decisão', perigo: true }]),
+    ],
+    largo: false,
+  });
+  if (!acao) return;
+  db.marcarFeriado(iso, acao === 'fechou' ? false : acao === 'abriu' ? true : null);
+  renderAgenda();
+  renderLista(); // a lista mostra a semana de cada aluno, e ela acabou de mudar
+});
 
 $('#btn-agenda').addEventListener('click', () => { agMes = mesIdAtual(); renderAgenda(); mostrarTela('tela-agenda'); });
 $('#ag-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
