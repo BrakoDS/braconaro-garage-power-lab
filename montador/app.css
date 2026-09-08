@@ -49,10 +49,15 @@ main { max-width: 1000px; margin: 0 auto; padding: 22px; }
 .panel { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; margin-bottom: 18px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); }
-select, input[type=text], input[type=number] {
+select, input[type=text], input[type=number], textarea {
   background: var(--bg2); color: var(--txt); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; font-size: 14px; min-width: 150px;
 }
-select:focus, input:focus { outline: none; border-color: var(--acc); }
+/* `textarea` entrou na regra acima (e não numa própria) porque sem ela o navegador
+   desenha caixa BRANCA com texto preto no meio de um modal escuro — foi o que
+   aconteceu com os campos de execução da pesquisa. `font: inherit` porque a
+   textarea é o único campo que o navegador insiste em desenhar com monoespaçada. */
+textarea { font-family: inherit; line-height: 1.45; resize: vertical; }
+select:focus, input:focus, textarea:focus { outline: none; border-color: var(--acc); }
 button.btn { background: var(--acc); color: #1a1300; border: 0; border-radius: 9px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
 button.btn:hover { background: var(--acc2); }
 button.btn.ghost { background: transparent; color: var(--acc); border: 1px solid var(--acc); }
@@ -319,7 +324,11 @@ tr.bad-row td { color: var(--warn); }
 @media (max-width: 640px) {
   .modal-bg { padding: 10px; }
   .modal-ft { justify-content: stretch; }
-  .modal-ft .btn { flex: 1; }
+  /* `flex-basis:auto` e não 0: com `flex:1` puro os três botões dividiam a largura
+     em partes iguais, e o de texto mais longo ("Pesquisar na internet") quebrava em
+     três linhas enquanto os vizinhos ficavam com metade da altura vazia. Partindo do
+     tamanho do conteúdo, cada botão cresce a partir do que ele precisa. */
+  .modal-ft .btn { flex: 1 1 auto; }
 }
 
 /* ---------- Treino Manual (montagem por seleção) ---------- */
@@ -398,3 +407,41 @@ tr.bad-row td { color: var(--warn); }
    adaptado à célula da tabela de 3 níveis, já que as linhas do grupo continuam cada
    uma na sua própria <tr> (cargas diferentes por exercício, mesma série do líder). */
 .t-niveis tr.livre-grupo td:nth-child(2) { border-left: 2px solid var(--acc); }
+
+/* ---------- Pesquisa de item (montador/ui/pesquisa-modal.js) ----------
+   Overlay próprio (não é #modal-app), mas usa as MESMAS classes de moldura do
+   modal genérico (.modal-bg/.modal/.modal-hd/.modal-bd/.modal-ft) para o visual
+   ficar idêntico — só o que é específico desta tela mora aqui. */
+.pesq-carregando { text-align: center; padding: 26px 10px; }
+.pesq-aviso-lento { color: var(--warn); margin-top: 10px; }
+.pesq-erro p:last-child { color: var(--bad); }
+.pesq-restantes { margin: 0 0 14px; }
+
+/* `auto-fit` em vez de um nº fixo de colunas: em telas estreitas os campos empilham
+   sozinhos, sem NENHUM texto encolher — o box e os alunos são míopes (ver CLAUDE.md). */
+.pesq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.pesq-grid .field.full { grid-column: 1 / -1; }
+.field.full { margin-bottom: 14px; }
+
+.pesq-chk-grupo { margin-bottom: 14px; }
+.pesq-chk-grupo > label { display: block; margin-bottom: 7px; }
+.pesq-chk-lista { display: flex; flex-wrap: wrap; gap: 8px; }
+/* `.pesq-chk` é um <label>, e o seletor global `label{}` deixaria o texto minúsculo
+   e maiúsculo (pensado para legendas de campo) — aqui é conteúdo clicável de verdade,
+   por isso as três propriedades abaixo revertem aquele estilo. */
+.pesq-chk {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px;
+  border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  font-size: 13.5px; text-transform: none; letter-spacing: normal; color: var(--txt);
+}
+.pesq-chk input { margin: 0; width: auto; min-width: 0; }
+.pesq-chk.marcado { border-color: var(--acc); color: var(--acc); background: rgba(232, 179, 57, .12); }
+
+.pesq-aviso { background: rgba(255, 179, 71, .1); border: 1px solid var(--warn); border-radius: var(--r); padding: 12px 14px; margin-bottom: 16px; }
+.pesq-aviso p { margin: 0 0 8px; }
+.pesq-aviso p:last-child { margin-bottom: 0; }
+.pesq-aviso-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.pesq-fontes { margin: 0; padding-left: 18px; }
+.pesq-fontes li { margin: 3px 0; font-size: 13px; word-break: break-all; }
+.pesq-erro-form { color: var(--bad); margin: 10px 0 0; min-height: 0; }

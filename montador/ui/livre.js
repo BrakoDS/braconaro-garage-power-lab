@@ -19,10 +19,12 @@ import { congelarTecnica } from '../core/tecnicas-auto.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
-import { confirmar } from './dialogo.js';
+import { confirmar, painel } from './dialogo.js';
 import { publicarTreino } from './portal-treino.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
 import { rotuloGrupo } from '../config/livre-grupo.js';
+import { abrirPesquisa } from './pesquisa-modal.js';
+import { construirCatalogoEfetivo } from './catalogo.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -30,15 +32,31 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
 /** O catálogo efetivo já está em EXERCICIOS: `construirCatalogoEfetivo()` o substitui no boot. */
 const porId = (id) => EXERCICIOS.find((e) => e.id === id) || null;
 
+/**
+ * Indireção só para teste: as três portas de pesquisa chamam por aqui, nunca
+ * pelo nome importado direto — assim `livre.test.js` troca o dublê sem mockar
+ * módulo (o Node desta versão só tem `mock.module` atrás de flag experimental,
+ * e o brief roda `node --test` sem flags extras). Nunca trocado fora de teste.
+ */
+let _abrirPesquisa = abrirPesquisa;
+export function _definirAbrirPesquisaDeTeste(fn) { _abrirPesquisa = fn || abrirPesquisa; }
+let _pedirTermoTecnica = pedirTermoTecnicaPadrao;
+export function _definirPedirTermoTecnicaDeTeste(fn) { _pedirTermoTecnica = fn || pedirTermoTecnicaPadrao; }
+
 /** Estado da aba. Um objeto só, porque a tela inteira se redesenha a partir dele.
- * NÃO é exportado: `linhasIncompletas(blocos)` recebe os blocos por parâmetro,
- * então o teste de paridade chama a função de verdade sem que ninguém de fora
- * possa mexer no estado da aba. */
+ * NÃO é exportado para código de produção — `linhasIncompletas(blocos)` recebe
+ * os blocos por parâmetro, então o teste de paridade chama a função de verdade
+ * sem que ninguém de fora possa mexer no estado da aba. `_estadoParaTeste()`
+ * abaixo é a ÚNICA exceção, e só serve para `livre.test.js` armar um bloco/
+ * aquecimento antes de exercitar as portas de pesquisa — sem ela o teste
+ * precisaria simular clique em "+ bloco"/"+ item" através de um DOM inteiro só
+ * para chegar num estado que dá pra montar direto. */
 const est = {
   classificacao: 'hipertrofia',
   aquecimento: /** @type {{id:string, duracaoSeg:number}[]} */ ([]),
   blocos: /** @type {any[]} */ ([]),
 };
+export function _estadoParaTeste() { return est; }
 
 let iniciada = false;
 
@@ -184,6 +202,7 @@ function htmlBlocoSeries(b, bi, u, tipoBtns) {
     const jaNaSemana = e && u.has(e.id) ? '<span class="lv-usado"> · já na semana</span>' : '';
     const opts = ['<option value="">— sem técnica —</option>']
       .concat(tecs.map((t) => `<option value="${esc(t.id)}"${l.tecnica && l.tecnica.tipo === t.id ? ' selected' : ''}>${esc(t.nome)}</option>`))
+      .concat(['<option value="__pesquisar__">— pesquisar nova técnica…</option>'])
       .join('');
     const info = infoPorLinha.get(li);
     // Segue o líder: não tem série própria, mostra a dele e trava o campo — um
@@ -315,17 +334,99 @@ function abrirSugestoes(input) {
   if (achados.length) {
     cx.innerHTML = achados.map((e) => `<button type="button" data-id="${esc(e.id)}">${esc(e.nome)}${u.has(e.id) ? '<span class="lv-usado"> · já na semana</span>' : ''}</button>`).join('');
   } else if (termo) {
-    // A costura para a busca na internet: hoje é um link, amanhã é o convite.
-    cx.innerHTML = `<div class="lv-vazio">“${esc(input.value)}” não está na sua biblioteca — cadastre em <a href="../academia/index.html" target="_blank" rel="noopener">/academia</a>.</div>`;
+    // O link para /academia continua ao lado do botão de pesquisa: é a saída
+    // manual de quando a IA falha ou não serve — tirá-la deixaria o coach sem
+    // alternativa.
+    cx.innerHTML = `<div class="lv-vazio">“${esc(input.value)}” não está na sua biblioteca.
+      <button type="button" class="btn ghost lv-pesquisar">Pesquisar e adicionar</button>
+      Ou cadastre em <a href="../academia/index.html" target="_blank" rel="noopener">/academia</a>.</div>`;
   } else {
     return;
   }
   input.parentElement?.appendChild(cx);
   cx.addEventListener('click', (ev) => {
-    const btn = /** @type {HTMLElement} */ (ev.target).closest('button[data-id]');
-    if (!btn) return;
-    escolher(input, /** @type {HTMLElement} */ (btn).dataset.id || '');
+    const alvo = /** @type {HTMLElement} */ (ev.target);
+    const btn = alvo.closest('button[data-id]');
+    if (btn) { escolher(input, /** @type {HTMLElement} */ (btn).dataset.id || ''); return; }
+    if (alvo.closest('.lv-pesquisar')) pesquisarEAdicionar(input);
   });
+}
+
+/**
+ * Abre o modal de pesquisa para o termo digitado na linha (exercício ou
+ * aquecimento/mobilidade — o contexto muda conforme `data-alvo` do campo) e,
+ * se o coach cadastrar, reconstrói o catálogo efetivo antes de escolher a
+ * linha: sem isso o exercício novo não aparece na busca, porque `EXERCICIOS`
+ * é o array que `construirCatalogoEfetivo()` substitui no boot (`catalogo.js`)
+ * e `porId`/`abrirSugestoes` leem dele. Cancelar não muda nada na linha.
+ * @param {HTMLInputElement} input
+ */
+export async function pesquisarEAdicionar(input) {
+  const d = input.dataset;
+  const contexto = d.alvo === 'aquec' ? 'mobilidade' : 'exercicio';
+  const termo = input.value;
+  // O DESTINO é guardado por REFERÊNCIA antes do await, do mesmo jeito que
+  // `pesquisarTecnica` faz logo abaixo. `escolher()` resolve `dataset.b/.l` de
+  // novo, e resolver índice depois de uma espera de até 20s significa indexar os
+  // arrays de AGORA: se uma linha ou um bloco tiver sumido no meio, a escrita cai
+  // noutra linha em silêncio. Hoje o modal cobre a tela inteira e nada consegue
+  // mexer nos blocos durante a espera — mas isso é um acaso do CSS, não uma
+  // garantia deste arquivo, e evapora no dia em que alguém trocar o overlay.
+  const destino = d.alvo === 'aquec'
+    ? est.aquecimento[Number(d.i)]
+    : est.blocos[Number(d.b)].exercicios[Number(d.l)];
+  fecharSugestoes();
+  const resultado = await _abrirPesquisa({ termo, contexto });
+  if (!resultado) return;
+  construirCatalogoEfetivo();
+  destino.id = resultado.id;
+  fecharSugestoes();
+  render();
+}
+
+/**
+ * Pede ao coach o termo a pesquisar para uma técnica nova. Diferente das
+ * linhas de exercício/mobilidade (que já têm o texto digitado na busca), o
+ * seletor de técnica não tem campo de texto — e a Cloud Function exige um
+ * termo de 2 a 80 caracteres (`functions/src/index.ts`), não aceita vazio.
+ * Por isso este passo curto, no MESMO modal customizado do resto do site
+ * (`painel()` de `dialogo.js`) — nunca o `prompt()` nativo do navegador, que
+ * `dialogo.js` existe justamente para substituir.
+ * @returns {Promise<string|null>}
+ */
+async function pedirTermoTecnicaPadrao() {
+  const acao = await painel({
+    titulo: 'Pesquisar nova técnica',
+    corpoHTML: `<div class="field full"><label for="lv-pesq-termo">O que pesquisar?</label>
+      <input type="text" id="lv-pesq-termo" placeholder="ex.: rest-pause, drop set, myo-reps…" /></div>`,
+    acoes: [{ id: 'pesquisar', label: 'Pesquisar' }],
+    largo: false,
+  });
+  if (acao !== 'pesquisar') return null;
+  const v = /** @type {HTMLInputElement} */ (document.querySelector('#lv-pesq-termo'))?.value.trim();
+  return v || null;
+}
+
+/**
+ * Opção "— pesquisar nova técnica…" do seletor. O select PRECISA voltar pro
+ * valor anterior na hora — senão fica preso mostrando a opção de pesquisar
+ * enquanto o coach decide (e um próximo `change` para o mesmo valor nem
+ * dispara, porque o navegador só avisa mudança). Cancelar em qualquer etapa
+ * (o pedido de termo ou o próprio modal) não mexe na técnica da linha.
+ * @param {HTMLSelectElement} select
+ */
+export async function pesquisarTecnica(select) {
+  const d = select.dataset;
+  const linha = est.blocos[Number(d.b)].exercicios[Number(d.l)];
+  const anterior = linha.tecnica ? linha.tecnica.tipo : '';
+  select.value = anterior;
+  const termo = await _pedirTermoTecnica();
+  if (!termo) return;
+  const resultado = await _abrirPesquisa({ termo, contexto: 'tecnica' });
+  if (!resultado) return;
+  const t = academia.listarTecnicas().find((x) => x.id === resultado.id);
+  linha.tecnica = t ? congelarTecnica(t) : null;
+  render();
 }
 
 /** Grava o exercício escolhido no estado e redesenha. */
@@ -379,6 +480,7 @@ function aoMudar(ev) {
   if (el.classList.contains('lv-series')) { est.blocos[Number(d.b)].exercicios[Number(d.l)].series = el.value; renderResumo(); return; }
   if (el.classList.contains('lv-reps') && d.l != null) { est.blocos[Number(d.b)].exercicios[Number(d.l)].reps = el.value; return; }
   if (el.classList.contains('lv-tec')) {
+    if (el.value === '__pesquisar__') { pesquisarTecnica(/** @type {any} */ (el)); return; }
     const t = tecnicasAtivas().find((x) => x.id === el.value);
     est.blocos[Number(d.b)].exercicios[Number(d.l)].tecnica = t ? congelarTecnica(t) : null;
     return;
