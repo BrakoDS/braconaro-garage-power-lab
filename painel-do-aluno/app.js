@@ -1492,7 +1492,12 @@ function msgAuth(e) {
 
 $('#sair').addEventListener('click', async () => { try { await sair(); } catch {} location.reload(); });
 
-if (cloudAtivo()) {
+// Na PRÉVIA o caminho normal de login não pode rodar. O coach está logado, e a
+// sessão dele é válida: sem esta guarda, `sessaoAtual()` chamava `entrar(coach)`
+// e o quadro carregava o Portal DO COACH por cima do aluno que ele escolheu —
+// com a cara de que estava funcionando. Só se descobre comparando o nome na
+// tela com o aluno aberto na Gestão, que foi como apareceu.
+if (cloudAtivo() && !PREVIA) {
   gate.style.display = 'flex';
   let criando = false;
   gToggle.addEventListener('click', (e) => { e.preventDefault(); criando = !criando; gBtn.textContent = criando ? 'Criar conta e entrar' : 'Entrar'; gToggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta'; gLgpdWrap.hidden = !criando; gErro.style.display = 'none'; });
@@ -1507,7 +1512,10 @@ if (cloudAtivo()) {
       entrar(user);
     } catch (err) { erroMsg(msgAuth(err)); }
   });
-} else {
+} else if (!PREVIA) {
+  // `else if` e não `else`: na prévia não há login a fazer nem nuvem a exigir —
+  // os dados chegam por mensagem. Sem esta condição, a prévia caía aqui e
+  // mostrava "precisa da nuvem ativa" no lugar da tela do aluno.
   gate.style.display = 'flex';
   erroMsg('O Portal do Aluno precisa da nuvem (Firebase) ativa.');
 }
