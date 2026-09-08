@@ -8,9 +8,17 @@
  * modelo NÃO colabora — que são os que dão tela de erro para o aluno se
  * passarem batido.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import * as ts from 'typescript';
 import { extrairAnalise, num } from './analise';
 import { extrairPreco, decidirRodada, ehLinkMercadoLivre, type ItemFeed } from './precos';
 import { HTML_SOCIAL } from './fixtures/social-ml';
+import { extrairProposta, montarSchema, type Equip, type PropostaExercicio, type PropostaTecnica } from './pesquisa';
+import {
+  BOA_EXERCICIO, BOA_TECNICA, SEM_PADRAO, PADRAO_INVENTADO, MUSCULO_INVENTADO,
+  EQUIP_FORA_DO_INVENTARIO, JSON_QUEBRADO, VAZIA, MALICIOSA,
+} from './fixtures/pesquisa';
 
 let falhas = 0;
 
@@ -20,6 +28,16 @@ function ok(condicao: boolean, descricao: string, detalhe = ''): void {
   } else {
     falhas++;
     console.log(`  ✗ ${descricao}${detalhe ? ` — ${detalhe}` : ''}`);
+  }
+}
+
+/** `true` quando a função lança qualquer erro — usado para os casos de recusa. */
+function lanca(fn: () => unknown): boolean {
+  try {
+    fn();
+    return false;
+  } catch {
+    return true;
   }
 }
 
@@ -247,6 +265,265 @@ const falhouComUrl = decidirRodada(
 // o link novo nunca foi tentado, não há falha que justifique tirá-lo do ar.
 ok(falhouComUrl.itens.zz?.url === 'https://meli.la/tentada',
   'item que falhou guarda a URL que a rodada tentou ler');
+
+/* ============================================================
+   PESQUISA DE EXERCÍCIO / MOBILIDADE / TÉCNICA
+   ============================================================ */
+console.log('\nPESQUISA DE EXERCÍCIO E TÉCNICA\n');
+
+const EQUIP: Equip[] = [{ id: 'barra', nome: 'Barra' }, { id: 'caixote', nome: 'Caixote 30cm' }];
+
+/* ---------- exercício bem formado ---------- */
+
+const boa = extrairProposta(BOA_EXERCICIO, 'exercicio', EQUIP) as PropostaExercicio;
+ok(boa.tipo === 'exercicio', 'reconhece o tipo exercício');
+ok(boa.padrao === 'quadriceps', 'lê o padrão');
+ok(boa.nome === 'Agachamento búlgaro com halteres', 'lê o nome');
+ok(boa.musculos.join() === 'Quadríceps,Glúteo', 'lê os músculos válidos');
+ok(boa.equipamentoIds.join() === 'barra', 'mantém só o equipamento que está no inventário do box');
+ok(boa.equipamentoFaltante.join() === 'Banco búlgaro', 'equipamento que falta vai em texto livre, não em id');
+ok(boa.fontes.join() === 'https://exemplo.com/agachamento-bulgaro', 'guarda a fonte http');
+
+/* ---------- técnica bem formada ---------- */
+
+const boaTecnica = extrairProposta(BOA_TECNICA, 'tecnica', EQUIP) as PropostaTecnica;
+ok(boaTecnica.tipo === 'tecnica', 'reconhece o tipo técnica');
+ok(boaTecnica.nome === 'Myo-reps', 'lê o nome da técnica');
+ok(boaTecnica.comoExecutar.startsWith('1. Faça uma série de ativação'),
+  'comoExecutar preserva os passos numerados');
+ok(boaTecnica.comoExecutar.split('\n').length === 5, 'um passo por linha, como em academia/data/seed.js');
+
+/* ---------- padrão de movimento é a única coisa que derruba a proposta ---------- */
+
+ok(lanca(() => extrairProposta(SEM_PADRAO, 'exercicio', EQUIP)),
+  'exercício sem padrão é recusado — sem isso o montador descartaria em silêncio');
+ok(lanca(() => extrairProposta(PADRAO_INVENTADO, 'exercicio', EQUIP)),
+  'padrão fora do vocabulário fechado é recusado igual à ausência dele');
+
+try {
+  extrairProposta(SEM_PADRAO, 'exercicio', EQUIP);
+  ok(false, 'deveria ter lançado');
+} catch (e) {
+  ok(String(e instanceof Error ? e.message : e).includes('/academia'),
+    'a mensagem manda cadastrar em /academia, o caminho manual que ainda funciona');
+}
+
+/* ---------- vocabulário fechado: descarta o item torto, não a proposta ---------- */
+
+const musculoTorto = extrairProposta(MUSCULO_INVENTADO, 'exercicio', EQUIP) as PropostaExercicio;
+ok(musculoTorto.musculos.join() === 'Costas',
+  'músculo fora do vocabulário some, o válido sobrevive');
+ok(musculoTorto.tags.join() === 'MUSCULAÇÃO',
+  'tag fora do vocabulário (aqui, uma modalidade inventada) some, a válida sobrevive');
+
+ok((extrairProposta(EQUIP_FORA_DO_INVENTARIO, 'exercicio', EQUIP) as PropostaExercicio).equipamentoIds.length === 0,
+  'equipamento que o box não tem é descartado, nunca aceito');
+
+/* ---------- inventário vazio: nunca aceita nenhum id ---------- */
+
+ok((extrairProposta(EQUIP_FORA_DO_INVENTARIO, 'exercicio', []) as PropostaExercicio).equipamentoIds.length === 0,
+  'sem inventário nenhum, equipamentoIds vem sempre vazio');
+
+/* ---------- números fora da faixa caem no padrão do contexto ---------- */
+
+/** Envelope cru, igual ao das fixtures — usado aqui para variar um campo de cada vez sem tocar no JSON já serializado. */
+const envelopeTeste = (dados: object) => ({ output: [{ content: [{ type: 'output_text', text: JSON.stringify(dados) }] }] });
+
+const EXERCICIO_BASE = {
+  tipo: 'exercicio', nome: 'Exercício de teste', padrao: 'quadriceps',
+  musculos: [] as string[], tags: [] as string[], equipamentoIds: [] as string[],
+  nivel: 'intermediario', tempoMedioSeg: 35, obs: '', equipamentoFaltante: [] as string[], fontes: [] as string[],
+};
+
+const semTempo = extrairProposta(
+  envelopeTeste({ ...EXERCICIO_BASE, tempoMedioSeg: 9999 }), 'exercicio', EQUIP,
+) as PropostaExercicio;
+ok(semTempo.tempoMedioSeg === 35, 'tempoMedioSeg fora de 5..600 cai no padrão do exercício (35)');
+
+const mobilidadeSemTempo = extrairProposta(
+  envelopeTeste({ ...EXERCICIO_BASE, tempoMedioSeg: 'muito' as unknown as number }), 'mobilidade', EQUIP,
+) as PropostaExercicio;
+ok(mobilidadeSemTempo.tempoMedioSeg === 40, 'tempoMedioSeg não numérico cai no padrão da mobilidade (40)');
+
+/* ---------- nome vazio, JSON quebrado, resposta vazia ---------- */
+
+ok(lanca(() => extrairProposta(envelopeTeste({ ...EXERCICIO_BASE, nome: '' }), 'exercicio', EQUIP)),
+  'nome vazio é recusado');
+
+ok(lanca(() => extrairProposta(JSON_QUEBRADO, 'exercicio', EQUIP)), 'JSON quebrado é recusado');
+ok(lanca(() => extrairProposta(VAZIA, 'exercicio', EQUIP)), 'resposta vazia é recusada');
+
+/* ---------- a resposta da IA é dado, nunca instrução ---------- */
+
+ok(extrairProposta(MALICIOSA, 'exercicio', EQUIP).nome.includes('<script>'),
+  'o módulo NÃO escapa — quem escapa é a tela; aqui só provamos que não executa nada');
+ok((extrairProposta(MALICIOSA, 'exercicio', EQUIP) as PropostaExercicio).obs.includes('onload=alert'),
+  'obs malicioso também chega intacto, sem quebrar a leitura');
+
+/* ---------- o schema que vai para a OpenAI ---------- */
+
+const schemaExercicio = montarSchema('exercicio', EQUIP) as any;
+ok(schemaExercicio.additionalProperties === false, 'schema de exercício não aceita campo extra');
+ok(schemaExercicio.properties.equipamentoIds.items.enum.join() === 'barra,caixote',
+  'o enum de equipamento é exatamente o inventário enviado');
+ok(mesmoConjunto(Object.keys(schemaExercicio.properties), schemaExercicio.required),
+  'required do schema de exercício é EXATAMENTE properties (strict mode recusa campo fantasma nos dois sentidos)');
+
+const schemaSemInventario = montarSchema('exercicio', []) as any;
+ok(!('enum' in schemaSemInventario.properties.equipamentoIds.items),
+  'inventário vazio não gera enum impossível de satisfazer');
+
+const schemaTecnica = montarSchema('tecnica', EQUIP) as any;
+ok(schemaTecnica.properties.tipo.enum.join() === 'tecnica', 'schema de técnica trava o tipo em "tecnica"');
+ok(mesmoConjunto(Object.keys(schemaTecnica.properties), schemaTecnica.required),
+  'required do schema de técnica é EXATAMENTE properties');
+
+/* ============================================================
+   VOCABULÁRIOS DE pesquisa.ts CONTRA A FONTE REAL NO SITE
+   ============================================================
+   `pesquisa.ts` explica no cabeçalho por que PADROES/MUSCULOS_LABEL/TAGS/NIVEIS
+   são CÓPIAS à mão (functions/ é um pacote à parte, sem import para os .js do
+   site) — e avisa que, se a fonte mudar e a cópia não acompanhar, a pesquisa
+   passa a recusar ou descartar coisa válida EM SILÊNCIO.
+   `npm run checar` roda local, com o repositório inteiro em disco — então dá
+   para ler os .js do site de verdade e comparar, sem criar dependência de
+   runtime nenhuma (a function em produção continua com as constantes
+   embutidas) e sem passo de build novo. O que seguirmos abaixo é sempre uma
+   CONSTANTE LITERAL (array de string ou objeto de string→string) num arquivo
+   .js do site — nunca o typedef de um JSDoc, que não é código executável e não
+   dá para extrair com confiança. Por isso NIVEIS vem de `montador/core/niveis.js`
+   (o array de verdade que os módulos do motor importam), não do comentário em
+   `montador/data/exercicios.js:35` — aquele é só a anotação de tipo do campo,
+   nunca a fonte que alguém precisaria lembrar de atualizar. */
+console.log('\nVOCABULÁRIOS: A CÓPIA EM pesquisa.ts BATE COM A FONTE DO SITE?\n');
+
+/** Da pasta compilada (`functions/lib/`) para a raiz do repo, onde moram `montador/` e `academia/`. */
+const RAIZ_SITE = join(__dirname, '..', '..');
+
+/** Lê um .js do site e devolve a AST — o parser real da TypeScript, não regex. */
+function parseSite(caminhoRelativo: string): ts.SourceFile {
+  const caminho = join(RAIZ_SITE, caminhoRelativo);
+  const texto = readFileSync(caminho, 'utf8');
+  return ts.createSourceFile(caminho, texto, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
+}
+
+/**
+ * Acha `export const <nome> = <inicializador>` no arquivo. Lança se não achar —
+ * a constante mudou de nome, de arquivo, ou deixou de ser um `const` de topo, e
+ * é exatamente esse tipo de mudança estrutural que não pode passar em silêncio.
+ */
+function acharConst(sf: ts.SourceFile, nome: string): ts.Expression {
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    for (const decl of stmt.declarationList.declarations) {
+      if (ts.isIdentifier(decl.name) && decl.name.text === nome && decl.initializer) {
+        return decl.initializer;
+      }
+    }
+  }
+  throw new Error(`"${nome}" não foi encontrado em ${sf.fileName} — a extração precisa ser atualizada.`);
+}
+
+/** Array literal só de strings → string[]. Lança diante de qualquer elemento que não seja literal simples. */
+function comoArrayDeString(no: ts.Expression, origem: string): string[] {
+  if (!ts.isArrayLiteralExpression(no)) throw new Error(`esperava um array literal em ${origem}.`);
+  return no.elements.map((el) => {
+    if (!ts.isStringLiteral(el)) throw new Error(`elemento não é uma string literal simples em ${origem}.`);
+    return el.text;
+  });
+}
+
+/** Objeto literal `{ chave: 'valor' }` → mapa chave→valor. Mesma exigência de literal simples. */
+function comoMapaDeString(no: ts.Expression, origem: string): Record<string, string> {
+  if (!ts.isObjectLiteralExpression(no)) throw new Error(`esperava um objeto literal em ${origem}.`);
+  const mapa: Record<string, string> = {};
+  for (const prop of no.properties) {
+    if (!ts.isPropertyAssignment(prop)) throw new Error(`propriedade não é um par chave/valor simples em ${origem}.`);
+    const chave = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : null;
+    if (chave === null || !ts.isStringLiteral(prop.initializer)) {
+      throw new Error(`chave ou valor não é uma string literal simples em ${origem}.`);
+    }
+    mapa[chave] = prop.initializer.text;
+  }
+  return mapa;
+}
+
+/** Mesmo conjunto de valores, ignorando ordem — a cópia não precisa preservar a ordem da fonte. */
+function mesmoConjunto(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const ordenadoA = [...a].sort();
+  const ordenadoB = [...b].sort();
+  return ordenadoA.every((v, i) => v === ordenadoB[i]);
+}
+
+/** Compara uma cópia de pesquisa.ts com sua fonte no site; extração que falha vira falha do check, não exceção solta. */
+function checarVocabulario(nome: string, extrairFonte: () => string[], copia: string[]): void {
+  try {
+    const fonte = extrairFonte();
+    ok(
+      mesmoConjunto(fonte, copia),
+      `${nome}: pesquisa.ts bate com a fonte no site`,
+      `fonte=[${fonte.join(', ')}] cópia=[${copia.join(', ')}]`,
+    );
+  } catch (e) {
+    falhas += 1;
+    console.log(`  ✗ ${nome}: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+  }
+}
+
+// A cópia sai do PRÓPRIO schema que `pesquisa.ts` monta para a OpenAI — não há
+// necessidade de exportar as constantes privadas do módulo só para o teste; o
+// schema já é a superfície pública que carrega o vocabulário inteiro.
+const schemaVocab = montarSchema('exercicio', []) as {
+  properties: {
+    padrao: { enum: string[] };
+    musculos: { items: { enum: string[] } };
+    tags: { items: { enum: string[] } };
+    nivel: { enum: string[] };
+  };
+};
+
+checarVocabulario(
+  'PADROES',
+  () => comoArrayDeString(acharConst(parseSite('montador/config/padroes.js'), 'PADROES'), 'montador/config/padroes.js:PADROES'),
+  schemaVocab.properties.padrao.enum,
+);
+
+checarVocabulario(
+  'MUSCULOS_LABEL',
+  () => {
+    // MUSCULOS_LABEL não é uma constante única em lugar nenhum do site: é
+    // `MUSCULOS` (as 11 chaves internas, em `padroes.js`) traduzida pelo mapa
+    // `MUSC_MAP` (`academia/data/seed.js`) — a mesma cadeia que o cabeçalho de
+    // `pesquisa.ts` documenta. Reproduzimos os dois passos aqui, não um atalho.
+    const chaves = comoArrayDeString(
+      acharConst(parseSite('montador/config/padroes.js'), 'MUSCULOS'),
+      'montador/config/padroes.js:MUSCULOS',
+    );
+    const mapa = comoMapaDeString(
+      acharConst(parseSite('academia/data/seed.js'), 'MUSC_MAP'),
+      'academia/data/seed.js:MUSC_MAP',
+    );
+    return chaves.map((k) => {
+      const rotulo = mapa[k];
+      if (!rotulo) throw new Error(`a chave "${k}" de MUSCULOS não tem rótulo em MUSC_MAP.`);
+      return rotulo;
+    });
+  },
+  schemaVocab.properties.musculos.items.enum,
+);
+
+checarVocabulario(
+  'TAGS',
+  () => comoArrayDeString(acharConst(parseSite('academia/db.js'), 'TAGS'), 'academia/db.js:TAGS'),
+  schemaVocab.properties.tags.items.enum,
+);
+
+checarVocabulario(
+  'NIVEIS',
+  () => comoArrayDeString(acharConst(parseSite('montador/core/niveis.js'), 'NIVEIS'), 'montador/core/niveis.js:NIVEIS'),
+  schemaVocab.properties.nivel.enum,
+);
 
 console.log(
   falhas === 0
