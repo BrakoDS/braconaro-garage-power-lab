@@ -88,6 +88,21 @@ test('o avançado demora mais que o iniciante — o unbroken cobra caro', () => 
   assert.ok(avcCurto > int);
 });
 
+test('os numeros do Murph nao mudaram ao sair do codigo para o catalogo', () => {
+  const vol = volumeMurph();
+  assert.equal(vol.totalSeries, 30);          // (100 + 200 + 300) / 20
+  assert.equal(vol.porPadrao.puxar, 5);
+  assert.equal(vol.porPadrao.empurrar, 10);
+  assert.equal(vol.porPadrao.quadriceps, 15);
+});
+
+test('o musculo do Murph vem do catalogo, e continua batendo', () => {
+  const vol = volumeMurph();
+  assert.equal(vol.porMusculo.costas, 5);     // 100 puxadas, primario
+  assert.equal(vol.porMusculo.peito, 10);     // 200 flexoes, primario
+  assert.equal(vol.porMusculo.quadriceps, 15); // 300 agachamentos, primario
+});
+
 test('gerarMurph nunca reprova por equipamento — o rodízio é do professor', () => {
   const m = gerarMurph({ nAlunos: 20 });
   assert.equal(m.viabilidade.ok, true);
