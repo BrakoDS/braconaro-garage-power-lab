@@ -14,6 +14,8 @@
  */
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesDe } from '../../../compartilhado/dados/equipamentos.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
+import { seriesPorTempo } from '../../../compartilhado/regras/equivalencia.js';
 
 export const TABATA = { trabalhoSeg: 20, descansoSeg: 10, roundsPorEstacao: 16, slotsPorEstacao: 4 };
 const DESCANSO_ENTRE_ESTACOES_SEG = 60;
@@ -189,23 +191,29 @@ export function estimarDuracaoSeg() {
 }
 
 /**
- * Volume nominal (condicionamento) p/ manter cenários/mesociclo válidos.
- * Cada slot conta um equivalente-séries no padrão do seu exercício.
+ * Volume de uma sessão de HIIT, em séries equivalentes.
+ *
+ * Cada estação roda 16 rounds de 20 s repartidos entre os seus slots, então um
+ * slot de 4 rounds vale 80 s — 2 séries pela régua de `SEGUNDOS_POR_SERIE`. É o
+ * mesmo 2 que estava escrito à mão aqui antes; agora ele é derivado, e passa a
+ * distribuir MÚSCULO em vez de só padrão. Sem isso, um dia de HIIT aparecia como
+ * zero de peito na semana do aluno.
  * @param {ReturnType<typeof gerarHiitTabata>['estacoes']} estacoes
  * @returns {Volume}
  */
 export function volumeHiit(estacoes) {
-  const SERIES_EQUIV = 2; // TABATA = muitos rounds curtos; equivalente modesto por slot
   const porId = Object.fromEntries(EXERCICIOS.map((e) => [e.id, e]));
-  /** @type {Record<string, number>} */
-  const porPadrao = {};
-  let totalSeries = 0;
-  for (const est of estacoes) {
-    for (const s of est.slots) {
+  /** @type {{exercicio: any, series: number}[]} */
+  const itens = [];
+  for (const est of estacoes || []) {
+    const slots = (est && est.slots) || [];
+    if (!slots.length) continue;
+    const segPorSlot = (TABATA.roundsPorEstacao / slots.length) * TABATA.trabalhoSeg;
+    const series = seriesPorTempo(segPorSlot);
+    for (const s of slots) {
       const ex = porId[s.id];
-      const p = ex?.padrao;
-      if (p) { porPadrao[p] = (porPadrao[p] || 0) + SERIES_EQUIV; totalSeries += SERIES_EQUIV; }
+      if (ex && ex.padrao) itens.push({ exercicio: ex, series });
     }
   }
-  return { porMusculo: {}, porPadrao, totalSeries };
+  return calcularVolume(itens);
 }
