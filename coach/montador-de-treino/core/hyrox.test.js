@@ -32,3 +32,17 @@ test('subconjunto de estacoes conta menos que a prova inteira', () => {
   const inteira = volumeHyrox();
   assert.ok(parcial.totalSeries < inteira.totalSeries);
 });
+
+test('gerarTreino repassa o nivel para o volume do Hyrox — sem isso, todo nivel virava intermediario', async () => {
+  // `montarHyrox` (gerador.js) tem `nivel` no escopo e é o ÚNICO chamador de
+  // produção; se ele não repassar, `volumeHyrox` cai sempre no default
+  // 'intermediario' e a turma avançada lê o mesmo volume da iniciante — o nível
+  // fica morto em produção mesmo a régua sabendo escalar por nível.
+  const { gerarTreino } = await import('./gerador.js');
+  const ini = gerarTreino({ modalidade: 'hyrox', nivel: 'iniciante', dia: 'ter', semana: 1, nAlunos: 8 });
+  const avc = gerarTreino({ modalidade: 'hyrox', nivel: 'avancado', dia: 'ter', semana: 1, nAlunos: 8 });
+  assert.equal(ini.volume.totalSeries, volumeHyrox(HYROX_ESTACOES, 'iniciante').totalSeries);
+  assert.equal(avc.volume.totalSeries, volumeHyrox(HYROX_ESTACOES, 'avancado').totalSeries);
+  assert.notEqual(ini.volume.totalSeries, avc.volume.totalSeries,
+    'iniciante e avançado saíram com o mesmo volume — o nível não está chegando em volumeHyrox');
+});

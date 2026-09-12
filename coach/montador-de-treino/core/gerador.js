@@ -292,7 +292,12 @@ function montarHyrox({ dia, semana, nivel, nAlunos }) {
     aquecimento: [],
     principal: [],
     finalizador: null,
-    volume: volumeHyrox(),
+    // `nivel` está no escopo desde a desestruturação acima — sem repassar, o volume
+    // sempre caía no default 'intermediario' de `volumeHyrox`, e a turma avançada ou
+    // competitiva via o mesmo número da iniciante. É o único chamador de produção;
+    // o Treino Manual (ui/manual-hyrox.js) mostra as 4 colunas de nível lado a lado
+    // e por isso segue sem nível — não mexer nele por causa disto.
+    volume: volumeHyrox(hyrox.estacoes, nivel),
     viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'for-time', nota: hyrox.viabilidade.nota },
     tempoAquecimentoSeg: 0,
     tempoPrincipalSeg: tempoTotalSeg,
