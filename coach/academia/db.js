@@ -10,6 +10,7 @@
 import { seedData, clonarNegocio, FREQUENCIAS, PRAZOS } from './data/seed.js';
 import { MIGRACOES_CATALOGO } from '../../compartilhado/dados/exercicios.js';
 import { MIGRACOES_INVENTARIO } from '../../compartilhado/dados/equipamentos.js';
+import { MUSC_MAP } from '../../compartilhado/config/musculos.js';
 
 const KEY = 'braconaro_academia_v1';
 
@@ -47,11 +48,9 @@ export const TAG_MOBILIDADE = 'MOBILIDADE';
 export const ehMobilidade = (x) => (x?.tags || []).includes(TAG_MOBILIDADE);
 /** @param {any} x @returns {boolean} */
 export const soMobilidade = (x) => ehMobilidade(x) && (x.tags || []).every((t) => t === TAG_MOBILIDADE);
-export const MUSCULOS = [
-  'Peito', 'Costas', 'Ombro', 'Trapézio', 'Bíceps', 'Tríceps', 'Antebraço',
-  'Core/Abdômen', 'Lombar', 'Quadríceps', 'Posterior de coxa', 'Glúteo',
-  'Panturrilha', 'Estabilizadores',
-];
+// Lista era literal duplicada de MUSC_MAP (mesmas 14 entradas, mesma ordem) — vem
+// do catálogo compartilhado agora, para as duas nunca divergirem em silêncio.
+export const MUSCULOS = Object.values(MUSC_MAP);
 
 /**
  * Dossiê sem nenhum conteúdo — a forma mínima esperada por quem lê `d.negocio`.
