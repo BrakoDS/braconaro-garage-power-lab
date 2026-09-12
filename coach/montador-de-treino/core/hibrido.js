@@ -73,7 +73,7 @@ import {
 } from './hibrido-postos.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO } from '../config/wod-formatos.js';
 import { seriesDoMovimentoWod } from '../../../compartilhado/regras/equivalencia.js';
-import { EXERCICIO_BASE_POR_ID } from '../../../compartilhado/dados/exercicios.js';
+import { EXERCICIO_POR_ID } from '../../../compartilhado/dados/exercicios.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const MOBILIDADE_SEG = 240;          // 4 min nas semanas 1–3
@@ -337,9 +337,10 @@ function prescricaoWod(ex, rng) {
  */
 export function movimentoWod(ex, rng) {
   return {
-    // `id` existe para o volume achar o músculo no catálogo. Sem ele, o WOD do
-    // Híbrido contava só padrão, enquanto o do Treino Livre já contava músculo —
-    // duas contas diferentes para a mesma coisa.
+    // `id` existe para o volume achar o músculo no catálogo VIVO (`EXERCICIO_POR_ID`,
+    // ver `volumeHibrido`) — não no congelado. Sem ele, o WOD do Híbrido contava só
+    // padrão, enquanto o do Treino Livre já contava músculo — duas contas diferentes
+    // para a mesma coisa.
     id: ex.id,
     nome: ex.nome, grupo: grupoWod(ex), padraoDominante: ex.padrao,
     equipamento: ex.equipamento, prescricao: prescricaoWod(ex, rng),
@@ -494,6 +495,15 @@ export function gerarHibrido(opcoes) {
  * O WOD agora entra como item de volume igual a qualquer outro — com músculo, e
  * não só padrão. É a mesma conta que `core/livre.js` faz no bloco de WOD dele:
  * os dois passam pela mesma função de propósito, para não divergirem em silêncio.
+ *
+ * Os músculos do movimento de WOD vêm de `EXERCICIO_POR_ID` — o catálogo VIVO, o
+ * mesmo que `montarWod`/`movimentoWod` usam para ESCOLHER o movimento (`EXERCICIOS`,
+ * que `aplicarCatalogo` substitui quando o coach edita a Academia) — e não de
+ * `EXERCICIO_BASE_POR_ID` (congelado). Ler do congelado credita zero músculo, em
+ * silêncio, para um exercício que o coach criou na Academia (não existe lá) e
+ * credita os músculos VELHOS para um que ele editou. `core/livre.js` já lia o
+ * catálogo vivo (via `porId`); é essa mesma fonte que o Híbrido passa a usar, para
+ * os dois pararem de discordar sobre o mesmo movimento.
  * @param {PostoHipertrofia[]} postos @param {BlocoWod} wod
  * @returns {import('../../../compartilhado/regras/volume.js').Volume}
  */
@@ -504,7 +514,7 @@ export function volumeHibrido(postos, wod) {
   ]);
   const movimentos = (wod && wod.movimentos) || [];
   for (const m of movimentos) {
-    const ex = EXERCICIO_BASE_POR_ID[m.id];
+    const ex = EXERCICIO_POR_ID[m.id];
     itens.push({
       exercicio: {
         padrao: m.padraoDominante,

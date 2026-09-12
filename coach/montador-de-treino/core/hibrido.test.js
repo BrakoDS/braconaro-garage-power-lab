@@ -6,7 +6,7 @@ import {
 } from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
 import { calcularPostos, calcularSeries, SERIE_SEG } from './hibrido-postos.js';
-import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
+import { EXERCICIOS, EXERCICIO_POR_ID, EXERCICIO_BASE_POR_ID } from '../../../compartilhado/dados/exercicios.js';
 
 /** mulberry32 — mesmo RNG do gerador, pra teste determinístico. */
 function rngDe(seed) {
@@ -295,6 +295,31 @@ test('bíceps e tríceps entram no volume — o desenho antigo só os creditava 
   const vol = volumeHibrido(h.hipertrofia, h.wod);
   assert.ok(vol.porMusculo.biceps > 0, 'bíceps sem volume');
   assert.ok(vol.porMusculo.triceps > 0, 'tríceps sem volume');
+});
+
+test('WOD com exercício criado na Academia credita músculo — lê do catálogo VIVO, não do congelado', () => {
+  // Um exercício que o coach cria na Academia entra em EXERCICIOS/EXERCICIO_POR_ID
+  // (vivo, via aplicarCatalogo) mas nunca em EXERCICIO_BASE_POR_ID (congelado, só o
+  // catálogo de fábrica). Antes, volumeHibrido lia o congelado: esse exercício
+  // creditava ZERO músculo, em silêncio. Registra e desfaz no fim para não vazar
+  // estado entre testes.
+  const idNovo = 'exercicio_criado_na_academia_teste';
+  assert.equal(EXERCICIO_BASE_POR_ID[idNovo], undefined, 'pré-condição: não existe no catálogo base');
+  EXERCICIO_POR_ID[idNovo] = {
+    id: idNovo, nome: 'Exercício da Academia', padrao: 'empurrar',
+    musculosPrimarios: ['peito'], musculosSecundarios: ['triceps'],
+  };
+  try {
+    const wod = {
+      formato: 'AMRAP', duracaoMin: 10,
+      movimentos: [{ id: idNovo, nome: 'Exercício da Academia', grupo: 'corporal', padraoDominante: 'empurrar', equipamento: ['corporal'], prescricao: '10 reps' }],
+    };
+    const vol = volumeHibrido([], wod);
+    assert.ok(vol.porMusculo.peito > 0, 'exercício criado na Academia não creditou peito');
+    assert.ok(vol.porMusculo.triceps > 0, 'exercício criado na Academia não creditou tríceps');
+  } finally {
+    delete EXERCICIO_POR_ID[idNovo];
+  }
 });
 
 // -------- montadores reusados pelo Treino Manual --------
