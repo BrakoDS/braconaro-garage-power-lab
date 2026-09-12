@@ -3,6 +3,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HYROX_ESTACOES, volumeHyrox } from './hyrox.js';
 
+test('Sled Push credita panturrilha, não peito — os braços são escora, a força sai do antepé', () => {
+  const sledPush = HYROX_ESTACOES.find((e) => e.n === 2);
+  assert.deepEqual(sledPush.musculos, ['quadriceps', 'gluteo', 'panturrilha']);
+});
+
+test('Burpee Broad Jump credita quadríceps primeiro — o salto avança a distância, não a flexão', () => {
+  const burpeeBroadJump = HYROX_ESTACOES.find((e) => e.n === 4);
+  assert.deepEqual(burpeeBroadJump.musculos, ['quadriceps', 'peito', 'core']);
+});
+
 test('as 3 estações por reps agora convertem por tempo, como as outras 5 sempre converteram', () => {
   // ANTES: SkiErg (n=1, reps) usava seriesPorReps direto — intermediário
   // 80 remadas / 20 = 4 séries, MAIOR que o Sled Push (n=2, perna, o tecido

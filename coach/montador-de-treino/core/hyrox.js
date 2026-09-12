@@ -73,7 +73,10 @@ export const HYROX_ESTACOES = [
   { n: 2, nome: 'Sled Push (empurrar trenó)', base: 'Sled Push', equipamento: ['sled', 'turf', 'anilha_olimpica_15'], padrao: 'quadriceps', padraoSec: 'empurrar',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40, competitivo: 100 },
     carga: 'trenó + 15–45 kg (1 a 3 anilhas por nível)', nota: 'Trenó baixo, tronco firme, passos curtos e potentes no turf de 5 m.',
-    musculos: ['quadriceps', 'gluteo', 'peito'] },
+    // 'panturrilha', não 'peito': no trenó baixo os braços são escora rígida (o
+    // empurrão não flexiona o cotovelo como um supino), e a força que de fato
+    // avança o trenó sai do antepé, empurrando o chão a cada passo curto.
+    musculos: ['quadriceps', 'gluteo', 'panturrilha'] },
   { n: 3, nome: 'Sled Pull (puxar trenó)', base: 'Sled Pull', equipamento: ['sled', 'turf', 'anilha_olimpica_15', 'corda_naval_4m'], padrao: 'puxar', padraoSec: 'estabilizadores',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40, competitivo: 100 },
     carga: 'trenó + 15–45 kg, puxar pela corda', nota: 'Puxe a corda mão sobre mão, quadril baixo e tronco estável.',
@@ -81,7 +84,10 @@ export const HYROX_ESTACOES = [
   { n: 4, nome: 'Burpee Broad Jump', base: 'Burpee Broad Jump', equipamento: ['corporal'], padrao: 'empurrar',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 40, avancado: 60, competitivo: 100 },
     carga: 'peso corporal', nota: 'Como na prova (avança em metros): a cada rep, flexão com o peito ao chão + salto para a frente. Competitivo = 100 m, a distância da prova.',
-    musculos: ['peito', 'quadriceps', 'core'] },
+    // 'quadriceps' primeiro: o salto à frente é o esforço que de fato avança a
+    // distância prescrita (é uma prova de metros, não de flexões) — a flexão no
+    // chão é o secundário, não o dominante.
+    musculos: ['quadriceps', 'peito', 'core'] },
   { n: 5, nome: 'Rowing (simulador de remo)', base: 'Rowing', equipamento: ['monocross_movel'], padrao: 'puxar',
     tipo: 'reps', prescricao: { iniciante: 60, intermediario: 80, avancado: 100, competitivo: 250 },
     carga: 'carga leve/moderada (polia)', nota: 'No 3º monocross (móvel), reservado ao dia de Hyrox. Cadência de remo: rápido e ritmado.',
