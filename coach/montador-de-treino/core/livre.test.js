@@ -369,6 +369,30 @@ test('bloco de WOD conta pela regua de tempo repartido, com musculo', () => {
   assert.equal(r.extra.tempos.principalSeg, 960);
 });
 
+test('Chipper conta pelas reps (1 rodada por definição do formato), não pelo tempo repartido', () => {
+  // Mesmo bloco de "bloco de WOD conta pela regua de tempo repartido" acima, só que
+  // Chipper em vez de AMRAP: antes, sem rodada digitada, caía no mesmo recuo de
+  // tempo (16 min / 2 = 8 min = 480s / 40 = 12 cada, 24 no total) — um Chipper de
+  // 12 burpees contando igual a um AMRAP de 12 minutos do mesmo movimento. Chipper
+  // é "uma lista de movimentos, na ordem, sem repetir rodada" por definição
+  // (DESCRICAO_FORMATO.Chipper) — 1 rodada, não uma estimativa — então agora usa
+  // reps: burpee 10/20=0,5; agachamento 15/20=0,75; total 1,25.
+  const r = montarLivre({ blocos: [{ tipo: 'wod', formato: 'Chipper', duracaoMin: 16,
+    exercicios: [{ id: 'burpee', prescricao: '10 reps' }, { id: 'agacho', prescricao: '15 reps' }] }], porId });
+  assert.equal(r.vol.totalSeries, 1.25);
+  assert.equal(r.vol.porMusculo.corpo, 0.5);
+  assert.equal(r.vol.porMusculo.pernas, 0.75);
+});
+
+test('Chipper sem reps legíveis (distância) continua no tempo repartido', () => {
+  // "200m" não é reps (repsDaPrescricao devolve null) — mesmo o Chipper garantindo
+  // 1 rodada, sem número de reps não há o que multiplicar, e a conta cai no recuo
+  // de tempo: 10 min / 1 movimento = 600s / 40 = 15 séries.
+  const r = montarLivre({ blocos: [{ tipo: 'wod', formato: 'Chipper', duracaoMin: 10,
+    exercicios: [{ id: 'burpee', prescricao: '200m' }] }], porId });
+  assert.equal(r.vol.totalSeries, 15);
+});
+
 test('o crédito do WOD é o mesmo do Híbrido', async () => {
   const { CREDITO_WOD } = await import('../../../compartilhado/regras/volume.js');
   assert.equal(CREDITO_WOD, 2.5);

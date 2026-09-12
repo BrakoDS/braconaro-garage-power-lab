@@ -322,6 +322,25 @@ test('WOD com exercício criado na Academia credita músculo — lê do catálog
   }
 });
 
+test('WOD Chipper usa reps (1 rodada por definição do formato) em vez do tempo repartido', () => {
+  // Mesmo cenário que expôs o super-crédito de ~2×: Chipper de 16 min, 3
+  // movimentos de peso corporal. Antes: sem `rodadas` (o Híbrido nunca declara),
+  // caía sempre no tempo — 16 min / 3 = 320 s / 40 = 8 séries cada, 24 no total,
+  // igual a um bloco de bi-set carregado de 24 min. Agora, com `wod.formato`
+  // chegando em `seriesDoMovimentoWod`, o Chipper usa as reps (1 rodada por
+  // definição): 12/20 + 15/20 + 10/20 = 0,6 + 0,75 + 0,5 = 1,85.
+  const wod = {
+    formato: 'Chipper', duracaoMin: 16,
+    movimentos: [
+      { id: 'high_knees', nome: 'High knees', grupo: 'corporal', padraoDominante: 'estabilizadores', equipamento: ['corporal'], prescricao: '12 reps' },
+      { id: 'mountain_climber', nome: 'Mountain climber', grupo: 'corporal', padraoDominante: 'core', equipamento: ['corporal'], prescricao: '15 reps' },
+      { id: 'flexao', nome: 'Flexão', grupo: 'corporal', padraoDominante: 'empurrar', equipamento: ['corporal'], prescricao: '10 reps' },
+    ],
+  };
+  const vol = volumeHibrido([], wod);
+  assert.equal(vol.totalSeries, 1.85);
+});
+
 // -------- montadores reusados pelo Treino Manual --------
 
 test('montarPostosDe monta os postos a partir dos ids escolhidos', () => {

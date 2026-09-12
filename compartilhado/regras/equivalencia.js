@@ -66,23 +66,46 @@ export function repsDaPrescricao(texto) {
 }
 
 /**
+ * Rodadas que o FORMATO já responde sozinho, sem o coach precisar digitar nada.
+ *
+ * Só o Chipper entra aqui: por definição ("uma lista longa de movimentos, na
+ * ordem, sem repetir rodada" — `DESCRICAO_FORMATO.Chipper`), a turma passa 1× por
+ * cada movimento. Não é uma estimativa — é o que a palavra "Chipper" significa —
+ * e por isso pode entrar na conta de reps sem contradizer a regra de não inventar.
+ *
+ * AMRAP e EMOM NÃO entram: ali quem decide quantas rodadas a turma fecha é o
+ * relógio e o ritmo de cada aluna, e não existe UMA resposta certa — nem no
+ * catálogo, nem por definição do formato. Tratar "sem rodadas" como uma rodada
+ * nesses dois formatos inventaria um número e mentiria pro aluno sem ele perceber
+ * (é exatamente o erro que este módulo existe para evitar — ver `repsDaPrescricao`).
+ * @param {string} [formato]
+ */
+function rodadasPorDefinicaoDoFormato(formato) {
+  return formato === 'Chipper' ? 1 : 0;
+}
+
+/**
  * Séries equivalentes de UM movimento dentro de um bloco de WOD.
  *
  * Duas rotas, nesta ordem:
- *  1. **Reps × rodadas**, quando as duas coisas são conhecidas. É a conta certa,
- *     e só o For Time conhece as rodadas.
- *  2. **Tempo do bloco repartido** entre os movimentos. É o recuo para AMRAP,
- *     EMOM e Chipper, onde quem manda é o relógio e ninguém sabe quantas rodadas
- *     a turma vai fechar. Também cobre a prescrição em distância (`"200m"`) e o
- *     texto livre que o coach digita no Treino Livre.
+ *  1. **Reps × rodadas**, quando as duas coisas são conhecidas. As rodadas vêm do
+ *     que o coach digitou (só o For Time pergunta) OU do que o FORMATO já garante
+ *     por definição (Chipper = 1, ver `rodadasPorDefinicaoDoFormato`). É a conta
+ *     certa: 12 reps de um movimento não valem o mesmo que 40 reps de outro só
+ *     porque os dois couberam no mesmo bloco.
+ *  2. **Tempo do bloco repartido** entre os movimentos. É o recuo para AMRAP e
+ *     EMOM — onde ninguém sabe quantas rodadas a turma vai fechar, então contar
+ *     por reps seria inventar rodada — e para qualquer prescrição sem número
+ *     legível (distância como `"200m"`, ou texto livre tipo "máximo de reps").
  *
- * O que NÃO se faz: tratar "sem rodadas" como uma rodada. Um AMRAP de 12 minutos
- * não é uma volta — contá-lo assim jogaria fora quase todo o esforço do bloco.
- * @param {{prescricao?: string, rodadas?: number|null, duracaoMin?: number, nMovimentos?: number}} p
+ * O que NÃO se faz: tratar "sem rodadas" como uma rodada FORA do Chipper. Um
+ * AMRAP de 12 minutos não é uma volta — contá-lo assim jogaria fora quase todo o
+ * esforço do bloco.
+ * @param {{prescricao?: string, rodadas?: number|null, duracaoMin?: number, nMovimentos?: number, formato?: string}} p
  */
-export function seriesDoMovimentoWod({ prescricao, rodadas, duracaoMin, nMovimentos } = {}) {
+export function seriesDoMovimentoWod({ prescricao, rodadas, duracaoMin, nMovimentos, formato } = {}) {
   const reps = repsDaPrescricao(prescricao);
-  const voltas = positivo(rodadas);
+  const voltas = positivo(rodadas) || rodadasPorDefinicaoDoFormato(formato);
   if (reps && voltas) return seriesPorReps(reps * voltas);
 
   const n = positivo(nMovimentos) || 1;

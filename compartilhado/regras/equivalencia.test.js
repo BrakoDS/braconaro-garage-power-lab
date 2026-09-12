@@ -74,6 +74,30 @@ test('WOD sem tempo e sem reps nao conta nada', () => {
   assert.equal(seriesDoMovimentoWod({ prescricao: '', rodadas: null, duracaoMin: 0, nMovimentos: 3 }), 0);
 });
 
+test('Chipper sem rodadas digitadas usa reps: o formato ja garante 1 rodada por definicao', () => {
+  // Chipper = "uma lista longa de movimentos, na ordem, sem repetir rodada" (config/wod-formatos.js):
+  // 1 rodada nao e estimativa, e a definicao do formato. 12 reps * 1 / 20 = 0,6.
+  const s = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 16, nMovimentos: 3, formato: 'Chipper' });
+  assert.equal(s, 0.6);
+});
+
+test('AMRAP e EMOM sem rodadas continuam no tempo — ninguem sabe quantas rodadas a turma fecha', () => {
+  // Mesmo com reps legiveis, nao ha rodada por definicao do formato aqui (diferente
+  // do Chipper): inventar uma mentiria pro aluno. 16min/3 = 320s/40 = 8 cada.
+  for (const formato of ['AMRAP', 'EMOM']) {
+    const s = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 16, nMovimentos: 3, formato });
+    assert.equal(s, 8, formato);
+  }
+});
+
+test('rodada digitada (For Time) continua valendo mais que o Chipper por definicao', () => {
+  const forTime = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: 5, duracaoMin: 16, nMovimentos: 3, formato: 'For Time' });
+  const chipper = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 16, nMovimentos: 3, formato: 'Chipper' });
+  assert.equal(forTime, 3);     // 12 * 5 / 20
+  assert.equal(chipper, 0.6);  // 12 * 1 / 20
+  assert.ok(forTime > chipper);
+});
+
 test('as constantes sao as duas reguas, e concordam entre si', () => {
   assert.equal(SEGUNDOS_POR_SERIE, 40);
   assert.equal(REPS_POR_SERIE, 20);
