@@ -3,6 +3,29 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HYROX_ESTACOES, volumeHyrox } from './hyrox.js';
 
+test('as 3 estações por reps agora convertem por tempo, como as outras 5 sempre converteram', () => {
+  // ANTES: SkiErg (n=1, reps) usava seriesPorReps direto — intermediário
+  // 80 remadas / 20 = 4 séries, MAIOR que o Sled Push (n=2, perna, o tecido
+  // limitante da prova), que já era por distância: 30 m * 1,8 s/m = 54 s / 40 =
+  // 1,35 (sem o crédito do padrão secundário no totalSeries — ver teste de
+  // totalSeries/porPadrao acima). Um aparelho de tronco valendo quase 3× uma
+  // estação de perna inverte a prova.
+  // DEPOIS: SkiErg cai para o mesmo tempo que `duracaoEstacaoSeg` já estimava pra
+  // ele (usado na duração da aula) — 80 reps * 1,3 s/rep = 104 s / 40 = 2,6. O Sled
+  // Push também sobe (2,025: 1,35 do padrão primário + 0,675 do secundário, agora
+  // que o crédito soma no totalSeries), mas a folga caiu de 2,65 (4 − 1,35) para
+  // 0,575 (2,6 − 2,025) — a perna deixando de ser afogada pelo tronco.
+  const skiErg = HYROX_ESTACOES.find((e) => e.n === 1);
+  const sledPush = HYROX_ESTACOES.find((e) => e.n === 2);
+  const seriesSkiErg = volumeHyrox([skiErg], 'intermediario').totalSeries;
+  const seriesSledPush = volumeHyrox([sledPush], 'intermediario').totalSeries;
+  assert.equal(seriesSkiErg, 2.6, '80 reps * 1,3 s/rep = 104 s / 40');
+  // Ponto-flutuante: 1,35 + 0,675 chega como 2.0250000000000004.
+  assert.ok(Math.abs(seriesSledPush - 2.025) < 1e-9, '30 m * 1,8 s/m = 54 s / 40, + metade (empurrar) = 1,35 + 0,675');
+  assert.ok(seriesSkiErg - seriesSledPush < 4 - 1.35,
+    'a folga entre SkiErg e Sled Push tem que ter encolhido em relação ao valor antigo (4 vs 1,35)');
+});
+
 test('toda estacao declara ao menos um musculo primario', () => {
   for (const e of HYROX_ESTACOES) {
     assert.ok(Array.isArray(e.musculos) && e.musculos.length > 0, `estacao sem musculo: ${e.nome}`);

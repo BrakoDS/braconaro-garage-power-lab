@@ -13,7 +13,7 @@
  */
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';
 import { calcularVolume } from '../../../compartilhado/regras/volume.js';
-import { seriesPorTempo, seriesPorReps } from '../../../compartilhado/regras/equivalencia.js';
+import { seriesPorTempo } from '../../../compartilhado/regras/equivalencia.js';
 
 /**
  * Níveis do Hyrox — os três do resto do app MAIS o Competitivo.
@@ -140,26 +140,28 @@ export function estimarDuracaoSeg(nivel, estacoes = HYROX_ESTACOES) {
 }
 
 /**
- * Séries equivalentes de UMA estação, num nível. Estação por reps converte pela
- * régua de repetição; estação por distância vira segundos pelo ritmo que
- * `duracaoEstacaoSeg` já usa para estimar a prova, e daí pela régua de tempo.
+ * Séries equivalentes de UMA estação, num nível. SEMPRE pela régua de tempo:
+ * `duracaoEstacaoSeg` já estima o tempo de qualquer estação, reps ou distância
+ * (inclusive o ritmo dos ergômetros, via `SEG_POR_REP`), e é o tempo — não a
+ * unidade em que a prescrição foi escrita — quem diz quanto esforço a estação
+ * exige. Antes, as 3 estações por reps (SkiErg, Rowing, Wall Ball) convertiam
+ * direto pela régua de repetição, o que inverte a prova: 80 remadas do SkiErg
+ * (quase todo tronco) valiam 4 séries, enquanto os 30 m de Sled Push carregado
+ * (quase todo perna, o tecido limitante do Hyrox) valiam 1,35 — a prova ficaria
+ * puxada por tronco, quando na pista é a perna que estraga o atleta.
  * Extraída para não repetir a mesma conta no `map` e no laço do `padraoSec`.
  * @param {EstacaoHyrox} e @param {Nivel} nivel
  */
 function seriesDaEstacao(e, nivel) {
-  return e.tipo === 'reps'
-    ? seriesPorReps(e.prescricao[nivel])
-    : seriesPorTempo(duracaoEstacaoSeg(e, nivel));
+  return seriesPorTempo(duracaoEstacaoSeg(e, nivel));
 }
 
 /**
  * Volume de uma sessão de Hyrox, em séries equivalentes.
  *
- * Estação por reps converte pela régua de repetição; estação por distância vira
- * segundos pelo ritmo que `duracaoEstacaoSeg` já usa para estimar a prova, e daí
- * pela régua de tempo. Os dois números fixos de antes (3 no padrão, 1,5 no
- * secundário) saíram: eles não olhavam o nível, então a prova competitiva contava
- * igual à de iniciante.
+ * Todas as 8 estações convertem pela régua de tempo (ver `seriesDaEstacao`). Os
+ * dois números fixos de antes (3 no padrão, 1,5 no secundário) saíram: eles não
+ * olhavam o nível, então a prova competitiva contava igual à de iniciante.
  *
  * Os músculos vêm do campo `musculos` de cada estação, escrito à mão — a estação
  * do Hyrox não é um exercício do catálogo e não tem id para consultar.
