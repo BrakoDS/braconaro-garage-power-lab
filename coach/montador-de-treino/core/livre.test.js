@@ -355,12 +355,16 @@ test('tri-set: quando o líder tem série própria, os três a herdam (não a do
 
 /* ---------- bloco de WOD ---------- */
 
-test('bloco de WOD credita 2,5 no padrão e nada no músculo', () => {
+test('bloco de WOD conta pela regua de tempo repartido, com musculo', () => {
+  // 16 min / 2 movimentos = 8 min = 480s / 40 = 12 series cada, AMRAP não tem
+  // rodadas então cai direto no recuo de tempo (nao ha "10 reps" x rodada aqui).
   const r = montarLivre({ blocos: [{ tipo: 'wod', formato: 'AMRAP', duracaoMin: 16,
     exercicios: [{ id: 'burpee', prescricao: '10 reps' }, { id: 'agacho', prescricao: '15 reps' }] }], porId });
-  assert.equal(r.vol.totalSeries, 5);
-  assert.deepEqual(r.vol.porMusculo, {}, 'crédito de WOD é nominal — não entra na tabela por músculo');
-  assert.equal(r.vol.porPadrao.agachar, 2.5);
+  assert.equal(r.vol.totalSeries, 24);
+  assert.equal(r.vol.porMusculo.corpo, 12);       // burpee, primário
+  assert.equal(r.vol.porMusculo.pernas, 12);      // agachamento, primário
+  assert.equal(r.vol.porMusculo.gluteos, 6);      // agachamento, secundário: 0,5 × 12
+  assert.equal(r.vol.porPadrao.agachar, 12);
   assert.equal(r.nItens, 2, 'um dia 100% WOD precisa ter o que salvar');
   assert.equal(r.extra.tempos.principalSeg, 960);
 });
@@ -453,7 +457,9 @@ test('dia com bloco de série e bloco de WOD soma volume e tempo dos dois', () =
     { tipo: 'wod', formato: 'AMRAP', duracaoMin: 10, exercicios: [{ id: 'burpee' }] },
   ] }));
   assert.equal(r.extra.livre.blocos.length, 2);
-  assert.equal(r.vol.totalSeries, 3 + 2.5);
+  // WOD sem prescrição legível (burpee sem `prescricao`) cai no tempo do bloco:
+  // AMRAP 10 min / 1 movimento = 600s / 40 = 15 séries.
+  assert.equal(r.vol.totalSeries, 3 + 15);
   assert.equal(r.nItens, 2);
   // 3×(35+60)+20 = 305 (bloco de série) + 600 (10min WOD)
   assert.equal(r.extra.tempos.principalSeg, 305 + 600);
@@ -498,6 +504,19 @@ test('rodadas fracionária arredonda — meia rodada não existe na sala', () =>
 test('bloco de WOD sem formato nenhum cai em AMRAP', () => {
   const r = montarLivre({ blocos: [{ tipo: 'wod', exercicios: [{ id: 'burpee' }] }], porId });
   assert.equal(r.extra.livre.blocos[0].formato, 'AMRAP');
+});
+
+test('o WOD do Livre conta musculo, nao so padrao', () => {
+  const catalogo = {
+    burpee: { id: 'burpee', nome: 'Burpee', padrao: 'empurrar',
+      musculosPrimarios: ['peito'], musculosSecundarios: ['quadriceps'] },
+  };
+  const { vol } = montarLivre({
+    blocos: [{ tipo: 'wod', formato: 'AMRAP', duracaoMin: 10, exercicios: [{ id: 'burpee', prescricao: '10 reps' }] }],
+    porId: (id) => catalogo[id],
+  });
+  assert.equal(vol.porMusculo.peito, 15);      // 10 min / 1 mov = 600 s / 40 = 15
+  assert.equal(vol.porMusculo.quadriceps, 7.5);
 });
 
 test('tipo desconhecido é lido como bloco de série', () => {

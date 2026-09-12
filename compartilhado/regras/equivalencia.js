@@ -64,3 +64,27 @@ export function repsDaPrescricao(texto) {
   const n = Number(m[1].replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
 }
+
+/**
+ * Séries equivalentes de UM movimento dentro de um bloco de WOD.
+ *
+ * Duas rotas, nesta ordem:
+ *  1. **Reps × rodadas**, quando as duas coisas são conhecidas. É a conta certa,
+ *     e só o For Time conhece as rodadas.
+ *  2. **Tempo do bloco repartido** entre os movimentos. É o recuo para AMRAP,
+ *     EMOM e Chipper, onde quem manda é o relógio e ninguém sabe quantas rodadas
+ *     a turma vai fechar. Também cobre a prescrição em distância (`"200m"`) e o
+ *     texto livre que o coach digita no Treino Livre.
+ *
+ * O que NÃO se faz: tratar "sem rodadas" como uma rodada. Um AMRAP de 12 minutos
+ * não é uma volta — contá-lo assim jogaria fora quase todo o esforço do bloco.
+ * @param {{prescricao?: string, rodadas?: number|null, duracaoMin?: number, nMovimentos?: number}} p
+ */
+export function seriesDoMovimentoWod({ prescricao, rodadas, duracaoMin, nMovimentos } = {}) {
+  const reps = repsDaPrescricao(prescricao);
+  const voltas = positivo(rodadas);
+  if (reps && voltas) return seriesPorReps(reps * voltas);
+
+  const n = positivo(nMovimentos) || 1;
+  return seriesPorTempo((positivo(duracaoMin) * 60) / n);
+}

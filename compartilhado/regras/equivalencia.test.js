@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SEGUNDOS_POR_SERIE, REPS_POR_SERIE, seriesPorTempo, seriesPorReps, repsDaPrescricao,
+  seriesDoMovimentoWod,
 } from './equivalencia.js';
 
 test('um round de TABATA de 20s vale meia serie', () => {
@@ -52,6 +53,25 @@ test('prescricao sem numero nao inventa', () => {
 test('tempo em segundos tambem nao e reps', () => {
   assert.equal(repsDaPrescricao('40s'), null);
   assert.equal(repsDaPrescricao('30 seg'), null);
+});
+
+test('WOD com reps e rodadas: conta reps x rodadas', () => {
+  const s = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: 5, duracaoMin: 12, nMovimentos: 3 });
+  assert.equal(s, 3); // 12 * 5 / 20
+});
+
+test('WOD com reps e sem rodadas cai no tempo, nao multiplica por um', () => {
+  const s = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 12, nMovimentos: 3 });
+  assert.equal(s, 6); // 12 min / 3 movimentos = 4 min = 240 s / 40
+});
+
+test('WOD sem reps legiveis cai no tempo do bloco repartido', () => {
+  const s = seriesDoMovimentoWod({ prescricao: '200m', rodadas: null, duracaoMin: 10, nMovimentos: 4 });
+  assert.equal(s, 3.75); // 10 min / 4 = 2,5 min = 150 s / 40
+});
+
+test('WOD sem tempo e sem reps nao conta nada', () => {
+  assert.equal(seriesDoMovimentoWod({ prescricao: '', rodadas: null, duracaoMin: 0, nMovimentos: 3 }), 0);
 });
 
 test('as constantes sao as duas reguas, e concordam entre si', () => {

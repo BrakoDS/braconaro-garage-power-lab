@@ -42,6 +42,7 @@
  * @property {TecnicaTag|null} [tecnica]
  *
  * @typedef {Object} MovimentoWod
+ * @property {string} id
  * @property {string} nome
  * @property {'peso'|'corporal'|'monoestrutural'} grupo
  * @property {Padrao} padraoDominante
@@ -71,7 +72,8 @@ import {
   PARES_ANTAGONISTAS, calcularPostos, calcularSeries, prescricaoSemana, SERIE_SEG, duracaoWodPorSemana,
 } from './hibrido-postos.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO } from '../config/wod-formatos.js';
-import { CREDITO_WOD } from '../../../compartilhado/regras/volume.js';
+import { seriesDoMovimentoWod } from '../../../compartilhado/regras/equivalencia.js';
+import { EXERCICIO_BASE_POR_ID } from '../../../compartilhado/dados/exercicios.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const MOBILIDADE_SEG = 240;          // 4 min nas semanas 1–3
@@ -335,6 +337,10 @@ function prescricaoWod(ex, rng) {
  */
 export function movimentoWod(ex, rng) {
   return {
+    // `id` existe para o volume achar o músculo no catálogo. Sem ele, o WOD do
+    // Híbrido contava só padrão, enquanto o do Treino Livre já contava músculo —
+    // duas contas diferentes para a mesma coisa.
+    id: ex.id,
     nome: ex.nome, grupo: grupoWod(ex), padraoDominante: ex.padrao,
     equipamento: ex.equipamento, prescricao: prescricaoWod(ex, rng),
   };
@@ -482,7 +488,12 @@ export function gerarHibrido(opcoes) {
 }
 
 /**
- * Volume do Híbrido: REAL nos dois lados de cada posto + crédito nominal leve do WOD.
+ * Volume do Híbrido: real nos dois lados de cada posto, e o WOD convertido pela
+ * régua única em vez do crédito fixo de 2,5 que ele recebia.
+ *
+ * O WOD agora entra como item de volume igual a qualquer outro — com músculo, e
+ * não só padrão. É a mesma conta que `core/livre.js` faz no bloco de WOD dele:
+ * os dois passam pela mesma função de propósito, para não divergirem em silêncio.
  * @param {PostoHipertrofia[]} postos @param {BlocoWod} wod
  * @returns {import('../../../compartilhado/regras/volume.js').Volume}
  */
@@ -491,12 +502,22 @@ export function volumeHibrido(postos, wod) {
     { exercicio: p.a, series: p.series },
     { exercicio: p.b, series: p.series },
   ]);
-  const real = calcularVolume(itens);
-  // CREDITO_WOD agora vive em volume.js — mesma constante que o Treino Livre usa
-  // para o bloco de WOD, para os dois nunca divergirem silenciosamente.
-  for (const m of wod.movimentos) {
-    real.porPadrao[m.padraoDominante] = (real.porPadrao[m.padraoDominante] || 0) + CREDITO_WOD;
-    real.totalSeries += CREDITO_WOD;
+  const movimentos = (wod && wod.movimentos) || [];
+  for (const m of movimentos) {
+    const ex = EXERCICIO_BASE_POR_ID[m.id];
+    itens.push({
+      exercicio: {
+        padrao: m.padraoDominante,
+        musculosPrimarios: (ex && ex.musculosPrimarios) || [],
+        musculosSecundarios: (ex && ex.musculosSecundarios) || [],
+      },
+      // O BlocoWod do Híbrido não tem campo `rodadas` — daí `null`, que manda a
+      // conta pelo recuo de tempo (duração do bloco repartida entre os movimentos).
+      series: seriesDoMovimentoWod({
+        prescricao: m.prescricao, rodadas: null,
+        duracaoMin: wod && wod.duracaoMin, nMovimentos: movimentos.length,
+      }),
+    });
   }
-  return real;
+  return calcularVolume(itens);
 }
