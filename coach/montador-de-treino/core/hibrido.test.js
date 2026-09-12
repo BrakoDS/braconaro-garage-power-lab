@@ -322,13 +322,11 @@ test('WOD com exercício criado na Academia credita músculo — lê do catálog
   }
 });
 
-test('WOD Chipper usa reps (1 rodada por definição do formato) em vez do tempo repartido', () => {
-  // Mesmo cenário que expôs o super-crédito de ~2×: Chipper de 16 min, 3
-  // movimentos de peso corporal. Antes: sem `rodadas` (o Híbrido nunca declara),
-  // caía sempre no tempo — 16 min / 3 = 320 s / 40 = 8 séries cada, 24 no total,
-  // igual a um bloco de bi-set carregado de 24 min. Agora, com `wod.formato`
-  // chegando em `seriesDoMovimentoWod`, o Chipper usa as reps (1 rodada por
-  // definição): 12/20 + 15/20 + 10/20 = 0,6 + 0,75 + 0,5 = 1,85.
+test('WOD por tempo aplica o fator de densidade (0,4) sobre o recuo de tempo', () => {
+  // O Híbrido nunca declara rodadas, e agora nenhum formato ganha rodada por
+  // definição (o caso especial do Chipper foi desfeito): todo WOD do Híbrido cai
+  // no recuo de tempo, com FATOR_DENSIDADE_WOD aplicado. 16 min / 3 movimentos =
+  // 320 s / 40 = 8 séries cada sem fator; ×0,4 = 3,2 cada, 9,6 no total.
   const wod = {
     formato: 'Chipper', duracaoMin: 16,
     movimentos: [
@@ -338,7 +336,9 @@ test('WOD Chipper usa reps (1 rodada por definição do formato) em vez do tempo
     ],
   };
   const vol = volumeHibrido([], wod);
-  assert.equal(vol.totalSeries, 1.85);
+  // 3 × 3,2 tropeça em ponto flutuante (0,4 não é exato em binário) — compara com
+  // tolerância, mesmo padrão de hyrox.test.js para essa mesma classe de fator.
+  assert.ok(Math.abs(vol.totalSeries - 9.6) < 1e-9, `${vol.totalSeries} !== 9.6`);
 });
 
 // -------- montadores reusados pelo Treino Manual --------

@@ -521,14 +521,10 @@ export function volumeHibrido(postos, wod) {
         musculosPrimarios: (ex && ex.musculosPrimarios) || [],
         musculosSecundarios: (ex && ex.musculosSecundarios) || [],
       },
-      // O BlocoWod do Híbrido não declara rodadas (não há campo pro coach digitar
-      // isso aqui, diferente do Treino Livre) — daí `rodadas: null`. Mas o FORMATO
-      // ele tem (`wod.formato`), e é o que permite `seriesDoMovimentoWod` usar reps
-      // quando o formato sorteado for Chipper (1 rodada por definição) em vez de
-      // cair sempre no recuo de tempo — ver comentário de `rodadasPorDefinicaoDoFormato`
-      // em equivalencia.js.
+      // O BlocoWod do Híbrido não tem campo `rodadas` — daí `null`, que manda a
+      // conta pelo recuo de tempo (duração do bloco repartida entre os movimentos).
       series: seriesDoMovimentoWod({
-        prescricao: m.prescricao, rodadas: null, formato: wod && wod.formato,
+        prescricao: m.prescricao, rodadas: null,
         duracaoMin: wod && wod.duracaoMin, nMovimentos: movimentos.length,
       }),
     });

@@ -23,6 +23,26 @@ export const SEGUNDOS_POR_SERIE = 40;
 /** Quantas repetições valem uma série. É a régua que o Murph já usava. */
 export const REPS_POR_SERIE = 20;
 
+/**
+ * Fator de densidade do bloco de WOD — só entra na rota do TEMPO (nunca na de
+ * reps × rodadas).
+ *
+ * Motivo, medido: pela rota do tempo, 1 minuto de WOD valia ~1,5 série
+ * equivalente (`SEGUNDOS_POR_SERIE` sozinho já dá 60/40 = 1,5/min), contra
+ * 0,3–0,4 que 1 minuto de musculação rende (postos de bi-set, ver
+ * `hibrido-postos.js`). O relógio de um WOD não é 100% trabalho — tem
+ * transição entre movimentos e, em AMRAP/EMOM, o descanso que cada aluna
+ * escolhe embutido no mesmo minuto — e a rota do tempo não separa isso do
+ * esforço real. Contar o relógio inteiro como série inflava o volume do WOD
+ * bem acima do que a mesma turma treina em musculação.
+ *
+ * Não entra na rota de reps × rodadas: ali o número já é trabalho contado de
+ * verdade (reps reais, rodada real), não relógio — não há o que descontar.
+ *
+ * Recalibrar a densidade de TODOS os WODs de uma vez é mexer neste número só.
+ */
+export const FATOR_DENSIDADE_WOD = 0.4;
+
 /** Número finito e positivo, senão 0. @param {unknown} v */
 function positivo(v) {
   const n = Number(v);
@@ -66,48 +86,27 @@ export function repsDaPrescricao(texto) {
 }
 
 /**
- * Rodadas que o FORMATO já responde sozinho, sem o coach precisar digitar nada.
- *
- * Só o Chipper entra aqui: por definição ("uma lista longa de movimentos, na
- * ordem, sem repetir rodada" — `DESCRICAO_FORMATO.Chipper`), a turma passa 1× por
- * cada movimento. Não é uma estimativa — é o que a palavra "Chipper" significa —
- * e por isso pode entrar na conta de reps sem contradizer a regra de não inventar.
- *
- * AMRAP e EMOM NÃO entram: ali quem decide quantas rodadas a turma fecha é o
- * relógio e o ritmo de cada aluna, e não existe UMA resposta certa — nem no
- * catálogo, nem por definição do formato. Tratar "sem rodadas" como uma rodada
- * nesses dois formatos inventaria um número e mentiria pro aluno sem ele perceber
- * (é exatamente o erro que este módulo existe para evitar — ver `repsDaPrescricao`).
- * @param {string} [formato]
- */
-function rodadasPorDefinicaoDoFormato(formato) {
-  return formato === 'Chipper' ? 1 : 0;
-}
-
-/**
  * Séries equivalentes de UM movimento dentro de um bloco de WOD.
  *
  * Duas rotas, nesta ordem:
- *  1. **Reps × rodadas**, quando as duas coisas são conhecidas. As rodadas vêm do
- *     que o coach digitou (só o For Time pergunta) OU do que o FORMATO já garante
- *     por definição (Chipper = 1, ver `rodadasPorDefinicaoDoFormato`). É a conta
- *     certa: 12 reps de um movimento não valem o mesmo que 40 reps de outro só
- *     porque os dois couberam no mesmo bloco.
- *  2. **Tempo do bloco repartido** entre os movimentos. É o recuo para AMRAP e
- *     EMOM — onde ninguém sabe quantas rodadas a turma vai fechar, então contar
- *     por reps seria inventar rodada — e para qualquer prescrição sem número
- *     legível (distância como `"200m"`, ou texto livre tipo "máximo de reps").
+ *  1. **Reps × rodadas**, quando as duas coisas são conhecidas. É a conta certa,
+ *     e só o For Time conhece as rodadas (o coach digita; nenhum outro formato
+ *     tem UMA resposta certa de quantas rodadas a turma fecha — ver o item 2).
+ *  2. **Tempo do bloco repartido** entre os movimentos, com `FATOR_DENSIDADE_WOD`
+ *     aplicado. É o recuo para AMRAP, EMOM e Chipper, onde quem manda é o
+ *     relógio e ninguém sabe quantas rodadas a turma vai fechar. Também cobre a
+ *     prescrição em distância (`"200m"`) e o texto livre que o coach digita no
+ *     Treino Livre.
  *
- * O que NÃO se faz: tratar "sem rodadas" como uma rodada FORA do Chipper. Um
- * AMRAP de 12 minutos não é uma volta — contá-lo assim jogaria fora quase todo o
- * esforço do bloco.
- * @param {{prescricao?: string, rodadas?: number|null, duracaoMin?: number, nMovimentos?: number, formato?: string}} p
+ * O que NÃO se faz: tratar "sem rodadas" como uma rodada. Um AMRAP de 12 minutos
+ * não é uma volta — contá-lo assim jogaria fora quase todo o esforço do bloco.
+ * @param {{prescricao?: string, rodadas?: number|null, duracaoMin?: number, nMovimentos?: number}} p
  */
-export function seriesDoMovimentoWod({ prescricao, rodadas, duracaoMin, nMovimentos, formato } = {}) {
+export function seriesDoMovimentoWod({ prescricao, rodadas, duracaoMin, nMovimentos } = {}) {
   const reps = repsDaPrescricao(prescricao);
-  const voltas = positivo(rodadas) || rodadasPorDefinicaoDoFormato(formato);
+  const voltas = positivo(rodadas);
   if (reps && voltas) return seriesPorReps(reps * voltas);
 
   const n = positivo(nMovimentos) || 1;
-  return seriesPorTempo((positivo(duracaoMin) * 60) / n);
+  return seriesPorTempo((positivo(duracaoMin) * 60) / n) * FATOR_DENSIDADE_WOD;
 }

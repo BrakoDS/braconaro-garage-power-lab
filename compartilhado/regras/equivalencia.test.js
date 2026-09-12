@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SEGUNDOS_POR_SERIE, REPS_POR_SERIE, seriesPorTempo, seriesPorReps, repsDaPrescricao,
-  seriesDoMovimentoWod,
+  SEGUNDOS_POR_SERIE, REPS_POR_SERIE, FATOR_DENSIDADE_WOD, seriesPorTempo, seriesPorReps,
+  repsDaPrescricao, seriesDoMovimentoWod,
 } from './equivalencia.js';
 
 test('um round de TABATA de 20s vale meia serie', () => {
@@ -61,41 +61,35 @@ test('WOD com reps e rodadas: conta reps x rodadas', () => {
 });
 
 test('WOD com reps e sem rodadas cai no tempo, nao multiplica por um', () => {
+  // 12 min / 3 movimentos = 4 min = 240 s / 40 = 6, × FATOR_DENSIDADE_WOD (0,4) = 2,4.
+  // 0,4 nao e exato em binario — compara com tolerancia (mesmo padrao de hyrox.test.js).
   const s = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 12, nMovimentos: 3 });
-  assert.equal(s, 6); // 12 min / 3 movimentos = 4 min = 240 s / 40
+  assert.ok(Math.abs(s - 2.4) < 1e-9, `${s} !== 2.4`);
 });
 
 test('WOD sem reps legiveis cai no tempo do bloco repartido', () => {
+  // 10 min / 4 = 2,5 min = 150 s / 40 = 3,75, × FATOR_DENSIDADE_WOD (0,4) = 1,5.
   const s = seriesDoMovimentoWod({ prescricao: '200m', rodadas: null, duracaoMin: 10, nMovimentos: 4 });
-  assert.equal(s, 3.75); // 10 min / 4 = 2,5 min = 150 s / 40
+  assert.equal(s, 1.5);
 });
 
 test('WOD sem tempo e sem reps nao conta nada', () => {
   assert.equal(seriesDoMovimentoWod({ prescricao: '', rodadas: null, duracaoMin: 0, nMovimentos: 3 }), 0);
 });
 
-test('Chipper sem rodadas digitadas usa reps: o formato ja garante 1 rodada por definicao', () => {
-  // Chipper = "uma lista longa de movimentos, na ordem, sem repetir rodada" (config/wod-formatos.js):
-  // 1 rodada nao e estimativa, e a definicao do formato. 12 reps * 1 / 20 = 0,6.
-  const s = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 16, nMovimentos: 3, formato: 'Chipper' });
-  assert.equal(s, 0.6);
+test('rodada digitada (For Time) usa a rota de reps, sem o fator de densidade', () => {
+  // A rota de reps × rodadas descreve trabalho real, entao FATOR_DENSIDADE_WOD
+  // nao entra aqui: 12 * 5 / 20 = 3, igual antes de o fator existir.
+  const forTime = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: 5, duracaoMin: 16, nMovimentos: 3 });
+  assert.equal(forTime, 3);
 });
 
-test('AMRAP e EMOM sem rodadas continuam no tempo — ninguem sabe quantas rodadas a turma fecha', () => {
-  // Mesmo com reps legiveis, nao ha rodada por definicao do formato aqui (diferente
-  // do Chipper): inventar uma mentiria pro aluno. 16min/3 = 320s/40 = 8 cada.
-  for (const formato of ['AMRAP', 'EMOM']) {
-    const s = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 16, nMovimentos: 3, formato });
-    assert.equal(s, 8, formato);
-  }
-});
-
-test('rodada digitada (For Time) continua valendo mais que o Chipper por definicao', () => {
-  const forTime = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: 5, duracaoMin: 16, nMovimentos: 3, formato: 'For Time' });
-  const chipper = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 16, nMovimentos: 3, formato: 'Chipper' });
-  assert.equal(forTime, 3);     // 12 * 5 / 20
-  assert.equal(chipper, 0.6);  // 12 * 1 / 20
-  assert.ok(forTime > chipper);
+test('Chipper sem rodada digitada cai no tempo, igual AMRAP e EMOM — nao ha mais caso especial', () => {
+  // A funcao nao recebe mais `formato`: nenhum formato ganha rodada por definicao
+  // (o caso especial do Chipper foi desfeito). Sem rodada digitada, todos caem na
+  // mesma rota de tempo: 16 min / 3 = 320 s / 40 = 8, × FATOR_DENSIDADE_WOD (0,4) = 3,2.
+  const s = seriesDoMovimentoWod({ prescricao: '12 reps', rodadas: null, duracaoMin: 16, nMovimentos: 3 });
+  assert.equal(s, 3.2);
 });
 
 test('as constantes sao as duas reguas, e concordam entre si', () => {
@@ -103,4 +97,8 @@ test('as constantes sao as duas reguas, e concordam entre si', () => {
   assert.equal(REPS_POR_SERIE, 20);
   // uma serie de ~10 reps em ~40 s: as duas reguas descrevem o mesmo esforco
   assert.equal(seriesPorTempo(SEGUNDOS_POR_SERIE), seriesPorReps(REPS_POR_SERIE));
+});
+
+test('FATOR_DENSIDADE_WOD guardado — mexer aqui recalibra todos os WODs de uma vez', () => {
+  assert.equal(FATOR_DENSIDADE_WOD, 0.4);
 });

@@ -358,39 +358,20 @@ test('tri-set: quando o líder tem série própria, os três a herdam (não a do
 test('bloco de WOD conta pela regua de tempo repartido, com musculo', () => {
   // 16 min / 2 movimentos = 8 min = 480s / 40 = 12 series cada, AMRAP não tem
   // rodadas então cai direto no recuo de tempo (nao ha "10 reps" x rodada aqui).
+  // FATOR_DENSIDADE_WOD (0,4) entra sobre essa rota: 12 × 0,4 = 4,8 cada, 9,6 no
+  // total (gluteos 0,5 × 4,8 = 2,4).
   const r = montarLivre({ blocos: [{ tipo: 'wod', formato: 'AMRAP', duracaoMin: 16,
     exercicios: [{ id: 'burpee', prescricao: '10 reps' }, { id: 'agacho', prescricao: '15 reps' }] }], porId });
-  assert.equal(r.vol.totalSeries, 24);
-  assert.equal(r.vol.porMusculo.corpo, 12);       // burpee, primário
-  assert.equal(r.vol.porMusculo.pernas, 12);      // agachamento, primário
-  assert.equal(r.vol.porMusculo.gluteos, 6);      // agachamento, secundário: 0,5 × 12
-  assert.equal(r.vol.porPadrao.agachar, 12);
+  // 12 × 0,4 tropeça em ponto flutuante (0,4 não é exato em binário) — compara com
+  // tolerância, mesmo padrão de hyrox.test.js para essa mesma classe de fator.
+  const perto = (a, b) => Math.abs(a - b) < 1e-9;
+  assert.ok(perto(r.vol.totalSeries, 9.6), `${r.vol.totalSeries} !== 9.6`);
+  assert.ok(perto(r.vol.porMusculo.corpo, 4.8), 'burpee, primário');
+  assert.ok(perto(r.vol.porMusculo.pernas, 4.8), 'agachamento, primário');
+  assert.ok(perto(r.vol.porMusculo.gluteos, 2.4), 'agachamento, secundário: 0,5 × 4,8');
+  assert.ok(perto(r.vol.porPadrao.agachar, 4.8));
   assert.equal(r.nItens, 2, 'um dia 100% WOD precisa ter o que salvar');
   assert.equal(r.extra.tempos.principalSeg, 960);
-});
-
-test('Chipper conta pelas reps (1 rodada por definição do formato), não pelo tempo repartido', () => {
-  // Mesmo bloco de "bloco de WOD conta pela regua de tempo repartido" acima, só que
-  // Chipper em vez de AMRAP: antes, sem rodada digitada, caía no mesmo recuo de
-  // tempo (16 min / 2 = 8 min = 480s / 40 = 12 cada, 24 no total) — um Chipper de
-  // 12 burpees contando igual a um AMRAP de 12 minutos do mesmo movimento. Chipper
-  // é "uma lista de movimentos, na ordem, sem repetir rodada" por definição
-  // (DESCRICAO_FORMATO.Chipper) — 1 rodada, não uma estimativa — então agora usa
-  // reps: burpee 10/20=0,5; agachamento 15/20=0,75; total 1,25.
-  const r = montarLivre({ blocos: [{ tipo: 'wod', formato: 'Chipper', duracaoMin: 16,
-    exercicios: [{ id: 'burpee', prescricao: '10 reps' }, { id: 'agacho', prescricao: '15 reps' }] }], porId });
-  assert.equal(r.vol.totalSeries, 1.25);
-  assert.equal(r.vol.porMusculo.corpo, 0.5);
-  assert.equal(r.vol.porMusculo.pernas, 0.75);
-});
-
-test('Chipper sem reps legíveis (distância) continua no tempo repartido', () => {
-  // "200m" não é reps (repsDaPrescricao devolve null) — mesmo o Chipper garantindo
-  // 1 rodada, sem número de reps não há o que multiplicar, e a conta cai no recuo
-  // de tempo: 10 min / 1 movimento = 600s / 40 = 15 séries.
-  const r = montarLivre({ blocos: [{ tipo: 'wod', formato: 'Chipper', duracaoMin: 10,
-    exercicios: [{ id: 'burpee', prescricao: '200m' }] }], porId });
-  assert.equal(r.vol.totalSeries, 15);
 });
 
 test('o crédito do WOD é o mesmo do Híbrido', async () => {
@@ -482,8 +463,9 @@ test('dia com bloco de série e bloco de WOD soma volume e tempo dos dois', () =
   ] }));
   assert.equal(r.extra.livre.blocos.length, 2);
   // WOD sem prescrição legível (burpee sem `prescricao`) cai no tempo do bloco:
-  // AMRAP 10 min / 1 movimento = 600s / 40 = 15 séries.
-  assert.equal(r.vol.totalSeries, 3 + 15);
+  // AMRAP 10 min / 1 movimento = 600s / 40 = 15 séries, × FATOR_DENSIDADE_WOD
+  // (0,4) = 6.
+  assert.equal(r.vol.totalSeries, 3 + 6);
   assert.equal(r.nItens, 2);
   // 3×(35+60)+20 = 305 (bloco de série) + 600 (10min WOD)
   assert.equal(r.extra.tempos.principalSeg, 305 + 600);
@@ -539,8 +521,8 @@ test('o WOD do Livre conta musculo, nao so padrao', () => {
     blocos: [{ tipo: 'wod', formato: 'AMRAP', duracaoMin: 10, exercicios: [{ id: 'burpee', prescricao: '10 reps' }] }],
     porId: (id) => catalogo[id],
   });
-  assert.equal(vol.porMusculo.peito, 15);      // 10 min / 1 mov = 600 s / 40 = 15
-  assert.equal(vol.porMusculo.quadriceps, 7.5);
+  assert.equal(vol.porMusculo.peito, 6);       // 10 min / 1 mov = 600 s / 40 = 15, × 0,4 = 6
+  assert.equal(vol.porMusculo.quadriceps, 3);  // secundário: 0,5 × 6
 });
 
 test('tipo desconhecido é lido como bloco de série', () => {

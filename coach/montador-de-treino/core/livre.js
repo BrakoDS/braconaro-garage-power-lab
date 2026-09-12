@@ -114,7 +114,7 @@ export function montarLivre({ classificacao = 'hipertrofia', aquecimento = [], b
           },
           series: seriesDoMovimentoWod({
             prescricao: m.prescricao, rodadas: bloco.rodadas,
-            duracaoMin: bloco.duracaoMin, nMovimentos: nMovs, formato: bloco.formato,
+            duracaoMin: bloco.duracaoMin, nMovimentos: nMovs,
           }),
         });
       }
