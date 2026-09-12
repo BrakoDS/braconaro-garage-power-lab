@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HYROX_ESTACOES, volumeHyrox } from './hyrox.js';
+import { HYROX_ESTACOES, volumeHyrox, NIVEIS_HYROX } from './hyrox.js';
 
 test('Sled Push credita panturrilha, não peito — os braços são escora, a força sai do antepé', () => {
   const sledPush = HYROX_ESTACOES.find((e) => e.n === 2);
@@ -52,6 +52,18 @@ test('a prova inteira continua distribuida entre os padroes', () => {
   assert.ok(vol.porPadrao.puxar > 0);
   assert.ok(vol.porPadrao.quadriceps > 0);
   assert.ok(vol.totalSeries > 0);
+});
+
+test('totalSeries bate com a soma de porPadrao — o crédito do padrão secundário entra nos dois', () => {
+  // O crédito do padrão secundário (metade da série da estação, ver comentário em
+  // volumeHyrox) entrava só em porPadrao. totalSeries ficava para trás — o único
+  // formato onde os dois números descreviam a mesma sessão de jeitos diferentes.
+  for (const nivel of NIVEIS_HYROX) {
+    const vol = volumeHyrox(HYROX_ESTACOES, nivel);
+    const somaPadrao = Object.values(vol.porPadrao).reduce((a, b) => a + b, 0);
+    assert.ok(Math.abs(vol.totalSeries - somaPadrao) < 1e-9,
+      `${nivel}: totalSeries=${vol.totalSeries} != soma(porPadrao)=${somaPadrao}`);
+  }
 });
 
 test('nivel mais alto da mais volume — a prescricao escala', () => {

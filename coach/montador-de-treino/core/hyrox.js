@@ -187,9 +187,15 @@ export function volumeHyrox(estacoes = HYROX_ESTACOES, nivel = 'intermediario') 
   const vol = calcularVolume(itens);
   // O padrão secundário da estação continua recebendo crédito de padrão (não de
   // músculo): é o que mantém o mínimo semanal por padrão lendo o Hyrox como antes.
+  // Some no `totalSeries` também: sem isso, `totalSeries` conta cada estação uma
+  // vez só (o padrão PRIMÁRIO, dentro de `calcularVolume`) enquanto `porPadrao`
+  // conta essa metade extra do secundário — os dois números descreveriam a mesma
+  // sessão de jeitos diferentes, e é o único formato onde isso acontecia.
   for (const e of estacoes || []) {
     if (!e.padraoSec) continue;
-    vol.porPadrao[e.padraoSec] = (vol.porPadrao[e.padraoSec] || 0) + seriesDaEstacao(e, nivel) / 2;
+    const creditoSec = seriesDaEstacao(e, nivel) / 2;
+    vol.porPadrao[e.padraoSec] = (vol.porPadrao[e.padraoSec] || 0) + creditoSec;
+    vol.totalSeries += creditoSec;
   }
   return vol;
 }
