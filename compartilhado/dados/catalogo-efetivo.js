@@ -15,7 +15,7 @@
  * @typedef {import('./exercicios.js').Exercicio} Exercicio
  */
 import * as academia from '../../coach/academia/db.js';
-import { MUSC_MAP } from '../../coach/academia/data/seed.js';
+import { MUSC_MAP } from '../config/musculos.js';
 import { EXERCICIO_BASE_POR_ID, aplicarCatalogo } from './exercicios.js';
 
 /** Rótulo legível de músculo (Academia) → chave interna do montador. */

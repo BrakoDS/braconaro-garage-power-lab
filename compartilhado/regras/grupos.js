@@ -7,9 +7,10 @@
  * módulo é a ponte, e existe para os dois lados falarem a mesma língua.
  *
  * Ele cobre AS DUAS listas de músculo que o projeto tem: as chaves de
- * `config/padroes.js` (o que o volume conta) e as do `MUSC_MAP` da Academia,
- * que tem trapézio, lombar e estabilizadores a mais. Músculo fora das duas não
- * ganha grupo — e não some do volume por músculo, que continua sendo a conta fina.
+ * `config/padroes.js` (o que o volume conta) e as de `config/musculos.js`
+ * (`MUSC_MAP`, o vocabulário que a tela da Academia mostra), que tem trapézio,
+ * lombar e estabilizadores a mais. Músculo fora das duas não ganha grupo — e
+ * não some do volume por músculo, que continua sendo a conta fina.
  */
 
 /** Os sete grupos, na ordem em que aparecem na tela. */

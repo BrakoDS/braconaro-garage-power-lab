@@ -494,15 +494,15 @@ checarVocabulario(
   () => {
     // MUSCULOS_LABEL não é uma constante única em lugar nenhum do site: é
     // `MUSCULOS` (as 11 chaves internas, em `padroes.js`) traduzida pelo mapa
-    // `MUSC_MAP` (`coach/academia/data/seed.js`) — a mesma cadeia que o cabeçalho de
+    // `MUSC_MAP` (`compartilhado/config/musculos.js`) — a mesma cadeia que o cabeçalho de
     // `pesquisa.ts` documenta. Reproduzimos os dois passos aqui, não um atalho.
     const chaves = comoArrayDeString(
       acharConst(parseSite('compartilhado/config/padroes.js'), 'MUSCULOS'),
       'compartilhado/config/padroes.js:MUSCULOS',
     );
     const mapa = comoMapaDeString(
-      acharConst(parseSite('coach/academia/data/seed.js'), 'MUSC_MAP'),
-      'coach/academia/data/seed.js:MUSC_MAP',
+      acharConst(parseSite('compartilhado/config/musculos.js'), 'MUSC_MAP'),
+      'compartilhado/config/musculos.js:MUSC_MAP',
     );
     return chaves.map((k) => {
       const rotulo = mapa[k];

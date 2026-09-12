@@ -9,6 +9,7 @@
  */
 import { EQUIPAMENTOS } from '../../../compartilhado/dados/equipamentos.js';
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
+import { MUSC_MAP } from '../../../compartilhado/config/musculos.js';
 
 /** Categorias do montador → rótulos do inventário desta app. */
 export const CAT_MAP = {
@@ -17,15 +18,6 @@ export const CAT_MAP = {
   cardio: 'Cardio',
   acessorio: 'Acessório',
   corporal: 'Corporal',
-};
-
-/** Músculos internos do montador → rótulos legíveis desta app. */
-export const MUSC_MAP = {
-  peito: 'Peito', costas: 'Costas', ombro: 'Ombro', trapezio: 'Trapézio',
-  biceps: 'Bíceps', triceps: 'Tríceps', antebraco: 'Antebraço',
-  core: 'Core/Abdômen', lombar: 'Lombar',
-  quadriceps: 'Quadríceps', posterior_coxa: 'Posterior de coxa',
-  gluteo: 'Glúteo', panturrilha: 'Panturrilha', estabilizadores: 'Estabilizadores',
 };
 
 /** Categorias do montador → tags de treino desta app (MUSCULAÇÃO, HYROX, HIIT, CROSS, GAP, MOBILIDADE). */

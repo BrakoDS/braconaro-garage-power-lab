@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GRUPOS, grupoDoMusculo, grupoDoExercicio, agregarPorGrupo } from './grupos.js';
 import { MUSCULOS } from '../config/padroes.js';
-import { MUSC_MAP } from '../../coach/academia/data/seed.js';
+import { MUSC_MAP } from '../config/musculos.js';
 
 test('todo musculo rastreado pelo volume cai num grupo', () => {
   for (const m of MUSCULOS) {

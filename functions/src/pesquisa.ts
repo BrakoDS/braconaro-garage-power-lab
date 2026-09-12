@@ -34,7 +34,7 @@
  *                          grava `exercicio.padrao` — ver `coach/academia/db.js`
  *                          `seedData()`, campo `padrao: x.padrao || ...`).
  *   - `MUSCULOS_LABEL`  ← as 11 chaves de `MUSCULOS` (mesmo arquivo), passadas
- *                          pelo mapa `MUSC_MAP` de `coach/academia/data/seed.js`
+ *                          pelo mapa `MUSC_MAP` de `compartilhado/config/musculos.js`
  *                          (rótulo legível). A Academia grava o RÓTULO, não a
  *                          chave — ver `seedData()`, campo `musculos:
  *                          [...].map((m) => MUSC_MAP[m])` — e é essa forma que
@@ -58,7 +58,7 @@ const PADROES = [
 
 /**
  * Rótulos de `MUSCULOS` (`compartilhado/config/padroes.js`) já traduzidos pelo
- * `MUSC_MAP` de `coach/academia/data/seed.js` — é o rótulo que a Academia grava em
+ * `MUSC_MAP` de `compartilhado/config/musculos.js` — é o rótulo que a Academia grava em
  * `exercicio.musculos`, não a chave interna do montador.
  */
 const MUSCULOS_LABEL = [
