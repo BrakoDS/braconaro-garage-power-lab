@@ -22,7 +22,7 @@
  * @property {Set<string>} usados  IDs já usados em OUTROS dias da mesma semana
  *
  * @typedef {Object} MontagemManual
- * @property {import('../core/volume.js').Volume} vol
+ * @property {import('../../../compartilhado/regras/volume.js').Volume} vol
  * @property {Object} extra    O que entra no snapshot (ex.: `{hiit: …}`)
  * @property {number} nItens   Quantos itens o coach preencheu (0 = nada a salvar)
  *
@@ -38,7 +38,7 @@ import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
 import { formatoManual } from '../core/formato-manual.js';
 import { duracaoMobilidade } from '../core/gerador.js';
-import { idsUsadosEm } from '../core/usados.js';
+import { idsUsadosEm } from '../../../compartilhado/regras/usados.js';
 import { congelarTecnica } from '../core/tecnicas-auto.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';

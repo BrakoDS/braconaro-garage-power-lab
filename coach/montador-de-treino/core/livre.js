@@ -13,10 +13,10 @@
  * catálogo efetivo é montado na UI a partir da Academia. Assim o teste passa um
  * catálogo de mentira e nada mais precisa existir.
  *
- * @typedef {import('./niveis.js').Nivel} Nivel
+ * @typedef {import('../../../compartilhado/regras/niveis.js').Nivel} Nivel
  */
-import { calcularVolume, CREDITO_WOD } from './volume.js';
-import { variantesNivel } from './niveis.js';
+import { calcularVolume, CREDITO_WOD } from '../../../compartilhado/regras/volume.js';
+import { variantesNivel } from '../../../compartilhado/regras/niveis.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
 
 /** Folga fixa de transição/explicação do dia, igual à das outras abas (5 min). */

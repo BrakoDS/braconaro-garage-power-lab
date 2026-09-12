@@ -18,7 +18,7 @@
  * músculos é que carregam a nuance de cada movimento.
  *
  * ORDEM IMPORTA em `musculos`: o PRIMEIRO é o primário (conta 1,0 na série) e os
- * demais são secundários (0,5 cada) — a mesma convenção de core/volume.js.
+ * demais são secundários (0,5 cada) — a mesma convenção de compartilhado/regras/volume.js.
  *
  * @typedef {import('../../../compartilhado/config/padroes.js').Padrao} Padrao
  *

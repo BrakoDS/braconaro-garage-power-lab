@@ -23,7 +23,7 @@ import * as academia from '../../academia/db.js';
 import { pesquisarItem } from './pesquisa.js';
 import { PADROES, PADRAO_LABEL, MUSCULOS } from '../../../compartilhado/config/padroes.js';
 import { MUSC_MAP } from '../../academia/data/seed.js';
-import { NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
+import { NIVEIS, NIVEL_LABEL } from '../../../compartilhado/regras/niveis.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const $ = (s) => /** @type {HTMLElement} */ (document.querySelector(s));

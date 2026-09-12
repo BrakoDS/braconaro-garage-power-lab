@@ -11,8 +11,8 @@ import {
 } from './render.js';
 import { trocarExercicioDoDia } from '../core/editar-dia.js';
 import { gerarTreino } from '../core/gerador.js';
-import { variantesNivel } from '../core/niveis.js';
-import { idsUsadosEm } from '../core/usados.js';
+import { variantesNivel } from '../../../compartilhado/regras/niveis.js';
+import { idsUsadosEm } from '../../../compartilhado/regras/usados.js';
 import { ladoSalvo } from '../core/hibrido.js';
 import * as academia from '../../academia/db.js';
 import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
@@ -112,7 +112,7 @@ let treinoGerado = null;
 
 /**
  * IDs de exercício já usados em OUTROS dias da mesma semana (não-repetição).
- * `idsUsadosEm` (core/usados.js) já lê os dois formatos que guardam exercício de
+ * `idsUsadosEm` (compartilhado/regras/usados.js) já lê os dois formatos que guardam exercício de
  * musculação — `exercicios` (Automático/Manual em blocos) e `livre.blocos[]`
  * (Treino Livre) — é a mesma regra que os avisos "· já na semana" da tela usam.
  * Sem ela aqui, o gerador ficava cego ao que o Treino Livre montou na semana.

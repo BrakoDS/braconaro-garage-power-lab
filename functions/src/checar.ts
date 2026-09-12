@@ -391,7 +391,7 @@ ok(mesmoConjunto(Object.keys(schemaTecnica.properties), schemaTecnica.required),
    embutidas) e sem passo de build novo. O que seguirmos abaixo é sempre uma
    CONSTANTE LITERAL (array de string ou objeto de string→string) num arquivo
    .js do site — nunca o typedef de um JSDoc, que não é código executável e não
-   dá para extrair com confiança. Por isso NIVEIS vem de `coach/montador-de-treino/core/niveis.js`
+   dá para extrair com confiança. Por isso NIVEIS vem de `compartilhado/regras/niveis.js`
    (o array de verdade que os módulos do motor importam), não do comentário em
    `compartilhado/dados/exercicios.js:35` — aquele é só a anotação de tipo do campo,
    nunca a fonte que alguém precisaria lembrar de atualizar. */
@@ -521,7 +521,7 @@ checarVocabulario(
 
 checarVocabulario(
   'NIVEIS',
-  () => comoArrayDeString(acharConst(parseSite('coach/montador-de-treino/core/niveis.js'), 'NIVEIS'), 'coach/montador-de-treino/core/niveis.js:NIVEIS'),
+  () => comoArrayDeString(acharConst(parseSite('compartilhado/regras/niveis.js'), 'NIVEIS'), 'compartilhado/regras/niveis.js:NIVEIS'),
   schemaVocab.properties.nivel.enum,
 );
 

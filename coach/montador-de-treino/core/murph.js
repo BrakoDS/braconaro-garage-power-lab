@@ -18,7 +18,7 @@
  * como este treino roda.
  *
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
- * @typedef {import('./volume.js').Volume} Volume
+ * @typedef {import('../../../compartilhado/regras/volume.js').Volume} Volume
  */
 import { ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';
 

@@ -19,8 +19,8 @@
  */
 import { EXERCICIOS, EXERCICIO_POR_ID, serveModalidade } from '../../../compartilhado/dados/exercicios.js';
 import { verificarViabilidade } from './viabilidade.js';
-import { calcularVolume } from './volume.js';
-import { variantesNivel } from './niveis.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
+import { variantesNivel } from '../../../compartilhado/regras/niveis.js';
 
 /** O dia salvo aceita edição de exercício? Só o formato plano. @param {any} snap */
 export function diaEditavel(snap) {

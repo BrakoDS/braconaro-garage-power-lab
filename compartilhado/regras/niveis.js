@@ -7,12 +7,12 @@
  * Este módulo deriva, de um exercício já selecionado, as 3 variantes (iniciante /
  * intermediário / avançado) a partir das séries do INTERMEDIÁRIO (âncora da geração).
  *
- * @typedef {import('../../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
- * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../dados/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../../coach/montador-de-treino/config/modalidades.js').ModalidadeId} ModalidadeId
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
  */
 import { sugerirCarga } from './cargas.js';
-import { fatorNivel } from './periodizacao.js';
+import { fatorNivel } from '../../coach/montador-de-treino/core/periodizacao.js';
 
 /** @type {Nivel[]} */
 export const NIVEIS = ['iniciante', 'intermediario', 'avancado'];

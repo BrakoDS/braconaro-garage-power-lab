@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { atribuirTecnicasAuto, TECNICAS_DE_UM_EXERCICIO, congelarTecnica } from './tecnicas-auto.js';
 import { gerarTreino } from './gerador.js';
 import { TECNICAS_SEED } from '../../academia/data/seed.js';
-import { sugerirCarga } from './cargas.js';
+import { sugerirCarga } from '../../../compartilhado/regras/cargas.js';
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 
 function rngDe(seed) {

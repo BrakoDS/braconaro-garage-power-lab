@@ -65,13 +65,13 @@
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { ALUNOS_POR_SESSAO, unidadesDe } from '../../../compartilhado/dados/equipamentos.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
-import { calcularVolume } from './volume.js';
-import { variantesNivel } from './niveis.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
+import { variantesNivel } from '../../../compartilhado/regras/niveis.js';
 import {
   PARES_ANTAGONISTAS, calcularPostos, calcularSeries, prescricaoSemana, SERIE_SEG, duracaoWodPorSemana,
 } from './hibrido-postos.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO } from '../config/wod-formatos.js';
-import { CREDITO_WOD } from './volume.js';
+import { CREDITO_WOD } from '../../../compartilhado/regras/volume.js';
 
 const NIVEL_ORDEM = { iniciante: 1, intermediario: 2, avancado: 3 };
 const MOBILIDADE_SEG = 240;          // 4 min nas semanas 1–3
@@ -484,7 +484,7 @@ export function gerarHibrido(opcoes) {
 /**
  * Volume do Híbrido: REAL nos dois lados de cada posto + crédito nominal leve do WOD.
  * @param {PostoHipertrofia[]} postos @param {BlocoWod} wod
- * @returns {import('./volume.js').Volume}
+ * @returns {import('../../../compartilhado/regras/volume.js').Volume}
  */
 export function volumeHibrido(postos, wod) {
   const itens = postos.flatMap((p) => [

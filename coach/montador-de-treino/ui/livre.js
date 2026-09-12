@@ -14,7 +14,7 @@
 import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { montarLivre } from '../core/livre.js';
-import { idsUsadosEm } from '../core/usados.js';
+import { idsUsadosEm } from '../../../compartilhado/regras/usados.js';
 import { congelarTecnica } from '../core/tecnicas-auto.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';

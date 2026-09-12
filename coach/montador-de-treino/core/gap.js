@@ -11,7 +11,7 @@
  * Cada música = 8 rounds com 3 exercícios cíclicos (1,2,3,1,2,3,1,2).
  *
  * @typedef {import('../data/gap.js').MovGap} MovGap
- * @typedef {import('./volume.js').Volume} Volume
+ * @typedef {import('../../../compartilhado/regras/volume.js').Volume} Volume
  */
 import { GAP_AQUECIMENTO, GAP_PERNAS, GAP_GLUTEO, GAP_ABDOMEN, MOV_GAP_POR_ID, PESO_VARIACAO, SERIES_POR_ROUND } from '../data/gap.js';
 import { ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';

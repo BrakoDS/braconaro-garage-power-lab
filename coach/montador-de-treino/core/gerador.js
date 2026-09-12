@@ -20,7 +20,7 @@ import { EXERCICIOS, EXERCICIO_POR_ID, serveModalidade } from '../../../comparti
 import { MODALIDADES } from '../config/modalidades.js';
 import { padroesObrigatorios, PADROES } from '../../../compartilhado/config/padroes.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
-import { calcularVolume } from './volume.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
 import { seriesAjustadas, ehDeload } from './periodizacao.js';
 import { ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';
 import { gerarHyrox, volumeHyrox, estimarDuracaoSeg } from './hyrox.js';

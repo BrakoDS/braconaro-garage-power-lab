@@ -9,7 +9,7 @@
  * semana — é o próprio formato de prova.
  *
  * @typedef {'iniciante'|'intermediario'|'avancado'|'competitivo'} Nivel
- * @typedef {import('./volume.js').Volume} Volume
+ * @typedef {import('../../../compartilhado/regras/volume.js').Volume} Volume
  */
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';
 

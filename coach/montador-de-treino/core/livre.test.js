@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { montarLivre } from './livre.js';
-import { calcularVolume } from './volume.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
 
 /** Catálogo de mentira: o módulo recebe `porId`, então o teste não precisa do real. */
 const CAT = {
@@ -366,7 +366,7 @@ test('bloco de WOD credita 2,5 no padrão e nada no músculo', () => {
 });
 
 test('o crédito do WOD é o mesmo do Híbrido', async () => {
-  const { CREDITO_WOD } = await import('./volume.js');
+  const { CREDITO_WOD } = await import('../../../compartilhado/regras/volume.js');
   assert.equal(CREDITO_WOD, 2.5);
 });
 

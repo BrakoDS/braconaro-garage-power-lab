@@ -10,7 +10,7 @@
  * Monta a partir do catálogo EFETIVO (Academia + inventário do box).
  *
  * @typedef {import('../../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
- * @typedef {import('./volume.js').Volume} Volume
+ * @typedef {import('../../../compartilhado/regras/volume.js').Volume} Volume
  */
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO, unidadesDe } from '../../../compartilhado/dados/equipamentos.js';

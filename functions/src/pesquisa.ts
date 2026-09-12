@@ -41,7 +41,7 @@
  *                          `coach/montador-de-treino/ui/catalogo.js` (`MUSC_INV`) espera de
  *                          volta na hora de converter para o motor.
  *   - `TAGS`            ← `coach/academia/db.js` (`TAGS`, 6 valores).
- *   - `NIVEIS`          ← `coach/montador-de-treino/core/niveis.js` (`NIVEIS`, os 3 valores). É a
+ *   - `NIVEIS`          ← `compartilhado/regras/niveis.js` (`NIVEIS`, os 3 valores). É a
  *                          fonte EXECUTÁVEL, e é contra ela que `checar.ts`
  *                          compara — não contra o typedef de `data/exercicios.js`.
  * Se uma dessas listas mudar na fonte e ninguém lembrar de mudar aqui, a

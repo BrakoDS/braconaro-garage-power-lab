@@ -4,7 +4,7 @@ import { PADRAO_LABEL, PADROES } from '../../../compartilhado/config/padroes.js'
 import { MINIMO_SEMANAL } from '../config/frequencias.js';
 import { EQUIP_POR_ID } from '../../../compartilhado/dados/equipamentos.js';
 import { alternativasViaveis, alternativasLivres, aplicarTroca } from '../core/gerador.js';
-import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
+import { variantesNivel, NIVEIS, NIVEL_LABEL } from '../../../compartilhado/regras/niveis.js';
 import { NIVEIS_HYROX, NIVEL_HYROX_LABEL } from '../core/hyrox.js';
 import { agruparPorSemana, analisarSemana, analisarMes } from '../core/analise.js';
 import { alternativasDoDia, diaEditavel } from '../core/editar-dia.js';
