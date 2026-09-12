@@ -44,7 +44,7 @@ import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
 import { confirmar } from '../../../compartilhado/ui/dialogo.js';
-import { publicarTreino } from './portal-treino.js';
+import { publicarTreino } from '../../../compartilhado/firebase/treino-portal.js';
 
 import { editorBlocos } from './manual-blocos.js';
 import { editorTabata } from './manual-tabata.js';

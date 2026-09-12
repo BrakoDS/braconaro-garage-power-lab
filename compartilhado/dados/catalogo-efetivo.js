@@ -12,11 +12,11 @@
  * movimento definido) entra no full body. Sem Academia (offline/vazia) mantém o
  * catálogo base estático.
  *
- * @typedef {import('../../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('./exercicios.js').Exercicio} Exercicio
  */
-import * as academia from '../../academia/db.js';
-import { MUSC_MAP } from '../../academia/data/seed.js';
-import { EXERCICIO_BASE_POR_ID, aplicarCatalogo } from '../../../compartilhado/dados/exercicios.js';
+import * as academia from '../../coach/academia/db.js';
+import { MUSC_MAP } from '../../coach/academia/data/seed.js';
+import { EXERCICIO_BASE_POR_ID, aplicarCatalogo } from './exercicios.js';
 
 /** Rótulo legível de músculo (Academia) → chave interna do montador. */
 const MUSC_INV = Object.fromEntries(Object.entries(MUSC_MAP).map(([k, v]) => [v, k]));

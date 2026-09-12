@@ -20,11 +20,11 @@ import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
 import { confirmar, painel } from '../../../compartilhado/ui/dialogo.js';
-import { publicarTreino } from './portal-treino.js';
+import { publicarTreino } from '../../../compartilhado/firebase/treino-portal.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
 import { rotuloGrupo } from '../../../compartilhado/config/livre-grupo.js';
 import { abrirPesquisa } from './pesquisa-modal.js';
-import { construirCatalogoEfetivo } from './catalogo.js';
+import { construirCatalogoEfetivo } from '../../../compartilhado/dados/catalogo-efetivo.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

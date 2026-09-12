@@ -15,7 +15,7 @@ import { variantesNivel } from '../../../compartilhado/regras/niveis.js';
 import { idsUsadosEm } from '../../../compartilhado/regras/usados.js';
 import { ladoSalvo } from '../core/hibrido.js';
 import * as academia from '../../academia/db.js';
-import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
+import { publicarTreino, removerTreinoPortal } from '../../../compartilhado/firebase/treino-portal.js';
 import { initManual } from './manual.js';
 import { iniciarLivre } from './livre.js';
 import { confirmar, painel } from '../../../compartilhado/ui/dialogo.js';

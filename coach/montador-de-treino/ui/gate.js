@@ -9,7 +9,7 @@ import { estaLiberado, tentarLiberar } from '../../../compartilhado/firebase/aut
 import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, carregarParaStore, conectarStore, usuario } from '../../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../../compartilhado/firebase/coach-guard.js';
 import { aplicarInventarioAcademia, sincronizarInventarioAcademia } from './inventario.js';
-import { construirCatalogoEfetivo } from './catalogo.js';
+import { construirCatalogoEfetivo } from '../../../compartilhado/dados/catalogo-efetivo.js';
 import { sincronizarAlunos } from './gestao.js';
 // O store é do montador, e agora é ELE quem entrega o store ao núcleo
 // compartilhado, em vez de o núcleo ir buscar lá dentro.
