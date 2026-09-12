@@ -11,7 +11,7 @@
  * O snapshot salvo é o MESMO que o Treino Automático produz para aquela modalidade,
  * então histórico, card do coach e Portal do Aluno exibem sem código próprio.
  *
- * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../../../compartilhado/config/modalidades.js').ModalidadeId} ModalidadeId
  *
  * @typedef {Object} CtxManual
  * @property {ModalidadeId} modalidade
@@ -33,7 +33,7 @@
  * @property {(ctx: CtxManual) => MontagemManual} montar
  * @property {(ctx: CtxManual) => string} [distribuicao]
  */
-import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
+import { MODALIDADES, MODALIDADE_IDS } from '../../../compartilhado/config/modalidades.js';
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
 import { formatoManual } from '../core/formato-manual.js';

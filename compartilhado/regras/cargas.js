@@ -7,7 +7,7 @@
  * devolve orientação de esforço em vez de kg.
  *
  * @typedef {import('../dados/exercicios.js').Exercicio} Exercicio
- * @typedef {import('../../coach/montador-de-treino/config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
  */
 import { EQUIP_POR_ID } from '../dados/equipamentos.js';
 

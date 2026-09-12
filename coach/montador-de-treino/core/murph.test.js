@@ -6,7 +6,7 @@ import {
   CINDY_ROUNDS, CINDY_ROUND, gerarMurph, volumeMurph, estimarDuracaoSeg,
 } from './murph.js';
 import { EXERCICIO_POR_ID } from '../../../compartilhado/dados/exercicios.js';
-import { MODALIDADES } from '../config/modalidades.js';
+import { MODALIDADES } from '../../../compartilhado/config/modalidades.js';
 
 test('o miolo é 100 / 200 / 300 e soma 600', () => {
   assert.deepEqual(MURPH_BLOCOS.map((b) => b.reps), [100, 200, 300]);
@@ -97,7 +97,7 @@ test('gerarMurph nunca reprova por equipamento — o rodízio é do professor', 
 });
 
 test('o Murph está registrado como modalidade', () => {
-  assert.ok(MODALIDADES.murph, 'murph fora de config/modalidades.js');
+  assert.ok(MODALIDADES.murph, 'murph fora de compartilhado/config/modalidades.js');
   assert.equal(MODALIDADES.murph.id, 'murph');
 });
 

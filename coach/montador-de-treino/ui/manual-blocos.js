@@ -11,7 +11,7 @@
  * O nº de slots SUGERE, não trava: há botão para acrescentar bloco e mobilidade.
  * Quem avisa que o treino saiu do desenho é o painel de distribuição, embaixo.
  */
-import { MODALIDADES } from '../config/modalidades.js';
+import { MODALIDADES } from '../../../compartilhado/config/modalidades.js';
 import { PADRAO_LABEL, PADROES } from '../../../compartilhado/config/padroes.js';
 import { EXERCICIOS, serveModalidade } from '../../../compartilhado/dados/exercicios.js';
 import { calcularVolume } from '../../../compartilhado/regras/volume.js';

@@ -3,7 +3,7 @@
    repetir exercícios já usados na semana) → mostra meta de volume da semana →
    salva na data (conflito = substituir) e publica no Portal do Aluno. O histórico
    é um calendário mensal colorido por modalidade. */
-import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
+import { MODALIDADES, MODALIDADE_IDS } from '../../../compartilhado/config/modalidades.js';
 import * as store from './store.js';
 import {
   renderDiaSalvo, renderTreino, ativarTrocas, renderCalendario, renderMetaVolume,

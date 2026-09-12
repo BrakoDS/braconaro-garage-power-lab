@@ -11,7 +11,7 @@
  *
  * A regra mora em `core/livre.js` (puro, com testes). Este arquivo é a tela.
  */
-import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
+import { MODALIDADES, MODALIDADE_IDS } from '../../../compartilhado/config/modalidades.js';
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { montarLivre } from '../core/livre.js';
 import { idsUsadosEm } from '../../../compartilhado/regras/usados.js';

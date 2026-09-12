@@ -1,5 +1,5 @@
 // @ts-check
-import { MODALIDADES } from '../config/modalidades.js';
+import { MODALIDADES } from '../../../compartilhado/config/modalidades.js';
 import { PADRAO_LABEL, PADROES } from '../../../compartilhado/config/padroes.js';
 import { MINIMO_SEMANAL } from '../config/frequencias.js';
 import { EQUIP_POR_ID } from '../../../compartilhado/dados/equipamentos.js';

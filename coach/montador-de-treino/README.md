@@ -65,13 +65,13 @@ montador/
 │   ├── equipamentos.js   # INVENTÁRIO REAL do box + capacidade por estação
 │   └── exercicios.js     # Catálogo mapeado 1:1 aos aparelhos existentes
 ├── config/
-│   ├── padroes.js        # Padrões de movimento + músculos rastreados
-│   ├── modalidades.js    # Força / Hipertrofia / HIIT / Hyrox / Híbrido / GAP
 │   └── frequencias.js    # Combinações de dias (3x/4x/5x) + metas de volume
+│   (`modalidades.js` morava aqui; hoje é `compartilhado/config/modalidades.js` — o
+│   núcleo de regras está sendo extraído do montador para uso por outra ferramenta)
 ├── core/
 │   ├── viabilidade.js    # Checagem de aparelhos p/ 8 alunos em circuito
 │   ├── volume.js         # Volume por músculo/padrão; semanal e mensal
-│   ├── periodizacao.js   # Progressão de volume/intensidade + deload + nível
+│   ├── periodizacao.js   # Progressão de volume/intensidade + deload (nível é de `compartilhado/regras/niveis.js`)
 │   ├── gerador.js        # ALGORITMO de montagem (8 passos) + troca de exercício
 │   ├── programaSemanal.js # PROGRAMA do box (1 treino/dia, igual p/ todos) + cenários 3/4/5
 │   ├── mesociclo.js      # Encadeia N semanas do programa com progressão e deload

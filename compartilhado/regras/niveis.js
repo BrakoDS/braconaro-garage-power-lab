@@ -8,7 +8,7 @@
  * intermediário / avançado) a partir das séries do INTERMEDIÁRIO (âncora da geração).
  *
  * @typedef {import('../dados/exercicios.js').Exercicio} Exercicio
- * @typedef {import('../../coach/montador-de-treino/config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
  */
 import { sugerirCarga } from './cargas.js';

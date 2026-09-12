@@ -20,7 +20,7 @@
  * @property {number} tempoSeg
  *
  * @typedef {Object} Treino
- * @property {import('../config/modalidades.js').ModalidadeId} modalidade
+ * @property {import('../../../compartilhado/config/modalidades.js').ModalidadeId} modalidade
  * @property {string} dia
  * @property {number} semana
  * @property {string} nivel
