@@ -101,6 +101,11 @@ test('o musculo do Murph vem do catalogo, e continua batendo', () => {
   assert.equal(vol.porMusculo.costas, 5);     // 100 puxadas, primario
   assert.equal(vol.porMusculo.peito, 10);     // 200 flexoes, primario
   assert.equal(vol.porMusculo.quadriceps, 15); // 300 agachamentos, primario
+  // A flexao tambem carrega ombro e core como secundarios no catalogo — antes do
+  // musculo vir do catalogo esse delta nao existia (o codigo só sabia do padrao),
+  // e um teste que pina só os primarios não pegaria a regressao se ela voltasse.
+  assert.equal(vol.porMusculo.ombro, 5);  // secundário da flexão: 0,5 × 10 séries
+  assert.equal(vol.porMusculo.core, 5);   // idem
 });
 
 test('gerarMurph nunca reprova por equipamento — o rodízio é do professor', () => {
