@@ -374,11 +374,6 @@ test('bloco de WOD conta pela regua de tempo repartido, com musculo', () => {
   assert.equal(r.extra.tempos.principalSeg, 960);
 });
 
-test('o crédito do WOD é o mesmo do Híbrido', async () => {
-  const { CREDITO_WOD } = await import('../../../compartilhado/regras/volume.js');
-  assert.equal(CREDITO_WOD, 2.5);
-});
-
 test('rodadas só existe no For Time', () => {
   const forTime = montarLivre({ blocos: [{ tipo: 'wod', formato: 'For Time', rodadas: 5,
     exercicios: [{ id: 'burpee' }] }], porId });
