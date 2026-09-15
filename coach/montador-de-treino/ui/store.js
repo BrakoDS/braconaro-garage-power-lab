@@ -23,6 +23,7 @@
  * @property {Array=} exercicios       (Força/Hipertrofia) ou hyrox/hiit/gap/hibrido
  * @property {any=} finalizador
  * @property {Record<string, number>} volPorPadrao  volume por padrão de movimento
+ * @property {Record<string, number>=} volPorMusculo  volume por músculo, em séries equivalentes — ausente em dia salvo antes de 15/09/2026
  */
 
 const CHAVE = 'braconaro_montador_v2';
