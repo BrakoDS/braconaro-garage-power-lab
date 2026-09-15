@@ -1098,7 +1098,8 @@ export const EXERCICIO_POR_ID = Object.fromEntries(EXERCICIOS.map((e) => [e.id, 
 /**
  * Catálogo BASE (imutável) — os exercícios reais do box, com o schema completo
  * (padrão de movimento, nível, tempo, músculos primários/secundários). Serve de
- * fallback offline e de fonte desses campos para o catálogo efetivo (ver ui/catalogo.js).
+ * fallback offline e de fonte desses campos para o catálogo efetivo (ver
+ * compartilhado/dados/catalogo-efetivo.js).
  * @type {Exercicio[]}
  */
 export const EXERCICIOS_BASE = EXERCICIOS.slice();

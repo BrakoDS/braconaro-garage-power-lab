@@ -509,7 +509,7 @@ export function salvarExerc(dados) {
 
 /**
  * Ativa/desativa um exercício sem apagá-lo. Desativado: some da montagem de treino
- * (ver `coach/montador-de-treino/ui/catalogo.js`), mas continua no catálogo da Academia p/ reativar.
+ * (ver `compartilhado/dados/catalogo-efetivo.js`), mas continua no catálogo da Academia p/ reativar.
  * @param {string} id @param {boolean} ativo
  */
 export function definirAtivoExerc(id, ativo) {

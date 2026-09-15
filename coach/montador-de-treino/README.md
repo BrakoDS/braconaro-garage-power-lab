@@ -70,12 +70,12 @@ montador/
 │   núcleo de regras está sendo extraído do montador para uso por outra ferramenta)
 ├── core/
 │   ├── viabilidade.js    # Checagem de aparelhos p/ 8 alunos em circuito
-│   ├── volume.js         # Volume por músculo/padrão; semanal e mensal
+│   │   (`volume.js` e `cargas.js` moravam aqui; hoje são `compartilhado/regras/volume.js`
+│   │   e `compartilhado/regras/cargas.js` — mesma extração do núcleo de regras)
 │   ├── periodizacao.js   # Progressão de volume/intensidade + deload (nível é de `compartilhado/regras/niveis.js`)
 │   ├── gerador.js        # ALGORITMO de montagem (8 passos) + troca de exercício
 │   ├── programaSemanal.js # PROGRAMA do box (1 treino/dia, igual p/ todos) + cenários 3/4/5
 │   ├── mesociclo.js      # Encadeia N semanas do programa com progressão e deload
-│   ├── cargas.js         # Sugestão de carga inicial (snap aos pesos do box)
 │   └── tipos.js          # Typedefs JSDoc compartilhados
 ├── ui/
 │   ├── store.js          # Persistência de alunos (localStorage)
@@ -221,7 +221,7 @@ Rodando 12 seeds por modalidade (nível intermediário), 100% dos treinos:
 
 - **Fase 4 — Carga, histórico e integração (CONCLUÍDA):**
   - **Sugestão de carga inicial** por exercício (nível + intensidade da modalidade,
-    com *snap* para os pesos reais do box — `core/cargas.js`).
+    com *snap* para os pesos reais do box — `compartilhado/regras/cargas.js`).
   - **Histórico por aluno**: salvar treinos gerados e revisar/remover depois
     (aba Histórico, persistido em localStorage via `ui/store.js`).
   - **Integração com o site**: link "Montador de treinos (coach)" no rodapé de `index.html`.

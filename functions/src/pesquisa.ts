@@ -11,7 +11,7 @@
  * tasks; aqui só o schema e a leitura.
  *
  * Por que a proposta sem `padrao` resolvível é RECUSADA (lança erro) em vez de
- * aceita com o campo vazio: `converter()` em `coach/montador-de-treino/ui/catalogo.js:44`
+ * aceita com o campo vazio: `converter()` em `compartilhado/dados/catalogo-efetivo.js:44`
  * devolve `null` para todo exercício sem padrão — ele desaparece do gerador, do
  * Treino Manual e da busca do Livre, EM SILÊNCIO. O coach cadastraria achando
  * que deu certo. Mesma lógica para `equipamentoIds`: só vale o que está no
@@ -38,7 +38,7 @@
  *                          (rótulo legível). A Academia grava o RÓTULO, não a
  *                          chave — ver `seedData()`, campo `musculos:
  *                          [...].map((m) => MUSC_MAP[m])` — e é essa forma que
- *                          `coach/montador-de-treino/ui/catalogo.js` (`MUSC_INV`) espera de
+ *                          `compartilhado/dados/catalogo-efetivo.js` (`MUSC_INV`) espera de
  *                          volta na hora de converter para o motor.
  *   - `TAGS`            ← `coach/academia/db.js` (`TAGS`, 6 valores).
  *   - `NIVEIS`          ← `compartilhado/regras/niveis.js` (`NIVEIS`, os 3 valores). É a
@@ -362,7 +362,7 @@ export function extrairProposta(
     nivel: (NIVEIS as readonly string[]).includes(nivel) ? nivel : NIVEL_PADRAO,
     tempoMedioSeg: numEmFaixa(d.tempoMedioSeg, tempoPadrao),
     // `!== false` e não `Boolean(...)`: o padrão do catálogo é COMPOSTO (ver
-    // `converter()` em coach/montador-de-treino/ui/catalogo.js, que resolve ausente como true),
+    // `converter()` em compartilhado/dados/catalogo-efetivo.js, que resolve ausente como true),
     // e é o isolamento que precisa ser declarado. Sem este campo, todo exercício
     // cadastrado pela pesquisa nasceria composto — e uma rosca direta entraria no
     // sorteio dos dias de Força, que `servePraForca` existe justamente para evitar.

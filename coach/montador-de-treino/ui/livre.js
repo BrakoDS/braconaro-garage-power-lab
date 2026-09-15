@@ -357,7 +357,8 @@ function abrirSugestoes(input) {
  * aquecimento/mobilidade — o contexto muda conforme `data-alvo` do campo) e,
  * se o coach cadastrar, reconstrói o catálogo efetivo antes de escolher a
  * linha: sem isso o exercício novo não aparece na busca, porque `EXERCICIOS`
- * é o array que `construirCatalogoEfetivo()` substitui no boot (`catalogo.js`)
+ * é o array que `construirCatalogoEfetivo()` substitui no boot
+ * (`compartilhado/dados/catalogo-efetivo.js`)
  * e `porId`/`abrirSugestoes` leem dele. Cancelar não muda nada na linha.
  * @param {HTMLInputElement} input
  */
