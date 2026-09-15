@@ -1,6 +1,7 @@
 // @ts-check
 import { MODALIDADES } from '../../../compartilhado/config/modalidades.js';
 import { PADRAO_LABEL, PADROES } from '../../../compartilhado/config/padroes.js';
+import { MUSC_MAP } from '../../../compartilhado/config/musculos.js';
 import { MINIMO_SEMANAL } from '../config/frequencias.js';
 import { EQUIP_POR_ID } from '../../../compartilhado/dados/equipamentos.js';
 import { alternativasViaveis, alternativasLivres, aplicarTroca } from '../core/gerador.js';
@@ -344,12 +345,23 @@ function badgeViab(v) {
 }
 
 /** Barras de volume por músculo (séries equivalentes) — usado pelo card gerado e pelo Treino Manual. */
+/**
+ * Série equivalente com uma casa, no formato do Brasil ("1,8").
+ *
+ * Desde que HIIT, Hyrox e WOD passaram a converter tempo e repetição em série, o
+ * volume por músculo é fracionado quase sempre — e a soma em ponto flutuante chega
+ * aqui como "1.7750000000000001". Uma casa basta: meia série é a menor diferença
+ * que muda uma decisão de treino.
+ * @param {number} v
+ */
+const fmtSeries = (v) => v.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
 export function renderVolume(vol) {
   const max = Math.max(1, ...Object.values(vol.porMusculo));
   return `<div class="vol">${Object.entries(vol.porMusculo).sort((a, b) => b[1] - a[1]).map(([m, v]) => `
-    <div class="bar-row"><span class="bar-lbl">${m.replace('_', ' ')}</span>
+    <div class="bar-row"><span class="bar-lbl">${MUSC_MAP[m] || m.replace(/_/g, ' ')}</span>
       <span class="bar"><span style="width:${(v / max) * 100}%"></span></span>
-      <span class="bar-val">${v}</span></div>`).join('')}</div>`;
+      <span class="bar-val">${fmtSeries(v)}</span></div>`).join('')}</div>`;
 }
 
 /** @param {import('../core/tipos.js').Treino} t */
