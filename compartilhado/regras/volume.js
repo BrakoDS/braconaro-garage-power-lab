@@ -48,11 +48,16 @@ export function calcularVolume(itens) {
 
   for (const { exercicio, series } of itens) {
     totalSeries += series;
-    porPadrao[exercicio.padrao] = (porPadrao[exercicio.padrao] || 0) + series;
-    for (const m of exercicio.musculosPrimarios) {
+    // Sem padrão, a série continua contando no total e nos músculos — só não vira
+    // uma chave "undefined" na tabela de padrões. Descartar o item inteiro mudaria
+    // totais que já existem (o GAP, por exemplo, sempre contou assim).
+    if (exercicio.padrao) porPadrao[exercicio.padrao] = (porPadrao[exercicio.padrao] || 0) + series;
+    // `|| []`: esta função é o coração do volume e recebe objetos montados à mão
+    // (estações do Hyrox, movimentos de WOD). Um array ausente não pode derrubar a aula.
+    for (const m of exercicio.musculosPrimarios || []) {
       porMusculo[m] = (porMusculo[m] || 0) + series * PESO_PRIMARIO;
     }
-    for (const m of exercicio.musculosSecundarios) {
+    for (const m of exercicio.musculosSecundarios || []) {
       porMusculo[m] = (porMusculo[m] || 0) + series * PESO_SECUNDARIO;
     }
   }

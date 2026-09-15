@@ -59,3 +59,22 @@ test('projetarMensal escala por 4,33 e arredonda', () => {
 test('CREDITO_WOD continua valendo 2,5 para quem ainda o usa', () => {
   assert.equal(CREDITO_WOD, 2.5);
 });
+
+test('exercicio sem musculosSecundarios nao derruba a conta', () => {
+  const v = calcularVolume([{ exercicio: { padrao: 'empurrar', musculosPrimarios: ['peito'] }, series: 2 }]);
+  assert.equal(v.porMusculo.peito, 2);
+  assert.equal(v.totalSeries, 2);
+});
+
+test('exercicio sem musculosPrimarios nao derruba a conta', () => {
+  const v = calcularVolume([{ exercicio: { padrao: 'puxar', musculosSecundarios: ['biceps'] }, series: 4 }]);
+  assert.equal(v.porMusculo.biceps, 2); // secundário: 0,5 × 4
+  assert.equal(v.porPadrao.puxar, 4);
+});
+
+test('exercicio sem padrao conta no total e no musculo, mas nao cria a chave "undefined"', () => {
+  const v = calcularVolume([{ exercicio: { musculosPrimarios: ['core'], musculosSecundarios: [] }, series: 3 }]);
+  assert.equal(v.totalSeries, 3);
+  assert.equal(v.porMusculo.core, 3);
+  assert.deepEqual(Object.keys(v.porPadrao), []);
+});
