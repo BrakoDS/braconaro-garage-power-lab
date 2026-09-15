@@ -58,3 +58,22 @@ test('musculosParaMontador: sem separacao e sem base, tudo vira primario', () =>
   assert.deepEqual(musculosParaMontador({ musculos: ['Peito', 'Tríceps'] }, undefined, CHAVE),
     { musculosPrimarios: ['peito', 'triceps'], musculosSecundarios: [] });
 });
+
+test('temSeparacao nao confia na separacao quando a lista unica mudou por fora', () => {
+  // O formulário antigo da Academia grava só `musculos`. Se o coach acrescentou
+  // Antebraço por lá, a separação gravada ficou velha e não pode mais mandar.
+  const velho = { musculos: ['Peito', 'Antebraço'], musculosPrimarios: ['Peito'], musculosSecundarios: [] };
+  assert.equal(temSeparacao(velho), false);
+  assert.equal(precisaRevisaoMusculos(velho), true);
+  const emDia = { musculos: ['Tríceps', 'Peito'], musculosPrimarios: ['Peito'], musculosSecundarios: ['Tríceps'] };
+  assert.equal(temSeparacao(emDia), true, "mesma lista em outra ordem continua em dia");
+});
+
+test('musculosParaMontador ignora a separacao velha e cai no catalogo base', () => {
+  const base = { musculosPrimarios: ['peito'], musculosSecundarios: ['triceps'] };
+  const velho = { musculos: ['Peito', 'Ombro'], musculosPrimarios: ['Peito'], musculosSecundarios: ['Tríceps'] };
+  assert.deepEqual(musculosParaMontador(velho, base, CHAVE),
+    { musculosPrimarios: ['peito'], musculosSecundarios: ['triceps'] });
+  assert.deepEqual(musculosParaMontador(velho, undefined, CHAVE),
+    { musculosPrimarios: ['peito', 'ombro'], musculosSecundarios: [] }, 'sem base, a lista unica toda como primaria');
+});

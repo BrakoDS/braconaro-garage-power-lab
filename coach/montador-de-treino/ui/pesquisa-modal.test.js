@@ -256,3 +256,13 @@ test('mesclarProposta preserva o secundario que o coach editou', () => {
   assert.deepEqual(m.musculosSecundarios, ['Tríceps']); // editado -> preservado
   assert.deepEqual(m.musculosPrimarios, ['Costas']);    // intocado -> valor novo
 });
+
+test('mesclarProposta com a function antiga nao descarta os musculos novos da pesquisa', () => {
+  // A primeira busca (via rápida) e a segunda (internet) vêm da function antiga,
+  // com lista única. O formulário, que já mostra os dois campos, não foi tocado.
+  const baseAntiga = { tipo: 'exercicio', nome: 'Remada', musculos: ['Costas'], tags: [] };
+  const atual = { tipo: 'exercicio', nome: 'Remada', musculosPrimarios: ['Costas'], musculosSecundarios: [], tags: [] };
+  const novaAntiga = { tipo: 'exercicio', nome: 'Remada', musculos: ['Costas', 'Bíceps', 'Antebraço'], tags: [] };
+  const m = mesclarProposta(baseAntiga, atual, novaAntiga);
+  assert.deepEqual(separacaoDaProposta(m).musculosPrimarios, ['Costas', 'Bíceps', 'Antebraço']);
+});

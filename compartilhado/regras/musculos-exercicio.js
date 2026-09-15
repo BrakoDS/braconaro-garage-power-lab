@@ -48,12 +48,22 @@ export function normalizarSeparacao({ primarios, secundarios } = {}) {
 }
 
 /**
- * O exercício já foi separado? Vale a presença do campo, mesmo vazio: um
- * exercício de mobilidade sem músculo primário é uma escolha, não um dado antigo.
+ * O exercício tem uma separação em que dá para confiar?
+ *
+ * Vale a presença do campo, mesmo vazio — um exercício de mobilidade sem músculo
+ * primário é uma escolha, não um dado antigo —, desde que a separação ainda bata
+ * com a lista única `musculos`. Quem grava só a lista única (o formulário da
+ * Academia antes da Etapa 2, publicado até o merge) deixa os dois campos parados:
+ * se eles mandassem, o volume contaria os músculos velhos, sem aviso nenhum.
+ * Separação que não bate volta a ser tratada como ausente, e a Academia pede revisão.
  * @param {any} a  exercício no formato da Academia
  */
 export function temSeparacao(a) {
-  return !!a && Array.isArray(a.musculosPrimarios);
+  if (!a || !Array.isArray(a.musculosPrimarios)) return false;
+  if (!Array.isArray(a.musculos)) return true;
+  const separados = new Set([...a.musculosPrimarios, ...(Array.isArray(a.musculosSecundarios) ? a.musculosSecundarios : [])]);
+  const lista = new Set(a.musculos);
+  return separados.size === lista.size && [...lista].every((m) => separados.has(m));
 }
 
 /**

@@ -218,9 +218,17 @@ function difere(a, b) {
  */
 export function mesclarProposta(base, atual, nova) {
   const campos = CAMPOS_EDITAVEIS[nova?.tipo] || [];
-  const mesclada = { ...nova };
+  // Proposta da function antiga só tem a lista única. Separar antes de comparar:
+  // sem isso, um formulário intocado parece editado (o campo não existia na base)
+  // e a pesquisa refeita descartaria os músculos novos que a IA trouxe.
+  // Só a proposta no formato antigo (sem `musculosPrimarios`) é separada; a do
+  // formato novo passa intacta, para a primeira busca devolver exatamente o que veio.
+  const separar = (/** @type {any} */ p) => (p && p.tipo === 'exercicio' && !Array.isArray(p.musculosPrimarios)
+    ? { ...p, ...separacaoDaProposta(p) } : p);
+  const b = separar(base);
+  const mesclada = { ...separar(nova) };
   for (const c of campos) {
-    if (base && atual && difere(atual[c], base[c])) mesclada[c] = atual[c];
+    if (b && atual && difere(atual[c], b[c])) mesclada[c] = atual[c];
   }
   return mesclada;
 }
@@ -349,7 +357,9 @@ export function abrirPesquisa({ termo, contexto }) {
         $('#pesq-erro-form').textContent = 'Marque ao menos um equipamento — use "Peso corporal" se o exercício não usa aparelho.';
         return;
       }
-      if (contexto !== 'tecnica' && !(v.musculosPrimarios || []).length) {
+      // Só exercício exige primário: mobilidade não conta volume, e o formulário da
+      // Academia também a aceita sem músculo principal.
+      if (contexto === 'exercicio' && !(v.musculosPrimarios || []).length) {
         $('#pesq-erro-form').textContent = 'Marque ao menos um músculo primário.';
         return;
       }

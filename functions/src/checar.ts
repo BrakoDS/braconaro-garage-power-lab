@@ -315,6 +315,8 @@ ok(lanca(() => extrairProposta(SEM_MUSCULO_PRIMARIO, 'exercicio', EQUIP)),
 const repetido = extrairProposta(SECUNDARIO_REPETIDO, 'exercicio', EQUIP) as PropostaExercicio;
 ok(repetido.musculosPrimarios.join() === 'Costas' && repetido.musculosSecundarios.join() === 'Bíceps',
   'músculo que está nas duas listas fica só no primário');
+ok(!lanca(() => extrairProposta(SEM_MUSCULO_PRIMARIO, 'mobilidade', EQUIP)),
+  'mobilidade sem músculo primário é aceita — ela não conta volume, e o formulário da Academia também permite');
 
 /* ---------- vocabulário fechado: descarta o item torto, não a proposta ---------- */
 

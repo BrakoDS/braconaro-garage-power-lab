@@ -8,7 +8,7 @@ import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js'
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { PADROES, PADRAO_LABEL } from '../../compartilhado/config/padroes.js';
 import * as db from './db.js';
-import { normalizarSeparacao, precisaRevisaoMusculos } from '../../compartilhado/regras/musculos-exercicio.js';
+import { normalizarSeparacao, precisaRevisaoMusculos, temSeparacao } from '../../compartilhado/regras/musculos-exercicio.js';
 // `confirmar`/`avisar` do próprio site: o `confirm()`/`alert()` do navegador pode
 // estar suprimido pelo Chrome e responder sozinho, sem mostrar nada — foi assim
 // que a exclusão de exercícios parou de funcionar sem deixar rastro.
@@ -140,7 +140,7 @@ function renderExercicios() {
         <div class="sub">${(x.tags || []).map((t) => `<span class="tag ${esc(t)}">${esc(t)}</span>`).join('')}${(x.musculos || []).map((m) => `<span class="musc">${esc(m)}</span>`).join('')}</div>
         <div class="sub2">${esc(nomesEquip(x.equipamentoIds).join(', ') || 'sem equipamento')}</div>
         ${x.padrao ? `<div class="sub2" style="color:var(--mut-2)">Padrão: ${esc(PADRAO_LABEL[x.padrao] || x.padrao)}</div>` : '<div class="alerta">⚠ Sem padrão de movimento — não entra na montagem de treino</div>'}
-        ${precisaRevisaoMusculos(x) ? '<div class="alerta">⚠ Revise os músculos — sem primário e secundário separados, todos contam como primários</div>' : ''}
+        ${precisaRevisaoMusculos(x) ? '<div class="alerta">⚠ Revise os músculos — primário e secundário não estão separados</div>' : ''}
         ${d.disponivel ? '' : `<div class="alerta">⚠ Indisponível — falta: ${esc(d.falta.join(', '))}</div>`}
         ${ativo ? '' : '<div class="alerta">⚠ Desativado — não entra na montagem de treino</div>'}
       </div>
@@ -560,10 +560,12 @@ function abrirExerc(item = null, opcoes = {}) {
   $('#pick-tags').className = 'pick';
   $('#pick-tags').innerHTML = db.TAGS.map((t) => `<input type="checkbox" id="tg_${esc(t)}" value="${esc(t)}"${selT.has(t) ? ' checked' : ''}/><label for="tg_${esc(t)}">${esc(t)}</label>`).join('');
 
-  // Músculos, em duas grades. Exercício antigo, ainda sem separação, abre com tudo
-  // no primário — é assim que ele conta hoje — e o coach separa ao salvar.
-  const primIni = item ? (Array.isArray(item.musculosPrimarios) ? item.musculosPrimarios : (item.musculos || [])) : [];
-  const secIni = item && Array.isArray(item.musculosSecundarios) ? item.musculosSecundarios : [];
+  // Músculos, em duas grades. Exercício sem separação confiável (nunca separado, ou
+  // com a lista única mudada por fora) abre com a lista única toda no primário, para
+  // o coach separar ao salvar — abrir com a separação velha desfaria a edição dele.
+  const separado = item && temSeparacao(item);
+  const primIni = item ? (separado ? item.musculosPrimarios : (item.musculos || [])) : [];
+  const secIni = separado ? (item.musculosSecundarios || []) : [];
   const grade = (/** @type {Set<string>} */ sel, /** @type {string} */ pref) => db.MUSCULOS.map((m) => {
     const id = pref + m.replace(/[^A-Za-z]/g, '');
     return `<input type="checkbox" id="${id}" value="${esc(m)}"${sel.has(m) ? ' checked' : ''}/><label for="${id}">${esc(m)}</label>`;

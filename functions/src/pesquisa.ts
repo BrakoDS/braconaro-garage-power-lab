@@ -342,10 +342,12 @@ export function extrairProposta(
   const padrao = texto(d.padrao);
   if (!(PADROES as readonly string[]).includes(padrao)) throw new Error(ERRO_SEM_PADRAO);
 
-  // Primário é obrigatório, como o padrão: sem ele o volume do exercício some da
-  // conta por músculo, e o coach cadastraria achando que deu tudo certo.
+  // Em exercício, primário é obrigatório, como o padrão: sem ele o volume some da
+  // conta por músculo, e o coach cadastraria achando que deu tudo certo. Mobilidade
+  // não conta volume, e o formulário da Academia a aceita sem músculo principal —
+  // recusá-la aqui ainda gastaria uma pesquisa da cota do dia.
   const musculosPrimarios = [...new Set(arrayFiltrado(d.musculosPrimarios, MUSCULOS_LABEL))];
-  if (!musculosPrimarios.length) throw new Error(ERRO_SEM_MUSCULO);
+  if (!musculosPrimarios.length && contexto === 'exercicio') throw new Error(ERRO_SEM_MUSCULO);
   // Músculo nas duas listas fica só no primário — mesma regra de
   // compartilhado/regras/musculos-exercicio.js, no site.
   const musculosSecundarios = [...new Set(arrayFiltrado(d.musculosSecundarios, MUSCULOS_LABEL))]
