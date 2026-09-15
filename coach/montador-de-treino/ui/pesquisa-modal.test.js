@@ -38,6 +38,7 @@ if (!globalThis.localStorage) {
 }
 
 const {
+  separacaoDaProposta,
   ehUrlSegura, fontesHTML, equipamentoFaltanteHTML,
   formularioExercicioHTML, formularioTecnicaHTML, mesclarProposta,
 } = await import('./pesquisa-modal.js');
@@ -165,12 +166,12 @@ test('equipamentoFaltanteHTML escapa e devolve vazio para lista vazia', () => {
 /* ---------- mesclarProposta (Regra 6: "Pesquisar na internet" preserva edição) ---------- */
 
 const BASE_EX = {
-  tipo: 'exercicio', nome: 'Supino', padrao: 'empurrar', musculos: ['Peito'], tags: [],
+  tipo: 'exercicio', nome: 'Supino', padrao: 'empurrar', musculosPrimarios: ['Peito'], musculosSecundarios: [], tags: [],
   equipamentoIds: [], nivel: 'iniciante', tempoMedioSeg: 30, obs: 'original',
   equipamentoFaltante: [], fontes: [],
 };
 const NOVA_EX = {
-  tipo: 'exercicio', nome: 'Supino inclinado', padrao: 'puxar', musculos: ['Costas'], tags: ['CROSS'],
+  tipo: 'exercicio', nome: 'Supino inclinado', padrao: 'puxar', musculosPrimarios: ['Costas'], musculosSecundarios: ['Bíceps'], tags: ['CROSS'],
   equipamentoIds: ['barra'], nivel: 'avancado', tempoMedioSeg: 45, obs: 'texto novo da IA',
   equipamentoFaltante: ['Anilha 20kg'], fontes: ['https://x.com'],
 };
@@ -181,7 +182,7 @@ test('mesclarProposta mantém campo editado pelo coach e adota o resto da pesqui
   assert.equal(m.nome, 'Supino reto (editado pelo coach)'); // editado -> preservado
   assert.equal(m.obs, 'obs que o coach escreveu');          // editado -> preservado
   assert.equal(m.padrao, 'puxar');                            // intocado -> valor novo
-  assert.deepEqual(m.musculos, ['Costas']);                   // intocado -> valor novo
+  assert.deepEqual(m.musculosPrimarios, ['Costas']);                   // intocado -> valor novo
   assert.equal(m.nivel, 'avancado');                          // intocado -> valor novo
   assert.equal(m.tempoMedioSeg, 45);                          // intocado -> valor novo
   // não editáveis: sempre da pesquisa nova
@@ -190,15 +191,15 @@ test('mesclarProposta mantém campo editado pelo coach e adota o resto da pesqui
 });
 
 test('mesclarProposta não confunde reordenar checkboxes com editar', () => {
-  const atual = { ...BASE_EX, musculos: ['Peito'] }; // mesmo conteúdo de BASE_EX.musculos, ordem idêntica
+  const atual = { ...BASE_EX, musculosPrimarios: ['Peito'] }; // mesmo conteúdo de BASE_EX.musculosPrimarios, ordem idêntica
   const m = mesclarProposta(BASE_EX, atual, NOVA_EX);
-  assert.deepEqual(m.musculos, ['Costas']); // não foi editado de fato -> pega o novo
+  assert.deepEqual(m.musculosPrimarios, ['Costas']); // não foi editado de fato -> pega o novo
 });
 
 test('mesclarProposta detecta edição em array (musculos com um item a mais)', () => {
-  const atual = { ...BASE_EX, musculos: ['Peito', 'Ombro'] }; // coach marcou um a mais
+  const atual = { ...BASE_EX, musculosPrimarios: ['Peito', 'Ombro'] }; // coach marcou um a mais
   const m = mesclarProposta(BASE_EX, atual, NOVA_EX);
-  assert.deepEqual(m.musculos.sort(), ['Ombro', 'Peito']); // editado -> preservado (ordem não importa para o teste)
+  assert.deepEqual(m.musculosPrimarios.sort(), ['Ombro', 'Peito']); // editado -> preservado (ordem não importa para o teste)
 });
 
 const BASE_TEC = { tipo: 'tecnica', nome: 'Drop Set', resumo: 'r', comoExecutar: 'c', objetivo: 'o', fontes: [] };
@@ -216,4 +217,52 @@ test('mesclarProposta funciona para técnica com o conjunto reduzido de campos e
 test('mesclarProposta sem base/atual (primeira busca) devolve a proposta nova sem alterações', () => {
   const m = mesclarProposta(null, null, NOVA_EX);
   assert.deepEqual(m, NOVA_EX);
+});
+
+/* ---------- separacaoDaProposta (function nova e function antiga) ---------- */
+
+test('separacaoDaProposta le a proposta nova, com os dois campos', () => {
+  const s = separacaoDaProposta({ musculosPrimarios: ['Costas'], musculosSecundarios: ['Bíceps'] });
+  assert.deepEqual(s, { musculosPrimarios: ['Costas'], musculosSecundarios: ['Bíceps'], musculos: ['Costas', 'Bíceps'] });
+});
+
+test('separacaoDaProposta aceita a function antiga: lista unica vira toda primaria', () => {
+  const s = separacaoDaProposta({ musculos: ['Quadríceps', 'Glúteo'] });
+  assert.deepEqual(s.musculosPrimarios, ['Quadríceps', 'Glúteo']);
+  assert.deepEqual(s.musculosSecundarios, []);
+});
+
+test('separacaoDaProposta tira do secundario o que ja e primario', () => {
+  const s = separacaoDaProposta({ musculosPrimarios: ['Costas'], musculosSecundarios: ['Costas', 'Bíceps'] });
+  assert.deepEqual(s.musculosSecundarios, ['Bíceps']);
+});
+
+test('formularioExercicioHTML marca cada musculo na lista certa', () => {
+  const proposta = {
+    tipo: 'exercicio', nome: 'Remada', padrao: 'puxar', nivel: 'intermediario', tempoMedioSeg: 40,
+    multiarticular: true, obs: '', musculosPrimarios: ['Costas'], musculosSecundarios: ['Bíceps'],
+    tags: [], equipamentoIds: [], equipamentoFaltante: [], fontes: [],
+  };
+  const html = formularioExercicioHTML({ proposta, equipamentos: [], restantes: 5, buscou: false });
+  assert.match(html, /name="musculosPrimarios" value="Costas" checked/);
+  assert.match(html, /name="musculosSecundarios" value="Bíceps" checked/);
+  assert.doesNotMatch(html, /name="musculosPrimarios" value="Bíceps" checked/);
+  assert.doesNotMatch(html, /name="musculos" /);
+});
+
+test('mesclarProposta preserva o secundario que o coach editou', () => {
+  const atual = { ...BASE_EX, musculosSecundarios: ['Tríceps'] };
+  const m = mesclarProposta(BASE_EX, atual, NOVA_EX);
+  assert.deepEqual(m.musculosSecundarios, ['Tríceps']); // editado -> preservado
+  assert.deepEqual(m.musculosPrimarios, ['Costas']);    // intocado -> valor novo
+});
+
+test('mesclarProposta com a function antiga nao descarta os musculos novos da pesquisa', () => {
+  // A primeira busca (via rápida) e a segunda (internet) vêm da function antiga,
+  // com lista única. O formulário, que já mostra os dois campos, não foi tocado.
+  const baseAntiga = { tipo: 'exercicio', nome: 'Remada', musculos: ['Costas'], tags: [] };
+  const atual = { tipo: 'exercicio', nome: 'Remada', musculosPrimarios: ['Costas'], musculosSecundarios: [], tags: [] };
+  const novaAntiga = { tipo: 'exercicio', nome: 'Remada', musculos: ['Costas', 'Bíceps', 'Antebraço'], tags: [] };
+  const m = mesclarProposta(baseAntiga, atual, novaAntiga);
+  assert.deepEqual(separacaoDaProposta(m).musculosPrimarios, ['Costas', 'Bíceps', 'Antebraço']);
 });

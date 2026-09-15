@@ -23,6 +23,7 @@ import * as academia from '../../academia/db.js';
 import { pesquisarItem } from './pesquisa.js';
 import { PADROES, PADRAO_LABEL, MUSCULOS } from '../../../compartilhado/config/padroes.js';
 import { MUSC_MAP } from '../../../compartilhado/config/musculos.js';
+import { normalizarSeparacao } from '../../../compartilhado/regras/musculos-exercicio.js';
 import { NIVEIS, NIVEL_LABEL } from '../../../compartilhado/regras/niveis.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -106,10 +107,27 @@ function infoTopoHTML(restantes, buscou) {
   return `<p class="mut pesq-restantes">${chip}${esc(txt)}</p>`;
 }
 
+/**
+ * Os músculos de uma proposta, já separados.
+ *
+ * A proposta pode vir da function nova (primário e secundário) ou da antiga, que
+ * devolve uma lista única `musculos` — o site é publicado no merge, mas as
+ * functions só com deploy manual, e no intervalo os dois convivem. Lista única
+ * vira toda primária: é como um exercício sem separação conta no resto do sistema.
+ * @param {any} p
+ */
+export function separacaoDaProposta(p) {
+  if (p && Array.isArray(p.musculosPrimarios)) {
+    return normalizarSeparacao({ primarios: p.musculosPrimarios, secundarios: p.musculosSecundarios });
+  }
+  return normalizarSeparacao({ primarios: p && p.musculos, secundarios: [] });
+}
+
 /** Formulário de exercício/mobilidade — Regra 3 do brief: nome, padrão, músculos,
  * tags, equipamento (só do inventário), nível, tempo médio, observação. */
 export function formularioExercicioHTML({ proposta: p, equipamentos, restantes, buscou }) {
   const musculosItens = MUSCULOS_LABEL.map((m) => ({ valor: m, rotulo: m }));
+  const sep = separacaoDaProposta(p);
   const tagsItens = academia.TAGS.map((t) => ({ valor: t, rotulo: t }));
   const equipItens = (equipamentos || []).map((e) => ({ valor: e.id, rotulo: e.nome }));
   const tempo = Number.isFinite(p.tempoMedioSeg) ? p.tempoMedioSeg : '';
@@ -130,8 +148,10 @@ export function formularioExercicioHTML({ proposta: p, equipamentos, restantes, 
     </div>
     <div class="field full"><label for="pesq-obs">Observação</label>
       <textarea id="pesq-obs" name="obs" rows="3">${esc(p.obs)}</textarea></div>
-    <div class="pesq-chk-grupo"><label>Músculos</label>
-      <div class="pesq-chk-lista">${checklistHTML('musculos', musculosItens, p.musculos)}</div></div>
+    <div class="pesq-chk-grupo"><label>Músculos primários <span class="mut">(contam a série inteira)</span></label>
+      <div class="pesq-chk-lista">${checklistHTML('musculosPrimarios', musculosItens, sep.musculosPrimarios)}</div></div>
+    <div class="pesq-chk-grupo"><label>Músculos secundários <span class="mut">(contam meia série)</span></label>
+      <div class="pesq-chk-lista">${checklistHTML('musculosSecundarios', musculosItens, sep.musculosSecundarios)}</div></div>
     <div class="pesq-chk-grupo"><label>Tags</label>
       <div class="pesq-chk-lista">${checklistHTML('tags', tagsItens, p.tags)}</div></div>
     <div class="pesq-chk-grupo"><label>Equipamento (só do seu inventário)</label>
@@ -174,7 +194,7 @@ export function corpoErroHTML(mensagem) {
 
 const CAMPOS_EDITAVEIS = {
   tecnica: ['nome', 'resumo', 'comoExecutar', 'objetivo'],
-  exercicio: ['nome', 'padrao', 'musculos', 'tags', 'equipamentoIds', 'nivel', 'tempoMedioSeg', 'multiarticular', 'obs'],
+  exercicio: ['nome', 'padrao', 'musculosPrimarios', 'musculosSecundarios', 'tags', 'equipamentoIds', 'nivel', 'tempoMedioSeg', 'multiarticular', 'obs'],
 };
 
 /** Compara por valor — inclusive arrays de checkbox, onde ordem não importa. */
@@ -198,9 +218,17 @@ function difere(a, b) {
  */
 export function mesclarProposta(base, atual, nova) {
   const campos = CAMPOS_EDITAVEIS[nova?.tipo] || [];
-  const mesclada = { ...nova };
+  // Proposta da function antiga só tem a lista única. Separar antes de comparar:
+  // sem isso, um formulário intocado parece editado (o campo não existia na base)
+  // e a pesquisa refeita descartaria os músculos novos que a IA trouxe.
+  // Só a proposta no formato antigo (sem `musculosPrimarios`) é separada; a do
+  // formato novo passa intacta, para a primeira busca devolver exatamente o que veio.
+  const separar = (/** @type {any} */ p) => (p && p.tipo === 'exercicio' && !Array.isArray(p.musculosPrimarios)
+    ? { ...p, ...separacaoDaProposta(p) } : p);
+  const b = separar(base);
+  const mesclada = { ...separar(nova) };
   for (const c of campos) {
-    if (base && atual && difere(atual[c], base[c])) mesclada[c] = atual[c];
+    if (b && atual && difere(atual[c], b[c])) mesclada[c] = atual[c];
   }
   return mesclada;
 }
@@ -279,7 +307,8 @@ export function abrirPesquisa({ termo, contexto }) {
         tipo, nome: val('nome'), padrao: val('padrao'), nivel: val('nivel'),
         tempoMedioSeg: Number(val('tempoMedioSeg')) || 0, obs: val('obs'),
         multiarticular: val('multiarticular') !== '0',
-        musculos: marcados('musculos'), tags: marcados('tags'), equipamentoIds: marcados('equipamentoIds'),
+        musculosPrimarios: marcados('musculosPrimarios'), musculosSecundarios: marcados('musculosSecundarios'),
+        tags: marcados('tags'), equipamentoIds: marcados('equipamentoIds'),
       };
     }
 
@@ -328,11 +357,18 @@ export function abrirPesquisa({ termo, contexto }) {
         $('#pesq-erro-form').textContent = 'Marque ao menos um equipamento — use "Peso corporal" se o exercício não usa aparelho.';
         return;
       }
+      // Só exercício exige primário: mobilidade não conta volume, e o formulário da
+      // Academia também a aceita sem músculo principal.
+      if (contexto === 'exercicio' && !(v.musculosPrimarios || []).length) {
+        $('#pesq-erro-form').textContent = 'Marque ao menos um músculo primário.';
+        return;
+      }
       // Só grava no clique — nunca antes. A proposta é uma sugestão; quem decide é o coach.
       const criado = contexto === 'tecnica'
         ? academia.salvarTecnica({ nome: v.nome, resumo: v.resumo, comoExecutar: v.comoExecutar, objetivo: v.objetivo, ativo: true })
         : academia.salvarExerc({
-          nome: v.nome, padrao: v.padrao, musculos: v.musculos, tags: v.tags,
+          nome: v.nome, padrao: v.padrao, tags: v.tags,
+          ...normalizarSeparacao({ primarios: v.musculosPrimarios, secundarios: v.musculosSecundarios }),
           equipamentoIds: v.equipamentoIds, nivel: v.nivel, tempoMedioSeg: v.tempoMedioSeg,
           multiarticular: v.multiarticular, obs: v.obs, ativo: true,
         });

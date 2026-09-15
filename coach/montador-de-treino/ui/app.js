@@ -55,6 +55,10 @@ function diaSnapshotDe(t, dateId) {
   const base = {
     dia, modalidade: t.modalidade, geradoEm: new Date().toISOString(),
     volPorPadrao: t.volume?.porPadrao || {},
+    // O volume por músculo vai junto desde a Etapa 2 do montador v2. Antes ele era
+    // calculado, mostrado e descartado ao salvar — e sem ele salvo não há como somar
+    // a semana de um aluno por grupo muscular. Dia salvo antes disso não tem o campo.
+    volPorMusculo: t.volume?.porMusculo || {},
     // O tamanho da turma vai junto: a edição do dia salvo recalcula a viabilidade
     // de aparelho, e sem isto ela teria que adivinhar a turma pelo tamanhoGrupo.
     nAlunos: t.nAlunos,

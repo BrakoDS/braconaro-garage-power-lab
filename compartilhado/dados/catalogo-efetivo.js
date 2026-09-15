@@ -17,6 +17,7 @@
 import * as academia from '../../coach/academia/db.js';
 import { MUSC_MAP } from '../config/musculos.js';
 import { EXERCICIO_BASE_POR_ID, aplicarCatalogo } from './exercicios.js';
+import { musculosParaMontador } from '../regras/musculos-exercicio.js';
 
 /** Rótulo legível de músculo (Academia) → chave interna do montador. */
 const MUSC_INV = Object.fromEntries(Object.entries(MUSC_MAP).map(([k, v]) => [v, k]));
@@ -58,10 +59,10 @@ function converter(a) {
     ? [...new Set([...base.categorias.filter((c) => ESTRUTURAIS.includes(c)), ...doTags])]
     : doTags;
 
-  const musculosPrimarios = base
-    ? base.musculosPrimarios.slice()
-    : [...new Set((a.musculos || []).map((m) => MUSC_INV[m]).filter(Boolean))];
-  const musculosSecundarios = base ? base.musculosSecundarios.slice() : [];
+  // A separação que o coach grava na Academia manda, como as tags. Sem ela vale o
+  // catálogo base; e o exercício criado antes de a separação existir conta tudo
+  // como primário até ser revisto — ver compartilhado/regras/musculos-exercicio.js.
+  const { musculosPrimarios, musculosSecundarios } = musculosParaMontador(a, base, MUSC_INV);
 
   return {
     id: a.id,

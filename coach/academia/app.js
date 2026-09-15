@@ -8,6 +8,7 @@ import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js'
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { PADROES, PADRAO_LABEL } from '../../compartilhado/config/padroes.js';
 import * as db from './db.js';
+import { normalizarSeparacao, precisaRevisaoMusculos, temSeparacao } from '../../compartilhado/regras/musculos-exercicio.js';
 // `confirmar`/`avisar` do próprio site: o `confirm()`/`alert()` do navegador pode
 // estar suprimido pelo Chrome e responder sozinho, sem mostrar nada — foi assim
 // que a exclusão de exercícios parou de funcionar sem deixar rastro.
@@ -139,6 +140,7 @@ function renderExercicios() {
         <div class="sub">${(x.tags || []).map((t) => `<span class="tag ${esc(t)}">${esc(t)}</span>`).join('')}${(x.musculos || []).map((m) => `<span class="musc">${esc(m)}</span>`).join('')}</div>
         <div class="sub2">${esc(nomesEquip(x.equipamentoIds).join(', ') || 'sem equipamento')}</div>
         ${x.padrao ? `<div class="sub2" style="color:var(--mut-2)">Padrão: ${esc(PADRAO_LABEL[x.padrao] || x.padrao)}</div>` : '<div class="alerta">⚠ Sem padrão de movimento — não entra na montagem de treino</div>'}
+        ${precisaRevisaoMusculos(x) ? '<div class="alerta">⚠ Revise os músculos — primário e secundário não estão separados</div>' : ''}
         ${d.disponivel ? '' : `<div class="alerta">⚠ Indisponível — falta: ${esc(d.falta.join(', '))}</div>`}
         ${ativo ? '' : '<div class="alerta">⚠ Desativado — não entra na montagem de treino</div>'}
       </div>
@@ -558,15 +560,33 @@ function abrirExerc(item = null, opcoes = {}) {
   $('#pick-tags').className = 'pick';
   $('#pick-tags').innerHTML = db.TAGS.map((t) => `<input type="checkbox" id="tg_${esc(t)}" value="${esc(t)}"${selT.has(t) ? ' checked' : ''}/><label for="tg_${esc(t)}">${esc(t)}</label>`).join('');
 
-  // Músculos
-  const selM = new Set(item?.musculos || []);
-  const muscId = (m) => 'mu_' + m.replace(/[^A-Za-z]/g, '');
-  $('#pick-musc').className = 'pick';
-  $('#pick-musc').innerHTML = db.MUSCULOS.map((m) => `<input type="checkbox" id="${muscId(m)}" value="${esc(m)}"${selM.has(m) ? ' checked' : ''}/><label for="${muscId(m)}">${esc(m)}</label>`).join('');
+  // Músculos, em duas grades. Exercício sem separação confiável (nunca separado, ou
+  // com a lista única mudada por fora) abre com a lista única toda no primário, para
+  // o coach separar ao salvar — abrir com a separação velha desfaria a edição dele.
+  const separado = item && temSeparacao(item);
+  const primIni = item ? (separado ? item.musculosPrimarios : (item.musculos || [])) : [];
+  const secIni = separado ? (item.musculosSecundarios || []) : [];
+  const grade = (/** @type {Set<string>} */ sel, /** @type {string} */ pref) => db.MUSCULOS.map((m) => {
+    const id = pref + m.replace(/[^A-Za-z]/g, '');
+    return `<input type="checkbox" id="${id}" value="${esc(m)}"${sel.has(m) ? ' checked' : ''}/><label for="${id}">${esc(m)}</label>`;
+  }).join('');
+  $('#pick-musc-prim').className = 'pick';
+  $('#pick-musc-prim').innerHTML = grade(new Set(primIni), 'mp_');
+  $('#pick-musc-sec').className = 'pick';
+  $('#pick-musc-sec').innerHTML = grade(new Set(secIni), 'ms_');
 
   $('#btn-del-exerc').hidden = !item;
   abrirModal('modal-exerc');
   setTimeout(() => f.nome.focus(), 50);
+}
+// Um músculo é primário OU secundário: marcar numa grade desmarca na outra.
+for (const [de, para] of [['#pick-musc-prim', '#pick-musc-sec'], ['#pick-musc-sec', '#pick-musc-prim']]) {
+  $(de).addEventListener('change', (e) => {
+    const alvo = /** @type {HTMLInputElement} */ (e.target);
+    if (!alvo || !alvo.checked) return;
+    const outro = /** @type {HTMLInputElement|null} */ ($(para).querySelector(`input[value="${CSS.escape(alvo.value)}"]`));
+    if (outro) outro.checked = false;
+  });
 }
 $('#form-exerc').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -574,7 +594,10 @@ $('#form-exerc').addEventListener('submit', (e) => {
   const nome = f.nome.value.trim();
   const equipamentoIds = $$('#pick-equip input:checked').map((i) => i.value);
   const tags = $$('#pick-tags input:checked').map((i) => i.value);
-  const musculos = $$('#pick-musc input:checked').map((i) => i.value);
+  const { musculosPrimarios, musculosSecundarios, musculos } = normalizarSeparacao({
+    primarios: $('#pick-musc-prim input:checked').map((i) => i.value),
+    secundarios: $('#pick-musc-sec input:checked').map((i) => i.value),
+  });
   const err = $('#erro-exerc');
   if (!nome) return;
   // Regra de negócio: exercício exige ao menos 1 equipamento do inventário
@@ -585,8 +608,15 @@ $('#form-exerc').addEventListener('submit', (e) => {
     err.classList.add('show');
     return;
   }
+  // Secundário sem primário não descreve exercício nenhum: o volume dele contaria
+  // só pela metade em todo músculo.
+  if (musculosSecundarios.length && !musculosPrimarios.length) {
+    err.textContent = 'Marque ao menos um músculo primário.';
+    err.classList.add('show');
+    return;
+  }
   const dados = {
-    nome, equipamentoIds, tags, musculos,
+    nome, equipamentoIds, tags, musculos, musculosPrimarios, musculosSecundarios,
     padrao: f.padrao.value, nivel: f.nivel.value || 'intermediario',
     multiarticular: f.multiarticular.value !== '0',
     ocupaTudo: f.ocupaTudo.checked,

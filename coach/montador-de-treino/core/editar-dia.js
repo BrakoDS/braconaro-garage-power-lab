@@ -129,6 +129,7 @@ export function trocarExercicioDoDia(snap, indice, novo) {
     ...snap,
     exercicios,
     volPorPadrao: vol.porPadrao,
+    volPorMusculo: vol.porMusculo,
     viabilidade: { ok: viab.ok, tamanhoGrupo: viab.tamanhoGrupo },
     // Marca que o dia foi tocado à mão depois de gerado — o card mostra, e sem
     // isso não haveria como distinguir um treino gerado de um gerado-e-editado.

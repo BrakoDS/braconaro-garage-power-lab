@@ -10,6 +10,7 @@
 import { EQUIPAMENTOS } from '../../../compartilhado/dados/equipamentos.js';
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { MUSC_MAP } from '../../../compartilhado/config/musculos.js';
+import { normalizarSeparacao } from '../../../compartilhado/regras/musculos-exercicio.js';
 
 /** Categorias do montador → rótulos do inventário desta app. */
 export const CAT_MAP = {
@@ -415,7 +416,13 @@ export function seedData() {
     nome: x.nome,
     equipamentoIds: Array.isArray(x.equipamento) ? x.equipamento.slice() : [],
     tags: [...new Set((x.categorias || []).map((c) => TAG_MAP[c]).filter(Boolean))],
-    musculos: [...new Set([...(x.musculosPrimarios || []), ...(x.musculosSecundarios || [])].map((m) => MUSC_MAP[m]).filter(Boolean))],
+    // Primário e secundário separados, em rótulo — é o que o formulário da Academia
+    // grava e o catálogo efetivo lê. `musculos` segue como a união, na mesma ordem
+    // de antes, porque os filtros e as etiquetas da lista usam a lista única.
+    ...normalizarSeparacao({
+      primarios: (x.musculosPrimarios || []).map((m) => MUSC_MAP[m]).filter(Boolean),
+      secundarios: (x.musculosSecundarios || []).map((m) => MUSC_MAP[m]).filter(Boolean),
+    }),
     // Campos que o gerador do montador precisa (padrão de movimento, nível e tempo).
     // Ficam salvos na Academia para que o coach possa editá-los e para que exercícios
     // criados aqui também alimentem a geração full body.

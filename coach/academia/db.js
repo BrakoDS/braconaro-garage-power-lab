@@ -127,6 +127,33 @@ function backfillMusculos() {
   return mudou;
 }
 
+/**
+ * Separa primário e secundário nos exercícios semeados que ainda não têm a separação.
+ *
+ * NÃO sobe `SEED_VERSION`: subir faria `migrarCatalogo` re-sincronizar TODO exercício
+ * semeado com a semente — reverteria o que o coach editou e reativaria o que ele
+ * desativou. Aqui só se ACRESCENTAM os dois campos, e só quando os músculos do
+ * exercício ainda são os da semente (comparados como conjunto: salvar o formulário
+ * reordena a lista pela ordem da grade). Se o coach mexeu nos músculos, ninguém
+ * adivinha o que ele quis dizer: o exercício fica como está e a Academia pede revisão.
+ */
+function backfillSeparacaoMusculos() {
+  const d = ler();
+  const semente = new Map(seedData().exercicios.map((x) => [x.id, x]));
+  const conjunto = (/** @type {unknown} */ v) => JSON.stringify((Array.isArray(v) ? [...v] : []).sort());
+  let mudou = false;
+  for (const x of d.exercicios) {
+    if (Array.isArray(x.musculosPrimarios)) continue;
+    const s = semente.get(x.id);
+    if (!s || conjunto(x.musculos) !== conjunto(s.musculos)) continue;
+    x.musculosPrimarios = s.musculosPrimarios.slice();
+    x.musculosSecundarios = s.musculosSecundarios.slice();
+    mudou = true;
+  }
+  if (mudou) setLocal(d);
+  return mudou;
+}
+
 /** Mapa id→tags da semente (esquema atual MUSCULAÇÃO/HYROX/HIIT/CROSS/GAP/MOBILIDADE). */
 let _seedTags = null;
 function seedTagsMap() {
@@ -243,6 +270,7 @@ function migrarCatalogo() {
     Object.assign(x, {
       nome: base.nome, equipamentoIds: base.equipamentoIds.slice(), tags: base.tags.slice(),
       musculos: base.musculos.slice(), padrao: base.padrao, nivel: base.nivel,
+      musculosPrimarios: base.musculosPrimarios.slice(), musculosSecundarios: base.musculosSecundarios.slice(),
       tempoMedioSeg: base.tempoMedioSeg, multiarticular: base.multiarticular,
       ocupaTudo: base.ocupaTudo === true, obs: base.obs, ativo: true,
     });
@@ -387,6 +415,7 @@ function backfillNovosSeed() {
 }
 garantirSeed();
 backfillMusculos();
+backfillSeparacaoMusculos();
 backfillPadrao();
 backfillTags();
 migrarCatalogo();
@@ -438,7 +467,7 @@ export async function iniciarSync(uid, aoAtualizar) {
         seeded: true,
         seedVersion: remoto.seedVersion || 0,
       });
-      const mudou = backfillMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillTecnicas() | backfillLoja() | backfillNegocio() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
+      const mudou = backfillMusculos() | backfillSeparacaoMusculos() | backfillPadrao() | backfillTags() | migrarCatalogo() | backfillTecnicas() | backfillLoja() | backfillNegocio() | backfillNovosSeed(); // retrocompat na nuvem (bitwise p/ rodar todos)
       if (mudou) await cloud.salvar(uid, ler());
       if (aoAtualizar) aoAtualizar();
     } else {

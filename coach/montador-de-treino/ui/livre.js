@@ -601,6 +601,7 @@ function snapshot() {
     geradoEm: new Date().toISOString(),
     manual: true,
     volPorPadrao: vol.porPadrao,
+    volPorMusculo: vol.porMusculo,
     nAlunos: nAlunos(), // a edição do dia salvo precisa da turma p/ recalcular viabilidade
     ...extra,
   };

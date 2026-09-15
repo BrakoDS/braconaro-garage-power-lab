@@ -18,6 +18,7 @@ import { extrairProposta, montarSchema, type Equip, type PropostaExercicio, type
 import {
   BOA_EXERCICIO, BOA_TECNICA, SEM_PADRAO, PADRAO_INVENTADO, MUSCULO_INVENTADO,
   EQUIP_FORA_DO_INVENTARIO, JSON_QUEBRADO, VAZIA, MALICIOSA,
+  SEM_MUSCULO_PRIMARIO, SECUNDARIO_REPETIDO,
 } from './fixtures/pesquisa';
 
 let falhas = 0;
@@ -279,7 +280,8 @@ const boa = extrairProposta(BOA_EXERCICIO, 'exercicio', EQUIP) as PropostaExerci
 ok(boa.tipo === 'exercicio', 'reconhece o tipo exercício');
 ok(boa.padrao === 'quadriceps', 'lê o padrão');
 ok(boa.nome === 'Agachamento búlgaro com halteres', 'lê o nome');
-ok(boa.musculos.join() === 'Quadríceps,Glúteo', 'lê os músculos válidos');
+ok(boa.musculosPrimarios.join() === 'Quadríceps', 'lê o músculo primário');
+ok(boa.musculosSecundarios.join() === 'Glúteo', 'lê o músculo secundário');
 ok(boa.equipamentoIds.join() === 'barra', 'mantém só o equipamento que está no inventário do box');
 ok(boa.equipamentoFaltante.join() === 'Banco búlgaro', 'equipamento que falta vai em texto livre, não em id');
 ok(boa.fontes.join() === 'https://exemplo.com/agachamento-bulgaro', 'guarda a fonte http');
@@ -308,10 +310,18 @@ try {
     'a mensagem manda cadastrar em /academia, o caminho manual que ainda funciona');
 }
 
+ok(lanca(() => extrairProposta(SEM_MUSCULO_PRIMARIO, 'exercicio', EQUIP)),
+  'exercício sem músculo primário é recusado — sem ele o volume some da conta por músculo');
+const repetido = extrairProposta(SECUNDARIO_REPETIDO, 'exercicio', EQUIP) as PropostaExercicio;
+ok(repetido.musculosPrimarios.join() === 'Costas' && repetido.musculosSecundarios.join() === 'Bíceps',
+  'músculo que está nas duas listas fica só no primário');
+ok(!lanca(() => extrairProposta(SEM_MUSCULO_PRIMARIO, 'mobilidade', EQUIP)),
+  'mobilidade sem músculo primário é aceita — ela não conta volume, e o formulário da Academia também permite');
+
 /* ---------- vocabulário fechado: descarta o item torto, não a proposta ---------- */
 
 const musculoTorto = extrairProposta(MUSCULO_INVENTADO, 'exercicio', EQUIP) as PropostaExercicio;
-ok(musculoTorto.musculos.join() === 'Costas',
+ok(musculoTorto.musculosPrimarios.join() === 'Costas',
   'músculo fora do vocabulário some, o válido sobrevive');
 ok(musculoTorto.tags.join() === 'MUSCULAÇÃO',
   'tag fora do vocabulário (aqui, uma modalidade inventada) some, a válida sobrevive');
@@ -331,7 +341,7 @@ const envelopeTeste = (dados: object) => ({ output: [{ content: [{ type: 'output
 
 const EXERCICIO_BASE = {
   tipo: 'exercicio', nome: 'Exercício de teste', padrao: 'quadriceps',
-  musculos: [] as string[], tags: [] as string[], equipamentoIds: [] as string[],
+  musculosPrimarios: ['Quadríceps'], musculosSecundarios: [] as string[], tags: [] as string[], equipamentoIds: [] as string[],
   nivel: 'intermediario', tempoMedioSeg: 35, obs: '', equipamentoFaltante: [] as string[], fontes: [] as string[],
 };
 
@@ -477,7 +487,8 @@ function checarVocabulario(nome: string, extrairFonte: () => string[], copia: st
 const schemaVocab = montarSchema('exercicio', []) as {
   properties: {
     padrao: { enum: string[] };
-    musculos: { items: { enum: string[] } };
+    musculosPrimarios: { items: { enum: string[] } };
+    musculosSecundarios: { items: { enum: string[] } };
     tags: { items: { enum: string[] } };
     nivel: { enum: string[] };
   };
@@ -510,8 +521,11 @@ checarVocabulario(
       return rotulo;
     });
   },
-  schemaVocab.properties.musculos.items.enum,
+  schemaVocab.properties.musculosPrimarios.items.enum,
 );
+
+ok(JSON.stringify(schemaVocab.properties.musculosSecundarios.items.enum) === JSON.stringify(schemaVocab.properties.musculosPrimarios.items.enum),
+  'primário e secundário aceitam exatamente o mesmo vocabulário');
 
 checarVocabulario(
   'TAGS',
