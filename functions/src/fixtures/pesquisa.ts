@@ -17,7 +17,7 @@ export const BOA_EXERCICIO = envelope(JSON.stringify({
   tipo: 'exercicio',
   nome: 'Agachamento búlgaro com halteres',
   padrao: 'quadriceps',
-  musculos: ['Quadríceps', 'Glúteo'],
+  musculosPrimarios: ['Quadríceps'], musculosSecundarios: ['Glúteo'],
   tags: ['MUSCULAÇÃO'],
   equipamentoIds: ['barra', 'caixote-inventado'],
   nivel: 'intermediario',
@@ -48,7 +48,7 @@ export const SEM_PADRAO = envelope(JSON.stringify({
   tipo: 'exercicio',
   nome: 'Movimento sem classificação',
   padrao: '',
-  musculos: [],
+  musculosPrimarios: [], musculosSecundarios: [],
   tags: [],
   equipamentoIds: [],
   nivel: 'intermediario',
@@ -63,7 +63,7 @@ export const PADRAO_INVENTADO = envelope(JSON.stringify({
   tipo: 'exercicio',
   nome: 'Exercício com padrão que a IA inventou',
   padrao: 'rotacional', // não existe em PADROES
-  musculos: ['Peito'],
+  musculosPrimarios: ['Peito'], musculosSecundarios: [],
   tags: ['MUSCULAÇÃO'],
   equipamentoIds: [],
   nivel: 'iniciante',
@@ -78,7 +78,7 @@ export const MUSCULO_INVENTADO = envelope(JSON.stringify({
   tipo: 'exercicio',
   nome: 'Remada unilateral com halter',
   padrao: 'puxar',
-  musculos: ['Costas', 'Deltoide posterior extendido'], // segundo não existe no vocabulário
+  musculosPrimarios: ['Costas', 'Deltoide posterior extendido'], musculosSecundarios: [], // segundo não existe no vocabulário
   tags: ['MUSCULAÇÃO', 'MODALIDADE-INVENTADA'],
   equipamentoIds: ['barra'],
   nivel: 'intermediario',
@@ -93,7 +93,7 @@ export const EQUIP_FORA_DO_INVENTARIO = envelope(JSON.stringify({
   tipo: 'exercicio',
   nome: 'Leg press 45°',
   padrao: 'quadriceps',
-  musculos: ['Quadríceps'],
+  musculosPrimarios: ['Quadríceps'], musculosSecundarios: [],
   tags: ['MUSCULAÇÃO'],
   equipamentoIds: ['leg_press_45'], // não está no inventário enviado
   nivel: 'intermediario',
@@ -117,12 +117,46 @@ export const MALICIOSA = envelope(JSON.stringify({
   tipo: 'exercicio',
   nome: '<script>alert(1)</script>',
   padrao: 'core',
-  musculos: ['Core/Abdômen'],
+  musculosPrimarios: ['Core/Abdômen'], musculosSecundarios: [],
   tags: ['MUSCULAÇÃO'],
   equipamentoIds: [],
   nivel: 'iniciante',
   tempoMedioSeg: 30,
   obs: '"><svg onload=alert(1)> Prancha isométrica, manter o quadril alinhado.',
+  equipamentoFaltante: [],
+  fontes: [],
+}));
+
+/** A IA devolveu exercício sem nenhum músculo primário — tem que ser recusado. */
+export const SEM_MUSCULO_PRIMARIO = envelope(JSON.stringify({
+  tipo: 'exercicio',
+  nome: 'Exercício sem primário',
+  padrao: 'puxar',
+  musculosPrimarios: [],
+  musculosSecundarios: ['Bíceps'],
+  tags: ['MUSCULAÇÃO'],
+  equipamentoIds: ['barra'],
+  nivel: 'intermediario',
+  tempoMedioSeg: 40,
+  multiarticular: true,
+  obs: '',
+  equipamentoFaltante: [],
+  fontes: [],
+}));
+
+/** A IA pôs o mesmo músculo nas duas listas — o repetido fica só no primário. */
+export const SECUNDARIO_REPETIDO = envelope(JSON.stringify({
+  tipo: 'exercicio',
+  nome: 'Remada com músculo repetido',
+  padrao: 'puxar',
+  musculosPrimarios: ['Costas'],
+  musculosSecundarios: ['Costas', 'Bíceps'],
+  tags: ['MUSCULAÇÃO'],
+  equipamentoIds: ['barra'],
+  nivel: 'intermediario',
+  tempoMedioSeg: 40,
+  multiarticular: true,
+  obs: '',
   equipamentoFaltante: [],
   fontes: [],
 }));

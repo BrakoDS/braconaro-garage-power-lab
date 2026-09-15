@@ -36,8 +36,8 @@
  *   - `MUSCULOS_LABEL`  ← as 11 chaves de `MUSCULOS` (mesmo arquivo), passadas
  *                          pelo mapa `MUSC_MAP` de `compartilhado/config/musculos.js`
  *                          (rótulo legível). A Academia grava o RÓTULO, não a
- *                          chave — ver `seedData()`, campo `musculos:
- *                          [...].map((m) => MUSC_MAP[m])` — e é essa forma que
+ *                          chave — ver `seedData()`, campos `musculosPrimarios` e
+ *                          `musculosSecundarios`, traduzidos por `MUSC_MAP` — e é essa forma que
  *                          `compartilhado/dados/catalogo-efetivo.js` (`MUSC_INV`) espera de
  *                          volta na hora de converter para o motor.
  *   - `TAGS`            ← `coach/academia/db.js` (`TAGS`, 6 valores).
@@ -59,7 +59,8 @@ const PADROES = [
 /**
  * Rótulos de `MUSCULOS` (`compartilhado/config/padroes.js`) já traduzidos pelo
  * `MUSC_MAP` de `compartilhado/config/musculos.js` — é o rótulo que a Academia grava em
- * `exercicio.musculos`, não a chave interna do montador.
+ * `exercicio.musculosPrimarios` e `exercicio.musculosSecundarios`, não a chave
+ * interna do montador.
  */
 const MUSCULOS_LABEL = [
   'Peito', 'Ombro', 'Tríceps', 'Costas', 'Bíceps', 'Quadríceps',
@@ -88,7 +89,7 @@ export type Contexto = 'exercicio' | 'mobilidade' | 'tecnica';
 
 export type PropostaExercicio = {
   tipo: 'exercicio';
-  nome: string; padrao: string; musculos: string[]; tags: string[];
+  nome: string; padrao: string; musculosPrimarios: string[]; musculosSecundarios: string[]; tags: string[];
   equipamentoIds: string[]; nivel: string; tempoMedioSeg: number; obs: string;
   multiarticular: boolean;
   equipamentoFaltante: string[]; fontes: string[];
@@ -143,14 +144,15 @@ export function montarSchema(contexto: Contexto, equipamentos: Equip[]): object 
     type: 'object',
     additionalProperties: false,
     required: [
-      'tipo', 'nome', 'padrao', 'musculos', 'tags', 'equipamentoIds',
+      'tipo', 'nome', 'padrao', 'musculosPrimarios', 'musculosSecundarios', 'tags', 'equipamentoIds',
       'nivel', 'tempoMedioSeg', 'multiarticular', 'obs', 'equipamentoFaltante', 'fontes',
     ],
     properties: {
       tipo: { type: 'string', enum: ['exercicio'] },
       nome: { type: 'string' },
       padrao: { type: 'string', enum: [...PADROES] },
-      musculos: { type: 'array', items: { type: 'string', enum: [...MUSCULOS_LABEL] } },
+      musculosPrimarios: { type: 'array', items: { type: 'string', enum: [...MUSCULOS_LABEL] } },
+      musculosSecundarios: { type: 'array', items: { type: 'string', enum: [...MUSCULOS_LABEL] } },
       tags: { type: 'array', items: { type: 'string', enum: [...TAGS] } },
       equipamentoIds: equipamentoIdsSchema,
       nivel: { type: 'string', enum: [...NIVEIS] },
@@ -205,6 +207,7 @@ export function instrucoes(contexto: Contexto, equipamentos: Equip[]): string {
     '',
     `Padrões de movimento aceitos: ${PADROES.join(', ')}.`,
     `Músculos aceitos: ${MUSCULOS_LABEL.join(', ')}.`,
+    'Separe os músculos em "musculosPrimarios" (os que o movimento treina de fato e que limitam a série) e "musculosSecundarios" (os que só ajudam ou estabilizam). Um músculo nunca aparece nas duas listas. Todo exercício tem ao menos um músculo primário.',
     `Tags de modalidade aceitas: ${TAGS.join(', ')}.`,
     `Níveis aceitos: ${NIVEIS.join(', ')}.`,
     `Equipamento que este box TEM: ${listaEquip}.`,
@@ -276,6 +279,7 @@ function lerJson(texto: string): unknown | null {
 const ERRO_LEITURA = 'Não deu para ler a resposta da pesquisa. Tente de novo.';
 const ERRO_SEM_NOME = 'A pesquisa voltou sem nome.';
 const ERRO_SEM_PADRAO = 'A pesquisa não conseguiu classificar o padrão de movimento. Cadastre em /academia.';
+const ERRO_SEM_MUSCULO = 'A pesquisa não apontou o músculo principal do exercício. Cadastre em /academia.';
 
 /** String não vazia após trim; qualquer outra coisa vira `''`. */
 const texto = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
@@ -338,6 +342,15 @@ export function extrairProposta(
   const padrao = texto(d.padrao);
   if (!(PADROES as readonly string[]).includes(padrao)) throw new Error(ERRO_SEM_PADRAO);
 
+  // Primário é obrigatório, como o padrão: sem ele o volume do exercício some da
+  // conta por músculo, e o coach cadastraria achando que deu tudo certo.
+  const musculosPrimarios = [...new Set(arrayFiltrado(d.musculosPrimarios, MUSCULOS_LABEL))];
+  if (!musculosPrimarios.length) throw new Error(ERRO_SEM_MUSCULO);
+  // Músculo nas duas listas fica só no primário — mesma regra de
+  // compartilhado/regras/musculos-exercicio.js, no site.
+  const musculosSecundarios = [...new Set(arrayFiltrado(d.musculosSecundarios, MUSCULOS_LABEL))]
+    .filter((m) => !musculosPrimarios.includes(m));
+
   const idsDoInventario = new Set(equipamentos.map((e) => e.id));
   // `Set` também DEDUPLICA: a IA repetir 'barra' duas vezes não pode virar dois
   // checkboxes iguais na tela nem dois ids iguais no banco da academia.
@@ -352,7 +365,8 @@ export function extrairProposta(
     tipo: 'exercicio',
     nome,
     padrao,
-    musculos: arrayFiltrado(d.musculos, MUSCULOS_LABEL),
+    musculosPrimarios,
+    musculosSecundarios,
     tags: arrayFiltrado(d.tags, TAGS),
     equipamentoIds,
     // Nível fora do vocabulário cai no mesmo padrão que `coach/academia/db.js` já usa
