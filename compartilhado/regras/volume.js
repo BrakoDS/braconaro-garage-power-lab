@@ -3,8 +3,8 @@
  * CÁLCULO DE VOLUME por grupamento muscular e por padrão de movimento.
  * Convenção: 1 série conta 1.0 para cada músculo PRIMÁRIO e 0.5 para SECUNDÁRIO.
  *
- * @typedef {import('../../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
- * @typedef {import('../../../compartilhado/config/padroes.js').Padrao} Padrao
+ * @typedef {import('../dados/exercicios.js').Exercicio} Exercicio
+ * @typedef {import('../config/padroes.js').Padrao} Padrao
  *
  * @typedef {Object} ItemTreino
  * @property {Exercicio} exercicio
@@ -20,14 +20,17 @@ const PESO_PRIMARIO = 1.0;
 const PESO_SECUNDARIO = 0.5;
 
 /**
- * Crédito de volume de um movimento de WOD (Híbrido ou bloco de WOD do Livre).
- * É NOMINAL, não medido: um WOD mistura reps/tempo/rodadas de um jeito que não dá
- * pra contar "séries" de verdade, então cada movimento entra com um peso fixo só
- * para não sumir da tabela de padrão de movimento e do total de séries do dia.
- * Por isso NUNCA entra em `porMusculo` — ali o número precisa ser volume real de
- * músculo, e um crédito inventado distorceria a leitura de quanto cada grupo
- * trabalhou. Mesma constante para o Híbrido (`hibrido.js`) e o Treino Livre
- * (`livre.js`) — os dois têm que combinar sempre, nunca divergir em silêncio.
+ * Crédito de volume de um movimento de WOD — HISTÓRICO, fora de uso na produção.
+ *
+ * Era o peso fixo que cada movimento de WOD recebia quando não havia régua para
+ * converter reps, tempo e rodadas em série: entrava só no padrão de movimento e
+ * NUNCA em `porMusculo`, porque um crédito inventado distorceria a leitura de
+ * quanto cada grupo trabalhou.
+ *
+ * Hoje `hibrido.js` e `livre.js` usam `seriesDoMovimentoWod`
+ * (`compartilhado/regras/equivalencia.js`), que faz a conta de verdade e credita
+ * músculo. A constante continua exportada e guardada por teste para que ninguém
+ * a mude achando que ainda vale, e para deixar rastro de como a conta era antes.
  */
 export const CREDITO_WOD = 2.5;
 
@@ -45,11 +48,16 @@ export function calcularVolume(itens) {
 
   for (const { exercicio, series } of itens) {
     totalSeries += series;
-    porPadrao[exercicio.padrao] = (porPadrao[exercicio.padrao] || 0) + series;
-    for (const m of exercicio.musculosPrimarios) {
+    // Sem padrão, a série continua contando no total e nos músculos — só não vira
+    // uma chave "undefined" na tabela de padrões. Descartar o item inteiro mudaria
+    // totais que já existem (o GAP, por exemplo, sempre contou assim).
+    if (exercicio.padrao) porPadrao[exercicio.padrao] = (porPadrao[exercicio.padrao] || 0) + series;
+    // `|| []`: esta função é o coração do volume e recebe objetos montados à mão
+    // (estações do Hyrox, movimentos de WOD). Um array ausente não pode derrubar a aula.
+    for (const m of exercicio.musculosPrimarios || []) {
       porMusculo[m] = (porMusculo[m] || 0) + series * PESO_PRIMARIO;
     }
-    for (const m of exercicio.musculosSecundarios) {
+    for (const m of exercicio.musculosSecundarios || []) {
       porMusculo[m] = (porMusculo[m] || 0) + series * PESO_SECUNDARIO;
     }
   }

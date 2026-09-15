@@ -19,7 +19,7 @@
  * tela (render, eventos, boot) — os helpers puros usados aqui
  * (`gruposDoBloco`, `linhasIncompletas`, `est`) não chamam nada disso. Os
  * stubs abaixo existem só porque o import em cadeia (`store.js`,
- * `coach/academia/db.js`, `portal-treino.js`) referencia esses globais dentro de
+ * `coach/academia/db.js`, `compartilhado/firebase/treino-portal.js`) referencia esses globais dentro de
  * função, e o Node não os tem por padrão fora do browser — carregar o módulo
  * não exige mais do que isto.
  *

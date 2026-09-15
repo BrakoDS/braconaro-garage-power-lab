@@ -13,14 +13,14 @@
  *  8. Gera treino final: aquecimento + principal + finalizador (opcional)
  *
  * @typedef {import('../../../compartilhado/dados/exercicios.js').Exercicio} Exercicio
- * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../../../compartilhado/config/modalidades.js').ModalidadeId} ModalidadeId
  * @typedef {import('../../../compartilhado/config/padroes.js').Padrao} Padrao
  */
 import { EXERCICIOS, EXERCICIO_POR_ID, serveModalidade } from '../../../compartilhado/dados/exercicios.js';
-import { MODALIDADES } from '../config/modalidades.js';
+import { MODALIDADES } from '../../../compartilhado/config/modalidades.js';
 import { padroesObrigatorios, PADROES } from '../../../compartilhado/config/padroes.js';
 import { verificarViabilidade, podeAdicionar } from './viabilidade.js';
-import { calcularVolume } from './volume.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
 import { seriesAjustadas, ehDeload } from './periodizacao.js';
 import { ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';
 import { gerarHyrox, volumeHyrox, estimarDuracaoSeg } from './hyrox.js';
@@ -66,7 +66,7 @@ function mulberry32(seed) {
 
 /**
  * Tempo de um exercício do bloco principal (segundos).
- * @param {Exercicio} ex @param {number} series @param {import('../config/modalidades.js').Modalidade} mod
+ * @param {Exercicio} ex @param {number} series @param {import('../../../compartilhado/config/modalidades.js').Modalidade} mod
  */
 function tempoExercicio(ex, series, mod) {
   const transicao = 20;
@@ -292,7 +292,12 @@ function montarHyrox({ dia, semana, nivel, nAlunos }) {
     aquecimento: [],
     principal: [],
     finalizador: null,
-    volume: volumeHyrox(),
+    // `nivel` está no escopo desde a desestruturação acima — sem repassar, o volume
+    // sempre caía no default 'intermediario' de `volumeHyrox`, e a turma avançada ou
+    // competitiva via o mesmo número da iniciante. É o único chamador de produção;
+    // o Treino Manual (ui/manual-hyrox.js) mostra as 4 colunas de nível lado a lado
+    // e por isso segue sem nível — não mexer nele por causa disto.
+    volume: volumeHyrox(hyrox.estacoes, nivel),
     viabilidade: { ok: true, conflitos: [], demanda: {}, formato: 'for-time', nota: hyrox.viabilidade.nota },
     tempoAquecimentoSeg: 0,
     tempoPrincipalSeg: tempoTotalSeg,
@@ -556,7 +561,7 @@ function focoDoDia(principal) {
  * inteiro cairia sobre o mesmo grupo e deixaria o resto frio.
  *
  * @param {() => number} rng
- * @param {import('../config/modalidades.js').ModalidadeId} [modalidade]
+ * @param {import('../../../compartilhado/config/modalidades.js').ModalidadeId} [modalidade]
  * @param {{exercicio: Exercicio}[]} [principal] bloco principal já montado
  */
 function montarAquecimento(rng, modalidade, principal = []) {

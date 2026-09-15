@@ -18,9 +18,12 @@
  * como este treino roda.
  *
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
- * @typedef {import('./volume.js').Volume} Volume
+ * @typedef {import('../../../compartilhado/regras/volume.js').Volume} Volume
  */
 import { ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
+import { seriesPorReps } from '../../../compartilhado/regras/equivalencia.js';
+import { EXERCICIO_BASE_POR_ID } from '../../../compartilhado/dados/exercicios.js';
 
 /**
  * Os três blocos. As repetições são IGUAIS em todos os níveis — o Murph é o
@@ -141,35 +144,27 @@ export function estimarDuracaoSeg(nivel, opcoes = {}) {
 }
 
 /**
- * Volume do Murph — nominal, mas ancorado nas repetições reais.
+ * Volume do Murph, em séries equivalentes.
  *
- * 20 repetições de peso corporal valem 1 série equivalente. É uma ESTIMATIVA de
- * treino, não uma medida: 600 reps de resistência não somam o mesmo estímulo que
- * 30 séries de musculação com carga, e contar 1 série a cada 10 reps faria um
- * único Murph estourar o mínimo semanal inteiro sozinho.
+ * 20 repetições valem uma série — a régua que este módulo estreou e que hoje vale
+ * para o box inteiro (`REPS_POR_SERIE`). O músculo saiu do código e passou a vir
+ * do catálogo pelo `exercicioId` que cada bloco já carrega: manter uma segunda
+ * lista aqui era garantir que um dia ela discordasse da primeira.
  * @returns {Volume}
  */
-const REPS_POR_SERIE_EQUIV = 20;
-
 export function volumeMurph() {
-  /** @type {Record<string, number>} */
-  const porPadrao = {};
-  /** @type {Record<string, number>} */
-  const porMusculo = {};
-  let totalSeries = 0;
-
-  // Músculos primários de cada bloco, na convenção de volume.js (o 1º é primário).
-  const MUSCULOS = { 1: ['costas', 'biceps'], 2: ['peito', 'triceps'], 3: ['quadriceps', 'gluteo'] };
-
-  for (const b of MURPH_BLOCOS) {
-    const series = b.reps / REPS_POR_SERIE_EQUIV;
-    totalSeries += series;
-    porPadrao[b.padrao] = (porPadrao[b.padrao] || 0) + series;
-    MUSCULOS[b.n].forEach((m, i) => {
-      porMusculo[m] = (porMusculo[m] || 0) + series * (i === 0 ? 1 : 0.5);
-    });
-  }
-  return { porMusculo, porPadrao, totalSeries };
+  const itens = MURPH_BLOCOS.map((b) => {
+    const ex = EXERCICIO_BASE_POR_ID[b.exercicioId];
+    return {
+      exercicio: {
+        padrao: b.padrao,
+        musculosPrimarios: (ex && ex.musculosPrimarios) || [],
+        musculosSecundarios: (ex && ex.musculosSecundarios) || [],
+      },
+      series: seriesPorReps(b.reps),
+    };
+  });
+  return calcularVolume(itens);
 }
 
 /**

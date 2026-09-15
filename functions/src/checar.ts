@@ -391,7 +391,7 @@ ok(mesmoConjunto(Object.keys(schemaTecnica.properties), schemaTecnica.required),
    embutidas) e sem passo de build novo. O que seguirmos abaixo é sempre uma
    CONSTANTE LITERAL (array de string ou objeto de string→string) num arquivo
    .js do site — nunca o typedef de um JSDoc, que não é código executável e não
-   dá para extrair com confiança. Por isso NIVEIS vem de `coach/montador-de-treino/core/niveis.js`
+   dá para extrair com confiança. Por isso NIVEIS vem de `compartilhado/regras/niveis.js`
    (o array de verdade que os módulos do motor importam), não do comentário em
    `compartilhado/dados/exercicios.js:35` — aquele é só a anotação de tipo do campo,
    nunca a fonte que alguém precisaria lembrar de atualizar. */
@@ -494,15 +494,15 @@ checarVocabulario(
   () => {
     // MUSCULOS_LABEL não é uma constante única em lugar nenhum do site: é
     // `MUSCULOS` (as 11 chaves internas, em `padroes.js`) traduzida pelo mapa
-    // `MUSC_MAP` (`coach/academia/data/seed.js`) — a mesma cadeia que o cabeçalho de
+    // `MUSC_MAP` (`compartilhado/config/musculos.js`) — a mesma cadeia que o cabeçalho de
     // `pesquisa.ts` documenta. Reproduzimos os dois passos aqui, não um atalho.
     const chaves = comoArrayDeString(
       acharConst(parseSite('compartilhado/config/padroes.js'), 'MUSCULOS'),
       'compartilhado/config/padroes.js:MUSCULOS',
     );
     const mapa = comoMapaDeString(
-      acharConst(parseSite('coach/academia/data/seed.js'), 'MUSC_MAP'),
-      'coach/academia/data/seed.js:MUSC_MAP',
+      acharConst(parseSite('compartilhado/config/musculos.js'), 'MUSC_MAP'),
+      'compartilhado/config/musculos.js:MUSC_MAP',
     );
     return chaves.map((k) => {
       const rotulo = mapa[k];
@@ -521,7 +521,7 @@ checarVocabulario(
 
 checarVocabulario(
   'NIVEIS',
-  () => comoArrayDeString(acharConst(parseSite('coach/montador-de-treino/core/niveis.js'), 'NIVEIS'), 'coach/montador-de-treino/core/niveis.js:NIVEIS'),
+  () => comoArrayDeString(acharConst(parseSite('compartilhado/regras/niveis.js'), 'NIVEIS'), 'compartilhado/regras/niveis.js:NIVEIS'),
   schemaVocab.properties.nivel.enum,
 );
 

@@ -11,10 +11,11 @@
  * Cada música = 8 rounds com 3 exercícios cíclicos (1,2,3,1,2,3,1,2).
  *
  * @typedef {import('../data/gap.js').MovGap} MovGap
- * @typedef {import('./volume.js').Volume} Volume
+ * @typedef {import('../../../compartilhado/regras/volume.js').Volume} Volume
  */
 import { GAP_AQUECIMENTO, GAP_PERNAS, GAP_GLUTEO, GAP_ABDOMEN, MOV_GAP_POR_ID, PESO_VARIACAO, SERIES_POR_ROUND } from '../data/gap.js';
 import { ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
 
 export const TABATA = { trabalhoSeg: 20, descansoSeg: 10, roundsPorMusica: 8 };
 /** Distribuição cíclica dos 3 exercícios em 8 rounds: 1,2,3,1,2,3,1,2. */
@@ -186,27 +187,35 @@ export function estimarDuracaoSeg(musicas = 9) {
  * @returns {Volume}
  */
 export function volumeGap(gap) {
-  /** @type {Record<string, number>} */ const porMusculo = {};
-  /** @type {Record<string, number>} */ const porPadrao = {};
-  let totalSeries = 0;
-
+  // Cada round vira um item de treino e delega em `calcularVolume` — mesma conta
+  // (primário 1,0 / secundário 0,5, adaptador `{padrao, musculosPrimarios,
+  // musculosSecundarios}` igual ao de `volumeHyrox`) em vez de reimplementar o
+  // peso primário/secundário à mão pela quarta vez no projeto.
+  /** @type {{exercicio: {padrao: string, musculosPrimarios: string[], musculosSecundarios: string[]}, series: number}[]} */
+  const itens = [];
   for (const parte of gap?.partes || []) {
     for (const m of parte.musicas) {
       for (const r of m.rounds) {
         const mov = MOV_GAP_POR_ID[r.movId];
         if (!mov) continue;
-        const series = SERIES_POR_ROUND * (PESO_VARIACAO[r.variacao] ?? 1);
-        totalSeries += series;
-        if (mov.padrao) porPadrao[mov.padrao] = (porPadrao[mov.padrao] || 0) + series;
-        // mesma convenção de volume.js: primeiro músculo é primário (1,0), resto secundário (0,5)
-        (mov.musculos || []).forEach((musc, i) => {
-          porMusculo[musc] = (porMusculo[musc] || 0) + series * (i === 0 ? 1 : 0.5);
+        const musculos = mov.musculos || [];
+        itens.push({
+          exercicio: {
+            padrao: mov.padrao,
+            musculosPrimarios: musculos.slice(0, 1),
+            musculosSecundarios: musculos.slice(1),
+          },
+          series: SERIES_POR_ROUND * (PESO_VARIACAO[r.variacao] ?? 1),
         });
       }
     }
   }
+  const vol = calcularVolume(itens);
 
+  // `calcularVolume` não arredonda (é a régua exata para quem soma semanas
+  // inteiras); o GAP sempre arredondou a própria saída para exibição — mantido
+  // aqui por cima do resultado, e não dentro da régua compartilhada.
   const arredondar = (/** @type {Record<string, number>} */ o) =>
     Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v * 10) / 10]));
-  return { porMusculo: arredondar(porMusculo), porPadrao: arredondar(porPadrao), totalSeries: Math.round(totalSeries) };
+  return { porMusculo: arredondar(vol.porMusculo), porPadrao: arredondar(vol.porPadrao), totalSeries: Math.round(vol.totalSeries) };
 }

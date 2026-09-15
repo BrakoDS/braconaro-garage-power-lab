@@ -3,3 +3,6 @@
 
 # Specs e planos de design — ficam locais, o repo é público
 docs/superpowers/
+
+# Contexto de marketing gerado por skill — local, nao e do produto
+.agents/

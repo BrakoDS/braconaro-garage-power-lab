@@ -13,10 +13,11 @@
  * catálogo efetivo é montado na UI a partir da Academia. Assim o teste passa um
  * catálogo de mentira e nada mais precisa existir.
  *
- * @typedef {import('./niveis.js').Nivel} Nivel
+ * @typedef {import('../../../compartilhado/regras/niveis.js').Nivel} Nivel
  */
-import { calcularVolume, CREDITO_WOD } from './volume.js';
-import { variantesNivel } from './niveis.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
+import { seriesDoMovimentoWod } from '../../../compartilhado/regras/equivalencia.js';
+import { variantesNivel } from '../../../compartilhado/regras/niveis.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
 
 /** Folga fixa de transição/explicação do dia, igual à das outras abas (5 min). */
@@ -96,15 +97,27 @@ export function montarLivre({ classificacao = 'hipertrofia', aquecimento = [], b
   /** @type {{exercicio: any, series: number}[]} */
   const itensVolume = [];
   const blocosSaida = [];
-  /** Padrões de movimento creditados pelos WODs — somados DEPOIS de calcularVolume. */
-  const creditosWod = [];
   let principalSeg = 0;
 
   (blocos || []).forEach((b, i) => {
     if (b && b.tipo === 'wod') {
       const bloco = montarBlocoWod(b, porId);
       if (!bloco) return; // WOD sem movimento não vira nada, igual ao bloco vazio
-      for (const m of bloco.exercicios) creditosWod.push(m.padrao);
+      const nMovs = bloco.exercicios.length;
+      for (const m of bloco.exercicios) {
+        const e = porId(m.id);
+        itensVolume.push({
+          exercicio: {
+            padrao: m.padrao,
+            musculosPrimarios: (e && e.musculosPrimarios) || [],
+            musculosSecundarios: (e && e.musculosSecundarios) || [],
+          },
+          series: seriesDoMovimentoWod({
+            prescricao: m.prescricao, rodadas: bloco.rodadas,
+            duracaoMin: bloco.duracaoMin, nMovimentos: nMovs,
+          }),
+        });
+      }
       principalSeg += bloco.duracaoMin * 60;
       blocosSaida.push(bloco);
       return;
@@ -192,20 +205,17 @@ export function montarLivre({ classificacao = 'hipertrofia', aquecimento = [], b
     });
   });
 
-  // O crédito do WOD entra DEPOIS da conta real, e só em `porPadrao`/`totalSeries`:
-  // ver o porquê em CREDITO_WOD (volume.js). É a mesma soma que `volumeHibrido`
-  // faz — as duas abas precisam contar o mesmo WOD do mesmo jeito.
+  // O WOD entra na mesma lista de itens de volume que os blocos de série — com
+  // músculo, e não só crédito nominal de padrão. É a mesma conta que
+  // `volumeHibrido` faz para o WOD do Híbrido: as duas abas precisam contar o
+  // mesmo WOD do mesmo jeito.
   const vol = calcularVolume(itensVolume);
-  for (const padrao of creditosWod) {
-    vol.porPadrao[padrao] = (vol.porPadrao[padrao] || 0) + CREDITO_WOD;
-    vol.totalSeries += CREDITO_WOD;
-  }
 
   return {
     vol,
     // Os movimentos do WOD contam: sem isso um dia 100% WOD não teria barra de
     // salvar — e é justamente o dia que a aba passou a existir para montar.
-    nItens: itensVolume.length + creditosWod.length,
+    nItens: itensVolume.length,
     extra: {
       tempos: {
         aquecimentoSeg,

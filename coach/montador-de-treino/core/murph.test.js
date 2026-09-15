@@ -6,7 +6,7 @@ import {
   CINDY_ROUNDS, CINDY_ROUND, gerarMurph, volumeMurph, estimarDuracaoSeg,
 } from './murph.js';
 import { EXERCICIO_POR_ID } from '../../../compartilhado/dados/exercicios.js';
-import { MODALIDADES } from '../config/modalidades.js';
+import { MODALIDADES } from '../../../compartilhado/config/modalidades.js';
 
 test('o miolo é 100 / 200 / 300 e soma 600', () => {
   assert.deepEqual(MURPH_BLOCOS.map((b) => b.reps), [100, 200, 300]);
@@ -88,6 +88,26 @@ test('o avançado demora mais que o iniciante — o unbroken cobra caro', () => 
   assert.ok(avcCurto > int);
 });
 
+test('os numeros do Murph nao mudaram ao sair do codigo para o catalogo', () => {
+  const vol = volumeMurph();
+  assert.equal(vol.totalSeries, 30);          // (100 + 200 + 300) / 20
+  assert.equal(vol.porPadrao.puxar, 5);
+  assert.equal(vol.porPadrao.empurrar, 10);
+  assert.equal(vol.porPadrao.quadriceps, 15);
+});
+
+test('o musculo do Murph vem do catalogo, e continua batendo', () => {
+  const vol = volumeMurph();
+  assert.equal(vol.porMusculo.costas, 5);     // 100 puxadas, primario
+  assert.equal(vol.porMusculo.peito, 10);     // 200 flexoes, primario
+  assert.equal(vol.porMusculo.quadriceps, 15); // 300 agachamentos, primario
+  // A flexao tambem carrega ombro e core como secundarios no catalogo — antes do
+  // musculo vir do catalogo esse delta nao existia (o codigo só sabia do padrao),
+  // e um teste que pina só os primarios não pegaria a regressao se ela voltasse.
+  assert.equal(vol.porMusculo.ombro, 5);  // secundário da flexão: 0,5 × 10 séries
+  assert.equal(vol.porMusculo.core, 5);   // idem
+});
+
 test('gerarMurph nunca reprova por equipamento — o rodízio é do professor', () => {
   const m = gerarMurph({ nAlunos: 20 });
   assert.equal(m.viabilidade.ok, true);
@@ -97,7 +117,7 @@ test('gerarMurph nunca reprova por equipamento — o rodízio é do professor', 
 });
 
 test('o Murph está registrado como modalidade', () => {
-  assert.ok(MODALIDADES.murph, 'murph fora de config/modalidades.js');
+  assert.ok(MODALIDADES.murph, 'murph fora de compartilhado/config/modalidades.js');
   assert.equal(MODALIDADES.murph.id, 'murph');
 });
 

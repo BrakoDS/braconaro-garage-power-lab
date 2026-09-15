@@ -18,7 +18,7 @@
  *  - 'gap' está fora de todos até o sistema de GAP ser desenhado na plataforma.
  *
  * @typedef {import('../config/padroes.js').Padrao} Padrao
- * @typedef {import('../../coach/montador-de-treino/config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
  *
  * @typedef {Object} Exercicio
  * @property {string} id
@@ -1098,7 +1098,8 @@ export const EXERCICIO_POR_ID = Object.fromEntries(EXERCICIOS.map((e) => [e.id, 
 /**
  * Catálogo BASE (imutável) — os exercícios reais do box, com o schema completo
  * (padrão de movimento, nível, tempo, músculos primários/secundários). Serve de
- * fallback offline e de fonte desses campos para o catálogo efetivo (ver ui/catalogo.js).
+ * fallback offline e de fonte desses campos para o catálogo efetivo (ver
+ * compartilhado/dados/catalogo-efetivo.js).
  * @type {Exercicio[]}
  */
 export const EXERCICIOS_BASE = EXERCICIOS.slice();

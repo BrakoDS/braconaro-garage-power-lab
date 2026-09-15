@@ -12,7 +12,7 @@
  * @property {string} nome
  * @property {'iniciante'|'intermediario'|'avancado'} nivel
  * @property {string} combinacaoId
- * @property {Partial<Record<string, import('../config/modalidades.js').ModalidadeId>>} modalidadesPorDia
+ * @property {Partial<Record<string, import('../../../compartilhado/config/modalidades.js').ModalidadeId>>} modalidadesPorDia
  *
  * @typedef {Object} TreinoSalvo
  * @property {string} dateId           'YYYY-MM-DD'

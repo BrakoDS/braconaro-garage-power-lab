@@ -14,7 +14,7 @@ import { intensidadeSemana } from './periodizacao.js';
 
 /** Duração fixa de uma série de bi-set em dupla (A + a troca + pausa). */
 export const SERIE_SEG = 120;
-/** Segundos por repetição — espelha `segPorRepMedia` do Híbrido em config/modalidades.js. */
+/** Segundos por repetição — espelha `segPorRepMedia` do Híbrido em compartilhado/config/modalidades.js. */
 export const SEG_POR_REP = 3;
 
 /**
@@ -54,7 +54,7 @@ export function calcularSeries(nPostos) {
   return Math.min(4, Math.max(3, Math.round(12 / nPostos)));
 }
 
-/** Faixa de %1RM do Híbrido — espelha `intensidadePctRM` de config/modalidades.js. */
+/** Faixa de %1RM do Híbrido — espelha `intensidadePctRM` de compartilhado/config/modalidades.js. */
 const FAIXA_PCT_RM = /** @type {[number,number]} */ ([65, 75]);
 /** Reps por semana do ciclo. Semana 4 repete a 1 em volume, mas com carga de deload. */
 const REPS_POR_SEMANA = { 1: 12, 2: 10, 3: 8, 4: 12 };

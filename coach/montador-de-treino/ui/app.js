@@ -3,7 +3,7 @@
    repetir exercícios já usados na semana) → mostra meta de volume da semana →
    salva na data (conflito = substituir) e publica no Portal do Aluno. O histórico
    é um calendário mensal colorido por modalidade. */
-import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
+import { MODALIDADES, MODALIDADE_IDS } from '../../../compartilhado/config/modalidades.js';
 import * as store from './store.js';
 import {
   renderDiaSalvo, renderTreino, ativarTrocas, renderCalendario, renderMetaVolume,
@@ -11,11 +11,11 @@ import {
 } from './render.js';
 import { trocarExercicioDoDia } from '../core/editar-dia.js';
 import { gerarTreino } from '../core/gerador.js';
-import { variantesNivel } from '../core/niveis.js';
-import { idsUsadosEm } from '../core/usados.js';
+import { variantesNivel } from '../../../compartilhado/regras/niveis.js';
+import { idsUsadosEm } from '../../../compartilhado/regras/usados.js';
 import { ladoSalvo } from '../core/hibrido.js';
 import * as academia from '../../academia/db.js';
-import { publicarTreino, removerTreinoPortal } from './portal-treino.js';
+import { publicarTreino, removerTreinoPortal } from '../../../compartilhado/firebase/treino-portal.js';
 import { initManual } from './manual.js';
 import { iniciarLivre } from './livre.js';
 import { confirmar, painel } from '../../../compartilhado/ui/dialogo.js';
@@ -112,7 +112,7 @@ let treinoGerado = null;
 
 /**
  * IDs de exercício já usados em OUTROS dias da mesma semana (não-repetição).
- * `idsUsadosEm` (core/usados.js) já lê os dois formatos que guardam exercício de
+ * `idsUsadosEm` (compartilhado/regras/usados.js) já lê os dois formatos que guardam exercício de
  * musculação — `exercicios` (Automático/Manual em blocos) e `livre.blocos[]`
  * (Treino Livre) — é a mesma regra que os avisos "· já na semana" da tela usam.
  * Sem ela aqui, o gerador ficava cego ao que o Treino Livre montou na semana.

@@ -18,12 +18,12 @@
  * espelhamento, o comentário diz de onde o número veio; mudar lá e não aqui faz as
  * duas telas divergirem em silêncio.
  *
- * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../../../compartilhado/config/modalidades.js').ModalidadeId} ModalidadeId
  * @typedef {import('../../../compartilhado/config/padroes.js').Padrao} Padrao
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
  * @typedef {'blocos'|'tabata4'|'gapMusicas'|'postosBiset'|'hyroxEstacoes'|'murphFixo'} FormatoManualId
  */
-import { MODALIDADES } from '../config/modalidades.js';
+import { MODALIDADES } from '../../../compartilhado/config/modalidades.js';
 import { padroesObrigatorios } from '../../../compartilhado/config/padroes.js';
 import { FORMATOS_WOD } from '../config/wod-formatos.js';
 import { HIIT_ESTACOES, TABATA as TABATA_HIIT } from './hiitTabata.js';

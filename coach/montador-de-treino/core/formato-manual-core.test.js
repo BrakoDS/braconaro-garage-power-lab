@@ -172,7 +172,7 @@ test('o Competitivo é o nível mais longo, e existe só no Hyrox', async () => 
   assert.deepEqual([...dur].sort((a, b) => a - b), dur, 'as durações não crescem com o nível');
   // niveis.js continua com 3 — acrescentar lá vazaria uma 4ª coluna para
   // Força e Hipertrofia, que não têm prescrição competitiva.
-  const { NIVEIS } = await import('./niveis.js');
+  const { NIVEIS } = await import('../../../compartilhado/regras/niveis.js');
   assert.equal(NIVEIS.length, 3);
   assert.ok(!NIVEIS.includes('competitivo'));
 });

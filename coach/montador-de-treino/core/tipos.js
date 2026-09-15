@@ -20,7 +20,7 @@
  * @property {number} tempoSeg
  *
  * @typedef {Object} Treino
- * @property {import('../config/modalidades.js').ModalidadeId} modalidade
+ * @property {import('../../../compartilhado/config/modalidades.js').ModalidadeId} modalidade
  * @property {string} dia
  * @property {number} semana
  * @property {string} nivel
@@ -30,7 +30,7 @@
  * @property {ItemAquecimento[]} aquecimento
  * @property {ItemPrincipal[]} principal
  * @property {Finalizador|null} finalizador
- * @property {import('./volume.js').Volume} volume
+ * @property {import('../../../compartilhado/regras/volume.js').Volume} volume
  * @property {{ok:boolean, conflitos:string[], demanda:Record<string,number>}} viabilidade
  * @property {number} tempoAquecimentoSeg
  * @property {number} tempoPrincipalSeg

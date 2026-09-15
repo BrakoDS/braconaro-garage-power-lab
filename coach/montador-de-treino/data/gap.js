@@ -1,4 +1,6 @@
 // @ts-check
+import { seriesPorTempo } from '../../../compartilhado/regras/equivalencia.js';
+
 /**
  * BANCO DE MOVIMENTOS GAP (Glúteo · Abdômen · Perna).
  *
@@ -18,7 +20,7 @@
  * músculos é que carregam a nuance de cada movimento.
  *
  * ORDEM IMPORTA em `musculos`: o PRIMEIRO é o primário (conta 1,0 na série) e os
- * demais são secundários (0,5 cada) — a mesma convenção de core/volume.js.
+ * demais são secundários (0,5 cada) — a mesma convenção de compartilhado/regras/volume.js.
  *
  * @typedef {import('../../../compartilhado/config/padroes.js').Padrao} Padrao
  *
@@ -52,10 +54,13 @@ export const PESO_VARIACAO = {
 
 /**
  * Quanto vale 1 round de TABATA em "séries" da contagem de volume.
- * Round = 20 s de trabalho; uma série de musculação (~10 reps) dá 30–40 s. Meia série
- * por round mantém as duas escalas comparáveis nas barras e no mínimo semanal.
+ *
+ * Não é mais um número digitado: sai da régua única (`SEGUNDOS_POR_SERIE`)
+ * aplicada aos 20 s de trabalho do round. O valor continua 0,5 — era daqui que a
+ * régua tinha vindo. Derivar em vez de repetir é o que impede os dois números de
+ * divergirem em silêncio no dia em que o box recalibrar a régua.
  */
-export const SERIES_POR_ROUND = 0.5;
+export const SERIES_POR_ROUND = seriesPorTempo(20);
 
 /** @type {MovGap[]} — aquecimento: dinâmicos/metabólicos, entram em trio. */
 export const GAP_AQUECIMENTO = [

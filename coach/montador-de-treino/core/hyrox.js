@@ -9,9 +9,11 @@
  * semana — é o próprio formato de prova.
  *
  * @typedef {'iniciante'|'intermediario'|'avancado'|'competitivo'} Nivel
- * @typedef {import('./volume.js').Volume} Volume
+ * @typedef {import('../../../compartilhado/regras/volume.js').Volume} Volume
  */
 import { EQUIP_POR_ID, ALUNOS_POR_SESSAO } from '../../../compartilhado/dados/equipamentos.js';
+import { calcularVolume } from '../../../compartilhado/regras/volume.js';
+import { seriesPorTempo } from '../../../compartilhado/regras/equivalencia.js';
 
 /**
  * Níveis do Hyrox — os três do resto do app MAIS o Competitivo.
@@ -59,34 +61,49 @@ export const HYROX_CORRIDA = {
  * @property {Record<Nivel, number>} prescricao
  * @property {string} carga
  * @property {string} [nota]
+ * @property {string[]} musculos  [primário, ...secundários] — escritos à mão: a estação não é um exercício do catálogo
  */
 
 /** @type {EstacaoHyrox[]} */
 export const HYROX_ESTACOES = [
   { n: 1, nome: 'SkiErg (simulador de esqui)', base: 'SkiErg', equipamento: ['monocross'], padrao: 'puxar',
     tipo: 'reps', prescricao: { iniciante: 60, intermediario: 80, avancado: 100, competitivo: 250 },
-    carga: 'carga moderada (polia)', nota: 'Adaptado nos 2 monocross lado a lado. Ritmo de esqui: puxada explosiva, tronco à frente.' },
+    carga: 'carga moderada (polia)', nota: 'Adaptado nos 2 monocross lado a lado. Ritmo de esqui: puxada explosiva, tronco à frente.',
+    musculos: ['costas', 'triceps', 'core'] },
   { n: 2, nome: 'Sled Push (empurrar trenó)', base: 'Sled Push', equipamento: ['sled', 'turf', 'anilha_olimpica_15'], padrao: 'quadriceps', padraoSec: 'empurrar',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40, competitivo: 100 },
-    carga: 'trenó + 15–45 kg (1 a 3 anilhas por nível)', nota: 'Trenó baixo, tronco firme, passos curtos e potentes no turf de 5 m.' },
+    carga: 'trenó + 15–45 kg (1 a 3 anilhas por nível)', nota: 'Trenó baixo, tronco firme, passos curtos e potentes no turf de 5 m.',
+    // 'panturrilha', não 'peito': no trenó baixo os braços são escora rígida (o
+    // empurrão não flexiona o cotovelo como um supino), e a força que de fato
+    // avança o trenó sai do antepé, empurrando o chão a cada passo curto.
+    musculos: ['quadriceps', 'gluteo', 'panturrilha'] },
   { n: 3, nome: 'Sled Pull (puxar trenó)', base: 'Sled Pull', equipamento: ['sled', 'turf', 'anilha_olimpica_15', 'corda_naval_4m'], padrao: 'puxar', padraoSec: 'estabilizadores',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40, competitivo: 100 },
-    carga: 'trenó + 15–45 kg, puxar pela corda', nota: 'Puxe a corda mão sobre mão, quadril baixo e tronco estável.' },
+    carga: 'trenó + 15–45 kg, puxar pela corda', nota: 'Puxe a corda mão sobre mão, quadril baixo e tronco estável.',
+    musculos: ['costas', 'biceps', 'core'] },
   { n: 4, nome: 'Burpee Broad Jump', base: 'Burpee Broad Jump', equipamento: ['corporal'], padrao: 'empurrar',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 40, avancado: 60, competitivo: 100 },
-    carga: 'peso corporal', nota: 'Como na prova (avança em metros): a cada rep, flexão com o peito ao chão + salto para a frente. Competitivo = 100 m, a distância da prova.' },
+    carga: 'peso corporal', nota: 'Como na prova (avança em metros): a cada rep, flexão com o peito ao chão + salto para a frente. Competitivo = 100 m, a distância da prova.',
+    // 'quadriceps' primeiro: o salto à frente é o esforço que de fato avança a
+    // distância prescrita (é uma prova de metros, não de flexões) — a flexão no
+    // chão é o secundário, não o dominante.
+    musculos: ['quadriceps', 'peito', 'core'] },
   { n: 5, nome: 'Rowing (simulador de remo)', base: 'Rowing', equipamento: ['monocross_movel'], padrao: 'puxar',
     tipo: 'reps', prescricao: { iniciante: 60, intermediario: 80, avancado: 100, competitivo: 250 },
-    carga: 'carga leve/moderada (polia)', nota: 'No 3º monocross (móvel), reservado ao dia de Hyrox. Cadência de remo: rápido e ritmado.' },
+    carga: 'carga leve/moderada (polia)', nota: 'No 3º monocross (móvel), reservado ao dia de Hyrox. Cadência de remo: rápido e ritmado.',
+    musculos: ['costas', 'biceps', 'quadriceps'] },
   { n: 6, nome: 'Farmer’s carry (halteres pesados)', base: 'Farmers Carry', equipamento: ['halter_pesado'], padrao: 'estabilizadores', padraoSec: 'posterior_gluteo',
     tipo: 'distancia', prescricao: { iniciante: 80, intermediario: 100, avancado: 150, competitivo: 200 },
-    carga: 'halteres pesados (12,5–17,5 kg)', nota: 'Tronco firme, ombros para trás, passos curtos.' },
+    carga: 'halteres pesados (12,5–17,5 kg)', nota: 'Tronco firme, ombros para trás, passos curtos.',
+    musculos: ['antebraco', 'trapezio', 'core'] },
   { n: 7, nome: 'Sandbag Lunges (avanço com saco de areia)', base: 'Sandbag Lunges', equipamento: ['sandbag'], padrao: 'quadriceps', padraoSec: 'posterior_gluteo',
     tipo: 'distancia', prescricao: { iniciante: 20, intermediario: 30, avancado: 40, competitivo: 100 },
-    carga: 'sandbag 20 kg nos ombros', nota: 'Saco apoiado nos ombros/pescoço; joelho de trás toca o chão, tronco ereto.' },
+    carga: 'sandbag 20 kg nos ombros', nota: 'Saco apoiado nos ombros/pescoço; joelho de trás toca o chão, tronco ereto.',
+    musculos: ['quadriceps', 'gluteo', 'core'] },
   { n: 8, nome: 'Wall ball', base: 'Wall Balls', equipamento: ['wall_ball'], padrao: 'quadriceps', padraoSec: 'empurrar',
     tipo: 'reps', prescricao: { iniciante: 30, intermediario: 50, avancado: 75, competitivo: 100 },
-    carga: 'bola 4–6 kg', nota: 'Agachou → arremessou ao alvo; recebe já agachando.' },
+    carga: 'bola 4–6 kg', nota: 'Agachou → arremessou ao alvo; recebe já agachando.',
+    musculos: ['quadriceps', 'ombro', 'gluteo'] },
 ];
 
 /** Estimativas de esforço p/ a duração (segundos). São aproximações — rótulo "~". */
@@ -129,19 +146,58 @@ export function estimarDuracaoSeg(nivel, estacoes = HYROX_ESTACOES) {
 }
 
 /**
- * Volume nominal (condicionamento) para manter `treino.volume` válido no cálculo
- * semanal/mesociclo. Cada estação conta um equivalente-séries no seu padrão.
+ * Séries equivalentes de UMA estação, num nível. SEMPRE pela régua de tempo:
+ * `duracaoEstacaoSeg` já estima o tempo de qualquer estação, reps ou distância
+ * (inclusive o ritmo dos ergômetros, via `SEG_POR_REP`), e é o tempo — não a
+ * unidade em que a prescrição foi escrita — quem diz quanto esforço a estação
+ * exige. Antes, as 3 estações por reps (SkiErg, Rowing, Wall Ball) convertiam
+ * direto pela régua de repetição, o que inverte a prova: 80 remadas do SkiErg
+ * (quase todo tronco) valiam 4 séries, enquanto os 30 m de Sled Push carregado
+ * (quase todo perna, o tecido limitante do Hyrox) valiam 1,35 — a prova ficaria
+ * puxada por tronco, quando na pista é a perna que estraga o atleta.
+ * Extraída para não repetir a mesma conta no `map` e no laço do `padraoSec`.
+ * @param {EstacaoHyrox} e @param {Nivel} nivel
+ */
+function seriesDaEstacao(e, nivel) {
+  return seriesPorTempo(duracaoEstacaoSeg(e, nivel));
+}
+
+/**
+ * Volume de uma sessão de Hyrox, em séries equivalentes.
+ *
+ * Todas as 8 estações convertem pela régua de tempo (ver `seriesDaEstacao`). Os
+ * dois números fixos de antes (3 no padrão, 1,5 no secundário) saíram: eles não
+ * olhavam o nível, então a prova competitiva contava igual à de iniciante.
+ *
+ * Os músculos vêm do campo `musculos` de cada estação, escrito à mão — a estação
+ * do Hyrox não é um exercício do catálogo e não tem id para consultar.
  * @param {EstacaoHyrox[]} [estacoes]  Subconjunto ativo (Treino Manual). Default: a prova inteira.
+ * @param {Nivel} [nivel]
  * @returns {Volume}
  */
-export function volumeHyrox(estacoes = HYROX_ESTACOES) {
-  const PRIM = 3, SEC = 1.5; // equivalente de condicionamento por estação (primário + secundário)
-  /** @type {Record<string, number>} */
-  const porPadrao = {};
-  const add = (p, v) => { porPadrao[p] = (porPadrao[p] || 0) + v; };
-  for (const e of estacoes) { add(e.padrao, PRIM); if (e.padraoSec) add(e.padraoSec, SEC); }
-  const totalSeries = Object.values(porPadrao).reduce((a, b) => a + b, 0);
-  return { porMusculo: {}, porPadrao, totalSeries };
+export function volumeHyrox(estacoes = HYROX_ESTACOES, nivel = 'intermediario') {
+  const itens = (estacoes || []).map((e) => ({
+    exercicio: {
+      padrao: e.padrao,
+      musculosPrimarios: e.musculos.slice(0, 1),
+      musculosSecundarios: e.musculos.slice(1),
+    },
+    series: seriesDaEstacao(e, nivel),
+  }));
+  const vol = calcularVolume(itens);
+  // O padrão secundário da estação continua recebendo crédito de padrão (não de
+  // músculo): é o que mantém o mínimo semanal por padrão lendo o Hyrox como antes.
+  // Some no `totalSeries` também: sem isso, `totalSeries` conta cada estação uma
+  // vez só (o padrão PRIMÁRIO, dentro de `calcularVolume`) enquanto `porPadrao`
+  // conta essa metade extra do secundário — os dois números descreveriam a mesma
+  // sessão de jeitos diferentes, e é o único formato onde isso acontecia.
+  for (const e of estacoes || []) {
+    if (!e.padraoSec) continue;
+    const creditoSec = seriesDaEstacao(e, nivel) / 2;
+    vol.porPadrao[e.padraoSec] = (vol.porPadrao[e.padraoSec] || 0) + creditoSec;
+    vol.totalSeries += creditoSec;
+  }
+  return vol;
 }
 
 /**

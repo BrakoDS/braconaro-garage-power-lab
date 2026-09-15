@@ -11,20 +11,20 @@
  *
  * A regra mora em `core/livre.js` (puro, com testes). Este arquivo é a tela.
  */
-import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
+import { MODALIDADES, MODALIDADE_IDS } from '../../../compartilhado/config/modalidades.js';
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { montarLivre } from '../core/livre.js';
-import { idsUsadosEm } from '../core/usados.js';
+import { idsUsadosEm } from '../../../compartilhado/regras/usados.js';
 import { congelarTecnica } from '../core/tecnicas-auto.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
 import { confirmar, painel } from '../../../compartilhado/ui/dialogo.js';
-import { publicarTreino } from './portal-treino.js';
+import { publicarTreino } from '../../../compartilhado/firebase/treino-portal.js';
 import { FORMATOS_WOD, DESCRICAO_FORMATO, DESCRICAO_EMOM_ROTACAO } from '../config/wod-formatos.js';
 import { rotuloGrupo } from '../../../compartilhado/config/livre-grupo.js';
 import { abrirPesquisa } from './pesquisa-modal.js';
-import { construirCatalogoEfetivo } from './catalogo.js';
+import { construirCatalogoEfetivo } from '../../../compartilhado/dados/catalogo-efetivo.js';
 
 const $ = (s) => /** @type {HTMLInputElement} */ (document.querySelector(s));
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -357,7 +357,8 @@ function abrirSugestoes(input) {
  * aquecimento/mobilidade — o contexto muda conforme `data-alvo` do campo) e,
  * se o coach cadastrar, reconstrói o catálogo efetivo antes de escolher a
  * linha: sem isso o exercício novo não aparece na busca, porque `EXERCICIOS`
- * é o array que `construirCatalogoEfetivo()` substitui no boot (`catalogo.js`)
+ * é o array que `construirCatalogoEfetivo()` substitui no boot
+ * (`compartilhado/dados/catalogo-efetivo.js`)
  * e `porId`/`abrirSugestoes` leem dele. Cancelar não muda nada na linha.
  * @param {HTMLInputElement} input
  */

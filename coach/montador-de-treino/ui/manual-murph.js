@@ -10,7 +10,7 @@
  * (quem corre primeiro, quem abre pelas puxadas) é organizado na hora, na aula —
  * por isso não há checagem de equipamento aqui.
  */
-import { NIVEIS, NIVEL_LABEL } from '../core/niveis.js';
+import { NIVEIS, NIVEL_LABEL } from '../../../compartilhado/regras/niveis.js';
 import { gerarMurph, volumeMurph, estimarDuracaoSeg } from '../core/murph.js';
 import { esc } from './manual.js';
 

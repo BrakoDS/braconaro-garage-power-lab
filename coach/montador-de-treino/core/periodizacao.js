@@ -1,10 +1,13 @@
 // @ts-check
 /**
  * PERIODIZAÇÃO (versão base — expande na Fase 3).
- * Ciclo de 4 semanas com progressão e deload, mais ajuste por nível do aluno.
+ * Ciclo de 4 semanas com progressão e deload. O ajuste por NÍVEL do aluno mora em
+ * `compartilhado/regras/niveis.js` (eixo de quem é o aluno, não de semana do
+ * mesociclo); `seriesAjustadas`, abaixo, importa `fatorNivel` de lá.
  *
  * @typedef {'iniciante'|'intermediario'|'avancado'} Nivel
  */
+import { fatorNivel } from '../../../compartilhado/regras/niveis.js';
 
 /**
  * Fator de séries por semana do mesociclo (1–4).
@@ -19,17 +22,6 @@ export function fatorSemana(semana) {
 /** Semana 4 do ciclo é deload. @param {number} semana */
 export function ehDeload(semana) {
   return ((semana - 1) % 4) + 1 === 4;
-}
-
-/**
- * Ajuste de séries por nível do aluno.
- * Iniciante em 0.85 (não 0.8): com 0.8, as modalidades de base 3 séries (Hyrox/Híbrido)
- * arredondavam para 2 (3×0.8=2.4) e o aluno de 3 dias não batia o mínimo semanal na
- * semana-base; 0.85 (3×0.85=2.55→3) mantém o piso sem apagar a diferença p/ o intermediário.
- * @param {Nivel} nivel
- */
-export function fatorNivel(nivel) {
-  return { iniciante: 0.85, intermediario: 1.0, avancado: 1.15 }[nivel] ?? 1.0;
 }
 
 /**

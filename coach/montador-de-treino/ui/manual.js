@@ -11,7 +11,7 @@
  * O snapshot salvo é o MESMO que o Treino Automático produz para aquela modalidade,
  * então histórico, card do coach e Portal do Aluno exibem sem código próprio.
  *
- * @typedef {import('../config/modalidades.js').ModalidadeId} ModalidadeId
+ * @typedef {import('../../../compartilhado/config/modalidades.js').ModalidadeId} ModalidadeId
  *
  * @typedef {Object} CtxManual
  * @property {ModalidadeId} modalidade
@@ -22,7 +22,7 @@
  * @property {Set<string>} usados  IDs já usados em OUTROS dias da mesma semana
  *
  * @typedef {Object} MontagemManual
- * @property {import('../core/volume.js').Volume} vol
+ * @property {import('../../../compartilhado/regras/volume.js').Volume} vol
  * @property {Object} extra    O que entra no snapshot (ex.: `{hiit: …}`)
  * @property {number} nItens   Quantos itens o coach preencheu (0 = nada a salvar)
  *
@@ -33,18 +33,18 @@
  * @property {(ctx: CtxManual) => MontagemManual} montar
  * @property {(ctx: CtxManual) => string} [distribuicao]
  */
-import { MODALIDADES, MODALIDADE_IDS } from '../config/modalidades.js';
+import { MODALIDADES, MODALIDADE_IDS } from '../../../compartilhado/config/modalidades.js';
 import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
 import { MOV_GAP_POR_ID } from '../data/gap.js';
 import { formatoManual } from '../core/formato-manual.js';
 import { duracaoMobilidade } from '../core/gerador.js';
-import { idsUsadosEm } from '../core/usados.js';
+import { idsUsadosEm } from '../../../compartilhado/regras/usados.js';
 import { congelarTecnica } from '../core/tecnicas-auto.js';
 import * as academia from '../../academia/db.js';
 import * as store from './store.js';
 import { renderMetaVolume, renderVolume } from './render.js';
 import { confirmar } from '../../../compartilhado/ui/dialogo.js';
-import { publicarTreino } from './portal-treino.js';
+import { publicarTreino } from '../../../compartilhado/firebase/treino-portal.js';
 
 import { editorBlocos } from './manual-blocos.js';
 import { editorTabata } from './manual-tabata.js';

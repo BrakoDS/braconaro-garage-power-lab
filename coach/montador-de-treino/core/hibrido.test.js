@@ -6,7 +6,7 @@ import {
 } from './hibrido.js';
 import { verificarViabilidade } from './viabilidade.js';
 import { calcularPostos, calcularSeries, SERIE_SEG } from './hibrido-postos.js';
-import { EXERCICIOS } from '../../../compartilhado/dados/exercicios.js';
+import { EXERCICIOS, EXERCICIO_POR_ID, EXERCICIO_BASE_POR_ID } from '../../../compartilhado/dados/exercicios.js';
 
 /** mulberry32 — mesmo RNG do gerador, pra teste determinístico. */
 function rngDe(seed) {
@@ -295,6 +295,50 @@ test('bíceps e tríceps entram no volume — o desenho antigo só os creditava 
   const vol = volumeHibrido(h.hipertrofia, h.wod);
   assert.ok(vol.porMusculo.biceps > 0, 'bíceps sem volume');
   assert.ok(vol.porMusculo.triceps > 0, 'tríceps sem volume');
+});
+
+test('WOD com exercício criado na Academia credita músculo — lê do catálogo VIVO, não do congelado', () => {
+  // Um exercício que o coach cria na Academia entra em EXERCICIOS/EXERCICIO_POR_ID
+  // (vivo, via aplicarCatalogo) mas nunca em EXERCICIO_BASE_POR_ID (congelado, só o
+  // catálogo de fábrica). Antes, volumeHibrido lia o congelado: esse exercício
+  // creditava ZERO músculo, em silêncio. Registra e desfaz no fim para não vazar
+  // estado entre testes.
+  const idNovo = 'exercicio_criado_na_academia_teste';
+  assert.equal(EXERCICIO_BASE_POR_ID[idNovo], undefined, 'pré-condição: não existe no catálogo base');
+  EXERCICIO_POR_ID[idNovo] = {
+    id: idNovo, nome: 'Exercício da Academia', padrao: 'empurrar',
+    musculosPrimarios: ['peito'], musculosSecundarios: ['triceps'],
+  };
+  try {
+    const wod = {
+      formato: 'AMRAP', duracaoMin: 10,
+      movimentos: [{ id: idNovo, nome: 'Exercício da Academia', grupo: 'corporal', padraoDominante: 'empurrar', equipamento: ['corporal'], prescricao: '10 reps' }],
+    };
+    const vol = volumeHibrido([], wod);
+    assert.ok(vol.porMusculo.peito > 0, 'exercício criado na Academia não creditou peito');
+    assert.ok(vol.porMusculo.triceps > 0, 'exercício criado na Academia não creditou tríceps');
+  } finally {
+    delete EXERCICIO_POR_ID[idNovo];
+  }
+});
+
+test('WOD por tempo aplica o fator de densidade (0,4) sobre o recuo de tempo', () => {
+  // O Híbrido nunca declara rodadas, e agora nenhum formato ganha rodada por
+  // definição (o caso especial do Chipper foi desfeito): todo WOD do Híbrido cai
+  // no recuo de tempo, com FATOR_DENSIDADE_WOD aplicado. 16 min / 3 movimentos =
+  // 320 s / 40 = 8 séries cada sem fator; ×0,4 = 3,2 cada, 9,6 no total.
+  const wod = {
+    formato: 'Chipper', duracaoMin: 16,
+    movimentos: [
+      { id: 'high_knees', nome: 'High knees', grupo: 'corporal', padraoDominante: 'estabilizadores', equipamento: ['corporal'], prescricao: '12 reps' },
+      { id: 'mountain_climber', nome: 'Mountain climber', grupo: 'corporal', padraoDominante: 'core', equipamento: ['corporal'], prescricao: '15 reps' },
+      { id: 'flexao', nome: 'Flexão', grupo: 'corporal', padraoDominante: 'empurrar', equipamento: ['corporal'], prescricao: '10 reps' },
+    ],
+  };
+  const vol = volumeHibrido([], wod);
+  // 3 × 3,2 tropeça em ponto flutuante (0,4 não é exato em binário) — compara com
+  // tolerância, mesmo padrão de hyrox.test.js para essa mesma classe de fator.
+  assert.ok(Math.abs(vol.totalSeries - 9.6) < 1e-9, `${vol.totalSeries} !== 9.6`);
 });
 
 // -------- montadores reusados pelo Treino Manual --------
