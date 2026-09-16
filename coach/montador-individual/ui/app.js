@@ -23,6 +23,9 @@ import {
   volumeDoTreino, paraSalvar,
 } from '../core/treino-base.js';
 import * as store from './store.js';
+import { renderTurma, abrirAluno, recarregarAjustes } from './turma.js';
+import { paraPortal, temConteudoParaPortal } from '../core/para-portal.js';
+import { publicarTreino, lerDiaPublicado } from '../../../compartilhado/firebase/treino-portal.js';
 
 const $ = (/** @type {string} */ s) => /** @type {HTMLElement} */ (document.querySelector(s));
 const esc = (/** @type {any} */ v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -62,6 +65,9 @@ function carregarDia(dateId) {
   inpAlunos.value = String(treino.nAlunos);
   render();
   avisar(salvo ? 'Treino salvo nesta data — editando o que já existe.' : '');
+  // As exceções são por dia: trocar a data troca o conjunto inteiro. Uma leitura
+  // por aluno aqui, e não a cada tecla — a turma redesenha o tempo todo.
+  recarregarAjustes(dateId).then(desenharTurma).catch((e) => console.warn('Ajustes do dia:', e));
 }
 
 function avisar(texto, tipo = '') {
@@ -76,7 +82,28 @@ function render() {
   renderAquecimento();
   renderBlocos();
   renderResumo();
+  desenharTurma();
 }
+
+/** A turma é derivada do treino base e das fichas — redesenha junto com o resumo. */
+let _turma = [];
+function desenharTurma() {
+  try {
+    _turma = renderTurma($('#turma'), treino);
+  } catch (e) {
+    // A turma vem da Gestão: sem ela (offline, sem permissão), o coach ainda monta
+    // o treino. Derrubar a tela inteira por causa da coluna seria desproporcional.
+    console.warn('Turma indisponível:', e);
+    $('#turma').innerHTML = '<p class="vazio">Não deu para montar a turma agora. O treino continua editável.</p>';
+  }
+}
+
+$('#turma').addEventListener('click', (ev) => {
+  const btn = /** @type {HTMLElement} */ (ev.target).closest('[data-acao="ver"]');
+  if (!btn) return;
+  const i = Number(btn.closest('[data-aluno]')?.getAttribute('data-aluno'));
+  if (_turma[i]) abrirAluno(_turma[i], treino.dateId, () => render());
+});
 
 function renderAquecimento() {
   const lista = $('#lista-aquecimento');
@@ -183,10 +210,11 @@ $('#blocos').addEventListener('input', (ev) => {
   const li = Number(alvo.closest('[data-linha]')?.getAttribute('data-linha'));
   const linha = bloco.exercicios[li];
   if (!linha) return;
-  if (campo === 'nome') { linha.nome = alvo.value; aplicarCatalogo(linha); renderResumo(); return; }
+  if (campo === 'nome') { linha.nome = alvo.value; aplicarCatalogo(linha); renderResumo(); desenharTurma(); return; }
   if (campo === 'reps') { linha.reps = alvo.value; return; }
   linha[campo] = Number(alvo.value);
   renderResumo();
+  desenharTurma();
 });
 
 $('#blocos').addEventListener('change', (ev) => {
@@ -258,6 +286,31 @@ $('#btn-salvar').addEventListener('click', async () => {
   if (store.getTreino(treino.dateId) && !await confirmar({ titulo: 'Substituir o treino desta data?', texto: 'Já existe treino salvo em ' + treino.dateId + '. Salvar substitui o que está lá.', ok: 'Substituir', perigo: true })) return;
   store.salvarTreino(treino.dateId, paraSalvar(treino));
   avisar('Salvo. O histórico já mostra este dia.', 'ok');
+  renderHistorico();
+});
+
+// ---------- publicar ----------
+$('#btn-publicar').addEventListener('click', async () => {
+  if (!temConteudoParaPortal(treino)) {
+    avisar('Nada para publicar: o dia está sem exercício com nome.', 'erro');
+    return;
+  }
+  // Publicar é a única ação daqui que sai para o aparelho do aluno. Salvar
+  // primeiro evita o pior caso: o Portal mostrando um treino que o coach não
+  // tem mais, porque fechou a aba sem salvar.
+  store.salvarTreino(treino.dateId, paraSalvar(treino));
+  const jaPublicado = await lerDiaPublicado(treino.dateId);
+  const texto = jaPublicado
+    ? `Já existe treino publicado em ${treino.dateId} (${jaPublicado.modalidade || 'outro montador'}). Publicar substitui o que os alunos veem hoje.`
+    : `Os alunos passam a ver o treino de ${treino.dateId} no Portal, com o número de séries da turma.`;
+  if (!await confirmar({ titulo: 'Publicar para os alunos?', texto, ok: 'Publicar', perigo: !!jaPublicado })) return;
+  try {
+    await publicarTreino(treino.dateId, paraPortal(treino));
+    avisar('Publicado. Os alunos já veem este treino no Portal.', 'ok');
+  } catch (e) {
+    console.error('Publicar:', e);
+    avisar('Não deu para publicar agora. Tente de novo.', 'erro');
+  }
   renderHistorico();
 });
 
