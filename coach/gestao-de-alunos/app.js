@@ -13,6 +13,8 @@ import * as db from './db.js';
 // sozinhos sem mostrar nada -- foi assim que a exclusão parou de funcionar.
 import { confirmar, avisar, painel } from '../../compartilhado/ui/dialogo.js';
 import { feriadosDoMes, feriadoEm } from '../../compartilhado/regras/feriados.js';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js';
+import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import * as calc from '../../compartilhado/regras/calc.js?v=5';
 import * as storage from '../../compartilhado/regras/storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
@@ -111,7 +113,10 @@ $('#p-avatar')?.addEventListener('click', () => {
 /* ============================================================
    Formulário de DADOS (reusado no cadastro e na aba 1)
    ============================================================ */
-const OBJETIVOS = ['Emagrecimento', 'Hipertrofia', 'Condicionamento', 'Saúde / qualidade de vida', 'Outro'];
+// A lista veio para o compartilhado (`config/objetivos.js`) quando a regra de
+// perfil do montador individual passou a precisar dela: duas listas de objetivo
+// significariam a Gestão acrescentar um e a regra nunca ficar sabendo.
+const OBJETIVOS = OBJETIVO_LABELS;
 const SEXOS = ['Masculino', 'Feminino', 'Outro'];
 
 function opt(val, atual) { return `<option value="${esc(val)}"${val === atual ? ' selected' : ''}>${esc(val)}</option>`; }
@@ -159,6 +164,11 @@ function formDadosHTML(a = {}, opts = {}) {
   const objOpts = `<option value="">—</option>` + OBJETIVOS.map((s) => opt(s, a.objetivo)).join('');
   const freqOpts = `<option value="">—</option>` + [1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${String(n) === String(a.freqVezes) ? ' selected' : ''}>${n}x por semana</option>`).join('');
   const nivelOpts = `<option value="">—</option>` + [['iniciante', 'Iniciante'], ['intermediario', 'Intermediário'], ['avancado', 'Avançado']].map(([v, l]) => `<option value="${v}"${a.nivel === v ? ' selected' : ''}>${l}</option>`).join('');
+  // Foco: até dois dos sete grupos grandes. O limite é aplicado na leitura do
+  // formulário e de novo na regra — marcar três aqui não pode virar treino torto.
+  const focoSel = new Set(a.foco || []);
+  const focoHTML = GRUPOS.map((g) => `
+    <label class="dia-check"><input type="checkbox" name="foco" value="${g}"${focoSel.has(g) ? ' checked' : ''}/><span>${esc(GRUPO_LABEL[g])}</span></label>`).join('');
   const diasSel = new Set(a.diasTreino || []);
   const horas = a.horarios || {};
   // Cada dia carrega a própria hora. O `freqHorario` antigo (uma hora só para a
@@ -210,6 +220,7 @@ function formDadosHTML(a = {}, opts = {}) {
       <div class="field"><label>Peso atual (kg)</label><input name="peso" type="number" min="0" step="0.1" value="${esc(a.peso)}" placeholder="80" /></div>
       <div class="field"><label>Objetivo</label><select name="objetivo">${objOpts}</select></div>
       <div class="field"><label>Nível de treino</label><select name="nivel">${nivelOpts}</select></div>
+      <div class="field full"><label>Foco (até 2 grupos)</label><div class="dias-treino">${focoHTML}</div><span class="hint">O Montador Individual tira série de onde ele está mais adiantado e põe no foco, mantendo o total do treino da turma.</span></div>
       <div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>
       <div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>
       <div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>
@@ -263,6 +274,10 @@ function lerForm(form) {
   const o = {};
   for (const [k, v] of fd.entries()) o[k] = typeof v === 'string' ? v.trim() : v;
   o.diasTreino = fd.getAll('diasTreino'); // checkboxes múltiplos
+  // Foco do aluno: até dois grupos, e é aqui que o limite vira verdade — a caixa
+  // de seleção não impede o terceiro clique, e a regra de perfil também corta,
+  // mas gravar três deixaria a ficha dizendo uma coisa e o treino outra.
+  o.foco = fd.getAll('foco').slice(0, 2);
   // As horas viram um mapa `{seg:'19:00'}`; os campos soltos `hora_seg` saem do
   // objeto para não virarem colunas fantasma na ficha do aluno. Só entra a hora
   // de dia marcado — hora de dia desmarcado é lixo esperando confundir depois.

@@ -44,6 +44,12 @@ export function fatia(a, todos, fechadosDoBox = []) {
   return {
     id: a.id, nome: a.nome || '', email: emailKey(a.email), fotoUrl: a.fotoUrl || '',
     status: a.status || 'ativo', objetivo: a.objetivo || '', nivel: a.nivel || '',
+    // Perfil de treino: com objetivo, foco e restrições no documento dele, o Portal
+    // calcula a versão do aluno no próprio aparelho, com os mesmos módulos de
+    // `compartilhado/regras/` que o coach usa — sem ler a ficha de ninguém.
+    // Ficha antiga não tem nenhum dos três: entram vazios, e vazio quer dizer
+    // "sem deslocamento", nunca erro.
+    foco: a.foco || [], restricoes: a.restricoes || [], metasGrupo: a.metas || {},
     sexo: a.sexo || '', nascimento: a.nascimento || '', altura: a.altura || '',
     mensalidade: a.mensalidade || '', vencimento: a.vencimento || '', pagamentos: a.pagamentos || {},
     // Plano e grade de horários: o Portal monta com isso o bloco "Seu plano" e os
