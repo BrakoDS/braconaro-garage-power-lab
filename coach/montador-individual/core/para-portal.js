@@ -15,6 +15,7 @@
  * Módulo puro, testado sem rede.
  */
 import { estruturaDe } from '../../../compartilhado/config/estruturas.js';
+import { grupoDoExercicio } from '../../../compartilhado/regras/grupos.js';
 
 const NIVEIS = ['iniciante', 'intermediario', 'avancado'];
 
@@ -22,6 +23,18 @@ const NIVEIS = ['iniciante', 'intermediario', 'avancado'];
 function exercicioDoPortal(l) {
   const series = Number(l.series) > 0 ? Number(l.series) : null;
   return {
+    // `id`, `grupoMuscular` e `series` viajam para o aparelho do aluno poder
+    // calcular a versão dele (Etapa 5): sem o grupo não há redistribuição por
+    // foco, sem o id não há como casar a exceção daquele dia com a linha, e sem
+    // as séries da turma não há com o que comparar. Três campos curtos, nada
+    // pessoal — o documento continua pequeno.
+    //
+    // `grupoMuscular`, e não `grupo`: neste formato `grupo` já quer dizer outra
+    // coisa — o índice de bi-set/tri-set que o Treino Livre usa para linkar
+    // exercícios (ver `agruparLinkados` em painel-do-aluno/treino-dia.js).
+    id: l.id || null,
+    grupoMuscular: grupoDoExercicio(l),
+    series,
     nome: l.nome,
     padrao: l.padrao || null,
     reps: l.reps || prescricaoPorTempo(l),
@@ -51,6 +64,10 @@ export function paraPortal(treino) {
   return {
     dia: treino.dia,
     modalidade: est.label,
+    // Marca o dia como vindo do montador individual: é por ela que o Portal sabe
+    // que pode calcular a versão do aluno, em vez de mostrar o número da turma.
+    individual: true,
+    estrutura: est.id,
     aquecimento: (treino.aquecimento || []).filter((a) => a.nome).map((a) => ({ nome: a.nome, duracaoSeg: a.duracaoSeg || 0 })),
     livre: {
       blocos: (treino.blocos || []).map((b) => ({

@@ -10,7 +10,7 @@ const treino = (extra = {}) => ({
   dateId: '2026-09-16', dia: 'qua', estrutura: 'musculacao',
   aquecimento: [{ nome: 'Mobilidade de quadril', duracaoSeg: 90 }, { nome: '', duracaoSeg: 60 }],
   blocos: [{ nome: 'Principal', tipo: 'principal', exercicios: [
-    { id: 'supino', nome: 'Supino reto halter', padrao: 'empurrar', series: 3, reps: '8–12', descansoSeg: 75, travado: false },
+    { id: 'supino', nome: 'Supino reto halter', padrao: 'empurrar', musculosPrimarios: ['peito'], musculosSecundarios: ['triceps'], series: 3, reps: '8–12', descansoSeg: 75, travado: false },
     { id: '', nome: '', series: 3, travado: false },
   ] }],
   ...extra,
@@ -25,6 +25,19 @@ test('o dia sai no formato de blocos que o Portal ja renderiza', () => {
   assert.equal(ex.nome, 'Supino reto halter');
   assert.equal(ex.reps, '8–12');
   assert.equal(ex.descansoSeg, 75);
+});
+
+test('o dia leva o que o aparelho do aluno precisa para calcular a versao dele', () => {
+  // Sem `grupo` não há redistribuição por foco no Portal; sem `id` não há como
+  // casar a exceção daquele dia com a linha; sem `series` não há base de comparação.
+  const d = paraPortal(treino());
+  assert.equal(d.individual, true);
+  assert.equal(d.estrutura, 'musculacao');
+  const ex = d.livre.blocos[0].exercicios[0];
+  assert.equal(ex.id, 'supino');
+  assert.equal(ex.grupoMuscular, 'peito');
+  assert.equal(ex.grupo, null, 'grupo, neste formato, e o indice de bi-set do Treino Livre — nao o grupo muscular');
+  assert.equal(ex.series, 3);
 });
 
 test('o numero da turma vale para os tres niveis', () => {

@@ -115,7 +115,9 @@ function redistribuirPorFoco(linhas, perfil, feitoPorGrupo) {
   if (!foco.length) return { linhas, avisos: [] };
 
   const podeMexer = (l) => !l.travado && !l.restrito && l.id;
-  const grupoDe = (l) => grupoDoExercicio(l);
+  // O grupo pode vir pronto: o dia publicado para o aluno leva `grupoMuscular`
+  // calculado, porque o aparelho dele não tem a lista de músculos do exercício.
+  const grupoDe = (l) => l.grupo ?? grupoDoExercicio(l);
 
   const ganhadores = linhas.filter((l) => podeMexer(l) && foco.includes(grupoDe(l)));
   if (!ganhadores.length) {
@@ -228,7 +230,7 @@ export function versaoDoAluno({ base, perfil = {}, feitoPorGrupo = {}, excecao =
   /** @type {Map<any, string[]>} */
   const motivosPorLinha = new Map();
   for (const l of originais) {
-    const base0 = { ...l, seriesBase: inteiro(l.series), grupo: grupoDoExercicio(l), motivos: [] };
+    const base0 = { ...l, seriesBase: inteiro(l.series), grupo: l.grupo ?? grupoDoExercicio(l), motivos: [] };
     if (l.travado) { comRestricao.push(base0); continue; } // cadeado ignora o perfil inteiro
     const { linha, motivos } = aplicarRestricao(base0, perfil, exercicioPorId);
     comRestricao.push(linha);
