@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   mesDe, assinatura, agruparPorMes, juntarMeses, precisaMigrar,
-  fundirTreinos, fatiaDoCoach, mesesQueMudaram,
+  fundirTreinos, fatiaDoDoc, temConteudo, mesesQueMudaram,
 } from './treinos-por-mes.js';
 
 const treino = (/** @type {string} */ n) => ({ dia: 'seg', modalidade: n, volPorPadrao: { empurrar: 6 } });
@@ -46,10 +46,21 @@ test('na fusao o legado do documento do coach ganha do mes', () => {
   assert.equal(r['2026-08-10'].modalidade, 'so-no-legado');
 });
 
-test('a fatia do coach nao leva treino nem programa junto', () => {
+test('a fatia do documento leva so os campos pedidos', () => {
   const est = { alunos: [{ id: 'a1' }], config: { meta: 12 }, treinos: { '2026-08-03': treino('b') }, programas: { s1: {} } };
-  assert.deepEqual(fatiaDoCoach(est), { alunos: [{ id: 'a1' }], config: { meta: 12 } });
-  assert.deepEqual(fatiaDoCoach(null), { alunos: [], config: {} });
+  assert.deepEqual(fatiaDoDoc(est, ['alunos', 'config']), { alunos: [{ id: 'a1' }], config: { meta: 12 } });
+  assert.deepEqual(fatiaDoDoc(est, ['config']), { config: { meta: 12 } }, 'o app novo guarda so config: alunos vem da Gestao');
+  assert.deepEqual(fatiaDoDoc(null, ['alunos', 'config']), {});
+  assert.deepEqual(fatiaDoDoc({ config: {} }, ['alunos', 'config']), { config: {} }, 'campo ausente nao vira campo vazio no documento');
+});
+
+test('temConteudo decide entre adotar a nuvem e semear com o local', () => {
+  assert.equal(temConteudo(null, ['config']), false);
+  assert.equal(temConteudo({ treinos: {}, config: {}, alunos: [] }, ['alunos', 'config']), false, 'tudo vazio nao e conteudo');
+  assert.equal(temConteudo({ treinos: { '2026-08-03': treino('b') } }, ['config']), true);
+  assert.equal(temConteudo({ config: { meta: 12 } }, ['config']), true);
+  assert.equal(temConteudo({ programas: { s1: {} } }, ['config']), true, 'so o legado ja conta, senao o login o apagaria');
+  assert.equal(temConteudo({ alunos: [{ id: 'a1' }] }, ['config']), false, 'campo fora da lista do app nao conta');
 });
 
 test('so reenvia o mes que mudou', () => {

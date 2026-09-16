@@ -26,6 +26,8 @@
  * @property {Record<string, number>=} volPorMusculo  volume por músculo, em séries equivalentes — ausente em dia salvo antes de 15/09/2026
  */
 
+import { faixaDaSemana } from '../../../compartilhado/regras/datas-treino.js';
+
 const CHAVE = 'braconaro_montador_v2';
 
 export function carregar() {
@@ -68,20 +70,10 @@ export function setEstado(novo) {
 export function getEstado() { return estado; }
 
 // ---------- helpers de data ----------
-const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-/** 'YYYY-MM' de uma data. @param {Date} [d] */
-export function mesIdDe(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-/** Semana do mês (1..5) de uma data. @param {Date} [d] */
-export function semanaDoMes(d = new Date()) { return Math.ceil(d.getDate() / 7); }
-/** Rótulo legível 'Junho/2026'. @param {string} mesId */
-export function rotuloMes(mesId) {
-  const [ano, m] = mesId.split('-').map(Number);
-  return `${MESES[m - 1]}/${ano}`;
-}
+// Reexportados de `compartilhado/regras/datas-treino.js`: o montador individual
+// usa as mesmas contas, e duas copias delas divergiriam no primeiro conserto de
+// fuso. Quem importa do store continua importando do store.
+export { dateIdDe, mesIdDe, dataDe, diaSemanaDe, semanaDoMes, rotuloMes } from '../../../compartilhado/regras/datas-treino.js';
 
 // ---------- configuração do box (grade da semana) ----------
 export function getConfig() { return estado.config; }
@@ -104,29 +96,6 @@ export function atualizarAluno(id, patch) {
 export function removerAluno(id) {
   const i = estado.alunos.findIndex((x) => x.id === id);
   if (i >= 0) { estado.alunos.splice(i, 1); salvar(estado); }
-}
-
-// ---------- helpers de data (por dia) ----------
-/** 'YYYY-MM-DD' de uma data (local, sem UTC shift). @param {Date} d */
-export function dateIdDe(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-/** Date (meia-noite local) a partir de 'YYYY-MM-DD'. @param {string} dateId */
-export function dataDe(dateId) {
-  const [a, m, d] = dateId.split('-').map(Number);
-  return new Date(a, m - 1, d);
-}
-/** Chave 'seg'..'dom' de um dateId. */
-const DOW_KEY = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-export function diaSemanaDe(dateId) { return DOW_KEY[dataDe(dateId).getDay()]; }
-
-/** Segunda-feira (ISO) da semana de um dateId. @param {string} dateId @returns {Date} */
-function segundaDaSemana(dateId) {
-  const d = dataDe(dateId);
-  const dow = d.getDay(); // 0=dom..6=sab
-  const offset = dow === 0 ? -6 : 1 - dow; // volta até a segunda
-  d.setDate(d.getDate() + offset);
-  return d;
 }
 
 // ---------- treinos por data ----------
@@ -157,10 +126,7 @@ export function listarTreinosDoMes(mesId) {
  * e pela meta de volume semanal. @param {string} dateId @returns {TreinoSalvo[]}
  */
 export function treinosDaSemana(dateId) {
-  const seg = segundaDaSemana(dateId);
-  const ini = dateIdDe(seg);
-  const domD = new Date(seg); domD.setDate(domD.getDate() + 6);
-  const fim = dateIdDe(domD);
+  const { ini, fim } = faixaDaSemana(dateId);
   return Object.entries(estado.treinos)
     .filter(([d]) => d >= ini && d <= fim)
     .map(([d, t]) => ({ ...t, dateId: d }))

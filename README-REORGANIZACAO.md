@@ -31,7 +31,7 @@ reorganização não mudou o site:
 ```
 node ferramentas/verificar-imports.mjs     # 475 caminhos
 node ferramentas/comparar-render.mjs       # 21 telas byte a byte
-node --test $(ls coach/montador-de-treino/core/*.test.js coach/montador-de-treino/ui/*.test.js coach/montador-de-treino/config/*.test.js painel-do-aluno/*.test.js compartilhado/regras/*.test.js compartilhado/firebase/*.test.js garage-store/*.test.js coach/academia/*.test.js coach/academia/data/*.test.js)
+node --test $(ls coach/montador-de-treino/core/*.test.js coach/montador-de-treino/ui/*.test.js coach/montador-de-treino/config/*.test.js coach/montador-individual/core/*.test.js painel-do-aluno/*.test.js compartilhado/regras/*.test.js compartilhado/firebase/*.test.js compartilhado/config/*.test.js garage-store/*.test.js coach/academia/*.test.js coach/academia/data/*.test.js)
 cd functions && npm run build && npm run checar
 ```
 

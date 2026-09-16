@@ -82,9 +82,44 @@ export function fundirTreinos(dosMeses, doLegado) {
   return { ...(dosMeses || {}), ...(doLegado || {}) };
 }
 
-/** O que fica no documento do coach. @param {any} est estado do store */
-export function fatiaDoCoach(est) {
-  return { alunos: est?.alunos || [], config: est?.config || {} };
+/**
+ * O que fica no documento principal: os campos pedidos, e só eles. Os treinos
+ * saem daqui por construção — é isto que mantém o documento pequeno.
+ *
+ * Os campos entram por parâmetro porque são dois apps com estados diferentes: o
+ * montador atual guarda `alunos` e `config`, e o individual só `config` (os alunos
+ * dele vêm da Gestão). Uma lista chumbada aqui gravaria campo vazio de um no
+ * documento do outro, e calaria o campo novo de quem crescesse depois.
+ * @param {any} est estado do store
+ * @param {string[]} campos
+ */
+export function fatiaDoDoc(est, campos) {
+  /** @type {Record<string, any>} */
+  const fatia = {};
+  for (const c of campos) if (est && est[c] !== undefined) fatia[c] = est[c];
+  return fatia;
+}
+
+/** Um valor que conta como conteúdo? Lista ou objeto vazio não conta. @param {any} v */
+function cheio(v) {
+  if (Array.isArray(v)) return v.length > 0;
+  if (v && typeof v === 'object') return Object.keys(v).length > 0;
+  return v !== undefined && v !== null && v !== '';
+}
+
+/**
+ * Tem dado que vale a pena? É o que decide, no login, entre adotar a nuvem e
+ * semear a nuvem com o que está no aparelho. Responder "não" para quem tem dado
+ * apaga o trabalho do coach; responder "sim" para quem não tem sobrescreve o
+ * aparelho com vazio.
+ * @param {any} est
+ * @param {string[]} campos  os campos do documento principal deste app
+ */
+export function temConteudo(est, campos) {
+  if (!est) return false;
+  if (cheio(est.treinos)) return true;
+  if (cheio(est.programas)) return true; // legado do montador atual, ainda conta
+  return campos.some((c) => cheio(est[c]));
 }
 
 /**

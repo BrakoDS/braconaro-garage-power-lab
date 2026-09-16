@@ -3,9 +3,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gerarGap, volumeGap } from './gap.js';
 import { SERIES_POR_ROUND } from '../data/gap.js';
+import { TABATA } from './gap.js';
+import { ROUND_TABATA } from '../../../compartilhado/config/estruturas.js';
 
 test('a regua do GAP e a mesma de sempre: meia serie por round', () => {
   assert.equal(SERIES_POR_ROUND, 0.5);
+});
+
+test('o round do compartilhado e o mesmo round do GAP', () => {
+  // O montador novo monta GAP a partir de ROUND_TABATA (compartilhado/config/estruturas.js).
+  // Duas verdades sobre o mesmo round e como o volume do GAP comeca a divergir entre
+  // as duas telas — aqui, e nao la, porque o app importa o compartilhado, nunca o contrario.
+  assert.equal(ROUND_TABATA.trabalhoSeg, TABATA.trabalhoSeg);
+  assert.equal(ROUND_TABATA.descansoSeg, TABATA.descansoSeg);
+  assert.equal(ROUND_TABATA.rounds, TABATA.roundsPorMusica);
 });
 
 test('uma aula inteira mantem o total que o coach ja lia', () => {
