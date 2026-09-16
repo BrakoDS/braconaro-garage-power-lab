@@ -118,13 +118,68 @@ Portal — `META_SERIES_SEMANAIS.hipertrofia` em
 `compartilhado/regras/metas-aluno.js`. `checar.ts` compara os dois no CI. O coach
 sobrescreve por grupo em `coaches/{uid}.config.metasVolume`.
 
-## Testes
+## Como testar
+
+### 1. Automático (segundos, nada a configurar)
 
 ```bash
-node --test 'coach/montador-hibrido/core/*.test.js'   # a lógica pura do cliente
-cd functions && npm run checar                        # os quatro módulos do servidor
-node ferramentas/verificar-imports.mjs                # a fiação
+node --test 'coach/montador-hibrido/core/*.test.js'   # 45 testes da lógica do cliente
+cd functions && npm ci && npm run checar              # 90+ asserções dos módulos do servidor
+node ferramentas/verificar-imports.mjs                # a fiação: todo caminho existe?
 ```
+
+### 2. A ferramenta inteira no navegador, sem nuvem e sem gastar OpenAI
+
+```bash
+node ferramentas/lousa-local.mjs
+# abre http://127.0.0.1:8765/__local/
+```
+
+Sobe o site com as chamadas de rede trocadas por dublês com dados de exemplo.
+Dá para desenhar com as três canetas, reconhecer (devolve um treino fixo em
+~0,7s), ver a prévia comparativa, aceitar trocas nos alertas, montar a turma e
+ler o dashboard com os três gráficos. **Nada sai da máquina e nada é gravado.**
+
+Os três alunos do dublê cobrem os três casos que importam:
+
+| Aluno | Caso |
+|---|---|
+| Ana Prado | lesão **com** substituto ➔ o exercício é trocado |
+| João Vieira | lesão **sem** substituto ➔ sai da ficha, com aviso · e sem e-mail ➔ não chega ao Portal |
+| Bia Toledo | sem 1RM ➔ carga sai como orientação, nunca um número estimado |
+
+Não testa: a leitura da lousa pela IA, as regras do Firestore e a gravação em
+lote. Para isso, o passo 3.
+
+### 3. De verdade, contra Firebase e OpenAI
+
+Pré-requisitos: projeto no plano **Blaze** (function com saída para a internet
+exige) e o secret da OpenAI.
+
+```bash
+firebase functions:secrets:set OPENAI_API_KEY     # só na primeira vez
+cd functions && npm run deploy                    # publica as 4 functions
+```
+
+O site é publicado pelo GitHub Pages ao entrar na `master` (`.github/workflows/deploy.yml`).
+Depois, em `/coach/montador-hibrido/`, logado com um e-mail de `EMAILS_COACH`.
+
+**Para testar a distribuição você precisa criar a matriz na mão**, no console do
+Firestore — ainda não existe tela para isso (ver *Limites conhecidos*). Crie
+`coaches/{seu-uid}/matriz_individualizacao/{id-do-aluno-na-Gestão}` com o
+formato documentado acima.
+
+Roteiro mínimo, e o que conferir em cada passo:
+
+1. **Lousa** — escreva `Pull-ups 3x máx` e `Corrida 800m`. Na prévia, o bloco
+   "Regras do box aplicadas" tem que mostrar as duas substituições.
+2. **Alertas** — salve dois treinos com o mesmo exercício em dias seguidos. O
+   segundo tem que disparar *Duplicação < 72h*.
+3. **Turma** — "Prever ajustes" não grava nada; "Enviar" grava. Confira em
+   `coaches/{uid}/lousas/{id}/fichas/` e em `treinoAluno/{email}`.
+4. **Volume** — o consolidado aparece alguns segundos **depois** de salvar a
+   lousa (é gatilho, é assíncrono). Se ficar em "ainda consolidando", veja
+   `firebase functions:log --only aggregateVolumeMetrics`.
 
 `core/periodos.js` duplica de propósito a conta de semana ISO de
 `functions/src/volume-agregado.ts` — são dois runtimes sem caminho entre eles. Os
@@ -141,6 +196,12 @@ porque a divergência entre eles **não daria erro nenhum**: o gatilho gravaria 
   texto, título, data e o treino já reconhecido; o canvas, não. São centenas de
   KB por lousa e o localStorage tem cota de poucos MB — duas lousas encheriam e a
   terceira derrubaria junto o rascunho de texto que cabia.
+- **Não há tela para cadastrar a `matriz_individualizacao`.** As functions leem
+  a matriz e a distribuição inteira depende dela, mas hoje ela só existe se
+  alguém criar o documento no console do Firestore. Aluno sem matriz recebe o
+  treino da turma sem ajuste e o coach vê o aviso — ou seja, a ferramenta
+  funciona sem ela, só não individualiza. A tela de cadastro é o próximo passo
+  óbvio; `cloud/chamadas.js` já exporta `lerMatriz` e `salvarMatriz` para ela.
 - **`aggregateVolumeMetrics` recalcula o mês inteiro a cada lousa salva.** Com o
   volume atual do box (dezenas de treinos por mês) isso é barato. Se um dia o
   histórico crescer a ponto de pesar, o caminho é um contador incremental por
