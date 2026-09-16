@@ -35,6 +35,8 @@ export function carregar() {
       const e = JSON.parse(raw);
       // `programas` (formato semanal antigo) fica preservado no cru p/ não apagar
       // dados legados, mas não é mais exposto por funções — o fluxo novo usa `treinos`.
+      // Na nuvem ele foi para `coaches/{uid}/arquivo/programas` em 15/09/2026, e o
+      // login devolve este campo vazio; aqui continua tolerado para quem ainda o tem.
       return { alunos: e.alunos || [], config: e.config || {}, treinos: e.treinos || {}, programas: e.programas || {} };
     }
   } catch (e) { /* ignora */ }

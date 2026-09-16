@@ -14,6 +14,9 @@
  *          match /databases/{db}/documents {
  *            match /coaches/{uid} {
  *              allow read, write: if request.auth != null && request.auth.uid == uid;
+ *              match /{sub=**} {   // histórico por mês; regra não desce sozinha
+ *                allow read, write: if request.auth != null && request.auth.uid == uid;
+ *              }
  *            }
  *          }
  *        }
