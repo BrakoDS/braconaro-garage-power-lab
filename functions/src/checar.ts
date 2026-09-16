@@ -8,7 +8,7 @@
  * modelo NÃO colabora — que são os que dão tela de erro para o aluno se
  * passarem batido.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as ts from 'typescript';
 import { extrairAnalise, num } from './analise';
@@ -25,8 +25,10 @@ import {
 } from './lousa';
 import { analisarVariabilidade, type TreinoHistorico } from './variabilidade';
 import {
-  fichaDoAluno, distribuir, lerMatriz, matrizPadrao, cargaDeTrabalho, arredondarCarga,
-  ALUNOS_POR_TURMA,
+  fichaDoAluno, distribuir, lerMatriz, matrizPadrao, cargaDeTrabalho, levantamentoDe,
+  e1rm, cargaDe1RM, ALUNOS_POR_TURMA, LEVANTAMENTOS, PCT_MIN, PCT_MAX,
+  NIVEIS as NIVEIS_MATRIZ, FASES, ZONAS_RIR, REGRAS_IMPACTO, REGRAS_TRACAO,
+  REGIOES_LESAO, GRAVIDADES, RESTRICOES_MOBILIDADE, CAMPO_MATRIZ,
 } from './distribuicao';
 import {
   chaveSemana, chaveMes, faixaDaSemana, faixaDoMes, consolidar, saldoPorGrupo,
@@ -708,56 +710,153 @@ console.log('\nDISTRIBUIÇÃO PARA A TURMA\n');
 
 const treinoTurma = extrairTreino(lousa([
   { ...EX_BASE, nome: 'Agachamento Livre', bloco: 'C', series: 4, implemento: 'Barra', grupamentos: ['Quadríceps'] },
+  { ...EX_BASE, nome: 'Burpee', bloco: 'D', series: 3, reps: '15', implemento: 'Peso corporal', grupamentos: ['Peito'] },
   { nome: 'Mobilidade de Tornozelo', bloco: 'A', series: 1, reps: '40s', implemento: '', grupamentos: [], observacao: '' },
 ]));
 
-const comLesao = lerMatriz({
-  nome: 'Ana', email: 'ANA@Exemplo.com ', nivel: 'iniciante',
-  lesoes: [{ regiao: 'joelho direito', evitar: ['agachamento'], substituir: [{ de: 'Agachamento Livre', para: 'Leg Press' }] }],
-  rm1: { 'Leg Press': 100 },
-}, 'ana');
-const fichaAna = fichaDoAluno(treinoTurma, comLesao);
-ok(fichaAna.linhas[1].nome === 'Leg Press', 'lesão com substituto na ficha troca o exercício');
-ok(fichaAna.linhas[1].motivos.some((m) => m.includes('joelho direito')), 'e o motivo diz qual restrição causou a troca');
-ok(fichaAna.email === 'ana@exemplo.com', 'o e-mail da matriz é normalizado (é a chave do Portal)');
-// Iniciante em Hipertrofia, bloco C: 0,70 × 0,90 = 0,63 de 100kg = 63 → 62,5 no passo de 2,5.
-ok(fichaAna.linhas[1].cargaKg === 62.5, `a carga sai balizada pelo 1RM e pelo nível (${fichaAna.linhas[1].cargaKg}kg)`);
-ok(fichaAna.linhas[0].cargaKg === null, 'mobilidade não recebe carga em kg');
+/** Uma ficha da Gestão, no formato que `matrizDe()` do site lê. */
+const fichaGestao = (extra: object = {}, matriz: object = {}) => ({
+  nome: 'Ana Prado', email: 'ANA@Exemplo.com ', nivel: 'intermediario', objetivo: 'Hipertrofia',
+  freqVezes: '3', foco: ['perna'],
+  ...extra,
+  matrizIndividualizacao: {
+    versao: 1,
+    perfil: { fase: 'hipertrofia' },
+    cargas: { referencia: {}, rir: '2-3', airbike: { rpm: null, calPorMin: null, obs: '' } },
+    adaptacoes: { lesoes: [], impacto: 'livre', tracao: 'barra', mobilidade: [], obs: '' },
+    historico: { semanaId: '', correcoes: {}, atualizadoEm: 0 },
+    ...matriz,
+  },
+});
 
-const semSubstituto = lerMatriz({
-  nome: 'João', nivel: 'intermediario',
-  lesoes: [{ regiao: 'lombar', evitar: ['agachamento'], substituir: [] }],
-}, 'joao');
-const fichaJoao = fichaDoAluno(treinoTurma, semSubstituto);
-ok(!fichaJoao.linhas.some((l) => l.nome === 'Agachamento Livre'), 'restrição sem substituto tira o exercício da ficha');
-ok(fichaJoao.removidos.length === 1 && fichaJoao.removidos[0].motivo.includes('lombar'),
-  'e o exercício removido aparece com o motivo, em vez de sumir em silêncio');
-ok(fichaJoao.avisos.some((a) => a.includes('sem substituto')), 'o coach vê o aviso na prévia, antes de enviar');
+/* ---------- 1RM: medido, estimado e o que não vira número ---------- */
 
-const semRm = fichaDoAluno(treinoTurma, matrizPadrao('novo', 'Aluno Novo'));
+ok(e1rm(100, 1) === 100, 'uma repetição é o próprio 1RM');
+ok(e1rm(100, 5) === 116.5, `Epley: 100kg × 5 reps ≈ 116,5kg (${e1rm(100, 5)})`);
+// 92,5 × (1 + 3/30) = 101,75 → 102 no arredondamento de 0,5 kg da fonte.
+ok(e1rm('92,5', '3') === 102, `vírgula decimal do formulário é aceita, como na fonte (${e1rm('92,5', '3')})`);
+ok(e1rm(0, 5) === null && e1rm(100, 0) === null, 'sem peso ou sem reps não há estimativa');
+ok(cargaDe1RM(100, 70) === 70, 'carga de trabalho arredonda ao par de anilhas (2,5 kg)');
+ok(cargaDe1RM(103, 70) === 72.5, `72,1 vira 72,5 — o que dá para montar na barra (${cargaDe1RM(103, 70)})`);
+
+const comMedido = lerMatriz(fichaGestao({}, {
+  cargas: { referencia: { agachamento: { kg: 90, reps: 5, rm: 130, medidoEm: '2026-09-01' } }, rir: '2-3', airbike: {} },
+}), 'ana');
+ok(comMedido.referencia.agachamento.rmEfetivo === 130,
+  'o 1RM MEDIDO ganha do estimado — se o coach testou de verdade, vale mais que a conta');
+
+const soEstimado = lerMatriz(fichaGestao({}, {
+  cargas: { referencia: { agachamento: { kg: 90, reps: 5, rm: null, medidoEm: '' } }, rir: '2-3', airbike: {} },
+}), 'ana');
+ok(soEstimado.referencia.agachamento.rmEfetivo === e1rm(90, 5),
+  'sem máxima medida, vale a estimativa de Epley sobre peso e reps');
+
+/* ---------- a leitura da ficha ---------- */
+
+const m = lerMatriz(fichaGestao(), 'ana');
+ok(m.nivel === 'intermediario' && m.objetivo === 'Hipertrofia' && m.freqVezes === '3',
+  'nível, objetivo e frequência são lidos do TOPO da ficha, não de dentro da matriz');
+ok(m.fase === 'hipertrofia', 'a fase é lida de dentro da matriz — objetivo e fase são coisas diferentes');
+ok(m.email === 'ana@exemplo.com', 'o e-mail é normalizado (é a chave do Portal)');
+ok(m.rir === '2-3', 'a zona de RIR habitual chega na ficha do aluno');
+
+const vazia = lerMatriz({ nome: 'Novo' }, 'novo');
+ok(vazia.impacto === 'livre' && vazia.tracao === 'barra',
+  'ficha antiga (sem matriz) sai com as regras em branco — branco é "sem adaptação", nunca erro');
+ok(LEVANTAMENTOS.every((id) => vazia.referencia[id]?.rmEfetivo === null),
+  'e com os três levantamentos presentes e vazios, para o Motor nunca ter que perguntar se o campo existe');
+
+const torta = lerMatriz({ nivel: 'semideus', matrizIndividualizacao: {
+  perfil: { fase: 'ascensao' },
+  cargas: { referencia: { agachamento: { kg: 'muito', reps: 5 } }, rir: '9-9' },
+  adaptacoes: { lesoes: { nao: 'é array' }, impacto: 'voar', tracao: 'teletransporte', mobilidade: 'nada' },
+} }, 'x');
+ok(torta.nivel === '' && torta.fase === '', 'valor fora do vocabulário vira vazio, não entra no cálculo');
+ok(torta.rir === '', 'zona de RIR inventada é descartada');
+ok(torta.impacto === 'livre' && torta.tracao === 'barra', 'regra inventada cai no padrão seguro');
+ok(Array.isArray(torta.lesoes) && torta.lesoes.length === 0, 'lesões que não são array viram lista vazia');
+ok(Array.isArray(torta.mobilidade) && torta.mobilidade.length === 0, 'mobilidade que não é array vira lista vazia');
+ok(torta.referencia.agachamento.rmEfetivo === null, 'peso que não é número não vira 1RM');
+
+/* ---------- a carga sai só dos três levantamentos ---------- */
+
+const comAgacho = lerMatriz(fichaGestao({}, {
+  cargas: { referencia: { agachamento: { kg: null, reps: null, rm: 100, medidoEm: '' } }, rir: '2-3', airbike: {} },
+}), 'ana');
+const fichaAna = fichaDoAluno(treinoTurma, comAgacho);
+const linhaAgacho = fichaAna.linhas.find((l) => l.nome === 'Agachamento Livre');
+// Hipertrofia bloco C = 70%; fase hipertrofia ×1,0; nível intermediário ×1,0.
+ok(linhaAgacho?.cargaKg === 70, `a carga sai do 1RM do levantamento de referência (${linhaAgacho?.cargaKg}kg)`);
+ok(linhaAgacho?.levantamento === 'agachamento', 'e a ficha diz QUAL levantamento balizou');
+ok(!!linhaAgacho?.motivos.some((x) => x.includes('1RM medido')), 'dizendo se o 1RM foi medido ou estimado');
+
+ok(fichaAna.linhas.find((l) => l.nome === 'Burpee')?.cargaKg === null,
+  'exercício que não é um dos três levantamentos NÃO recebe kg — número preciso e errado é pior que nenhum');
+ok(fichaAna.linhas.find((l) => l.nome === 'Mobilidade de Tornozelo')?.cargaKg === null,
+  'mobilidade não recebe carga');
+ok(levantamentoDe('Leg Press') === null,
+  'leg press NÃO puxa do 1RM de agachamento — a alavanca é outra e a carga sairia errada');
+ok(levantamentoDe('Agachamento Búlgaro') === 'agachamento' && levantamentoDe('Supino Inclinado') === 'supino'
+  && levantamentoDe('Levantamento Terra Romeno') === 'terra',
+  'as variações dos três levantamentos casam com a referência');
+
+const semRm = fichaDoAluno(treinoTurma, lerMatriz(fichaGestao(), 'ana'));
 ok(semRm.linhas.every((l) => l.cargaKg === null), 'aluno sem 1RM recebe a orientação da lousa, nunca um número inventado');
 ok(semRm.avisos.some((a) => a.includes('1RM')), 'e o coach é avisado de que falta 1RM');
 
-// Avançado no mesmo treino: 0,70 × 1,05 = 0,735 de 100 = 73,5 → 72,5 no passo de 2,5.
-const avancado = lerMatriz({ nome: 'Bia', nivel: 'avancado', rm1: { 'Agachamento Livre': 100 } }, 'bia');
-ok(fichaDoAluno(treinoTurma, avancado).linhas[1].cargaKg === 72.5,
-  `o mesmo treino dá carga maior para o avançado (${fichaDoAluno(treinoTurma, avancado).linhas[1].cargaKg}kg)`);
+/* ---------- fase e nível compõem, mas dentro da faixa ---------- */
 
-ok(cargaDeTrabalho(100, 'GAP', 'D', 'intermediario') === null
-  || cargaDeTrabalho(100, 'GAP', 'D', 'intermediario').cargaKg === 35,
+const emForca = lerMatriz(fichaGestao({ nivel: 'avancado' }, {
+  perfil: { fase: 'forca' },
+  cargas: { referencia: { agachamento: { rm: 100 } }, rir: '1-2', airbike: {} },
+}), 'x');
+const emResistencia = lerMatriz(fichaGestao({ nivel: 'iniciante' }, {
+  perfil: { fase: 'resistencia' },
+  cargas: { referencia: { agachamento: { rm: 100 } }, rir: '3-4', airbike: {} },
+}), 'y');
+const pctForca = cargaDeTrabalho(emForca, 'Agachamento Livre', 'Hipertrofia', 'C').percentual ?? 0;
+const pctResist = cargaDeTrabalho(emResistencia, 'Agachamento Livre', 'Hipertrofia', 'C').percentual ?? 0;
+ok(pctForca > 70 && pctResist < 70, `bloco de força puxa mais que resistência na MESMA aula (${pctForca}% x ${pctResist}%)`);
+ok(pctForca <= PCT_MAX && pctResist >= PCT_MIN,
+  `a composição fase × nível fica na faixa ${PCT_MIN}-${PCT_MAX}% — 90% do 1RM em aula de oito não é prescrição`);
+ok(cargaDeTrabalho(emForca, 'Agachamento Livre', 'GAP', 'D').percentual! < pctForca,
   'o metcon do GAP baliza mais leve que a força da hipertrofia');
-ok(cargaDeTrabalho(100, 'Hipertrofia', 'A', 'intermediario').cargaKg === null, 'não existe 1RM de mobilidade');
-ok(cargaDeTrabalho(0, 'Hipertrofia', 'C', 'intermediario').cargaKg === null, '1RM zerado não vira carga');
-ok(arredondarCarga(63) === 62.5 && arredondarCarga(61) === 60, 'a carga arredonda para o que existe no galpão (2,5 kg)');
+ok(cargaDeTrabalho(emForca, 'Agachamento Livre', 'Hipertrofia', 'A').cargaKg === null,
+  'não existe 1RM de mobilidade');
 
-/* ---------- matriz vinda torta do banco ---------- */
+/* ---------- as três regras de adaptação ---------- */
 
-const lixo = lerMatriz({ nivel: 'semideus', lesoes: { nao: 'é array' }, rm1: { Supino: 'muito' }, restricoes: 'gestante' }, 'x');
-ok(lixo.nivel === 'intermediario', 'nível fora do vocabulário cai no padrão');
-ok(Array.isArray(lixo.lesoes) && lixo.lesoes.length === 0, 'lesões que não são array viram lista vazia');
-ok(Object.keys(lixo.rm1).length === 0, '1RM que não é número é descartado');
-ok(Array.isArray(lixo.restricoes), 'restrições que não são array viram lista vazia');
-ok(lerMatriz(null, 'y').alunoId === 'y', 'matriz ausente no banco não derruba a distribuição da turma');
+const semImpacto = lerMatriz(fichaGestao({}, {
+  adaptacoes: { lesoes: [], impacto: 'converter_airbike', tracao: 'barra', mobilidade: [], obs: '' },
+}), 'x');
+const fichaSemImpacto = fichaDoAluno(treinoTurma, semImpacto);
+ok(fichaSemImpacto.linhas.some((l) => l.nome === 'Airbike'),
+  'quem não pode saltar senta na Airbike — é a conversão que o box já faz na prática');
+ok(!fichaSemImpacto.linhas.some((l) => l.nome === 'Burpee'), 'e o burpee sai da ficha dele');
+ok(fichaSemImpacto.linhas.some((l) => l.motivos.some((x) => x.includes('Airbike'))),
+  'com o motivo escrito, em vez de o exercício mudar em silêncio');
+ok(fichaSemImpacto.linhas.find((l) => l.nome === 'Agachamento Livre') !== undefined,
+  'a regra de impacto não encosta em quem não é movimento de impacto');
+
+const impactoReduzido = fichaDoAluno(treinoTurma, lerMatriz(fichaGestao({}, {
+  adaptacoes: { lesoes: [], impacto: 'reduzir', tracao: 'barra', mobilidade: [], obs: '' },
+}), 'x'));
+ok(impactoReduzido.linhas.some((l) => l.nome === 'Burpee' && l.motivos.some((x) => x.includes('sem fase aérea'))),
+  '"reduzir impacto" vira AVISO na linha, não troca de exercício — a adaptação é decisão do coach na aula');
+
+const mobilidadeRuim = fichaDoAluno(treinoTurma, lerMatriz(fichaGestao({}, {
+  adaptacoes: { lesoes: [], impacto: 'livre', tracao: 'barra', mobilidade: ['tornozelo'], obs: '' },
+}), 'x'));
+ok(mobilidadeRuim.linhas.some((l) => l.nome === 'Agachamento Livre' && l.motivos.some((x) => x.includes('Mobilidade'))),
+  'restrição de tornozelo avisa no agachamento');
+
+const comLesao = fichaDoAluno(treinoTurma, lerMatriz(fichaGestao({}, {
+  adaptacoes: { lesoes: [{ regiao: 'joelho', gravidade: 'moderada', desde: '2026-08-01', obs: 'menisco' }],
+    impacto: 'livre', tracao: 'barra', mobilidade: [], obs: 'evitar carga axial alta' },
+}), 'x'));
+ok(comLesao.avisos.some((a) => a.includes('joelho')),
+  'a lesão cadastrada aparece na ficha mesmo sem regra que a execute — senão o coach acharia que o sistema a considerou');
+ok(comLesao.avisos.some((a) => a.includes('carga axial')), 'e a observação da matriz vai junto');
 
 const turmaGrande = distribuir(treinoTurma, Array.from({ length: 12 }, (_, i) => matrizPadrao(`a${i}`)));
 ok(turmaGrande.length === ALUNOS_POR_TURMA, `a turma para no teto de ${ALUNOS_POR_TURMA} alunos (${turmaGrande.length})`);
@@ -884,6 +983,90 @@ try {
 } catch (e) {
   falhas += 1;
   console.log(`  ✗ META_SEMANAL_PADRAO: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+}
+
+
+/* ---------- os vocabulários da matriz contra a fonte do site ---------- */
+
+/*
+ * `compartilhado/regras/matriz-individualizacao.js` é a FONTE da matriz: é ela
+ * que a tela da Gestão usa para montar os selects e que `matrizDe()` usa para
+ * limpar o que foi digitado. As cópias em `distribuicao.ts` existem só porque
+ * `functions/` não importa os `.js` do site.
+ *
+ * Se uma lista divergir, nada explode: a function passa a DESCARTAR em silêncio
+ * um valor que a tela oferece — o coach marca "converter para Airbike" e a ficha
+ * sai sem a adaptação, sem erro em lugar nenhum. É o tipo de bug que só aparece
+ * quando um aluno faz o exercício errado.
+ *
+ * A fonte pode ainda não estar NESTE branch (ela nasceu em `etapa5a-portal`).
+ * Nesse caso a checagem avisa alto e não falha — falhar deixaria o CI vermelho
+ * por um arquivo que está a um merge de distância, e um check que ninguém
+ * consegue deixar verde é um check que todo mundo aprende a ignorar.
+ */
+const FONTE_MATRIZ = 'compartilhado/regras/matriz-individualizacao.js';
+
+if (!existsSync(join(RAIZ_SITE, FONTE_MATRIZ))) {
+  console.log('\nVOCABULÁRIOS DA MATRIZ DE INDIVIDUALIZAÇÃO\n');
+  console.log(`  ⚠ ${FONTE_MATRIZ} não está neste branch — as cópias de distribuicao.ts`);
+  console.log('    não foram conferidas. Elas passam a ser conferidas assim que a fonte entrar.');
+} else {
+  console.log('\nVOCABULÁRIOS DA MATRIZ: AS CÓPIAS BATEM COM A FONTE?\n');
+
+  /** Array de pares `[valor, rótulo]` → só os valores. */
+  const comoValoresDePares = (no: ts.Expression, origem: string): string[] => {
+    if (!ts.isArrayLiteralExpression(no)) throw new Error(`esperava um array literal em ${origem}.`);
+    return no.elements.map((el) => {
+      if (!ts.isArrayLiteralExpression(el) || !el.elements.length || !ts.isStringLiteral(el.elements[0])) {
+        throw new Error(`elemento não é um par ['valor', 'rótulo'] em ${origem}.`);
+      }
+      return (el.elements[0] as ts.StringLiteral).text;
+    });
+  };
+
+  const fonte = () => parseSite(FONTE_MATRIZ);
+
+  for (const [nome, constante, copia] of [
+    ['FASES', 'FASES', FASES],
+    ['LEVANTAMENTOS', 'LEVANTAMENTOS', LEVANTAMENTOS],
+    ['ZONAS_RIR', 'ZONAS_RIR', ZONAS_RIR],
+    ['REGRAS_IMPACTO', 'REGRAS_IMPACTO', REGRAS_IMPACTO],
+    ['REGRAS_TRACAO', 'REGRAS_TRACAO', REGRAS_TRACAO],
+    ['REGIOES_LESAO', 'REGIOES_LESAO', REGIOES_LESAO],
+    ['GRAVIDADES', 'GRAVIDADES', GRAVIDADES],
+    ['RESTRICOES_MOBILIDADE', 'RESTRICOES_MOBILIDADE', RESTRICOES_MOBILIDADE],
+  ] as [string, string, readonly string[]][]) {
+    checarVocabulario(
+      `${nome} (distribuicao.ts)`,
+      () => comoValoresDePares(acharConst(fonte(), constante), `${FONTE_MATRIZ}:${constante}`),
+      [...copia],
+    );
+  }
+
+  // `NIVEIS` na matriz vem de `niveis.js` (`OPCOES_NIVEL` é derivado dele), então
+  // a fonte a conferir é aquela, não a matriz.
+  checarVocabulario(
+    'NIVEIS (distribuicao.ts)',
+    () => comoArrayDeString(acharConst(parseSite('compartilhado/regras/niveis.js'), 'NIVEIS'), 'compartilhado/regras/niveis.js:NIVEIS'),
+    [...NIVEIS_MATRIZ],
+  );
+
+  // O nome do campo dentro da ficha do aluno. Se ele mudar na fonte e não aqui,
+  // a function lê `undefined` e TODA a turma sai sem individualização.
+  try {
+    const no = acharConst(fonte(), 'CAMPO');
+    if (!ts.isStringLiteral(no)) throw new Error('CAMPO não é uma string literal.');
+    ok(no.text === CAMPO_MATRIZ, 'CAMPO: o nome do campo da matriz bate com a fonte',
+      `site="${no.text}" functions="${CAMPO_MATRIZ}"`);
+  } catch (e) {
+    falhas += 1;
+    console.log(`  ✗ CAMPO: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+  }
+
+  // As duas contas de carga também são cópias. Aqui não dá para comparar o
+  // código; compara-se o RESULTADO em pontos conhecidos da fórmula de Epley.
+  ok(e1rm(100, 5) === 116.5 && e1rm(60, 8) === 76, 'e1rm reproduz Epley nos pontos de referência');
+  ok(cargaDe1RM(100, 70) === 70 && cargaDe1RM(103, 70) === 72.5, 'cargaDe1RM arredonda a 2,5 kg como a fonte');
 }
 
 console.log(

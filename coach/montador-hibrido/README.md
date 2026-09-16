@@ -70,7 +70,7 @@ canvas por cima é uma textarea em que é impossível clicar.
 ```
 coaches/{uid}/lousas/{workoutId}                   o treino da lousa
 coaches/{uid}/lousas/{workoutId}/fichas/{alunoId}  a ficha de cada aluno
-coaches/{uid}/matriz_individualizacao/{alunoId}    lesões, restrições, 1RM
+gestao/{uid} → alunos[].matrizIndividualizacao     a matriz (a Gestão é a dona)
 coaches/{uid}/volumeAgregado/{chave}               '2026-W38' e '2026-09'
 treinoAluno/{email}                                a fatia que o Portal lê
 lousaUso/{email}                                   cota diária (só a function escreve)
@@ -83,23 +83,36 @@ Portal, e a regra dela já autoriza o coach a escrever.
 
 ### A matriz de individualização
 
-```js
-{
-  nome: 'Ana Prado',
-  email: 'ana@exemplo.com',          // sem e-mail, a ficha não chega ao Portal
-  nivel: 'iniciante',                // iniciante | intermediario | avancado
-  lesoes: [{
-    regiao: 'joelho direito',
-    evitar: ['agachamento'],         // casa por substring, nos dois sentidos
-    substituir: [{ de: 'Agachamento Livre', para: 'Leg Press' }],
-  }],
-  restricoes: ['gestante'],
-  rm1: { 'Agachamento Livre': 100 }, // kg
-}
-```
+A matriz **não é deste app**: ela é o campo `matrizIndividualizacao` dentro da
+ficha do aluno na Gestão, definido por
+`compartilhado/regras/matriz-individualizacao.js`. O Híbrido só **lê**. Quem
+edita é a tela da Gestão de Alunos, e é de lá que vem a verdade.
 
-Restrição **sem** substituto tira o exercício da ficha e avisa — nunca some em
-silêncio. Aluno sem 1RM recebe a orientação da lousa, nunca um número estimado.
+O que a distribuição usa dela:
+
+| Campo | Efeito na ficha do aluno |
+|---|---|
+| `cargas.referencia.{agachamento,supino,terra}` | 1RM medido, ou estimado por Epley ➔ a carga em kg |
+| `perfil.fase` | força puxa mais, resistência puxa menos, na mesma aula |
+| `nivel` (topo da ficha) | iniciante −10%, avançado +5% |
+| `adaptacoes.impacto` | `converter_airbike` troca burpee/salto/corrida por Airbike |
+| `adaptacoes.tracao` | vira aviso na linha de tração (elástico, puxada alta) |
+| `adaptacoes.mobilidade` | vira aviso de amplitude no exercício que ela toca |
+| `adaptacoes.lesoes` | vira aviso de contexto — **não** dispara troca sozinha |
+| `cargas.rir` | a zona habitual do aluno, mostrada ao lado da prescrição |
+
+Três decisões que valem explicar:
+
+- **Só os três levantamentos balizam carga.** Leg press não puxa do 1RM de
+  agachamento — a alavanca é outra e o número sairia preciso e errado.
+  Exercício que não casa com um dos três sai sem kg, com a orientação da lousa.
+- **Lesão não troca exercício sozinha.** Quem executa são `impacto`, `tracao` e
+  `mobilidade`, que são declarativas. A lista de lesões acompanha a ficha como
+  contexto, com um aviso — para o coach não achar que o sistema já tratou o caso.
+- **Fase e nível se compõem, mas dentro de 30–85% do 1RM.** Dois multiplicadores
+  multiplicam: sem o teto, avançado em bloco de força chegaria a 81%, e sem o
+  piso, iniciante em resistência cairia abaixo de qualquer estímulo. 90% do 1RM
+  numa aula de oito pessoas não é prescrição, é acidente esperando acontecer.
 
 ## Como o volume é contado
 
@@ -196,12 +209,11 @@ porque a divergência entre eles **não daria erro nenhum**: o gatilho gravaria 
   texto, título, data e o treino já reconhecido; o canvas, não. São centenas de
   KB por lousa e o localStorage tem cota de poucos MB — duas lousas encheriam e a
   terceira derrubaria junto o rascunho de texto que cabia.
-- **Não há tela para cadastrar a `matriz_individualizacao`.** As functions leem
-  a matriz e a distribuição inteira depende dela, mas hoje ela só existe se
-  alguém criar o documento no console do Firestore. Aluno sem matriz recebe o
-  treino da turma sem ajuste e o coach vê o aviso — ou seja, a ferramenta
-  funciona sem ela, só não individualiza. A tela de cadastro é o próximo passo
-  óbvio; `cloud/chamadas.js` já exporta `lerMatriz` e `salvarMatriz` para ela.
+- **A fonte da matriz nasceu no branch `etapa5a-portal`.** Enquanto ela não
+  entrar na `master`, a checagem de vocabulário de `checar.ts` avisa e não
+  falha — um check que ninguém consegue deixar verde é um check que todo mundo
+  aprende a ignorar. Assim que a fonte entrar, as oito listas passam a ser
+  conferidas a cada CI.
 - **`aggregateVolumeMetrics` recalcula o mês inteiro a cada lousa salva.** Com o
   volume atual do box (dezenas de treinos por mês) isso é barato. Se um dia o
   histórico crescer a ponto de pesar, o caminho é um contador incremental por

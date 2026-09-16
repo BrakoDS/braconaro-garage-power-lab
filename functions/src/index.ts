@@ -856,7 +856,7 @@ export const pesquisarItem = onCall(
 
      coaches/{uid}/lousas/{workoutId}                  o treino da lousa
      coaches/{uid}/lousas/{workoutId}/fichas/{alunoId} a ficha de cada aluno
-     coaches/{uid}/matriz_individualizacao/{alunoId}   lesões, restrições, 1RM
+     gestao/{uid} → alunos[].matrizIndividualizacao    a matriz (a Gestão é a dona)
      coaches/{uid}/volumeAgregado/{chave}              semana e mês consolidados
      treinoAluno/{email}                               a fatia que o Portal lê
 
@@ -1144,20 +1144,44 @@ export const distributeWorkoutToStudents = onCall(
     }
     const dateId = typeof doc.dateId === 'string' && EH_DATA.test(doc.dateId) ? doc.dateId : diaSaoPaulo();
 
-    // Uma leitura por aluno, em paralelo: são no máximo 8, e `getAll` obrigaria
-    // a montar as referências antes de saber quais existem.
+    // UMA leitura só, do documento da Gestão.
+    //
+    // A matriz de individualização NÃO mora numa coleção por aluno: ela é o
+    // campo `matrizIndividualizacao` dentro da ficha, no mesmo documento
+    // `gestao/{uid}` que o coach já edita na tela de Gestão de Alunos (ver
+    // `compartilhado/regras/matriz-individualizacao.js`). Ler de lá é o que
+    // garante que o número usado na aula é o mesmo que ele acabou de digitar —
+    // uma cópia em outra coleção seria uma segunda verdade sobre o mesmo aluno,
+    // e a cópia venceria por acidente no dia em que alguém esquecesse de
+    // sincronizar.
+    const gestaoSnap = await db.doc(`gestao/${uid}`).get();
+    const alunos = (gestaoSnap.data()?.alunos ?? []) as { id?: unknown }[];
+    const porId = new Map(
+      (Array.isArray(alunos) ? alunos : [])
+        .filter((a) => a && typeof a === 'object' && a.id != null)
+        .map((a) => [String(a.id), a]),
+    );
+
     const semMatriz: string[] = [];
-    const matrizes: MatrizAluno[] = await Promise.all(studentIds.map(async (id) => {
-      const snap = await db.doc(`coaches/${uid}/matriz_individualizacao/${id}`).get();
-      if (!snap.exists) {
-        // Aluno sem matriz recebe o treino da turma como está, e o coach vê o
-        // aviso na prévia. Recusar a distribuição inteira por causa de um aluno
-        // novo deixaria a turma sem treino por um cadastro que falta.
+    const matrizes: MatrizAluno[] = studentIds.map((id) => {
+      const ficha = porId.get(id);
+      if (!ficha) {
+        // Aluno que não está na Gestão recebe o treino da turma como está, e o
+        // coach vê o aviso na prévia. Recusar a distribuição inteira por causa
+        // de um cadastro que falta deixaria a turma sem treino.
         semMatriz.push(id);
         return matrizPadrao(id);
       }
-      return lerMatriz(snap.data(), id);
-    }));
+      const m = lerMatriz(ficha, id);
+      // "Sem matriz" aqui quer dizer sem nada preenchido que mude o treino —
+      // não "sem documento". É esse o caso que o coach precisa saber, porque é
+      // ele que faz a ficha sair igual à da turma.
+      const temAlgo = m.nivel || m.fase || m.rir || m.lesoes.length
+        || m.impacto !== 'livre' || m.tracao !== 'barra' || m.mobilidade.length
+        || Object.values(m.referencia).some((r) => r.rmEfetivo);
+      if (!temAlgo) semMatriz.push(id);
+      return m;
+    });
 
     const fichas = distribuir(treino, matrizes);
 
