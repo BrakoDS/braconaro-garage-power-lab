@@ -178,6 +178,24 @@ function aplicarObjetivo(l, obj) {
   };
 }
 
+/**
+ * Troca já resolvida pelo coach na hora de publicar.
+ *
+ * O aparelho do aluno não tem o catálogo de exercícios, então não conseguiria
+ * transformar "substitutoId" num nome. Quem tem o catálogo é o coach: ao
+ * publicar, ele grava a troca com nome e grupo junto, e aqui é só ler. Fica numa
+ * chave própria (`trocas`) para não disputar espaço com o ajuste que ele faz na
+ * mão naquele dia (`linhas`).
+ */
+function aplicarTrocaPublicada(l, excecao) {
+  const t = excecao?.trocas?.[l.id];
+  if (!t || !t.id) return { linha: l, motivos: [] };
+  return {
+    linha: { ...l, id: t.id, nome: t.nome || t.id, padrao: t.padrao || l.padrao, grupo: t.grupoMuscular ?? l.grupo },
+    motivos: [`Troca por restrição${t.motivo ? ` (${t.motivo})` : ''}: ${l.nome} → ${t.nome || t.id}`],
+  };
+}
+
 /** Aplica o ajuste que o coach fez para aquele aluno naquele dia. */
 function aplicarExcecao(l, excecao, exercicioPorId) {
   const ajuste = excecao?.linhas?.[chaveDaLinha(l)];
@@ -232,7 +250,12 @@ export function versaoDoAluno({ base, perfil = {}, feitoPorGrupo = {}, excecao =
   for (const l of originais) {
     const base0 = { ...l, seriesBase: inteiro(l.series), grupo: l.grupo ?? grupoDoExercicio(l), motivos: [] };
     if (l.travado) { comRestricao.push(base0); continue; } // cadeado ignora o perfil inteiro
-    const { linha, motivos } = aplicarRestricao(base0, perfil, exercicioPorId);
+    // A troca já resolvida na publicação vem primeiro: onde ela existe, o
+    // catálogo não é necessário — é o caminho do aparelho do aluno, que não o tem.
+    const pronta = aplicarTrocaPublicada(base0, excecao);
+    const { linha, motivos } = pronta.motivos.length
+      ? pronta
+      : aplicarRestricao(base0, perfil, exercicioPorId);
     comRestricao.push(linha);
     if (motivos.length) motivosPorLinha.set(linha, motivos);
   }
