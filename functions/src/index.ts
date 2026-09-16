@@ -1110,10 +1110,16 @@ const EH_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export const distributeWorkoutToStudents = onCall(
   { timeoutSeconds: 120, memory: '512MiB' },
-  async (req): Promise<{ fichas: FichaDoAluno[]; gravadas: number; semMatriz: string[] }> => {
+  async (req): Promise<{ fichas: FichaDoAluno[]; gravadas: number; semMatriz: string[]; dryRun: boolean }> => {
     const { uid } = exigirCoach(req);
 
-    const dados = (req.data ?? {}) as { workoutId?: unknown; studentIds?: unknown; classTime?: unknown };
+    const dados = (req.data ?? {}) as { workoutId?: unknown; studentIds?: unknown; classTime?: unknown; dryRun?: unknown };
+    // `dryRun` é o que sustenta a PRÉVIA da turma na tela do coach ("como este
+    // treino fica para a Ana?") sem gravar nada. Existe como parâmetro, e não
+    // como um segundo cálculo no navegador, porque a prévia tem de sair da
+    // MESMA conta do envio: reimplementar lesão, restrição e balizamento de 1RM
+    // no cliente criaria duas regras, e o coach aprovaria uma para mandar outra.
+    const dryRun = dados.dryRun === true;
     const workoutId = typeof dados.workoutId === 'string' ? dados.workoutId.trim() : '';
     if (!workoutId) throw new HttpsError('invalid-argument', 'Salve o treino antes de distribuir para a turma.');
 
@@ -1155,6 +1161,11 @@ export const distributeWorkoutToStudents = onCall(
 
     const fichas = distribuir(treino, matrizes);
 
+    if (dryRun) {
+      logger.info('Distribuição pré-visualizada.', { workoutId, alunos: fichas.length });
+      return { fichas, gravadas: 0, semMatriz, dryRun: true };
+    }
+
     // GRAVAÇÃO EM LOTE: as fichas da turma inteira entram ou não entram juntas.
     // Sem o lote, uma falha de rede no quinto aluno deixaria quatro com o treino
     // de hoje e quatro com o de ontem — e ninguém saberia quais.
@@ -1186,7 +1197,7 @@ export const distributeWorkoutToStudents = onCall(
     }
 
     logger.info('Treino distribuído.', { workoutId, alunos: fichas.length, semMatriz: semMatriz.length });
-    return { fichas, gravadas, semMatriz };
+    return { fichas, gravadas, semMatriz, dryRun: false };
   },
 );
 
