@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Montador Individual — Garage Power Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./individual.css?v=1" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+  <!-- ============ GATE (login) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Montador Individual</div>
+      <p class="gate-sub">Área restrita ao coach.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links">
+        <a href="#" id="gate-reset">Esqueci a senha</a>
+        <a href="../index.html">← Voltar ao Coach</a>
+      </div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Individual</div>
+      <nav class="tabs">
+        <button class="tab active" data-view="treino">Treino do dia</button>
+        <button class="tab" data-view="historico">Histórico</button>
+      </nav>
+      <nav class="topbar-sai">
+        <a class="btn ghost btn-sm" href="../index.html">Coach</a>
+        <a class="btn ghost btn-sm" href="../../index.html">Site</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- ---------- TREINO DO DIA ---------- -->
+      <section class="view active" id="view-treino">
+        <div class="panel barra">
+          <div class="field">
+            <label for="f-estrutura">Estrutura</label>
+            <select id="f-estrutura"></select>
+          </div>
+          <div class="field">
+            <label for="f-data">Data do treino</label>
+            <input id="f-data" type="date" />
+          </div>
+          <div class="field estreito">
+            <label for="f-alunos">Nº de alunos</label>
+            <input id="f-alunos" type="number" min="1" max="30" value="8" />
+          </div>
+          <p class="dica" id="f-dica"></p>
+        </div>
+
+        <section class="bloco" id="sec-aquecimento">
+          <div class="bloco-cab">
+            <h2>Aquecimento / mobilidade</h2>
+            <button class="btn ghost btn-sm" id="btn-add-aquecimento">+ item</button>
+          </div>
+          <div id="lista-aquecimento" class="linhas"></div>
+        </section>
+
+        <div id="blocos"></div>
+        <button class="btn ghost" id="btn-add-bloco">+ bloco</button>
+
+        <section class="panel resumo" id="resumo"></section>
+
+        <div class="acoes">
+          <span class="aviso" id="aviso-salvo"></span>
+          <button class="btn ghost" id="btn-limpar">Limpar o dia</button>
+          <button class="btn" id="btn-salvar">Salvar</button>
+        </div>
+      </section>
+
+      <!-- ---------- HISTÓRICO ---------- -->
+      <section class="view" id="view-historico">
+        <div class="panel barra">
+          <div class="field">
+            <label for="h-mes">Mês</label>
+            <select id="h-mes"></select>
+          </div>
+        </div>
+        <div id="lista-historico" class="linhas"></div>
+      </section>
+    </main>
+  </div>
+
+  <datalist id="dl-exercicios"></datalist>
+  <script type="module" src="./ui/gate.js?v=1"></script>
+</body>
+</html>

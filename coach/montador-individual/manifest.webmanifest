@@ -1,0 +1,17 @@
+{
+  "name": "Montador Individual — Garage Power Lab",
+  "short_name": "Individual",
+  "description": "Treino base da aula, por dia, com volume por grupo — a versão de cada aluno vem do perfil.",
+  "scope": "/coach/montador-individual/",
+  "start_url": "/coach/montador-individual/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090b",
+  "theme_color": "#0a0a0b",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
