@@ -1,9 +1,11 @@
 /**
  * Cloud Functions do Garage Power Lab.
  *
- * Hoje só a análise de foto de refeição. Ela existe como função — e não como
- * chamada direta do app — por um motivo só: a chave da OpenAI não pode ir para
- * dentro do aplicativo. Qualquer variável embutida no bundle é legível por quem
+ * Análise de foto de refeição, sincronização de preços da loja, pesquisa de
+ * exercício e o Montador de Treinos Híbrido (leitura da lousa, variabilidade,
+ * distribuição para a turma e consolidação de volume). As que falam com a
+ * OpenAI existem como função — e não como chamada direta do app — por um motivo
+ * só: a chave da OpenAI não pode ir para dentro do aplicativo. Qualquer variável embutida no bundle é legível por quem
  * instala o app ("These variables will be visible in plain-text in your compiled
  * application", doc do Expo), e uma chave de API vazada é gasto na conta do box.
  *
@@ -14,6 +16,7 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
@@ -27,6 +30,23 @@ import {
   montarSchema, instrucoes, extrairProposta,
   type Equip, type Contexto, type Proposta,
 } from './pesquisa';
+// `montarSchema`/`instrucoes` da lousa entram com apelido porque a pesquisa já
+// exporta esses dois nomes. Apelidar aqui é melhor que renomear no módulo: cada
+// arquivo continua nomeando as próprias peças do jeito óbvio, e é só neste
+// ponto — onde os dois convivem — que a ambiguidade precisa ser desfeita.
+import {
+  montarSchema as montarSchemaLousa, instrucoes as instrucoesLousa, extrairTreino,
+  type TreinoEstruturado,
+} from './lousa';
+import { analisarVariabilidade, type ResultadoVariabilidade, type TreinoHistorico } from './variabilidade';
+import {
+  distribuir, lerMatriz, matrizPadrao, ALUNOS_POR_TURMA,
+  type FichaDoAluno, type MatrizAluno,
+} from './distribuicao';
+import {
+  chaveMes, chaveSemana, consolidar, faixaDaSemana, faixaDoMes,
+  type TreinoParaVolume,
+} from './volume-agregado';
 
 initializeApp();
 
@@ -817,6 +837,432 @@ export const pesquisarItem = onCall(
         'unavailable',
         e instanceof Error && e.message ? e.message : 'Não deu para concluir a pesquisa agora. Cadastre em /academia.',
       );
+    }
+  },
+);
+
+/* ============================================================
+   MONTADOR DE TREINOS HÍBRIDO — Lousa do Coach & Dashboard de Volume
+   ============================================================
+
+   Quatro funções, uma por etapa do fluxo do coach:
+
+     parseWorkoutLousa           quadro branco  ➔ treino estruturado
+     checkWorkoutVariability     treino novo    ➔ alertas da semana
+     distributeWorkoutToStudents treino aprovado ➔ ficha de cada aluno
+     aggregateVolumeMetrics      (gatilho)       ➔ consolidado de volume
+
+   Onde os dados moram, e por que aqui:
+
+     coaches/{uid}/lousas/{workoutId}                  o treino da lousa
+     coaches/{uid}/lousas/{workoutId}/fichas/{alunoId} a ficha de cada aluno
+     coaches/{uid}/matriz_individualizacao/{alunoId}   lesões, restrições, 1RM
+     coaches/{uid}/volumeAgregado/{chave}              semana e mês consolidados
+     treinoAluno/{email}                               a fatia que o Portal lê
+
+   Tudo debaixo de `coaches/{uid}` de propósito: a regra que já existe em
+   `firestore.rules` (`match /coaches/{uid}` + `match /{sub=**}`) cobre qualquer
+   subcoleção nova com o mesmo dono e o mesmo acesso, então esta ferramenta
+   inteira nasce sem afrouxar uma linha das regras. `treinoAluno/{email}` é a
+   única exceção, e é intencional: é a coleção que o aluno já lê no Portal, e a
+   regra dela já autoriza o coach a escrever.
+   ============================================================ */
+
+/**
+ * Quem pode usar a ferramenta.
+ *
+ * O spec pede `token.admin === true`, e é a primeira coisa checada. Mas a
+ * claim `admin` precisa ser gravada por fora (Admin SDK ou console) e HOJE
+ * nenhuma conta deste projeto a tem — publicar só com ela deixaria a
+ * ferramenta inacessível até alguém rodar um script que não existe. Por isso a
+ * allowlist de `EMAILS_COACH`, já usada por `pesquisarItem` e `atualizarPrecos`,
+ * vale como segunda porta: o mesmo critério do resto do sistema, nem mais
+ * aberto nem mais fechado. Quando a claim existir, ela passa a mandar sozinha e
+ * esta segunda condição vira redundância inofensiva.
+ */
+function exigirCoach(req: { auth?: { uid?: string; token?: Record<string, unknown> } }): { uid: string; email: string } {
+  const uid = req.auth?.uid;
+  const token = req.auth?.token;
+  if (!uid || !token) {
+    throw new HttpsError('unauthenticated', 'Entre na sua conta de coach para usar o Montador Híbrido.');
+  }
+  const email = typeof token.email === 'string' ? token.email.trim().toLowerCase() : '';
+  const ehAdmin = token.admin === true;
+  const naAllowlist = !!email && EMAILS_COACH.includes(email) && token.email_verified !== false;
+  if (!ehAdmin && !naAllowlist) {
+    throw new HttpsError('permission-denied', 'Só o coach usa o Montador Híbrido.');
+  }
+  return { uid, email };
+}
+
+/** Quantas leituras de lousa o coach pode fazer por dia. */
+const LIMITE_LOUSA = 40;
+
+/**
+ * Cota diária da leitura de lousa, em documento PRÓPRIO (`lousaUso/{email}`).
+ *
+ * Mesmo raciocínio de `consumirCotaPesquisa`, e pelo mesmo motivo de separar:
+ * uma lousa relida três vezes numa tarde não pode comer o teto da pesquisa de
+ * exercício (nem o contrário). O freio é contra BUG — um clique duplo, um
+ * retry de rede, um laço de render — e não contra abuso de terceiro, que a
+ * checagem de coach acima já resolve.
+ */
+async function consumirCotaLousa(email: string): Promise<number> {
+  const db = getFirestore();
+  const ref = db.collection('lousaUso').doc(email);
+  const hoje = diaSaoPaulo();
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.exists ? (snap.data() ?? {}) : {};
+    const mesmoDia = d.dia === hoje;
+    const usadas = mesmoDia && typeof d.usadas === 'number' ? d.usadas : 0;
+
+    if (usadas >= LIMITE_LOUSA) {
+      throw new HttpsError(
+        'resource-exhausted',
+        `Você já usou as ${LIMITE_LOUSA} leituras de lousa de hoje. Dá para montar o treino na mão no Montador de Treinos.`,
+      );
+    }
+
+    tx.set(ref, { dia: hoje, usadas: usadas + 1, atualizadoEm: FieldValue.serverTimestamp() }, { merge: true });
+    return LIMITE_LOUSA - (usadas + 1);
+  });
+}
+
+/**
+ * Formatos aceitos do canvas.
+ *
+ * A COMPRESSÃO acontece no navegador (`core/canvas.js`, `toDataURL(tipo, 0.8)`)
+ * e não aqui, por uma razão de transporte: o canvas cru de um quadro 1600×900 é
+ * um PNG de vários MB, e comprimir no servidor significaria SUBIR esses MB
+ * primeiro — a chamada estouraria o limite do callable antes de a função rodar.
+ * Comprimindo antes, a mesma lousa vai como JPEG de ~150 KB. À função cabe
+ * então recusar o que não veio no formato combinado.
+ */
+const MIMES_LOUSA = ['image/jpeg', 'image/webp'] as const;
+
+/** Teto de caracteres do texto digitado na lousa. */
+const MAX_TEXTO_LOUSA = 4000;
+
+export const parseWorkoutLousa = onCall(
+  { secrets: [CHAVE_OPENAI], timeoutSeconds: 120, memory: '512MiB' },
+  async (req): Promise<{ treino: TreinoEstruturado; restantes: number }> => {
+    const { email } = exigirCoach(req);
+
+    const dados = (req.data ?? {}) as { textInput?: unknown; canvasImageBase64?: unknown; mimeType?: unknown };
+    const textInput = typeof dados.textInput === 'string' ? dados.textInput.trim().slice(0, MAX_TEXTO_LOUSA) : '';
+    const imagem = typeof dados.canvasImageBase64 === 'string' ? dados.canvasImageBase64 : '';
+
+    // Um dos dois basta: o coach que só digitou não precisa desenhar, e o que
+    // só desenhou não precisa digitar. Nenhum dos dois é a lousa vazia.
+    if (!textInput && !imagem) {
+      throw new HttpsError('invalid-argument', 'A lousa está vazia — escreva o treino ou desenhe no quadro antes de reconhecer.');
+    }
+    if (imagem && imagem.length > MAX_BASE64) {
+      throw new HttpsError('invalid-argument', 'O desenho da lousa ficou grande demais. Limpe o quadro e desenhe de novo.');
+    }
+    const mime = MIMES_LOUSA.includes(dados.mimeType as typeof MIMES_LOUSA[number])
+      ? (dados.mimeType as string)
+      : 'image/jpeg';
+
+    const restantes = await consumirCotaLousa(email || `uid:${req.auth?.uid}`);
+
+    const conteudo: Record<string, unknown>[] = [
+      { type: 'input_text', text: textInput ? 'Leia a lousa e o texto digitado.' : 'Leia a lousa desenhada.' },
+    ];
+    if (imagem) {
+      // `detail: 'high'`, ao contrário da análise de refeição: ali basta
+      // reconhecer "isso é arroz"; aqui é preciso LER caligrafia pequena e
+      // distinguir a cor da caneta, e em 'low' a imagem é reamostrada a ponto
+      // de "3x8" e "3×3" virarem o mesmo borrão.
+      conteudo.push({ type: 'input_image', image_url: `data:${mime};base64,${imagem}`, detail: 'high' });
+    }
+
+    const chamada = await chamarResponses({
+      model: MODELO,
+      instructions: instrucoesLousa(textInput),
+      input: [{ role: 'user', content: conteudo }],
+      text: {
+        format: { type: 'json_schema', name: 'treino_lousa', strict: true, schema: montarSchemaLousa() },
+      },
+      max_output_tokens: 2000,
+    }, TIMEOUT_MS);
+
+    if (!chamada.ok) {
+      // O corpo pode trazer detalhe da conta OpenAI: fica no log, nunca no erro do coach.
+      logger.error('OpenAI recusou a leitura da lousa.', { status: chamada.status, corpo: chamada.corpo.slice(0, 500) });
+      throw new HttpsError(
+        'unavailable',
+        chamada.abortou
+          ? 'A leitura da lousa demorou demais. Tente de novo — ou monte o treino no Montador de Treinos.'
+          : 'O reconhecimento está indisponível agora. Dá para montar o treino no Montador de Treinos.',
+      );
+    }
+
+    try {
+      const treino = extrairTreino(chamada.json);
+      logger.info('Lousa lida.', {
+        sistema: treino.sistema,
+        blocos: treino.blocos.length,
+        series: treino.estimativaSeries,
+        substituicoes: treino.substituicoes.length,
+        restantes,
+      });
+      return { treino, restantes };
+    } catch (e) {
+      // `extrairTreino` lança com mensagem já escrita para o coach ler.
+      logger.error('Falha ao estruturar a lousa.', { erro: String(e) });
+      throw new HttpsError('unavailable', e instanceof Error && e.message ? e.message : 'Não deu para estruturar a lousa agora.');
+    }
+  },
+);
+
+/** Quantos dias de histórico a checagem de variabilidade olha para trás. */
+const JANELA_DIAS = 7;
+/** Teto de treinos lidos na janela — uma semana não tem mais que isso, e o limite protege contra coleção corrompida. */
+const MAX_HISTORICO = 30;
+
+/** 'YYYY-MM-DD' somado de N dias, sem depender de fuso local. */
+function somarDias(dateId: string, dias: number): string {
+  const t = Date.parse(`${dateId}T12:00:00Z`);
+  if (!Number.isFinite(t)) return dateId;
+  return new Date(t + dias * 864e5).toISOString().slice(0, 10);
+}
+
+const EH_DATA = /^\d{4}-\d{2}-\d{2}$/;
+
+export const checkWorkoutVariability = onCall(
+  { timeoutSeconds: 60, memory: '256MiB' },
+  async (req): Promise<ResultadoVariabilidade> => {
+    const { uid } = exigirCoach(req);
+
+    const dados = (req.data ?? {}) as { structuredWorkout?: unknown; weekStartDate?: unknown };
+    const weekStartDate = typeof dados.weekStartDate === 'string' && EH_DATA.test(dados.weekStartDate)
+      ? dados.weekStartDate
+      : diaSaoPaulo();
+
+    // O treino chega do cliente porque a checagem roda ANTES de salvar — é
+    // justamente para o coach decidir se salva assim. Passa por `extrairTreino`
+    // de novo (o cliente manda o objeto já estruturado, mas nada garante que
+    // chegou inteiro) para que a análise nunca opere em cima de campo torto.
+    let treino: TreinoEstruturado;
+    try {
+      treino = extrairTreino({ output_text: JSON.stringify(normalizarParaLeitura(dados.structuredWorkout)) });
+    } catch {
+      throw new HttpsError('invalid-argument', 'Treino inválido — reconheça a lousa antes de checar a variabilidade.');
+    }
+
+    const inicio = somarDias(weekStartDate, -JANELA_DIAS);
+    const db = getFirestore();
+    let historico: TreinoHistorico[] = [];
+    try {
+      const snap = await db.collection(`coaches/${uid}/lousas`)
+        .where('dateId', '>=', inicio)
+        .where('dateId', '<=', weekStartDate)
+        .limit(MAX_HISTORICO)
+        .get();
+      historico = snap.docs.flatMap((d): TreinoHistorico[] => {
+        const v = d.data() ?? {};
+        if (!v.treino || typeof v.treino !== 'object') return [];
+        return [{
+          id: d.id,
+          dateId: typeof v.dateId === 'string' ? v.dateId : '',
+          geradoEm: typeof v.geradoEm === 'string' ? v.geradoEm : `${v.dateId}T12:00:00.000Z`,
+          treino: v.treino as TreinoEstruturado,
+        }];
+      });
+    } catch (e) {
+      // Sem histórico a checagem perde profundidade, mas não perde sentido —
+      // saturação e redundância ainda leem o treino novo. Falhar a chamada
+      // inteira porque o índice não existe deixaria o coach travado na tela.
+      logger.warn('Histórico da semana indisponível — analisando só o treino novo.', { erro: String(e) });
+    }
+
+    const agoraIso = new Date().toISOString();
+    const resultado = analisarVariabilidade(treino, historico, agoraIso);
+    logger.info('Variabilidade checada.', { alertas: resultado.alertas.length, historico: historico.length });
+    return resultado;
+  },
+);
+
+/**
+ * O treino que o cliente manda volta ao formato que `extrairTreino` lê (lista
+ * achatada de exercícios), em vez de a função ganhar um segundo leitor.
+ *
+ * Um leitor só significa uma regra só: as regras globais do box, o descarte de
+ * músculo inventado e o padrão de série por bloco valem igual na primeira
+ * leitura e em toda revalidação. Um segundo caminho seria a chance de um
+ * "pull-up" entrar pela porta dos fundos.
+ */
+function normalizarParaLeitura(bruto: unknown): Record<string, unknown> {
+  const t = (bruto && typeof bruto === 'object' ? bruto : {}) as Record<string, unknown>;
+  const blocos = Array.isArray(t.blocos) ? t.blocos : [];
+  const exercicios = blocos.flatMap((b) => {
+    const o = (b && typeof b === 'object' ? b : {}) as Record<string, unknown>;
+    return Array.isArray(o.exercicios) ? o.exercicios : [];
+  });
+  return { sistema: t.sistema, titulo: t.titulo, avisos: t.avisos ?? [], exercicios };
+}
+
+/** Formato de horário de aula aceito ('19:00'). */
+const EH_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export const distributeWorkoutToStudents = onCall(
+  { timeoutSeconds: 120, memory: '512MiB' },
+  async (req): Promise<{ fichas: FichaDoAluno[]; gravadas: number; semMatriz: string[] }> => {
+    const { uid } = exigirCoach(req);
+
+    const dados = (req.data ?? {}) as { workoutId?: unknown; studentIds?: unknown; classTime?: unknown };
+    const workoutId = typeof dados.workoutId === 'string' ? dados.workoutId.trim() : '';
+    if (!workoutId) throw new HttpsError('invalid-argument', 'Salve o treino antes de distribuir para a turma.');
+
+    const studentIds = Array.isArray(dados.studentIds)
+      ? [...new Set(dados.studentIds.filter((s): s is string => typeof s === 'string' && !!s.trim()).map((s) => s.trim()))]
+      : [];
+    if (!studentIds.length) throw new HttpsError('invalid-argument', 'Selecione pelo menos um aluno da turma.');
+    if (studentIds.length > ALUNOS_POR_TURMA) {
+      throw new HttpsError('invalid-argument', `A turma tem no máximo ${ALUNOS_POR_TURMA} alunos por aula.`);
+    }
+    const classTime = typeof dados.classTime === 'string' && EH_HORA.test(dados.classTime) ? dados.classTime : '';
+
+    const db = getFirestore();
+    const treinoRef = db.doc(`coaches/${uid}/lousas/${workoutId}`);
+    const treinoSnap = await treinoRef.get();
+    if (!treinoSnap.exists) throw new HttpsError('not-found', 'Treino não encontrado — salve a lousa de novo.');
+
+    const doc = treinoSnap.data() ?? {};
+    const treino = doc.treino as TreinoEstruturado | undefined;
+    if (!treino || !Array.isArray(treino.blocos)) {
+      throw new HttpsError('failed-precondition', 'O treino salvo está incompleto. Reconheça a lousa de novo.');
+    }
+    const dateId = typeof doc.dateId === 'string' && EH_DATA.test(doc.dateId) ? doc.dateId : diaSaoPaulo();
+
+    // Uma leitura por aluno, em paralelo: são no máximo 8, e `getAll` obrigaria
+    // a montar as referências antes de saber quais existem.
+    const semMatriz: string[] = [];
+    const matrizes: MatrizAluno[] = await Promise.all(studentIds.map(async (id) => {
+      const snap = await db.doc(`coaches/${uid}/matriz_individualizacao/${id}`).get();
+      if (!snap.exists) {
+        // Aluno sem matriz recebe o treino da turma como está, e o coach vê o
+        // aviso na prévia. Recusar a distribuição inteira por causa de um aluno
+        // novo deixaria a turma sem treino por um cadastro que falta.
+        semMatriz.push(id);
+        return matrizPadrao(id);
+      }
+      return lerMatriz(snap.data(), id);
+    }));
+
+    const fichas = distribuir(treino, matrizes);
+
+    // GRAVAÇÃO EM LOTE: as fichas da turma inteira entram ou não entram juntas.
+    // Sem o lote, uma falha de rede no quinto aluno deixaria quatro com o treino
+    // de hoje e quatro com o de ontem — e ninguém saberia quais.
+    const lote = db.batch();
+    let gravadas = 0;
+    for (const f of fichas) {
+      lote.set(treinoRef.collection('fichas').doc(f.alunoId), {
+        ...f, workoutId, dateId, classTime, distribuidoEm: FieldValue.serverTimestamp(),
+      });
+      gravadas++;
+      // O Portal do Aluno lê por e-mail. Sem e-mail na matriz a ficha continua
+      // salva ao lado do treino (o coach a vê e imprime), só não chega ao app.
+      if (f.email) {
+        lote.set(db.doc(`treinoAluno/${f.email}`), {
+          hibrido: { [dateId]: { workoutId, classTime, titulo: treino.titulo, sistema: treino.sistema, linhas: f.linhas, avisos: f.avisos } },
+          atualizadoEm: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
+    }
+    lote.set(treinoRef, {
+      distribuido: { em: FieldValue.serverTimestamp(), alunos: studentIds, classTime },
+    }, { merge: true });
+
+    try {
+      await lote.commit();
+    } catch (e) {
+      logger.error('Falha ao gravar a distribuição da turma.', { erro: String(e), workoutId });
+      throw new HttpsError('unavailable', 'Não deu para enviar o treino para a turma agora. Tente de novo em instantes.');
+    }
+
+    logger.info('Treino distribuído.', { workoutId, alunos: fichas.length, semMatriz: semMatriz.length });
+    return { fichas, gravadas, semMatriz };
+  },
+);
+
+/**
+ * CONSOLIDAÇÃO DE VOLUME — gatilho, não chamada.
+ *
+ * Roda em `coaches/{uid}/lousas/{workoutId}`, depois de o treino ser gravado ou
+ * apagado, e refaz a semana e o mês daquele treino. É assíncrono de propósito:
+ * o coach não espera por isto para salvar a lousa, e o dashboard lê o
+ * consolidado pronto em duas leituras em vez de varrer o mês inteiro a cada
+ * abertura.
+ *
+ * Não há laço de gatilho: a escrita vai para `volumeAgregado`, outra coleção,
+ * que não dispara este mesmo trigger.
+ */
+export const aggregateVolumeMetrics = onDocumentWritten(
+  { document: 'coaches/{uid}/lousas/{workoutId}', timeoutSeconds: 120, memory: '256MiB' },
+  async (evento) => {
+    const uid = evento.params.uid;
+    const depois = evento.data?.after?.data();
+    const antes = evento.data?.before?.data();
+
+    // No apagamento só existe `antes` — e é a semana DELE que precisa ser
+    // refeita, senão o volume do treino removido fica no consolidado para sempre.
+    const dateId = (typeof depois?.dateId === 'string' && depois.dateId)
+      || (typeof antes?.dateId === 'string' && antes.dateId)
+      || '';
+    if (!EH_DATA.test(dateId)) {
+      logger.warn('Treino sem dateId utilizável — consolidação ignorada.', { uid, workoutId: evento.params.workoutId });
+      return;
+    }
+
+    const db = getFirestore();
+    const colecao = db.collection(`coaches/${uid}/lousas`);
+
+    /** Lê os treinos de uma faixa de datas e devolve no formato da consolidação. */
+    const lerFaixa = async (inicio: string, fim: string): Promise<TreinoParaVolume[]> => {
+      const snap = await colecao.where('dateId', '>=', inicio).where('dateId', '<=', fim).get();
+      return snap.docs.flatMap((d): TreinoParaVolume[] => {
+        const v = d.data() ?? {};
+        const t = v.treino as TreinoEstruturado | undefined;
+        if (!t || !Array.isArray(t.blocos)) return [];
+        return [{
+          dateId: typeof v.dateId === 'string' ? v.dateId : '',
+          sistema: t.sistema,
+          exercicios: t.blocos.flatMap((b) => (b.exercicios || []).map((ex) => ({
+            series: ex.series, grupamentos: ex.grupamentos || [], implemento: ex.implemento || '',
+          }))),
+        }];
+      });
+    };
+
+    try {
+      // Metas do coach, quando ele sobrescreveu a tabela padrão.
+      const conf = await db.doc(`coaches/${uid}`).get();
+      const metasDoCoach = (conf.data()?.config?.metasVolume ?? {}) as Record<string, number>;
+
+      const semana = faixaDaSemana(dateId);
+      const mes = faixaDoMes(dateId);
+      const [treinosSemana, treinosMes] = await Promise.all([
+        lerFaixa(semana.inicio, semana.fim),
+        lerFaixa(mes.inicio, mes.fim),
+      ]);
+
+      const chaveS = chaveSemana(dateId);
+      const chaveM = chaveMes(dateId);
+      const lote = db.batch();
+      lote.set(db.doc(`coaches/${uid}/volumeAgregado/${chaveS}`), consolidar(treinosSemana, 'semana', chaveS, semana, metasDoCoach));
+      lote.set(db.doc(`coaches/${uid}/volumeAgregado/${chaveM}`), consolidar(treinosMes, 'mes', chaveM, mes, metasDoCoach));
+      await lote.commit();
+
+      logger.info('Volume consolidado.', { uid, semana: chaveS, mes: chaveM, treinosSemana: treinosSemana.length });
+    } catch (e) {
+      // Gatilho não tem usuário esperando: registrar e sair é melhor que
+      // relançar, que faria o Functions repetir a mesma leitura pesada em loop.
+      logger.error('Falha ao consolidar volume.', { uid, dateId, erro: String(e) });
     }
   },
 );

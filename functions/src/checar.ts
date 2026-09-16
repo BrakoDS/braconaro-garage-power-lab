@@ -20,6 +20,19 @@ import {
   EQUIP_FORA_DO_INVENTARIO, JSON_QUEBRADO, VAZIA, MALICIOSA,
   SEM_MUSCULO_PRIMARIO, SECUNDARIO_REPETIDO,
 } from './fixtures/pesquisa';
+import {
+  extrairTreino, regraGlobalDe, montarSchema as montarSchemaLousa, MUSCULOS_LABEL,
+} from './lousa';
+import { analisarVariabilidade, type TreinoHistorico } from './variabilidade';
+import {
+  fichaDoAluno, distribuir, lerMatriz, matrizPadrao, cargaDeTrabalho, arredondarCarga,
+  ALUNOS_POR_TURMA,
+} from './distribuicao';
+import {
+  chaveSemana, chaveMes, faixaDaSemana, faixaDoMes, consolidar, saldoPorGrupo,
+  GRUPO_POR_ROTULO, META_SEMANAL_PADRAO, SEMANAS_POR_MES, GRUPOS as GRUPOS_VOL,
+  type TreinoParaVolume,
+} from './volume-agregado';
 
 let falhas = 0;
 
@@ -466,13 +479,13 @@ function mesmoConjunto(a: string[], b: string[]): boolean {
   return ordenadoA.every((v, i) => v === ordenadoB[i]);
 }
 
-/** Compara uma cópia de pesquisa.ts com sua fonte no site; extração que falha vira falha do check, não exceção solta. */
+/** Compara uma cópia local (de `pesquisa.ts`, `lousa.ts`, `volume-agregado.ts`) com sua fonte no site; extração que falha vira falha do check, não exceção solta. */
 function checarVocabulario(nome: string, extrairFonte: () => string[], copia: string[]): void {
   try {
     const fonte = extrairFonte();
     ok(
       mesmoConjunto(fonte, copia),
-      `${nome}: pesquisa.ts bate com a fonte no site`,
+      `${nome}: a cópia bate com a fonte no site`,
       `fonte=[${fonte.join(', ')}] cópia=[${copia.join(', ')}]`,
     );
   } catch (e) {
@@ -495,13 +508,13 @@ const schemaVocab = montarSchema('exercicio', []) as {
 };
 
 checarVocabulario(
-  'PADROES',
+  'PADROES (pesquisa.ts)',
   () => comoArrayDeString(acharConst(parseSite('compartilhado/config/padroes.js'), 'PADROES'), 'compartilhado/config/padroes.js:PADROES'),
   schemaVocab.properties.padrao.enum,
 );
 
 checarVocabulario(
-  'MUSCULOS_LABEL',
+  'MUSCULOS_LABEL (pesquisa.ts)',
   () => {
     // MUSCULOS_LABEL não é uma constante única em lugar nenhum do site: é
     // `MUSCULOS` (as 11 chaves internas, em `padroes.js`) traduzida pelo mapa
@@ -528,20 +541,354 @@ ok(JSON.stringify(schemaVocab.properties.musculosSecundarios.items.enum) === JSO
   'primário e secundário aceitam exatamente o mesmo vocabulário');
 
 checarVocabulario(
-  'TAGS',
+  'TAGS (pesquisa.ts)',
   () => comoArrayDeString(acharConst(parseSite('coach/academia/db.js'), 'TAGS'), 'coach/academia/db.js:TAGS'),
   schemaVocab.properties.tags.items.enum,
 );
 
 checarVocabulario(
-  'NIVEIS',
+  'NIVEIS (pesquisa.ts)',
   () => comoArrayDeString(acharConst(parseSite('compartilhado/regras/niveis.js'), 'NIVEIS'), 'compartilhado/regras/niveis.js:NIVEIS'),
   schemaVocab.properties.nivel.enum,
 );
 
+
+/* ============================================================
+   MONTADOR DE TREINOS HÍBRIDO
+   ============================================================ */
+
+console.log('\nLOUSA DO COACH: A LEITURA AGUENTA LOUSA TORTA?\n');
+
+/** Uma resposta de lousa no formato que a OpenAI devolve, montada a partir dos exercícios. */
+const lousa = (exercicios: object[], extra: object = {}) => envelope(JSON.stringify({
+  sistema: 'Hipertrofia', titulo: 'Full Body A', avisos: [], exercicios, ...extra,
+}));
+
+const EX_BASE = {
+  nome: 'Supino Reto', bloco: 'C', series: 4, reps: '8-12',
+  implemento: 'Barra', grupamentos: ['Peito', 'Tríceps'], observacao: 'RIR 2',
+};
+
+const treinoOk = extrairTreino(lousa([
+  { ...EX_BASE },
+  { nome: 'Mobilidade de Quadril', bloco: 'A', series: 1, reps: '40s', implemento: '', grupamentos: [], observacao: '' },
+]));
+ok(treinoOk.blocos.length === 2, `lousa bem formada devolve os dois blocos (${treinoOk.blocos.length})`);
+ok(treinoOk.blocos[0].id === 'A', 'e os blocos saem na ordem A → D, não na ordem em que o coach escreveu');
+ok(treinoOk.estimativaSeries === 5, `a estimativa soma as séries de todos os blocos (${treinoOk.estimativaSeries})`);
+ok(treinoOk.blocos[1].exercicios[0].observacao === 'RIR 2', 'a caneta vermelha (RIR) chega em "observacao"');
+
+ok(extrairTreino({ output_text: JSON.stringify({ sistema: 'HIIT', titulo: 'T', avisos: [], exercicios: [EX_BASE] }) }).sistema === 'HIIT',
+  'o atalho output_text também é lido');
+ok(extrairTreino(envelope('Claro! Aqui está: ' + JSON.stringify({ sistema: 'GAP', titulo: 'T', avisos: [], exercicios: [EX_BASE] }))).sistema === 'GAP',
+  'prosa em volta do JSON não atrapalha');
+ok(extrairTreino(envelope('```json\n' + JSON.stringify({ sistema: 'Hyrox', titulo: 'T', avisos: [], exercicios: [EX_BASE] }) + '\n```')).sistema === 'Hyrox',
+  'cerca de markdown também é descascada');
+
+/* ---------- o que tem que ser RECUSADO ---------- */
+
+ok(lanca(() => extrairTreino(envelope('não consegui ler nada'))), 'lousa ilegível é recusada, não devolvida vazia');
+ok(lanca(() => extrairTreino(envelope(''))), 'resposta vazia é recusada');
+ok(lanca(() => extrairTreino(lousa([]))), 'treino sem nenhum exercício é recusado');
+ok(lanca(() => extrairTreino(lousa([{ ...EX_BASE, nome: '' }]))), 'treino em que nenhuma linha tem nome é recusado');
+
+/* ---------- o que tem que ser TOLERADO ---------- */
+
+const tolerante = extrairTreino(lousa([
+  { ...EX_BASE, bloco: 'Z' },
+  { ...EX_BASE, nome: 'Remada', series: 99 },
+  { ...EX_BASE, nome: 'Prancha', grupamentos: ['Peito', 'Pescoço', 'Peito'] },
+  { nome: '', bloco: 'C', series: 3, reps: '', implemento: '', grupamentos: [], observacao: '' },
+]));
+const forca = tolerante.blocos.find((b) => b.id === 'C');
+ok(forca?.exercicios.length === 3, `linha sem nome é descartada e o resto passa (${forca?.exercicios.length})`);
+ok(forca?.exercicios[0].bloco === 'C', 'bloco fora de A-D cai em Força');
+ok(forca?.exercicios[1].series === 3, `série fora da faixa cai no padrão do bloco (${forca?.exercicios[1].series})`);
+ok(JSON.stringify(forca?.exercicios[2].grupamentos) === JSON.stringify(['Peito']),
+  'músculo inventado é descartado e o repetido não duplica');
+
+const semSeries = extrairTreino(lousa([
+  { ...EX_BASE, bloco: 'A', series: 0 },
+  { ...EX_BASE, bloco: 'C', series: 0 },
+]));
+ok(semSeries.blocos.find((b) => b.id === 'A')?.exercicios[0].series === 1
+  && semSeries.blocos.find((b) => b.id === 'C')?.exercicios[0].series === 3,
+  'sem série na lousa, mobilidade recebe 1 passagem e força recebe 3');
+
+const sistemaTorto = extrairTreino(lousa([EX_BASE], { sistema: 'Crossfit' }));
+ok(sistemaTorto.sistema === 'Hipertrofia', 'sistema fora do vocabulário cai em Hipertrofia');
+ok(sistemaTorto.avisos.some((a) => a.includes('sistema')), 'e o coach é avisado do palpite em vez de descobrir depois');
+
+/* ---------- regras globais do box ---------- */
+
+console.log('\nREGRAS GLOBAIS DO BOX\n');
+
+for (const escrito of ['Pull-up', 'pull ups', 'PULLUP', 'Barra Fixa', '3x8 pull up estrito']) {
+  ok(regraGlobalDe(escrito)?.para === 'Puxada Alta Pegada Aberta', `"${escrito}" vira Puxada Alta Pegada Aberta`);
+}
+for (const escrito of ['Corrida', 'corrida 400m', 'Esteira', 'Sprint', 'run']) {
+  ok(regraGlobalDe(escrito)?.para === 'Airbike', `"${escrito}" vira Airbike`);
+}
+ok(regraGlobalDe('Puxada Alta Pegada Aberta') === null, 'o exercício que já é o destino não gera troca fantasma');
+ok(regraGlobalDe('Airbike') === null, 'idem para o Airbike — reler um treino salvo não inventa substituição');
+ok(regraGlobalDe('Supino Reto') === null, 'exercício sem regra passa intacto');
+
+const comRegra = extrairTreino(lousa([
+  { ...EX_BASE, nome: 'Pull-ups' },
+  { ...EX_BASE, nome: 'Corrida 800m' },
+  { ...EX_BASE, nome: 'Supino Reto' },
+]));
+const nomesFinais = comRegra.blocos.flatMap((b) => b.exercicios.map((e) => e.nome));
+ok(nomesFinais.includes('Puxada Alta Pegada Aberta') && nomesFinais.includes('Airbike'),
+  'as regras globais são aplicadas ao treino inteiro na leitura');
+ok(comRegra.substituicoes.length === 2, `e ficam registradas para o coach ver (${comRegra.substituicoes.length})`);
+ok(comRegra.substituicoes[0].de === 'Pull-ups' && comRegra.substituicoes[0].regra.includes('regra global'),
+  'o registro diz o que era, o que virou e por quê');
+
+/* ---------- schema estrito ---------- */
+
+const schemaLousa = montarSchemaLousa() as {
+  required: string[]; properties: Record<string, unknown>;
+  properties2?: never;
+};
+ok(mesmoConjunto(schemaLousa.required, Object.keys(schemaLousa.properties)),
+  'required do schema da lousa é EXATAMENTE properties (strict mode recusa campo fantasma nos dois sentidos)');
+const itemEx = (schemaLousa.properties.exercicios as { items: { required: string[]; properties: Record<string, unknown>; additionalProperties: boolean } }).items;
+ok(mesmoConjunto(itemEx.required, Object.keys(itemEx.properties)), 'e o mesmo vale para cada exercício');
+ok(itemEx.additionalProperties === false, 'o exercício não aceita campo extra');
+
+console.log('\nMOTOR DE VARIABILIDADE\n');
+
+const AGORA = '2026-09-16T19:00:00.000Z';
+const treinoHoje = extrairTreino(lousa([
+  { ...EX_BASE, nome: 'Agachamento Livre', grupamentos: ['Quadríceps'] },
+]));
+const historicoDe = (horasAtras: number, nome: string): TreinoHistorico => ({
+  id: 'x', dateId: new Date(Date.parse(AGORA) - horasAtras * 36e5).toISOString().slice(0, 10),
+  geradoEm: new Date(Date.parse(AGORA) - horasAtras * 36e5).toISOString(),
+  treino: extrairTreino(lousa([{ ...EX_BASE, nome, grupamentos: ['Quadríceps'] }])),
+});
+
+const dup = analisarVariabilidade(treinoHoje, [historicoDe(48, 'Agachamento Livre')], AGORA);
+ok(dup.alertas.some((a) => a.tipo === 'duplicacao'), 'mesmo exercício 48h atrás dispara duplicação');
+ok(dup.alertas[0].sugestoes.some((s) => s.acao === 'manter'), 'e "manter a escolha do coach" é sempre uma das saídas');
+ok(dup.alertas[0].sugestoes.some((s) => s.rotulo.includes('Halter')),
+  'a troca de 1 clique de Barra oferece Halter');
+
+const semDup = analisarVariabilidade(treinoHoje, [historicoDe(100, 'Agachamento Livre')], AGORA);
+ok(!semDup.alertas.some((a) => a.tipo === 'duplicacao'), 'o mesmo exercício há 100h (> 72h) não dispara nada');
+
+const outroExercicio = analisarVariabilidade(treinoHoje, [historicoDe(24, 'Supino Reto')], AGORA);
+ok(!outroExercicio.alertas.some((a) => a.tipo === 'duplicacao'), 'exercício diferente no mesmo dia não é duplicação');
+
+/** Oito exercícios, sete de barra — saturação clara, amostra suficiente. */
+const muitaBarra = extrairTreino(lousa([
+  ...Array.from({ length: 7 }, (_, i) => ({ ...EX_BASE, nome: `Barra ${i}`, implemento: 'Barra' })),
+  { ...EX_BASE, nome: 'Abdominal', implemento: 'Colchonete' },
+]));
+const sat = analisarVariabilidade(muitaBarra, [], AGORA);
+ok(sat.alertas.some((a) => a.tipo === 'saturacao' && a.alvo === 'Barra'), 'barra em 87% dos exercícios dispara saturação');
+ok(sat.resumo.usoPorImplemento.Barra === 7, `o resumo conta o uso por implemento (${sat.resumo.usoPorImplemento.Barra})`);
+
+const amostraPequena = extrairTreino(lousa([
+  { ...EX_BASE, nome: 'A', implemento: 'Barra' },
+  { ...EX_BASE, nome: 'B', implemento: 'Barra' },
+  { ...EX_BASE, nome: 'C', implemento: 'Barra' },
+]));
+ok(!analisarVariabilidade(amostraPequena, [], AGORA).alertas.some((a) => a.tipo === 'saturacao'),
+  'três exercícios de barra numa segunda-feira NÃO viram alerta (amostra pequena demais)');
+
+const soPeito = extrairTreino(lousa(
+  Array.from({ length: 8 }, (_, i) => ({ ...EX_BASE, nome: `Peito ${i}`, grupamentos: ['Peito'] })),
+));
+ok(analisarVariabilidade(soPeito, [], AGORA).alertas.some((a) => a.tipo === 'redundancia'),
+  'a semana inteira em um grupamento dispara redundância de estímulo');
+
+console.log('\nDISTRIBUIÇÃO PARA A TURMA\n');
+
+const treinoTurma = extrairTreino(lousa([
+  { ...EX_BASE, nome: 'Agachamento Livre', bloco: 'C', series: 4, implemento: 'Barra', grupamentos: ['Quadríceps'] },
+  { nome: 'Mobilidade de Tornozelo', bloco: 'A', series: 1, reps: '40s', implemento: '', grupamentos: [], observacao: '' },
+]));
+
+const comLesao = lerMatriz({
+  nome: 'Ana', email: 'ANA@Exemplo.com ', nivel: 'iniciante',
+  lesoes: [{ regiao: 'joelho direito', evitar: ['agachamento'], substituir: [{ de: 'Agachamento Livre', para: 'Leg Press' }] }],
+  rm1: { 'Leg Press': 100 },
+}, 'ana');
+const fichaAna = fichaDoAluno(treinoTurma, comLesao);
+ok(fichaAna.linhas[1].nome === 'Leg Press', 'lesão com substituto na ficha troca o exercício');
+ok(fichaAna.linhas[1].motivos.some((m) => m.includes('joelho direito')), 'e o motivo diz qual restrição causou a troca');
+ok(fichaAna.email === 'ana@exemplo.com', 'o e-mail da matriz é normalizado (é a chave do Portal)');
+// Iniciante em Hipertrofia, bloco C: 0,70 × 0,90 = 0,63 de 100kg = 63 → 62,5 no passo de 2,5.
+ok(fichaAna.linhas[1].cargaKg === 62.5, `a carga sai balizada pelo 1RM e pelo nível (${fichaAna.linhas[1].cargaKg}kg)`);
+ok(fichaAna.linhas[0].cargaKg === null, 'mobilidade não recebe carga em kg');
+
+const semSubstituto = lerMatriz({
+  nome: 'João', nivel: 'intermediario',
+  lesoes: [{ regiao: 'lombar', evitar: ['agachamento'], substituir: [] }],
+}, 'joao');
+const fichaJoao = fichaDoAluno(treinoTurma, semSubstituto);
+ok(!fichaJoao.linhas.some((l) => l.nome === 'Agachamento Livre'), 'restrição sem substituto tira o exercício da ficha');
+ok(fichaJoao.removidos.length === 1 && fichaJoao.removidos[0].motivo.includes('lombar'),
+  'e o exercício removido aparece com o motivo, em vez de sumir em silêncio');
+ok(fichaJoao.avisos.some((a) => a.includes('sem substituto')), 'o coach vê o aviso na prévia, antes de enviar');
+
+const semRm = fichaDoAluno(treinoTurma, matrizPadrao('novo', 'Aluno Novo'));
+ok(semRm.linhas.every((l) => l.cargaKg === null), 'aluno sem 1RM recebe a orientação da lousa, nunca um número inventado');
+ok(semRm.avisos.some((a) => a.includes('1RM')), 'e o coach é avisado de que falta 1RM');
+
+// Avançado no mesmo treino: 0,70 × 1,05 = 0,735 de 100 = 73,5 → 72,5 no passo de 2,5.
+const avancado = lerMatriz({ nome: 'Bia', nivel: 'avancado', rm1: { 'Agachamento Livre': 100 } }, 'bia');
+ok(fichaDoAluno(treinoTurma, avancado).linhas[1].cargaKg === 72.5,
+  `o mesmo treino dá carga maior para o avançado (${fichaDoAluno(treinoTurma, avancado).linhas[1].cargaKg}kg)`);
+
+ok(cargaDeTrabalho(100, 'GAP', 'D', 'intermediario') === null
+  || cargaDeTrabalho(100, 'GAP', 'D', 'intermediario').cargaKg === 35,
+  'o metcon do GAP baliza mais leve que a força da hipertrofia');
+ok(cargaDeTrabalho(100, 'Hipertrofia', 'A', 'intermediario').cargaKg === null, 'não existe 1RM de mobilidade');
+ok(cargaDeTrabalho(0, 'Hipertrofia', 'C', 'intermediario').cargaKg === null, '1RM zerado não vira carga');
+ok(arredondarCarga(63) === 62.5 && arredondarCarga(61) === 60, 'a carga arredonda para o que existe no galpão (2,5 kg)');
+
+/* ---------- matriz vinda torta do banco ---------- */
+
+const lixo = lerMatriz({ nivel: 'semideus', lesoes: { nao: 'é array' }, rm1: { Supino: 'muito' }, restricoes: 'gestante' }, 'x');
+ok(lixo.nivel === 'intermediario', 'nível fora do vocabulário cai no padrão');
+ok(Array.isArray(lixo.lesoes) && lixo.lesoes.length === 0, 'lesões que não são array viram lista vazia');
+ok(Object.keys(lixo.rm1).length === 0, '1RM que não é número é descartado');
+ok(Array.isArray(lixo.restricoes), 'restrições que não são array viram lista vazia');
+ok(lerMatriz(null, 'y').alunoId === 'y', 'matriz ausente no banco não derruba a distribuição da turma');
+
+const turmaGrande = distribuir(treinoTurma, Array.from({ length: 12 }, (_, i) => matrizPadrao(`a${i}`)));
+ok(turmaGrande.length === ALUNOS_POR_TURMA, `a turma para no teto de ${ALUNOS_POR_TURMA} alunos (${turmaGrande.length})`);
+
+console.log('\nCONSOLIDAÇÃO DE VOLUME\n');
+
+ok(chaveSemana('2026-09-16') === '2026-W38', `quarta 16/09/2026 cai na semana ISO 38 (${chaveSemana('2026-09-16')})`);
+ok(chaveSemana('2026-09-14') === chaveSemana('2026-09-20'),
+  'segunda e domingo da mesma semana ISO dão a mesma chave');
+ok(chaveSemana('2026-09-20') !== chaveSemana('2026-09-21'), 'e a segunda seguinte já é outra semana');
+ok(chaveSemana('2025-12-31') === '2026-W01',
+  `31/12/2025 pertence à semana ISO 1 de 2026 (${chaveSemana('2025-12-31')}) — a virada de ano não parte a semana de treino`);
+ok(chaveMes('2026-09-16') === '2026-09', 'a chave de mês é o prefixo YYYY-MM');
+ok(faixaDaSemana('2026-09-16').inicio === '2026-09-14' && faixaDaSemana('2026-09-16').fim === '2026-09-20',
+  'a semana vai de segunda a domingo');
+ok(faixaDoMes('2026-02-10').fim === '2026-02-28', 'a faixa do mês conhece o tamanho de cada mês');
+
+const treinosSemana: TreinoParaVolume[] = [
+  { dateId: '2026-09-14', sistema: 'Hipertrofia', exercicios: [
+    { series: 4, grupamentos: ['Peito', 'Tríceps'], implemento: 'Barra' },
+    { series: 3, grupamentos: ['Quadríceps'], implemento: 'Halter' },
+  ] },
+  { dateId: '2026-09-16', sistema: 'HIIT', exercicios: [
+    { series: 3, grupamentos: ['Peito'], implemento: 'Barra' },
+  ] },
+];
+const cSem = consolidar(treinosSemana, 'semana', '2026-W38', faixaDaSemana('2026-09-16'));
+ok(cSem.totalSeries === 10, `o total de séries soma o que foi prescrito (${cSem.totalSeries})`);
+ok(cSem.porGrupo.peito === 7, `peito acumula as séries dos dois dias (${cSem.porGrupo.peito})`);
+ok(cSem.porGrupo.braco === 4, 'tríceps é creditado ao grupo braço, como no resto do sistema');
+ok(cSem.porGrupo.perna === 3, 'quadríceps é creditado ao grupo perna');
+ok(cSem.percentualImplemento.Barra === 66.7, `a rosca de implementos mostra a fatia de cada um (${cSem.percentualImplemento.Barra}%)`);
+ok(cSem.porSistema.Hipertrofia === 1 && cSem.porSistema.HIIT === 1, 'e os treinos são contados por sistema');
+ok(cSem.metas.peito === META_SEMANAL_PADRAO, 'a meta semanal padrão vale para todos os grupos');
+ok(saldoPorGrupo(cSem).costas === -META_SEMANAL_PADRAO, 'o grupo que não foi treinado aparece com o saldo negativo cheio');
+
+const cMes = consolidar(treinosSemana, 'mes', '2026-09', faixaDoMes('2026-09-16'));
+ok(cMes.metas.peito === Math.round(META_SEMANAL_PADRAO * SEMANAS_POR_MES),
+  `a meta do mês é a semanal × ${SEMANAS_POR_MES} (${cMes.metas.peito})`);
+
+const comMetaDoCoach = consolidar(treinosSemana, 'semana', '2026-W38', faixaDaSemana('2026-09-16'), { perna: 20 });
+ok(comMetaDoCoach.metas.perna === 20, 'a meta que o coach digitou vale sobre a tabela padrão');
+ok(comMetaDoCoach.metas.peito === META_SEMANAL_PADRAO, 'e sobrescrever um grupo não mexe nos outros');
+
+const vazio = consolidar([], 'semana', '2026-W38', faixaDaSemana('2026-09-16'));
+ok(vazio.totalSeries === 0 && Object.keys(vazio.metas).length === GRUPOS_VOL.length,
+  'semana sem treino consolida zerada, mas com as metas — o dashboard mostra o buraco');
+
+/* ---------- vocabulários do híbrido contra a fonte do site ---------- */
+
+console.log('\nVOCABULÁRIOS: AS CÓPIAS DO HÍBRIDO BATEM COM A FONTE DO SITE?\n');
+
+checarVocabulario(
+  'MUSCULOS_LABEL (lousa.ts)',
+  () => {
+    const chaves = comoArrayDeString(
+      acharConst(parseSite('compartilhado/config/padroes.js'), 'MUSCULOS'),
+      'compartilhado/config/padroes.js:MUSCULOS',
+    );
+    const mapa = comoMapaDeString(
+      acharConst(parseSite('compartilhado/config/musculos.js'), 'MUSC_MAP'),
+      'compartilhado/config/musculos.js:MUSC_MAP',
+    );
+    return chaves.map((k) => {
+      const rotulo = mapa[k];
+      if (!rotulo) throw new Error(`a chave "${k}" de MUSCULOS não tem rótulo em MUSC_MAP.`);
+      return rotulo;
+    });
+  },
+  [...MUSCULOS_LABEL],
+);
+
+checarVocabulario(
+  'GRUPOS (volume-agregado.ts)',
+  () => comoArrayDeString(acharConst(parseSite('compartilhado/regras/grupos.js'), 'GRUPOS'), 'compartilhado/regras/grupos.js:GRUPOS'),
+  [...GRUPOS_VOL],
+);
+
+/* `GRUPO_POR_ROTULO` não tem fonte única no site: é a COMPOSIÇÃO de
+   `MUSC_MAP` (chave → rótulo) com `GRUPO_POR_MUSCULO` (chave → grupo). A
+   checagem refaz a composição a partir dos dois arquivos, que é exatamente o
+   trabalho manual que alguém faria — e esqueceria — ao acrescentar um músculo. */
+try {
+  const mapa = comoMapaDeString(
+    acharConst(parseSite('compartilhado/config/musculos.js'), 'MUSC_MAP'),
+    'compartilhado/config/musculos.js:MUSC_MAP',
+  );
+  const porMusculo = comoMapaDeString(
+    acharConst(parseSite('compartilhado/regras/grupos.js'), 'GRUPO_POR_MUSCULO'),
+    'compartilhado/regras/grupos.js:GRUPO_POR_MUSCULO',
+  );
+  const esperado: Record<string, string> = {};
+  for (const [chave, grupo] of Object.entries(porMusculo)) {
+    const rotulo = mapa[chave];
+    if (!rotulo) throw new Error(`a chave "${chave}" de GRUPO_POR_MUSCULO não tem rótulo em MUSC_MAP.`);
+    esperado[rotulo] = grupo;
+  }
+  const iguais = mesmoConjunto(Object.keys(esperado), Object.keys(GRUPO_POR_ROTULO))
+    && Object.entries(esperado).every(([rotulo, grupo]) => GRUPO_POR_ROTULO[rotulo as keyof typeof GRUPO_POR_ROTULO] === grupo);
+  ok(iguais, 'GRUPO_POR_ROTULO: a composição MUSC_MAP × GRUPO_POR_MUSCULO bate com a cópia',
+    `fonte=${JSON.stringify(esperado)} cópia=${JSON.stringify(GRUPO_POR_ROTULO)}`);
+} catch (e) {
+  falhas += 1;
+  console.log(`  ✗ GRUPO_POR_ROTULO: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+}
+
+/* A meta da turma tem que ser o MESMO número que o aluno vê no Portal
+   (`META_SERIES_SEMANAIS.hipertrofia`, valor "comum"). Duas metas diferentes
+   para a mesma semana é o tipo de divergência que ninguém percebe olhando uma
+   tela de cada vez. */
+try {
+  const no = acharConst(parseSite('compartilhado/regras/metas-aluno.js'), 'META_SERIES_SEMANAIS');
+  if (!ts.isObjectLiteralExpression(no)) throw new Error('META_SERIES_SEMANAIS não é um objeto literal.');
+  const hiper = no.properties.find((p) => ts.isPropertyAssignment(p)
+    && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === 'hipertrofia');
+  if (!hiper || !ts.isPropertyAssignment(hiper) || !ts.isArrayLiteralExpression(hiper.initializer)) {
+    throw new Error('a entrada "hipertrofia" não é um par [comum, emFoco].');
+  }
+  const comum = hiper.initializer.elements[0];
+  if (!comum || !ts.isNumericLiteral(comum)) throw new Error('o valor "comum" não é um número literal.');
+  ok(Number(comum.text) === META_SEMANAL_PADRAO,
+    'META_SEMANAL_PADRAO é o mesmo número que o aluno vê no Portal',
+    `site=${comum.text} híbrido=${META_SEMANAL_PADRAO}`);
+} catch (e) {
+  falhas += 1;
+  console.log(`  ✗ META_SEMANAL_PADRAO: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+}
+
 console.log(
   falhas === 0
-    ? '\n✓ A leitura da IA e a de preço aguentam entrada torta.\n'
+    ? '\n✓ A leitura da IA, a de preço e o Montador Híbrido aguentam entrada torta.\n'
     : `\n✗ ${falhas} verificação(ões) falharam.\n`,
 );
 process.exitCode = falhas === 0 ? 0 : 1;
