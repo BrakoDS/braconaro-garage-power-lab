@@ -2,9 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Montador de treino — um documento por coach
+    // Montador de treino — um documento por coach, com o histórico dividido ao
+    // lado: `treinos/{YYYY-MM}` (um documento por mês, para não bater no teto de
+    // 1 MB) e `arquivo/{nome}` (formato semanal antigo). Regra não desce sozinha
+    // para subcoleção, por isso o `{sub=**}` — mesmo dono, mesmo acesso.
     match /coaches/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+      match /{sub=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // Gestão de alunos — um documento por coach (separado do montador)
