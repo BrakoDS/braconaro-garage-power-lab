@@ -12,6 +12,7 @@ import { cloudAtivo, sessaoAtual, login, resetarSenha, usuario } from '../../../
 import { bloquearSeNaoCoach } from '../../../compartilhado/firebase/coach-guard.js';
 import { construirCatalogoEfetivo, sincronizarCatalogoAcademia } from '../../../compartilhado/dados/catalogo-efetivo.js';
 import { carregarParaStore, conectarStore } from '../cloud-individual.js';
+import { sincronizarAlunos } from './alunos.js';
 import * as store from './store.js';
 
 const gate = document.getElementById('gate');
@@ -48,8 +49,10 @@ async function entrar() {
   const uid = u?.uid;
   await carregarParaStore(uid, store);
   conectarStore(uid, store);
-  // O catálogo da Academia é a fonte dos exercícios que o coach digita aqui.
+  // O catálogo da Academia é a fonte dos exercícios que o coach digita aqui, e a
+  // Gestão é a fonte da turma — sem ela, a coluna dos alunos abre vazia.
   await sincronizarCatalogoAcademia(uid);
+  await sincronizarAlunos(uid);
   try { construirCatalogoEfetivo(); } catch (e) { console.warn('Catálogo da Academia indisponível:', e); }
   if (gate) gate.style.display = 'none';
   app?.removeAttribute('hidden');

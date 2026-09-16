@@ -23,6 +23,7 @@ import {
   volumeDoTreino, paraSalvar,
 } from '../core/treino-base.js';
 import * as store from './store.js';
+import { renderTurma, abrirAluno } from './turma.js';
 
 const $ = (/** @type {string} */ s) => /** @type {HTMLElement} */ (document.querySelector(s));
 const esc = (/** @type {any} */ v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -76,7 +77,28 @@ function render() {
   renderAquecimento();
   renderBlocos();
   renderResumo();
+  desenharTurma();
 }
+
+/** A turma é derivada do treino base e das fichas — redesenha junto com o resumo. */
+let _turma = [];
+function desenharTurma() {
+  try {
+    _turma = renderTurma($('#turma'), treino);
+  } catch (e) {
+    // A turma vem da Gestão: sem ela (offline, sem permissão), o coach ainda monta
+    // o treino. Derrubar a tela inteira por causa da coluna seria desproporcional.
+    console.warn('Turma indisponível:', e);
+    $('#turma').innerHTML = '<p class="vazio">Não deu para montar a turma agora. O treino continua editável.</p>';
+  }
+}
+
+$('#turma').addEventListener('click', (ev) => {
+  const btn = /** @type {HTMLElement} */ (ev.target).closest('[data-acao="ver"]');
+  if (!btn) return;
+  const i = Number(btn.closest('[data-aluno]')?.getAttribute('data-aluno'));
+  if (_turma[i]) abrirAluno(_turma[i], () => render());
+});
 
 function renderAquecimento() {
   const lista = $('#lista-aquecimento');
@@ -183,10 +205,11 @@ $('#blocos').addEventListener('input', (ev) => {
   const li = Number(alvo.closest('[data-linha]')?.getAttribute('data-linha'));
   const linha = bloco.exercicios[li];
   if (!linha) return;
-  if (campo === 'nome') { linha.nome = alvo.value; aplicarCatalogo(linha); renderResumo(); return; }
+  if (campo === 'nome') { linha.nome = alvo.value; aplicarCatalogo(linha); renderResumo(); desenharTurma(); return; }
   if (campo === 'reps') { linha.reps = alvo.value; return; }
   linha[campo] = Number(alvo.value);
   renderResumo();
+  desenharTurma();
 });
 
 $('#blocos').addEventListener('change', (ev) => {
