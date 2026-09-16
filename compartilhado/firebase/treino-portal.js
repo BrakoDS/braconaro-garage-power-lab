@@ -19,7 +19,7 @@ async function init() {
   const fsMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
   const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
   _db = fsMod.getFirestore(app);
-  _fns = { doc: fsMod.doc, setDoc: fsMod.setDoc, updateDoc: fsMod.updateDoc, deleteField: fsMod.deleteField };
+  _fns = { doc: fsMod.doc, getDoc: fsMod.getDoc, setDoc: fsMod.setDoc, updateDoc: fsMod.updateDoc, deleteField: fsMod.deleteField };
 }
 
 /**
@@ -89,6 +89,26 @@ export function diaEnxuto(d) {
     })),
     finalizador: d.finalizador || null,
   };
+}
+
+/**
+ * O que já está publicado numa data (ou null).
+ *
+ * Existe para o montador poder AVISAR antes de substituir: dois montadores
+ * convivem durante o teste, e publicar por cima sem perguntar apagaria do Portal
+ * o treino que o outro já tinha mandado para os alunos.
+ * @param {string} dateId 'YYYY-MM-DD'
+ */
+export async function lerDiaPublicado(dateId) {
+  if (!CLOUD_ATIVO || !firebaseConfig?.apiKey || !dateId) return null;
+  try {
+    await init();
+    const snap = await _fns.getDoc(_fns.doc(_db, 'treinoPortal', dateId.slice(0, 7)));
+    return (snap.exists() && snap.data()?.dias?.[dateId]) || null;
+  } catch (e) {
+    console.warn('Ler dia publicado:', e?.code || e);
+    return null;
+  }
 }
 
 /**

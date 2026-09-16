@@ -131,6 +131,19 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
     }
 
+    // Exceções do treino por aluno (Montador Individual) — um doc por aluno, id ==
+    // e-mail, no mesmo padrão de cargas/desafios. Guarda só o que FUGIU da regra
+    // naquele dia ("hoje o João faz 2 séries de agachamento"); a versão comum de
+    // cada aluno é derivada do perfil, e não fica gravada em lugar nenhum.
+    //  - o ALUNO lê a dele (e grava o registro pós-aula dele);
+    //  - o COACH (dono de gestao/{uid} ou coaches/{uid}) lê e grava todas.
+    match /treinoAluno/{email} {
+      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null
+        && (exists(/databases/$(database)/documents/gestao/$(request.auth.uid))
+          || exists(/databases/$(database)/documents/coaches/$(request.auth.uid)));
+    }
+
     // Leads da landing (formulário de aula experimental) — captação pública.
     //  - QUALQUER visitante pode CRIAR um lead (sem login — é a landing), mas
     //    só com os campos e tamanhos esperados (evita lixo/abuso);
