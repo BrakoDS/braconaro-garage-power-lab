@@ -1,0 +1,201 @@
+/* ============================================================
+   ABA "MATRIZ" DA FICHA DO ALUNO · Garage Power Lab
+
+   Folha PRÓPRIA, e não mais regras no fim de `alunos.css`: esta aba nasceu
+   junto do Montador Híbrido, num branch paralelo ao que edita a Gestão. Um
+   arquivo separado é um arquivo que não conflita — e se a aba um dia sair, some
+   junto, sem deixar regra órfã numa folha de 900 linhas.
+
+   Usa os tokens de `alunos.css` (--accent, --card, --line…), que já está
+   carregada na página. Nada de cor solta aqui.
+   ============================================================ */
+
+.mtz { display: grid; gap: 18px; }
+
+.mtz-sec {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.mtz-sec h4 {
+  margin: 0 0 4px;
+  font-family: var(--font-cond);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: .82rem;
+  color: var(--accent);
+}
+.mtz-sec h5 {
+  margin: 0 0 8px;
+  font-size: .95rem;
+  font-weight: 600;
+}
+
+/* O texto de ajuda explica a REGRA, não o campo. Um "digite o peso" embaixo de
+   um campo chamado "Peso" é ruído; "leg press não puxa do 1RM de agachamento"
+   é o que evita o coach preencher errado. */
+.mtz-ajuda {
+  margin: 0 0 14px;
+  color: var(--mut);
+  font-size: .86rem;
+  line-height: 1.5;
+}
+.mtz-ajuda b { color: var(--txt); }
+
+.mtz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+.mtz label, .mtz-full {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--mut);
+  font-family: var(--font-cond);
+  font-weight: 600;
+}
+.mtz-full { margin-top: 12px; }
+.mtz input[type=text], .mtz input[type=number], .mtz input[type=date], .mtz select {
+  width: 100%;
+  padding: .55em .7em;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  color: var(--txt);
+  font-family: var(--font-body);
+  font-size: .95rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.mtz input:focus, .mtz select:focus { outline: none; border-color: var(--accent); }
+
+/* ---------- resumo do topo ---------- */
+
+.mtz-resumo {
+  margin-bottom: 16px;
+  padding: 11px 14px;
+  background: var(--card-2);
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  font-size: .9rem;
+  color: var(--txt);
+}
+.mtz-resumo-tag {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: .72rem;
+  color: var(--accent);
+  margin-right: 8px;
+}
+.mtz-resumo-tag.mudo { color: var(--mut-2); }
+
+/* ---------- levantamentos ---------- */
+
+.mtz-lev {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.mtz-lev-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+/* A saída fica logo abaixo dos campos, não numa coluna ao lado: ela muda a cada
+   tecla, e o olho precisa achá-la sem sair de onde os dedos estão. */
+.mtz-lev-saida {
+  margin: 10px 0 0;
+  font-size: .86rem;
+  color: var(--ok);
+}
+.mtz-lev-saida.mudo { color: var(--mut-2); }
+.mtz-lev-saida.alerta { color: var(--warn); }
+
+/* ---------- mobilidade ---------- */
+
+.mtz-check {
+  margin: 14px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px 14px;
+}
+.mtz-check legend {
+  font-family: var(--font-cond);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: .72rem;
+  color: var(--mut);
+  padding: 0 6px;
+}
+.mtz-chk {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 14px 5px 0;
+  font-family: var(--font-body);
+  font-size: .9rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--txt);
+  cursor: pointer;
+}
+.mtz-chk input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* ---------- lesões ---------- */
+
+.mtz-lesoes { margin-top: 16px; }
+.mtz-lesoes-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-family: var(--font-cond);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: .72rem;
+  color: var(--mut);
+}
+.mtz-lesoes-top span { flex: 1; }
+/* Colunas fixas para as quatro primeiras e o ✕ no fim: as linhas de lesão se
+   leem em coluna ("todas as regiões", "todas as datas"), e larguras automáticas
+   desalinhariam cada linha conforme o texto digitado. */
+.mtz-lesao {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr 1fr 2fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.mtz-lesao select, .mtz-lesao input {
+  padding: .5em .6em;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  color: var(--txt);
+  font-family: var(--font-body);
+  font-size: .9rem;
+}
+.mtz-vazio { margin: 0; color: var(--mut-2); font-size: .86rem; }
+.mtz-erro { margin: 8px 0 0; color: var(--warn); font-size: .84rem; }
+
+@media (max-width: 640px) {
+  /* Cinco colunas em 360px dariam campos de 40px. Empilhado, cada lesão vira um
+     bloco legível — e o ✕ ganha alvo de toque de verdade. */
+  .mtz-lesao { grid-template-columns: 1fr 1fr; }
+  .mtz-lesao input[data-campo=obs] { grid-column: 1 / -1; }
+  .mtz-lesao [data-remover-lesao] { grid-column: 1 / -1; }
+}

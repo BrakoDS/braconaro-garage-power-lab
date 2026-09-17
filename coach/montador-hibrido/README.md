@@ -86,7 +86,8 @@ Portal, e a regra dela já autoriza o coach a escrever.
 A matriz **não é deste app**: ela é o campo `matrizIndividualizacao` dentro da
 ficha do aluno na Gestão, definido por
 `compartilhado/regras/matriz-individualizacao.js`. O Híbrido só **lê**. Quem
-edita é a tela da Gestão de Alunos, e é de lá que vem a verdade.
+edita é a aba **Matriz** da ficha do aluno
+(`coach/gestao-de-alunos/matriz-ui.js`), e é de lá que vem a verdade.
 
 O que a distribuição usa dela:
 
@@ -209,6 +210,9 @@ porque a divergência entre eles **não daria erro nenhum**: o gatilho gravaria 
   texto, título, data e o treino já reconhecido; o canvas, não. São centenas de
   KB por lousa e o localStorage tem cota de poucos MB — duas lousas encheriam e a
   terceira derrubaria junto o rascunho de texto que cabia.
+- **`matriz-individualizacao.js` veio do branch `etapa5a-portal`,** onde nasceu
+  com o teste dele. A cópia aqui é idêntica à que foi escrita lá; o teste ficou
+  no branch de origem, e os dois se encontram no merge.
 - **A fonte da matriz nasceu no branch `etapa5a-portal`.** Enquanto ela não
   entrar na `master`, a checagem de vocabulário de `checar.ts` avisa e não
   falha — um check que ninguém consegue deixar verde é um check que todo mundo

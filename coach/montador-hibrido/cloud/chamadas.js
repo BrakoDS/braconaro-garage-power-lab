@@ -179,15 +179,16 @@ export async function lerConsolidado(uid, chave) {
   return snap.exists() ? snap.data() : null;
 }
 
-/** A matriz de individualização de um aluno, ou `null`. @param {string} uid @param {string} alunoId */
-export async function lerMatriz(uid, alunoId) {
-  const { db, fs } = await firestore();
-  const snap = await fs.getDoc(fs.doc(db, `coaches/${uid}/matriz_individualizacao/${alunoId}`));
-  return snap.exists() ? snap.data() : null;
-}
-
-/** Cria ou atualiza a matriz de um aluno. @param {string} uid @param {string} alunoId @param {any} dados */
-export async function salvarMatriz(uid, alunoId, dados) {
-  const { db, fs } = await firestore();
-  await fs.setDoc(fs.doc(db, `coaches/${uid}/matriz_individualizacao/${alunoId}`), dados, { merge: true });
-}
+/*
+ * `lerMatriz` e `salvarMatriz` MORAVAM AQUI e foram removidas de propósito.
+ *
+ * Elas liam e escreviam `coaches/{uid}/matriz_individualizacao/{alunoId}` — uma
+ * coleção que eu inventei antes de a matriz de verdade existir no projeto. A
+ * matriz real é o campo `matrizIndividualizacao` DENTRO da ficha do aluno, em
+ * `gestao/{uid}`, e quem a edita é a aba "Matriz" da Gestão de Alunos
+ * (`coach/gestao-de-alunos/matriz-ui.js`), gravando pelo `db.js` de lá.
+ *
+ * Mantê-las aqui seria deixar no código um caminho pronto para gravar num lugar
+ * que ninguém lê: a próxima tela que as importasse salvaria a matriz com
+ * sucesso, sem erro nenhum, e o treino continuaria saindo sem individualização.
+ */

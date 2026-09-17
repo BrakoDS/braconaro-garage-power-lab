@@ -260,8 +260,82 @@ function gerarHarness() {
     </script>`);
 }
 
+/**
+ * A GESTÃO DE ALUNOS em modo local — para testar a aba "Matriz".
+ *
+ * Aqui basta UM dublê: `config.js` com `CLOUD_ATIVO = false`. Com ele desligado,
+ * o app inteiro cai sozinho no caminho local que ele já tem — a porta usa a
+ * senha simples, `portal-sync` desiste na primeira linha, `db.iniciarSync` não
+ * conecta, e todo o resto (o `db.js` de verdade, o localStorage, o formulário)
+ * roda exatamente como em produção. Dublar três módulos daria o mesmo resultado
+ * testando menos código real.
+ */
+const DUBLE_CONFIG = `
+// Dublê de config.js — gerado por ferramentas/lousa-local.mjs.
+export const CLOUD_ATIVO = false;
+export const firebaseConfig = {};
+`;
+
+/** Alunos de exemplo, semeados no localStorage antes do app subir. */
+const ALUNOS_EXEMPLO = [
+  { id: '001', nome: 'Ana Prado', email: 'ana@exemplo.com', nivel: 'iniciante', objetivo: 'Hipertrofia',
+    status: 'ativo', freqVezes: '3', foco: ['perna'], criadoEm: 1757000000000,
+    matrizIndividualizacao: {
+      versao: 1,
+      perfil: { fase: 'forca' },
+      cargas: {
+        referencia: {
+          agachamento: { kg: 90, reps: 5, rm: null, medidoEm: '2026-09-01' },
+          supino: { kg: null, reps: null, rm: 70, medidoEm: '2026-08-20' },
+          terra: { kg: null, reps: null, rm: null, medidoEm: '' },
+        },
+        rir: '2-3',
+        airbike: { rpm: 60, calPorMin: 12, obs: '' },
+      },
+      adaptacoes: {
+        lesoes: [{ regiao: 'joelho', gravidade: 'moderada', desde: '2026-08-01', obs: 'menisco' }],
+        impacto: 'converter_airbike', tracao: 'puxada_alta', mobilidade: ['tornozelo'],
+        obs: 'evitar carga axial alta',
+      },
+      historico: { semanaId: '', correcoes: {}, atualizadoEm: 0 },
+      atualizadoEm: 1757000000000,
+    } },
+  { id: '002', nome: 'João Vieira', email: '', nivel: 'intermediario', objetivo: 'Condicionamento',
+    status: 'ativo', freqVezes: '4', foco: [], criadoEm: 1757100000000 },
+];
+
+/** O index.html da Gestão, sem nuvem e já liberado. */
+function gerarHarnessGestao() {
+  const html = fs.readFileSync(path.join(RAIZ, 'coach/gestao-de-alunos/index.html'), 'utf8');
+  const importmap = `  <script type="importmap">
+  { "imports": { "/compartilhado/firebase/config.js": "/__local/duble-config.js" } }
+  </script>
+`;
+  // Script CLÁSSICO, e não módulo: precisa rodar ANTES de `app.js`, e todo
+  // módulo é adiado até o documento estar pronto — a semente chegaria depois de
+  // o `db.js` já ter lido um localStorage vazio.
+  const semente = `  <script>
+    try {
+      sessionStorage.setItem('braconaro_montador_auth', '1');
+      if (!localStorage.getItem('braconaro_gestao_alunos_v1')) {
+        localStorage.setItem('braconaro_gestao_alunos_v1', ${JSON.stringify(JSON.stringify({ seq: 2, alunos: ALUNOS_EXEMPLO }))});
+      }
+    } catch (e) { console.warn('semente local falhou', e); }
+  </script>
+`;
+  return html
+    .replace(/<link rel="stylesheet" href="\.\/([^"]+)" \/>/g, '<link rel="stylesheet" href="/coach/gestao-de-alunos/$1" />')
+    .replace('<link rel="manifest"', importmap + semente + '  <link rel="manifest"')
+    .replace(/<script type="module" src="\.\/app\.js[^"]*"><\/script>/,
+      `<div style="position:fixed;bottom:10px;right:12px;z-index:99;background:#f5c518;color:#0a0a0b;
+        font:600 11px system-ui;padding:5px 10px;border-radius:999px">MODO LOCAL · sem nuvem</div>
+      <script type="module" src="/coach/gestao-de-alunos/app.js"></script>`);
+}
+
 const GERADOS = {
   '/__local/': () => ({ corpo: gerarHarness(), tipo: TIPOS['.html'] }),
+  '/__local/gestao/': () => ({ corpo: gerarHarnessGestao(), tipo: TIPOS['.html'] }),
+  '/__local/duble-config.js': () => ({ corpo: DUBLE_CONFIG, tipo: TIPOS['.js'] }),
   '/__local/duble-chamadas.js': () => ({ corpo: DUBLE_CHAMADAS, tipo: TIPOS['.js'] }),
   '/__local/duble-cloud.js': () => ({ corpo: DUBLE_CLOUD, tipo: TIPOS['.js'] }),
   '/__local/duble-gestao.js': () => ({ corpo: DUBLE_GESTAO, tipo: TIPOS['.js'] }),
@@ -269,7 +343,8 @@ const GERADOS = {
 
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
-  const rota = url.pathname === '/__local' ? '/__local/' : url.pathname;
+  let rota = url.pathname === '/__local' ? '/__local/' : url.pathname;
+  if (rota === '/__local/gestao') rota = '/__local/gestao/';
 
   if (GERADOS[rota]) {
     const { corpo, tipo } = GERADOS[rota]();
@@ -298,6 +373,7 @@ http.createServer((req, res) => {
   });
 }).listen(PORTA, '127.0.0.1', () => {
   console.log(`\n  Montador Híbrido em MODO LOCAL — sem nuvem, sem OpenAI\n`);
-  console.log(`      http://127.0.0.1:${PORTA}/__local/\n`);
+  console.log(`      Lousa do Coach   http://127.0.0.1:${PORTA}/__local/`);
+  console.log(`      Gestão de Alunos http://127.0.0.1:${PORTA}/__local/gestao/   (aba "Matriz")\n`);
   console.log(`  Ctrl+C para parar.\n`);
 });

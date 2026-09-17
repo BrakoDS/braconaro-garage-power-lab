@@ -25,6 +25,7 @@ import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizar
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
 import { publicarRanking } from './ranking-sync.js';
 import { carregarCargasAluno } from './cargas-read.js';
+import * as matrizUI from './matriz-ui.js';
 import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
 import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
@@ -1680,6 +1681,16 @@ function abrirPerfil(id) {
       </div>
     </form>`;
   carregarConsentimentoAluno(a);
+  // Aba "Matriz": a individualização que o Montador Híbrido lê. Ela grava pelos
+  // mesmos `db.atualizar` + `agendarPublicarPortal` do formulário de dados —
+  // parte do que ela edita (nível, objetivo, foco) é campo do TOPO da ficha, e
+  // é isso que o Portal publica.
+  matrizUI.montar(a, {
+    aoSalvar: (salvo) => {
+      agendarPublicarPortal();
+      alunoAtual = salvo;
+    },
+  });
   const form = $('#form-dados');
   wireForm(form);
   form.addEventListener('submit', (e) => {
