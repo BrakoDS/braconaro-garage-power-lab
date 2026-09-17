@@ -29,6 +29,7 @@
       <button class="tab" data-view="alertas" type="button">2 · Alertas</button>
       <button class="tab" data-view="turma" type="button">3 · Turma</button>
       <button class="tab" data-view="volume" type="button">4 · Volume</button>
+      <button class="tab" data-view="calendario" type="button">Calendário</button>
     </nav>
     <nav class="topbar-sai">
       <a class="sai-btn sai-coach" href="../index.html"><span class="tb-longo">← Voltar ao Coach</span><span class="tb-curto">Coach</span></a>
@@ -49,18 +50,21 @@
       </div>
 
       <p class="mut intro">
-        Escreva o treino no quadro e desenhe o que for mais rápido desenhar. As três canetas têm
-        significado: <b class="c-preto">preto</b> é exercício e bloco,
+        <b>Digite</b> o treino e use as cores para marcar — elas são lidas pela IA:
+        <b class="c-preto">preto</b> é exercício e bloco,
         <b class="c-vermelho">vermelho</b> é intensidade, RIR e descanso,
         <b class="c-azul">azul</b> é série, repetição e estação dos alunos.
+        A cor vale para o texto selecionado <b>e</b> para a caneta; troque para <b>Desenhar</b>
+        quando for mais rápido rabiscar uma seta.
       </p>
 
       <!-- O quadro: textarea por baixo, canvas por cima. Ver o cabeçalho de ui/lousa.js. -->
       <div class="quadro">
         <div class="quadro-barra" id="lousa-ferramentas" role="toolbar" aria-label="Ferramentas da lousa"></div>
         <div class="quadro-area">
-          <textarea id="lousa-texto" class="quadro-texto" spellcheck="false"
-            placeholder="A — Mobilidade&#10;  Mobilidade de quadril · 40s&#10;&#10;C — Força&#10;  Agachamento livre · 4x8-12 · RIR 2&#10;  Remada curvada · 3x10"></textarea>
+          <div id="lousa-texto" class="quadro-texto" role="textbox" aria-multiline="true"
+            aria-label="Texto do treino — digite e marque com as três canetas"
+            data-vazio="A — Mobilidade&#10;  Mobilidade de quadril · 40s&#10;&#10;C — Força&#10;  Agachamento livre · 4x8-12 · RIR 2"></div>
           <canvas id="lousa-canvas" class="quadro-canvas passa-clique"
             aria-label="Área de desenho livre sobre a lousa"></canvas>
         </div>
@@ -106,6 +110,21 @@
         <button class="btn ghost" id="volume-recarregar" type="button">Recarregar</button>
       </div>
       <div id="volume-corpo" class="grid"></div>
+    </section>
+
+    <!-- ============ CALENDÁRIO (histórico mensal) ============ -->
+    <section class="view" id="view-calendario">
+      <div class="panel">
+        <button class="btn ghost" id="cal-anterior" type="button" aria-label="Mês anterior">‹</button>
+        <strong id="cal-mes" class="cal-titulo">—</strong>
+        <button class="btn ghost" id="cal-seguinte" type="button" aria-label="Mês seguinte">›</button>
+        <button class="btn ghost" id="cal-hoje" type="button">Hoje</button>
+        <p class="mut intro">
+          O mês inteiro numa tela. Treino de <b>hoje ou do futuro</b> reabre na Lousa para edição;
+          treino passado abre só para leitura, porque o volume do ciclo já contou aquele dia.
+        </p>
+      </div>
+      <div id="calendario-corpo" class="grid"></div>
     </section>
 
   </main>

@@ -4,11 +4,11 @@ O coach escreve e desenha o treino num quadro branco, a IA estrutura, o motor de
 variabilidade avisa o que está repetindo na semana, a turma recebe a ficha
 ajustada aluno a aluno e o volume é consolidado sozinho.
 
-Quatro etapas, quatro abas, nessa ordem:
+Quatro etapas, nessa ordem, mais o Calendário ao lado:
 
 ```
-1 · Lousa  ──▶  2 · Alertas  ──▶  3 · Turma  ──▶  4 · Volume
-quadro          variabilidade      até 8 alunos    semana e mês
+1 · Lousa  ──▶  2 · Alertas  ──▶  3 · Turma  ──▶  4 · Volume     Calendário
+quadro          variabilidade      até 8 alunos    semana e mês    o mês inteiro
 ```
 
 ## Por que esta ferramenta existe ao lado das outras duas
@@ -61,9 +61,24 @@ A cor **é dado**, não decoração — e o prompt da função diz isso à IA:
 Os cards do treino estruturado devolvem as mesmas cores (observação em vermelho,
 série/repetição em azul), para o coach reconhecer o próprio quadro no resultado.
 
-A quarta ferramenta da barra, **Texto**, não é caneta: ela tira o canvas do
-caminho (`pointer-events: none`) para o coach digitar. Sem ela, um quadro com
-canvas por cima é uma textarea em que é impossível clicar.
+### O quadro é digitável, e o texto também é colorido
+
+O coach **digita** o treino (num `contenteditable`, não numa textarea) e marca
+com as mesmas três cores; o canvas por cima continua lá para quando rabiscar uma
+seta for mais rápido. A barra tem **dois eixos**: o MODO (digitar / desenhar)
+decide quem recebe o toque, e a COR vale para os dois ao mesmo tempo.
+
+Como a cor do texto é dado, ela vai para a IA: `paraPrompt()` anota os trechos
+como `[[vermelho]]…[[/vermelho]]` e o prompt ensina o modelo a lê-los. Colchete
+duplo porque treino de verdade tem "[3 rounds]" escrito pelo coach.
+
+### Calendário
+
+O mês inteiro em grade, com um chip por treino colorido pela tabela de
+modalidades que o Montador e o Portal já usam. Treino de **hoje ou do futuro**
+reabre na Lousa para edição; treino **passado** abre só para leitura — o
+consolidado de volume já contou aquele dia, e deixar reescrever faria o gráfico
+do mês mudar sozinho. Clicar num dia vazio já leva à Lousa com a data preenchida.
 
 ## Onde os dados moram
 
@@ -146,8 +161,13 @@ node ferramentas/verificar-imports.mjs                # a fiação: todo caminho
 
 ```bash
 node ferramentas/lousa-local.mjs
-# abre http://127.0.0.1:8765/__local/
+# Lousa e Calendário:  http://127.0.0.1:8765/__local/
+# Gestão (aba Matriz): http://127.0.0.1:8765/__local/gestao/
 ```
+
+O dublê do Calendário semeia um mês de treinos em segundas, quartas e sextas,
+com duas turmas na sexta e os quatro sistemas — é o que faz aparecer na tela o
+dia com dois chips, as quatro cores da legenda e o cadeado do treino passado.
 
 Sobe o site com as chamadas de rede trocadas por dublês com dados de exemplo.
 Dá para desenhar com as três canetas, reconhecer (devolve um treino fixo em
@@ -206,8 +226,9 @@ porque a divergência entre eles **não daria erro nenhum**: o gatilho gravaria 
 
 - **A cota é de 40 leituras de lousa por dia** (`LIMITE_LOUSA`). É trava contra
   bug — clique duplo, retry de rede —, não limite de uso normal.
-- **O desenho não sobrevive ao recarregar a página.** O rascunho local guarda
-  texto, título, data e o treino já reconhecido; o canvas, não. São centenas de
+- **O desenho não sobrevive ao recarregar a página**, e não volta ao reabrir um
+  treino pelo Calendário. O rascunho local guarda texto, título, data e o treino
+  já reconhecido; o canvas, não. São centenas de
   KB por lousa e o localStorage tem cota de poucos MB — duas lousas encheriam e a
   terceira derrubaria junto o rascunho de texto que cabia.
 - **`matriz-individualizacao.js` veio do branch `etapa5a-portal`,** onde nasceu

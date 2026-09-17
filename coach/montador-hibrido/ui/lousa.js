@@ -2,33 +2,43 @@
 /**
  * MÓDULO 1 — LOUSA DO COACH.
  *
- * O quadro branco: título, data, texto livre e um <canvas> por cima para
- * desenhar, com as três canetas do box. O botão dourado manda tudo para a IA e
- * devolve o treino estruturado.
+ * O quadro branco: título, data, texto DIGITÁVEL E COLORIDO e um <canvas> por
+ * cima para desenhar. O botão dourado manda tudo para a IA e devolve o treino
+ * estruturado.
  *
- * A DECISÃO DE DESENHO desta tela: o canvas fica SOBREPOSTO à textarea, não ao
- * lado. É assim que o quadro do box funciona — o coach escreve "Agachamento" e
- * risca uma seta ao lado, no mesmo lugar. Duas caixas separadas dariam duas
- * lousas, e a seta perderia o que estava apontando.
+ * ── Por que o texto é digitado, e ainda assim colorido ───────────────────────
+ * A primeira versão tinha uma `<textarea>` embaixo do canvas: para escrever, o
+ * coach digitava; para marcar intensidade, ele rabiscava com o mouse. Rabiscar
+ * com o mouse é improdutivo, e na prática a cor — que é o DADO mais valioso da
+ * lousa — só seria usada por quem tivesse tablet. Agora o texto é um
+ * `contenteditable` (ver `editor-rico.js`) e as mesmas três canetas pintam o que
+ * é digitado.
  *
- * O preço disso é que só um dos dois pode receber o toque por vez, e é por isso
- * que existe a ferramenta "Texto" na barra: com ela o canvas sai do caminho
- * (`pointer-events: none`) e o coach digita; com qualquer caneta, o canvas volta
- * a receber o traço. Sem esse botão, um quadro com canvas por cima é uma
- * textarea em que é impossível clicar.
+ * ── A barra tem DOIS eixos, e isso é proposital ──────────────────────────────
+ * MODO (digitar / desenhar) decide quem recebe o toque — o editor por baixo ou o
+ * canvas por cima. COR (preto / vermelho / azul) vale para os dois ao mesmo
+ * tempo: escolher vermelho pinta a seleção do texto E carrega a caneta. Um único
+ * eixo misturando as duas coisas — como era antes, com "Texto" no meio das
+ * canetas — obrigava o coach a trocar de ferramenta para mudar de cor, e a
+ * perder a cor ao voltar a digitar.
+ *
+ * O canvas continua SOBREPOSTO ao texto, não ao lado: é assim que o quadro do
+ * box funciona — escreve "Agachamento" e risca uma seta ao lado, no mesmo lugar.
  */
 import { CANETAS } from '../core/cores.js';
 import { criarLousa } from '../core/canvas.js';
+import { criarEditor } from './editor-rico.js';
+import { paraPrompt, textoPlano, segmentosDoTreino } from '../core/texto-rico.js';
 import { paraGravar, totalSeries, exerciciosDo } from '../core/lousa-modelo.js';
 import { parseWorkoutLousa, salvarLousa } from '../cloud/chamadas.js';
 import * as store from './store.js';
-import { painel, avisar } from '../../../compartilhado/ui/dialogo.js';
+import { painel, avisar, confirmar } from '../../../compartilhado/ui/dialogo.js';
 import { cardsDoTreino, esc } from './render-treino.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
 
-/** A ferramenta "Texto" não é caneta: é o modo em que o canvas deixa o teclado passar. */
-const TEXTO = 'texto';
+/** @type {{editor: any, lousa: any, campos: any}|null} */
+let tela = null;
 
 /**
  * @param {{uid: () => string, irPara: (aba: string) => void}} ctx
@@ -37,83 +47,144 @@ export function montar(ctx) {
   const titulo = $('#lousa-titulo');
   const data = $('#lousa-data');
   const hora = $('#lousa-hora');
-  const texto = $('#lousa-texto');
   const canvas = /** @type {HTMLCanvasElement} */ ($('#lousa-canvas'));
+  const alvoTexto = $('#lousa-texto');
   const barra = $('#lousa-ferramentas');
   const botao = $('#lousa-reconhecer');
   const status = $('#lousa-status');
-  if (!canvas || !barra) return;
+  if (!canvas || !barra || !alvoTexto) return;
 
   const lousa = criarLousa(canvas);
+  const editor = criarEditor(alvoTexto);
   const est = store.ler();
 
   // ---- campos, a partir do rascunho ----
   titulo.value = est.titulo;
   data.value = est.dateId;
   hora.value = est.classTime;
-  texto.value = est.texto;
+  if (est.texto) editor.carregar([{ texto: est.texto, cor: 'preto' }]);
 
   titulo.addEventListener('input', () => store.atualizar({ titulo: titulo.value }));
   data.addEventListener('change', () => store.atualizar({ dateId: data.value }));
   hora.addEventListener('change', () => store.atualizar({ classTime: hora.value }));
-  texto.addEventListener('input', () => store.atualizar({ texto: texto.value }));
+  // O rascunho guarda só o texto PLANO: a cor volta na próxima leitura, e
+  // guardar HTML no localStorage seria guardar markup de navegador entre sessões.
+  editor.aoMudar(() => store.atualizar({ texto: editor.texto() }));
 
-  // ---- barra de ferramentas ----
-  barra.innerHTML = [
-    `<button class="fer fer-texto ativa" data-fer="${TEXTO}" type="button" title="Digitar no quadro (T)">
-       <span class="fer-bola" style="background:#FFFFFF;border:1px solid #C9CDD3"></span>Texto</button>`,
-    ...CANETAS.map((c) => `
-      <button class="fer" data-fer="${c.id}" type="button" title="${esc(c.significado)} (${c.atalho})">
-        <span class="fer-bola" style="background:${c.cor}"></span>${esc(c.rotulo)}</button>`),
-    `<button class="fer" data-fer="borracha" type="button" title="Apagar (4)">
-       <span class="fer-bola fer-borracha"></span>Borracha</button>`,
-    `<span class="fer-sep"></span>`,
-    `<button class="fer fer-acao" data-acao="desfazer" type="button" title="Desfazer o último traço">↶ Desfazer</button>`,
-    `<button class="fer fer-acao" data-acao="limpar" type="button" title="Apagar o quadro inteiro">Limpar</button>`,
-  ].join('');
+  tela = { editor, lousa, campos: { titulo, data, hora } };
 
-  /** @param {string} id */
-  function usarFerramenta(id) {
-    const ehTexto = id === TEXTO;
-    // A classe no <canvas> é o que liga/desliga `pointer-events` no CSS. Sem
-    // ela o canvas engoliria o clique e a textarea nunca receberia foco.
-    canvas.classList.toggle('passa-clique', ehTexto);
-    if (!ehTexto) lousa.usar(id);
-    for (const b of barra.querySelectorAll('[data-fer]')) {
-      b.classList.toggle('ativa', b.getAttribute('data-fer') === id);
+  /* ---------------- barra de ferramentas ---------------- */
+
+  let modo = 'digitar';
+  let cor = 'preto';
+
+  barra.innerHTML = `
+    <div class="fer-grupo" role="group" aria-label="Modo">
+      <button class="fer" data-modo="digitar" type="button" title="Digitar no quadro (T)">✎ Digitar</button>
+      <button class="fer" data-modo="desenhar" type="button" title="Desenhar sobre o quadro (D)">✐ Desenhar</button>
+    </div>
+    <div class="fer-grupo" role="group" aria-label="Cor — vale para o texto e para a caneta">
+      ${CANETAS.map((c) => `
+        <button class="fer fer-cor" data-cor="${c.id}" type="button" title="${esc(c.significado)} (${c.atalho})">
+          <span class="fer-bola" style="background:${c.cor}"></span>${esc(c.rotulo)}</button>`).join('')}
+    </div>
+    <span class="fer-sep"></span>
+    <button class="fer" data-acao="borracha" type="button" title="Apagar traço do desenho (4)">
+      <span class="fer-bola fer-borracha"></span>Borracha</button>
+    <button class="fer fer-acao" data-acao="desfazer" type="button" title="Desfazer o último traço do desenho">↶ Traço</button>
+    <button class="fer fer-acao" data-acao="limpar" type="button" title="Apagar o quadro inteiro">Limpar</button>`;
+
+  function pintarBarra() {
+    for (const b of barra.querySelectorAll('[data-modo]')) {
+      b.classList.toggle('ativa', b.getAttribute('data-modo') === modo);
     }
-    if (ehTexto) texto.focus();
+    for (const b of barra.querySelectorAll('[data-cor]')) {
+      b.classList.toggle('ativa', b.getAttribute('data-cor') === cor);
+    }
+    barra.querySelector('[data-acao=borracha]')?.classList.toggle('ativa', modo === 'borracha');
+    // A classe no canvas é o que liga/desliga `pointer-events` no CSS: em modo
+    // digitar ele precisa deixar o clique passar para o editor por baixo.
+    canvas.classList.toggle('passa-clique', modo === 'digitar');
   }
-  usarFerramenta(TEXTO);
 
-  barra.addEventListener('click', (ev) => {
-    const alvo = /** @type {HTMLElement} */ (ev.target).closest('[data-fer],[data-acao]');
-    if (!alvo) return;
-    const fer = alvo.getAttribute('data-fer');
-    if (fer) { usarFerramenta(fer); return; }
-    if (alvo.getAttribute('data-acao') === 'desfazer') lousa.desfazer();
-    if (alvo.getAttribute('data-acao') === 'limpar') lousa.limpar();
+  function usarModo(novo) {
+    modo = novo;
+    if (modo === 'borracha') lousa.usar('borracha');
+    else if (modo === 'desenhar') lousa.usar(cor);
+    pintarBarra();
+    if (modo === 'digitar') editor.focar();
+  }
+
+  /** A cor vale para os dois: pinta o texto selecionado E carrega a caneta. */
+  function usarCor(novo) {
+    cor = novo;
+    lousa.usar(cor);
+    // Sair da borracha ao escolher uma cor é o que o gesto quer dizer: ninguém
+    // clica em "vermelho" querendo continuar apagando.
+    if (modo === 'borracha') modo = 'desenhar';
+    if (modo === 'digitar') editor.pintar(cor);
+    pintarBarra();
+  }
+
+  // `mousedown` com preventDefault: sem isto, clicar na barra tira o foco do
+  // editor, a seleção morre junto, e `foreColor` chega sem ter o que pintar.
+  barra.addEventListener('mousedown', (ev) => {
+    if (/** @type {HTMLElement} */ (ev.target).closest('button')) ev.preventDefault();
   });
 
-  // Atalhos só quando o foco NÃO está num campo de texto: senão digitar "2" no
-  // título trocaria a caneta no meio da palavra.
+  barra.addEventListener('click', async (ev) => {
+    const alvo = /** @type {HTMLElement} */ (ev.target).closest('[data-modo],[data-cor],[data-acao]');
+    if (!alvo) return;
+    const m = alvo.getAttribute('data-modo');
+    const c = alvo.getAttribute('data-cor');
+    const acao = alvo.getAttribute('data-acao');
+    if (m) return usarModo(m);
+    if (c) return usarCor(c);
+    if (acao === 'borracha') return usarModo('borracha');
+    if (acao === 'desfazer') return lousa.desfazer();
+    if (acao === 'limpar') {
+      // Confirma porque agora "limpar" apaga as DUAS camadas: o quadro inteiro,
+      // como um apagador de verdade. Apagar o texto digitado sem perguntar seria
+      // perder minutos de trabalho num clique.
+      const ok = await confirmar({
+        titulo: 'Limpar o quadro?',
+        texto: 'Isso apaga o texto digitado <b>e</b> o desenho. Não dá para desfazer.',
+        ok: 'Limpar tudo',
+        perigo: true,
+      });
+      if (!ok) return;
+      lousa.limpar();
+      editor.limpar();
+      usarModo('digitar');
+    }
+  });
+
+  usarModo('digitar');
+  usarCor('preto');
+
+  // Atalhos só fora de campo de texto do formulário — mas DENTRO do editor eles
+  // valem, que é onde trocar de caneta no meio da frase faz sentido.
   document.addEventListener('keydown', (ev) => {
     const emCampo = /** @type {HTMLElement} */ (ev.target)?.matches?.('input, textarea');
-    if (emCampo || ev.ctrlKey || ev.metaKey || ev.altKey) return;
-    const mapa = { t: TEXTO, 1: 'preto', 2: 'vermelho', 3: 'azul', 4: 'borracha' };
-    const escolha = mapa[ev.key.toLowerCase()];
-    if (escolha) { ev.preventDefault(); usarFerramenta(escolha); }
+    if (emCampo || ev.ctrlKey || ev.metaKey) return;
+    const dentroDoEditor = alvoTexto.contains(/** @type {Node} */ (ev.target));
+    // Dentro do editor, só com Alt: senão digitar "1" viraria troca de caneta.
+    if (dentroDoEditor && !ev.altKey) return;
+    const mapaCor = { 1: 'preto', 2: 'vermelho', 3: 'azul' };
+    if (mapaCor[ev.key]) { ev.preventDefault(); usarCor(mapaCor[ev.key]); return; }
+    const mapaModo = { t: 'digitar', d: 'desenhar', 4: 'borracha' };
+    const escolha = mapaModo[ev.key.toLowerCase()];
+    if (escolha) { ev.preventDefault(); usarModo(escolha); }
   });
 
-  // ---- tamanho do canvas ----
   // `ResizeObserver` e não só `window.resize`: o quadro também muda de tamanho
-  // quando a aba é mostrada (ele nasce com largura 0 dentro de uma `.view`
-  // escondida) e quando o teclado do celular sobe. `resize` não dispara nesses.
-  const ro = new ResizeObserver(() => lousa.redimensionar());
-  ro.observe(canvas);
+  // quando a aba aparece (nasce com largura 0 dentro de uma `.view` escondida) e
+  // quando o teclado do celular sobe. `resize` não dispara nesses.
+  new ResizeObserver(() => lousa.redimensionar()).observe(canvas);
   lousa.redimensionar();
 
-  // ---- reconhecer ----
+  /* ---------------- reconhecer ---------------- */
+
   let ocupado = false;
 
   function mostrarStatus(txt, tipo = '') {
@@ -124,7 +195,8 @@ export function montar(ctx) {
   botao.addEventListener('click', async () => {
     if (ocupado) return; // clique duplo é uma leitura paga a mais, não uma segunda opinião
 
-    const digitado = texto.value.trim();
+    const segmentos = editor.segmentos();
+    const digitado = paraPrompt(segmentos).trim();
     const desenho = lousa.exportar();
     if (!digitado && !desenho) {
       await avisar({ titulo: 'Lousa vazia', texto: 'Escreva o treino no quadro ou desenhe antes de reconhecer.' });
@@ -144,7 +216,11 @@ export function montar(ctx) {
         mimeType: desenho?.mimeType ?? 'image/jpeg',
       });
       mostrarStatus(`Treino reconhecido · ${restantes} leitura(s) restante(s) hoje.`, 'ok');
-      await abrirPrevia(treino, { ...lousa.miniatura(), texto: digitado }, ctx, { titulo, data, hora });
+      await abrirPrevia(treino, {
+        ...lousa.miniatura(),
+        segmentos,
+        texto: textoPlano(segmentos),
+      }, ctx, { titulo, data, hora });
     } catch (e) {
       // A mensagem já vem escrita para o coach (`chamadas.js` traduz o que é de
       // transporte e repassa o que a função escreveu).
@@ -159,23 +235,42 @@ export function montar(ctx) {
 }
 
 /**
- * O lado A: o quadro do jeito que o coach deixou.
+ * Abre um treino salvo de volta no quadro — o Calendário chama isto.
  *
- * Tem que trazer o TEXTO e o DESENHO juntos, empilhados como estão no quadro —
- * não só a imagem do canvas. O canvas guarda apenas o traço; o que foi digitado
- * mora na textarea por baixo dele. Mostrar só o canvas daria um lado A quase em
- * branco justamente para o coach que digitou o treino inteiro, e a comparação
- * que este modal existe para permitir não aconteceria.
+ * Prefere o TEXTO ORIGINAL que o coach digitou (guardado em `textoOriginal`
+ * desde que este campo existe) e só reconstrói a partir da estrutura quando ele
+ * não está lá: reconstruir é fiel ao treino, mas perde o comentário do rodapé e
+ * a ordem em que ele preferiu listar. O desenho não volta — ele não é guardado,
+ * e dizer isso é melhor que ressuscitar meio quadro.
+ *
+ * @param {any} lousaSalva o documento de `coaches/{uid}/lousas`
  */
-function reproducaoDaLousa({ dataUrl, proporcao, texto }) {
-  if (!dataUrl && !texto) return '<p class="previa-vazio">Lousa vazia.</p>';
-  // A proporção do quadro vai junto para o desenho cair sobre o texto na mesma
-  // posição relativa em que o coach o fez. Sem ela, um quadro largo esmagado
-  // numa coluna estreita deslocaria cada traço do que ele estava apontando.
-  return `<div class="previa-quadro" style="aspect-ratio:${Number(proporcao) || 2}">
-    ${texto ? `<pre class="previa-texto">${esc(texto)}</pre>` : ''}
-    ${dataUrl ? `<img class="previa-desenho" src="${dataUrl}" alt="Traços desenhados pelo coach sobre o quadro" />` : ''}
-  </div>`;
+export function abrirTreinoSalvo(lousaSalva) {
+  if (!tela || !lousaSalva) return false;
+  const { editor, lousa, campos } = tela;
+  const treino = lousaSalva.treino;
+
+  const segs = lousaSalva.textoOriginal
+    ? [{ texto: String(lousaSalva.textoOriginal), cor: /** @type {const} */ ('preto') }]
+    : segmentosDoTreino(treino);
+
+  lousa.limpar();
+  editor.carregar(segs);
+  campos.titulo.value = treino?.titulo || '';
+  campos.data.value = lousaSalva.dateId || '';
+  campos.hora.value = lousaSalva.classTime || '';
+
+  store.atualizar({
+    titulo: campos.titulo.value,
+    dateId: campos.data.value,
+    classTime: campos.hora.value,
+    texto: editor.texto(),
+    treino,
+    workoutId: lousaSalva.workoutId || '',
+    alertas: null,
+    fichas: [],
+  });
+  return true;
 }
 
 /**
@@ -229,6 +324,7 @@ async function abrirPrevia(treino, lousaOriginal, ctx, campos) {
       dateId: campos.data.value,
       titulo: campos.titulo.value,
       classTime: campos.hora.value,
+      textoOriginal: lousaOriginal.texto || '',
     });
     const id = await salvarLousa(ctx.uid(), dados, store.ler().workoutId || undefined);
     store.atualizar({ workoutId: id });
@@ -245,4 +341,30 @@ async function abrirPrevia(treino, lousaOriginal, ctx, campos) {
     });
     ctx.irPara('alertas');
   }
+}
+
+/**
+ * O lado A: o quadro do jeito que o coach deixou.
+ *
+ * Tem que trazer o TEXTO e o DESENHO juntos, empilhados como estão no quadro —
+ * e o texto com as cores dele, porque é a cor que o lado B promete ter
+ * entendido. Um lado A em preto e branco não deixaria conferir se o vermelho
+ * virou observação e o azul virou série.
+ */
+function reproducaoDaLousa({ dataUrl, proporcao, segmentos }) {
+  const temTexto = (segmentos || []).some((s) => s.texto.trim());
+  if (!dataUrl && !temTexto) return '<p class="previa-vazio">Lousa vazia.</p>';
+  const html = (segmentos || [])
+    .map((s) => {
+      const corpo = esc(s.texto).replace(/\n/g, '<br>');
+      return s.cor === 'preto' ? corpo : `<span class="tinta-${esc(s.cor)}">${corpo}</span>`;
+    })
+    .join('');
+  // A proporção do quadro vai junto para o desenho cair sobre o texto na mesma
+  // posição relativa em que o coach o fez. Sem ela, um quadro largo esmagado
+  // numa coluna estreita deslocaria cada traço do que ele estava apontando.
+  return `<div class="previa-quadro" style="aspect-ratio:${Number(proporcao) || 2}">
+    ${temTexto ? `<div class="previa-texto">${html}</div>` : ''}
+    ${dataUrl ? `<img class="previa-desenho" src="${dataUrl}" alt="Traços desenhados pelo coach sobre o quadro" />` : ''}
+  </div>`;
 }

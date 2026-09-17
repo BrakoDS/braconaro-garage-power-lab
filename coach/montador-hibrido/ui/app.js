@@ -17,9 +17,10 @@ import * as lousa from './lousa.js';
 import * as variabilidade from './variabilidade.js';
 import * as distribuicao from './distribuicao.js';
 import * as dashboard from './dashboard-volume.js';
+import * as calendario from './calendario.js';
 import * as store from './store.js';
 
-const ABAS = ['lousa', 'alertas', 'turma', 'volume'];
+const ABAS = ['lousa', 'alertas', 'turma', 'volume', 'calendario'];
 
 /** O uid do coach logado. Lido a cada chamada porque a sessão pode ser renovada. */
 const uid = () => usuario()?.uid || '';
@@ -46,7 +47,7 @@ for (const b of document.querySelectorAll('.tab')) {
 // Cada módulo monta a sua aba. Um `try` por módulo, e não um em volta dos
 // quatro: se o canvas falhar num navegador antigo, o Dashboard de Volume não
 // tem por que cair junto — e o coach ainda consegue olhar o volume da semana.
-for (const [nome, mod] of Object.entries({ lousa, variabilidade, distribuicao, dashboard })) {
+for (const [nome, mod] of Object.entries({ lousa, variabilidade, distribuicao, dashboard, calendario })) {
   try {
     mod.montar(ctx);
   } catch (e) {
@@ -57,7 +58,7 @@ for (const [nome, mod] of Object.entries({ lousa, variabilidade, distribuicao, d
 /** Indicador de etapa: mostra em quais abas já há trabalho feito. */
 function marcarProgresso() {
   const est = store.ler();
-  const feito = { lousa: !!est.treino, alertas: !!est.alertas, turma: !!est.fichas?.length, volume: false };
+  const feito = { lousa: !!est.treino, alertas: !!est.alertas, turma: !!est.fichas?.length, volume: false, calendario: false };
   for (const b of document.querySelectorAll('.tab')) {
     b.classList.toggle('feito', !!feito[b.getAttribute('data-view') || '']);
   }

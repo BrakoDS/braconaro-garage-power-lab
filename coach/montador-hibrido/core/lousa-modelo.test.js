@@ -82,6 +82,20 @@ test('paraGravar recalcula a estimativa e respeita o título que o coach reescre
   assert.ok(Date.parse(g.geradoEm) > 0, 'geradoEm precisa ser ISO legível — é ele que sustenta a conta de 72h');
 });
 
+test('o texto original é guardado junto — é ele que o Calendário reabre', () => {
+  const g = paraGravar(treino(), { dateId: '2026-09-16', titulo: 'x', textoOriginal: 'C — Força\n  Agachamento' });
+  assert.ok(g.textoOriginal.includes('Agachamento'));
+});
+
+test('texto original gigante é truncado em vez de estourar o documento', () => {
+  const g = paraGravar(treino(), { dateId: '2026-09-16', titulo: 'x', textoOriginal: 'a'.repeat(20000) });
+  assert.equal(g.textoOriginal.length, 8000);
+});
+
+test('sem texto original (treino só de desenho) o campo sai vazio, não indefinido', () => {
+  assert.equal(paraGravar(treino(), { dateId: '2026-09-16', titulo: 'x' }).textoOriginal, '');
+});
+
 test('título em branco cai no sistema, nunca em string vazia no calendário', () => {
   const t = treino();
   t.titulo = '';

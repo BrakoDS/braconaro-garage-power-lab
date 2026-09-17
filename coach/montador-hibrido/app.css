@@ -126,10 +126,33 @@ input:focus { outline: none; border-color: var(--acc); }
    uma faixa fina no celular. */
 .quadro-area { position: relative; min-height: 46vh; }
 .quadro-texto, .quadro-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.quadro-texto { background: transparent; color: var(--pen-preto); border: 0; resize: none;
-  padding: 18px 20px; font: 16px/1.7 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
-.quadro-texto::placeholder { color: #A8AEB6; }
+/* O quadro digitável. `white-space: pre-wrap` porque o coach escreve treino
+   indentado e cada espaço dele é informação; `overflow-y: auto` porque o quadro
+   tem altura fixa e o treino pode passar dela. */
+.quadro-texto { background: transparent; color: var(--pen-preto); border: 0;
+  padding: 18px 20px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  font: 16px/1.7 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
 .quadro-texto:focus { outline: none; }
+/* Um `contenteditable` não tem placeholder nativo. `:empty` sozinho não basta —
+   o navegador deixa um <br> dentro depois da primeira digitação e apagamento, e
+   o elemento nunca mais fica "vazio". O `:has()` cobre esse caso. */
+.quadro-texto:empty::before,
+.quadro-texto:has(> br:only-child)::before {
+  content: attr(data-vazio);
+  color: #A8AEB6;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+/* As tintas, para a prévia mostrar o texto com as cores em que foi escrito. */
+.tinta-vermelho { color: var(--pen-vermelho); }
+.tinta-azul { color: var(--pen-azul); }
+
+/* ---------- barra: dois eixos (modo e cor) ---------- */
+.fer-grupo { display: flex; gap: 4px; padding: 2px; background: #E8EAED; border-radius: 10px; }
+.fer-grupo .fer { border-color: transparent; background: transparent; }
+.fer-grupo .fer.ativa { background: #FFFFFF; border-color: var(--pen-preto); box-shadow: none; }
+.fer-cor.ativa { box-shadow: inset 0 0 0 2px var(--pen-preto); }
 /* `touch-action: none` é o que faz o desenho funcionar no tablet: sem isso o
    navegador interpreta o arrasto do dedo como rolagem da página e o traço sai
    picotado (ou não sai). */
@@ -198,6 +221,8 @@ input:focus { outline: none; border-color: var(--acc); }
 .previa-lado:first-child { position: sticky; top: 0; }
 .previa-texto { margin: 0; padding: 14px 16px; color: var(--pen-preto); white-space: pre-wrap; word-break: break-word;
   font: 13px/1.6 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+.previa-texto .tinta-vermelho { color: var(--pen-vermelho); }
+.previa-texto .tinta-azul { color: var(--pen-azul); }
 .previa-desenho { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
   object-position: top left; pointer-events: none; border-radius: inherit; }
 .previa-meta { margin: 0 0 9px; font-size: 13px; color: var(--mut); }
@@ -290,6 +315,45 @@ input:focus { outline: none; border-color: var(--acc); }
 .tabela-dados td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ============================================================
+   CALENDÁRIO MENSAL
+   ============================================================ */
+/* `capitalize` maiusculizaria TODA palavra e o título sairia "Setembro De
+   2026". Só a primeira letra sobe; o resto do rótulo vem pronto da regra. */
+.cal-titulo { font-size: 15px; min-width: 190px; text-align: center; }
+.cal-titulo::first-letter { text-transform: uppercase; }
+
+/* `minmax(0, 1fr)` e não `1fr`: com `1fr` puro, um chip de texto longo empurra a
+   coluna e a grade sai torta — as sete colunas precisam ser iguais mesmo que o
+   conteúdo não caiba. */
+.cal-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-dow { font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--mut);
+  text-align: center; padding: 4px 0 6px; }
+.cal-dia { min-height: 82px; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 9px; padding: 5px 6px; display: flex; flex-direction: column; gap: 4px; }
+/* Dia de outro mês continua visível, só recuado: o treino da segunda que abre a
+   semana é da semana que o coach está olhando, mesmo caindo em agosto. */
+/* .55 e não .42: abaixo disso o chip do dia vizinho fica ilegível, e ele
+   continua sendo um treino clicável — apagado é para dizer "outro mês", não
+   para esconder. */
+.cal-dia.fora { opacity: .55; }
+.cal-dia.hoje { border-color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc); }
+.cal-dia[data-dia-livre] { cursor: pointer; }
+.cal-dia[data-dia-livre]:hover { border-color: var(--line2); background: var(--card2); }
+.cal-num { font-size: 11.5px; color: var(--mut); font-variant-numeric: tabular-nums; }
+.cal-dia.hoje .cal-num { color: var(--acc); font-weight: 700; }
+.cal-chips { display: flex; flex-direction: column; gap: 3px; }
+.cal-chip { border: 0; border-radius: 6px; padding: 3px 6px; font-size: 10.5px; font-weight: 700;
+  line-height: 1.3; text-align: left; cursor: default; width: 100%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.cal-chip.editavel { cursor: pointer; }
+.cal-chip.editavel:hover { filter: brightness(1.12); }
+.cal-cadeado { opacity: .7; font-size: 9px; }
+.cal-rodape { margin: 12px 0 0; font-size: 12.5px; color: var(--mut); }
+.cal-legenda { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.cal-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--mut); }
+.cal-leg i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+/* ============================================================
    MODAL (classes de compartilhado/ui/dialogo.js)
    ============================================================ */
 .modal-bg { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.7); backdrop-filter: blur(3px);
@@ -337,6 +401,13 @@ input:focus { outline: none; border-color: var(--acc); }
   .fer { flex: 0 0 auto; }
   .fer-sep { flex: 0 0 10px; }
   .quadro-area { min-height: 56vh; }
+  /* Sete colunas em 390px dão 48px por dia — o número cabe, o chip vira uma
+     tarja de cor. O rótulo do sistema some (não caberia), e o toque continua
+     abrindo o treino, que é o que importa no celular. */
+  .cal-dia { min-height: 56px; padding: 3px; }
+  .cal-chip { font-size: 0; padding: 0; height: 9px; border-radius: 3px; }
+  .cal-cadeado { display: none; }
+  .cal-titulo { min-width: 0; flex: 1; font-size: 13px; }
   .modal-bg { padding: 10px; }
   .modal-ft { justify-content: stretch; }
   .modal-ft .btn { flex: 1 1 auto; }

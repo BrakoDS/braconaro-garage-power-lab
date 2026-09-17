@@ -134,13 +134,20 @@ export function removerExercicio(treino, nome) {
  * leitura: ele escolhe a data no formulário e pode reescrever o título que a IA
  * sugeriu antes de salvar.
  *
+ * `textoOriginal` é o que o coach digitou, guardado junto. Sem ele, reabrir um
+ * treino pelo Calendário só conseguiria RECONSTRUIR o texto a partir da
+ * estrutura — perto do original, mas nunca igual: some o comentário que ele
+ * escreveu no rodapé, some a ordem em que ele preferiu listar. É barato guardar
+ * e é a diferença entre reabrir a lousa dele e reabrir uma transcrição dela.
+ *
  * @param {TreinoEstruturado} treino
- * @param {{dateId: string, titulo: string, classTime?: string}} meta
+ * @param {{dateId: string, titulo: string, classTime?: string, textoOriginal?: string}} meta
  */
-export function paraGravar(treino, { dateId, titulo, classTime = '' }) {
+export function paraGravar(treino, { dateId, titulo, classTime = '', textoOriginal = '' }) {
   return {
     dateId,
     classTime,
+    textoOriginal: String(textoOriginal || '').slice(0, 8000),
     geradoEm: new Date().toISOString(),
     treino: {
       ...treino,

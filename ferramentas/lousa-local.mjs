@@ -171,9 +171,55 @@ export async function salvarLousa(_uid, dados) {
   console.info('[local] salvarLousa (nada foi gravado)', dados.dateId);
   return 'treino-local-1';
 }
-export async function listarLousas() { return []; }
+/**
+ * Um mês de treinos para o Calendário ter o que desenhar.
+ *
+ * Espalhados de propósito em segunda, quarta e sexta, com duas aulas num mesmo
+ * dia (manhã e noite) e sistemas diferentes — é o que faz aparecer na tela o
+ * chip duplo, as quatro cores da legenda e a diferença entre o treino passado
+ * (cadeado) e o de hoje/futuro (clicável).
+ *
+ * NOTA DE ESCAPE: este código vive dentro de um template literal do servidor,
+ * então toda interpolação leva barra invertida (\${...}) e todo \\n precisa de
+ * DUAS — uma para o template, outra para o dublê. Sem isso o Node resolve a
+ * variável cedo demais, ou a quebra de linha vira quebra de verdade e parte a
+ * string ao meio. Quem pega isso é a validação de sintaxe do arquivo SERVIDO,
+ * não a do servidor: o servidor está sempre válido, o que quebra é o que ele
+ * gera.
+ */
+export async function listarLousas(_uid, inicio, fim) {
+  await demora(250);
+  const SISTEMAS = ['Hipertrofia', 'HIIT', 'GAP', 'Hyrox'];
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const out = [];
+  // Varre a faixa que a tela pediu e põe treino nas segundas, quartas e sextas.
+  for (let d = new Date(inicio + 'T12:00:00Z'); iso(d) <= fim; d.setUTCDate(d.getUTCDate() + 1)) {
+    const dow = d.getUTCDay();
+    if (![1, 3, 5].includes(dow)) continue;
+    const dateId = iso(d);
+    const sistema = SISTEMAS[(d.getUTCDate() + dow) % SISTEMAS.length];
+    const treino = structuredClone(TREINO);
+    treino.sistema = sistema;
+    treino.titulo = sistema + ' · ' + dateId.slice(8) + '/' + dateId.slice(5, 7);
+    out.push({
+      workoutId: 'w-' + dateId + '-a', dateId, classTime: '07:00', treino,
+      textoOriginal: 'A — Mobilidade\\n  Mobilidade de quadril · 40s\\n\\nC — Força\\n  Agachamento livre · 4x8-12 · RIR 2',
+      geradoEm: dateId + 'T10:00:00.000Z',
+    });
+    // Sexta tem a segunda turma, à noite — é o caso que um mapa de um treino por
+    // dia esconderia.
+    if (dow === 5) {
+      const noite = structuredClone(TREINO);
+      noite.sistema = 'HIIT';
+      noite.titulo = 'HIIT · turma da noite';
+      out.push({ workoutId: 'w-' + dateId + '-b', dateId, classTime: '20:00', treino: noite,
+        textoOriginal: '', geradoEm: dateId + 'T22:00:00.000Z' });
+    }
+  }
+  console.info('[local] listarLousas', { inicio, fim, treinos: out.length });
+  return out;
+}
 
-/** Consolidado de exemplo. O mês multiplica a semana para a linha ter o que mostrar. */
 export async function lerConsolidado(_uid, chave) {
   await demora(150);
   const ehMes = !chave.includes('W');
@@ -373,7 +419,7 @@ http.createServer((req, res) => {
   });
 }).listen(PORTA, '127.0.0.1', () => {
   console.log(`\n  Montador Híbrido em MODO LOCAL — sem nuvem, sem OpenAI\n`);
-  console.log(`      Lousa do Coach   http://127.0.0.1:${PORTA}/__local/`);
+  console.log(`      Lousa do Coach   http://127.0.0.1:${PORTA}/__local/   (abas Lousa e Calendário)`);
   console.log(`      Gestão de Alunos http://127.0.0.1:${PORTA}/__local/gestao/   (aba "Matriz")\n`);
   console.log(`  Ctrl+C para parar.\n`);
 });
