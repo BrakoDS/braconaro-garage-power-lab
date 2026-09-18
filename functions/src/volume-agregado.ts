@@ -22,6 +22,8 @@
  * diferentes. `checar.ts` compara as duas para que a divergência apareça no CI.
  */
 
+import { completarGrupamentos, perfilDe, type TipoContagem } from './taxonomia.js';
+
 /** Os sete grupos, na ordem da tela — cópia de `GRUPOS` em `compartilhado/regras/grupos.js`. */
 export const GRUPOS = ['peito', 'costas', 'ombro', 'braco', 'perna', 'gluteo', 'core'] as const;
 export type Grupo = (typeof GRUPOS)[number];
@@ -66,7 +68,13 @@ export const SEMANAS_POR_MES = 4.33;
 export type TreinoParaVolume = {
   dateId: string;
   sistema: string;
-  exercicios: { series: number; grupamentos: string[]; implemento: string }[];
+  /**
+   * `nome` existe para a REDE da taxonomia: quando o `grupamentos` gravado está
+   * vazio, o grupo é deduzido do nome do exercício. Sem ele, a correção só
+   * valeria para treino novo e todo o histórico do box continuaria fora do
+   * gráfico até alguém reescrever cada lousa à mão.
+   */
+  exercicios: { nome?: string; series: number; grupamentos: string[]; implemento: string }[];
 };
 
 export type Consolidado = {
@@ -87,6 +95,13 @@ export type Consolidado = {
   percentualImplemento: Record<string, number>;
   /** sistema (HIIT/GAP/...) → nº de treinos. */
   porSistema: Record<string, number>;
+  /**
+   * Como as séries do período se medem: tonelagem (kg), peso corporal ou
+   * metcon. Existe para a tela poder explicar um treino sem kg em vez de deixar
+   * o coach achando que faltou digitar carga. `indefinido` é o que a taxonomia
+   * não conhece — e é também o alarme de que a tabela precisa crescer.
+   */
+  porTipoContagem: Record<string, number>;
   atualizadoEm: string;
 };
 
@@ -172,6 +187,7 @@ export function consolidar(
   const porGrupo: Record<string, number> = {};
   const porImplemento: Record<string, number> = {};
   const porSistema: Record<string, number> = {};
+  const porTipoContagem: Record<string, number> = {};
   let totalSeries = 0;
 
   for (const t of treinos) {
@@ -182,11 +198,20 @@ export function consolidar(
       const series = Number(ex.series) || 0;
       totalSeries += series;
 
-      for (const rotulo of ex.grupamentos || []) {
+      // A REDE: exercício gravado sem grupamento (o caso do Burpee e do Wall
+      // Ball, que o prompt manda a IA deixar vazio na dúvida) recupera os
+      // grupos pelo NOME. Carga não entra nesta conta — nunca entrou: série com
+      // 0 kg conta igual a série com 100 kg, porque a pergunta aqui é quanto
+      // ESTÍMULO o grupo levou, não quanto peso subiu.
+      const rotulos = completarGrupamentos(ex.nome || '', ex.grupamentos);
+      for (const rotulo of rotulos) {
         const g = GRUPO_POR_ROTULO[rotulo];
         if (!g) continue; // rótulo fora do vocabulário: some do grupo, não do total
         porGrupo[g] = (porGrupo[g] || 0) + series;
       }
+
+      const tipo: TipoContagem | 'indefinido' = perfilDe(ex.nome || '')?.tipoContagem ?? 'indefinido';
+      porTipoContagem[tipo] = (porTipoContagem[tipo] || 0) + series;
 
       const imp = (ex.implemento || '').trim();
       if (imp) porImplemento[imp] = (porImplemento[imp] || 0) + 1;
@@ -220,6 +245,7 @@ export function consolidar(
     porImplemento,
     percentualImplemento,
     porSistema,
+    porTipoContagem,
     atualizadoEm: new Date().toISOString(),
   };
 }

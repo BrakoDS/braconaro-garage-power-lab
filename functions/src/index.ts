@@ -1276,7 +1276,7 @@ export const aggregateVolumeMetrics = onDocumentWritten(
           dateId: typeof v.dateId === 'string' ? v.dateId : '',
           sistema: t.sistema,
           exercicios: t.blocos.flatMap((b) => (b.exercicios || []).map((ex) => ({
-            series: ex.series, grupamentos: ex.grupamentos || [], implemento: ex.implemento || '',
+            nome: ex.nome || '', series: ex.series, grupamentos: ex.grupamentos || [], implemento: ex.implemento || '',
           }))),
         }];
       });

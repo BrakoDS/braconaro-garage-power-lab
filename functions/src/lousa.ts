@@ -30,6 +30,8 @@
  */
 
 /** Rótulos de músculo que a Academia grava — ver o cabeçalho sobre duplicação. */
+import { completarGrupamentos } from './taxonomia.js';
+
 export const MUSCULOS_LABEL = [
   'Peito', 'Ombro', 'Tríceps', 'Costas', 'Bíceps', 'Quadríceps',
   'Posterior de coxa', 'Glúteo', 'Panturrilha', 'Core/Abdômen', 'Antebraço',
@@ -168,9 +170,12 @@ export function aplicarRegrasGlobais(treino: TreinoEstruturado): TreinoEstrutura
     ...b,
     exercicios: b.exercicios.map((ex) => {
       const r = regraGlobalDe(ex.nome);
-      if (!r) return ex;
-      substituicoes.push({ de: ex.nome, para: r.para, regra: r.regra });
-      return { ...ex, nome: r.para };
+      const nome = r ? r.para : ex.nome;
+      if (r) substituicoes.push({ de: ex.nome, para: r.para, regra: r.regra });
+      // A taxonomia completa o que a IA deixou vazio — e é aplicada AQUI, com o
+      // nome JÁ SUBSTITUÍDO. Antes da troca, "Corrida 400m" não casaria com
+      // nada; depois dela o exercício é "Airbike", que a tabela conhece.
+      return { ...ex, nome, grupamentos: completarGrupamentos(nome, ex.grupamentos) };
     }),
   }));
   return { ...treino, blocos, substituicoes };

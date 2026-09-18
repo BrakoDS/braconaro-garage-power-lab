@@ -272,6 +272,38 @@ Consequência: `totalSeries` (séries prescritas) **não** é a soma de `porGrup
 (um exercício multiarticular credita mais de um grupo). São perguntas diferentes,
 e o dashboard mostra cada uma no seu lugar.
 
+### Burpee e Wall Ball no gráfico: a taxonomia
+
+Exercício calistênico e de metcon sumia do gráfico por grupamento. **A causa não
+era carga** — `consolidar()` nunca olhou kg, e conta série de 0 kg igual a série
+de 100 kg. A causa era o `grupamentos` chegar VAZIO.
+
+E chegava vazio de propósito: o prompt manda a IA devolver lista vazia em vez de
+chutar. Regra certa para um nome que ela não reconhece, errada para um Burpee,
+que tem perfil fixo — o resultado era um gráfico que mudava conforme o humor da
+leitura.
+
+`taxonomia.ts` é a tabela determinística desses movimentos, com primários,
+secundários, `tipoContagem` (`tonelagem` / `peso_corporal` / `metcon_series`) e a
+carga padrão do galpão. Mesma razão de `REGRAS_GLOBAIS`: o que é sempre verdade
+no box mora em código, não num prompt sorteado a cada leitura.
+
+**Aplicada nas duas pontas, e isso é o ponto:**
+
+1. Na **leitura** (`lousa.ts`), depois das regras globais — assim "Corrida 400m",
+   que já virou "Airbike", casa com a tabela.
+2. Na **consolidação** (`volume-agregado.ts`), como rede, pelo NOME, quando o
+   `grupamentos` gravado está vazio.
+
+A segunda existe porque o gatilho lê treinos **já salvos**. Sem ela a correção só
+valeria para treino novo, e todo o histórico do box ficaria fora do gráfico até
+alguém reescrever cada lousa à mão.
+
+A tabela **nunca sobrescreve** o que a IA classificou: a leitura dela é sobre
+AQUELA lousa e pode ter qualificador que a tabela não conhece. O que ela não
+conhece continua vazio e aparece como `indefinido` em `porTipoContagem` — que é o
+alarme de que a tabela precisa crescer, em vez de um zero silencioso.
+
 A meta semanal padrão (10 séries por grupo) é o mesmo número que o aluno vê no
 Portal — `META_SERIES_SEMANAIS.hipertrofia` em
 `compartilhado/regras/metas-aluno.js`. `checar.ts` compara os dois no CI. O coach

@@ -36,6 +36,9 @@ import {
   GRUPO_POR_ROTULO, META_SEMANAL_PADRAO, SEMANAS_POR_MES, GRUPOS as GRUPOS_VOL,
   type TreinoParaVolume,
 } from './volume-agregado';
+import {
+  TAXONOMIA, perfilDe, gruposDoExercicio, completarGrupamentos,
+} from './taxonomia';
 
 let falhas = 0;
 
@@ -1115,6 +1118,141 @@ if (!existsSync(join(RAIZ_SITE, FONTE_MATRIZ))) {
   // código; compara-se o RESULTADO em pontos conhecidos da fórmula de Epley.
   ok(e1rm(100, 5) === 116.5 && e1rm(60, 8) === 76, 'e1rm reproduz Epley nos pontos de referência');
   ok(cargaDe1RM(100, 70) === 70 && cargaDe1RM(103, 70) === 72.5, 'cargaDe1RM arredonda a 2,5 kg como a fonte');
+}
+
+
+/* ------------------------------------------------------------------ *
+ * TAXONOMIA DOS METCONS — o Burpee que sumia do dashboard
+ * ------------------------------------------------------------------ */
+
+console.log('\nTAXONOMIA: HÍBRIDOS, CALISTÊNICOS E CONDICIONAMENTO NO DASHBOARD\n');
+
+// O vocabulário é FECHADO: um rótulo fora de `MUSCULOS_LABEL` não tem grupo em
+// `GRUPO_POR_ROTULO` e o exercício sumiria do gráfico do mesmo jeito — com a
+// agravante de parecer mapeado.
+{
+  const validos = new Set<string>(MUSCULOS_LABEL as readonly string[]);
+  const foras: string[] = [];
+  for (const p of TAXONOMIA) {
+    for (const r of [...p.primarios, ...p.secundarios]) if (!validos.has(r)) foras.push(`${p.nome}: ${r}`);
+  }
+  ok(foras.length === 0, `todo rótulo da taxonomia existe em MUSCULOS_LABEL${foras.length ? ` (fora: ${foras.join(', ')})` : ''}`);
+}
+
+{
+  const semGrupo: string[] = [];
+  for (const p of TAXONOMIA) {
+    for (const r of [...p.primarios, ...p.secundarios]) if (!GRUPO_POR_ROTULO[r]) semGrupo.push(`${p.nome}: ${r}`);
+  }
+  ok(semGrupo.length === 0, `todo rótulo da taxonomia cai num dos sete grupos${semGrupo.length ? ` (sem grupo: ${semGrupo.join(', ')})` : ''}`);
+}
+
+ok(TAXONOMIA.every((p) => p.primarios.length > 0), 'todo exercício mapeado tem ao menos um primário');
+ok(
+  TAXONOMIA.every((p) => p.tipoContagem !== 'metcon_series' || typeof p.cargaPadraoKg === 'number'),
+  'todo metcon_series traz a carga padrão do galpão',
+);
+ok(
+  TAXONOMIA.every((p) => p.tipoContagem !== 'peso_corporal' || p.cargaPadraoKg === undefined),
+  'peso corporal não inventa kg padrão',
+);
+
+// Os quatro que o coach citou.
+ok(perfilDe('Burpee')?.nome === 'Burpee', 'Burpee é reconhecido');
+ok(perfilDe('4x15 Wall Ball 9kg')?.nome === 'Wall Ball', 'Wall Ball é reconhecido mesmo colado em séries e carga');
+ok(perfilDe('Kettlebell Swing 24kg')?.nome === 'Kettlebell Swing', 'KB Swing é reconhecido');
+ok(perfilDe('Box Jump 60cm')?.nome === 'Box Jump', 'Box Jump é reconhecido');
+
+// O termo mais longo vence — sem isso "swing" roubaria "kettlebell swing", e
+// "corda" roubaria "corda naval".
+ok(perfilDe('KB Swing')?.nome === 'Kettlebell Swing', 'o termo mais longo vence: kb swing');
+ok(perfilDe('Corda naval 4x30s')?.nome === 'Corda naval', 'o termo mais longo vence: corda naval, não "corda"');
+ok(perfilDe('Pular corda 3x1min')?.nome === 'Pular corda', '"corda" sozinha ainda cai em Pular corda');
+
+ok(perfilDe('Agachamento livre') === null, 'o que a IA já classifica bem fica fora da tabela');
+ok(perfilDe('') === null && perfilDe('xyzabc') === null, 'nome vazio ou desconhecido não inventa perfil');
+
+// Os grupamentos: primários e secundários juntos, sem repetição.
+{
+  const g = gruposDoExercicio('Wall Ball');
+  ok(g.includes('Quadríceps') && g.includes('Glúteo') && g.includes('Ombro'), 'Wall Ball credita perna e ombro');
+  ok(new Set(g).size === g.length, 'gruposDoExercicio não repete rótulo');
+}
+ok(gruposDoExercicio('Burpee').includes('Peito') && gruposDoExercicio('Burpee').includes('Core/Abdômen'),
+  'Burpee credita peito e core');
+ok(gruposDoExercicio('Kettlebell Swing').includes('Posterior de coxa')
+  && gruposDoExercicio('Kettlebell Swing').includes('Glúteo'), 'KB Swing credita posterior e glúteo');
+
+// Não sobrescreve leitura da IA: ela viu AQUELA lousa, a tabela é genérica.
+ok(completarGrupamentos('Burpee', ['Peito']).length === 1, 'grupamento já preenchido pela IA é preservado');
+ok(completarGrupamentos('Burpee', []).length > 1, 'grupamento vazio é completado pela tabela');
+ok(completarGrupamentos('Burpee', undefined).length > 1, 'grupamento ausente é completado pela tabela');
+ok(completarGrupamentos('Exercício Inventado', []).length === 0, 'o que a tabela não conhece continua vazio');
+
+console.log('\nO TREINO DO CHAMADO: "4x15 Wall Ball 9kg" E "3x10 Burpees"\n');
+
+// O CENÁRIO EXATO DO CHAMADO: antes desta correção, os dois exercícios entravam
+// em `totalSeries` e sumiam de `porGrupo` — o gráfico por grupamento mostrava
+// zero num dia que teve sete séries.
+{
+  const treinoMetcon: TreinoParaVolume = {
+    dateId: '2026-09-16',
+    sistema: 'HIIT',
+    exercicios: [
+      // Como o documento fica quando a IA devolve lista vazia "na dúvida".
+      { nome: 'Wall Ball 9kg', series: 4, grupamentos: [], implemento: 'Bola' },
+      { nome: 'Burpees', series: 3, grupamentos: [], implemento: 'Peso corporal' },
+    ],
+  };
+  const c = consolidar([treinoMetcon], 'semana', '2026-W38', faixaDaSemana('2026-09-16'));
+
+  ok(c.totalSeries === 7, `as 7 séries continuam contadas (${c.totalSeries})`);
+  // 7 e não 4: perna leva as 4 do Wall Ball MAIS as 3 do Burpee, cujo
+  // quadríceps é secundário. Primário e secundário creditam a série inteira,
+  // pela convenção que `volume-agregado.ts` documenta e o Portal já usa.
+  ok((c.porGrupo.perna || 0) === 7, `perna soma Wall Ball (4) e Burpee (3) = 7 (${c.porGrupo.perna || 0})`);
+  ok((c.porGrupo.gluteo || 0) === 4, `Wall Ball credita 4 séries em glúteo (${c.porGrupo.gluteo || 0})`);
+  ok((c.porGrupo.ombro || 0) === 7, `ombro leva as 4 do Wall Ball e as 3 do Burpee (${c.porGrupo.ombro || 0})`);
+  ok((c.porGrupo.peito || 0) === 3, `Burpee credita 3 séries em peito (${c.porGrupo.peito || 0})`);
+  ok((c.porGrupo.core || 0) === 3, `Burpee credita 3 séries em core (${c.porGrupo.core || 0})`);
+  ok((c.porGrupo.braco || 0) === 3, `o tríceps do Burpee cai em braço (${c.porGrupo.braco || 0})`);
+
+  ok(c.porTipoContagem.metcon_series === 4 && c.porTipoContagem.peso_corporal === 3,
+    'o tipo de contagem separa metcon de peso corporal');
+  ok(Object.values(c.porGrupo).some((n) => n > 0), 'o dia deixou de aparecer zerado no gráfico por grupo');
+}
+
+// A carga NUNCA foi o filtro — e continua não sendo. Mesmo treino, mesma conta.
+{
+  const faixa = faixaDaSemana('2026-09-16');
+  const comCarga: TreinoParaVolume = { dateId: '2026-09-16', sistema: 'HIIT',
+    exercicios: [{ nome: 'Wall Ball 9kg', series: 4, grupamentos: ['Quadríceps'], implemento: 'Bola' }] };
+  const semCarga: TreinoParaVolume = { dateId: '2026-09-16', sistema: 'HIIT',
+    exercicios: [{ nome: 'Wall Ball', series: 4, grupamentos: ['Quadríceps'], implemento: 'Bola' }] };
+  ok(
+    consolidar([comCarga], 'semana', 'x', faixa).porGrupo.perna
+      === consolidar([semCarga], 'semana', 'x', faixa).porGrupo.perna,
+    'série com e sem kg contam igual — carga nunca entrou nesta conta',
+  );
+}
+
+// A rede vale para o HISTÓRICO: treino já salvo, sem grupamento, volta ao gráfico.
+{
+  const jaSalvo: TreinoParaVolume = { dateId: '2026-09-16', sistema: 'Hyrox',
+    exercicios: [{ nome: 'Kettlebell Swing 24kg', series: 5, grupamentos: [], implemento: 'Kettlebell' }] };
+  const c = consolidar([jaSalvo], 'semana', 'x', faixaDaSemana('2026-09-16'));
+  ok((c.porGrupo.perna || 0) === 5 && (c.porGrupo.gluteo || 0) === 5,
+    'treino antigo sem grupamento é recuperado pelo nome na consolidação');
+}
+
+// Exercício fora da tabela e sem grupamento não some do total nem finge grupo.
+{
+  const desconhecido: TreinoParaVolume = { dateId: '2026-09-16', sistema: 'GAP',
+    exercicios: [{ nome: 'Movimento Novo Do Coach', series: 3, grupamentos: [], implemento: '' }] };
+  const c = consolidar([desconhecido], 'semana', 'x', faixaDaSemana('2026-09-16'));
+  ok(c.totalSeries === 3, 'exercício desconhecido continua no total de séries');
+  ok(Object.keys(c.porGrupo).length === 0, 'exercício desconhecido não inventa grupo');
+  ok(c.porTipoContagem.indefinido === 3, 'ele aparece como "indefinido" — o alarme de que a tabela precisa crescer');
 }
 
 console.log(
