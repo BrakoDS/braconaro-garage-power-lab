@@ -26,6 +26,7 @@ import { chaveSemana, chaveMes, rotuloMes, rotuloSemana, semanasDoMes, faixaDaSe
 import { lerConsolidado, marcaDasLousas } from '../cloud/chamadas.js';
 import { esc } from './render-treino.js';
 import * as store from './store.js';
+import { painel } from '../../../compartilhado/ui/dialogo.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
 
@@ -91,15 +92,104 @@ async function carregar(ctx, alvo, dateId) {
     }));
 
     alvo.innerHTML = [
+      // No TOPO: é uma ressalva sobre os números que vêm abaixo, e ressalva que
+      // aparece depois do gráfico chega tarde — o coach já leu e já concluiu.
+      avisoDeCobertura(doSemana, doMes),
       trackerSemanal(doSemana, dateId),
       relatorioMensal(doMes, mes, serieMensal),
       roscaVariabilidade(doMes, mes),
     ].join('');
+    ligarDetalheDaCobertura(alvo, doSemana, doMes);
   } catch (e) {
     console.error('Falha ao ler o consolidado de volume:', e);
     alvo.innerHTML = `<div class="card"><h3>Não deu para ler o volume</h3>
       <p class="mut">${esc(/** @type {Error} */ (e).message || 'Confira a conexão e tente de novo.')}</p></div>`;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Cobertura da taxonomia — o aviso de que falta grupo em alguém
+ * ------------------------------------------------------------------ */
+
+/**
+ * As séries que NÃO entraram em nenhum grupo, e de quais exercícios.
+ *
+ * Lê `seriesSemGrupo`, e NÃO `porTipoContagem.indefinido`. Os dois parecem a
+ * mesma coisa e não são: `indefinido` quer dizer "fora de `taxonomia.ts`", e
+ * agachamento e supino estão fora dela de propósito — a IA os classifica bem.
+ * Um alerta em cima de `indefinido` dispararia em todo treino de Hipertrofia,
+ * e alarme que toca quando está tudo certo é alarme que o coach desliga.
+ *
+ * A semana e o mês são lidos JUNTOS porque o buraco pode estar em qualquer um:
+ * um exercício sem grupo há três semanas ainda distorce o relatório mensal que
+ * está na mesma tela.
+ */
+function coberturaDe(doSemana, doMes) {
+  const nomes = [...new Set([
+    ...(Array.isArray(doSemana?.exerciciosSemGrupo) ? doSemana.exerciciosSemGrupo : []),
+    ...(Array.isArray(doMes?.exerciciosSemGrupo) ? doMes.exerciciosSemGrupo : []),
+  ])].filter((n) => typeof n === 'string' && n.trim());
+  // O mês contém a semana, então somar os dois conta em dobro. O que o coach
+  // precisa saber é SE existe buraco e QUAIS são — o número exato do mês já
+  // está no relatório abaixo. Uso o maior dos dois, que é o do período maior.
+  const total = Math.max(Number(doSemana?.seriesSemGrupo) || 0, Number(doMes?.seriesSemGrupo) || 0);
+  return { total, nomes, houveLeitura: !!(doSemana || doMes) };
+}
+
+/**
+ * A faixa no topo: alerta quando falta mapeamento, selo discreto quando não.
+ *
+ * O estado limpo aparece de propósito, em vez de sumir: sem ele o coach não tem
+ * como distinguir "tudo mapeado" de "o aviso não carregou". Um silêncio que
+ * pode significar duas coisas não é informação.
+ */
+function avisoDeCobertura(doSemana, doMes) {
+  const { total, nomes, houveLeitura } = coberturaDe(doSemana, doMes);
+  if (!houveLeitura) return ''; // nada consolidado ainda: os cards abaixo já dizem isso
+
+  if (total <= 0) {
+    return `<p class="cobertura ok" title="Todos os exercícios do período caíram em algum grupamento muscular.">
+      <span aria-hidden="true">✓</span> Taxonomia 100% mapeada
+    </p>`;
+  }
+
+  const quantos = `${total} série${total === 1 ? '' : 's'}`;
+  return `<section class="cobertura alerta" role="status">
+    <span class="cobertura-ic" aria-hidden="true">⚠️</span>
+    <span class="cobertura-txt">
+      <b>${esc(quantos)}</b> em exercício sem grupo muscular mapeado — contam no total, não aparecem nas barras.
+    </span>
+    <button class="btn ghost btn-sm" type="button" data-cobertura="detalhe">Ver quais</button>
+  </section>`;
+}
+
+/** O detalhe, num painel: o que significa e o que fazer com a informação. */
+function ligarDetalheDaCobertura(alvo, doSemana, doMes) {
+  const botao = alvo.querySelector('[data-cobertura="detalhe"]');
+  if (!botao) return;
+  const { total, nomes } = coberturaDe(doSemana, doMes);
+  botao.addEventListener('click', () => {
+    const lista = nomes.length
+      ? `<ul class="cobertura-lista">${nomes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`
+      : `<p class="mut">O consolidado guardou o número, mas não os nomes — ele foi calculado por uma
+         versão anterior do servidor. Salve um treino do período de novo para o servidor recalcular.</p>`;
+    // `painel` e não `avisar`: `avisar` escapa o texto inteiro, de propósito, e
+    // aqui o corpo é HTML (a lista de nomes). Passar HTML para ele mostraria as
+    // tags como texto na tela.
+    painel({
+      titulo: 'Exercícios sem grupo muscular',
+      largo: false,
+      corpoHTML: `<p class="dlg-texto">Estes exercícios <b>contam no volume total</b>, mas não foram
+          mapeados em grupos musculares — então não aparecem em nenhuma barra do gráfico por
+          grupamento (${esc(String(total))} série(s) no período).</p>
+        <p class="dlg-texto mut">Acontece quando a leitura da lousa não reconheceu o grupamento e o
+          exercício também não está na tabela de taxonomia do servidor.</p>
+        ${lista}
+        <p class="dlg-texto mut">Mande esta lista para o desenvolvedor: cada movimento é uma linha na
+          tabela, e a correção vale também para os treinos já salvos.</p>`,
+      acoes: [],
+    });
+  });
 }
 
 /** O cartão de "ainda não existe consolidado" — situação normal, não erro. */

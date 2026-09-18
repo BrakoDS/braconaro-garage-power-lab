@@ -484,3 +484,46 @@ input:focus { outline: none; border-color: var(--acc); }
   body { background: #FFFFFF; color: #000000; }
   .card, .bloco { background: #FFFFFF; border-color: #CCCCCC; }
 }
+
+/* ------------------------------------------------------------------ *
+ * Cobertura da taxonomia — a faixa no topo do Dashboard de Volume
+ * ------------------------------------------------------------------ */
+
+/* Fica ACIMA dos gráficos porque é uma ressalva sobre eles: uma nota de rodapé
+   chegaria depois de o coach já ter lido os números e tirado a conclusão. */
+.cobertura {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 10px 14px; border-radius: 10px;
+  font-size: 13.5px; line-height: 1.45;
+}
+
+.cobertura.alerta {
+  background: color-mix(in srgb, var(--warn) 12%, var(--sup));
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  color: var(--txt);
+}
+.cobertura.alerta b { color: var(--warn); }
+.cobertura-ic { font-size: 16px; line-height: 1; flex: 0 0 auto; }
+/* O texto toma a sobra e o botão fica no fim: sem isto, em telas do meio o
+   botão gruda no texto e parece parte da frase. */
+.cobertura-txt { flex: 1 1 260px; min-width: 0; }
+.cobertura .btn { flex: 0 0 auto; }
+
+/* O estado limpo é DISCRETO mas existe: sem ele o coach não distingue "tudo
+   mapeado" de "o aviso não carregou", e um silêncio ambíguo não informa nada. */
+.cobertura.ok {
+  padding: 4px 0; background: none; border: 0;
+  color: var(--mut); font-size: 12.5px;
+}
+.cobertura.ok span { color: var(--ok); font-weight: 700; }
+
+.cobertura-lista { margin: 10px 0 0; padding-left: 20px; }
+.cobertura-lista li { margin: 2px 0; }
+
+@media (max-width: 720px) {
+  /* Em 390px o botão não cabe ao lado da frase sem espremer as duas. Ele desce
+     e ocupa a linha inteira, que é também o alvo de toque confortável. */
+  .cobertura { padding: 10px; font-size: 13px; gap: 8px; }
+  .cobertura-txt { flex: 1 1 100%; }
+  .cobertura.alerta .btn { flex: 1 1 100%; }
+}

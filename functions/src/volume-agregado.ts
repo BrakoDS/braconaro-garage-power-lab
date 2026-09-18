@@ -65,6 +65,9 @@ export const META_SEMANAL_PADRAO = 10;
 /** Semanas por mês, o mesmo 4,33 de `compartilhado/regras/volume.js` (`projetarMensal`). */
 export const SEMANAS_POR_MES = 4.33;
 
+/** Teto de nomes guardados em `exerciciosSemGrupo`. Ver o campo. */
+export const MAX_SEM_GRUPO = 12;
+
 export type TreinoParaVolume = {
   dateId: string;
   sistema: string;
@@ -102,6 +105,29 @@ export type Consolidado = {
    * não conhece — e é também o alarme de que a tabela precisa crescer.
    */
   porTipoContagem: Record<string, number>;
+  /**
+   * Séries que não entraram em GRUPO NENHUM — as que somem do gráfico.
+   *
+   * NÃO é o mesmo que `porTipoContagem.indefinido`, e a diferença importa:
+   * `indefinido` quer dizer "fora da tabela `taxonomia.ts`", e agachamento,
+   * supino e remada estão fora dela DE PROPÓSITO, porque a IA os classifica
+   * bem. Num treino de Hipertrofia quase tudo é `indefinido` e está tudo certo.
+   *
+   * O que o coach precisa ver é ESTE número: série contada no total que não
+   * apareceu em nenhuma barra. Alarme que dispara quando não há problema treina
+   * o coach a ignorar o alarme.
+   */
+  seriesSemGrupo: number;
+  /**
+   * Os NOMES dos exercícios que ficaram sem grupo, sem repetir.
+   *
+   * O número sozinho é um beco sem saída: "4 séries fora do gráfico" não diz ao
+   * coach o que fazer. Com os nomes ele lê "Devil Press, Sled Pull", pede para
+   * mapear, e a tabela cresce. Limitado a `MAX_SEM_GRUPO` porque isto vai para
+   * um documento do Firestore com teto de 1 MB, e porque uma lista de cinquenta
+   * nomes não é mais acionável que uma de doze.
+   */
+  exerciciosSemGrupo: string[];
   atualizadoEm: string;
 };
 
@@ -188,6 +214,8 @@ export function consolidar(
   const porImplemento: Record<string, number> = {};
   const porSistema: Record<string, number> = {};
   const porTipoContagem: Record<string, number> = {};
+  const nomesSemGrupo: string[] = [];
+  let semGrupo = 0;
   let totalSeries = 0;
 
   for (const t of treinos) {
@@ -212,6 +240,14 @@ export function consolidar(
 
       const tipo: TipoContagem | 'indefinido' = perfilDe(ex.nome || '')?.tipoContagem ?? 'indefinido';
       porTipoContagem[tipo] = (porTipoContagem[tipo] || 0) + series;
+      // O que interessa ao coach é sumir do GRÁFICO, não estar fora da tabela.
+      // Um exercício fora da taxonomia mas classificado pela IA já aparece nas
+      // barras — cobrar mapeamento dele seria alarme falso.
+      if (!rotulos.length) {
+        semGrupo += series;
+        const nome = String(ex.nome || '').trim();
+        if (nome && !nomesSemGrupo.includes(nome) && nomesSemGrupo.length < MAX_SEM_GRUPO) nomesSemGrupo.push(nome);
+      }
 
       const imp = (ex.implemento || '').trim();
       if (imp) porImplemento[imp] = (porImplemento[imp] || 0) + 1;
@@ -246,6 +282,8 @@ export function consolidar(
     percentualImplemento,
     porSistema,
     porTipoContagem,
+    seriesSemGrupo: semGrupo,
+    exerciciosSemGrupo: nomesSemGrupo,
     atualizadoEm: new Date().toISOString(),
   };
 }

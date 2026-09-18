@@ -294,6 +294,17 @@ export async function lerConsolidado(_uid, chave) {
     metas: { peito: 10 * f, costas: 10 * f, ombro: 10 * f, braco: 10 * f, perna: 10 * f, gluteo: 10 * f, core: 10 * f },
     porImplemento: { Barra: n(14), Halter: n(9), Kettlebell: n(6), Cabo: n(5), Airbike: n(3), Colchonete: n(2), Anilha: n(1), TRX: n(1) },
     percentualImplemento: {}, porSistema: { Hipertrofia: n(2), HIIT: n(1), Hyrox: n(1) },
+    // COBERTURA DA TAXONOMIA — os dois estados da faixa do topo, de propósito:
+    // a SEMANA tem buraco (faixa de alerta, com os nomes a cobrar) e o MES nao
+    // (selo discreto "100% mapeada"). Trocar entre um e outro na tela e so
+    // mudar a data do dashboard.
+    //
+    // Repare que porTipoContagem.indefinido e ALTO nos dois: agachamento e
+    // supino estao fora da taxonomia de proposito. E exatamente por isso que o
+    // alerta le seriesSemGrupo, e nao indefinido.
+    porTipoContagem: { tonelagem: n(22), peso_corporal: n(9), metcon_series: n(6), indefinido: n(5) },
+    seriesSemGrupo: ehMes ? 0 : 7,
+    exerciciosSemGrupo: ehMes ? [] : ['Devil Press', 'Sled Pull', 'Sandbag Carry'],
     atualizadoEm: new Date().toISOString(),
   };
 }

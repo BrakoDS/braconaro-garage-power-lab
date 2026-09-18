@@ -33,7 +33,7 @@ import {
 } from './distribuicao';
 import {
   chaveSemana, chaveMes, faixaDaSemana, faixaDoMes, consolidar, saldoPorGrupo,
-  GRUPO_POR_ROTULO, META_SEMANAL_PADRAO, SEMANAS_POR_MES, GRUPOS as GRUPOS_VOL,
+  GRUPO_POR_ROTULO, META_SEMANAL_PADRAO, SEMANAS_POR_MES, GRUPOS as GRUPOS_VOL, MAX_SEM_GRUPO,
   type TreinoParaVolume,
 } from './volume-agregado';
 import {
@@ -1253,6 +1253,59 @@ console.log('\nO TREINO DO CHAMADO: "4x15 Wall Ball 9kg" E "3x10 Burpees"\n');
   ok(c.totalSeries === 3, 'exercício desconhecido continua no total de séries');
   ok(Object.keys(c.porGrupo).length === 0, 'exercício desconhecido não inventa grupo');
   ok(c.porTipoContagem.indefinido === 3, 'ele aparece como "indefinido" — o alarme de que a tabela precisa crescer');
+}
+
+
+console.log('\nO ALERTA DO DASHBOARD: SÉRIES QUE SOMEM DO GRÁFICO\n');
+
+// A distinção que faz o alerta valer: "fora da taxonomia" NÃO é "fora do
+// gráfico". Agachamento e supino estão fora da tabela DE PROPÓSITO e são
+// classificados pela IA — se o alerta olhasse `indefinido`, dispararia num
+// treino perfeitamente mapeado e o coach aprenderia a ignorá-lo.
+{
+  const hipertrofiaNormal: TreinoParaVolume = {
+    dateId: '2026-09-16', sistema: 'Hipertrofia',
+    exercicios: [
+      { nome: 'Agachamento livre', series: 4, grupamentos: ['Quadríceps', 'Glúteo'], implemento: 'Barra' },
+      { nome: 'Supino reto', series: 4, grupamentos: ['Peito', 'Tríceps'], implemento: 'Barra' },
+    ],
+  };
+  const c = consolidar([hipertrofiaNormal], 'semana', 'x', faixaDaSemana('2026-09-16'));
+  ok(c.porTipoContagem.indefinido === 8, 'treino clássico é todo "indefinido" — está fora da TABELA, e tudo bem');
+  ok(c.seriesSemGrupo === 0, 'e mesmo assim NADA sumiu do gráfico: o alerta fica calado');
+  ok(c.exerciciosSemGrupo.length === 0, 'sem nomes a cobrar num treino bem mapeado');
+}
+
+// Agora o caso real: exercício que a IA não classificou e a tabela não conhece.
+{
+  const comBuraco: TreinoParaVolume = {
+    dateId: '2026-09-16', sistema: 'HIIT',
+    exercicios: [
+      { nome: 'Wall Ball 9kg', series: 4, grupamentos: [], implemento: 'Bola' },
+      { nome: 'Devil Press', series: 3, grupamentos: [], implemento: 'Halter' },
+      { nome: 'Sled Pull', series: 2, grupamentos: [], implemento: 'Trenó' },
+      { nome: 'Devil Press', series: 2, grupamentos: [], implemento: 'Halter' },
+    ],
+  };
+  const c = consolidar([comBuraco], 'semana', 'x', faixaDaSemana('2026-09-16'));
+  ok(c.seriesSemGrupo === 7, `só o que não tem grupo conta: 3+2+2 = 7 (${c.seriesSemGrupo})`);
+  ok(!c.exerciciosSemGrupo.includes('Wall Ball 9kg'), 'Wall Ball NÃO entra: a taxonomia já o resolveu');
+  ok(c.exerciciosSemGrupo.length === 2, `nome repetido entra uma vez só (${c.exerciciosSemGrupo.join(', ')})`);
+  ok(c.exerciciosSemGrupo.includes('Devil Press') && c.exerciciosSemGrupo.includes('Sled Pull'),
+    'o alerta diz QUAIS exercícios mapear, não só quantos');
+}
+
+// O teto protege o documento do Firestore.
+{
+  const muitos: TreinoParaVolume = {
+    dateId: '2026-09-16', sistema: 'GAP',
+    exercicios: Array.from({ length: 40 }, (_, i) => ({
+      nome: `Movimento ${i}`, series: 1, grupamentos: [], implemento: '',
+    })),
+  };
+  const c = consolidar([muitos], 'semana', 'x', faixaDaSemana('2026-09-16'));
+  ok(c.seriesSemGrupo === 40, 'a CONTA não é limitada pelo teto de nomes');
+  ok(c.exerciciosSemGrupo.length === MAX_SEM_GRUPO, `a LISTA para em ${MAX_SEM_GRUPO} nomes`);
 }
 
 console.log(

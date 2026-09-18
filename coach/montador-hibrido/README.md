@@ -299,6 +299,27 @@ A segunda existe porque o gatilho lê treinos **já salvos**. Sem ela a correç�
 valeria para treino novo, e todo o histórico do box ficaria fora do gráfico até
 alguém reescrever cada lousa à mão.
 
+### O aviso de cobertura no Dashboard
+
+Uma faixa no topo do Volume diz quantas séries **não entraram em barra nenhuma**,
+e quais exercícios são. Fica acima dos gráficos porque é ressalva sobre eles:
+embaixo, chegaria depois de o coach já ter lido os números.
+
+Ela lê `seriesSemGrupo`, e **não** `porTipoContagem.indefinido`. Os dois parecem a
+mesma coisa e não são: `indefinido` quer dizer "fora de `taxonomia.ts`", e
+agachamento e supino estão fora dela de propósito. Um alerta sobre `indefinido`
+dispararia em todo treino de Hipertrofia bem mapeado — e alarme que toca quando
+está tudo certo é alarme que o coach desliga. Há teste cravando a diferença: um
+treino clássico dá `indefinido: 8` e `seriesSemGrupo: 0`, e a faixa fica calada.
+
+O consolidado guarda também `exerciciosSemGrupo` (até 12 nomes). Sem os nomes o
+aviso seria um beco sem saída — "7 séries" não diz o que fazer; "Devil Press,
+Sled Pull" diz.
+
+Quando não há buraco, aparece um selo discreto "✓ Taxonomia 100% mapeada", em vez
+de nada: sem ele o coach não distingue "tudo mapeado" de "o aviso não carregou", e
+um silêncio ambíguo não informa.
+
 A tabela **nunca sobrescreve** o que a IA classificou: a leitura dela é sobre
 AQUELA lousa e pode ter qualificador que a tabela não conhece. O que ela não
 conhece continua vazio e aparece como `indefinido` em `porTipoContagem` — que é o
