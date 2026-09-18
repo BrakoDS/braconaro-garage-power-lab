@@ -40,6 +40,8 @@ const BLOCOS = new Set(['DIV', 'P', 'LI', 'TR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H
  * @property {() => string} texto
  * @property {(cor: string) => void} pintar
  * @property {(segmentos: any[]) => void} carregar
+ * @property {() => string} html
+ * @property {(html: string) => void} definirHtml
  * @property {() => void} limpar
  * @property {() => boolean} vazio
  * @property {() => void} focar
@@ -156,6 +158,28 @@ export function criarEditor(raiz) {
     texto: () => textoPlano(segmentos()),
     pintar,
     carregar,
+
+    /** O conteúdo cru, para o histórico guardar e devolver. */
+    html: () => raiz.innerHTML,
+    /**
+     * Volta o conteúdo a um estado guardado.
+     *
+     * O cursor vai para o FIM, e não para onde estava: guardar a posição exigiria
+     * salvar o `Range` junto (que aponta para nós que deixaram de existir depois
+     * do `innerHTML`). O fim é o lugar de onde o coach continua escrevendo.
+     */
+    definirHtml(h) {
+      raiz.innerHTML = String(h ?? '');
+      const sel = window.getSelection();
+      if (sel) {
+        const r = document.createRange();
+        r.selectNodeContents(raiz);
+        r.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+      avisar();
+    },
     limpar() { raiz.innerHTML = ''; avisar(); },
     vazio: () => !raiz.textContent?.trim(),
     focar: () => raiz.focus(),

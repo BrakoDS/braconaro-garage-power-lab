@@ -107,9 +107,14 @@ export function gradeDoMes(mesId, hojeId) {
 /**
  * Treinos indexados por dia.
  *
- * Um dia pode ter MAIS DE UM treino: o box dá aula de manhã e de noite, com
- * horários diferentes, e cada turma tem a sua lousa. Um mapa de um treino por
- * dia esconderia a aula da noite sem avisar ninguém.
+ * Um dia pode ter MAIS DE UM treino: o coach monta um Hyrox pela manhã e um HIIT
+ * à noite, cada um com a sua lousa. Um mapa de um treino por dia esconderia o
+ * segundo sem avisar ninguém.
+ *
+ * A ordem dentro do dia é a de CRIAÇÃO (`geradoEm`). O `classTime` ainda entra
+ * na conta, mas só por causa dos treinos salvos antes de o horário sair da
+ * Lousa — hoje ele vem vazio em todos, e ordenar só por ele deixaria a ordem ao
+ * acaso do navegador.
  *
  * @param {any[]} lousas
  * @returns {Record<string, any[]>}
@@ -125,7 +130,9 @@ export function agruparPorDia(lousas) {
   // Dentro do dia, ordena pelo horário da turma — é a ordem em que as aulas
   // acontecem, e é como o coach lê a agenda dele.
   for (const d of Object.keys(porDia)) {
-    porDia[d].sort((a, b) => String(a.classTime || '').localeCompare(String(b.classTime || '')));
+    porDia[d].sort((a, b) =>
+      String(a.classTime || '').localeCompare(String(b.classTime || ''))
+      || String(a.geradoEm || '').localeCompare(String(b.geradoEm || '')));
   }
   return porDia;
 }

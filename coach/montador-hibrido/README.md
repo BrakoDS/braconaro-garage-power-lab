@@ -72,6 +72,32 @@ Como a cor do texto é dado, ela vai para a IA: `paraPrompt()` anota os trechos
 como `[[vermelho]]…[[/vermelho]]` e o prompt ensina o modelo a lê-los. Colchete
 duplo porque treino de verdade tem "[3 rounds]" escrito pelo coach.
 
+### Um Desfazer só, para as duas camadas
+
+O histórico guarda o **quadro inteiro** — texto e traço juntos — e não uma pilha
+por camada. Um desfazer por camada obrigaria o coach a lembrar qual foi a última
+coisa em que mexeu antes de escolher o botão certo; com um só, `↶ Desfazer`
+(e `Ctrl`/`Cmd`+`Z`) volta o que aconteceu por último, seja lá o que for.
+
+Digitar vira um passo depois de uma pausa de 700 ms: sem ela, cada tecla seria um
+passo e apagar uma palavra custaria quinze cliques. Traço pronto vira passo na
+hora, porque o gesto já acabou. A pilha para em 30 passos (`core/historico.js`).
+
+O **Limpar** apaga as duas camadas de uma vez — e é justamente o clique mais caro
+de errar, por isso ele também é um passo do histórico: dá para voltar dele.
+
+### Não existe campo de horário na Lousa
+
+Um treino é de um **dia**; quem decide a que horas cada turma o faz é a aba
+Turma, que agrupa os alunos pelos horários de verdade da ficha. Um `classTime` no
+documento do treino seria uma segunda resposta para a mesma pergunta — e a
+errada, porque o mesmo treino vai para os três horários do dia.
+
+Por isso `paraGravar()` grava só `dateId`, `titulo`, `textoOriginal` e `treino`.
+O `classTime` continua existindo onde ele significa alguma coisa: na ficha que a
+distribuição escreve para cada aluno. O Calendário ainda sabe ler treinos antigos
+que têm o campo (mostra a hora no chip); os novos mostram o título.
+
 ### Calendário
 
 O mês inteiro em grade, com um chip por treino colorido pela tabela de
@@ -208,6 +234,10 @@ node ferramentas/lousa-local.mjs
 O dublê do Calendário semeia um mês de treinos em segundas, quartas e sextas,
 com duas turmas na sexta e os quatro sistemas — é o que faz aparecer na tela o
 dia com dois chips, as quatro cores da legenda e o cadeado do treino passado.
+
+Um dos treinos semeados é **antigo** e ainda traz `classTime` — está lá de
+propósito, para provar que o chip com hora continua sendo lido depois que o campo
+de horário saiu da Lousa.
 
 Sobe o site com as chamadas de rede trocadas por dublês com dados de exemplo.
 Dá para desenhar com as três canetas, reconhecer (devolve um treino fixo em

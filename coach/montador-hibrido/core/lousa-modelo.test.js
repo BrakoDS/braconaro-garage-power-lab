@@ -74,12 +74,18 @@ test('remover o último exercício de um bloco tira o bloco vazio da tela', () =
 });
 
 test('paraGravar recalcula a estimativa e respeita o título que o coach reescreveu', () => {
-  const g = paraGravar(treino(), { dateId: '2026-09-16', titulo: '  Segunda pesada  ', classTime: '19:00' });
+  const g = paraGravar(treino(), { dateId: '2026-09-16', titulo: '  Segunda pesada  ' });
   assert.equal(g.dateId, '2026-09-16');
-  assert.equal(g.classTime, '19:00');
   assert.equal(g.treino.titulo, 'Segunda pesada');
   assert.equal(g.treino.estimativaSeries, 8);
   assert.ok(Date.parse(g.geradoEm) > 0, 'geradoEm precisa ser ISO legível — é ele que sustenta a conta de 72h');
+});
+
+test('o treino gravado NÃO tem horário — quem decide a hora é a aba Turma', () => {
+  // O mesmo treino vai para três horários; um `classTime` no documento dele
+  // seria uma segunda resposta para a mesma pergunta, e a errada.
+  const g = paraGravar(treino(), { dateId: '2026-09-16', titulo: 'x' });
+  assert.equal('classTime' in g, false);
 });
 
 test('o texto original é guardado junto — é ele que o Calendário reabre', () => {

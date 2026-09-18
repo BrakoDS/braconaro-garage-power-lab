@@ -74,13 +74,23 @@ test('navegar entre meses atravessa a virada do ano', () => {
   assert.equal(rotuloMes('2026-09'), 'setembro de 2026');
 });
 
-test('o mesmo dia com duas aulas mostra as duas, na ordem do horário', () => {
+test('o mesmo dia com dois treinos mostra os dois, na ordem em que foram criados', () => {
+  // Hoje nenhum treino tem `classTime` (o horário saiu da Lousa), então a ordem
+  // tem de vir de `geradoEm` — sem isso ela ficaria ao acaso do navegador.
+  const porDia = agruparPorDia([
+    { dateId: '2026-09-16', geradoEm: '2026-09-16T20:00:00Z', workoutId: 'segundo' },
+    { dateId: '2026-09-16', geradoEm: '2026-09-16T07:00:00Z', workoutId: 'primeiro' },
+    { dateId: '2026-09-17', geradoEm: '2026-09-17T07:00:00Z', workoutId: 'outro' },
+  ]);
+  assert.equal(porDia['2026-09-16'].length, 2, 'o segundo treino do dia não pode sumir');
+  assert.deepEqual(porDia['2026-09-16'].map((l) => l.workoutId), ['primeiro', 'segundo']);
+});
+
+test('treino antigo COM horário ainda ordena pelo horário', () => {
   const porDia = agruparPorDia([
     { dateId: '2026-09-16', classTime: '20:00', workoutId: 'noite' },
     { dateId: '2026-09-16', classTime: '07:00', workoutId: 'manha' },
-    { dateId: '2026-09-17', classTime: '', workoutId: 'outro' },
   ]);
-  assert.equal(porDia['2026-09-16'].length, 2, 'a aula da noite não pode sumir');
   assert.deepEqual(porDia['2026-09-16'].map((l) => l.workoutId), ['manha', 'noite']);
 });
 

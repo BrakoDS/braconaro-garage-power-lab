@@ -27,6 +27,7 @@
  */
 import { CANETAS } from '../core/cores.js';
 import { criarLousa } from '../core/canvas.js';
+import { criarHistorico } from '../core/historico.js';
 import { criarEditor } from './editor-rico.js';
 import { paraPrompt, textoPlano, segmentosDoTreino } from '../core/texto-rico.js';
 import { paraGravar, totalSeries, exerciciosDo } from '../core/lousa-modelo.js';
@@ -46,7 +47,6 @@ let tela = null;
 export function montar(ctx) {
   const titulo = $('#lousa-titulo');
   const data = $('#lousa-data');
-  const hora = $('#lousa-hora');
   const canvas = /** @type {HTMLCanvasElement} */ ($('#lousa-canvas'));
   const alvoTexto = $('#lousa-texto');
   const barra = $('#lousa-ferramentas');
@@ -61,17 +61,71 @@ export function montar(ctx) {
   // ---- campos, a partir do rascunho ----
   titulo.value = est.titulo;
   data.value = est.dateId;
-  hora.value = est.classTime;
   if (est.texto) editor.carregar([{ texto: est.texto, cor: 'preto' }]);
 
   titulo.addEventListener('input', () => store.atualizar({ titulo: titulo.value }));
   data.addEventListener('change', () => store.atualizar({ dateId: data.value }));
-  hora.addEventListener('change', () => store.atualizar({ classTime: hora.value }));
-  // O rascunho guarda só o texto PLANO: a cor volta na próxima leitura, e
-  // guardar HTML no localStorage seria guardar markup de navegador entre sessões.
-  editor.aoMudar(() => store.atualizar({ texto: editor.texto() }));
+  /* ---------------- desfazer, para as duas camadas ---------------- */
 
-  tela = { editor, lousa, campos: { titulo, data, hora } };
+  /**
+   * O histórico guarda o QUADRO INTEIRO — texto e traço juntos.
+   *
+   * Um desfazer por camada obrigaria o coach a saber qual foi a última coisa que
+   * ele mexeu antes de escolher o botão certo. Com um só, "voltar" volta o que
+   * aconteceu por último, seja lá o que for — inclusive o Limpar, que é o clique
+   * mais caro de errar na tela.
+   */
+  const historico = criarHistorico();
+
+  /**
+   * A assinatura barata de um estado.
+   *
+   * O contador de traços serve porque traço pronto é imutável: se o número não
+   * mudou, o desenho não mudou. Comparar ponto a ponto custaria mais que guardar
+   * o estado.
+   */
+  let serieTracos = 0;
+  const chaveAtual = () => `${serieTracos}|${editor.html()}`;
+  const estadoAtual = () => ({ html: editor.html(), tracos: lousa.tracos() });
+
+  const guardar = () => historico.registrar(chaveAtual(), estadoAtual());
+
+  /**
+   * Digitar guarda o estado DEPOIS de uma pausa.
+   *
+   * Sem a pausa, cada tecla viraria um passo e apagar uma palavra exigiria
+   * quinze cliques em Desfazer. Com ela, cada "rajada" de digitação é um passo —
+   * que é como o coach pensa no que fez.
+   */
+  let timerTexto = null;
+  const PAUSA_TEXTO = 700;
+
+  editor.aoMudar(() => {
+    // O rascunho guarda só o texto PLANO: a cor volta na próxima leitura, e
+    // guardar HTML no localStorage seria guardar markup de navegador entre sessões.
+    store.atualizar({ texto: editor.texto() });
+    clearTimeout(timerTexto);
+    timerTexto = setTimeout(() => { guardar(); pintarBarra(); }, PAUSA_TEXTO);
+  });
+
+  // Traço pronto é um passo na hora: o gesto acabou, não há rajada a esperar.
+  lousa.aoMudar(() => { serieTracos++; guardar(); pintarBarra(); });
+
+  function desfazer() {
+    clearTimeout(timerTexto);
+    // Guarda o que está na tela antes de voltar: sem isto, o estado atual nunca
+    // entrou na pilha (a pausa da digitação ainda não tinha vencido) e o
+    // primeiro Desfazer pularia um passo.
+    guardar();
+    const anterior = historico.desfazer();
+    if (!anterior) { pintarBarra(); return; }
+    serieTracos++;
+    editor.definirHtml(anterior.html);
+    lousa.restaurar(anterior.tracos);
+    pintarBarra();
+  }
+
+  tela = { editor, lousa, historico, campos: { titulo, data } };
 
   /* ---------------- barra de ferramentas ---------------- */
 
@@ -91,7 +145,7 @@ export function montar(ctx) {
     <span class="fer-sep"></span>
     <button class="fer" data-acao="borracha" type="button" title="Apagar traço do desenho (4)">
       <span class="fer-bola fer-borracha"></span>Borracha</button>
-    <button class="fer fer-acao" data-acao="desfazer" type="button" title="Desfazer o último traço do desenho">↶ Traço</button>
+    <button class="fer fer-acao" data-acao="desfazer" type="button" title="Desfazer a última ação — texto ou traço (Ctrl+Z)">↶ Desfazer</button>
     <button class="fer fer-acao" data-acao="limpar" type="button" title="Apagar o quadro inteiro">Limpar</button>`;
 
   function pintarBarra() {
@@ -102,6 +156,8 @@ export function montar(ctx) {
       b.classList.toggle('ativa', b.getAttribute('data-cor') === cor);
     }
     barra.querySelector('[data-acao=borracha]')?.classList.toggle('ativa', modo === 'borracha');
+    const btnDesfazer = barra.querySelector('[data-acao=desfazer]');
+    if (btnDesfazer) btnDesfazer.disabled = !historico.podeDesfazer();
     // A classe no canvas é o que liga/desliga `pointer-events` no CSS: em modo
     // digitar ele precisa deixar o clique passar para o editor por baixo.
     canvas.classList.toggle('passa-clique', modo === 'digitar');
@@ -141,30 +197,46 @@ export function montar(ctx) {
     if (m) return usarModo(m);
     if (c) return usarCor(c);
     if (acao === 'borracha') return usarModo('borracha');
-    if (acao === 'desfazer') return lousa.desfazer();
+    if (acao === 'desfazer') return desfazer();
     if (acao === 'limpar') {
-      // Confirma porque agora "limpar" apaga as DUAS camadas: o quadro inteiro,
-      // como um apagador de verdade. Apagar o texto digitado sem perguntar seria
-      // perder minutos de trabalho num clique.
+      // Confirma mesmo sendo desfazível: "limpar" apaga as DUAS camadas de uma
+      // vez, e perguntar custa um clique enquanto descobrir o estrago custa o
+      // susto. O Desfazer é a rede embaixo, não a substituição do aviso.
       const ok = await confirmar({
         titulo: 'Limpar o quadro?',
-        texto: 'Isso apaga o texto digitado <b>e</b> o desenho. Não dá para desfazer.',
+        texto: 'Isso apaga o texto digitado <b>e</b> o desenho. Dá para voltar em <b>↶ Desfazer</b>.',
         ok: 'Limpar tudo',
         perigo: true,
       });
       if (!ok) return;
+      clearTimeout(timerTexto);
+      guardar();            // o quadro cheio entra na pilha…
       lousa.limpar();
       editor.limpar();
+      serieTracos++;
+      guardar();            // …e o quadro vazio vira o passo seguinte
       usarModo('digitar');
     }
   });
 
   usarModo('digitar');
   usarCor('preto');
+  guardar();       // o estado inicial é o fundo da pilha
+  pintarBarra();
 
   // Atalhos só fora de campo de texto do formulário — mas DENTRO do editor eles
   // valem, que é onde trocar de caneta no meio da frase faz sentido.
   document.addEventListener('keydown', (ev) => {
+    // Ctrl+Z / Cmd+Z vai para o NOSSO desfazer, não para o do navegador. Deixar
+    // o nativo passar faria ele mexer só no texto e sair de sincronia com a
+    // pilha daqui — duas memórias do mesmo quadro, discordando.
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z' && !ev.shiftKey) {
+      // Com um modal aberto o atalho é dele, não da lousa por baixo.
+      if (document.querySelector('.modal-bg:not([hidden])')) return;
+      ev.preventDefault();
+      desfazer();
+      return;
+    }
     const emCampo = /** @type {HTMLElement} */ (ev.target)?.matches?.('input, textarea');
     if (emCampo || ev.ctrlKey || ev.metaKey) return;
     const dentroDoEditor = alvoTexto.contains(/** @type {Node} */ (ev.target));
@@ -220,7 +292,7 @@ export function montar(ctx) {
         ...lousa.miniatura(),
         segmentos,
         texto: textoPlano(segmentos),
-      }, ctx, { titulo, data, hora });
+      }, ctx, { titulo, data });
     } catch (e) {
       // A mensagem já vem escrita para o coach (`chamadas.js` traduz o que é de
       // transporte e repassa o que a função escreveu).
@@ -258,12 +330,13 @@ export function abrirTreinoSalvo(lousaSalva) {
   editor.carregar(segs);
   campos.titulo.value = treino?.titulo || '';
   campos.data.value = lousaSalva.dateId || '';
-  campos.hora.value = lousaSalva.classTime || '';
+  // O quadro passou a ser OUTRO documento: manter o histórico deixaria o coach
+  // desfazer de um treino para dentro do anterior.
+  tela.historico.recomecar('aberto', { html: editor.html(), tracos: [] });
 
   store.atualizar({
     titulo: campos.titulo.value,
     dateId: campos.data.value,
-    classTime: campos.hora.value,
     texto: editor.texto(),
     treino,
     workoutId: lousaSalva.workoutId || '',
@@ -323,7 +396,6 @@ async function abrirPrevia(treino, lousaOriginal, ctx, campos) {
     const dados = paraGravar(treino, {
       dateId: campos.data.value,
       titulo: campos.titulo.value,
-      classTime: campos.hora.value,
       textoOriginal: lousaOriginal.texto || '',
     });
     const id = await salvarLousa(ctx.uid(), dados, store.ler().workoutId || undefined);

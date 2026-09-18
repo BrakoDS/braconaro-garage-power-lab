@@ -141,7 +141,12 @@ function celula(dia, treinos) {
   const chips = treinos.map((t) => {
     const c = COR_MODALIDADE[chaveDeCor(t.treino?.sistema)] || COR_SEM_MODALIDADE;
     const podeEditar = editavel(t.dateId, hojeId());
-    const rotuloChip = [t.classTime, t.treino?.sistema || '—'].filter(Boolean).join(' · ');
+    // O chip mostra o TÍTULO, que é o que diferencia dois treinos do mesmo dia —
+    // a cor já diz o sistema. `classTime` só aparece nos treinos salvos antes de
+    // o horário sair da Lousa; hoje quem decide a hora é a aba Turma.
+    const rotuloChip = t.classTime
+      ? `${t.classTime} · ${t.treino?.sistema || '—'}`
+      : (t.treino?.titulo || t.treino?.sistema || '—');
     return `<button class="cal-chip${podeEditar ? ' editavel' : ''}" type="button"
       data-treino="${esc(t.workoutId || '')}"
       style="background:${c.bg};color:${c.fg}"

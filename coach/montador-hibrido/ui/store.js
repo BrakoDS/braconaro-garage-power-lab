@@ -23,7 +23,6 @@
  * @typedef {Object} Estado
  * @property {string} titulo
  * @property {string} dateId    'YYYY-MM-DD'
- * @property {string} classTime 'HH:MM' da turma
  * @property {string} texto     o que o coach digitou na lousa
  * @property {any|null} treino  o treino estruturado que a IA devolveu
  * @property {string} workoutId id no Firestore, depois de salvo
@@ -43,7 +42,7 @@ function hoje() {
 /** @returns {Estado} */
 function vazio() {
   return {
-    titulo: '', dateId: hoje(), classTime: '', texto: '',
+    titulo: '', dateId: hoje(), texto: '',
     treino: null, workoutId: '', alertas: null, turma: [], fichas: [],
   };
 }
@@ -101,13 +100,16 @@ export function atualizar(patch) {
 /**
  * Começa uma lousa nova.
  *
- * Preserva a DATA e o HORÁRIO da turma: quem acabou de montar a aula das 19h de
- * quarta normalmente monta a das 20h logo em seguida, e redigitar os dois todo
- * dia é o tipo de atrito que faz o coach voltar para o papel.
+ * Preserva a DATA: o coach monta vários treinos do mesmo dia em sequência, e
+ * redigitar a data a cada um é o tipo de atrito que o faz voltar para o papel.
+ *
+ * O horário saiu daqui junto com o campo na Lousa: quem decide a que horas cada
+ * aluno faz o treino é a aba Turma, que agrupa por horário de verdade. Um
+ * horário único aqui em cima seria uma segunda resposta para a mesma pergunta.
  */
 export function limpar() {
-  const { dateId, classTime } = estado;
-  atualizar({ ...vazio(), dateId, classTime });
+  const { dateId } = estado;
+  atualizar({ ...vazio(), dateId });
 }
 
 /**

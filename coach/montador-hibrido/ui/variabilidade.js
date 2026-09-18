@@ -121,7 +121,6 @@ async function regravar(ctx, treino) {
   try {
     await salvarLousa(ctx.uid(), {
       dateId: est.dateId,
-      classTime: est.classTime,
       geradoEm: new Date().toISOString(),
       treino,
     }, est.workoutId);

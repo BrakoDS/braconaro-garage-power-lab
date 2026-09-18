@@ -100,7 +100,8 @@ export function codificar(canvas) {
  * @property {(id: string) => void} usar         troca a ferramenta ('preto'|'vermelho'|'azul'|'borracha')
  * @property {() => string} ferramenta           a ferramenta ativa
  * @property {() => void} limpar                 apaga tudo
- * @property {() => void} desfazer               desfaz o último traço
+ * @property {() => any[]} tracos                a pilha de traços, para o histórico
+ * @property {(lista: any[]) => void} restaurar  volta a um estado guardado
  * @property {() => boolean} vazia               nada foi desenhado?
  * @property {() => {base64: string, mimeType: string}|null} exportar
  * @property {() => string} miniatura            data URL para a prévia lado a lado
@@ -227,8 +228,25 @@ export function criarLousa(canvas) {
     usar(id) { ferramentaAtiva = id; },
     ferramenta() { return ferramentaAtiva; },
     limpar() { tracos = []; atual = null; redesenhar(); avisar(); },
-    desfazer() { tracos.pop(); redesenhar(); avisar(); },
     vazia() { return tracos.length === 0; },
+
+    /**
+     * A pilha de traços, para o histórico guardar.
+     *
+     * Cópia RASA de propósito: o traço é imutável depois de terminado (ninguém
+     * volta a mexer nos pontos dele), então copiar o array basta para o
+     * histórico ter uma foto própria. Cópia profunda duplicaria milhares de
+     * pontos a cada tecla digitada.
+     */
+    tracos() { return [...tracos]; },
+
+    /** Volta a pilha de traços a um estado guardado. */
+    restaurar(lista) {
+      tracos = Array.isArray(lista) ? [...lista] : [];
+      atual = null;
+      redesenhar();
+      avisar();
+    },
     redimensionar,
     aoMudar(cb) { aoMudarCb = cb; },
 

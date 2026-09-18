@@ -140,13 +140,18 @@ export function removerExercicio(treino, nome) {
  * escreveu no rodapé, some a ordem em que ele preferiu listar. É barato guardar
  * e é a diferença entre reabrir a lousa dele e reabrir uma transcrição dela.
  *
+ * NÃO existe horário aqui. Ele saiu da Lousa quando a aba Turma passou a
+ * agrupar os alunos pelos horários de verdade: um treino é de um DIA, e quem
+ * decide a que horas cada turma o faz é a distribuição. Um `classTime` no
+ * documento do treino seria uma segunda resposta para a mesma pergunta — e a
+ * errada, porque o mesmo treino vai para três horários.
+ *
  * @param {TreinoEstruturado} treino
- * @param {{dateId: string, titulo: string, classTime?: string, textoOriginal?: string}} meta
+ * @param {{dateId: string, titulo: string, textoOriginal?: string}} meta
  */
-export function paraGravar(treino, { dateId, titulo, classTime = '', textoOriginal = '' }) {
+export function paraGravar(treino, { dateId, titulo, textoOriginal = '' }) {
   return {
     dateId,
-    classTime,
     textoOriginal: String(textoOriginal || '').slice(0, 8000),
     geradoEm: new Date().toISOString(),
     treino: {

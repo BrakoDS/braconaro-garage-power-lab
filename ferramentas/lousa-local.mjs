@@ -218,19 +218,30 @@ export async function listarLousas(_uid, inicio, fim) {
     const treino = structuredClone(TREINO);
     treino.sistema = sistema;
     treino.titulo = sistema + ' · ' + dateId.slice(8) + '/' + dateId.slice(5, 7);
+    // Sem \`classTime\`: o horário saiu da Lousa e quem decide a hora é a aba
+    // Turma. O treino é do DIA.
     out.push({
-      workoutId: 'w-' + dateId + '-a', dateId, classTime: '07:00', treino,
+      workoutId: 'w-' + dateId + '-a', dateId, treino,
       textoOriginal: 'A — Mobilidade\\n  Mobilidade de quadril · 40s\\n\\nC — Força\\n  Agachamento livre · 4x8-12 · RIR 2',
       geradoEm: dateId + 'T10:00:00.000Z',
     });
-    // Sexta tem a segunda turma, à noite — é o caso que um mapa de um treino por
-    // dia esconderia.
+    // Sexta tem um SEGUNDO treino no mesmo dia — o caso que um mapa de um treino
+    // por dia esconderia, e que agora se diferencia pelo título, não pela hora.
     if (dow === 5) {
-      const noite = structuredClone(TREINO);
-      noite.sistema = 'HIIT';
-      noite.titulo = 'HIIT · turma da noite';
-      out.push({ workoutId: 'w-' + dateId + '-b', dateId, classTime: '20:00', treino: noite,
+      const segundo = structuredClone(TREINO);
+      segundo.sistema = 'HIIT';
+      segundo.titulo = 'HIIT complementar';
+      out.push({ workoutId: 'w-' + dateId + '-b', dateId, treino: segundo,
         textoOriginal: '', geradoEm: dateId + 'T22:00:00.000Z' });
+    }
+    // Um treino ANTIGO, com \`classTime\` gravado antes de o campo sair: o
+    // calendário tem de continuar mostrando a hora dele.
+    if (d.getUTCDate() === 2) {
+      const legado = structuredClone(TREINO);
+      legado.sistema = 'Hyrox';
+      legado.titulo = 'Hyrox (treino antigo, com horário)';
+      out.push({ workoutId: 'w-' + dateId + '-legado', dateId, classTime: '06:00', treino: legado,
+        textoOriginal: '', geradoEm: dateId + 'T06:00:00.000Z' });
     }
   }
   console.info('[local] listarLousas', { inicio, fim, treinos: out.length });
