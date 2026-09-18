@@ -238,10 +238,16 @@ export async function listarLousas(_uid, inicio, fim) {
     treino.titulo = sistema + ' · ' + dateId.slice(8) + '/' + dateId.slice(5, 7);
     // Sem \`classTime\`: o horário saiu da Lousa e quem decide a hora é a aba
     // Turma. O treino é do DIA.
+    // DISTRIBUIDO: e o que faz o calendario mostrar uma aula por horario. Segunda
+    // e quarta tem as quatro aulas do box; sexta tem so as duas da manha.
+    const horarios = dow === 5 ? ['06:00', '07:00'] : ['06:00', '07:00', '18:00', '19:00'];
     out.push({
       workoutId: 'w-' + dateId + '-a', dateId, treino,
       textoOriginal: 'A — Mobilidade\\n  Mobilidade de quadril · 40s\\n\\nC — Força\\n  Agachamento livre · 4x8-12 · RIR 2',
       geradoEm: dateId + 'T10:00:00.000Z',
+      distribuido: {
+        turmas: horarios.map((h, i) => ({ classTime: h, alunos: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8'].slice(0, 3 + i) })),
+      },
     });
     // Sexta tem um SEGUNDO treino no mesmo dia — o caso que um mapa de um treino
     // por dia esconderia, e que agora se diferencia pelo título, não pela hora.
@@ -249,6 +255,8 @@ export async function listarLousas(_uid, inicio, fim) {
       const segundo = structuredClone(TREINO);
       segundo.sistema = 'HIIT';
       segundo.titulo = 'HIIT complementar';
+      // SEM o campo distribuido: e o caso "montado, ainda nao distribuido" — o chip
+      // vazado que o coach usa para achar o buraco da semana.
       out.push({ workoutId: 'w-' + dateId + '-b', dateId, treino: segundo,
         textoOriginal: '', geradoEm: dateId + 'T22:00:00.000Z' });
     }

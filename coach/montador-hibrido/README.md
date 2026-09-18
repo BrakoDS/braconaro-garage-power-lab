@@ -141,6 +141,27 @@ O que continua regravando no MESMO documento, e deve: corrigir a lousa e mandar
 ler de novo (o "3x8" que a IA leu como "3x3"), e reabrir um treino pelo
 Calendário. Os dois casos têm teste de navegador.
 
+### O horário voltou ao Calendário — vindo da distribuição
+
+O campo de horário não voltou para a Lousa, e não deve voltar: um treino é de um
+DIA, e o mesmo treino vai para as três ou quatro aulas daquele dia. Mas o coach
+precisa VER as aulas para montar a semana — "quarta tem 6h, 7h, 18h e 19h" é a
+informação que ele usa.
+
+A resposta já existia e é escrita por quem tem autoridade sobre ela: a
+distribuição grava `distribuido.turmas` no documento do treino. `aulasDoTreino()`
+só lê, e `chipsDoDia()` transforma cada aula num chip. O Calendário mostra
+**uma linha por aula**, como no formato antigo — a diferença é que as quatro
+apontam para o MESMO treino, então corrigir um "3x8" corrige as quatro.
+
+Um treino montado e ainda **não distribuído** vira um chip vazado, com bolinha,
+no fim do dia: ele é pendência, não agenda. O rodapé conta os dois separados
+("18 treinos e 45 aulas · 4 ainda sem horário"), porque são perguntas diferentes.
+
+No celular o nome do sistema sai e a **hora fica** — a cor já diz qual é o
+sistema, e a hora é o que o coach foi ler ali. Uma tarja só de cor seria bonita e
+não responderia a pergunta.
+
 ### Calendário
 
 O mês inteiro em grade, com um chip por treino colorido pela tabela de

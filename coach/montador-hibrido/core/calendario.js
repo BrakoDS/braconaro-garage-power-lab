@@ -165,3 +165,68 @@ export function editavel(dateId, hojeId) {
 export function chaveDeCor(sistema) {
   return String(sistema || '').toLowerCase();
 }
+
+/**
+ * AS AULAS DE UM TREINO — uma por horário para onde ele foi distribuído.
+ *
+ * O horário nunca voltou para a Lousa, e não deve voltar: um treino é de um DIA,
+ * e o mesmo treino vai para as três ou quatro aulas daquele dia. Mas o COACH
+ * precisa ver as aulas no calendário para se organizar — "quarta tem 6h, 7h e
+ * 19h" é a informação que ele usa para montar a semana.
+ *
+ * A resposta já existe e é escrita por quem tem autoridade sobre ela: a
+ * distribuição grava `distribuido.turmas` no documento do treino. Aqui só se lê.
+ *
+ * Um treino AINDA NÃO DISTRIBUÍDO devolve lista vazia, de propósito: ele está
+ * montado, mas nenhuma aula foi marcada ainda. A tela mostra isso como pendência
+ * em vez de inventar um horário.
+ *
+ * @param {any} t o documento de `coaches/{uid}/lousas`
+ * @returns {{classTime: string, alunos: number}[]} ordenado por horário
+ */
+export function aulasDoTreino(t) {
+  const turmas = t?.distribuido?.turmas;
+  if (Array.isArray(turmas) && turmas.length) {
+    return turmas
+      .map((x) => ({
+        classTime: String(x?.classTime || '').trim(),
+        alunos: Array.isArray(x?.alunos) ? x.alunos.length : 0,
+      }))
+      .filter((x) => x.classTime)
+      .sort((a, b) => a.classTime.localeCompare(b.classTime));
+  }
+  // Treino gravado quando o horário ainda morava na Lousa. Continua valendo:
+  // apagar a hora dele na tela seria perder informação que o coach escreveu.
+  const antigo = String(t?.classTime || '').trim();
+  return antigo ? [{ classTime: antigo, alunos: 0 }] : [];
+}
+
+/**
+ * Os CHIPS de um dia: um por aula, mais um por treino ainda não distribuído.
+ *
+ * Um chip por aula e não um por treino porque é assim que o dia acontece no box
+ * — são quatro aulas, não um treino. É também o que o coach tinha antes, quando
+ * cada horário virava um documento separado; a diferença é que agora as quatro
+ * aulas apontam para o MESMO treino, e corrigir um "3x8" corrige as quatro.
+ *
+ * Pendente vai para o fim: o que tem hora é a agenda do dia, e o que não tem é
+ * tarefa — some na ordem, aparece no fim da lista.
+ *
+ * @param {any[]} treinos os treinos daquele dia
+ * @returns {{treino: any, classTime: string, alunos: number, pendente: boolean}[]}
+ */
+export function chipsDoDia(treinos) {
+  const chips = [];
+  for (const t of treinos || []) {
+    const aulas = aulasDoTreino(t);
+    if (!aulas.length) {
+      chips.push({ treino: t, classTime: '', alunos: 0, pendente: true });
+      continue;
+    }
+    for (const a of aulas) chips.push({ treino: t, ...a, pendente: false });
+  }
+  return chips.sort((a, b) => {
+    if (a.pendente !== b.pendente) return a.pendente ? 1 : -1;
+    return a.classTime.localeCompare(b.classTime);
+  });
+}

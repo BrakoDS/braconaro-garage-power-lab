@@ -368,6 +368,18 @@ input:focus { outline: none; border-color: var(--acc); }
   text-overflow: ellipsis; white-space: nowrap; }
 .cal-chip.editavel { cursor: pointer; }
 .cal-chip.editavel:hover { filter: brightness(1.12); }
+/* Montado, mas ainda não distribuído para nenhum horário: é uma pendência do
+   coach, não uma aula da agenda. Vazado em vez de sólido — some do olhar quando
+   ele varre o mês procurando horários, e aparece quando ele procura buracos. */
+.cal-chip.pendente {
+  background: transparent !important;
+  /* A cor do texto do chip cheio é feita para fundo SÓLIDO (escura sobre o
+     dourado). Vazado, ela sumiria na célula escura — então o vazado usa a cor
+     da modalidade como tinta. */
+  color: var(--cor-modalidade) !important;
+  border: 1px dashed currentColor;
+}
+.cal-chip.pendente::before { content: '○ '; }
 .cal-cadeado { opacity: .7; font-size: 9px; }
 .cal-rodape { margin: 12px 0 0; font-size: 12.5px; color: var(--mut); }
 .cal-legenda { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
@@ -447,11 +459,17 @@ input:focus { outline: none; border-color: var(--acc); }
   .fer { flex: 0 0 auto; }
   .fer-sep { flex: 0 0 10px; }
   .quadro-area { min-height: 56vh; }
-  /* Sete colunas em 390px dão 48px por dia — o número cabe, o chip vira uma
-     tarja de cor. O rótulo do sistema some (não caberia), e o toque continua
-     abrindo o treino, que é o que importa no celular. */
+  /* Sete colunas em 390px dão 48px por dia. O nome do sistema não cabe e sai —
+     a COR já diz qual é. A HORA fica: é ela que o coach lê no celular, entre uma
+     série e outra, para saber que aula vem. Uma tarja só de cor seria bonita e
+     não responderia a pergunta que ele foi fazer. */
   .cal-dia { min-height: 56px; padding: 3px; }
-  .cal-chip { font-size: 0; padding: 0; height: 9px; border-radius: 3px; }
+  .cal-chip { font-size: 9px; padding: 1px 2px; border-radius: 3px; letter-spacing: -.2px; }
+  .cal-chip .cal-sis { display: none; }
+  /* Pendente não tem hora — fica a tarja vazada com a bolinha, que é o "montado,
+     ainda sem horário". */
+  .cal-chip.pendente { font-size: 0; height: 9px; padding: 0; }
+  .cal-chip.pendente::before { font-size: 8px; }
   .cal-cadeado { display: none; }
   .cal-titulo { min-width: 0; flex: 1; font-size: 13px; }
   .modal-bg { padding: 10px; }

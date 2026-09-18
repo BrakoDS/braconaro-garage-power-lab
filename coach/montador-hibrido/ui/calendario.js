@@ -20,7 +20,7 @@
  */
 import { COR_MODALIDADE } from '../../../compartilhado/config/cores-modalidade.js';
 import {
-  gradeDoMes, agruparPorDia, editavel, mesVizinho, mesDe, chaveDeCor, DIAS_SEMANA,
+  gradeDoMes, agruparPorDia, editavel, mesVizinho, mesDe, chaveDeCor, DIAS_SEMANA, chipsDoDia, aulasDoTreino,
 } from '../core/calendario.js';
 import { resumo } from '../core/lousa-modelo.js';
 import { listarLousas, marcaDasLousas } from '../cloud/chamadas.js';
@@ -129,17 +129,20 @@ function desenhar(alvo, { carregando: emCurso = false } = {}) {
   const cabecalho = DIAS_SEMANA.map((d) => `<div class="cal-dow">${esc(d)}</div>`).join('');
   const celulas = grade.semanas.flat().map((d) => celula(d, porDia[d.dateId] || [])).join('');
 
-  const total = grade.semanas.flat()
-    .filter((d) => !d.foraDoMes)
-    .reduce((n, d) => n + (porDia[d.dateId]?.length || 0), 0);
+  const doMes = grade.semanas.flat().filter((d) => !d.foraDoMes);
+  const total = doMes.reduce((n, d) => n + (porDia[d.dateId]?.length || 0), 0);
+  // Treinos e aulas são perguntas diferentes: um treino de quarta vira quatro
+  // aulas. Mostrar só um dos dois esconderia metade do mês do coach.
+  const aulas = doMes.reduce((n, d) => n + chipsDoDia(porDia[d.dateId] || []).filter((c) => !c.pendente).length, 0);
+  const pendentes = doMes.reduce((n, d) => n + chipsDoDia(porDia[d.dateId] || []).filter((c) => c.pendente).length, 0);
 
   alvo.innerHTML = `
     <div class="card">
       ${emCurso ? '<p class="mut" style="margin:0 0 10px">Carregando os treinos do mês…</p>' : ''}
       <div class="cal-grade">${cabecalho}${celulas}</div>
       <p class="cal-rodape">
-        ${total} treino(s) neste mês · clique num treino de hoje ou do futuro para reabrir na Lousa,
-        ou num dia vazio para montar nele.
+        ${total} treino(s) e ${aulas} aula(s) neste mês${pendentes ? ` · ${pendentes} ainda sem horário (não distribuído)` : ''} ·
+        clique num treino de hoje ou do futuro para reabrir na Lousa, ou num dia vazio para montar nele.
       </p>
       ${legenda()}
     </div>`;
@@ -150,20 +153,35 @@ function celula(dia, treinos) {
   if (dia.foraDoMes) classes.push('fora');
   if (dia.ehHoje) classes.push('hoje');
 
-  const chips = treinos.map((t) => {
+  // UM CHIP POR AULA, não por treino: o dia do box são três ou quatro aulas, e é
+  // a hora que o coach usa para se organizar. As quatro apontam para o MESMO
+  // treino, então corrigir um "3x8" corrige as quatro de uma vez — que é a
+  // diferença para o formato antigo, onde cada horário era um documento à parte.
+  const chips = chipsDoDia(treinos).map((ch) => {
+    const t = ch.treino;
     const c = COR_MODALIDADE[chaveDeCor(t.treino?.sistema)] || COR_SEM_MODALIDADE;
     const podeEditar = editavel(t.dateId, hojeId());
-    // O chip mostra o TÍTULO, que é o que diferencia dois treinos do mesmo dia —
-    // a cor já diz o sistema. `classTime` só aparece nos treinos salvos antes de
-    // o horário sair da Lousa; hoje quem decide a hora é a aba Turma.
-    const rotuloChip = t.classTime
-      ? `${t.classTime} · ${t.treino?.sistema || '—'}`
-      : (t.treino?.titulo || t.treino?.sistema || '—');
-    return `<button class="cal-chip${podeEditar ? ' editavel' : ''}" type="button"
+    const sistema = t.treino?.sistema || '—';
+
+    // Com hora, a hora manda: é o que se lê primeiro ao varrer a semana. Sem
+    // hora, o treino está montado mas não distribuído — mostra o título e se
+    // marca como pendência, porque é isso que ele é.
+    // Hora e sistema em pedaços separados de propósito: no celular não cabem os
+    // dois, e o que o coach precisa ler lá é a HORA — a cor já diz o sistema.
+    const rotuloChip = ch.pendente
+      ? esc(t.treino?.titulo || sistema)
+      : `<b class="cal-hora">${esc(ch.classTime)}</b><span class="cal-sis"> · ${esc(sistema)}</span>`;
+
+    const quantos = ch.alunos ? ` · ${ch.alunos} aluno${ch.alunos === 1 ? '' : 's'}` : '';
+    const dica = ch.pendente
+      ? `${t.treino?.titulo || sistema} — montado, ainda não distribuído para nenhum horário`
+      : `${ch.classTime} · ${t.treino?.titulo || sistema}${quantos}`;
+
+    return `<button class="cal-chip${podeEditar ? ' editavel' : ''}${ch.pendente ? ' pendente' : ''}" type="button"
       data-treino="${esc(t.workoutId || '')}"
-      style="background:${c.bg};color:${c.fg}"
-      title="${esc(t.treino?.titulo || '')} — ${podeEditar ? 'clique para reabrir na Lousa' : 'treino passado: somente leitura'}">
-      ${esc(rotuloChip)}${podeEditar ? '' : ' <span class="cal-cadeado" aria-label="somente leitura">🔒</span>'}
+      style="background:${c.bg};color:${c.fg};--cor-modalidade:${c.bg}"
+      title="${esc(dica)} — ${podeEditar ? 'clique para reabrir na Lousa' : 'treino passado: somente leitura'}">
+      ${rotuloChip}${podeEditar ? '' : ' <span class="cal-cadeado" aria-label="somente leitura">🔒</span>'}
     </button>`;
   }).join('');
 
@@ -201,7 +219,7 @@ async function abrirTreino(ctx, workoutId) {
   // Passado: leitura. O painel mostra o mesmo card que a prévia mostra, para o
   // coach reconhecer o treino sem ter de traduzir outro formato.
   await painel({
-    titulo: `${t.treino?.titulo || 'Treino'} · ${t.dateId}${t.classTime ? ` · ${t.classTime}` : ''}`,
+    titulo: `${t.treino?.titulo || 'Treino'} · ${t.dateId}${horasDe(t)}`,
     corpoHTML: `
       <p class="previa-meta">${esc(resumo(t.treino))}${t.distribuido ? ' · já distribuído para a turma' : ''}</p>
       <p class="mut" style="font-size:12.5px">Treino passado — somente leitura. O consolidado de volume já contou este dia.</p>
@@ -209,4 +227,10 @@ async function abrirTreino(ctx, workoutId) {
     largo: true,
     acoes: [],
   });
+}
+
+/** As horas das aulas de um treino, prontas para um cabeçalho ("· 06:00, 07:00"). */
+function horasDe(t) {
+  const h = aulasDoTreino(t).map((a) => a.classTime);
+  return h.length ? ` · ${h.join(', ')}` : '';
 }
