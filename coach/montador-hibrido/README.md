@@ -272,6 +272,38 @@ Consequência: `totalSeries` (séries prescritas) **não** é a soma de `porGrup
 (um exercício multiarticular credita mais de um grupo). São perguntas diferentes,
 e o dashboard mostra cada uma no seu lugar.
 
+### Excluir treino: por que HARD delete
+
+O botão vermelho aparece só quando a lousa na tela **é** um documento gravado —
+quem manda é o `workoutId` do rascunho, que existe depois de salvar e depois de
+reabrir pelo Calendário. Num quadro em branco não há o que apagar, e um botão
+vermelho parado ali é só uma chance a mais de clique errado.
+
+**Hard delete, e não `excluido: true`.** O consolidado de volume é recalculado
+por `lerFaixa`, que CONSULTA a coleção: some o documento, some do gráfico, sem
+mexer numa linha do gatilho. Com soft delete, todo leitor — presente e futuro —
+passaria a precisar lembrar de filtrar a flag, e no dia em que um esquecesse o
+treino apagado voltaria a contar em silêncio. A versão segura aqui é a que não
+depende de ninguém lembrar de nada.
+
+O arrependimento é coberto por uma cópia em `coaches/{uid}/lousasApagadas/`
+antes de o documento sumir: custa um documento, dá para restaurar à mão, e
+**nada lê essa coleção** — então ela não pode afetar gráfico, calendário ou
+distribuição.
+
+**No servidor, não no cliente.** Apagar um treino é apagar três coisas em
+lugares diferentes: o documento, a subcoleção `fichas` (que o Firestore **não**
+apaga junto com o pai — ficaria órfã para sempre) e a fatia que o aluno lê no
+Portal. No navegador isso é uma sequência que pode morrer no meio, e aí o aluno
+continua vendo no celular um treino que o coach apagou.
+
+Cuidado com o Portal: `treinoAluno/{email}.hibrido` é indexado por **data**, não
+por treino. Dois treinos no mesmo dia dividem a chave, e apagar um não pode levar
+o outro — só sai a entrada cujo `workoutId` é o que está sendo apagado.
+
+`aggregateVolumeMetrics` já é `onDocumentWritten`, que dispara no apagamento e
+já usava `antes.dateId` para refazer a semana certa. Não precisou de mudança.
+
 ### Pré-parser e catálogo: a lousa que fica barata com o uso
 
 A maior parte das lousas é texto regular — cabeçalho de bloco e linhas

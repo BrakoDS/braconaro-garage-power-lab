@@ -1478,6 +1478,43 @@ console.log('\nO CAMINHO RÁPIDO PRODUZ O MESMO TREINO QUE A IA\n');
   }
 }
 
+
+console.log('\nEXCLUSÃO DE TREINO: O VOLUME TEM DE ENCOLHER\n');
+
+// Hard delete e não `excluido: true` — a razão está em `deleteWorkoutLousa`.
+// Isto CRAVA a razão: a consolidação é recalculada a partir da lista de
+// treinos, então tirar o treino da lista já tira do gráfico. Com soft delete,
+// todo leitor precisaria lembrar de filtrar a flag.
+{
+  const faixa = faixaDaSemana('2026-09-16');
+  const a: TreinoParaVolume = {
+    dateId: '2026-09-16', sistema: 'HIIT',
+    exercicios: [{ nome: 'Wall Ball', series: 4, grupamentos: ['Quadríceps'], implemento: 'Bola' }],
+  };
+  const b: TreinoParaVolume = {
+    dateId: '2026-09-17', sistema: 'GAP',
+    exercicios: [{ nome: 'Burpees', series: 3, grupamentos: ['Peito'], implemento: 'Peso corporal' }],
+  };
+
+  const comOsDois = consolidar([a, b], 'semana', 'x', faixa);
+  const soUm = consolidar([a], 'semana', 'x', faixa);
+
+  ok(comOsDois.totalSeries === 7 && soUm.totalSeries === 4,
+    `tirar o treino da lista tira as séries dele (7 ➔ ${soUm.totalSeries})`);
+  ok(comOsDois.treinos === 2 && soUm.treinos === 1, 'a contagem de treinos encolhe junto');
+  ok((comOsDois.porGrupo.peito || 0) === 3 && (soUm.porGrupo.peito || 0) === 0,
+    'o grupo que só o treino apagado alimentava volta a zero');
+  ok(Object.keys(soUm.porImplemento).length === 1,
+    'o implemento que só ele usava sai da rosca de variabilidade');
+
+  // Apagar TUDO não pode deixar resto nem quebrar.
+  const vazio = consolidar([], 'semana', 'x', faixa);
+  ok(vazio.totalSeries === 0 && vazio.treinos === 0 && Object.keys(vazio.porGrupo).length === 0,
+    'apagar o último treino da semana zera o consolidado sem quebrar');
+  ok(Object.keys(vazio.metas).length === GRUPOS_VOL.length,
+    'e as metas continuam lá — a semana vazia mostra o quanto falta, não uma tela em branco');
+}
+
 console.log(
   falhas === 0
     ? '\n✓ A leitura da IA, a de preço e o Montador Híbrido aguentam entrada torta.\n'

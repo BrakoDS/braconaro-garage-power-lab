@@ -31,7 +31,7 @@ import { criarHistorico } from '../core/historico.js';
 import { criarEditor } from './editor-rico.js';
 import { paraPrompt, textoPlano, segmentosDoTreino } from '../core/texto-rico.js';
 import { paraGravar, totalSeries, exerciciosDo } from '../core/lousa-modelo.js';
-import { parseWorkoutLousa, salvarLousa } from '../cloud/chamadas.js';
+import { parseWorkoutLousa, salvarLousa, excluirLousa } from '../cloud/chamadas.js';
 import * as store from './store.js';
 import { painel, avisar, confirmar } from '../../../compartilhado/ui/dialogo.js';
 import { cardsDoTreino, esc } from './render-treino.js';
@@ -261,6 +261,68 @@ export function montar(ctx) {
   // quando o teclado do celular sobe. `resize` não dispara nesses.
   new ResizeObserver(() => lousa.redimensionar()).observe(canvas);
   lousa.redimensionar();
+
+  /* ---------------- excluir o treino gravado ---------------- */
+
+  /**
+   * O botão só aparece quando a lousa na tela É um documento gravado.
+   *
+   * Quadro em branco não tem o que apagar, e um botão vermelho parado ali é só
+   * uma chance a mais de clique errado. Quem manda é o `workoutId` do rascunho:
+   * ele existe depois de salvar e depois de reabrir pelo Calendário, que são
+   * exatamente os dois casos em que apagar faz sentido.
+   */
+  const btnExcluir = $('#lousa-excluir');
+  const mostrarExcluir = () => {
+    if (btnExcluir) btnExcluir.hidden = !store.ler().workoutId;
+  };
+  store.aoMudar(mostrarExcluir);
+  mostrarExcluir();
+
+  btnExcluir?.addEventListener('click', async () => {
+    const est = store.ler();
+    if (!est.workoutId) return;
+
+    const nome = est.treino?.titulo || est.titulo || 'este treino';
+    const ok = await confirmar({
+      titulo: 'Excluir treino?',
+      texto: `Isso apaga <b>${esc(nome)}</b> de ${esc(est.dateId || 'sem data')} — o treino, as fichas `
+        + 'já distribuídas para a turma e o que os alunos veem no Portal. '
+        + 'O volume da semana e do mês é recalculado sem ele.<br><br>Não dá para desfazer pela tela.',
+      ok: 'Excluir treino',
+      perigo: true,
+    });
+    if (!ok) return;
+
+    btnExcluir.disabled = true;
+    const rotulo = btnExcluir.textContent;
+    btnExcluir.textContent = 'Excluindo…';
+    mostrarStatus('Apagando o treino e as fichas da turma…');
+    try {
+      const r = await excluirLousa(est.workoutId);
+      // Zera a tela: manter o treino apagado no rascunho deixaria o coach
+      // distribuindo, na aba seguinte, uma coisa que não existe mais.
+      store.limpar();
+      editor.limpar();
+      lousa.limpar();
+      titulo.value = '';
+      historico.recomecar('apagado', { html: editor.html(), tracos: [] });
+      pintarBarra();
+      mostrarStatus('');
+      await avisar({
+        titulo: 'Treino excluído',
+        texto: `Pronto. ${r.fichas} ficha(s) da turma e ${r.portais} publicação(ões) no Portal foram removidas junto. `
+          + 'O gráfico de volume se atualiza em alguns segundos.',
+      });
+      ctx.irPara('calendario');
+    } catch (e) {
+      mostrarStatus(/** @type {Error} */ (e).message, 'erro');
+      await avisar({ titulo: 'Não deu para excluir', texto: /** @type {Error} */ (e).message });
+    } finally {
+      btnExcluir.disabled = false;
+      btnExcluir.textContent = rotulo;
+    }
+  });
 
   /* ---------------- reconhecer ---------------- */
 

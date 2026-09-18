@@ -210,9 +210,28 @@ export async function distributeWorkoutToStudents({ turmas, dryRun }) {
  * faz o fluxo inteiro (salvar ➔ distribuir ➔ Calendário) ser testável local.
  */
 const GRAVADAS = [];
+// Os treinos SEMEADOS que o coach apagou nesta sessao. O duble semeia o mes por
+// calculo, entao apagar precisa de uma lista de exclusao — senao o treino
+// apagado reaparece na proxima leitura do calendario.
+const APAGADOS = [];
+/** Series de um treino do duble — usado para o consolidado andar junto. */
+const SERIES_POR_TREINO = 11;
 let gravacoes = 0;
 
 export function marcaDasLousas() { return gravacoes; }
+
+export async function excluirLousa(workoutId) {
+  await demora(250);
+  const i = GRAVADAS.findIndex((x) => x.workoutId === workoutId);
+  const achou = i >= 0;
+  if (achou) GRAVADAS.splice(i, 1);
+  // Conta como gravacao para as telas que leem do Firestore recarregarem —
+  // apagar muda o mes e o consolidado tanto quanto salvar.
+  gravacoes += 1;
+  APAGADOS.push(workoutId);
+  console.info('[local] excluirLousa', { workoutId, achou, restam: GRAVADAS.length });
+  return { apagado: true, fichas: achou ? 3 : 0, portais: achou ? 2 : 0, dateId: '' };
+}
 
 export async function salvarLousa(_uid, dados, workoutId) {
   await demora(200);
@@ -307,7 +326,12 @@ export async function lerConsolidado(_uid, chave) {
   return {
     chave, periodo: ehMes ? 'mes' : 'semana',
     inicio: '2026-09-14', fim: ehMes ? '2026-09-30' : '2026-09-20',
-    treinos: n(4), totalSeries: n(42),
+    // O consolidado ANDA com o que o coach faz: sobe ao salvar, desce ao apagar.
+    // Sem isto o teste "o volume aumenta e depois diminui" nao seria observavel
+    // local — o gatilho de verdade (aggregateVolumeMetrics) roda no servidor.
+    // A serie por treino e a do TREINO do duble, para os numeros baterem.
+    treinos: Math.max(0, n(4) + GRAVADAS.length - APAGADOS.length),
+    totalSeries: Math.max(0, n(42) + GRAVADAS.length * SERIES_POR_TREINO - APAGADOS.length * SERIES_POR_TREINO),
     porGrupo: { peito: n(8), costas: n(11), ombro: n(4), braco: n(6), perna: n(16), gluteo: n(9), core: n(5) },
     metas: { peito: 10 * f, costas: 10 * f, ombro: 10 * f, braco: 10 * f, perna: 10 * f, gluteo: 10 * f, core: 10 * f },
     porImplemento: { Barra: n(14), Halter: n(9), Kettlebell: n(6), Cabo: n(5), Airbike: n(3), Colchonete: n(2), Anilha: n(1), TRX: n(1) },

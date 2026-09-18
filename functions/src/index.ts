@@ -1475,6 +1475,110 @@ export const distributeWorkoutToStudents = onCall(
  * Não há laço de gatilho: a escrita vai para `volumeAgregado`, outra coleção,
  * que não dispara este mesmo trigger.
  */
+/** Teto de fichas apagadas numa chamada. Uma aula não tem mais que isso. */
+const MAX_FICHAS_APAGADAS = 300;
+
+/**
+ * APAGAR UM TREINO — o documento, as fichas e a fatia do Portal.
+ *
+ * ── Por que HARD delete, e não um campo `excluido: true` ─────────────────────
+ * Porque o consolidado de volume é recalculado por `lerFaixa`, que CONSULTA a
+ * coleção. Some o documento, some do gráfico — sem mexer numa linha do gatilho.
+ * Com soft delete, todo leitor presente e futuro passaria a precisar lembrar de
+ * filtrar a flag, e o dia em que um esquecesse, o treino apagado voltaria a
+ * contar em silêncio. Já perdemos um dia desta sessão com um bug desse feitio
+ * (o `workoutId` reaproveitado); a versão segura aqui é a que não depende de
+ * ninguém lembrar de nada.
+ *
+ * ── E o arrependimento? ──────────────────────────────────────────────────────
+ * O documento é COPIADO para `coaches/{uid}/lousasApagadas/{workoutId}` antes de
+ * sumir. Custa um documento, dá para restaurar à mão, e nada lê essa coleção —
+ * então ela não pode afetar gráfico, calendário ou distribuição. É rede de
+ * segurança sem virar segunda fonte de verdade.
+ *
+ * ── Por que no SERVIDOR, e não no cliente ────────────────────────────────────
+ * Apagar um treino é apagar três coisas em lugares diferentes: o documento, a
+ * subcoleção `fichas` (que o Firestore NÃO apaga junto com o pai — ela ficaria
+ * órfã para sempre) e a fatia que o aluno lê no Portal. No cliente isso é uma
+ * sequência que pode morrer no meio, e aí o aluno continua vendo no celular um
+ * treino que o coach apagou. Aqui é um lote só.
+ *
+ * ── O cuidado com o Portal ───────────────────────────────────────────────────
+ * `treinoAluno/{email}.hibrido` é indexado por DATA, não por treino. Dois
+ * treinos no mesmo dia dividem a mesma chave, e apagar um não pode levar o
+ * outro: só removemos a entrada cujo `workoutId` é o que está sendo apagado.
+ */
+export const deleteWorkoutLousa = onCall(
+  { timeoutSeconds: 120, memory: '256MiB' },
+  async (req): Promise<{ apagado: true; fichas: number; portais: number; dateId: string }> => {
+    exigirCoach(req);
+    const uid = req.auth?.uid || '';
+    if (!uid) throw new HttpsError('unauthenticated', 'Faça login de novo para apagar o treino.');
+
+    const dados = (req.data ?? {}) as { workoutId?: unknown };
+    const workoutId = typeof dados.workoutId === 'string' ? dados.workoutId.trim() : '';
+    if (!workoutId || workoutId.includes('/') || workoutId.length > 200) {
+      throw new HttpsError('invalid-argument', 'Treino inválido para apagar.');
+    }
+
+    const db = getFirestore();
+    const ref = db.doc(`coaches/${uid}/lousas/${workoutId}`);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      // Já não existe: tratar como sucesso. O coach que clicou duas vezes, ou
+      // recarregou e clicou de novo, quer o treino fora — e ele está fora.
+      logger.info('Treino já não existia.', { uid, workoutId });
+      return { apagado: true, fichas: 0, portais: 0, dateId: '' };
+    }
+    const doc = snap.data() ?? {};
+    const dateId = typeof doc.dateId === 'string' ? doc.dateId : '';
+
+    // As fichas: lidas ANTES de apagar, porque é nelas que estão os e-mails dos
+    // alunos que receberam este treino — e sem elas não há como saber quais
+    // Portais limpar.
+    const fichasSnap = await ref.collection('fichas').limit(MAX_FICHAS_APAGADAS).get();
+    const emails = fichasSnap.docs
+      .map((d) => (d.data() ?? {}).email)
+      .filter((e): e is string => typeof e === 'string' && !!e.trim());
+
+    // Quais Portais realmente apontam para ESTE treino. Ver o cabeçalho: a
+    // chave é a data, e o treino do outro horário não pode ir junto.
+    const portais: string[] = [];
+    if (emails.length && dateId) {
+      const docs = await db.getAll(...[...new Set(emails)].map((e) => db.doc(`treinoAluno/${e}`)));
+      for (const d of docs) {
+        const h = (d.data() ?? {}).hibrido as Record<string, { workoutId?: string }> | undefined;
+        if (h?.[dateId]?.workoutId === workoutId) portais.push(d.id);
+      }
+    }
+
+    const lote = db.batch();
+    lote.set(db.doc(`coaches/${uid}/lousasApagadas/${workoutId}`), {
+      ...doc, apagadoEm: FieldValue.serverTimestamp(), fichasApagadas: fichasSnap.size,
+    });
+    for (const d of fichasSnap.docs) lote.delete(d.ref);
+    for (const email of portais) {
+      lote.set(db.doc(`treinoAluno/${email}`), {
+        hibrido: { [dateId]: FieldValue.delete() },
+        atualizadoEm: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    // O treino por ÚLTIMO no lote: é a escrita que dispara `aggregateVolumeMetrics`,
+    // e quando ela chegar o resto já estará consistente.
+    lote.delete(ref);
+
+    try {
+      await lote.commit();
+    } catch (e) {
+      logger.error('Falha ao apagar o treino.', { erro: String(e), uid, workoutId });
+      throw new HttpsError('unavailable', 'Não deu para apagar o treino agora. Tente de novo em instantes.');
+    }
+
+    logger.info('Treino apagado.', { uid, workoutId, dateId, fichas: fichasSnap.size, portais: portais.length });
+    return { apagado: true, fichas: fichasSnap.size, portais: portais.length, dateId };
+  },
+);
+
 export const aggregateVolumeMetrics = onDocumentWritten(
   { document: 'coaches/{uid}/lousas/{workoutId}', timeoutSeconds: 120, memory: '256MiB' },
   async (evento) => {

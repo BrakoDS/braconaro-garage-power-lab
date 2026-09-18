@@ -134,6 +134,22 @@ export function distributeWorkoutToStudents({ workoutId, turmas, dryRun = false 
   return chamar('distributeWorkoutToStudents', { workoutId, turmas, dryRun }, TIMEOUT.distribuicao);
 }
 
+/**
+ * Apaga um treino: o documento, as fichas da turma e a fatia do Portal.
+ *
+ * Vai por Callable, e não direto ao Firestore como `salvarLousa`, porque apagar
+ * mexe em TRÊS lugares — e a subcoleção `fichas` o Firestore não apaga junto
+ * com o pai. Uma sequência de deletes no navegador pode morrer no meio (aba
+ * fechada, rede caindo) e deixar o aluno vendo no celular um treino que o coach
+ * apagou. No servidor é um lote só.
+ *
+ * @param {string} workoutId
+ * @returns {Promise<{apagado: true, fichas: number, portais: number, dateId: string}>}
+ */
+export function excluirLousa(workoutId) {
+  return chamar('deleteWorkoutLousa', { workoutId }, TIMEOUT.distribuicao);
+}
+
 /* ------------------------------------------------------------------ *
  * Firestore direto (o que não precisa de servidor)
  * ------------------------------------------------------------------ */

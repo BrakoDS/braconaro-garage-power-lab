@@ -70,6 +70,10 @@
 
       <div class="acoes">
         <button class="btn btn-ouro" id="lousa-reconhecer" type="button">⚡ Reconhecer e Estruturar Treino</button>
+        <!-- Nasce oculto: só faz sentido quando a lousa na tela É um treino
+             gravado. Num quadro em branco não há o que apagar, e um botão
+             vermelho parado ali é só um risco a mais de clique errado. -->
+        <button class="btn danger" id="lousa-excluir" type="button" hidden>Excluir treino</button>
         <span class="lousa-status" id="lousa-status" role="status" aria-live="polite"></span>
       </div>
     </section>
