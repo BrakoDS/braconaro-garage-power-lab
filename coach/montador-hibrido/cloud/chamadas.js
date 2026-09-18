@@ -123,11 +123,15 @@ export function checkWorkoutVariability({ structuredWorkout, weekStartDate }) {
  * balizamento de 1RM aqui no navegador criaria uma segunda regra, e o coach
  * aprovaria uma ficha para mandar outra.
  *
- * @param {{workoutId: string, studentIds: string[], classTime?: string, dryRun?: boolean}} args
+ * `turmas` é o formato novo: TODOS os horários do dia num pedido só, gravados
+ * num lote do Firestore. Antes era uma chamada por horário, e o coach salvava o
+ * mesmo treino três vezes escolhendo os alunos na mão em cada rodada.
+ *
+ * @param {{workoutId: string, turmas: {classTime: string, studentIds: string[]}[], dryRun?: boolean}} args
  * @returns {Promise<{fichas: any[], gravadas: number, semMatriz: string[], dryRun: boolean}>}
  */
-export function distributeWorkoutToStudents({ workoutId, studentIds, classTime = '', dryRun = false }) {
-  return chamar('distributeWorkoutToStudents', { workoutId, studentIds, classTime, dryRun }, TIMEOUT.distribuicao);
+export function distributeWorkoutToStudents({ workoutId, turmas, dryRun = false }) {
+  return chamar('distributeWorkoutToStudents', { workoutId, turmas, dryRun }, TIMEOUT.distribuicao);
 }
 
 /* ------------------------------------------------------------------ *

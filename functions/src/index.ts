@@ -40,8 +40,8 @@ import {
 } from './lousa';
 import { analisarVariabilidade, type ResultadoVariabilidade, type TreinoHistorico } from './variabilidade';
 import {
-  distribuir, lerMatriz, matrizPadrao, ALUNOS_POR_TURMA,
-  type FichaDoAluno, type MatrizAluno,
+  fichaDoAluno, lerMatriz, matrizPadrao, lerTurmas, validarTurmas, alunosDasTurmas, horarioPorAluno,
+  type FichaComHorario, type MatrizAluno,
 } from './distribuicao';
 import {
   chaveMes, chaveSemana, consolidar, faixaDaSemana, faixaDoMes,
@@ -1105,15 +1105,14 @@ function normalizarParaLeitura(bruto: unknown): Record<string, unknown> {
   return { sistema: t.sistema, titulo: t.titulo, avisos: t.avisos ?? [], exercicios };
 }
 
-/** Formato de horário de aula aceito ('19:00'). */
-const EH_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
-
 export const distributeWorkoutToStudents = onCall(
   { timeoutSeconds: 120, memory: '512MiB' },
-  async (req): Promise<{ fichas: FichaDoAluno[]; gravadas: number; semMatriz: string[]; dryRun: boolean }> => {
+  async (req): Promise<{ fichas: FichaComHorario[]; gravadas: number; semMatriz: string[]; dryRun: boolean }> => {
     const { uid } = exigirCoach(req);
 
-    const dados = (req.data ?? {}) as { workoutId?: unknown; studentIds?: unknown; classTime?: unknown; dryRun?: unknown };
+    const dados = (req.data ?? {}) as {
+      workoutId?: unknown; studentIds?: unknown; classTime?: unknown; turmas?: unknown; dryRun?: unknown;
+    };
     // `dryRun` é o que sustenta a PRÉVIA da turma na tela do coach ("como este
     // treino fica para a Ana?") sem gravar nada. Existe como parâmetro, e não
     // como um segundo cálculo no navegador, porque a prévia tem de sair da
@@ -1123,14 +1122,13 @@ export const distributeWorkoutToStudents = onCall(
     const workoutId = typeof dados.workoutId === 'string' ? dados.workoutId.trim() : '';
     if (!workoutId) throw new HttpsError('invalid-argument', 'Salve o treino antes de distribuir para a turma.');
 
-    const studentIds = Array.isArray(dados.studentIds)
-      ? [...new Set(dados.studentIds.filter((s): s is string => typeof s === 'string' && !!s.trim()).map((s) => s.trim()))]
-      : [];
-    if (!studentIds.length) throw new HttpsError('invalid-argument', 'Selecione pelo menos um aluno da turma.');
-    if (studentIds.length > ALUNOS_POR_TURMA) {
-      throw new HttpsError('invalid-argument', `A turma tem no máximo ${ALUNOS_POR_TURMA} alunos por aula.`);
-    }
-    const classTime = typeof dados.classTime === 'string' && EH_HORA.test(dados.classTime) ? dados.classTime : '';
+    // A leitura e a validação moram em `distribuicao.ts`, com o resto da regra
+    // pura — é o que permite `npm run checar` cobrir os casos de borda (formato
+    // antigo, aluno repetido, teto do lote) sem subir nada para a nuvem.
+    const turmas = lerTurmas(dados);
+    const problema = validarTurmas(turmas);
+    if (problema) throw new HttpsError('invalid-argument', problema);
+    const todos = alunosDasTurmas(turmas);
 
     const db = getFirestore();
     const treinoRef = db.doc(`coaches/${uid}/lousas/${workoutId}`);
@@ -1163,7 +1161,7 @@ export const distributeWorkoutToStudents = onCall(
     );
 
     const semMatriz: string[] = [];
-    const matrizes: MatrizAluno[] = studentIds.map((id) => {
+    const matrizes: MatrizAluno[] = todos.map((id) => {
       const ficha = porId.get(id);
       if (!ficha) {
         // Aluno que não está na Gestão recebe o treino da turma como está, e o
@@ -1183,10 +1181,16 @@ export const distributeWorkoutToStudents = onCall(
       return m;
     });
 
-    const fichas = distribuir(treino, matrizes);
+    // `distribuir` tem o teto de UMA turma; aqui são várias, e o teto de cada uma
+    // já foi validado. Cada ficha sai carimbada com o horário da turma dela.
+    const horarioDe = horarioPorAluno(turmas);
+    const fichas: FichaComHorario[] = matrizes.map((m) => ({
+      ...fichaDoAluno(treino, m),
+      classTime: horarioDe.get(m.alunoId) || '',
+    }));
 
     if (dryRun) {
-      logger.info('Distribuição pré-visualizada.', { workoutId, alunos: fichas.length });
+      logger.info('Distribuição pré-visualizada.', { workoutId, turmas: turmas.length, alunos: fichas.length });
       return { fichas, gravadas: 0, semMatriz, dryRun: true };
     }
 
@@ -1197,20 +1201,24 @@ export const distributeWorkoutToStudents = onCall(
     let gravadas = 0;
     for (const f of fichas) {
       lote.set(treinoRef.collection('fichas').doc(f.alunoId), {
-        ...f, workoutId, dateId, classTime, distribuidoEm: FieldValue.serverTimestamp(),
+        ...f, workoutId, dateId, distribuidoEm: FieldValue.serverTimestamp(),
       });
       gravadas++;
       // O Portal do Aluno lê por e-mail. Sem e-mail na matriz a ficha continua
       // salva ao lado do treino (o coach a vê e imprime), só não chega ao app.
       if (f.email) {
         lote.set(db.doc(`treinoAluno/${f.email}`), {
-          hibrido: { [dateId]: { workoutId, classTime, titulo: treino.titulo, sistema: treino.sistema, linhas: f.linhas, avisos: f.avisos } },
+          hibrido: { [dateId]: { workoutId, classTime: f.classTime, titulo: treino.titulo, sistema: treino.sistema, linhas: f.linhas, avisos: f.avisos } },
           atualizadoEm: FieldValue.serverTimestamp(),
         }, { merge: true });
       }
     }
     lote.set(treinoRef, {
-      distribuido: { em: FieldValue.serverTimestamp(), alunos: studentIds, classTime },
+      distribuido: {
+        em: FieldValue.serverTimestamp(),
+        turmas: turmas.map((t) => ({ classTime: t.classTime, alunos: t.studentIds })),
+        alunos: todos,
+      },
     }, { merge: true });
 
     try {
@@ -1220,7 +1228,7 @@ export const distributeWorkoutToStudents = onCall(
       throw new HttpsError('unavailable', 'Não deu para enviar o treino para a turma agora. Tente de novo em instantes.');
     }
 
-    logger.info('Treino distribuído.', { workoutId, alunos: fichas.length, semMatriz: semMatriz.length });
+    logger.info('Treino distribuído.', { workoutId, turmas: turmas.length, alunos: fichas.length, semMatriz: semMatriz.length });
     return { fichas, gravadas, semMatriz, dryRun: false };
   },
 );

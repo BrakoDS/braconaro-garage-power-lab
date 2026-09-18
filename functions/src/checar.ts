@@ -26,6 +26,7 @@ import {
 import { analisarVariabilidade, type TreinoHistorico } from './variabilidade';
 import {
   fichaDoAluno, distribuir, lerMatriz, matrizPadrao, cargaDeTrabalho, levantamentoDe,
+  lerTurmas, validarTurmas, alunosDasTurmas, horarioPorAluno, MAX_ALUNOS_NO_LOTE,
   e1rm, cargaDe1RM, ALUNOS_POR_TURMA, LEVANTAMENTOS, PCT_MIN, PCT_MAX,
   NIVEIS as NIVEIS_MATRIZ, FASES, ZONAS_RIR, REGRAS_IMPACTO, REGRAS_TRACAO,
   REGIOES_LESAO, GRAVIDADES, RESTRICOES_MOBILIDADE, CAMPO_MATRIZ,
@@ -860,6 +861,53 @@ ok(comLesao.avisos.some((a) => a.includes('carga axial')), 'e a observação da 
 
 const turmaGrande = distribuir(treinoTurma, Array.from({ length: 12 }, (_, i) => matrizPadrao(`a${i}`)));
 ok(turmaGrande.length === ALUNOS_POR_TURMA, `a turma para no teto de ${ALUNOS_POR_TURMA} alunos (${turmaGrande.length})`);
+
+/* ---------- as turmas do dia, em lote ---------- */
+
+const TRES_TURMAS = { turmas: [
+  { classTime: '19:00', studentIds: ['g', 'h'] },
+  { classTime: '07:00', studentIds: ['a', 'b', 'c'] },
+] };
+
+const lidas = lerTurmas(TRES_TURMAS);
+ok(lidas.length === 2 && lidas[0].classTime === '07:00',
+  'as turmas saem ordenadas por horário, não na ordem em que a tela mandou');
+ok(validarTurmas(lidas) === null, 'duas turmas dentro do teto passam');
+ok(alunosDasTurmas(lidas).length === 5, `o lote soma os alunos das duas turmas (${alunosDasTurmas(lidas).length})`);
+ok(horarioPorAluno(lidas).get('g') === '19:00' && horarioPorAluno(lidas).get('a') === '07:00',
+  'cada aluno leva o horário da turma dele — é isso que carimba a ficha');
+
+// O FORMATO ANTIGO continua aceito: o site publica sozinho pelo Pages e as
+// functions sobem à parte, então existe uma janela com um lado novo e outro
+// velho. Recusar o antigo transformaria essa janela em erro na cara do coach.
+const antigo = lerTurmas({ classTime: '07:00', studentIds: ['a', 'b'] });
+ok(antigo.length === 1 && antigo[0].classTime === '07:00' && antigo[0].studentIds.length === 2,
+  'o formato de uma turma só (anterior ao lote) ainda é lido');
+
+ok(lerTurmas({ turmas: [{ classTime: '', studentIds: ['a'] }] }).length === 0,
+  'turma sem horário é descartada — a ficha chegaria ao aluno sem dizer de que aula é');
+ok(lerTurmas({ turmas: [{ classTime: '07:00', studentIds: [] }] }).length === 0, 'turma sem aluno é descartada');
+ok(lerTurmas({ turmas: [{ classTime: '25:00', studentIds: ['a'] }] }).length === 0, 'horário impossível é descartado');
+ok(lerTurmas({ turmas: 'não é array' }).length === 0, 'entrada torta não vira turma');
+ok(lerTurmas({ turmas: [{ classTime: '07:00', studentIds: ['a', 'a', ' a '] }] })[0].studentIds.length === 1,
+  'id repetido dentro da mesma turma é dobra de clique, não dois alunos');
+
+ok(validarTurmas([]) !== null, 'lote vazio é recusado');
+ok(validarTurmas(lerTurmas({ turmas: [
+  { classTime: '07:00', studentIds: ['a'] },
+  { classTime: '19:00', studentIds: ['a'] },
+] }))?.includes('mais de um horário') === true,
+  'o MESMO aluno em duas turmas é recusado — no mesmo lote a última escrita venceria em silêncio');
+
+const lotada = [{ classTime: '07:00', studentIds: Array.from({ length: ALUNOS_POR_TURMA + 1 }, (_, i) => `x${i}`) }];
+ok(validarTurmas(lotada)?.includes(String(ALUNOS_POR_TURMA)) === true, 'turma acima do teto é recusada, dizendo o teto');
+
+const gigante = Array.from({ length: 30 }, (_, i) => ({
+  classTime: `${String(i % 24).padStart(2, '0')}:00`,
+  studentIds: Array.from({ length: 8 }, (_, j) => `a${i}-${j}`),
+}));
+ok(validarTurmas(gigante)?.includes(String(MAX_ALUNOS_NO_LOTE)) === true,
+  `acima de ${MAX_ALUNOS_NO_LOTE} alunos o lote é recusado aqui, com texto legível, em vez de estourar o teto de 500 operações do Firestore`);
 
 console.log('\nCONSOLIDAÇÃO DE VOLUME\n');
 

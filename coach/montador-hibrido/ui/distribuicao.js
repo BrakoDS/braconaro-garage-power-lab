@@ -2,21 +2,34 @@
 /**
  * MÓDULO 3 — DISTRIBUIÇÃO E PERSONALIZAÇÃO.
  *
- * Escolhe até 8 alunos, mostra COMO o treino coletivo fica na ficha de cada um
- * e só então envia.
+ * As turmas do dia já vêm montadas: o sistema lê em que horário cada aluno
+ * treina NAQUELE dia da semana e agrupa sozinho. O coach ajusta o que fugiu da
+ * rotina (quem avisou que hoje vem no outro horário, quem vai faltar) e manda o
+ * treino para TODOS os horários de uma vez.
  *
- * A lista de alunos vem da Gestão de Alunos por import direto, que é o padrão
- * do projeto — o Montador Individual já faz igual (`montador-individual/ui/alunos.js`).
- * A ficha da Gestão é a fonte da verdade de quem treina no box; uma segunda
- * lista aqui dentro significaria cadastrar o mesmo aluno duas vezes e ver um
- * aluno inativo continuar aparecendo na turma.
+ * ── O que mudou, e por quê ───────────────────────────────────────────────────
+ * Antes o coach escolhia um horário, marcava os alunos na mão, salvava, e
+ * repetia para o horário seguinte — três vezes o mesmo treino, num box com três
+ * aulas por dia. O horário de cada aluno JÁ ESTAVA na ficha da Gestão o tempo
+ * todo (`diasTreino` + `horarios`, um mapa por dia); só ninguém estava lendo.
  *
- * A PRÉVIA NÃO É CALCULADA AQUI. Ela vem do servidor com `dryRun: true`, pelo
- * mesmo caminho do envio. Reimplementar no navegador a troca por lesão e o
- * balizamento por 1RM daria dois resultados possíveis para a mesma pergunta, e
- * o coach aprovaria um para enviar o outro.
+ * ── Por que NÃO existe um campo `horario_padrao` ─────────────────────────────
+ * Porque o horário não é único: o próprio formulário da Gestão diz "marque os
+ * dias e a hora de cada um — eles podem ser diferentes". Quem treina 7h na
+ * segunda e 19h na quarta não tem um horário padrão, e um campo assim brigaria
+ * com o mapa por dia até alguém descobrir qual dos dois o sistema usava.
+ *
+ * ── A prévia continua vindo do servidor ──────────────────────────────────────
+ * Com `dryRun: true`, pelo mesmo caminho do envio. Recalcular lesão, restrição e
+ * balizamento de 1RM aqui daria dois resultados possíveis para a mesma pergunta,
+ * e o coach aprovaria um para enviar o outro.
  */
 import * as gestaoDb from '../../gestao-de-alunos/db.js';
+import {
+  montarTurmas, moverAluno, removerAluno, adicionarHorario, paraEnvio, impedimentos,
+  totalDeAlunos, horaLegivel, MAX_POR_TURMA, SEM_HORARIO,
+} from '../core/turmas.js';
+import { diaSemanaDe } from '../../../compartilhado/regras/datas-treino.js';
 import { distributeWorkoutToStudents } from '../cloud/chamadas.js';
 import { esc } from './render-treino.js';
 import { resumo } from '../core/lousa-modelo.js';
@@ -25,8 +38,16 @@ import { avisar, confirmar } from '../../../compartilhado/ui/dialogo.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
 
-/** O mesmo teto do servidor e de `ALUNOS_POR_SESSAO` no inventário do box. */
-const MAX_TURMA = 8;
+const DIA_LONGO = {
+  seg: 'segunda-feira', ter: 'terça-feira', qua: 'quarta-feira',
+  qui: 'quinta-feira', sex: 'sexta-feira', sab: 'sábado', dom: 'domingo',
+};
+
+/** As turmas em edição. Derivadas da ficha, ajustadas pelo coach, nunca gravadas. */
+let turmas = [];
+/** A data de que as turmas atuais foram montadas — remontar quando ela mudar. */
+let montadoPara = '';
+let ocupado = false;
 
 /** @param {{uid: () => string, irPara: (aba: string) => void}} ctx */
 export function montar(ctx) {
@@ -36,32 +57,160 @@ export function montar(ctx) {
   if (!alvo) return;
 
   alvo.addEventListener('change', (ev) => {
-    const cb = /** @type {HTMLInputElement} */ (ev.target);
-    if (!cb.matches('input[data-aluno]')) return;
-    const id = cb.getAttribute('data-aluno') || '';
-    const turma = new Set(store.ler().turma);
-    if (cb.checked) {
-      if (turma.size >= MAX_TURMA) {
-        cb.checked = false;
-        avisar({ titulo: 'Turma cheia', texto: `A aula comporta ${MAX_TURMA} alunos. Desmarque alguém antes de incluir outro.` });
-        return;
-      }
-      turma.add(id);
-    } else {
-      turma.delete(id);
+    const sel = /** @type {HTMLSelectElement} */ (ev.target);
+    if (!sel.matches('[data-mover]')) return;
+    turmas = moverAluno(turmas, sel.getAttribute('data-mover') || '', sel.value);
+    store.atualizar({ fichas: [] }); // a prévia deixa de valer: ela é por aluno e por horário
+  });
+
+  alvo.addEventListener('click', async (ev) => {
+    const el = /** @type {HTMLElement} */ (ev.target);
+    const remover = el.closest('[data-remover]');
+    if (remover) {
+      turmas = removerAluno(turmas, remover.getAttribute('data-remover') || '');
+      store.atualizar({ fichas: [] });
+      return;
     }
-    // A prévia deixa de valer assim que a turma muda: ela é por aluno.
-    store.atualizar({ turma: [...turma], fichas: [] });
+    if (el.closest('#turma-add-horario')) {
+      const hora = $('#turma-nova-hora')?.value;
+      const antes = turmas.length;
+      turmas = adicionarHorario(turmas, hora);
+      if (turmas.length === antes) {
+        await avisar({ titulo: 'Horário inválido', texto: 'Escolha uma hora que ainda não esteja na lista.' });
+      }
+      desenhar(alvo);
+    }
   });
 
   btnPrever?.addEventListener('click', () => executar(ctx, { dryRun: true, botao: btnPrever }));
   btnEnviar?.addEventListener('click', () => executar(ctx, { dryRun: false, botao: btnEnviar }));
 
   store.aoMudar(() => desenhar(alvo));
+  document.addEventListener('hibrido:aba', (ev) => {
+    if (/** @type {any} */ (ev).detail === 'turma') desenhar(alvo);
+  });
   desenhar(alvo);
 }
 
-let ocupado = false;
+/** Alunos ativos da Gestão. Inativo não entra na turma. */
+function alunosAtivos() {
+  try {
+    return gestaoDb.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  } catch (e) {
+    console.warn('Lista de alunos indisponível:', e);
+    return [];
+  }
+}
+
+/**
+ * Remonta as turmas quando a DATA muda.
+ *
+ * Só quando a data muda, e não a cada desenho: o agrupamento é o ponto de
+ * partida, e os ajustes do coach (quem mudou de horário, quem vai faltar) são
+ * dele. Remontar a cada render jogaria fora o trabalho manual a cada clique.
+ */
+function sincronizarComData() {
+  const dateId = store.ler().dateId;
+  if (dateId === montadoPara) return;
+  montadoPara = dateId;
+  turmas = montarTurmas(alunosAtivos(), dateId);
+}
+
+function desenhar(alvo) {
+  const est = store.ler();
+  if (!est.treino) {
+    alvo.innerHTML = '<p class="vazio">Reconheça a lousa na aba 1 para montar as turmas do dia.</p>';
+    return;
+  }
+  sincronizarComData();
+
+  const dia = DIA_LONGO[diaSemanaDe(est.dateId)] || '';
+  const enviaveis = paraEnvio(turmas);
+  const problemas = impedimentos(turmas);
+
+  const cabecalho = `
+    <div class="card">
+      <h3>${esc(est.treino.titulo || 'Treino')}</h3>
+      <p class="mut">${esc(resumo(est.treino))} · ${esc(dia)}, ${esc(est.dateId)}</p>
+      <p class="turma-total">
+        <b>${enviaveis.length} horário(s)</b> · <b>${totalDeAlunos(turmas)} aluno(s)</b> vão receber este treino.
+      </p>
+    </div>`;
+
+  const blocos = turmas.length
+    ? turmas.map((t) => blocoDaTurma(t, turmas)).join('')
+    : `<div class="card"><h3>Ninguém treina nesta ${esc(dia)}</h3>
+         <p class="mut">Os dias e horários saem da ficha de cada aluno, em
+         <a href="../gestao-de-alunos/index.html">Gestão de Alunos</a>.</p></div>`;
+
+  const novoHorario = `
+    <div class="card turma-novo">
+      <label for="turma-nova-hora">Acrescentar horário</label>
+      <input id="turma-nova-hora" type="time" />
+      <button class="btn ghost btn-sm" id="turma-add-horario" type="button">+ Criar bloco</button>
+      <span class="mut">Para encaixar quem veio fora da rotina.</span>
+    </div>`;
+
+  const avisos = problemas.length
+    ? `<div class="nota nota-aviso"><b>Antes de distribuir</b>
+         <ul>${problemas.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div>`
+    : '';
+
+  const previa = est.fichas?.length
+    ? `<h3 class="secao">Prévia por aluno</h3>${previaPorTurma(est.fichas)}`
+    : '<p class="vazio">Use <b>Prever ajustes</b> para ver a ficha de cada aluno antes de enviar.</p>';
+
+  alvo.innerHTML = cabecalho + avisos + blocos + novoHorario + previa;
+}
+
+function blocoDaTurma(t, todas) {
+  const destinos = todas.map((x) => x.horario).filter((h) => h !== t.horario);
+  const classe = ['card', 'turma-bloco', t.excede ? 'excede' : '', t.horario ? '' : 'sem-hora'].filter(Boolean).join(' ');
+
+  const linhas = t.alunos.map((a) => `
+    <li class="turma-aluno">
+      <span class="turma-nome">${esc(a.nome || a.id)}</span>
+      <span class="ex-chip mudo">${esc(a.nivel || 'sem nível')}</span>
+      <select class="turma-mover" data-mover="${esc(a.id)}" aria-label="Mover ${esc(a.nome)} de horário">
+        <option value="${esc(t.horario)}" selected>${esc(t.rotulo)}</option>
+        ${destinos.map((h) => `<option value="${esc(h)}">mover para ${esc(h ? horaLegivel(h) : 'sem horário')}</option>`).join('')}
+      </select>
+      <button class="btn danger btn-sm" type="button" data-remover="${esc(a.id)}" title="Tirar da distribuição de hoje">✕</button>
+    </li>`).join('');
+
+  return `
+    <section class="${classe}">
+      <header class="turma-h">
+        <h4>${esc(t.rotulo)}</h4>
+        <span class="turma-contagem">${t.alunos.length}/${MAX_POR_TURMA}</span>
+        ${t.excede ? '<span class="ex-chip aviso">acima do teto</span>' : ''}
+        ${t.horario === SEM_HORARIO ? '<span class="ex-chip aviso">não será enviada</span>' : ''}
+      </header>
+      ${t.alunos.length
+        ? `<ul class="turma-lista">${linhas}</ul>`
+        : '<p class="mut turma-vazia">Ninguém neste horário hoje.</p>'}
+      ${t.horario === SEM_HORARIO
+        ? '<p class="mut turma-dica">Estes alunos treinam hoje, mas a ficha não diz a que horas. Cadastre a hora na Gestão ou mova cada um para um horário.</p>'
+        : ''}
+    </section>`;
+}
+
+/** A prévia reagrupada por horário — a mesma leitura da tela de cima. */
+function previaPorTurma(fichas) {
+  /** @type {Map<string, any[]>} */
+  const porHora = new Map();
+  for (const f of fichas) {
+    const h = f.classTime || '';
+    if (!porHora.has(h)) porHora.set(h, []);
+    porHora.get(h)?.push(f);
+  }
+  return [...porHora.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([h, lista]) => `
+      <h4 class="secao">${esc(h ? horaLegivel(h) : 'Sem horário')}</h4>
+      ${lista.map(cardDaFicha).join('')}`)
+    .join('');
+}
 
 async function executar(ctx, { dryRun, botao }) {
   if (ocupado) return;
@@ -80,17 +229,21 @@ async function executar(ctx, { dryRun, botao }) {
     ctx.irPara('lousa');
     return;
   }
-  if (!est.turma.length) {
-    await avisar({ titulo: 'Turma vazia', texto: 'Selecione pelo menos um aluno.' });
+
+  const enviaveis = paraEnvio(turmas);
+  const problemas = impedimentos(turmas);
+  if (problemas.length) {
+    await avisar({ titulo: 'Ajuste as turmas primeiro', texto: problemas.join(' ') });
     return;
   }
 
   if (!dryRun) {
+    const detalhe = enviaveis.map((t) => `${horaLegivel(t.classTime)} (${t.studentIds.length})`).join(', ');
     const ok = await confirmar({
-      titulo: 'Enviar para a turma?',
-      texto: `${est.turma.length} aluno(s) vão receber a ficha de ${est.dateId}`
-        + `${est.classTime ? ` (${est.classTime})` : ''}. Isso substitui o que já estava publicado para esse dia.`,
-      ok: 'Enviar',
+      titulo: 'Distribuir para todos os horários?',
+      texto: `<b>${totalDeAlunos(turmas)} alunos</b> em <b>${enviaveis.length} horário(s)</b> — ${esc(detalhe)} — `
+        + `vão receber a ficha de ${esc(est.dateId)}. Isso substitui o que já estava publicado para esse dia.`,
+      ok: 'Distribuir',
     });
     if (!ok) return;
   }
@@ -98,15 +251,10 @@ async function executar(ctx, { dryRun, botao }) {
   ocupado = true;
   botao.disabled = true;
   const rotulo = botao.textContent;
-  botao.textContent = dryRun ? 'Calculando…' : 'Enviando…';
+  botao.textContent = dryRun ? 'Calculando…' : 'Distribuindo…';
 
   try {
-    const r = await distributeWorkoutToStudents({
-      workoutId: est.workoutId,
-      studentIds: est.turma,
-      classTime: est.classTime,
-      dryRun,
-    });
+    const r = await distributeWorkoutToStudents({ workoutId: est.workoutId, turmas: enviaveis, dryRun });
     store.atualizar({ fichas: r.fichas });
 
     if (r.semMatriz?.length) {
@@ -115,63 +263,22 @@ async function executar(ctx, { dryRun, botao }) {
       await avisar({
         titulo: 'Alunos sem matriz de individualização',
         texto: `${r.semMatriz.length} aluno(s) ainda não têm lesões, restrições e 1RM cadastrados — `
-          + 'eles recebem o treino da turma sem ajuste. Cadastre a matriz para o balizamento de carga funcionar.',
+          + 'eles recebem o treino da turma sem ajuste. Cadastre a matriz na aba "Matriz" da ficha.',
       });
     }
     if (!dryRun) {
-      await avisar({ titulo: 'Treino enviado', texto: `${r.gravadas} ficha(s) gravada(s) para a aula de ${est.dateId}.` });
+      await avisar({
+        titulo: 'Treino distribuído',
+        texto: `${r.gravadas} ficha(s) gravada(s) em ${enviaveis.length} horário(s), para a aula de ${est.dateId}.`,
+      });
     }
   } catch (e) {
-    await avisar({ titulo: dryRun ? 'Não deu para prever' : 'Não deu para enviar', texto: /** @type {Error} */ (e).message });
+    await avisar({ titulo: dryRun ? 'Não deu para prever' : 'Não deu para distribuir', texto: /** @type {Error} */ (e).message });
   } finally {
     ocupado = false;
     botao.disabled = false;
     botao.textContent = rotulo;
   }
-}
-
-/** Alunos ativos da Gestão. Inativo não entra na turma. */
-function alunosAtivos() {
-  try {
-    return gestaoDb.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
-  } catch (e) {
-    console.warn('Lista de alunos indisponível:', e);
-    return [];
-  }
-}
-
-function desenhar(alvo) {
-  const est = store.ler();
-  const alunos = alunosAtivos();
-  const selecionados = new Set(est.turma);
-
-  const cabecalho = est.treino
-    ? `<div class="card"><h3>${esc(est.treino.titulo || 'Treino')}</h3>
-         <p class="mut">${esc(resumo(est.treino))} · ${esc(est.dateId)}${est.classTime ? ` · ${esc(est.classTime)}` : ''}</p></div>`
-    : '<p class="vazio">Reconheça a lousa para montar a turma.</p>';
-
-  const listaAlunos = alunos.length
-    ? `<div class="card">
-         <h3>Turma <span class="mut">(${selecionados.size}/${MAX_TURMA})</span></h3>
-         <ul class="turma-lista">
-           ${alunos.map((a) => `
-             <li class="turma-item${selecionados.has(a.id) ? ' on' : ''}">
-               <label>
-                 <input type="checkbox" data-aluno="${esc(a.id)}" ${selecionados.has(a.id) ? 'checked' : ''} />
-                 <span class="turma-nome">${esc(a.nome || a.id)}</span>
-                 <span class="mut">${esc(a.nivel || '')}</span>
-               </label>
-             </li>`).join('')}
-         </ul>
-       </div>`
-    : `<div class="card"><h3>Nenhum aluno ativo</h3>
-         <p class="mut">Cadastre os alunos em <a href="../gestao-de-alunos/index.html">Gestão de Alunos</a> — é de lá que a turma sai.</p></div>`;
-
-  const previa = est.fichas?.length
-    ? `<h3 class="secao">Prévia por aluno</h3>${est.fichas.map(cardDaFicha).join('')}`
-    : '<p class="vazio">Use <b>Prever ajustes</b> para ver a ficha de cada aluno antes de enviar.</p>';
-
-  alvo.innerHTML = cabecalho + listaAlunos + previa;
 }
 
 function cardDaFicha(f) {
@@ -183,8 +290,8 @@ function cardDaFicha(f) {
       </div>
       <div class="ex-baixo">
         ${l.cargaKg != null
-          ? `<span class="ex-chip carga">${l.cargaKg} kg${l.percentual ? ` · ${Math.round(l.percentual * 100)}% 1RM` : ''}</span>`
-          : `<span class="ex-chip mudo">sem 1RM</span>`}
+          ? `<span class="ex-chip carga">${l.cargaKg} kg${l.percentual ? ` · ${l.percentual}% 1RM` : ''}</span>`
+          : '<span class="ex-chip mudo">sem 1RM</span>'}
         ${l.implemento ? `<span class="ex-chip mudo">${esc(l.implemento)}</span>` : ''}
         ${l.observacao ? `<span class="ex-obs">${esc(l.observacao)}</span>` : ''}
       </div>
@@ -205,7 +312,7 @@ function cardDaFicha(f) {
     <article class="card ficha">
       <header class="ficha-h">
         <h4>${esc(f.nome)}</h4>
-        <span class="ex-chip mudo">${esc(f.nivel)}</span>
+        <span class="ex-chip mudo">${esc(f.nivel || 'sem nível')}</span>
         ${f.email ? '' : '<span class="ex-chip aviso">sem e-mail — não chega ao Portal</span>'}
       </header>
       <ul class="bloco-lista">${linhas}</ul>

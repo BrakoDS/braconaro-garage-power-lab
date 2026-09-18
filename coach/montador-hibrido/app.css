@@ -245,19 +245,32 @@ input:focus { outline: none; border-color: var(--acc); }
 .chip-troca.manter:hover { background: var(--card2); color: var(--txt); border-color: var(--line2); }
 .decisao { margin: 10px 0 0; color: var(--ok); font-size: 13px; }
 
-/* ---------- turma ---------- */
-.turma-lista { list-style: none; margin: 8px 0 0; padding: 0; display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 7px; }
-/* O nível vai para a linha de baixo quando o nome é comprido, em vez de ser
-   espremido contra a borda: "intermediario" ao lado de "Fernanda Rocha" não
-   cabe em 215px, e encolher a fonte deixaria os dois ilegíveis. */
-.turma-item label { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 9px; padding: 9px 11px;
-  cursor: pointer; border: 1px solid var(--line2); border-radius: 10px; text-transform: none;
-  letter-spacing: 0; font-size: 14px; }
-.turma-item label .mut { font-size: 12px; margin-left: auto; }
-.turma-item.on label { border-color: var(--acc); background: rgba(255,199,0,.07); }
-.turma-nome { font-weight: 600; color: var(--txt); }
-.turma-item input { accent-color: var(--acc); width: 16px; height: 16px; }
+/* ---------- turma: um bloco por horário ---------- */
+.turma-total { margin: 8px 0 0; font-size: 13.5px; }
+.turma-bloco { border-left: 3px solid var(--acc); }
+/* Turma acima do teto e bloco sem horário são os dois casos que IMPEDEM a
+   distribuição — a borda os separa do resto sem precisar ler o aviso. */
+.turma-bloco.excede { border-left-color: var(--bad); }
+.turma-bloco.sem-hora { border-left-color: var(--warn); }
+.turma-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.turma-h h4 { margin: 0; font-size: 16px; }
+.turma-contagem { font-size: 12px; color: var(--mut); font-variant-numeric: tabular-nums; }
+.turma-bloco.excede .turma-contagem { color: var(--bad); font-weight: 700; }
+.turma-vazia, .turma-dica { margin: 6px 0 0; font-size: 12.5px; }
+
+.turma-lista { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.turma-aluno { display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 8px 11px; border: 1px solid var(--line2); border-radius: 10px; }
+.turma-nome { font-weight: 600; color: var(--txt); flex: 1 1 130px; }
+/* O select de mover fica compacto e à direita: ele é a exceção do dia, não a
+   ação principal. A ação principal é o botão dourado lá em cima. */
+.turma-mover { background: var(--bg2); color: var(--txt); border: 1px solid var(--line2);
+  border-radius: 8px; padding: 5px 8px; font-size: 12.5px; max-width: 190px; }
+.turma-mover:focus { outline: none; border-color: var(--acc); }
+
+.turma-novo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.turma-novo label { margin: 0; text-transform: uppercase; }
+.turma-novo input[type=time] { width: auto; min-width: 118px; }
 .ficha-h { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
 .ficha-h h4 { margin: 0; font-size: 15px; }
 
@@ -393,6 +406,10 @@ input:focus { outline: none; border-color: var(--acc); }
   /* Empilhado, "grudar no topo" viraria o quadro tampando o treino. */
   .previa-lado:first-child { position: static; }
   .barra-linha { grid-template-columns: 92px 1fr 56px; gap: 8px; }
+  /* O nome ocupa a linha inteira e o select cai embaixo: lado a lado em 390px,
+     os dois ficariam estreitos demais para ler qualquer um dos horários. */
+  .turma-nome { flex: 1 1 100%; }
+  .turma-mover { flex: 1; max-width: none; }
   /* A barra de ferramentas também vira fita rolável: empilhada em três linhas,
      ela sozinha ocupava um terço da tela do celular e empurrava o quadro —
      que é onde o coach precisa escrever — para fora da primeira dobra. */

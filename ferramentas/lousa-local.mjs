@@ -126,43 +126,52 @@ export async function checkWorkoutVariability() {
 }
 
 /**
- * Três alunos com três situações diferentes de propósito: a Ana tem lesão COM
- * substituto (troca), o João tem lesão SEM substituto (sai da ficha, com aviso)
- * e não tem e-mail (não chega ao Portal), e a Bia não tem 1RM (carga sem kg).
+ * A distribuição em lote — recebe TODAS as turmas do dia de uma vez.
+ *
+ * Os perfis cobrem os três casos que a prévia precisa mostrar diferente: lesão
+ * COM substituto (troca o exercício), lesão SEM substituto (sai da ficha, com
+ * aviso) e aluno sem 1RM (carga sem número). O resto recebe o treino da turma.
+ * Cada ficha volta com o \`classTime\` da turma dela, que é como a tela reagrupa.
  */
-export async function distributeWorkoutToStudents({ studentIds, dryRun }) {
+export async function distributeWorkoutToStudents({ turmas, dryRun }) {
   await demora();
-  const PERFIS = {
-    a1: { nome: 'Ana Prado', email: 'ana@exemplo.com', nivel: 'iniciante', caso: 'lesao-com-substituto' },
-    a2: { nome: 'João Vieira', email: '', nivel: 'intermediario', caso: 'lesao-sem-substituto' },
-    a3: { nome: 'Bia Toledo', email: 'bia@exemplo.com', nivel: 'avancado', caso: 'sem-1rm' },
+  const CASOS = {
+    '001': 'lesao-com-substituto',
+    '004': 'lesao-sem-substituto',
+    '007': 'sem-1rm',
   };
-  const fichas = studentIds.map((id) => {
-    const p = PERFIS[id] || { nome: id, email: '', nivel: 'intermediario', caso: 'normal' };
+  const NOMES = {
+    '001': 'Ana Prado', '002': 'Bruno Alves', '003': 'Carla Nunes', '004': 'Diego Matos',
+    '005': 'Elisa Rocha', '006': 'Fábio Lima', '007': 'Gabi Souza', '008': 'Heitor Dias',
+    '009': 'Ivone Castro', '010': 'João Vieira',
+  };
+  const fichas = (turmas || []).flatMap((t) => t.studentIds.map((id) => {
+    const caso = CASOS[id] || 'normal';
+    const semRm = caso === 'sem-1rm';
     const linhas = [
       { bloco: 'C', blocoNome: 'Força',
-        nome: p.caso === 'lesao-com-substituto' ? 'Leg Press' : 'Agachamento Livre',
+        nome: caso === 'lesao-com-substituto' ? 'Leg Press' : 'Agachamento Livre',
         series: 4, reps: '8-12', implemento: 'Barra', observacao: 'RIR 2',
-        cargaKg: p.caso === 'sem-1rm' ? null : 62.5,
-        percentual: p.caso === 'sem-1rm' ? null : 0.63,
+        cargaKg: semRm ? null : 70, percentual: semRm ? null : 70,
         motivos: [
-          ...(p.caso === 'lesao-com-substituto' ? ['Troca por restrição (joelho direito): Agachamento Livre ➔ Leg Press'] : []),
-          ...(p.caso === 'sem-1rm' ? [] : ['Carga por 1RM: 63% de 100kg = 62.5kg']),
+          ...(caso === 'lesao-com-substituto' ? ['Troca por restrição (joelho direito): Agachamento Livre ➔ Leg Press'] : []),
+          ...(semRm ? [] : ['Carga: 70% de 100kg — 1RM medido de agachamento']),
         ] },
       { bloco: 'C', blocoNome: 'Força', nome: 'Supino Reto', series: 4, reps: '10',
         implemento: 'Barra', observacao: 'RIR 1', cargaKg: null, percentual: null, motivos: [] },
     ];
-    const removidos = p.caso === 'lesao-sem-substituto'
+    const removidos = caso === 'lesao-sem-substituto'
       ? [{ nome: 'Burpee', motivo: 'Restrição (lombar) sem substituto cadastrado na matriz' }] : [];
     return {
-      alunoId: id, nome: p.nome, email: p.email, nivel: p.nivel, linhas, removidos,
+      alunoId: id, nome: NOMES[id] || id, email: id === '010' ? '' : 'aluno' + id + '@exemplo.com',
+      nivel: 'intermediario', classTime: t.classTime, linhas, removidos,
       avisos: [
         ...(removidos.length ? ['1 exercício(s) fora da ficha por restrição sem substituto — cadastre a troca na matriz do aluno.'] : []),
-        ...(p.caso === 'sem-1rm' ? ['Sem 1RM registrado: as cargas saem como orientação da lousa, sem número em kg.'] : []),
+        ...(semRm ? ['Sem 1RM de referência na matriz: as cargas saem como orientação da lousa, sem número em kg.'] : []),
       ],
     };
-  });
-  console.info('[local] distributeWorkoutToStudents', { dryRun, alunos: fichas.length });
+  }));
+  console.info('[local] distributeWorkoutToStudents', { dryRun, turmas: (turmas || []).length, alunos: fichas.length });
   return { fichas, gravadas: dryRun ? 0 : fichas.length, semMatriz: [], dryRun: !!dryRun };
 }
 
@@ -258,19 +267,46 @@ export async function sair() {}
 
 const DUBLE_GESTAO = `
 // Dublê da Gestão de Alunos — gerado por ferramentas/lousa-local.mjs.
-// Os ids a1/a2/a3 são os que o dublê da distribuição conhece; os outros caem no
-// caso "normal", que serve para ver a turma com mais de três selecionados.
+//
+// Os horários são o que importa aqui: a aba "Turma" agrupa pelo DIA e pela HORA
+// da ficha, então o dublê precisa cobrir os casos que a tela tem de aguentar —
+// turma cheia, aluno em horários diferentes conforme o dia, ficha antiga só com
+// \`freqHorario\`, aluno sem hora nenhuma, aluno que não treina no dia e inativo.
 export function listar() {
   return [
-    { id: 'a1', nome: 'Ana Prado', nivel: 'iniciante', status: 'ativo' },
-    { id: 'a2', nome: 'João Vieira', nivel: 'intermediario', status: 'ativo' },
-    { id: 'a3', nome: 'Bia Toledo', nivel: 'avancado', status: 'ativo' },
-    { id: 'a4', nome: 'Carlos Menezes', nivel: 'intermediario', status: 'ativo' },
-    { id: 'a5', nome: 'Duda Ferraz', nivel: 'iniciante', status: 'ativo' },
-    { id: 'a6', nome: 'Eduardo Lima', nivel: 'avancado', status: 'ativo' },
-    { id: 'a7', nome: 'Fernanda Rocha', nivel: 'intermediario', status: 'ativo' },
-    { id: 'a8', nome: 'Gabriel Souza', nivel: 'intermediario', status: 'ativo' },
-    { id: 'a9', nome: 'Helena Dias', nivel: 'iniciante', status: 'inativo' },
+    // 7h de segunda e quarta — a turma da manhã.
+    { id: '001', nome: 'Ana Prado', email: 'ana@exemplo.com', nivel: 'iniciante', status: 'ativo',
+      diasTreino: ['seg', 'qua', 'sex'], horarios: { seg: '07:00', qua: '07:00', sex: '07:00' } },
+    { id: '002', nome: 'Bruno Alves', email: 'bruno@exemplo.com', nivel: 'intermediario', status: 'ativo',
+      diasTreino: ['seg', 'qua', 'sex'], horarios: { seg: '07:00', qua: '07:00', sex: '07:00' } },
+    { id: '003', nome: 'Carla Nunes', email: 'carla@exemplo.com', nivel: 'avancado', status: 'ativo',
+      diasTreino: ['seg', 'qua'], horarios: { seg: '07:00', qua: '07:00' } },
+    // Treina de manhã na segunda e à noite na quarta — o caso que um campo
+    // \`horario_padrao\` único não conseguiria representar.
+    { id: '004', nome: 'Diego Matos', email: 'diego@exemplo.com', nivel: 'intermediario', status: 'ativo',
+      diasTreino: ['seg', 'qua'], horarios: { seg: '07:00', qua: '19:00' } },
+    // A turma das 18h.
+    { id: '005', nome: 'Elisa Rocha', email: 'elisa@exemplo.com', nivel: 'iniciante', status: 'ativo',
+      diasTreino: ['seg', 'ter', 'qua', 'qui', 'sex'], horarios: { seg: '18:00', ter: '18:00', qua: '18:00', qui: '18:00', sex: '18:00' } },
+    { id: '006', nome: 'Fábio Lima', email: 'fabio@exemplo.com', nivel: 'avancado', status: 'ativo',
+      diasTreino: ['seg', 'qua', 'sex'], horarios: { seg: '18:00', qua: '18:00', sex: '18:00' } },
+    // A turma das 19h.
+    { id: '007', nome: 'Gabi Souza', email: 'gabi@exemplo.com', nivel: 'intermediario', status: 'ativo',
+      diasTreino: ['seg', 'qua'], horarios: { seg: '19:00', qua: '19:00' } },
+    { id: '008', nome: 'Heitor Dias', email: 'heitor@exemplo.com', nivel: 'iniciante', status: 'ativo',
+      diasTreino: ['qua', 'sex'], horarios: { qua: '19:00', sex: '19:00' } },
+    // Ficha antiga: uma hora só para a semana toda, escrita à mão.
+    { id: '009', nome: 'Ivone Castro', email: 'ivone@exemplo.com', nivel: 'intermediario', status: 'ativo',
+      diasTreino: ['qua'], horarios: {}, freqHorario: '6h30' },
+    // Treina hoje, mas a ficha não diz a que horas — vai para o bloco de aviso.
+    { id: '010', nome: 'João Vieira', email: '', nivel: 'intermediario', status: 'ativo',
+      diasTreino: ['qua'], horarios: {} },
+    // Não treina na quarta: não pode aparecer na grade do dia.
+    { id: '011', nome: 'Karina Melo', email: 'karina@exemplo.com', nivel: 'avancado', status: 'ativo',
+      diasTreino: ['ter', 'qui'], horarios: { ter: '18:00', qui: '18:00' } },
+    // Inativo: fora da turma, sempre.
+    { id: '012', nome: 'Lucas Prado', email: 'lucas@exemplo.com', nivel: 'iniciante', status: 'inativo',
+      diasTreino: ['qua'], horarios: { qua: '07:00' } },
   ];
 }
 export async function iniciarSync() {}

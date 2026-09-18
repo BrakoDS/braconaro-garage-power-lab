@@ -29,7 +29,7 @@ Todas em `functions/src/`, região `southamerica-east1`, acesso por
 |---|---|
 | `parseWorkoutLousa` | Quadro (JPEG/WEBP, qualidade 0,8) + texto ➔ treino estruturado, via OpenAI Vision |
 | `checkWorkoutVariability` | Treino novo × últimos 7 dias ➔ alertas e sugestões de troca |
-| `distributeWorkoutToStudents` | `matriz_individualizacao` ➔ ficha de cada aluno, gravada em lote |
+| `distributeWorkoutToStudents` | TODAS as turmas do dia ➔ ficha de cada aluno, num lote só |
 | `aggregateVolumeMetrics` | Gatilho: recalcula o consolidado da semana e do mês a cada lousa salva |
 
 A lógica pura de cada uma mora num módulo irmão (`lousa.ts`, `variabilidade.ts`,
@@ -96,6 +96,29 @@ ferramenta inteira nasceu **sem afrouxar uma linha de `firestore.rules`**.
 `treinoAluno/{email}` é a exceção intencional: é a coleção que o aluno já lê no
 Portal, e a regra dela já autoriza o coach a escrever.
 
+### As turmas do dia se montam sozinhas
+
+O horário de cada aluno **já estava na ficha da Gestão** — `diasTreino`
+(`['seg','qua','sex']`) e `horarios` (`{seg:'07:00', qua:'19:00'}`), um mapa por
+dia. A aba Turma lê isso e agrupa: o coach abre e as turmas estão prontas.
+
+**Não existe um campo `horario_padrao`, e não deve existir.** O horário não é
+único: o próprio formulário da Gestão diz "marque os dias e a hora de cada um —
+eles podem ser diferentes". Quem treina 7h na segunda e 19h na quarta não tem um
+horário padrão, e um campo assim brigaria com o mapa por dia até alguém descobrir
+qual dos dois o sistema estava usando. A ficha antiga com `freqHorario` (uma hora
+para a semana toda) entra como fallback, como a Gestão já faz.
+
+O coach ajusta o que fugiu da rotina — mover quem hoje vem noutro horário, tirar
+quem avisou que falta, criar um bloco novo — e um botão só distribui tudo. A
+turma esvaziada **continua na tela**: "19h — ninguém hoje" é informação, e é o
+que permite desfazer o clique errado; quem impede que ela seja gravada é
+`paraEnvio`.
+
+O bloco **"sem horário na ficha"** aparece no fim e não é enviado. A ficha é
+publicada por horário no Portal, e gravar com `classTime` vazio faria o treino
+chegar ao aluno sem dizer de que aula ele é.
+
 ### A matriz de individualização
 
 A matriz **não é deste app**: ela é o campo `matrizIndividualizacao` dentro da
@@ -152,7 +175,7 @@ sobrescreve por grupo em `coaches/{uid}.config.metasVolume`.
 ### 1. Automático (segundos, nada a configurar)
 
 ```bash
-node --test 'coach/montador-hibrido/core/*.test.js'   # 45 testes da lógica do cliente
+node --test 'coach/montador-hibrido/core/*.test.js'   # a lógica pura do cliente
 cd functions && npm ci && npm run checar              # 90+ asserções dos módulos do servidor
 node ferramentas/verificar-imports.mjs                # a fiação: todo caminho existe?
 ```

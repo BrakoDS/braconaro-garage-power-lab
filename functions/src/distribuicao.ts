@@ -500,3 +500,101 @@ export function fichaDoAluno(treino: TreinoEstruturado, matriz: MatrizAluno): Fi
 export function distribuir(treino: TreinoEstruturado, matrizes: MatrizAluno[]): FichaDoAluno[] {
   return matrizes.slice(0, ALUNOS_POR_TURMA).map((m) => fichaDoAluno(treino, m));
 }
+
+/* ------------------------------------------------------------------ *
+ * As turmas do dia — a distribuição em lote
+ * ------------------------------------------------------------------ */
+
+/**
+ * Teto de alunos numa distribuição, somando TODAS as turmas.
+ *
+ * Um lote do Firestore aceita 500 operações. Cada aluno custa duas (a ficha ao
+ * lado do treino e a fatia do Portal), mais uma do documento do treino: 200
+ * alunos = 401 operações, com folga confortável. Acima disso o lote seria
+ * recusado pelo Firestore com um erro que não diz nada ao coach — melhor recusar
+ * antes, com um texto que explica o que fazer.
+ */
+export const MAX_ALUNOS_NO_LOTE = 200;
+
+/** Formato de horário de aula aceito ('19:00'). */
+const EH_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export type TurmaEntrada = { classTime: string; studentIds: string[] };
+
+/** A ficha com o horário da turma dela — é o que a tela agrupa de volta. */
+export type FichaComHorario = FichaDoAluno & { classTime: string };
+
+/** Lista de ids, sem repetição, sem vazio e sem espaço em volta. */
+function idsValidos(v: unknown): string[] {
+  return Array.isArray(v)
+    ? [...new Set(v.filter((s): s is string => typeof s === 'string' && !!s.trim()).map((s) => s.trim()))]
+    : [];
+}
+
+/**
+ * Lê as turmas do pedido, aceitando os DOIS formatos.
+ *
+ * `turmas: [{classTime, studentIds}]` é o formato novo — o coach distribui os
+ * três horários do dia de uma vez. `{classTime, studentIds}` no topo é o antigo,
+ * de uma turma só, e continua aceito de propósito: o site publica sozinho pelo
+ * GitHub Pages e as functions sobem num deploy separado, então existe uma janela
+ * em que um lado é novo e o outro é velho. Aceitar os dois faz a ORDEM do deploy
+ * deixar de importar; recusar o antigo transformaria essa janela em erro na cara
+ * do coach.
+ *
+ * Turma sem horário ou sem aluno é descartada: a ficha é publicada por horário
+ * no Portal, e gravar com `classTime` vazio faria o treino chegar ao aluno sem
+ * dizer de que aula ele é.
+ */
+export function lerTurmas(dados: { turmas?: unknown; studentIds?: unknown; classTime?: unknown }): TurmaEntrada[] {
+  if (Array.isArray(dados?.turmas)) {
+    return dados.turmas
+      .flatMap((t): TurmaEntrada[] => {
+        const o = (t && typeof t === 'object' ? t : {}) as Record<string, unknown>;
+        const classTime = typeof o.classTime === 'string' && EH_HORA.test(o.classTime) ? o.classTime : '';
+        const studentIds = idsValidos(o.studentIds);
+        return classTime && studentIds.length ? [{ classTime, studentIds }] : [];
+      })
+      .sort((a, b) => a.classTime.localeCompare(b.classTime));
+  }
+
+  const studentIds = idsValidos(dados?.studentIds);
+  const classTime = typeof dados?.classTime === 'string' && EH_HORA.test(dados.classTime) ? dados.classTime : '';
+  return studentIds.length ? [{ classTime, studentIds }] : [];
+}
+
+/**
+ * O que impede gravar este lote, ou `null` quando pode ir.
+ *
+ * O aluno repetido em duas turmas é o caso perigoso: o Firestore aplica as duas
+ * escritas do mesmo documento no MESMO lote e a última vence, em silêncio. O
+ * coach receberia "gravado" e o aluno veria a aula errada.
+ */
+export function validarTurmas(turmas: TurmaEntrada[]): string | null {
+  if (!turmas.length) return 'Selecione pelo menos um aluno da turma.';
+
+  for (const t of turmas) {
+    if (t.studentIds.length > ALUNOS_POR_TURMA) {
+      return `A turma das ${t.classTime} tem ${t.studentIds.length} alunos — o teto por aula é ${ALUNOS_POR_TURMA}.`;
+    }
+  }
+
+  const todos = turmas.flatMap((t) => t.studentIds);
+  if (new Set(todos).size !== todos.length) {
+    return 'Há aluno em mais de um horário. Deixe cada aluno numa turma só.';
+  }
+  if (todos.length > MAX_ALUNOS_NO_LOTE) {
+    return `São ${todos.length} alunos de uma vez; o limite por distribuição é ${MAX_ALUNOS_NO_LOTE}. Divida em dois envios.`;
+  }
+  return null;
+}
+
+/** Todos os ids das turmas, na ordem em que serão gravados. */
+export function alunosDasTurmas(turmas: TurmaEntrada[]): string[] {
+  return turmas.flatMap((t) => t.studentIds);
+}
+
+/** Aluno → horário da turma dele, para carimbar a ficha. */
+export function horarioPorAluno(turmas: TurmaEntrada[]): Map<string, string> {
+  return new Map(turmas.flatMap((t) => t.studentIds.map((id): [string, string] => [id, t.classTime])));
+}
