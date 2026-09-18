@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Montador Híbrido — Garage Power Lab</title>
+  <link rel="stylesheet" href="./app.css?v=1" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0A0A0A" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+  <!-- Porta de acesso -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Híbrido</div>
+      <p>Acesso restrito ao coach.</p>
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div id="gate-erro" class="gate-erro">Senha incorreta.</div>
+      <a class="gate-voltar" href="../index.html">← Voltar ao Coach</a>
+    </form>
+  </div>
+
+  <header class="topbar" hidden>
+    <div class="brand"><b>GARAGE POWER LAB</b> · Híbrido</div>
+    <nav class="tabs">
+      <button class="tab active" data-view="lousa" type="button">1 · Lousa</button>
+      <button class="tab" data-view="alertas" type="button">2 · Alertas</button>
+      <button class="tab" data-view="turma" type="button">3 · Turma</button>
+      <button class="tab" data-view="volume" type="button">4 · Volume</button>
+      <button class="tab" data-view="calendario" type="button">Calendário</button>
+    </nav>
+    <nav class="topbar-sai">
+      <a class="sai-btn sai-coach" href="../index.html"><span class="tb-longo">← Voltar ao Coach</span><span class="tb-curto">Coach</span></a>
+    </nav>
+  </header>
+
+  <main hidden>
+
+    <!-- ============ 1 · LOUSA DO COACH ============ -->
+    <section class="view active" id="view-lousa">
+      <div class="panel">
+        <div class="field grow"><label for="lousa-titulo">Título do treino</label>
+          <input id="lousa-titulo" type="text" placeholder="Ex.: Full Body A — segunda pesada" /></div>
+        <div class="field"><label for="lousa-data">Data</label>
+          <input id="lousa-data" type="date" /></div>
+        <div class="field"><label for="lousa-hora">Horário da turma</label>
+          <input id="lousa-hora" type="time" /></div>
+      </div>
+
+      <p class="mut intro">
+        <b>Digite</b> o treino e use as cores para marcar — elas são lidas pela IA:
+        <b class="c-preto">preto</b> é exercício e bloco,
+        <b class="c-vermelho">vermelho</b> é intensidade, RIR e descanso,
+        <b class="c-azul">azul</b> é série, repetição e estação dos alunos.
+        A cor vale para o texto selecionado <b>e</b> para a caneta; troque para <b>Desenhar</b>
+        quando for mais rápido rabiscar uma seta.
+      </p>
+
+      <!-- O quadro: texto digitável por baixo, canvas por cima. Ver o cabeçalho de ui/lousa.js. -->
+      <div class="quadro">
+        <div class="quadro-barra" id="lousa-ferramentas" role="toolbar" aria-label="Ferramentas da lousa"></div>
+        <div class="quadro-area">
+          <div id="lousa-texto" class="quadro-texto" role="textbox" aria-multiline="true"
+            aria-label="Texto do treino — digite e marque com as três canetas"
+            data-vazio="A — Mobilidade&#10;  Mobilidade de quadril · 40s&#10;&#10;C — Força&#10;  Agachamento livre · 4x8-12 · RIR 2"></div>
+          <canvas id="lousa-canvas" class="quadro-canvas passa-clique"
+            aria-label="Área de desenho livre sobre a lousa"></canvas>
+        </div>
+      </div>
+
+      <div class="acoes">
+        <button class="btn btn-ouro" id="lousa-reconhecer" type="button">⚡ Reconhecer e Estruturar Treino</button>
+        <span class="lousa-status" id="lousa-status" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <!-- ============ 2 · ALERTAS E VARIABILIDADE ============ -->
+    <section class="view" id="view-alertas">
+      <div class="panel">
+        <button class="btn" id="alertas-checar" type="button">Checar variabilidade da semana</button>
+        <p class="mut intro">
+          Compara este treino com os últimos 7 dias: repetição em menos de 72h, implemento
+          saturado e grupamento concentrado. Cada alerta traz a troca em um clique — e
+          <b>manter a escolha do coach</b> é sempre uma das saídas.
+        </p>
+      </div>
+      <div id="alertas-corpo" class="grid"></div>
+    </section>
+
+    <!-- ============ 3 · DISTRIBUIÇÃO PARA A TURMA ============ -->
+    <section class="view" id="view-turma">
+      <div class="panel">
+        <button class="btn ghost" id="turma-prever" type="button">Prever ajustes</button>
+        <button class="btn" id="turma-enviar" type="button">Enviar para a turma</button>
+        <p class="mut intro">
+          Até 8 alunos por aula. A prévia mostra a ficha de cada um já com as trocas por lesão
+          e a carga balizada pelo 1RM — confira antes de enviar.
+        </p>
+      </div>
+      <div id="turma-corpo" class="grid"></div>
+    </section>
+
+    <!-- ============ 4 · DASHBOARD DE VOLUME ============ -->
+    <section class="view" id="view-volume">
+      <div class="panel">
+        <div class="field"><label for="volume-data">Semana / mês de</label>
+          <input id="volume-data" type="date" /></div>
+        <button class="btn ghost" id="volume-recarregar" type="button">Recarregar</button>
+      </div>
+      <div id="volume-corpo" class="grid"></div>
+    </section>
+
+    <!-- ============ CALENDÁRIO (histórico mensal) ============ -->
+    <section class="view" id="view-calendario">
+      <div class="panel">
+        <button class="btn ghost" id="cal-anterior" type="button" aria-label="Mês anterior">‹</button>
+        <strong id="cal-mes" class="cal-titulo">—</strong>
+        <button class="btn ghost" id="cal-seguinte" type="button" aria-label="Mês seguinte">›</button>
+        <button class="btn ghost" id="cal-hoje" type="button">Hoje</button>
+        <p class="mut intro">
+          O mês inteiro numa tela. Treino de <b>hoje ou do futuro</b> reabre na Lousa para edição;
+          treino passado abre só para leitura, porque o volume do ciclo já contou aquele dia.
+        </p>
+      </div>
+      <div id="calendario-corpo" class="grid"></div>
+    </section>
+
+  </main>
+
+  <script type="module" src="./ui/gate.js?v=1"></script>
+</body>
+</html>

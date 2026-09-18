@@ -1,0 +1,422 @@
+/* ============================================================
+   MONTADOR HÍBRIDO — Lousa do Coach & Dashboard de Volume
+   Garage Power Lab
+
+   A moldura é escura (#0A0A0A / #121212, destaque em ouro #FFC700), como o
+   resto do painel do coach. O QUADRO, no meio dela, é branco de verdade: é
+   fórmica de lousa, não um "tema claro". Essa inversão é o ponto da ferramenta
+   — o coach reconhece o quadro do box no meio do app — e é por isso que o
+   branco está escrito aqui como cor fixa, e não como um token que um tema
+   futuro possa reinterpretar.
+   ============================================================ */
+:root {
+  --bg: #0A0A0A; --bg2: #121212; --card: #16161a; --card2: #1c1c21;
+  --line: rgba(255,255,255,.09); --line2: rgba(255,255,255,.16);
+  --txt: #FFFFFF; --mut: #9b9ba3; --mut2: #6f6f78;
+  --acc: #FFC700; --acc2: #ffd84d; --acc-ink: #1a1300;
+  --ok: #3ddc84; --bad: #ff5d5d; --warn: #ffb347;
+  --r: 14px; --shadow: 0 8px 28px rgba(0,0,0,.45);
+
+  /* As três canetas — os mesmos valores de core/cores.js. Duas cópias porque o
+     CSS não importa JS: o JS pinta o traço no canvas, o CSS pinta a bolinha da
+     barra e o texto da legenda. Mudou uma, muda a outra. */
+  --pen-preto: #1A1A1A; --pen-vermelho: #D32F2F; --pen-azul: #1976D2;
+  --quadro: #FFFFFF;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(1100px 560px at 82% -12%, #17171c 0%, var(--bg) 62%) fixed;
+  color: var(--txt); font: 15px/1.55 system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--acc); }
+h3 { margin: 0 0 6px; font-size: 16px; }
+h4 { margin: 0 0 6px; font-size: 14px; }
+.mut, small { color: var(--mut); }
+.vazio { color: var(--mut); padding: 22px; text-align: center; border: 1px dashed var(--line2); border-radius: var(--r); }
+.intro { margin: 0; flex: 1 1 260px; font-size: 13px; }
+.secao { margin: 22px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--mut); }
+
+/* ---------- gate ---------- */
+#gate { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 24px;
+  background: radial-gradient(80% 60% at 50% 0%, rgba(255,199,0,.07), transparent 60%), var(--bg); }
+.gate-box { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 11px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r); padding: 26px 22px; box-shadow: var(--shadow); }
+.gate-box p { margin: 0; color: var(--mut); font-size: 14px; }
+.gate-box input { width: 100%; padding: 10px 12px; background: var(--card); border: 1px solid var(--line2);
+  color: var(--txt); border-radius: 9px; font-size: 15px; }
+.gate-box input:focus { outline: none; border-color: var(--acc); }
+.gate-erro { display: none; color: var(--bad); font-size: 13px; }
+.gate-link, .gate-voltar { color: var(--mut); font-size: 13px; text-decoration: none; cursor: pointer; }
+.gate-link:hover, .gate-voltar:hover { color: var(--txt); }
+
+/* ---------- topo / abas ---------- */
+.topbar { display: flex; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 10; background: rgba(10,10,10,.88); backdrop-filter: blur(8px); }
+.brand { font-weight: 800; letter-spacing: .5px; font-size: 14px; }
+.brand b { color: var(--acc); }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { position: relative; background: transparent; color: var(--mut); border: 1px solid transparent; border-radius: 10px;
+  padding: 8px 14px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.tab:hover { color: var(--txt); }
+.tab.active { color: var(--acc-ink); background: var(--acc); }
+/* Ponto de progresso: diz em quais etapas já existe trabalho feito, para o coach
+   que voltou à ferramenta depois de uma interrupção saber onde parou. */
+.tab.feito::after { content: ''; position: absolute; top: 5px; right: 6px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--ok); }
+.tab.active.feito::after { background: var(--acc-ink); }
+.topbar-sai { margin-left: auto; }
+.sai-btn { display: inline-flex; align-items: center; white-space: nowrap; text-decoration: none; color: var(--mut);
+  border: 1px solid transparent; border-radius: 10px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
+.sai-coach { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 42%, transparent); }
+.sai-coach:hover { background: var(--acc); color: var(--acc-ink); }
+.tb-curto { display: none; }
+
+main { max-width: 1060px; margin: 0 auto; padding: 20px; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ---------- controles ---------- */
+.panel { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--r); padding: 15px; margin-bottom: 16px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field.grow { flex: 1 1 280px; }
+label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); }
+input[type=text], input[type=date], input[type=time], input[type=email], input[type=password] {
+  background: var(--bg2); color: var(--txt); border: 1px solid var(--line2); border-radius: 9px;
+  padding: 9px 11px; font-size: 14px; width: 100%; }
+input:focus { outline: none; border-color: var(--acc); }
+.btn { background: var(--acc); color: var(--acc-ink); border: 0; border-radius: 9px; padding: 10px 18px;
+  font-weight: 700; font-size: 14px; cursor: pointer; }
+.btn:hover { background: var(--acc2); }
+.btn:disabled { opacity: .55; cursor: progress; }
+.btn.ghost { background: transparent; color: var(--acc); border: 1px solid var(--acc); }
+.btn.ghost:hover { background: rgba(255,199,0,.1); }
+.btn.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+/* O botão da ferramenta: é a ação principal da tela inteira e tem que parecer. */
+.btn-ouro { font-size: 15px; padding: 13px 24px; box-shadow: 0 0 0 1px rgba(255,199,0,.28), 0 8px 24px -10px rgba(255,199,0,.65); }
+.acoes { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.lousa-status { font-size: 13px; color: var(--mut); }
+.lousa-status.ok { color: var(--ok); }
+.lousa-status.erro { color: var(--bad); }
+
+.c-preto { color: #d9d9d9; }   /* o preto da caneta some no fundo escuro — na legenda ele vira claro */
+.c-vermelho { color: #ff7b7b; } /* idem: os tons da legenda são os da caneta clareados para o escuro */
+.c-azul { color: #6bb0f5; }
+
+/* ============================================================
+   O QUADRO BRANCO
+   ============================================================ */
+.quadro { background: var(--quadro); border: 1px solid #C9CDD3; border-radius: var(--r);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.9); overflow: hidden; }
+.quadro-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 9px 11px;
+  background: #F3F4F6; border-bottom: 1px solid #E1E4E8; }
+.fer { display: inline-flex; align-items: center; gap: 7px; background: #FFFFFF; color: #1A1A1A;
+  border: 1px solid #D7DBE0; border-radius: 8px; padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.fer:hover { border-color: #9AA1A9; }
+.fer.ativa { border-color: var(--pen-preto); box-shadow: inset 0 0 0 1px var(--pen-preto); }
+.fer-bola { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
+.fer-borracha { background: repeating-linear-gradient(45deg, #F5B7B1 0 3px, #FFFFFF 3px 6px); border: 1px solid #D7DBE0; }
+.fer-acao { color: #52565C; }
+.fer-sep { flex: 1 1 auto; }
+
+/* A área do quadro: textarea embaixo, canvas por cima, mesmo retângulo.
+   `min-height` em vez de altura fixa para o quadro crescer no desktop sem virar
+   uma faixa fina no celular. */
+.quadro-area { position: relative; min-height: 46vh; }
+.quadro-texto, .quadro-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* O quadro digitável. `white-space: pre-wrap` porque o coach escreve treino
+   indentado e cada espaço dele é informação; `overflow-y: auto` porque o quadro
+   tem altura fixa e o treino pode passar dela. */
+.quadro-texto { background: transparent; color: var(--pen-preto); border: 0;
+  padding: 18px 20px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  font: 16px/1.7 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+.quadro-texto:focus { outline: none; }
+/* Um `contenteditable` não tem placeholder nativo. `:empty` sozinho não basta —
+   o navegador deixa um <br> dentro depois da primeira digitação e apagamento, e
+   o elemento nunca mais fica "vazio". O `:has()` cobre esse caso. */
+.quadro-texto:empty::before,
+.quadro-texto:has(> br:only-child)::before {
+  content: attr(data-vazio);
+  color: #A8AEB6;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+/* As tintas, para a prévia mostrar o texto com as cores em que foi escrito. */
+.tinta-vermelho { color: var(--pen-vermelho); }
+.tinta-azul { color: var(--pen-azul); }
+
+/* ---------- barra: dois eixos (modo e cor) ---------- */
+.fer-grupo { display: flex; gap: 4px; padding: 2px; background: #E8EAED; border-radius: 10px; }
+.fer-grupo .fer { border-color: transparent; background: transparent; }
+.fer-grupo .fer.ativa { background: #FFFFFF; border-color: var(--pen-preto); box-shadow: none; }
+.fer-cor.ativa { box-shadow: inset 0 0 0 2px var(--pen-preto); }
+/* `touch-action: none` é o que faz o desenho funcionar no tablet: sem isso o
+   navegador interpreta o arrasto do dedo como rolagem da página e o traço sai
+   picotado (ou não sai). */
+.quadro-canvas { touch-action: none; cursor: crosshair; }
+/* A ferramenta "Texto" tira o canvas do caminho — sem isto, ele engole o clique
+   e a textarea por baixo nunca recebe foco. */
+.quadro-canvas.passa-clique { pointer-events: none; }
+
+/* ============================================================
+   CARDS DO TREINO ESTRUTURADO
+   ============================================================ */
+.grid { display: grid; gap: 14px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+.card-ok { border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+
+.blocos { display: grid; gap: 10px; margin-top: 8px; }
+.bloco { border-left: 3px solid var(--cor-bloco); background: var(--card2); border-radius: 0 10px 10px 0; padding: 10px 13px; }
+.bloco-h { margin: 0 0 7px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--mut); }
+.bloco-id { display: inline-block; min-width: 18px; color: var(--cor-bloco); font-weight: 800; }
+.bloco-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.ex { padding: 7px 0; border-top: 1px solid var(--line); }
+.ex:first-child { border-top: 0; padding-top: 0; }
+.ex-topo { display: flex; align-items: baseline; gap: 10px; }
+.ex-nome { font-weight: 600; }
+/* Série e repetição em azul, observação em vermelho: as mesmas cores com que o
+   coach escreveu na lousa. É o que faz ele reconhecer o próprio quadro no card. */
+.ex-prescricao { margin-left: auto; color: #6bb0f5; font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+.ex-baixo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; }
+.ex-obs { color: #ff7b7b; font-size: 12.5px; }
+.ex-motivo { margin: 4px 0 0; font-size: 12px; color: var(--mut); }
+.ex-chip { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 999px;
+  border: 1px solid var(--line2); color: var(--txt); }
+.ex-chip.mudo { color: var(--mut); }
+.ex-chip.carga { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 45%, transparent); font-weight: 700; }
+.ex-chip.aviso { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+
+.nota { margin-top: 10px; padding: 9px 12px; border: 1px solid var(--line2); border-radius: 10px; font-size: 13px; }
+.nota ul { margin: 5px 0 0; padding-left: 18px; }
+.nota li { margin: 3px 0; }
+.nota li small { display: block; color: var(--mut); font-size: 11.5px; }
+.nota-troca { border-color: color-mix(in srgb, var(--acc) 35%, transparent); }
+.nota-aviso { border-color: color-mix(in srgb, var(--warn) 40%, transparent); color: var(--warn); }
+.nota-aviso ul, .nota-aviso li small { color: var(--txt); }
+
+/* ---------- prévia lado a lado ---------- */
+/* `align-items: start` para o lado A não ser esticado até a altura do lado B:
+   um quadro branco de 1200px de altura com dois rabiscos no topo parece erro de
+   layout, e empurra o treino estruturado para fora da tela. */
+.previa { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.previa-lado { min-width: 0; }
+.previa-h { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--mut); margin: 0 0 9px; }
+/* A reprodução do quadro: texto e desenho sobrepostos, na mesma ordem em que
+   estão na lousa de verdade. */
+/* Sem `overflow: hidden`, de propósito: com ele o quadro vira um contêiner de
+   rolagem e o `aspect-ratio` passa a CORTAR o texto que passar da altura — as
+   últimas linhas do treino sumiriam justamente no painel que existe para
+   conferir o treino inteiro. Sem ele, a proporção funciona como piso e o painel
+   cresce com o texto; o desenho continua ancorado no topo à esquerda, na mesma
+   posição relativa em que foi feito. */
+.previa-quadro { position: relative; background: var(--quadro); border: 1px solid #C9CDD3;
+  border-radius: 10px; min-height: 120px; }
+/* O lado A gruda no topo enquanto o lado B rola: o treino estruturado é sempre
+   mais alto que o quadro, e sem isto a lousa sai de vista justamente na hora de
+   conferir o bloco lá embaixo — que é quando a comparação importa. */
+.previa-lado:first-child { position: sticky; top: 0; }
+.previa-texto { margin: 0; padding: 14px 16px; color: var(--pen-preto); white-space: pre-wrap; word-break: break-word;
+  font: 13px/1.6 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+.previa-texto .tinta-vermelho { color: var(--pen-vermelho); }
+.previa-texto .tinta-azul { color: var(--pen-azul); }
+.previa-desenho { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+  object-position: top left; pointer-events: none; border-radius: inherit; }
+.previa-meta { margin: 0 0 9px; font-size: 13px; color: var(--mut); }
+.previa-vazio { color: var(--mut); font-size: 13px; }
+
+/* ---------- alertas ---------- */
+.card-alerta { border-left: 3px solid var(--mut2); }
+.card-alerta.sev-alta { border-left-color: var(--bad); }
+.card-alerta.sev-media { border-left-color: var(--warn); }
+.card-alerta.decidido { opacity: .62; border-left-color: var(--ok); }
+.alerta-h { display: flex; gap: 10px; align-items: center; margin-bottom: 5px; }
+.alerta-tipo { font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--mut); }
+.alerta-sev { margin-left: auto; font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--warn); }
+.sev-alta .alerta-sev { color: var(--bad); }
+.trocas { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.chip-troca { background: transparent; color: var(--acc); border: 1px solid color-mix(in srgb, var(--acc) 45%, transparent);
+  border-radius: 999px; padding: 6px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.chip-troca:hover { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.chip-troca.manter { color: var(--mut); border-color: var(--line2); }
+.chip-troca.manter:hover { background: var(--card2); color: var(--txt); border-color: var(--line2); }
+.decisao { margin: 10px 0 0; color: var(--ok); font-size: 13px; }
+
+/* ---------- turma ---------- */
+.turma-lista { list-style: none; margin: 8px 0 0; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 7px; }
+/* O nível vai para a linha de baixo quando o nome é comprido, em vez de ser
+   espremido contra a borda: "intermediario" ao lado de "Fernanda Rocha" não
+   cabe em 215px, e encolher a fonte deixaria os dois ilegíveis. */
+.turma-item label { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 9px; padding: 9px 11px;
+  cursor: pointer; border: 1px solid var(--line2); border-radius: 10px; text-transform: none;
+  letter-spacing: 0; font-size: 14px; }
+.turma-item label .mut { font-size: 12px; margin-left: auto; }
+.turma-item.on label { border-color: var(--acc); background: rgba(255,199,0,.07); }
+.turma-nome { font-weight: 600; color: var(--txt); }
+.turma-item input { accent-color: var(--acc); width: 16px; height: 16px; }
+.ficha-h { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
+.ficha-h h4 { margin: 0; font-size: 15px; }
+
+/* ============================================================
+   DASHBOARD DE VOLUME
+   ============================================================ */
+.grafico-h { margin-bottom: 12px; }
+.grafico-h p { margin: 2px 0 0; font-size: 12.5px; }
+.grafico-sub { margin: 20px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--mut); }
+
+/* A chave da marca. Não é legenda de cor — a série é uma só, e o título já diz
+   qual. É o que aquele tracinho vertical significa. */
+.chave-marca { display: flex; align-items: center; gap: 7px; margin: 0 0 12px; font-size: 12px; color: var(--mut); }
+.chave-barra { width: 16px; height: 8px; border-radius: 3px; display: inline-block; }
+.chave-meta { width: 2px; height: 13px; background: var(--txt); display: inline-block; margin-left: 10px; }
+
+.barras { display: grid; gap: 9px; }
+.barra-linha { display: grid; grid-template-columns: 116px 1fr 64px; align-items: center; gap: 11px; }
+.barra-rot { font-size: 12.5px; color: var(--mut); }
+.barra-trilho { position: relative; height: 12px; background: #0b0b0d; border-radius: 6px; }
+/* Cantos arredondados só na ponta que é dado; a base fica ancorada no zero. */
+.barra-fill { display: block; height: 100%; border-radius: 6px; min-width: 2px; }
+/* A marca da meta é um tracinho de 2px sobre o trilho, não uma segunda barra:
+   meta não é volume, é referência, e desenhá-la como barra faria o coach
+   comparar duas grandezas do mesmo peso visual. */
+.barra-meta { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--txt); border-radius: 1px; }
+.barra-val { font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; }
+.barra-val small { color: var(--mut2); }
+.barra-val.abaixo { color: var(--warn); }
+.barra-val.acima { color: var(--ok); }
+.balanco { margin: 14px 0 0; font-size: 13px; color: var(--mut); }
+.balanco b { color: var(--txt); }
+
+.grafico-linha { margin: 0; }
+.grafico-linha svg { width: 100%; height: auto; max-width: 480px; display: block; }
+.grafico-linha figcaption { font-size: 11.5px; margin-top: 4px; }
+.svg-rot { fill: var(--acc); font-size: 11px; font-weight: 700; }
+.svg-eixo { fill: #6f6f78; font-size: 9px; }
+.svg-fatia { fill: #FFFFFF; font-size: 11px; font-weight: 700; }
+
+.rosca-wrap { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.rosca { margin: 0; flex: 0 0 200px; }
+.rosca svg { width: 200px; height: 200px; display: block; }
+.rosca-leg { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.rosca-leg li { display: flex; align-items: center; gap: 8px; }
+.leg-bola { width: 11px; height: 11px; border-radius: 3px; display: inline-block; flex: 0 0 auto; }
+
+.tabela-dados { margin-top: 14px; }
+.tabela-dados summary { cursor: pointer; color: var(--mut); font-size: 12.5px; }
+.tabela-dados summary:hover { color: var(--txt); }
+.tabela-dados table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.tabela-dados caption { text-align: left; font-size: 11.5px; padding-bottom: 6px; }
+.tabela-dados th, .tabela-dados td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.tabela-dados th { color: var(--mut); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; }
+.tabela-dados td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   CALENDÁRIO MENSAL
+   ============================================================ */
+/* `capitalize` maiusculizaria TODA palavra e o título sairia "Setembro De
+   2026". Só a primeira letra sobe; o resto do rótulo vem pronto da regra. */
+.cal-titulo { font-size: 15px; min-width: 190px; text-align: center; }
+.cal-titulo::first-letter { text-transform: uppercase; }
+
+/* `minmax(0, 1fr)` e não `1fr`: com `1fr` puro, um chip de texto longo empurra a
+   coluna e a grade sai torta — as sete colunas precisam ser iguais mesmo que o
+   conteúdo não caiba. */
+.cal-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-dow { font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--mut);
+  text-align: center; padding: 4px 0 6px; }
+.cal-dia { min-height: 82px; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 9px; padding: 5px 6px; display: flex; flex-direction: column; gap: 4px; }
+/* Dia de outro mês continua visível, só recuado: o treino da segunda que abre a
+   semana é da semana que o coach está olhando, mesmo caindo em agosto. */
+/* .55 e não .42: abaixo disso o chip do dia vizinho fica ilegível, e ele
+   continua sendo um treino clicável — apagado é para dizer "outro mês", não
+   para esconder. */
+.cal-dia.fora { opacity: .55; }
+.cal-dia.hoje { border-color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc); }
+.cal-dia[data-dia-livre] { cursor: pointer; }
+.cal-dia[data-dia-livre]:hover { border-color: var(--line2); background: var(--card2); }
+.cal-num { font-size: 11.5px; color: var(--mut); font-variant-numeric: tabular-nums; }
+.cal-dia.hoje .cal-num { color: var(--acc); font-weight: 700; }
+.cal-chips { display: flex; flex-direction: column; gap: 3px; }
+.cal-chip { border: 0; border-radius: 6px; padding: 3px 6px; font-size: 10.5px; font-weight: 700;
+  line-height: 1.3; text-align: left; cursor: default; width: 100%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.cal-chip.editavel { cursor: pointer; }
+.cal-chip.editavel:hover { filter: brightness(1.12); }
+.cal-cadeado { opacity: .7; font-size: 9px; }
+.cal-rodape { margin: 12px 0 0; font-size: 12.5px; color: var(--mut); }
+.cal-legenda { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.cal-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--mut); }
+.cal-leg i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+/* ============================================================
+   MODAL (classes de compartilhado/ui/dialogo.js)
+   ============================================================ */
+.modal-bg { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.7); backdrop-filter: blur(3px);
+  display: flex; padding: 20px; overflow-y: auto; }
+.modal-bg[hidden] { display: none; }
+.modal { width: 100%; max-width: 460px; margin: auto; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r); box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: 92vh; }
+.modal.largo { max-width: 940px; }
+.modal-hd { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.modal-hd h3 { margin: 0; font-size: 16px; }
+.modal-x { margin-left: auto; background: none; border: 0; color: var(--mut); font-size: 24px; line-height: 1;
+  cursor: pointer; padding: 0 4px; }
+.modal-x:hover { color: var(--txt); }
+.modal-bd { padding: 18px; overflow-y: auto; }
+.modal-ft { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.dlg-texto { margin: 0; line-height: 1.6; }
+
+/* ============================================================
+   TELAS ESTREITAS
+   ============================================================ */
+@media (max-width: 720px) {
+  .tb-longo { display: none; }
+  .tb-curto { display: inline; }
+  /* Duas faixas: marca e saída em cima, abas embaixo numa fita que rola.
+     Em coluna simples, as quatro abas empilhavam e o cabeçalho comia metade da
+     tela do celular — justamente na tela em que o coach vai desenhar. */
+  .topbar { flex-wrap: wrap; gap: 8px 10px; padding: 10px 14px; }
+  .brand { font-size: 13px; }
+  .tabs { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    padding-bottom: 2px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; padding: 7px 12px; }
+  main { padding: 14px; }
+  /* A prévia empilha: lado a lado em 360px daria duas colunas ilegíveis, e a
+     comparação que ela existe para permitir deixaria de acontecer. */
+  .previa { grid-template-columns: 1fr; }
+  /* Empilhado, "grudar no topo" viraria o quadro tampando o treino. */
+  .previa-lado:first-child { position: static; }
+  .barra-linha { grid-template-columns: 92px 1fr 56px; gap: 8px; }
+  /* A barra de ferramentas também vira fita rolável: empilhada em três linhas,
+     ela sozinha ocupava um terço da tela do celular e empurrava o quadro —
+     que é onde o coach precisa escrever — para fora da primeira dobra. */
+  .quadro-barra { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .quadro-barra::-webkit-scrollbar { display: none; }
+  .fer { flex: 0 0 auto; }
+  .fer-sep { flex: 0 0 10px; }
+  .quadro-area { min-height: 56vh; }
+  /* Sete colunas em 390px dão 48px por dia — o número cabe, o chip vira uma
+     tarja de cor. O rótulo do sistema some (não caberia), e o toque continua
+     abrindo o treino, que é o que importa no celular. */
+  .cal-dia { min-height: 56px; padding: 3px; }
+  .cal-chip { font-size: 0; padding: 0; height: 9px; border-radius: 3px; }
+  .cal-cadeado { display: none; }
+  .cal-titulo { min-width: 0; flex: 1; font-size: 13px; }
+  .modal-bg { padding: 10px; }
+  .modal-ft { justify-content: stretch; }
+  .modal-ft .btn { flex: 1 1 auto; }
+}
+
+/* O quadro é branco em qualquer tema; imprimir a lousa tem que sair do jeito que
+   o coach a desenhou, sem a moldura escura em volta comendo o toner. */
+@media print {
+  .topbar, .panel, .acoes, .tabs, .quadro-barra { display: none !important; }
+  body { background: #FFFFFF; color: #000000; }
+  .card, .bloco { background: #FFFFFF; border-color: #CCCCCC; }
+}

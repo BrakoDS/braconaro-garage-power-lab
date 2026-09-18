@@ -1,0 +1,17 @@
+{
+  "name": "Montador Híbrido — Braconaro",
+  "short_name": "Híbrido",
+  "description": "Lousa do Coach, alertas de variabilidade, distribuição para a turma e dashboard de volume.",
+  "scope": "/coach/montador-hibrido/",
+  "start_url": "/coach/montador-hibrido/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

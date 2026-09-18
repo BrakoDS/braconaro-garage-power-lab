@@ -8,7 +8,7 @@
  * modelo NÃO colabora — que são os que dão tela de erro para o aluno se
  * passarem batido.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as ts from 'typescript';
 import { extrairAnalise, num } from './analise';
@@ -20,6 +20,21 @@ import {
   EQUIP_FORA_DO_INVENTARIO, JSON_QUEBRADO, VAZIA, MALICIOSA,
   SEM_MUSCULO_PRIMARIO, SECUNDARIO_REPETIDO,
 } from './fixtures/pesquisa';
+import {
+  extrairTreino, regraGlobalDe, montarSchema as montarSchemaLousa, MUSCULOS_LABEL,
+} from './lousa';
+import { analisarVariabilidade, type TreinoHistorico } from './variabilidade';
+import {
+  fichaDoAluno, distribuir, lerMatriz, matrizPadrao, cargaDeTrabalho, levantamentoDe,
+  e1rm, cargaDe1RM, ALUNOS_POR_TURMA, LEVANTAMENTOS, PCT_MIN, PCT_MAX,
+  NIVEIS as NIVEIS_MATRIZ, FASES, ZONAS_RIR, REGRAS_IMPACTO, REGRAS_TRACAO,
+  REGIOES_LESAO, GRAVIDADES, RESTRICOES_MOBILIDADE, CAMPO_MATRIZ,
+} from './distribuicao';
+import {
+  chaveSemana, chaveMes, faixaDaSemana, faixaDoMes, consolidar, saldoPorGrupo,
+  GRUPO_POR_ROTULO, META_SEMANAL_PADRAO, SEMANAS_POR_MES, GRUPOS as GRUPOS_VOL,
+  type TreinoParaVolume,
+} from './volume-agregado';
 
 let falhas = 0;
 
@@ -466,13 +481,13 @@ function mesmoConjunto(a: string[], b: string[]): boolean {
   return ordenadoA.every((v, i) => v === ordenadoB[i]);
 }
 
-/** Compara uma cópia de pesquisa.ts com sua fonte no site; extração que falha vira falha do check, não exceção solta. */
+/** Compara uma cópia local (de `pesquisa.ts`, `lousa.ts`, `volume-agregado.ts`) com sua fonte no site; extração que falha vira falha do check, não exceção solta. */
 function checarVocabulario(nome: string, extrairFonte: () => string[], copia: string[]): void {
   try {
     const fonte = extrairFonte();
     ok(
       mesmoConjunto(fonte, copia),
-      `${nome}: pesquisa.ts bate com a fonte no site`,
+      `${nome}: a cópia bate com a fonte no site`,
       `fonte=[${fonte.join(', ')}] cópia=[${copia.join(', ')}]`,
     );
   } catch (e) {
@@ -495,13 +510,13 @@ const schemaVocab = montarSchema('exercicio', []) as {
 };
 
 checarVocabulario(
-  'PADROES',
+  'PADROES (pesquisa.ts)',
   () => comoArrayDeString(acharConst(parseSite('compartilhado/config/padroes.js'), 'PADROES'), 'compartilhado/config/padroes.js:PADROES'),
   schemaVocab.properties.padrao.enum,
 );
 
 checarVocabulario(
-  'MUSCULOS_LABEL',
+  'MUSCULOS_LABEL (pesquisa.ts)',
   () => {
     // MUSCULOS_LABEL não é uma constante única em lugar nenhum do site: é
     // `MUSCULOS` (as 11 chaves internas, em `padroes.js`) traduzida pelo mapa
@@ -528,20 +543,535 @@ ok(JSON.stringify(schemaVocab.properties.musculosSecundarios.items.enum) === JSO
   'primário e secundário aceitam exatamente o mesmo vocabulário');
 
 checarVocabulario(
-  'TAGS',
+  'TAGS (pesquisa.ts)',
   () => comoArrayDeString(acharConst(parseSite('coach/academia/db.js'), 'TAGS'), 'coach/academia/db.js:TAGS'),
   schemaVocab.properties.tags.items.enum,
 );
 
 checarVocabulario(
-  'NIVEIS',
+  'NIVEIS (pesquisa.ts)',
   () => comoArrayDeString(acharConst(parseSite('compartilhado/regras/niveis.js'), 'NIVEIS'), 'compartilhado/regras/niveis.js:NIVEIS'),
   schemaVocab.properties.nivel.enum,
 );
 
+
+/* ============================================================
+   MONTADOR DE TREINOS HÍBRIDO
+   ============================================================ */
+
+console.log('\nLOUSA DO COACH: A LEITURA AGUENTA LOUSA TORTA?\n');
+
+/** Uma resposta de lousa no formato que a OpenAI devolve, montada a partir dos exercícios. */
+const lousa = (exercicios: object[], extra: object = {}) => envelope(JSON.stringify({
+  sistema: 'Hipertrofia', titulo: 'Full Body A', avisos: [], exercicios, ...extra,
+}));
+
+const EX_BASE = {
+  nome: 'Supino Reto', bloco: 'C', series: 4, reps: '8-12',
+  implemento: 'Barra', grupamentos: ['Peito', 'Tríceps'], observacao: 'RIR 2',
+};
+
+const treinoOk = extrairTreino(lousa([
+  { ...EX_BASE },
+  { nome: 'Mobilidade de Quadril', bloco: 'A', series: 1, reps: '40s', implemento: '', grupamentos: [], observacao: '' },
+]));
+ok(treinoOk.blocos.length === 2, `lousa bem formada devolve os dois blocos (${treinoOk.blocos.length})`);
+ok(treinoOk.blocos[0].id === 'A', 'e os blocos saem na ordem A → D, não na ordem em que o coach escreveu');
+ok(treinoOk.estimativaSeries === 5, `a estimativa soma as séries de todos os blocos (${treinoOk.estimativaSeries})`);
+ok(treinoOk.blocos[1].exercicios[0].observacao === 'RIR 2', 'a caneta vermelha (RIR) chega em "observacao"');
+
+ok(extrairTreino({ output_text: JSON.stringify({ sistema: 'HIIT', titulo: 'T', avisos: [], exercicios: [EX_BASE] }) }).sistema === 'HIIT',
+  'o atalho output_text também é lido');
+ok(extrairTreino(envelope('Claro! Aqui está: ' + JSON.stringify({ sistema: 'GAP', titulo: 'T', avisos: [], exercicios: [EX_BASE] }))).sistema === 'GAP',
+  'prosa em volta do JSON não atrapalha');
+ok(extrairTreino(envelope('```json\n' + JSON.stringify({ sistema: 'Hyrox', titulo: 'T', avisos: [], exercicios: [EX_BASE] }) + '\n```')).sistema === 'Hyrox',
+  'cerca de markdown também é descascada');
+
+/* ---------- o que tem que ser RECUSADO ---------- */
+
+ok(lanca(() => extrairTreino(envelope('não consegui ler nada'))), 'lousa ilegível é recusada, não devolvida vazia');
+ok(lanca(() => extrairTreino(envelope(''))), 'resposta vazia é recusada');
+ok(lanca(() => extrairTreino(lousa([]))), 'treino sem nenhum exercício é recusado');
+ok(lanca(() => extrairTreino(lousa([{ ...EX_BASE, nome: '' }]))), 'treino em que nenhuma linha tem nome é recusado');
+
+/* ---------- o que tem que ser TOLERADO ---------- */
+
+const tolerante = extrairTreino(lousa([
+  { ...EX_BASE, bloco: 'Z' },
+  { ...EX_BASE, nome: 'Remada', series: 99 },
+  { ...EX_BASE, nome: 'Prancha', grupamentos: ['Peito', 'Pescoço', 'Peito'] },
+  { nome: '', bloco: 'C', series: 3, reps: '', implemento: '', grupamentos: [], observacao: '' },
+]));
+const forca = tolerante.blocos.find((b) => b.id === 'C');
+ok(forca?.exercicios.length === 3, `linha sem nome é descartada e o resto passa (${forca?.exercicios.length})`);
+ok(forca?.exercicios[0].bloco === 'C', 'bloco fora de A-D cai em Força');
+ok(forca?.exercicios[1].series === 3, `série fora da faixa cai no padrão do bloco (${forca?.exercicios[1].series})`);
+ok(JSON.stringify(forca?.exercicios[2].grupamentos) === JSON.stringify(['Peito']),
+  'músculo inventado é descartado e o repetido não duplica');
+
+const semSeries = extrairTreino(lousa([
+  { ...EX_BASE, bloco: 'A', series: 0 },
+  { ...EX_BASE, bloco: 'C', series: 0 },
+]));
+ok(semSeries.blocos.find((b) => b.id === 'A')?.exercicios[0].series === 1
+  && semSeries.blocos.find((b) => b.id === 'C')?.exercicios[0].series === 3,
+  'sem série na lousa, mobilidade recebe 1 passagem e força recebe 3');
+
+const sistemaTorto = extrairTreino(lousa([EX_BASE], { sistema: 'Crossfit' }));
+ok(sistemaTorto.sistema === 'Hipertrofia', 'sistema fora do vocabulário cai em Hipertrofia');
+ok(sistemaTorto.avisos.some((a) => a.includes('sistema')), 'e o coach é avisado do palpite em vez de descobrir depois');
+
+/* ---------- regras globais do box ---------- */
+
+console.log('\nREGRAS GLOBAIS DO BOX\n');
+
+for (const escrito of ['Pull-up', 'pull ups', 'PULLUP', 'Barra Fixa', '3x8 pull up estrito']) {
+  ok(regraGlobalDe(escrito)?.para === 'Puxada Alta Pegada Aberta', `"${escrito}" vira Puxada Alta Pegada Aberta`);
+}
+for (const escrito of ['Corrida', 'corrida 400m', 'Esteira', 'Sprint', 'run']) {
+  ok(regraGlobalDe(escrito)?.para === 'Airbike', `"${escrito}" vira Airbike`);
+}
+ok(regraGlobalDe('Puxada Alta Pegada Aberta') === null, 'o exercício que já é o destino não gera troca fantasma');
+ok(regraGlobalDe('Airbike') === null, 'idem para o Airbike — reler um treino salvo não inventa substituição');
+ok(regraGlobalDe('Supino Reto') === null, 'exercício sem regra passa intacto');
+
+const comRegra = extrairTreino(lousa([
+  { ...EX_BASE, nome: 'Pull-ups' },
+  { ...EX_BASE, nome: 'Corrida 800m' },
+  { ...EX_BASE, nome: 'Supino Reto' },
+]));
+const nomesFinais = comRegra.blocos.flatMap((b) => b.exercicios.map((e) => e.nome));
+ok(nomesFinais.includes('Puxada Alta Pegada Aberta') && nomesFinais.includes('Airbike'),
+  'as regras globais são aplicadas ao treino inteiro na leitura');
+ok(comRegra.substituicoes.length === 2, `e ficam registradas para o coach ver (${comRegra.substituicoes.length})`);
+ok(comRegra.substituicoes[0].de === 'Pull-ups' && comRegra.substituicoes[0].regra.includes('regra global'),
+  'o registro diz o que era, o que virou e por quê');
+
+/* ---------- schema estrito ---------- */
+
+const schemaLousa = montarSchemaLousa() as {
+  required: string[]; properties: Record<string, unknown>;
+  properties2?: never;
+};
+ok(mesmoConjunto(schemaLousa.required, Object.keys(schemaLousa.properties)),
+  'required do schema da lousa é EXATAMENTE properties (strict mode recusa campo fantasma nos dois sentidos)');
+const itemEx = (schemaLousa.properties.exercicios as { items: { required: string[]; properties: Record<string, unknown>; additionalProperties: boolean } }).items;
+ok(mesmoConjunto(itemEx.required, Object.keys(itemEx.properties)), 'e o mesmo vale para cada exercício');
+ok(itemEx.additionalProperties === false, 'o exercício não aceita campo extra');
+
+console.log('\nMOTOR DE VARIABILIDADE\n');
+
+const AGORA = '2026-09-16T19:00:00.000Z';
+const treinoHoje = extrairTreino(lousa([
+  { ...EX_BASE, nome: 'Agachamento Livre', grupamentos: ['Quadríceps'] },
+]));
+const historicoDe = (horasAtras: number, nome: string): TreinoHistorico => ({
+  id: 'x', dateId: new Date(Date.parse(AGORA) - horasAtras * 36e5).toISOString().slice(0, 10),
+  geradoEm: new Date(Date.parse(AGORA) - horasAtras * 36e5).toISOString(),
+  treino: extrairTreino(lousa([{ ...EX_BASE, nome, grupamentos: ['Quadríceps'] }])),
+});
+
+const dup = analisarVariabilidade(treinoHoje, [historicoDe(48, 'Agachamento Livre')], AGORA);
+ok(dup.alertas.some((a) => a.tipo === 'duplicacao'), 'mesmo exercício 48h atrás dispara duplicação');
+ok(dup.alertas[0].sugestoes.some((s) => s.acao === 'manter'), 'e "manter a escolha do coach" é sempre uma das saídas');
+ok(dup.alertas[0].sugestoes.some((s) => s.rotulo.includes('Halter')),
+  'a troca de 1 clique de Barra oferece Halter');
+
+const semDup = analisarVariabilidade(treinoHoje, [historicoDe(100, 'Agachamento Livre')], AGORA);
+ok(!semDup.alertas.some((a) => a.tipo === 'duplicacao'), 'o mesmo exercício há 100h (> 72h) não dispara nada');
+
+const outroExercicio = analisarVariabilidade(treinoHoje, [historicoDe(24, 'Supino Reto')], AGORA);
+ok(!outroExercicio.alertas.some((a) => a.tipo === 'duplicacao'), 'exercício diferente no mesmo dia não é duplicação');
+
+/** Oito exercícios, sete de barra — saturação clara, amostra suficiente. */
+const muitaBarra = extrairTreino(lousa([
+  ...Array.from({ length: 7 }, (_, i) => ({ ...EX_BASE, nome: `Barra ${i}`, implemento: 'Barra' })),
+  { ...EX_BASE, nome: 'Abdominal', implemento: 'Colchonete' },
+]));
+const sat = analisarVariabilidade(muitaBarra, [], AGORA);
+ok(sat.alertas.some((a) => a.tipo === 'saturacao' && a.alvo === 'Barra'), 'barra em 87% dos exercícios dispara saturação');
+ok(sat.resumo.usoPorImplemento.Barra === 7, `o resumo conta o uso por implemento (${sat.resumo.usoPorImplemento.Barra})`);
+
+const amostraPequena = extrairTreino(lousa([
+  { ...EX_BASE, nome: 'A', implemento: 'Barra' },
+  { ...EX_BASE, nome: 'B', implemento: 'Barra' },
+  { ...EX_BASE, nome: 'C', implemento: 'Barra' },
+]));
+ok(!analisarVariabilidade(amostraPequena, [], AGORA).alertas.some((a) => a.tipo === 'saturacao'),
+  'três exercícios de barra numa segunda-feira NÃO viram alerta (amostra pequena demais)');
+
+const soPeito = extrairTreino(lousa(
+  Array.from({ length: 8 }, (_, i) => ({ ...EX_BASE, nome: `Peito ${i}`, grupamentos: ['Peito'] })),
+));
+ok(analisarVariabilidade(soPeito, [], AGORA).alertas.some((a) => a.tipo === 'redundancia'),
+  'a semana inteira em um grupamento dispara redundância de estímulo');
+
+console.log('\nDISTRIBUIÇÃO PARA A TURMA\n');
+
+const treinoTurma = extrairTreino(lousa([
+  { ...EX_BASE, nome: 'Agachamento Livre', bloco: 'C', series: 4, implemento: 'Barra', grupamentos: ['Quadríceps'] },
+  { ...EX_BASE, nome: 'Burpee', bloco: 'D', series: 3, reps: '15', implemento: 'Peso corporal', grupamentos: ['Peito'] },
+  { nome: 'Mobilidade de Tornozelo', bloco: 'A', series: 1, reps: '40s', implemento: '', grupamentos: [], observacao: '' },
+]));
+
+/** Uma ficha da Gestão, no formato que `matrizDe()` do site lê. */
+const fichaGestao = (extra: object = {}, matriz: object = {}) => ({
+  nome: 'Ana Prado', email: 'ANA@Exemplo.com ', nivel: 'intermediario', objetivo: 'Hipertrofia',
+  freqVezes: '3', foco: ['perna'],
+  ...extra,
+  matrizIndividualizacao: {
+    versao: 1,
+    perfil: { fase: 'hipertrofia' },
+    cargas: { referencia: {}, rir: '2-3', airbike: { rpm: null, calPorMin: null, obs: '' } },
+    adaptacoes: { lesoes: [], impacto: 'livre', tracao: 'barra', mobilidade: [], obs: '' },
+    historico: { semanaId: '', correcoes: {}, atualizadoEm: 0 },
+    ...matriz,
+  },
+});
+
+/* ---------- 1RM: medido, estimado e o que não vira número ---------- */
+
+ok(e1rm(100, 1) === 100, 'uma repetição é o próprio 1RM');
+ok(e1rm(100, 5) === 116.5, `Epley: 100kg × 5 reps ≈ 116,5kg (${e1rm(100, 5)})`);
+// 92,5 × (1 + 3/30) = 101,75 → 102 no arredondamento de 0,5 kg da fonte.
+ok(e1rm('92,5', '3') === 102, `vírgula decimal do formulário é aceita, como na fonte (${e1rm('92,5', '3')})`);
+ok(e1rm(0, 5) === null && e1rm(100, 0) === null, 'sem peso ou sem reps não há estimativa');
+ok(cargaDe1RM(100, 70) === 70, 'carga de trabalho arredonda ao par de anilhas (2,5 kg)');
+ok(cargaDe1RM(103, 70) === 72.5, `72,1 vira 72,5 — o que dá para montar na barra (${cargaDe1RM(103, 70)})`);
+
+const comMedido = lerMatriz(fichaGestao({}, {
+  cargas: { referencia: { agachamento: { kg: 90, reps: 5, rm: 130, medidoEm: '2026-09-01' } }, rir: '2-3', airbike: {} },
+}), 'ana');
+ok(comMedido.referencia.agachamento.rmEfetivo === 130,
+  'o 1RM MEDIDO ganha do estimado — se o coach testou de verdade, vale mais que a conta');
+
+const soEstimado = lerMatriz(fichaGestao({}, {
+  cargas: { referencia: { agachamento: { kg: 90, reps: 5, rm: null, medidoEm: '' } }, rir: '2-3', airbike: {} },
+}), 'ana');
+ok(soEstimado.referencia.agachamento.rmEfetivo === e1rm(90, 5),
+  'sem máxima medida, vale a estimativa de Epley sobre peso e reps');
+
+/* ---------- a leitura da ficha ---------- */
+
+const m = lerMatriz(fichaGestao(), 'ana');
+ok(m.nivel === 'intermediario' && m.objetivo === 'Hipertrofia' && m.freqVezes === '3',
+  'nível, objetivo e frequência são lidos do TOPO da ficha, não de dentro da matriz');
+ok(m.fase === 'hipertrofia', 'a fase é lida de dentro da matriz — objetivo e fase são coisas diferentes');
+ok(m.email === 'ana@exemplo.com', 'o e-mail é normalizado (é a chave do Portal)');
+ok(m.rir === '2-3', 'a zona de RIR habitual chega na ficha do aluno');
+
+const vazia = lerMatriz({ nome: 'Novo' }, 'novo');
+ok(vazia.impacto === 'livre' && vazia.tracao === 'barra',
+  'ficha antiga (sem matriz) sai com as regras em branco — branco é "sem adaptação", nunca erro');
+ok(LEVANTAMENTOS.every((id) => vazia.referencia[id]?.rmEfetivo === null),
+  'e com os três levantamentos presentes e vazios, para o Motor nunca ter que perguntar se o campo existe');
+
+const torta = lerMatriz({ nivel: 'semideus', matrizIndividualizacao: {
+  perfil: { fase: 'ascensao' },
+  cargas: { referencia: { agachamento: { kg: 'muito', reps: 5 } }, rir: '9-9' },
+  adaptacoes: { lesoes: { nao: 'é array' }, impacto: 'voar', tracao: 'teletransporte', mobilidade: 'nada' },
+} }, 'x');
+ok(torta.nivel === '' && torta.fase === '', 'valor fora do vocabulário vira vazio, não entra no cálculo');
+ok(torta.rir === '', 'zona de RIR inventada é descartada');
+ok(torta.impacto === 'livre' && torta.tracao === 'barra', 'regra inventada cai no padrão seguro');
+ok(Array.isArray(torta.lesoes) && torta.lesoes.length === 0, 'lesões que não são array viram lista vazia');
+ok(Array.isArray(torta.mobilidade) && torta.mobilidade.length === 0, 'mobilidade que não é array vira lista vazia');
+ok(torta.referencia.agachamento.rmEfetivo === null, 'peso que não é número não vira 1RM');
+
+/* ---------- a carga sai só dos três levantamentos ---------- */
+
+const comAgacho = lerMatriz(fichaGestao({}, {
+  cargas: { referencia: { agachamento: { kg: null, reps: null, rm: 100, medidoEm: '' } }, rir: '2-3', airbike: {} },
+}), 'ana');
+const fichaAna = fichaDoAluno(treinoTurma, comAgacho);
+const linhaAgacho = fichaAna.linhas.find((l) => l.nome === 'Agachamento Livre');
+// Hipertrofia bloco C = 70%; fase hipertrofia ×1,0; nível intermediário ×1,0.
+ok(linhaAgacho?.cargaKg === 70, `a carga sai do 1RM do levantamento de referência (${linhaAgacho?.cargaKg}kg)`);
+ok(linhaAgacho?.levantamento === 'agachamento', 'e a ficha diz QUAL levantamento balizou');
+ok(!!linhaAgacho?.motivos.some((x) => x.includes('1RM medido')), 'dizendo se o 1RM foi medido ou estimado');
+
+ok(fichaAna.linhas.find((l) => l.nome === 'Burpee')?.cargaKg === null,
+  'exercício que não é um dos três levantamentos NÃO recebe kg — número preciso e errado é pior que nenhum');
+ok(fichaAna.linhas.find((l) => l.nome === 'Mobilidade de Tornozelo')?.cargaKg === null,
+  'mobilidade não recebe carga');
+ok(levantamentoDe('Leg Press') === null,
+  'leg press NÃO puxa do 1RM de agachamento — a alavanca é outra e a carga sairia errada');
+ok(levantamentoDe('Agachamento Búlgaro') === 'agachamento' && levantamentoDe('Supino Inclinado') === 'supino'
+  && levantamentoDe('Levantamento Terra Romeno') === 'terra',
+  'as variações dos três levantamentos casam com a referência');
+
+const semRm = fichaDoAluno(treinoTurma, lerMatriz(fichaGestao(), 'ana'));
+ok(semRm.linhas.every((l) => l.cargaKg === null), 'aluno sem 1RM recebe a orientação da lousa, nunca um número inventado');
+ok(semRm.avisos.some((a) => a.includes('1RM')), 'e o coach é avisado de que falta 1RM');
+
+/* ---------- fase e nível compõem, mas dentro da faixa ---------- */
+
+const emForca = lerMatriz(fichaGestao({ nivel: 'avancado' }, {
+  perfil: { fase: 'forca' },
+  cargas: { referencia: { agachamento: { rm: 100 } }, rir: '1-2', airbike: {} },
+}), 'x');
+const emResistencia = lerMatriz(fichaGestao({ nivel: 'iniciante' }, {
+  perfil: { fase: 'resistencia' },
+  cargas: { referencia: { agachamento: { rm: 100 } }, rir: '3-4', airbike: {} },
+}), 'y');
+const pctForca = cargaDeTrabalho(emForca, 'Agachamento Livre', 'Hipertrofia', 'C').percentual ?? 0;
+const pctResist = cargaDeTrabalho(emResistencia, 'Agachamento Livre', 'Hipertrofia', 'C').percentual ?? 0;
+ok(pctForca > 70 && pctResist < 70, `bloco de força puxa mais que resistência na MESMA aula (${pctForca}% x ${pctResist}%)`);
+ok(pctForca <= PCT_MAX && pctResist >= PCT_MIN,
+  `a composição fase × nível fica na faixa ${PCT_MIN}-${PCT_MAX}% — 90% do 1RM em aula de oito não é prescrição`);
+ok(cargaDeTrabalho(emForca, 'Agachamento Livre', 'GAP', 'D').percentual! < pctForca,
+  'o metcon do GAP baliza mais leve que a força da hipertrofia');
+ok(cargaDeTrabalho(emForca, 'Agachamento Livre', 'Hipertrofia', 'A').cargaKg === null,
+  'não existe 1RM de mobilidade');
+
+/* ---------- as três regras de adaptação ---------- */
+
+const semImpacto = lerMatriz(fichaGestao({}, {
+  adaptacoes: { lesoes: [], impacto: 'converter_airbike', tracao: 'barra', mobilidade: [], obs: '' },
+}), 'x');
+const fichaSemImpacto = fichaDoAluno(treinoTurma, semImpacto);
+ok(fichaSemImpacto.linhas.some((l) => l.nome === 'Airbike'),
+  'quem não pode saltar senta na Airbike — é a conversão que o box já faz na prática');
+ok(!fichaSemImpacto.linhas.some((l) => l.nome === 'Burpee'), 'e o burpee sai da ficha dele');
+ok(fichaSemImpacto.linhas.some((l) => l.motivos.some((x) => x.includes('Airbike'))),
+  'com o motivo escrito, em vez de o exercício mudar em silêncio');
+ok(fichaSemImpacto.linhas.find((l) => l.nome === 'Agachamento Livre') !== undefined,
+  'a regra de impacto não encosta em quem não é movimento de impacto');
+
+const impactoReduzido = fichaDoAluno(treinoTurma, lerMatriz(fichaGestao({}, {
+  adaptacoes: { lesoes: [], impacto: 'reduzir', tracao: 'barra', mobilidade: [], obs: '' },
+}), 'x'));
+ok(impactoReduzido.linhas.some((l) => l.nome === 'Burpee' && l.motivos.some((x) => x.includes('sem fase aérea'))),
+  '"reduzir impacto" vira AVISO na linha, não troca de exercício — a adaptação é decisão do coach na aula');
+
+const mobilidadeRuim = fichaDoAluno(treinoTurma, lerMatriz(fichaGestao({}, {
+  adaptacoes: { lesoes: [], impacto: 'livre', tracao: 'barra', mobilidade: ['tornozelo'], obs: '' },
+}), 'x'));
+ok(mobilidadeRuim.linhas.some((l) => l.nome === 'Agachamento Livre' && l.motivos.some((x) => x.includes('Mobilidade'))),
+  'restrição de tornozelo avisa no agachamento');
+
+const comLesao = fichaDoAluno(treinoTurma, lerMatriz(fichaGestao({}, {
+  adaptacoes: { lesoes: [{ regiao: 'joelho', gravidade: 'moderada', desde: '2026-08-01', obs: 'menisco' }],
+    impacto: 'livre', tracao: 'barra', mobilidade: [], obs: 'evitar carga axial alta' },
+}), 'x'));
+ok(comLesao.avisos.some((a) => a.includes('joelho')),
+  'a lesão cadastrada aparece na ficha mesmo sem regra que a execute — senão o coach acharia que o sistema a considerou');
+ok(comLesao.avisos.some((a) => a.includes('carga axial')), 'e a observação da matriz vai junto');
+
+const turmaGrande = distribuir(treinoTurma, Array.from({ length: 12 }, (_, i) => matrizPadrao(`a${i}`)));
+ok(turmaGrande.length === ALUNOS_POR_TURMA, `a turma para no teto de ${ALUNOS_POR_TURMA} alunos (${turmaGrande.length})`);
+
+console.log('\nCONSOLIDAÇÃO DE VOLUME\n');
+
+ok(chaveSemana('2026-09-16') === '2026-W38', `quarta 16/09/2026 cai na semana ISO 38 (${chaveSemana('2026-09-16')})`);
+ok(chaveSemana('2026-09-14') === chaveSemana('2026-09-20'),
+  'segunda e domingo da mesma semana ISO dão a mesma chave');
+ok(chaveSemana('2026-09-20') !== chaveSemana('2026-09-21'), 'e a segunda seguinte já é outra semana');
+ok(chaveSemana('2025-12-31') === '2026-W01',
+  `31/12/2025 pertence à semana ISO 1 de 2026 (${chaveSemana('2025-12-31')}) — a virada de ano não parte a semana de treino`);
+ok(chaveMes('2026-09-16') === '2026-09', 'a chave de mês é o prefixo YYYY-MM');
+ok(faixaDaSemana('2026-09-16').inicio === '2026-09-14' && faixaDaSemana('2026-09-16').fim === '2026-09-20',
+  'a semana vai de segunda a domingo');
+ok(faixaDoMes('2026-02-10').fim === '2026-02-28', 'a faixa do mês conhece o tamanho de cada mês');
+
+const treinosSemana: TreinoParaVolume[] = [
+  { dateId: '2026-09-14', sistema: 'Hipertrofia', exercicios: [
+    { series: 4, grupamentos: ['Peito', 'Tríceps'], implemento: 'Barra' },
+    { series: 3, grupamentos: ['Quadríceps'], implemento: 'Halter' },
+  ] },
+  { dateId: '2026-09-16', sistema: 'HIIT', exercicios: [
+    { series: 3, grupamentos: ['Peito'], implemento: 'Barra' },
+  ] },
+];
+const cSem = consolidar(treinosSemana, 'semana', '2026-W38', faixaDaSemana('2026-09-16'));
+ok(cSem.totalSeries === 10, `o total de séries soma o que foi prescrito (${cSem.totalSeries})`);
+ok(cSem.porGrupo.peito === 7, `peito acumula as séries dos dois dias (${cSem.porGrupo.peito})`);
+ok(cSem.porGrupo.braco === 4, 'tríceps é creditado ao grupo braço, como no resto do sistema');
+ok(cSem.porGrupo.perna === 3, 'quadríceps é creditado ao grupo perna');
+ok(cSem.percentualImplemento.Barra === 66.7, `a rosca de implementos mostra a fatia de cada um (${cSem.percentualImplemento.Barra}%)`);
+ok(cSem.porSistema.Hipertrofia === 1 && cSem.porSistema.HIIT === 1, 'e os treinos são contados por sistema');
+ok(cSem.metas.peito === META_SEMANAL_PADRAO, 'a meta semanal padrão vale para todos os grupos');
+ok(saldoPorGrupo(cSem).costas === -META_SEMANAL_PADRAO, 'o grupo que não foi treinado aparece com o saldo negativo cheio');
+
+const cMes = consolidar(treinosSemana, 'mes', '2026-09', faixaDoMes('2026-09-16'));
+ok(cMes.metas.peito === Math.round(META_SEMANAL_PADRAO * SEMANAS_POR_MES),
+  `a meta do mês é a semanal × ${SEMANAS_POR_MES} (${cMes.metas.peito})`);
+
+const comMetaDoCoach = consolidar(treinosSemana, 'semana', '2026-W38', faixaDaSemana('2026-09-16'), { perna: 20 });
+ok(comMetaDoCoach.metas.perna === 20, 'a meta que o coach digitou vale sobre a tabela padrão');
+ok(comMetaDoCoach.metas.peito === META_SEMANAL_PADRAO, 'e sobrescrever um grupo não mexe nos outros');
+
+const vazio = consolidar([], 'semana', '2026-W38', faixaDaSemana('2026-09-16'));
+ok(vazio.totalSeries === 0 && Object.keys(vazio.metas).length === GRUPOS_VOL.length,
+  'semana sem treino consolida zerada, mas com as metas — o dashboard mostra o buraco');
+
+/* ---------- vocabulários do híbrido contra a fonte do site ---------- */
+
+console.log('\nVOCABULÁRIOS: AS CÓPIAS DO HÍBRIDO BATEM COM A FONTE DO SITE?\n');
+
+checarVocabulario(
+  'MUSCULOS_LABEL (lousa.ts)',
+  () => {
+    const chaves = comoArrayDeString(
+      acharConst(parseSite('compartilhado/config/padroes.js'), 'MUSCULOS'),
+      'compartilhado/config/padroes.js:MUSCULOS',
+    );
+    const mapa = comoMapaDeString(
+      acharConst(parseSite('compartilhado/config/musculos.js'), 'MUSC_MAP'),
+      'compartilhado/config/musculos.js:MUSC_MAP',
+    );
+    return chaves.map((k) => {
+      const rotulo = mapa[k];
+      if (!rotulo) throw new Error(`a chave "${k}" de MUSCULOS não tem rótulo em MUSC_MAP.`);
+      return rotulo;
+    });
+  },
+  [...MUSCULOS_LABEL],
+);
+
+checarVocabulario(
+  'GRUPOS (volume-agregado.ts)',
+  () => comoArrayDeString(acharConst(parseSite('compartilhado/regras/grupos.js'), 'GRUPOS'), 'compartilhado/regras/grupos.js:GRUPOS'),
+  [...GRUPOS_VOL],
+);
+
+/* `GRUPO_POR_ROTULO` não tem fonte única no site: é a COMPOSIÇÃO de
+   `MUSC_MAP` (chave → rótulo) com `GRUPO_POR_MUSCULO` (chave → grupo). A
+   checagem refaz a composição a partir dos dois arquivos, que é exatamente o
+   trabalho manual que alguém faria — e esqueceria — ao acrescentar um músculo. */
+try {
+  const mapa = comoMapaDeString(
+    acharConst(parseSite('compartilhado/config/musculos.js'), 'MUSC_MAP'),
+    'compartilhado/config/musculos.js:MUSC_MAP',
+  );
+  const porMusculo = comoMapaDeString(
+    acharConst(parseSite('compartilhado/regras/grupos.js'), 'GRUPO_POR_MUSCULO'),
+    'compartilhado/regras/grupos.js:GRUPO_POR_MUSCULO',
+  );
+  const esperado: Record<string, string> = {};
+  for (const [chave, grupo] of Object.entries(porMusculo)) {
+    const rotulo = mapa[chave];
+    if (!rotulo) throw new Error(`a chave "${chave}" de GRUPO_POR_MUSCULO não tem rótulo em MUSC_MAP.`);
+    esperado[rotulo] = grupo;
+  }
+  const iguais = mesmoConjunto(Object.keys(esperado), Object.keys(GRUPO_POR_ROTULO))
+    && Object.entries(esperado).every(([rotulo, grupo]) => GRUPO_POR_ROTULO[rotulo as keyof typeof GRUPO_POR_ROTULO] === grupo);
+  ok(iguais, 'GRUPO_POR_ROTULO: a composição MUSC_MAP × GRUPO_POR_MUSCULO bate com a cópia',
+    `fonte=${JSON.stringify(esperado)} cópia=${JSON.stringify(GRUPO_POR_ROTULO)}`);
+} catch (e) {
+  falhas += 1;
+  console.log(`  ✗ GRUPO_POR_ROTULO: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+}
+
+/* A meta da turma tem que ser o MESMO número que o aluno vê no Portal
+   (`META_SERIES_SEMANAIS.hipertrofia`, valor "comum"). Duas metas diferentes
+   para a mesma semana é o tipo de divergência que ninguém percebe olhando uma
+   tela de cada vez. */
+try {
+  const no = acharConst(parseSite('compartilhado/regras/metas-aluno.js'), 'META_SERIES_SEMANAIS');
+  if (!ts.isObjectLiteralExpression(no)) throw new Error('META_SERIES_SEMANAIS não é um objeto literal.');
+  const hiper = no.properties.find((p) => ts.isPropertyAssignment(p)
+    && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === 'hipertrofia');
+  if (!hiper || !ts.isPropertyAssignment(hiper) || !ts.isArrayLiteralExpression(hiper.initializer)) {
+    throw new Error('a entrada "hipertrofia" não é um par [comum, emFoco].');
+  }
+  const comum = hiper.initializer.elements[0];
+  if (!comum || !ts.isNumericLiteral(comum)) throw new Error('o valor "comum" não é um número literal.');
+  ok(Number(comum.text) === META_SEMANAL_PADRAO,
+    'META_SEMANAL_PADRAO é o mesmo número que o aluno vê no Portal',
+    `site=${comum.text} híbrido=${META_SEMANAL_PADRAO}`);
+} catch (e) {
+  falhas += 1;
+  console.log(`  ✗ META_SEMANAL_PADRAO: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+}
+
+
+/* ---------- os vocabulários da matriz contra a fonte do site ---------- */
+
+/*
+ * `compartilhado/regras/matriz-individualizacao.js` é a FONTE da matriz: é ela
+ * que a tela da Gestão usa para montar os selects e que `matrizDe()` usa para
+ * limpar o que foi digitado. As cópias em `distribuicao.ts` existem só porque
+ * `functions/` não importa os `.js` do site.
+ *
+ * Se uma lista divergir, nada explode: a function passa a DESCARTAR em silêncio
+ * um valor que a tela oferece — o coach marca "converter para Airbike" e a ficha
+ * sai sem a adaptação, sem erro em lugar nenhum. É o tipo de bug que só aparece
+ * quando um aluno faz o exercício errado.
+ *
+ * A fonte pode ainda não estar NESTE branch (ela nasceu em `etapa5a-portal`).
+ * Nesse caso a checagem avisa alto e não falha — falhar deixaria o CI vermelho
+ * por um arquivo que está a um merge de distância, e um check que ninguém
+ * consegue deixar verde é um check que todo mundo aprende a ignorar.
+ */
+const FONTE_MATRIZ = 'compartilhado/regras/matriz-individualizacao.js';
+
+if (!existsSync(join(RAIZ_SITE, FONTE_MATRIZ))) {
+  console.log('\nVOCABULÁRIOS DA MATRIZ DE INDIVIDUALIZAÇÃO\n');
+  console.log(`  ⚠ ${FONTE_MATRIZ} não está neste branch — as cópias de distribuicao.ts`);
+  console.log('    não foram conferidas. Elas passam a ser conferidas assim que a fonte entrar.');
+} else {
+  console.log('\nVOCABULÁRIOS DA MATRIZ: AS CÓPIAS BATEM COM A FONTE?\n');
+
+  /** Array de pares `[valor, rótulo]` → só os valores. */
+  const comoValoresDePares = (no: ts.Expression, origem: string): string[] => {
+    if (!ts.isArrayLiteralExpression(no)) throw new Error(`esperava um array literal em ${origem}.`);
+    return no.elements.map((el) => {
+      if (!ts.isArrayLiteralExpression(el) || !el.elements.length || !ts.isStringLiteral(el.elements[0])) {
+        throw new Error(`elemento não é um par ['valor', 'rótulo'] em ${origem}.`);
+      }
+      return (el.elements[0] as ts.StringLiteral).text;
+    });
+  };
+
+  const fonte = () => parseSite(FONTE_MATRIZ);
+
+  for (const [nome, constante, copia] of [
+    ['FASES', 'FASES', FASES],
+    ['LEVANTAMENTOS', 'LEVANTAMENTOS', LEVANTAMENTOS],
+    ['ZONAS_RIR', 'ZONAS_RIR', ZONAS_RIR],
+    ['REGRAS_IMPACTO', 'REGRAS_IMPACTO', REGRAS_IMPACTO],
+    ['REGRAS_TRACAO', 'REGRAS_TRACAO', REGRAS_TRACAO],
+    ['REGIOES_LESAO', 'REGIOES_LESAO', REGIOES_LESAO],
+    ['GRAVIDADES', 'GRAVIDADES', GRAVIDADES],
+    ['RESTRICOES_MOBILIDADE', 'RESTRICOES_MOBILIDADE', RESTRICOES_MOBILIDADE],
+  ] as [string, string, readonly string[]][]) {
+    checarVocabulario(
+      `${nome} (distribuicao.ts)`,
+      () => comoValoresDePares(acharConst(fonte(), constante), `${FONTE_MATRIZ}:${constante}`),
+      [...copia],
+    );
+  }
+
+  // `NIVEIS` na matriz vem de `niveis.js` (`OPCOES_NIVEL` é derivado dele), então
+  // a fonte a conferir é aquela, não a matriz.
+  checarVocabulario(
+    'NIVEIS (distribuicao.ts)',
+    () => comoArrayDeString(acharConst(parseSite('compartilhado/regras/niveis.js'), 'NIVEIS'), 'compartilhado/regras/niveis.js:NIVEIS'),
+    [...NIVEIS_MATRIZ],
+  );
+
+  // O nome do campo dentro da ficha do aluno. Se ele mudar na fonte e não aqui,
+  // a function lê `undefined` e TODA a turma sai sem individualização.
+  try {
+    const no = acharConst(fonte(), 'CAMPO');
+    if (!ts.isStringLiteral(no)) throw new Error('CAMPO não é uma string literal.');
+    ok(no.text === CAMPO_MATRIZ, 'CAMPO: o nome do campo da matriz bate com a fonte',
+      `site="${no.text}" functions="${CAMPO_MATRIZ}"`);
+  } catch (e) {
+    falhas += 1;
+    console.log(`  ✗ CAMPO: não deu para extrair da fonte — ${e instanceof Error ? e.message : e}`);
+  }
+
+  // As duas contas de carga também são cópias. Aqui não dá para comparar o
+  // código; compara-se o RESULTADO em pontos conhecidos da fórmula de Epley.
+  ok(e1rm(100, 5) === 116.5 && e1rm(60, 8) === 76, 'e1rm reproduz Epley nos pontos de referência');
+  ok(cargaDe1RM(100, 70) === 70 && cargaDe1RM(103, 70) === 72.5, 'cargaDe1RM arredonda a 2,5 kg como a fonte');
+}
+
 console.log(
   falhas === 0
-    ? '\n✓ A leitura da IA e a de preço aguentam entrada torta.\n'
+    ? '\n✓ A leitura da IA, a de preço e o Montador Híbrido aguentam entrada torta.\n'
     : `\n✗ ${falhas} verificação(ões) falharam.\n`,
 );
 process.exitCode = falhas === 0 ? 0 : 1;
