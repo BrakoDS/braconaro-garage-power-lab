@@ -58,6 +58,14 @@ export type PerfilExercicio = {
   secundarios: string[];
   tipoContagem: TipoContagem;
   /**
+   * O implemento com que o box faz esse movimento.
+   *
+   * Existe para o CAMINHO RÁPIDO do pré-parser: sem ele, um treino lido sem IA
+   * sairia com implemento vazio e a rosca de variabilidade do dashboard — que
+   * conta exercício por implemento — mostraria um buraco que não existe.
+   */
+  implemento: string;
+  /**
    * Carga de referência do box, em kg, quando o coach não escreve nenhuma.
    *
    * Só faz sentido em `metcon_series`: é o implemento padrão do galpão (a bola
@@ -89,6 +97,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Peito', 'Core/Abdômen'],
     secundarios: ['Quadríceps', 'Ombro', 'Tríceps'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Peso corporal',
   },
   {
     nome: 'Wall Ball',
@@ -96,6 +105,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Quadríceps', 'Glúteo'],
     secundarios: ['Ombro'],
     tipoContagem: 'metcon_series',
+    implemento: 'Bola',
     cargaPadraoKg: 6,
   },
   {
@@ -104,6 +114,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Posterior de coxa', 'Glúteo'],
     secundarios: ['Core/Abdômen', 'Ombro'],
     tipoContagem: 'metcon_series',
+    implemento: 'Kettlebell',
     cargaPadraoKg: 16,
   },
   {
@@ -112,6 +123,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Quadríceps', 'Glúteo'],
     secundarios: ['Panturrilha'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Caixa',
   },
   {
     nome: 'Thruster',
@@ -119,6 +131,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Quadríceps', 'Ombro'],
     secundarios: ['Glúteo', 'Tríceps'],
     tipoContagem: 'metcon_series',
+    implemento: 'Barra',
     cargaPadraoKg: 20,
   },
   {
@@ -127,6 +140,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Peito'],
     secundarios: ['Tríceps', 'Ombro', 'Core/Abdômen'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Peso corporal',
   },
   {
     nome: 'Air Squat',
@@ -134,6 +148,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Quadríceps', 'Glúteo'],
     secundarios: ['Core/Abdômen'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Peso corporal',
   },
   {
     nome: 'Abdominal',
@@ -141,6 +156,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Core/Abdômen'],
     secundarios: [],
     tipoContagem: 'peso_corporal',
+    implemento: 'Colchonete',
   },
   {
     nome: 'Afundo',
@@ -148,6 +164,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Quadríceps', 'Glúteo'],
     secundarios: ['Posterior de coxa'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Peso corporal',
   },
   {
     nome: 'Mountain Climber',
@@ -155,6 +172,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Core/Abdômen'],
     secundarios: ['Quadríceps', 'Ombro'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Peso corporal',
   },
   {
     nome: 'Airbike',
@@ -162,6 +180,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Quadríceps'],
     secundarios: ['Costas', 'Ombro'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Airbike',
   },
   {
     nome: 'Remo ergômetro',
@@ -170,6 +189,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Costas'],
     secundarios: ['Quadríceps', 'Bíceps', 'Core/Abdômen'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Remo',
   },
   {
     nome: 'Corda naval',
@@ -177,6 +197,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Ombro'],
     secundarios: ['Core/Abdômen', 'Antebraço'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Corda naval',
   },
   {
     nome: 'Pular corda',
@@ -184,6 +205,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Panturrilha'],
     secundarios: ['Antebraço'],
     tipoContagem: 'peso_corporal',
+    implemento: 'Corda',
   },
   {
     nome: 'Farmer Walk',
@@ -191,6 +213,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Antebraço', 'Core/Abdômen'],
     secundarios: ['Costas', 'Quadríceps'],
     tipoContagem: 'metcon_series',
+    implemento: 'Halter',
     cargaPadraoKg: 24,
   },
   {
@@ -199,6 +222,7 @@ export const TAXONOMIA: PerfilExercicio[] = [
     primarios: ['Core/Abdômen'],
     secundarios: ['Ombro', 'Costas'],
     tipoContagem: 'metcon_series',
+    implemento: 'Bola',
     cargaPadraoKg: 9,
   },
 ];

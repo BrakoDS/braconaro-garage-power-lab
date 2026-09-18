@@ -354,8 +354,20 @@ function grupamentosValidos(v: unknown): string[] {
  * o coach a fotografar a lousa de novo por nada.
  */
 export function extrairTreino(resposta: unknown): TreinoEstruturado {
-  const o = objetoDoTexto(textoDaResposta(resposta));
+  return montarTreino(objetoDoTexto(textoDaResposta(resposta)));
+}
 
+/**
+ * O objeto já desembrulhado ➔ treino estruturado.
+ *
+ * Separado de `extrairTreino` para que o PRÉ-PARSER (`pre-parser.ts`), que monta
+ * o mesmo objeto sem chamar a IA, passe pelas MESMAS regras: bloco padrão,
+ * séries padrão, vocabulário de grupamento, taxonomia, regras globais do box e
+ * estimativa de séries. Um segundo caminho de montagem seria um segundo lugar
+ * para as duas leituras divergirem sem ninguém notar — e a que diverge em
+ * silêncio é sempre a barata, que ninguém confere.
+ */
+export function montarTreino(o: Record<string, unknown>): TreinoEstruturado {
   const sistema = (SISTEMAS as readonly string[]).includes(String(o.sistema))
     ? (o.sistema as Sistema)
     : 'Hipertrofia';

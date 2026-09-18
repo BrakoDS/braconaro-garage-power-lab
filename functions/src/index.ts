@@ -35,8 +35,8 @@ import {
 // arquivo continua nomeando as próprias peças do jeito óbvio, e é só neste
 // ponto — onde os dois convivem — que a ambiguidade precisa ser desfeita.
 import {
-  montarSchema as montarSchemaLousa, instrucoes as instrucoesLousa, extrairTreino,
-  type TreinoEstruturado,
+  montarSchema as montarSchemaLousa, instrucoes as instrucoesLousa, extrairTreino, montarTreino,
+  MUSCULOS_LABEL, type TreinoEstruturado,
 } from './lousa';
 import { analisarVariabilidade, type ResultadoVariabilidade, type TreinoHistorico } from './variabilidade';
 import {
@@ -47,6 +47,8 @@ import {
   chaveMes, chaveSemana, consolidar, faixaDaSemana, faixaDoMes,
   type TreinoParaVolume,
 } from './volume-agregado';
+import { preParse, montarComoIA } from './pre-parser';
+import { chaveDe, resolver, itemUtil, itemDaIA, type ItemCatalogo } from './catalogo';
 
 initializeApp();
 
@@ -931,6 +933,28 @@ async function consumirCotaLousa(email: string): Promise<number> {
 }
 
 /**
+ * Quantas leituras SOBRAM hoje, sem consumir nenhuma.
+ *
+ * A leitura local não gasta cota, e isso é uma decisão, não um esquecimento: a
+ * cota existe para limitar o CUSTO de OpenAI, e um treino lido por regex não
+ * custa nada. Cobrar por ele faria o coach que usa o sistema do jeito barato
+ * bater no teto igual ao que usa do jeito caro.
+ *
+ * Nunca lança: ficar sem saber o número restante não é motivo para derrubar uma
+ * leitura que já deu certo.
+ */
+async function cotaRestante(email: string): Promise<number> {
+  try {
+    const snap = await getFirestore().collection('lousaUso').doc(email).get();
+    const d = snap.exists ? (snap.data() ?? {}) : {};
+    const usadas = d.dia === diaSaoPaulo() && typeof d.usadas === 'number' ? d.usadas : 0;
+    return Math.max(0, LIMITE_LOUSA - usadas);
+  } catch {
+    return LIMITE_LOUSA;
+  }
+}
+
+/**
  * Formatos aceitos do canvas.
  *
  * A COMPRESSÃO acontece no navegador (`core/canvas.js`, `toDataURL(tipo, 0.8)`)
@@ -945,9 +969,140 @@ const MIMES_LOUSA = ['image/jpeg', 'image/webp'] as const;
 /** Teto de caracteres do texto digitado na lousa. */
 const MAX_TEXTO_LOUSA = 4000;
 
+/* ------------------------------------------------------------------ *
+ * CAMINHO RÁPIDO: ler a lousa sem gastar OpenAI
+ * ------------------------------------------------------------------ */
+
+/**
+ * De onde veio a leitura — e por que o coach vê isso.
+ *
+ * Uma otimização de custo que ninguém consegue observar é uma otimização que
+ * ninguém sabe se está funcionando. Com a origem na tela, o coach percebe no
+ * mesmo dia se o catálogo parou de acertar, em vez de descobrir na fatura.
+ *
+ *  - `local`   nenhuma chamada à OpenAI;
+ *  - `parcial` só os exercícios novos foram classificados (sem imagem, barato);
+ *  - `ia`      a lousa inteira foi lida pelo modelo de visão.
+ */
+export type OrigemLeitura = 'local' | 'parcial' | 'ia';
+
+/** Teto de itens lidos do catálogo numa leitura. Lousa não tem mais exercício que isso. */
+const MAX_CATALOGO_LIDO = 40;
+
+/** O catálogo do coach, só para as chaves que esta lousa precisa. */
+async function lerCatalogo(uid: string, chaves: string[]): Promise<Map<string, ItemCatalogo>> {
+  const db = getFirestore();
+  const mapa = new Map<string, ItemCatalogo>();
+  const unicas = [...new Set(chaves)].filter(Boolean).slice(0, MAX_CATALOGO_LIDO);
+  if (!unicas.length) return mapa;
+  const col = db.collection(`coaches/${uid}/catalogoExercicios`);
+  // `getAll` e não uma query: são leituras por id, e buscar um a um seria N
+  // viagens de rede antes de responder ao coach que está olhando a tela.
+  const docs = await db.getAll(...unicas.map((c) => col.doc(c)));
+  for (const d of docs) {
+    if (!d.exists) continue;
+    const item = d.data() as ItemCatalogo;
+    if (itemUtil(item)) mapa.set(d.id, item);
+  }
+  return mapa;
+}
+
+/**
+ * Grava o que foi aprendido. Nunca derruba a leitura.
+ *
+ * O coach já tem o treino na tela quando isto roda; falhar a gravação do
+ * catálogo significa só que a próxima leitura daquele exercício volta a pagar
+ * IA. Deixar o erro subir trocaria uma economia futura por um erro presente.
+ */
+async function aprenderNoCatalogo(uid: string, itens: ItemCatalogo[]): Promise<number> {
+  const bons = itens.filter(itemUtil).slice(0, MAX_CATALOGO_LIDO);
+  if (!bons.length) return 0;
+  try {
+    const db = getFirestore();
+    const lote = db.batch();
+    const col = db.collection(`coaches/${uid}/catalogoExercicios`);
+    for (const item of bons) {
+      const chave = chaveDe(item.nome);
+      if (chave) lote.set(col.doc(chave), item, { merge: true });
+    }
+    await lote.commit();
+    return bons.length;
+  } catch (e) {
+    logger.warn('Catálogo não pôde aprender agora.', { erro: String(e), itens: bons.length });
+    return 0;
+  }
+}
+
+/** O que a IA precisa devolver para classificar um exercício solto. */
+function schemaClassificacao(nomes: string[]): Record<string, unknown> {
+  return {
+    type: 'object', additionalProperties: false,
+    required: ['exercicios'],
+    properties: {
+      exercicios: {
+        type: 'array', maxItems: nomes.length,
+        items: {
+          type: 'object', additionalProperties: false,
+          required: ['nome', 'grupamentos', 'implemento'],
+          properties: {
+            nome: { type: 'string' },
+            grupamentos: { type: 'array', items: { type: 'string', enum: [...MUSCULOS_LABEL] } },
+            implemento: { type: 'string' },
+          },
+        },
+      },
+    },
+  };
+}
+
+/**
+ * Pergunta à IA APENAS "que músculo e que implemento é este exercício?".
+ *
+ * É a chamada barata: sem imagem, sem o texto da lousa, sem o schema grande do
+ * treino — só uma lista de nomes e um objeto de três campos por nome. O que
+ * custa caro na leitura completa é a IMAGEM em `detail: 'high'`, e ela não vai.
+ *
+ * Devolve lista vazia em qualquer falha, e quem chama cai para o caminho
+ * completo. Uma classificação que não veio não pode virar exercício sem grupo
+ * no dashboard — esse é justamente o buraco que a taxonomia fechou.
+ */
+async function classificarComIA(nomes: string[]): Promise<ItemCatalogo[]> {
+  const pedidos = [...new Set(nomes)].slice(0, MAX_CATALOGO_LIDO);
+  if (!pedidos.length) return [];
+  try {
+    const chamada = await chamarResponses({
+      model: MODELO,
+      instructions: [
+        'Você classifica exercícios de academia e de treino funcional.',
+        'Para CADA nome recebido, devolva os grupamentos musculares trabalhados e o implemento usado.',
+        `- "grupamentos" só aceita os rótulos: ${MUSCULOS_LABEL.join(', ')}.`,
+        '- "implemento" é o equipamento (Barra, Halter, Kettlebell, Peso corporal, Máquina, Cabo, Bola, Caixa...).',
+        '- Devolva o "nome" exatamente como recebeu.',
+        '- Se não reconhecer o exercício, devolva grupamentos vazio — não chute.',
+      ].join('\n'),
+      input: [{ role: 'user', content: [{ type: 'input_text', text: pedidos.join('\n') }] }],
+      text: { format: { type: 'json_schema', name: 'classificacao', strict: true, schema: schemaClassificacao(pedidos) } },
+      max_output_tokens: 600,
+    }, TIMEOUT_MS);
+
+    if (!chamada.ok) {
+      logger.warn('Classificação de exercício falhou; cai para a leitura completa.', { status: chamada.status });
+      return [];
+    }
+    const crus = (chamada.json as Record<string, unknown>)?.exercicios;
+    if (!Array.isArray(crus)) return [];
+    return crus
+      .map((c) => itemDaIA(String((c as Record<string, unknown>)?.nome || ''), c))
+      .filter((x): x is ItemCatalogo => x !== null);
+  } catch (e) {
+    logger.warn('Classificação de exercício lançou; cai para a leitura completa.', { erro: String(e) });
+    return [];
+  }
+}
+
 export const parseWorkoutLousa = onCall(
   { secrets: [CHAVE_OPENAI], timeoutSeconds: 120, memory: '512MiB' },
-  async (req): Promise<{ treino: TreinoEstruturado; restantes: number }> => {
+  async (req): Promise<{ treino: TreinoEstruturado; restantes: number; origem: OrigemLeitura }> => {
     const { email } = exigirCoach(req);
 
     const dados = (req.data ?? {}) as { textInput?: unknown; canvasImageBase64?: unknown; mimeType?: unknown };
@@ -966,7 +1121,72 @@ export const parseWorkoutLousa = onCall(
       ? (dados.mimeType as string)
       : 'image/jpeg';
 
-    const restantes = await consumirCotaLousa(email || `uid:${req.auth?.uid}`);
+    const uid = req.auth?.uid || '';
+    const quem = email || `uid:${uid}`;
+
+    /* -------- CAMINHO RÁPIDO: texto regular, exercícios conhecidos -------- */
+    //
+    // A TRAVA MAIS IMPORTANTE DESTA FEATURE: só vale SEM DESENHO.
+    //
+    // O pré-parser lê texto. O coach que rabisca uma seta, circula uma estação
+    // ou escreve "8 alunos" à mão põe na lousa conteúdo que nenhuma regex vê —
+    // e atalhar aqui jogaria isso fora em silêncio, devolvendo um treino que
+    // parece completo. Economizar centavos ao custo de perder metade da lousa
+    // não é otimização, é defeito.
+    if (!imagem && textInput && uid) {
+      const pre = preParse(textInput);
+      if (!pre.ok) {
+        logger.info('Pré-parser recusou; vai para a IA.', { motivo: pre.motivo });
+      } else {
+        const nomes = pre.linhas.map((l) => l.nome);
+        const gravados = await lerCatalogo(uid, nomes.map(chaveDe));
+        const { conhecidos, desconhecidos } = resolver(nomes, gravados);
+
+        // Tudo conhecido: monta e devolve. Zero token, zero cota gasta — a cota
+        // existe para limitar CUSTO de OpenAI, e aqui não houve nenhum.
+        if (!desconhecidos.length) {
+          try {
+            const treino = montarTreino(montarComoIA(pre, conhecidos, chaveDe));
+            const restantesLocal = await cotaRestante(quem);
+            logger.info('Lousa lida LOCALMENTE (sem OpenAI).', {
+              sistema: treino.sistema, exercicios: nomes.length, series: treino.estimativaSeries,
+            });
+            return { treino, restantes: restantesLocal, origem: 'local' };
+          } catch (e) {
+            // Montou e não passou na validação do treino: cai para a IA em vez
+            // de devolver erro. O caminho rápido é otimização, nunca a única
+            // chance de a lousa ser lida.
+            logger.warn('Montagem local falhou; vai para a IA.', { erro: String(e) });
+          }
+        } else {
+          logger.info('Pré-parser resolveu o texto; IA vai classificar só o que falta.', {
+            conhecidos: conhecidos.size, desconhecidos: desconhecidos.length,
+          });
+          const aprendidos = await classificarComIA(desconhecidos);
+          if (aprendidos.length) {
+            for (const item of aprendidos) conhecidos.set(chaveDe(item.nome), item);
+            const faltou = desconhecidos.filter((n) => !conhecidos.has(chaveDe(n)));
+            if (!faltou.length) {
+              try {
+                const treino = montarTreino(montarComoIA(pre, conhecidos, chaveDe));
+                const gravou = await aprenderNoCatalogo(uid, aprendidos);
+                const restantesParcial = await consumirCotaLousa(quem);
+                logger.info('Lousa lida com classificação PARCIAL.', {
+                  classificados: aprendidos.length, gravados: gravou, series: treino.estimativaSeries,
+                });
+                return { treino, restantes: restantesParcial, origem: 'parcial' };
+              } catch (e) {
+                logger.warn('Montagem parcial falhou; vai para a IA completa.', { erro: String(e) });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    /* -------- CAMINHO COMPLETO: a IA lê a lousa inteira -------- */
+
+    const restantes = await consumirCotaLousa(quem);
 
     const conteudo: Record<string, unknown>[] = [
       { type: 'input_text', text: textInput ? 'Leia a lousa e o texto digitado.' : 'Leia a lousa desenhada.' },
@@ -1002,6 +1222,16 @@ export const parseWorkoutLousa = onCall(
 
     try {
       const treino = extrairTreino(chamada.json);
+      // APRENDE com a leitura completa: é o que faz o catálogo encher sozinho.
+      // Sem isto, o caminho rápido só serviria para o que a taxonomia já traz de
+      // fábrica e nunca cobriria o vocabulário próprio do box.
+      if (uid) {
+        const itens = treino.blocos
+          .flatMap((b) => b.exercicios)
+          .map((ex) => itemDaIA(ex.nome, { grupamentos: ex.grupamentos, implemento: ex.implemento }))
+          .filter((x): x is ItemCatalogo => x !== null);
+        await aprenderNoCatalogo(uid, itens);
+      }
       logger.info('Lousa lida.', {
         sistema: treino.sistema,
         blocos: treino.blocos.length,
@@ -1009,7 +1239,7 @@ export const parseWorkoutLousa = onCall(
         substituicoes: treino.substituicoes.length,
         restantes,
       });
-      return { treino, restantes };
+      return { treino, restantes, origem: 'ia' };
     } catch (e) {
       // `extrairTreino` lança com mensagem já escrita para o coach ler.
       logger.error('Falha ao estruturar a lousa.', { erro: String(e) });

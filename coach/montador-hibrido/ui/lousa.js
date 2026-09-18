@@ -289,12 +289,18 @@ export function montar(ctx) {
     mostrarStatus(desenho ? 'Enviando o quadro e o texto para reconhecimento…' : 'Enviando o texto para reconhecimento…');
 
     try {
-      const { treino, restantes } = await parseWorkoutLousa({
+      const { treino, restantes, origem } = await parseWorkoutLousa({
         textInput: digitado,
         canvasImageBase64: desenho?.base64 ?? null,
         mimeType: desenho?.mimeType ?? 'image/jpeg',
       });
-      mostrarStatus(`Treino reconhecido · ${restantes} leitura(s) restante(s) hoje.`, 'ok');
+      // A ORIGEM na tela: sem ela, ninguém percebe que o caminho barato parou de
+      // acertar — a conta da OpenAI conta a história um mês depois.
+      const comoFoi = {
+        local: 'lido sem IA (catálogo)',
+        parcial: 'lido com classificação parcial',
+      }[origem] || 'lido pela IA';
+      mostrarStatus(`Treino reconhecido · ${comoFoi} · ${restantes} leitura(s) restante(s) hoje.`, 'ok');
       await abrirPrevia(treino, {
         ...lousa.miniatura(),
         segmentos,

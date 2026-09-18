@@ -21,7 +21,7 @@ import {
   SEM_MUSCULO_PRIMARIO, SECUNDARIO_REPETIDO,
 } from './fixtures/pesquisa';
 import {
-  extrairTreino, regraGlobalDe, montarSchema as montarSchemaLousa, MUSCULOS_LABEL,
+  extrairTreino, montarTreino, regraGlobalDe, montarSchema as montarSchemaLousa, MUSCULOS_LABEL,
 } from './lousa';
 import { analisarVariabilidade, type TreinoHistorico } from './variabilidade';
 import {
@@ -39,6 +39,10 @@ import {
 import {
   TAXONOMIA, perfilDe, gruposDoExercicio, completarGrupamentos,
 } from './taxonomia';
+import {
+  preParse, montarComoIA, extrairSeriesReps, extrairCarga, nomeDaLinha, semMarcasDeCor, blocoDaLinha,
+} from './pre-parser';
+import { chaveDe, resolver, itemUtil, itemDaIA, daTaxonomia } from './catalogo';
 
 let falhas = 0;
 
@@ -1306,6 +1310,172 @@ console.log('\nO ALERTA DO DASHBOARD: SÉRIES QUE SOMEM DO GRÁFICO\n');
   const c = consolidar([muitos], 'semana', 'x', faixaDaSemana('2026-09-16'));
   ok(c.seriesSemGrupo === 40, 'a CONTA não é limitada pelo teto de nomes');
   ok(c.exerciciosSemGrupo.length === MAX_SEM_GRUPO, `a LISTA para em ${MAX_SEM_GRUPO} nomes`);
+}
+
+
+console.log('\nPRÉ-PARSER: LER A LOUSA SEM GASTAR OPENAI\n');
+
+// Os números. "4x15" é a gramática da lousa.
+ok(extrairSeriesReps('Wall Ball 4x15')?.series === 4, '"4x15" ➔ 4 séries');
+ok(extrairSeriesReps('Wall Ball 4x15')?.reps === '15', '"4x15" ➔ 15 reps');
+ok(extrairSeriesReps('Agachamento 4 x 8')?.series === 4, 'espaço em volta do x não atrapalha');
+ok(extrairSeriesReps('Supino 5X5')?.series === 5, 'X maiúsculo vale');
+ok(extrairSeriesReps('Agachamento 4x8-12')?.reps === '8-12', 'faixa de repetição fica inteira');
+ok(extrairSeriesReps('Remada 3×10')?.series === 3, 'o × de multiplicação também vale');
+
+// O que NÃO pode virar série — é aqui que uma leitura errada nasceria.
+ok(extrairSeriesReps('Corrida 400m') === null, '"400m" não é série');
+ok(extrairSeriesReps('Prancha 40s') === null, '"40s" não é série');
+ok(extrairSeriesReps('Descanso 1x') === null, '"1x" sem repetição não basta');
+ok(extrairSeriesReps('Agachamento 100kg') === null, 'só carga não vira série');
+
+// A carga.
+ok(extrairCarga('Supino 4x8 100kg') === 100, '"100kg" ➔ 100');
+ok(extrairCarga('Wall Ball 4x15 9 kg') === 9, 'espaço antes do kg vale');
+ok(extrairCarga('Terra 3x3 92,5kg') === 92.5, 'vírgula decimal vira ponto');
+ok(extrairCarga('Corrida 400m') === null, 'metro não é quilo');
+ok(extrairCarga('Burpees 3x10') === null, 'sem carga devolve null, e não zero');
+
+// O nome: tirar o que se reconhece e ficar com o resto funciona nas duas ordens.
+ok(nomeDaLinha('Wall Ball 4x15 9kg') === 'Wall Ball', 'nome antes dos números');
+ok(nomeDaLinha('4x15 Wall Ball 9kg') === 'Wall Ball', 'nome DEPOIS dos números (a ordem do chamado)');
+ok(nomeDaLinha('  • Agachamento livre · 4x8 · RIR 2').startsWith('Agachamento livre'),
+  'marcador e observação saem do nome');
+
+ok(semMarcasDeCor('4x8 [[vermelho]]RIR 2[[/vermelho]]') === '4x8 RIR 2', 'marca de cor sai, texto fica');
+ok(blocoDaLinha('C — Força') === 'C', 'cabeçalho de bloco é reconhecido');
+ok(blocoDaLinha('Metcon') === 'D', 'nome do bloco sozinho também');
+ok(blocoDaLinha('C 4x8') === null, 'linha com série não é cabeçalho');
+
+console.log('\nPRÉ-PARSER: NA DÚVIDA, RECUSAR\n');
+
+const LOUSA_BOA = [
+  'HIIT',
+  'C — Força',
+  'Agachamento livre 4x8 100kg · RIR 2',
+  'D — Metcon',
+  '4x15 Wall Ball 9kg',
+  '3x10 Burpees',
+].join('\n');
+
+{
+  const r = preParse(LOUSA_BOA);
+  ok(r.ok, `a lousa regular é aceita${r.ok ? '' : ` (recusou: ${r.motivo})`}`);
+  if (r.ok) {
+    ok(r.sistema === 'HIIT', 'o sistema sai da lousa');
+    ok(r.linhas.length === 3, `3 exercícios (${r.linhas.length})`);
+    ok(r.linhas[0].bloco === 'C' && r.linhas[1].bloco === 'D', 'cada exercício no bloco em que foi escrito');
+    ok(r.linhas[0].cargaKg === 100, 'a carga do agachamento é lida');
+    ok(r.linhas[1].nome === 'Wall Ball' && r.linhas[1].series === 4, 'Wall Ball 4 séries');
+    ok(r.linhas[2].nome === 'Burpees' && r.linhas[2].series === 3, 'Burpees 3 séries');
+  }
+}
+
+// Cada recusa abaixo é um caso em que ler local produziria treino errado.
+const recusas: [string, string][] = [
+  ['', 'lousa vazia'],
+  ['C — Força\nAgachamento 4x8', 'sem sistema escrito'],
+  ['HIIT\nAgachamento 4x8', 'exercício antes de qualquer bloco'],
+  ['HIIT\nC — Força\nCorrida 400m', 'linha sem séries no meio do treino'],
+  ['HIIT\nGAP\nC — Força\nAgachamento 4x8', 'dois sistemas na mesma lousa'],
+  ['HIIT\nC — Força', 'nenhum exercício'],
+];
+for (const [texto, porque] of recusas) {
+  const r = preParse(texto);
+  ok(!r.ok, `recusa: ${porque}${r.ok ? ' — MAS ACEITOU' : ` (${r.motivo})`}`);
+}
+
+console.log('\nCATÁLOGO: O QUE É "CONHECER" UM EXERCÍCIO\n');
+
+ok(chaveDe('Wall Ball') === 'wall-ball' && chaveDe('wall ball') === 'wall-ball'
+  && chaveDe('Wall-Ball') === 'wall-ball', 'caixa, acento e hífen dão a MESMA chave');
+ok(chaveDe('Agachamento Búlgaro') === 'agachamento-bulgaro', 'acento sai da chave');
+ok(chaveDe('') === '' && chaveDe('///') === '', 'nome imprestável não vira chave');
+
+ok(!itemUtil(null), 'nada não é item');
+ok(!itemUtil({ nome: 'X', grupamentos: [], implemento: 'Barra', origem: 'ia' }), 'sem grupamento não serve');
+ok(!itemUtil({ nome: 'X', grupamentos: ['Peito'], implemento: '', origem: 'ia' }), 'sem implemento não serve');
+ok(!itemUtil({ nome: 'X', grupamentos: ['Perna'], implemento: 'Barra', origem: 'ia' }),
+  'rótulo fora do vocabulário não serve — entraria no banco e contaminaria toda leitura futura');
+ok(itemUtil({ nome: 'X', grupamentos: ['Peito'], implemento: 'Barra', origem: 'ia' }), 'com os dois, serve');
+
+ok(daTaxonomia('Wall Ball 9kg')?.implemento === 'Bola', 'a taxonomia é o catálogo de fábrica');
+ok(daTaxonomia('Agachamento livre') === null, 'o que não está na taxonomia não vem dela');
+
+{
+  const gravados = new Map([['agachamento-livre', {
+    nome: 'Agachamento livre', grupamentos: ['Quadríceps', 'Glúteo'], implemento: 'Barra', origem: 'ia' as const,
+  }]]);
+  const r = resolver(['Agachamento livre', 'Wall Ball', 'Movimento Novo'], gravados);
+  ok(r.conhecidos.size === 2, `catálogo + taxonomia resolvem 2 (${r.conhecidos.size})`);
+  ok(r.desconhecidos.length === 1 && r.desconhecidos[0] === 'Movimento Novo',
+    'só o desconhecido de verdade vai para a IA');
+}
+{
+  // O catálogo do coach vence a taxonomia: é sobre o galpão DELE.
+  const meu = new Map([['wall-ball', {
+    nome: 'Wall Ball', grupamentos: ['Quadríceps'], implemento: 'Bola 9kg', origem: 'ia' as const,
+  }]]);
+  ok(resolver(['Wall Ball'], meu).conhecidos.get('wall-ball')?.implemento === 'Bola 9kg',
+    'o item do coach vence o de fábrica');
+}
+
+ok(itemDaIA('X', { grupamentos: ['Peito'], implemento: 'Barra' })?.origem === 'ia', 'resposta boa vira item');
+ok(itemDaIA('X', { grupamentos: ['Perna'], implemento: 'Barra' }) === null, 'resposta com rótulo inválido é descartada');
+ok(itemDaIA('X', { grupamentos: [], implemento: 'Barra' }) === null, 'resposta sem grupamento é descartada');
+ok(itemDaIA('X', null) === null, 'resposta vazia é descartada');
+
+console.log('\nO CAMINHO RÁPIDO PRODUZ O MESMO TREINO QUE A IA\n');
+
+{
+  const pre = preParse(LOUSA_BOA);
+  ok(pre.ok, 'a lousa do teste passa no pré-parser');
+  if (pre.ok) {
+    const gravados = new Map([['agachamento-livre', {
+      nome: 'Agachamento livre', grupamentos: ['Quadríceps', 'Glúteo'], implemento: 'Barra', origem: 'ia' as const,
+    }]]);
+    const { conhecidos, desconhecidos } = resolver(pre.linhas.map((l) => l.nome), gravados);
+    ok(desconhecidos.length === 0, `tudo conhecido, ZERO chamada à IA (faltaram: ${desconhecidos.join(', ') || 'nenhum'})`);
+
+    // Passa pelo MESMO `extrairTreino` da resposta da IA — mesmas regras globais,
+    // mesma taxonomia, mesma estimativa.
+    const treino = montarTreino(montarComoIA(pre, conhecidos, chaveDe));
+    ok(treino.sistema === 'HIIT', 'sistema preservado');
+    ok(treino.estimativaSeries === 11, `séries somadas: 4+4+3 = 11 (${treino.estimativaSeries})`);
+    const todos = treino.blocos.flatMap((b) => b.exercicios);
+    ok(todos.length === 3, '3 exercícios no treino montado');
+
+    // A COMPATIBILIDADE COM A CONSOLIDAÇÃO: é o que o dashboard vai contar.
+    const paraVolume: TreinoParaVolume = {
+      dateId: '2026-09-16', sistema: treino.sistema,
+      exercicios: todos.map((ex) => ({
+        nome: ex.nome, series: ex.series, grupamentos: ex.grupamentos, implemento: ex.implemento,
+      })),
+    };
+    const c = consolidar([paraVolume], 'semana', 'x', faixaDaSemana('2026-09-16'));
+    ok(c.totalSeries === 11, `o dashboard vê as 11 séries (${c.totalSeries})`);
+    ok(c.seriesSemGrupo === 0, 'nenhuma série sem grupo — o caminho rápido não abre buraco no gráfico');
+    ok((c.porGrupo.perna || 0) > 0 && (c.porGrupo.peito || 0) > 0, 'perna e peito creditados');
+    ok(Object.keys(c.porImplemento).length === 3, `3 implementos na rosca (${Object.keys(c.porImplemento).join(', ')})`);
+    ok(!Object.keys(c.porImplemento).includes(''), 'nenhum implemento vazio — era o risco de montar sem IA');
+
+    // A carga não se perde: vira observação, porque o treino não tem campo de kg.
+    const agacho = todos.find((e) => e.nome.includes('Agachamento'));
+    ok(!!agacho && agacho.observacao.includes('100'), `a carga escrita na lousa sobrevive ("${agacho?.observacao}")`);
+  }
+}
+
+// A regra global continua valendo no caminho rápido — é o mesmo `extrairTreino`.
+{
+  const pre = preParse('Hyrox\nD — Metcon\nPull up 4x8');
+  ok(pre.ok, 'lousa com pull-up passa');
+  if (pre.ok) {
+    const { conhecidos } = resolver(pre.linhas.map((l) => l.nome), new Map());
+    const treino = montarTreino(montarComoIA(pre, conhecidos, chaveDe));
+    ok(treino.blocos[0].exercicios[0].nome === 'Puxada Alta Pegada Aberta',
+      'Pull-up ➔ Puxada Alta também sem IA');
+    ok(treino.substituicoes.length === 1, 'e a substituição fica registrada para o coach ver');
+  }
 }
 
 console.log(

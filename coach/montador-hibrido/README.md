@@ -272,6 +272,50 @@ Consequência: `totalSeries` (séries prescritas) **não** é a soma de `porGrup
 (um exercício multiarticular credita mais de um grupo). São perguntas diferentes,
 e o dashboard mostra cada uma no seu lugar.
 
+### Pré-parser e catálogo: a lousa que fica barata com o uso
+
+A maior parte das lousas é texto regular — cabeçalho de bloco e linhas
+"Nome 4x8 100kg · RIR 2". Isso é gramática, não interpretação, e pagar um modelo
+de visão para reconhecer "4x8" é pagar caro por uma expressão regular.
+
+**Três caminhos**, e a tela diz qual foi usado:
+
+| origem | o que aconteceu |
+|---|---|
+| `local` | regex + catálogo. **Zero token, zero cota.** |
+| `parcial` | só os nomes novos foram classificados — sem imagem, chamada barata |
+| `ia` | a lousa inteira foi para o modelo de visão |
+
+**A trava que governa tudo: o caminho rápido só vale SEM DESENHO.** O coach que
+rabisca uma seta ou circula uma estação põe na lousa conteúdo que nenhuma regex
+vê. Atalhar ali jogaria isso fora em silêncio, devolvendo um treino que parece
+completo. Economizar centavos ao custo de perder metade da lousa não é
+otimização, é defeito.
+
+A segunda regra de `pre-parser.ts`: **na dúvida, recusar**. Uma chamada à IA
+custa centavos e segundos; um treino mal lido vai para a ficha de oito alunos
+sem ninguém desconfiar, porque o coach confere a prévia contra o que ele
+escreveu e um "3x8" lido como "3 séries de 8 kg" tem cara de certo. Cada recusa
+diz o motivo no log — é o que mostra, depois de um mês, qual formato vale a pena
+passar a entender.
+
+O caminho rápido passa pelo **mesmo `montarTreino()`** da resposta da IA. Não há
+segundo caminho de montagem: as regras globais do box, a taxonomia e a estimativa
+de séries valem igual, e a leitura que divergiria em silêncio seria justamente a
+barata, que ninguém confere.
+
+**O catálogo** (`coaches/{uid}/catalogoExercicios`) fica sob `coaches/{uid}` de
+propósito: a regra `match /coaches/{uid}/{sub=**}` já cobre esse caminho, então a
+coleção nasce protegida sem publicar regra nova. É **por coach** porque "Remada"
+num box é a máquina e no outro o ergômetro — um catálogo global faria o cadastro
+de um coach mudar o treino do outro.
+
+Aprender é de graça: acontece como efeito de uma leitura que ia acontecer de
+qualquer jeito. Conhecer um exercício é ter **grupamentos E implemento** — os
+dois, porque grupamento vira barra por grupo e implemento vira fatia da rosca.
+Saber metade e chutar o resto produziria gráfico errado sem nada dizendo que foi
+chute.
+
 ### Burpee e Wall Ball no gráfico: a taxonomia
 
 Exercício calistênico e de metcon sumia do gráfico por grupamento. **A causa não

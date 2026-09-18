@@ -94,8 +94,26 @@ const demora = (ms = 700) => new Promise((r) => setTimeout(r, ms));
 export async function parseWorkoutLousa({ textInput, canvasImageBase64 }) {
   await demora();
   if (!textInput && !canvasImageBase64) throw new Error('A lousa está vazia — escreva o treino ou desenhe no quadro.');
-  console.info('[local] parseWorkoutLousa', { caracteres: (textInput || '').length, temDesenho: !!canvasImageBase64 });
-  return { treino: structuredClone(TREINO), restantes: 39 };
+  // SIMULA a decisao do servidor para a tela poder ser vista nos tres estados.
+  // Nao e o pre-parser de verdade (aquele e TypeScript e roda no servidor; quem
+  // o testa e o npm run checar) — aqui basta uma heuristica para o coach ver
+  // como cada caminho aparece na barra de status.
+  const conhecidos = ['wall ball', 'burpee', 'agachamento', 'supino', 'kettlebell swing', 'box jump'];
+  const texto = String(textInput || '').toLowerCase();
+  const temBloco = /(^|\\n)\\s*[abcd]\\s*[—\\-:)]/i.test(texto);
+  const temSistema = /(hiit|gap|hipertrofia|hyrox)/i.test(texto);
+  const linhasEx = texto.split('\\n').filter((l) => /\\d+\\s*[x×]\\s*\\d+/.test(l));
+  const todosConhecidos = linhasEx.length > 0 && linhasEx.every((l) => conhecidos.some((c) => l.includes(c)));
+
+  let origem = 'ia';
+  if (!canvasImageBase64 && temBloco && temSistema && linhasEx.length) {
+    origem = todosConhecidos ? 'local' : 'parcial';
+  }
+  console.info('[local] parseWorkoutLousa', {
+    caracteres: texto.length, temDesenho: !!canvasImageBase64, origem,
+    chamouIA: origem !== 'local',
+  });
+  return { treino: structuredClone(TREINO), restantes: origem === 'local' ? 40 : 39, origem };
 }
 
 export async function checkWorkoutVariability() {
