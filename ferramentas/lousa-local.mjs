@@ -183,10 +183,28 @@ export async function distributeWorkoutToStudents({ turmas, dryRun }) {
   return { fichas, gravadas: dryRun ? 0 : fichas.length, semMatriz: [], dryRun: !!dryRun };
 }
 
-export async function salvarLousa(_uid, dados) {
+/**
+ * As lousas salvas NESTA sessão do dublê, em memória.
+ *
+ * O dublê antigo dizia "nada foi gravado" e devolvia sempre o mesmo id. Isso
+ * escondia justamente o bug que o coach viu em produção: salvar um treino e
+ * não vê-lo aparecer no Calendário. Guardar aqui e devolver em listarLousas
+ * faz o fluxo inteiro (salvar ➔ distribuir ➔ Calendário) ser testável local.
+ */
+const GRAVADAS = [];
+let gravacoes = 0;
+
+export function marcaDasLousas() { return gravacoes; }
+
+export async function salvarLousa(_uid, dados, workoutId) {
   await demora(200);
-  console.info('[local] salvarLousa (nada foi gravado)', dados.dateId);
-  return 'treino-local-1';
+  const id = workoutId || 'treino-local-' + (GRAVADAS.length + 1);
+  const i = GRAVADAS.findIndex((x) => x.workoutId === id);
+  const doc = Object.assign({}, dados, { workoutId: id });
+  if (i >= 0) GRAVADAS[i] = doc; else GRAVADAS.push(doc);
+  gravacoes += 1;
+  console.info('[local] salvarLousa', { id, dateId: dados.dateId, marca: gravacoes });
+  return id;
 }
 /**
  * Um mês de treinos para o Calendário ter o que desenhar.
@@ -244,7 +262,12 @@ export async function listarLousas(_uid, inicio, fim) {
         textoOriginal: '', geradoEm: dateId + 'T06:00:00.000Z' });
     }
   }
-  console.info('[local] listarLousas', { inicio, fim, treinos: out.length });
+  // O que o coach salvou nesta sessão entra junto — é o que prova na tela que
+  // o treino recém-gravado aparece no mês sem recarregar a página.
+  for (const g of GRAVADAS) {
+    if (g.dateId >= inicio && g.dateId <= fim) out.push(g);
+  }
+  console.info('[local] listarLousas', { inicio, fim, treinos: out.length, desta_sessao: GRAVADAS.length });
   return out;
 }
 

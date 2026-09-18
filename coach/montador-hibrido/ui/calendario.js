@@ -23,7 +23,7 @@ import {
   gradeDoMes, agruparPorDia, editavel, mesVizinho, mesDe, chaveDeCor, DIAS_SEMANA,
 } from '../core/calendario.js';
 import { resumo } from '../core/lousa-modelo.js';
-import { listarLousas } from '../cloud/chamadas.js';
+import { listarLousas, marcaDasLousas } from '../cloud/chamadas.js';
 import { cardsDoTreino, esc } from './render-treino.js';
 import { abrirTreinoSalvo } from './lousa.js';
 import * as store from './store.js';
@@ -38,6 +38,8 @@ let mesAtual = '';
 /** @type {Record<string, any[]>} */
 let porDia = {};
 let carregando = false;
+/** A marca de `marcaDasLousas()` de quando este mês foi lido com sucesso. */
+let marcaLida = -1;
 
 /** @param {{uid: () => string, irPara: (aba: string) => void}} ctx */
 export function montar(ctx) {
@@ -63,13 +65,20 @@ export function montar(ctx) {
     }
   });
 
-  // Carrega quando a aba aparece pela primeira vez, e não no boot: são leituras
-  // do Firestore, e quem só quer montar a aula de hoje nunca abre esta tela.
-  let jaCarregou = false;
+  // Carrega quando a aba aparece, e não no boot: são leituras do Firestore, e
+  // quem só quer montar a aula de hoje nunca abre esta tela.
+  //
+  // E RECARREGA depois de qualquer gravação. Ler uma vez só por sessão fazia o
+  // treino recém-salvo não aparecer no mês — e o gesto que esta tela mesma
+  // ensina ("clique num dia vazio para montar nele") leva direto a isso: o
+  // coach sai daqui, monta, distribui, volta, e o dia continua vazio. Ele
+  // conclui que não salvou, e remonta o treino que já estava lá.
+  //
+  // A marca evita o outro extremo: quem só passeia entre as abas não paga uma
+  // releitura do mês a cada clique.
   document.addEventListener('hibrido:aba', (ev) => {
     if (/** @type {any} */ (ev).detail !== 'calendario') return;
-    if (jaCarregou) return;
-    jaCarregou = true;
+    if (marcaLida === marcaDasLousas()) return;
     carregar(ctx, alvo);
   });
 }
@@ -92,6 +101,9 @@ async function carregar(ctx, alvo) {
     const inicio = dias[0]?.dateId || `${mesAtual}-01`;
     const fim = dias[dias.length - 1]?.dateId || `${mesAtual}-31`;
     porDia = agruparPorDia(await listarLousas(ctx.uid(), inicio, fim));
+    // Só aqui, e não ao entrar na aba: se a leitura falhar, a próxima visita
+    // tem de tentar de novo em vez de ficar presa a um mês vazio.
+    marcaLida = marcaDasLousas();
   } catch (e) {
     console.error('Falha ao ler os treinos do mês:', e);
     porDia = {};

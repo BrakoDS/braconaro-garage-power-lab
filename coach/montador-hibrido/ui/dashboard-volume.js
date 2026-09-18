@@ -23,7 +23,7 @@
 import { GRUPOS, GRUPO_LABEL } from '../../../compartilhado/regras/grupos.js';
 import { escalaBarras, arcosRosca, pontosLinha } from '../core/graficos.js';
 import { chaveSemana, chaveMes, rotuloMes, rotuloSemana, semanasDoMes, faixaDaSemana } from '../core/periodos.js';
-import { lerConsolidado } from '../cloud/chamadas.js';
+import { lerConsolidado, marcaDasLousas } from '../cloud/chamadas.js';
 import { esc } from './render-treino.js';
 import * as store from './store.js';
 
@@ -45,13 +45,21 @@ export function montar(ctx) {
 
   $('#volume-recarregar')?.addEventListener('click', () => carregar(ctx, alvo, campoData.value));
 
-  // Carrega ao abrir a aba pela primeira vez, e não no boot: o consolidado são
-  // várias leituras do Firestore, e o coach que só quer montar a aula de hoje
-  // nunca abre esta tela.
-  let jaCarregou = false;
+  // Carrega ao abrir a aba, e não no boot: o consolidado são várias leituras do
+  // Firestore, e o coach que só quer montar a aula de hoje nunca abre esta tela.
+  //
+  // Recarrega depois de qualquer gravação, pelo mesmo motivo do Calendário: ler
+  // uma vez só por sessão mostrava a semana SEM o treino que o coach acabou de
+  // salvar. Aqui o número errado é pior que uma tela vazia — ele parece certo.
+  //
+  // O consolidado é escrito por um GATILHO, que leva alguns segundos depois da
+  // gravação; por isso o botão "Recarregar" continua existindo, para o caso de
+  // o coach chegar na aba antes de o servidor terminar.
+  let marcaLida = -1;
   document.addEventListener('hibrido:aba', (ev) => {
-    if (/** @type {any} */ (ev).detail !== 'volume' || jaCarregou) return;
-    jaCarregou = true;
+    if (/** @type {any} */ (ev).detail !== 'volume') return;
+    if (marcaLida === marcaDasLousas()) return;
+    marcaLida = marcaDasLousas();
     carregar(ctx, alvo, campoData.value);
   });
 }

@@ -138,6 +138,9 @@ export function distributeWorkoutToStudents({ workoutId, turmas, dryRun = false 
  * Firestore direto (o que não precisa de servidor)
  * ------------------------------------------------------------------ */
 
+/** @see marcaDasLousas */
+let gravacoes = 0;
+
 /**
  * Grava a lousa e devolve o id do treino.
  *
@@ -154,8 +157,24 @@ export async function salvarLousa(uid, dados, workoutId) {
   const { db, fs } = await firestore();
   const id = workoutId || `${dados.dateId}-${Date.now().toString(36)}`;
   await fs.setDoc(fs.doc(db, `coaches/${uid}/lousas/${id}`), { ...dados, workoutId: id }, { merge: true });
+  gravacoes += 1;
   return id;
 }
+
+/**
+ * Quantas lousas já foram gravadas NESTA sessão de navegador.
+ *
+ * Existe porque as telas que leem do Firestore (Calendário, Volume) não podem
+ * reler a cada troca de aba — seriam leituras pagas toda vez que o coach vai da
+ * Lousa para a Turma e volta — mas também não podem ler uma vez só: o treino
+ * que ele acabou de salvar não apareceria, e a tela mentiria dizendo que o dia
+ * está vazio.
+ *
+ * Comparar esta marca resolve os dois: releitura só depois de uma gravação.
+ * O contador mora AQUI, e não em cada tela, porque `salvarLousa` é o único
+ * ponto de escrita — assim nenhuma tela futura pode esquecer de avisar.
+ */
+export function marcaDasLousas() { return gravacoes; }
 
 /** Os treinos salvos numa faixa de datas ('YYYY-MM-DD'). @param {string} uid */
 export async function listarLousas(uid, inicio, fim) {

@@ -98,6 +98,25 @@ O `classTime` continua existindo onde ele significa alguma coisa: na ficha que a
 distribuição escreve para cada aluno. O Calendário ainda sabe ler treinos antigos
 que têm o campo (mostra a hora no chip); os novos mostram o título.
 
+### Calendário e Volume releem depois de cada gravação
+
+As duas telas leem do Firestore, então não carregam no boot — quem só quer montar
+a aula de hoje nunca as abre. Mas elas também **não podem ler uma vez só por
+sessão**: o treino recém-salvo não apareceria, e o Calendário diria que o dia
+está vazio quando ele não está. O coach conclui que não salvou e remonta o treino
+que já estava lá.
+
+O gesto que a própria tela ensina leva direto a isso: "clique num dia vazio para
+montar nele" tira o coach do Calendário já carregado, ele monta, distribui e
+volta — para o mesmo mês em cache.
+
+`marcaDasLousas()` (em `cloud/chamadas.js`) conta as gravações da sessão. Cada
+tela guarda a marca de quando leu e relê só quando ela mudou: passear entre abas
+não custa leitura, salvar sempre custa. O contador mora junto de `salvarLousa`,
+que é o único ponto de escrita, para que nenhuma tela futura possa esquecer de
+avisar. A marca só avança **depois** de uma leitura bem-sucedida, senão uma falha
+de rede prenderia a tela num mês vazio.
+
 ### Calendário
 
 O mês inteiro em grade, com um chip por treino colorido pela tabela de
