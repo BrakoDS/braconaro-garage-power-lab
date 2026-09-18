@@ -48,7 +48,7 @@ import {
   type TreinoParaVolume,
 } from './volume-agregado';
 import { preParse, montarComoIA } from './pre-parser';
-import { chaveDe, resolver, itemUtil, itemDaIA, type ItemCatalogo } from './catalogo';
+import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatalogo } from './catalogo';
 
 initializeApp();
 
@@ -1515,22 +1515,62 @@ export const deleteWorkoutLousa = onCall(
     const uid = req.auth?.uid || '';
     if (!uid) throw new HttpsError('unauthenticated', 'Faça login de novo para apagar o treino.');
 
-    const dados = (req.data ?? {}) as { workoutId?: unknown };
-    const workoutId = typeof dados.workoutId === 'string' ? dados.workoutId.trim() : '';
-    if (!workoutId || workoutId.includes('/') || workoutId.length > 200) {
+    const dados = (req.data ?? {}) as { workoutId?: unknown; dateId?: unknown };
+    const pedido = typeof dados.workoutId === 'string' ? dados.workoutId.trim() : '';
+    const dataPedida = typeof dados.dateId === 'string' ? dados.dateId.trim() : '';
+    if (pedido && (pedido.includes('/') || pedido.length > 200)) {
       throw new HttpsError('invalid-argument', 'Treino inválido para apagar.');
+    }
+    if (!pedido && !EH_DATA.test(dataPedida)) {
+      throw new HttpsError('invalid-argument', 'Diga qual treino apagar (id ou data).');
     }
 
     const db = getFirestore();
-    const ref = db.doc(`coaches/${uid}/lousas/${workoutId}`);
-    const snap = await ref.get();
-    if (!snap.exists) {
-      // Já não existe: tratar como sucesso. O coach que clicou duas vezes, ou
+    const colecao = db.collection(`coaches/${uid}/lousas`);
+
+    /**
+     * Acha o treino: pelo id, e — se ele não existir — pela DATA.
+     *
+     * O fallback por data é deliberadamente CONSERVADOR: só vale quando a data
+     * tem UM treino. Com dois ou mais, apagar "o da data" seria escolher um no
+     * escuro — e o coach que está aqui veio justamente limpar DUPLICADOS, então
+     * a chance de ter mais de um naquele dia é alta e o custo de errar é apagar
+     * o treino bom. Na dúvida, recusar com uma mensagem que diz o que fazer.
+     */
+    const achar = async () => {
+      if (pedido) {
+        const porId = await colecao.doc(pedido).get();
+        if (porId.exists) return porId;
+      }
+      const data = EH_DATA.test(dataPedida)
+        ? dataPedida
+        : (pedido.slice(0, 10).match(EH_DATA) ? pedido.slice(0, 10) : '');
+      if (!data) return null;
+      const doDia = await colecao.where('dateId', '==', data).limit(3).get();
+      if (doDia.size === 1) {
+        logger.info('Treino achado pela DATA (id não existia).', { uid, pedido, data });
+        return doDia.docs[0];
+      }
+      if (doDia.size > 1) {
+        throw new HttpsError(
+          'failed-precondition',
+          `Há ${doDia.size} treinos em ${data} e o id informado não existe mais. `
+          + 'Recarregue o Calendário e apague pelo treino que aparece na tela.',
+        );
+      }
+      return null;
+    };
+
+    const snap = await achar();
+    if (!snap) {
+      // Não existe: tratar como sucesso. O coach que clicou duas vezes, ou
       // recarregou e clicou de novo, quer o treino fora — e ele está fora.
-      logger.info('Treino já não existia.', { uid, workoutId });
+      logger.info('Treino já não existia.', { uid, pedido, dataPedida });
       return { apagado: true, fichas: 0, portais: 0, dateId: '' };
     }
-    const doc = snap.data() ?? {};
+    const ref = snap.ref;
+    const workoutId = snap.id;
+    const doc = limparParaGravar(snap.data() ?? {});
     const dateId = typeof doc.dateId === 'string' ? doc.dateId : '';
 
     // As fichas: lidas ANTES de apagar, porque é nelas que estão os e-mails dos
@@ -1552,25 +1592,35 @@ export const deleteWorkoutLousa = onCall(
       }
     }
 
-    const lote = db.batch();
-    lote.set(db.doc(`coaches/${uid}/lousasApagadas/${workoutId}`), {
-      ...doc, apagadoEm: FieldValue.serverTimestamp(), fichasApagadas: fichasSnap.size,
-    });
-    for (const d of fichasSnap.docs) lote.delete(d.ref);
-    for (const email of portais) {
-      lote.set(db.doc(`treinoAluno/${email}`), {
-        hibrido: { [dateId]: FieldValue.delete() },
-        atualizadoEm: FieldValue.serverTimestamp(),
-      }, { merge: true });
-    }
-    // O treino por ÚLTIMO no lote: é a escrita que dispara `aggregateVolumeMetrics`,
-    // e quando ela chegar o resto já estará consistente.
-    lote.delete(ref);
-
+    // O LOTE INTEIRO dentro do try, e não só o `commit`.
+    //
+    // A validação do SDK do Firestore é SÍNCRONA: um valor que ele recusa
+    // estoura no `set`/`update`, antes de qualquer rede. Com só o commit
+    // protegido, esse erro escapava do handler e o coach via "erro interno" —
+    // uma mensagem que não diz nada e não deixa rastro útil no log.
     try {
+      const lote = db.batch();
+      lote.set(db.doc(`coaches/${uid}/lousasApagadas/${workoutId}`), {
+        ...doc, apagadoEm: FieldValue.serverTimestamp(), fichasApagadas: fichasSnap.size,
+      });
+      for (const d of fichasSnap.docs) lote.delete(d.ref);
+      for (const email of portais) {
+        lote.set(db.doc(`treinoAluno/${email}`), {
+          hibrido: { [dateId]: FieldValue.delete() },
+          atualizadoEm: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
+      // O treino por ÚLTIMO no lote: é a escrita que dispara `aggregateVolumeMetrics`,
+      // e quando ela chegar o resto já estará consistente.
+      lote.delete(ref);
       await lote.commit();
     } catch (e) {
-      logger.error('Falha ao apagar o treino.', { erro: String(e), uid, workoutId });
+      if (e instanceof HttpsError) throw e;
+      // A mensagem do SDK vai INTEIRA para o log: é ela que diz qual campo o
+      // Firestore recusou, e sem ela a próxima investigação recomeça do zero.
+      logger.error('Falha ao apagar o treino.', {
+        erro: String(e), uid, workoutId, dateId, fichas: fichasSnap.size, portais: portais.length,
+      });
       throw new HttpsError('unavailable', 'Não deu para apagar o treino agora. Tente de novo em instantes.');
     }
 

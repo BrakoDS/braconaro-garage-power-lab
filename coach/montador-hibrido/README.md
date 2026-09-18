@@ -301,6 +301,18 @@ Cuidado com o Portal: `treinoAluno/{email}.hibrido` é indexado por **data**, n�
 por treino. Dois treinos no mesmo dia dividem a chave, e apagar um não pode levar
 o outro — só sai a entrada cujo `workoutId` é o que está sendo apagado.
 
+O fallback por DATA é a rede para um id que não existe mais (treino de formato
+antigo, id reescrito por migração) — e é deliberadamente conservador: só vale
+quando o dia tem **um** treino. Com dois ou mais, apagar "o da data" seria
+escolher no escuro, e quem está aqui veio limpar DUPLICADOS, então a chance de
+ter mais de um naquele dia é alta e o custo de errar é apagar o treino bom.
+
+`npm run checar:emulador` roda a exclusão contra um Firestore **de verdade**
+(emulador): subcoleção órfã, `FieldValue.delete()` dentro de mapa, lote com
+validação síncrona, treino legado sem `workoutId`, dia ambíguo e Portal de dois
+treinos no mesmo dia. `checar` é lógica pura e não alcança nada disso — e foi
+exatamente aí que apareceu um "erro interno" sem diagnóstico.
+
 `aggregateVolumeMetrics` já é `onDocumentWritten`, que dispara no apagamento e
 já usava `antes.dateId` para refazer a semana certa. Não precisou de mudança.
 

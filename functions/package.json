@@ -11,7 +11,8 @@
     "watch": "tsc --watch",
     "checar": "tsc && node lib/checar.js",
     "deploy": "npm run build && firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "checar:emulador": "firebase emulators:exec --only firestore --project fake \"node testes-emulador.cjs\""
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",

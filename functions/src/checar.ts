@@ -42,7 +42,7 @@ import {
 import {
   preParse, montarComoIA, extrairSeriesReps, extrairCarga, nomeDaLinha, semMarcasDeCor, blocoDaLinha,
 } from './pre-parser';
-import { chaveDe, resolver, itemUtil, itemDaIA, daTaxonomia } from './catalogo';
+import { chaveDe, resolver, itemUtil, itemDaIA, daTaxonomia, limparParaGravar } from './catalogo';
 
 let falhas = 0;
 
@@ -1514,6 +1514,48 @@ console.log('\nEXCLUSÃO DE TREINO: O VOLUME TEM DE ENCOLHER\n');
   ok(Object.keys(vazio.metas).length === GRUPOS_VOL.length,
     'e as metas continuam lá — a semana vazia mostra o quanto falta, não uma tela em branco');
 }
+
+
+console.log('\nEXCLUIR TREINO: A CÓPIA DE SEGURANÇA NÃO PODE FALHAR\n');
+
+// O Firestore RECUSA `undefined`, de forma SÍNCRONA, e o erro estoura no `set()`
+// antes de qualquer rede — o coach vê "erro interno" e o log não diz nada. Como
+// esse `set` é justamente o que arquiva o treino ANTES de apagá-lo, uma falha
+// ali derruba a única cópia de segurança que existe.
+ok(JSON.stringify(limparParaGravar({ a: 1, b: undefined })) === '{"a":1}', 'undefined no topo sai');
+ok(JSON.stringify(limparParaGravar({ t: { titulo: undefined, sistema: 'HIIT' } })) === '{"t":{"sistema":"HIIT"}}',
+  'undefined aninhado sai');
+ok(JSON.stringify(limparParaGravar({ ex: [{ nome: 'A', obs: undefined }] })) === '{"ex":[{"nome":"A"}]}',
+  'undefined dentro de array de objetos sai');
+ok(JSON.stringify(limparParaGravar({ x: [1, undefined, 2] })) === '{"x":[1,2]}', 'undefined dentro de array sai');
+
+// `null` PASSA: o Firestore o aceita, e trocá-lo por ausente mudaria o
+// documento arquivado — que é o que alguém vai ler para restaurar.
+ok(JSON.stringify(limparParaGravar({ a: null })) === '{"a":null}', 'null é preservado, não é o mesmo que undefined');
+ok(JSON.stringify(limparParaGravar({ a: 0, b: '', c: false })) === '{"a":0,"b":"","c":false}',
+  'zero, string vazia e false continuam lá');
+
+{
+  // Timestamp, GeoPoint e afins não podem ser reconstruídos campo a campo:
+  // a cópia sairia como objeto comum e o documento arquivado mudaria de tipo.
+  class FalsoTimestamp { constructor(public segundos: number) {} }
+  const t = new FalsoTimestamp(123);
+  const r = limparParaGravar({ quando: t });
+  ok(r.quando === t, 'objeto de classe (Timestamp) passa intacto, por referência');
+}
+{
+  // O treino de verdade: fundo, com blocos e exercícios.
+  const treino = limparParaGravar({
+    dateId: '2026-09-18',
+    treino: { titulo: 'HIPERTROFIA 2 errado', sistema: undefined, blocos: [
+      { id: 'C', exercicios: [{ nome: 'Agachamento', series: 4, observacao: undefined }] },
+    ] },
+  });
+  ok(!('sistema' in (treino.treino as Record<string, unknown>)), 'o campo ausente do treino não vai para o arquivo');
+  ok((treino.treino as any).blocos[0].exercicios[0].nome === 'Agachamento', 'e o resto do treino chega inteiro');
+}
+ok(limparParaGravar(null) === null && limparParaGravar(undefined) === undefined,
+  'limparParaGravar não quebra com entrada vazia');
 
 console.log(
   falhas === 0

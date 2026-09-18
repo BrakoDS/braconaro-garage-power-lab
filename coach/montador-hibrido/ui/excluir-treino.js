@@ -48,7 +48,7 @@ export async function confirmarEExcluir({ workoutId, titulo = '', dateId = '', p
   if (!ok) return false;
 
   try {
-    const r = await excluirLousa(workoutId);
+    const r = await excluirLousa(workoutId, dateId);
     await avisar({
       titulo: 'Treino excluído',
       texto: `Pronto. ${r.fichas} ficha(s) da turma e ${r.portais} publicação(ões) no Portal foram removidas junto. `

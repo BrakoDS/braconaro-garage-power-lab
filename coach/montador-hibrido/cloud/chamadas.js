@@ -37,7 +37,15 @@ const ERRO_TRANSPORTE = {
   'functions/unauthenticated': 'Sua sessão de coach expirou. Faça login de novo.',
   'functions/permission-denied': 'Esta conta não tem acesso ao Montador Híbrido.',
   'functions/unavailable': 'Sem conexão com o servidor agora. Confira sua internet e tente de novo.',
-  'functions/internal': 'O servidor encontrou um erro inesperado. Tente de novo em instantes.',
+  // `internal` tem DUAS causas que a tela não distingue: a função lançou, ou a
+  // função NÃO EXISTE no projeto (falta `firebase deploy --only functions`, ou
+  // o deploy dela falhou). A segunda é comum logo depois de publicar uma função
+  // nova, e a mensagem antiga — "erro inesperado" — mandava o coach tentar de
+  // novo para sempre. Dizer as duas é o que encurta a investigação.
+  'functions/internal': 'O servidor não conseguiu executar esta ação. Se ela é nova, '
+    + 'pode faltar publicar as Cloud Functions (firebase deploy --only functions). '
+    + 'Se já estão publicadas, o erro está no log da função.',
+  'functions/not-found': 'Esta ação ainda não existe no servidor — falta publicar as Cloud Functions.',
   'functions/resource-exhausted': 'Limite diário atingido. Monte o treino no Montador de Treinos por hoje.',
 };
 const ERRO_GENERICO = 'Não deu para completar a operação. Tente de novo.';
@@ -143,11 +151,17 @@ export function distributeWorkoutToStudents({ workoutId, turmas, dryRun = false 
  * fechada, rede caindo) e deixar o aluno vendo no celular um treino que o coach
  * apagou. No servidor é um lote só.
  *
+ * A DATA vai junto como rede: se o `workoutId` da tela não existir mais no
+ * banco (treino de um formato antigo, id reescrito por uma migração), o servidor
+ * ainda acha o treino pelo dia — e só quando aquele dia tem um treino só, para
+ * não apagar o errado num dia duplicado.
+ *
  * @param {string} workoutId
+ * @param {string} [dateId] 'YYYY-MM-DD'
  * @returns {Promise<{apagado: true, fichas: number, portais: number, dateId: string}>}
  */
-export function excluirLousa(workoutId) {
-  return chamar('deleteWorkoutLousa', { workoutId }, TIMEOUT.distribuicao);
+export function excluirLousa(workoutId, dateId = '') {
+  return chamar('deleteWorkoutLousa', { workoutId, dateId }, TIMEOUT.distribuicao);
 }
 
 /* ------------------------------------------------------------------ *

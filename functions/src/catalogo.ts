@@ -133,3 +133,35 @@ export function itemDaIA(nome: string, cru: unknown): ItemCatalogo | null {
     aprendidoEm: new Date().toISOString(),
   };
 }
+
+/**
+ * Tira `undefined` de qualquer canto do objeto, recursivamente.
+ *
+ * O Firestore RECUSA `undefined` — e recusa de forma síncrona, estourando no
+ * `set()` antes de qualquer rede, com uma mensagem que o coach vê como "erro
+ * interno". Um documento lido do Firestore nunca traz `undefined`, então na
+ * teoria isto nunca é preciso; na prática, o custo é uma passada por um objeto
+ * pequeno, e o que ele previne é uma falha sem diagnóstico na hora de arquivar
+ * um treino antes de apagá-lo — ou seja, no único ponto em que existe uma cópia
+ * de segurança.
+ *
+ * `null` PASSA de propósito: o Firestore o aceita, e um campo que era nulo no
+ * treino original precisa continuar nulo na cópia — trocar por ausente mudaria
+ * o documento arquivado.
+ */
+export function limparParaGravar<T>(valor: T): T {
+  if (Array.isArray(valor)) {
+    return valor.filter((v) => v !== undefined).map((v) => limparParaGravar(v)) as unknown as T;
+  }
+  // `null` é objeto em JS; Timestamp e outros tipos do Firestore também são, e
+  // não podem ser reconstruídos campo a campo — só objeto literal é percorrido.
+  if (valor === null || typeof valor !== 'object') return valor;
+  if (Object.getPrototypeOf(valor) !== Object.prototype) return valor;
+
+  const saida: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(valor as Record<string, unknown>)) {
+    if (v === undefined) continue;
+    saida[k] = limparParaGravar(v);
+  }
+  return saida as unknown as T;
+}
