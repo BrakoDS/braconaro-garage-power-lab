@@ -202,3 +202,106 @@ test('lista vazia ou torta não quebra a tela', () => {
   assert.deepEqual(paraEnvio(null), []);
   assert.equal(totalDeAlunos(undefined), 0);
 });
+
+/* ---------- aluno extra / reposição ---------- */
+
+import { adicionarExtra, buscarAlunos } from './turmas.js';
+
+/** A base inteira, incluindo quem não treina na quarta. */
+const BASE = [
+  ...TURMA_DO_BOX,
+  aluno('8', 'Hélio Ramos', { diasTreino: ['sab'], horarios: { sab: '09:00' } }),
+  aluno('9', 'Íris Campos', { diasTreino: ['ter'], horarios: { ter: '18:00' }, status: 'inativo' }),
+];
+
+test('a busca ignora dia e horário da ficha — é para achar quem vem repor', () => {
+  // O Hélio só treina sábado; é justamente ele que o coach precisa achar numa
+  // quarta para encaixar uma reposição.
+  const r = buscarAlunos(BASE, 'hélio', montarTurmas(BASE, QUARTA));
+  assert.equal(r.length, 1);
+  assert.equal(r[0].aluno.nome, 'Hélio Ramos');
+  assert.equal(r[0].ondeEsta, '', 'ele não está em turma nenhuma hoje');
+});
+
+test('a busca não se importa com acento nem com maiúscula', () => {
+  const turmas = montarTurmas(BASE, QUARTA);
+  assert.equal(buscarAlunos(BASE, 'helio', turmas).length, 1, 'sem acento acha');
+  assert.equal(buscarAlunos(BASE, 'HÉLIO', turmas).length, 1, 'em maiúscula acha');
+  assert.equal(buscarAlunos(BASE, 'ramos', turmas).length, 1, 'pelo sobrenome acha');
+});
+
+test('quem já está numa turma aparece DIZENDO onde está, em vez de sumir', () => {
+  // Esconder faria o coach procurar um nome que existe, não achar, e concluir
+  // que o aluno não está cadastrado.
+  const r = buscarAlunos(BASE, 'ana', montarTurmas(BASE, QUARTA));
+  assert.equal(r[0].aluno.nome, 'Ana');
+  assert.equal(r[0].ondeEsta, 'nas 19h');
+});
+
+test('a preposição vem do núcleo — senão a tela diria "já está nas sem horário"', () => {
+  const semHora = [aluno('z', 'Zeca', { diasTreino: ['qua'], horarios: {} })];
+  const r = buscarAlunos(semHora, 'zeca', montarTurmas(semHora, QUARTA));
+  assert.equal(r[0].ondeEsta, 'no bloco sem horário');
+});
+
+test('aluno inativo não aparece na busca', () => {
+  assert.equal(buscarAlunos(BASE, 'íris', montarTurmas(BASE, QUARTA)).length, 0);
+});
+
+test('busca sem termo devolve a base ativa inteira, em ordem alfabética', () => {
+  const r = buscarAlunos(BASE, '', montarTurmas(BASE, QUARTA));
+  assert.equal(r.length, BASE.filter((a) => a.status !== 'inativo').length);
+  assert.deepEqual(r.slice(0, 3).map((x) => x.aluno.nome), ['Ana', 'Bruno', 'Carla']);
+});
+
+test('o extra entra na turma escolhida, marcado', () => {
+  const t = montarTurmas(BASE, QUARTA);
+  const helio = BASE.find((a) => a.id === '8');
+  const depois = adicionarExtra(t, helio, '07:00');
+  const manha = depois.find((x) => x.horario === '07:00');
+  assert.deepEqual(manha.alunos.map((a) => a.nome), ['Bruno', 'Hélio Ramos']);
+  assert.equal(manha.alunos.find((a) => a.id === '8').extra, true);
+});
+
+test('o extra vai junto no envio, como qualquer outro aluno', () => {
+  const depois = adicionarExtra(montarTurmas(BASE, QUARTA), BASE.find((a) => a.id === '8'), '07:00');
+  const envio = paraEnvio(depois).find((t) => t.classTime === '07:00');
+  assert.deepEqual(envio.studentIds.sort(), ['2', '8']);
+});
+
+test('adicionar quem já está em outro horário MOVE, não duplica', () => {
+  // Duas turmas com o mesmo aluno é o que o servidor recusa: no mesmo lote a
+  // última escrita do documento dele venceria em silêncio.
+  const t = montarTurmas(BASE, QUARTA);
+  const ana = BASE.find((a) => a.id === '1');
+  const depois = adicionarExtra(t, ana, '07:00');
+  const ids = paraEnvio(depois).flatMap((x) => x.studentIds);
+  assert.equal(new Set(ids).size, ids.length, 'ninguém aparece duas vezes');
+  assert.equal(depois.find((x) => x.horario === '19:00').alunos.find((a) => a.id === '1'), undefined);
+});
+
+test('a marca de extra sobrevive a mover de horário', () => {
+  const t = adicionarExtra(montarTurmas(BASE, QUARTA), BASE.find((a) => a.id === '8'), '07:00');
+  const depois = moverAluno(t, '8', '19:00');
+  assert.equal(depois.find((x) => x.horario === '19:00').alunos.find((a) => a.id === '8').extra, true);
+});
+
+test('o extra pode criar um horário que ainda não existia', () => {
+  const depois = adicionarExtra(montarTurmas(BASE, QUARTA), BASE.find((a) => a.id === '8'), '20:00');
+  assert.deepEqual(depois[depois.length - 2].horario, '20:00');
+});
+
+test('extra sem horário válido ou sem aluno não muda nada', () => {
+  const t = montarTurmas(BASE, QUARTA);
+  assert.equal(adicionarExtra(t, BASE[0], 'lixo'), t);
+  assert.equal(adicionarExtra(t, null, '07:00'), t);
+});
+
+test('o extra conta no teto da turma, como todo mundo', () => {
+  const lotada = Array.from({ length: MAX_POR_TURMA }, (_, i) =>
+    aluno(`x${i}`, `A${i}`, { diasTreino: ['qua'], horarios: { qua: '07:00' } }));
+  const t = montarTurmas(lotada, QUARTA);
+  const cheia = adicionarExtra(t, aluno('novo', 'Extra'), '07:00');
+  assert.equal(cheia[0].excede, true);
+  assert.ok(impedimentos(cheia).length, 'e vira impedimento para distribuir');
+});

@@ -26,6 +26,7 @@
  * @typedef {{horario: string, rotulo: string, alunos: Aluno[], excede: boolean}} Turma
  */
 import { diaSemanaDe } from '../../../compartilhado/regras/datas-treino.js';
+import { normalizar } from './lousa-modelo.js';
 
 /** O mesmo teto do servidor e de `ALUNOS_POR_SESSAO` no inventário do box. */
 export const MAX_POR_TURMA = 8;
@@ -144,6 +145,76 @@ export function moverAluno(turmas, alunoId, destino) {
 /** Tira um aluno da distribuição de hoje — o que avisou que vai faltar. */
 export function removerAluno(turmas, alunoId) {
   return ordenar((turmas || []).map((t) => ({ ...t, alunos: t.alunos.filter((a) => a.id !== alunoId) })));
+}
+
+/**
+ * Encaixa um aluno que NÃO estava na grade do dia — reposição, aula avulsa, o
+ * que perdeu a segunda e veio na quarta.
+ *
+ * O aluno entra marcado com `extra: true`, e a marca serve para uma coisa só:
+ * o coach reconhecer na tela quem está fora da rotina. Ela não muda o que é
+ * gravado — a ficha de um aluno de reposição é a mesma ficha, calculada com a
+ * mesma matriz. Mandar a marca ao servidor criaria um campo que ninguém lê e
+ * que um dia alguém trataria como regra.
+ *
+ * Um aluno em duas turmas é o caso que o servidor recusa (no mesmo lote a última
+ * escrita vence em silêncio), então ele é removido de onde estava antes de ser
+ * encaixado — mover é o resultado esperado de "adicionar quem já está".
+ *
+ * @param {Turma[]} turmas @param {Aluno} aluno @param {string} horario 'HH:MM'
+ * @returns {Turma[]}
+ */
+export function adicionarExtra(turmas, aluno, horario) {
+  const h = normalizarHora(horario);
+  if (!aluno?.id || !h) return turmas;
+
+  const semEle = (turmas || []).map((t) => ({ ...t, alunos: t.alunos.filter((a) => a.id !== aluno.id) }));
+  const marcado = { ...aluno, extra: true };
+  const jaExiste = semEle.some((t) => t.horario === h);
+  const comEle = jaExiste
+    ? semEle.map((t) => (t.horario === h ? { ...t, alunos: [...t.alunos, marcado] } : t))
+    : [...semEle, { horario: h, rotulo: horaLegivel(h), alunos: [marcado], excede: false }];
+
+  return ordenar(comEle);
+}
+
+/**
+ * Busca por nome em TODA a base ativa, ignorando dia e horário da ficha.
+ *
+ * Ignorar o filtro é o ponto: quem vem repor a segunda numa quarta não está na
+ * grade da quarta, e é exatamente ele que o coach precisa achar.
+ *
+ * Quem já está numa turma de hoje volta com `ondeEsta` preenchido em vez de ser
+ * escondido. Sumir com ele faria o coach procurar um nome que existe e não
+ * aparece, e concluir que o aluno não está cadastrado; dizer "já está nas 7h"
+ * responde a pergunta dele na hora.
+ *
+ * @param {Aluno[]} alunos a base inteira
+ * @param {string} termo
+ * `ondeEsta` já vem com a preposição ("nas 7h", "no bloco sem horário") porque
+ * ela MUDA com o caso, e montar a frase na tela daria "já está nas sem horário".
+ * O que a tela põe é só o "já está" na frente.
+ *
+ * @param {Turma[]} turmas as turmas já montadas
+ * @returns {{aluno: Aluno, ondeEsta: string}[]}
+ */
+export function buscarAlunos(alunos, termo, turmas) {
+  const t = normalizar(termo);
+  /** @type {Map<string, string>} */
+  const onde = new Map();
+  for (const turma of turmas || []) {
+    for (const a of turma.alunos) {
+      onde.set(a.id, turma.horario ? `nas ${horaLegivel(turma.horario)}` : 'no bloco sem horário');
+    }
+  }
+
+  return (alunos || [])
+    .filter((a) => a?.id && ativo(a))
+    // Sem termo, devolve a base inteira ordenada — o coach que não lembra o nome
+    // rola a lista, que é curta num box.
+    .filter((a) => !t || normalizar(a.nome).includes(t))
+    .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || '')))
+    .map((a) => ({ aluno: a, ondeEsta: onde.get(a.id) || '' }));
 }
 
 /** Acrescenta um bloco de horário vazio, para o coach encaixar alguém nele. */

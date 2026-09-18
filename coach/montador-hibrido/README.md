@@ -115,6 +115,23 @@ turma esvaziada **continua na tela**: "19h — ninguém hoje" é informação, e
 que permite desfazer o clique errado; quem impede que ela seja gravada é
 `paraEnvio`.
 
+### Aluno extra (reposição)
+
+Cada bloco **com horário** tem um `+ Aluno extra` que busca na base ativa
+inteira, **ignorando dia e horário da ficha** — é assim que se acha quem perdeu a
+segunda e vem repor na quarta. Quem já está numa turma de hoje aparece
+desabilitado, dizendo onde está: sumir com o nome faria o coach procurar um aluno
+que existe, não achar, e concluir que ele não está cadastrado.
+
+Adicionar quem já está noutro horário **move**, não duplica — aluno em duas
+turmas é o caso que o servidor recusa, porque no mesmo lote a última escrita do
+documento dele venceria em silêncio.
+
+A tarja **"Reposição"** é só para o coach reconhecer quem está fora da rotina.
+Ela não vai ao servidor: a ficha de um aluno de reposição é a mesma ficha,
+calculada com a mesma matriz, e um campo que ninguém lê é um campo que um dia
+alguém trata como regra.
+
 O bloco **"sem horário na ficha"** aparece no fim e não é enviado. A ficha é
 publicada por horário no Portal, e gravar com `classTime` vazio faria o treino
 chegar ao aluno sem dizer de que aula ele é.

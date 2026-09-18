@@ -26,6 +26,12 @@
  * a cada requisição. É de propósito: uma cópia do HTML aqui dentro divergiria da
  * tela real no primeiro ajuste, e o harness passaria a testar uma ferramenta que
  * não existe mais.
+ *
+ * ATENÇÃO: isso vale para o HTML, o CSS e os `.js` do site, que são lidos do
+ * disco a cada pedido — editar qualquer um deles e recarregar a página basta.
+ * Os DUBLÊS abaixo são constantes deste módulo, lidas uma vez na inicialização:
+ * depois de mexer num deles, é preciso parar (Ctrl+C) e subir o servidor de
+ * novo. Sem isso o navegador recebe o dublê velho e o teste mente em silêncio.
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -143,7 +149,9 @@ export async function distributeWorkoutToStudents({ turmas, dryRun }) {
   const NOMES = {
     '001': 'Ana Prado', '002': 'Bruno Alves', '003': 'Carla Nunes', '004': 'Diego Matos',
     '005': 'Elisa Rocha', '006': 'Fábio Lima', '007': 'Gabi Souza', '008': 'Heitor Dias',
-    '009': 'Ivone Castro', '010': 'João Vieira',
+    '009': 'Ivone Castro', '010': 'João Vieira', '011': 'Karina Melo',
+    '013': 'Marina Duarte', '014': 'Nelson Braga', '015': 'Otávio Reis',
+    '016': 'Priscila Amaral', '017': 'Renê Sampaio',
   };
   const fichas = (turmas || []).flatMap((t) => t.studentIds.map((id) => {
     const caso = CASOS[id] || 'normal';
@@ -304,9 +312,25 @@ export function listar() {
     // Não treina na quarta: não pode aparecer na grade do dia.
     { id: '011', nome: 'Karina Melo', email: 'karina@exemplo.com', nivel: 'avancado', status: 'ativo',
       diasTreino: ['ter', 'qui'], horarios: { ter: '18:00', qui: '18:00' } },
-    // Inativo: fora da turma, sempre.
+    // Inativo: fora da turma, sempre — e fora da busca de aluno extra também.
     { id: '012', nome: 'Lucas Prado', email: 'lucas@exemplo.com', nivel: 'iniciante', status: 'inativo',
       diasTreino: ['qua'], horarios: { qua: '07:00' } },
+
+    // --- A BASE ALÉM DA GRADE DO DIA ---
+    // Estes não treinam na quarta e por isso NÃO aparecem nas turmas montadas.
+    // Existem para a busca de "+ Aluno extra" ter o que achar: é exatamente o
+    // caso de quem perdeu a aula dele e vem repor noutro dia.
+    { id: '013', nome: 'Marina Duarte', email: 'marina@exemplo.com', nivel: 'intermediario', status: 'ativo',
+      diasTreino: ['ter', 'qui'], horarios: { ter: '07:00', qui: '07:00' } },
+    { id: '014', nome: 'Nelson Braga', email: 'nelson@exemplo.com', nivel: 'avancado', status: 'ativo',
+      diasTreino: ['sab'], horarios: { sab: '09:00' } },
+    { id: '015', nome: 'Otávio Reis', email: 'otavio@exemplo.com', nivel: 'iniciante', status: 'ativo',
+      diasTreino: ['ter', 'qui'], horarios: { ter: '19:00', qui: '19:00' } },
+    { id: '016', nome: 'Priscila Amaral', email: 'priscila@exemplo.com', nivel: 'intermediario', status: 'ativo',
+      diasTreino: ['sab'], horarios: { sab: '10:00' } },
+    // Nome com acento, para conferir que a busca acha digitando sem ele.
+    { id: '017', nome: 'Renê Sampaio', email: 'rene@exemplo.com', nivel: 'avancado', status: 'ativo',
+      diasTreino: ['ter'], horarios: { ter: '18:00' } },
   ];
 }
 export async function iniciarSync() {}

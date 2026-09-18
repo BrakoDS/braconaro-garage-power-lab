@@ -19,6 +19,17 @@
  * segunda e 19h na quarta não tem um horário padrão, e um campo assim brigaria
  * com o mapa por dia até alguém descobrir qual dos dois o sistema usava.
  *
+ * ── O aluno extra (reposição) ────────────────────────────────────────────────
+ * Cada bloco COM horário tem um "+ Aluno extra" que busca na base inteira,
+ * ignorando dia e hora da ficha — é assim que se acha quem vem repor a aula que
+ * perdeu. O bloco "sem horário" não ganha o botão: encaixar alguém ali seria
+ * encaixá-lo numa turma que não é enviada.
+ *
+ * A marca "Reposição" é só para o coach reconhecer quem está fora da rotina. Ela
+ * não vai ao servidor: a ficha de um aluno de reposição é a mesma ficha,
+ * calculada com a mesma matriz, e um campo que ninguém lê é um campo que um dia
+ * alguém trata como regra.
+ *
  * ── A prévia continua vindo do servidor ──────────────────────────────────────
  * Com `dryRun: true`, pelo mesmo caminho do envio. Recalcular lesão, restrição e
  * balizamento de 1RM aqui daria dois resultados possíveis para a mesma pergunta,
@@ -26,9 +37,10 @@
  */
 import * as gestaoDb from '../../gestao-de-alunos/db.js';
 import {
-  montarTurmas, moverAluno, removerAluno, adicionarHorario, paraEnvio, impedimentos,
-  totalDeAlunos, horaLegivel, MAX_POR_TURMA, SEM_HORARIO,
+  montarTurmas, moverAluno, removerAluno, adicionarHorario, adicionarExtra, paraEnvio,
+  impedimentos, totalDeAlunos, horaLegivel, MAX_POR_TURMA, SEM_HORARIO,
 } from '../core/turmas.js';
+import { escolherAluno } from './buscar-aluno.js';
 import { diaSemanaDe } from '../../../compartilhado/regras/datas-treino.js';
 import { distributeWorkoutToStudents } from '../cloud/chamadas.js';
 import { esc } from './render-treino.js';
@@ -69,6 +81,17 @@ export function montar(ctx) {
     if (remover) {
       turmas = removerAluno(turmas, remover.getAttribute('data-remover') || '');
       store.atualizar({ fichas: [] });
+      return;
+    }
+    const extra = el.closest('[data-extra]');
+    if (extra) {
+      const horario = extra.getAttribute('data-extra') || '';
+      // A base INTEIRA, não a grade do dia: quem vem repor a segunda numa quarta
+      // não está na grade da quarta, e é justamente ele que se procura aqui.
+      const aluno = await escolherAluno({ alunos: alunosAtivos(), turmas, horario });
+      if (!aluno) return;
+      turmas = adicionarExtra(turmas, aluno, horario);
+      store.atualizar({ fichas: [] }); // a prévia deixa de valer: mudou quem recebe
       return;
     }
     if (el.closest('#turma-add-horario')) {
@@ -168,8 +191,9 @@ function blocoDaTurma(t, todas) {
   const classe = ['card', 'turma-bloco', t.excede ? 'excede' : '', t.horario ? '' : 'sem-hora'].filter(Boolean).join(' ');
 
   const linhas = t.alunos.map((a) => `
-    <li class="turma-aluno">
+    <li class="turma-aluno${a.extra ? ' extra' : ''}">
       <span class="turma-nome">${esc(a.nome || a.id)}</span>
+      ${a.extra ? '<span class="tag-extra" title="Não está na grade deste dia">Reposição</span>' : ''}
       <span class="ex-chip mudo">${esc(a.nivel || 'sem nível')}</span>
       <select class="turma-mover" data-mover="${esc(a.id)}" aria-label="Mover ${esc(a.nome)} de horário">
         <option value="${esc(t.horario)}" selected>${esc(t.rotulo)}</option>
@@ -189,6 +213,9 @@ function blocoDaTurma(t, todas) {
       ${t.alunos.length
         ? `<ul class="turma-lista">${linhas}</ul>`
         : '<p class="mut turma-vazia">Ninguém neste horário hoje.</p>'}
+      ${t.horario
+        ? `<button class="btn ghost btn-sm turma-extra" type="button" data-extra="${esc(t.horario)}">+ Aluno extra</button>`
+        : ''}
       ${t.horario === SEM_HORARIO
         ? '<p class="mut turma-dica">Estes alunos treinam hoje, mas a ficha não diz a que horas. Cadastre a hora na Gestão ou mova cada um para um horário.</p>'
         : ''}

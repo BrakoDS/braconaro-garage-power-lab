@@ -268,6 +268,14 @@ input:focus { outline: none; border-color: var(--acc); }
   border-radius: 8px; padding: 5px 8px; font-size: 12.5px; max-width: 190px; }
 .turma-mover:focus { outline: none; border-color: var(--acc); }
 
+/* A reposição é discreta de propósito: uma tarja pequena ao lado do nome, não
+   um cartão diferente. Ela diz "esse aqui está fora da rotina", e o resto da
+   linha continua igual — porque a ficha dele também é igual. */
+.tag-extra { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  padding: 2px 7px; border-radius: 999px; background: rgba(255,199,0,.16); color: var(--acc); }
+.turma-aluno.extra { border-color: color-mix(in srgb, var(--acc) 40%, transparent); }
+.turma-extra { margin-top: 8px; }
+
 .turma-novo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .turma-novo label { margin: 0; text-transform: uppercase; }
 .turma-novo input[type=time] { width: auto; min-width: 118px; }
@@ -365,6 +373,27 @@ input:focus { outline: none; border-color: var(--acc); }
 .cal-legenda { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
 .cal-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--mut); }
 .cal-leg i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+/* ---------- busca de aluno extra (ui/buscar-aluno.js) ---------- */
+.bal-ajuda { margin: 0 0 12px; font-size: 13px; }
+.bal-termo { width: 100%; background: var(--bg2); color: var(--txt); border: 1px solid var(--line2);
+  border-radius: 9px; padding: 10px 12px; font-size: 15px; }
+.bal-termo:focus { outline: none; border-color: var(--acc); }
+/* Altura máxima com rolagem própria: a base de um box tem dezenas de nomes, e
+   sem teto a lista empurraria o rodapé do modal para fora da tela. */
+.bal-lista { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 5px;
+  max-height: 46vh; overflow-y: auto; }
+.bal-item { width: 100%; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  background: var(--card2); color: var(--txt); border: 1px solid var(--line2); border-radius: 10px;
+  padding: 10px 12px; font-size: 14px; text-align: left; cursor: pointer; }
+.bal-item:hover:not(:disabled) { border-color: var(--acc); }
+/* Quem já está numa turma fica desabilitado, não escondido — ver o cabeçalho de
+   `buscar-aluno.js`: sumir faz o coach achar que o aluno não está cadastrado. */
+.bal-item:disabled { cursor: not-allowed; opacity: .55; }
+.bal-nome { font-weight: 600; flex: 1 1 140px; }
+.bal-onde { font-size: 11.5px; color: var(--warn); }
+.bal-add { font-size: 11.5px; color: var(--acc); font-weight: 700; }
+.bal-vazio { color: var(--mut); font-size: 13px; padding: 12px 2px; }
 
 /* ============================================================
    MODAL (classes de compartilhado/ui/dialogo.js)
