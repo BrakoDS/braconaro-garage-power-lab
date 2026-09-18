@@ -117,6 +117,30 @@ que é o único ponto de escrita, para que nenhuma tela futura possa esquecer de
 avisar. A marca só avança **depois** de uma leitura bem-sucedida, senão uma falha
 de rede prenderia a tela num mês vazio.
 
+### `workoutId` é um endereço, não um rótulo
+
+`salvarLousa` grava com `merge` no documento que o `workoutId` aponta.
+Reaproveitá-lo para um treino que não é aquele **não dá erro nenhum**: sobrescreve
+o treino antigo em silêncio. O coach descobre dias depois, pelo Calendário, que a
+segunda virou a quarta — ou conclui que o sistema "não salva".
+
+Era exatamente o que acontecia: `store.limpar()` existia e nunca era chamado por
+ninguém. O botão "Limpar" apagava o quadro e deixava o `workoutId` do treino
+anterior no rascunho — que vive no `localStorage` e atravessa dias. O box gravou
+um único documento, reescrito a cada aula.
+
+Duas travas, porque uma só deixa buraco:
+
+1. **"Limpar" quer dizer treino novo**, não quadro em branco: zera o rascunho
+   inteiro (`store.limpar()`), e com ele o `workoutId`. A data fica — é o único
+   campo que o coach repete de propósito.
+2. **O id anda com a data dele** (`workoutDateId`). Mudou a data, é outro treino:
+   grava documento novo, mesmo sem passar pelo Limpar.
+
+O que continua regravando no MESMO documento, e deve: corrigir a lousa e mandar
+ler de novo (o "3x8" que a IA leu como "3x3"), e reabrir um treino pelo
+Calendário. Os dois casos têm teste de navegador.
+
 ### Calendário
 
 O mês inteiro em grade, com um chip por treino colorido pela tabela de

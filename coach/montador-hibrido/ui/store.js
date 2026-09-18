@@ -26,6 +26,7 @@
  * @property {string} texto     o que o coach digitou na lousa
  * @property {any|null} treino  o treino estruturado que a IA devolveu
  * @property {string} workoutId id no Firestore, depois de salvo
+ * @property {string} workoutDateId a data a que `workoutId` pertence
  * @property {any|null} alertas resultado da checagem de variabilidade
  * @property {string[]} turma   ids dos alunos selecionados
  * @property {any[]} fichas     prévia da distribuição
@@ -43,7 +44,7 @@ function hoje() {
 function vazio() {
   return {
     titulo: '', dateId: hoje(), texto: '',
-    treino: null, workoutId: '', alertas: null, turma: [], fichas: [],
+    treino: null, workoutId: '', workoutDateId: '', alertas: null, turma: [], fichas: [],
   };
 }
 
@@ -111,6 +112,17 @@ export function limpar() {
   const { dateId } = estado;
   atualizar({ ...vazio(), dateId });
 }
+
+/*
+ * CUIDADO AO MEXER EM `workoutId`: ele é o ENDEREÇO de um documento no
+ * Firestore, e `salvarLousa` grava com `merge`. Reaproveitá-lo para um treino
+ * que não é aquele não dá erro nenhum — sobrescreve o treino antigo em
+ * silêncio, e o coach descobre pelo Calendário, dias depois, que o treino de
+ * segunda virou o de quarta.
+ *
+ * Por isso ele anda junto de `workoutDateId` e é zerado pelo "Limpar", que é o
+ * botão que significa "treino novo".
+ */
 
 /**
  * Invalida o que deixou de valer quando o treino muda.

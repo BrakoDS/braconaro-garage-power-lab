@@ -213,6 +213,13 @@ export function montar(ctx) {
       guardar();            // o quadro cheio entra na pilha…
       lousa.limpar();
       editor.limpar();
+      // "Limpar" quer dizer TREINO NOVO, não só quadro em branco: o rascunho vai
+      // junto — e com ele o `workoutId`. Sem isto, o próximo treino gravava POR
+      // CIMA do anterior, porque `salvarLousa` reaproveitava o endereço antigo.
+      // A data fica (é o único campo que o coach repete de propósito).
+      store.limpar();
+      titulo.value = '';
+      data.value = store.ler().dateId;
       serieTracos++;
       guardar();            // …e o quadro vazio vira o passo seguinte
       usarModo('digitar');
@@ -340,6 +347,7 @@ export function abrirTreinoSalvo(lousaSalva) {
     texto: editor.texto(),
     treino,
     workoutId: lousaSalva.workoutId || '',
+    workoutDateId: lousaSalva.dateId || '',
     alertas: null,
     fichas: [],
   });
@@ -398,8 +406,14 @@ async function abrirPrevia(treino, lousaOriginal, ctx, campos) {
       titulo: campos.titulo.value,
       textoOriginal: lousaOriginal.texto || '',
     });
-    const id = await salvarLousa(ctx.uid(), dados, store.ler().workoutId || undefined);
-    store.atualizar({ workoutId: id });
+    // Reaproveitar o `workoutId` é REGRAVAR aquele documento. Só vale quando é a
+    // mesma lousa: o coach corrigiu um "3x8" lido como "3x3" e mandou ler de
+    // novo, ou reabriu o treino pelo Calendário. Se a DATA mudou, é outro treino
+    // — e regravar ali apagaria o treino do dia anterior sem erro nenhum.
+    const est = store.ler();
+    const mesmaLousa = est.workoutId && est.workoutDateId === dados.dateId;
+    const id = await salvarLousa(ctx.uid(), dados, mesmaLousa ? est.workoutId : undefined);
+    store.atualizar({ workoutId: id, workoutDateId: dados.dateId });
     ctx.irPara('alertas');
   } catch (e) {
     console.error('Falha ao salvar a lousa:', e);
