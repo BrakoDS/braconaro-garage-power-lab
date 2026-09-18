@@ -26,6 +26,7 @@ import { resumo } from '../core/lousa-modelo.js';
 import { listarLousas, marcaDasLousas } from '../cloud/chamadas.js';
 import { cardsDoTreino, esc } from './render-treino.js';
 import { abrirTreinoSalvo } from './lousa.js';
+import { confirmarEExcluir } from './excluir-treino.js';
 import * as store from './store.js';
 import { painel, avisar } from '../../../compartilhado/ui/dialogo.js';
 
@@ -218,15 +219,33 @@ async function abrirTreino(ctx, workoutId) {
 
   // Passado: leitura. O painel mostra o mesmo card que a prévia mostra, para o
   // coach reconhecer o treino sem ter de traduzir outro formato.
-  await painel({
+  //
+  // EXCLUIR é a exceção ao "somente leitura", e é deliberada. A trava do passado
+  // existe para impedir que reescrever uma terça de três semanas atrás mude o
+  // gráfico do mês sem explicação. Apagar um treino DUPLICADO é o caso em que
+  // mudar o gráfico é o objetivo — e sem uma saída aqui, quem precisa limpar a
+  // bagunça de uma migração não tem nenhuma: o treino duplicado é, por
+  // definição, passado.
+  const acao = await painel({
     titulo: `${t.treino?.titulo || 'Treino'} · ${t.dateId}${horasDe(t)}`,
     corpoHTML: `
       <p class="previa-meta">${esc(resumo(t.treino))}${t.distribuido ? ' · já distribuído para a turma' : ''}</p>
       <p class="mut" style="font-size:12.5px">Treino passado — somente leitura. O consolidado de volume já contou este dia.</p>
       ${cardsDoTreino(t.treino)}`,
     largo: true,
-    acoes: [],
+    acoes: [{ id: 'excluir', label: 'Excluir treino', perigo: true }],
   });
+  if (acao !== 'excluir') return;
+
+  const apagou = await confirmarEExcluir({
+    workoutId: t.workoutId,
+    titulo: t.treino?.titulo,
+    dateId: t.dateId,
+    passado: true,
+  });
+  // Recarrega o mês: o chip do treino apagado tem de sumir agora, na tela em
+  // que o coach está olhando, e não só no próximo carregamento.
+  if (apagou) await carregar(ctx, $('#calendario-corpo'));
 }
 
 /** As horas das aulas de um treino, prontas para um cabeçalho ("· 06:00, 07:00"). */

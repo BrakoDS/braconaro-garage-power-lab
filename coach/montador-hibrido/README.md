@@ -304,6 +304,17 @@ o outro — só sai a entrada cujo `workoutId` é o que está sendo apagado.
 `aggregateVolumeMetrics` já é `onDocumentWritten`, que dispara no apagamento e
 já usava `antes.dateId` para refazer a semana certa. Não precisou de mudança.
 
+**Dois pontos de entrada**, e o segundo é o que importa: a Lousa (treino gravado
+aberto na tela) e o painel de leitura do **Calendário**. O "somente leitura" do
+passado existe para impedir que reescrever uma terça de três semanas atrás mude o
+gráfico do mês sem explicação — mas apagar um treino DUPLICADO é o caso em que
+mudar o gráfico é o objetivo, e duplicado é, por definição, passado. Sem a saída
+ali, quem precisa limpar a bagunça de uma migração não tem nenhuma.
+
+`ui/excluir-treino.js` guarda o fluxo para os dois, e o aviso muda conforme o
+caso: no passado ele diz que o volume **já contava** aquele treino e vai
+diminuir. Dizer antes é a diferença entre uma correção e um susto.
+
 ### Pré-parser e catálogo: a lousa que fica barata com o uso
 
 A maior parte das lousas é texto regular — cabeçalho de bloco e linhas

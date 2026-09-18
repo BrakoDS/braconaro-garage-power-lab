@@ -307,6 +307,9 @@ export async function listarLousas(_uid, inicio, fim) {
         textoOriginal: '', geradoEm: dateId + 'T06:00:00.000Z' });
     }
   }
+  // O que o coach apagou SAI — inclusive os semeados, que sao recalculados a
+  // cada leitura e voltariam do tumulo sem esta lista.
+  for (let i = out.length - 1; i >= 0; i--) if (APAGADOS.includes(out[i].workoutId)) out.splice(i, 1);
   // O que o coach salvou nesta sessão entra junto — é o que prova na tela que
   // o treino recém-gravado aparece no mês sem recarregar a página.
   for (const g of GRAVADAS) {

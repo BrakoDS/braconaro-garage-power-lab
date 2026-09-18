@@ -31,9 +31,10 @@ import { criarHistorico } from '../core/historico.js';
 import { criarEditor } from './editor-rico.js';
 import { paraPrompt, textoPlano, segmentosDoTreino } from '../core/texto-rico.js';
 import { paraGravar, totalSeries, exerciciosDo } from '../core/lousa-modelo.js';
-import { parseWorkoutLousa, salvarLousa, excluirLousa } from '../cloud/chamadas.js';
+import { parseWorkoutLousa, salvarLousa } from '../cloud/chamadas.js';
 import * as store from './store.js';
-import { painel, avisar, confirmar } from '../../../compartilhado/ui/dialogo.js';
+import { painel, avisar } from '../../../compartilhado/ui/dialogo.js';
+import { confirmarEExcluir } from './excluir-treino.js';
 import { cardsDoTreino, esc } from './render-treino.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
@@ -283,23 +284,15 @@ export function montar(ctx) {
     const est = store.ler();
     if (!est.workoutId) return;
 
-    const nome = est.treino?.titulo || est.titulo || 'este treino';
-    const ok = await confirmar({
-      titulo: 'Excluir treino?',
-      texto: `Isso apaga <b>${esc(nome)}</b> de ${esc(est.dateId || 'sem data')} — o treino, as fichas `
-        + 'já distribuídas para a turma e o que os alunos veem no Portal. '
-        + 'O volume da semana e do mês é recalculado sem ele.<br><br>Não dá para desfazer pela tela.',
-      ok: 'Excluir treino',
-      perigo: true,
-    });
-    if (!ok) return;
-
     btnExcluir.disabled = true;
     const rotulo = btnExcluir.textContent;
-    btnExcluir.textContent = 'Excluindo…';
-    mostrarStatus('Apagando o treino e as fichas da turma…');
     try {
-      const r = await excluirLousa(est.workoutId);
+      const apagou = await confirmarEExcluir({
+        workoutId: est.workoutId,
+        titulo: est.treino?.titulo || est.titulo,
+        dateId: est.dateId,
+      });
+      if (!apagou) return;
       // Zera a tela: manter o treino apagado no rascunho deixaria o coach
       // distribuindo, na aba seguinte, uma coisa que não existe mais.
       store.limpar();
@@ -309,15 +302,7 @@ export function montar(ctx) {
       historico.recomecar('apagado', { html: editor.html(), tracos: [] });
       pintarBarra();
       mostrarStatus('');
-      await avisar({
-        titulo: 'Treino excluído',
-        texto: `Pronto. ${r.fichas} ficha(s) da turma e ${r.portais} publicação(ões) no Portal foram removidas junto. `
-          + 'O gráfico de volume se atualiza em alguns segundos.',
-      });
       ctx.irPara('calendario');
-    } catch (e) {
-      mostrarStatus(/** @type {Error} */ (e).message, 'erro');
-      await avisar({ titulo: 'Não deu para excluir', texto: /** @type {Error} */ (e).message });
     } finally {
       btnExcluir.disabled = false;
       btnExcluir.textContent = rotulo;
