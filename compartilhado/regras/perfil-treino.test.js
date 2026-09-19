@@ -214,3 +214,28 @@ test('em dia por tempo a restricao continua valendo', () => {
   const r = versaoDoAluno({ base, perfil: { restricoes: [{ evitarId: 'agacho_smith', substitutoId: 'leg_press' }] }, exercicioPorId });
   assert.equal(r.linhas[0].id, 'leg_press');
 });
+
+test('a troca ja resolvida na publicacao dispensa o catalogo', () => {
+  // É o caminho do aparelho do aluno: ele não tem o catálogo, então quem publica
+  // grava a troca com nome e grupo junto. Sem `exercicioPorId` nenhum aqui.
+  const r = versaoDoAluno({
+    base: baseFullBody(),
+    perfil: { objetivo: 'Hipertrofia' },
+    excecao: { trocas: { agacho_smith: { id: 'leg_press', nome: 'Leg press', padrao: 'quadriceps', grupoMuscular: 'perna', motivo: 'joelho' } } },
+  });
+  const l = r.linhas.find((x) => x.id === 'leg_press');
+  assert.ok(l, 'o substituto entrou sem consultar catalogo');
+  assert.equal(l.grupo, 'perna', 'o grupo vem junto, senao o foco pararia de enxergar a linha');
+  assert.match(l.motivos[0], /joelho/);
+  assert.equal(r.total, 21);
+});
+
+test('linha travada ignora ate a troca publicada', () => {
+  const base = baseFullBody();
+  base.blocos[0].exercicios[3] = linha('agacho_smith', 3, { travado: true });
+  const r = versaoDoAluno({
+    base,
+    excecao: { trocas: { agacho_smith: { id: 'leg_press', nome: 'Leg press' } } },
+  });
+  assert.ok(r.linhas.some((l) => l.id === 'agacho_smith'), 'o cadeado vale para a turma inteira, sem excecao');
+});

@@ -13,6 +13,8 @@ import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
 import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from '../compartilhado/regras/semana.js';
 import { faturaComDependentes, parteCoberta, faturaDoMes } from '../compartilhado/regras/consumo.js';
 import { renderTreinoDia } from './treino-dia.js';
+import { ehIndividual, renderVersaoDoAluno } from './treino-individual.js';
+import { carregarAjustes } from './treino-aluno-db.js';
 import { COR_MODALIDADE } from '../compartilhado/config/cores-modalidade.js';
 import { carregarNutricao, salvarNutricao } from './nutricao-db.js?v=3';
 import { NIVEIS, FATOR_PADRAO, nivelDoFator, nivelAutomatico } from './atividade.js';
@@ -530,11 +532,24 @@ async function renderCronograma() {
 }
 
 /** Abre o treino de uma data no modal (só leitura — o aluno não edita nada). */
-function abrirDiaCronograma(dateId) {
+async function abrirDiaCronograma(dateId) {
   const t = cronoDias[dateId]; if (!t) return;
   $('#modal-treino-tit').textContent = fmtData(dateId);
+  // Dia do montador individual: o aluno vê A VERSÃO DELE, calculada aqui com o
+  // perfil que já está no documento dele. Dia do montador antigo segue como
+  // sempre — os dois convivem enquanto o coach testa o novo.
   $('#modal-treino-body').innerHTML = renderTreinoDia(t, PORTAL?.nivel || 'intermediario');
   $('#modal-treino').classList.add('open');
+  if (!ehIndividual(t)) return;
+  try {
+    const ajustes = await carregarAjustes(emailAluno());
+    $('#modal-treino-body').innerHTML = renderVersaoDoAluno({
+      dia: t, dateId, portal: PORTAL, ajustes, diasDoMes: cronoDias,
+    });
+  } catch (e) {
+    // Falhou o cálculo? O card da turma já está na tela, e é verdade para todos.
+    console.warn('Versão do aluno:', e);
+  }
 }
 
 $('#cronograma').addEventListener('click', (ev) => {

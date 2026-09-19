@@ -29,6 +29,10 @@ async function init() {
  */
 export function diaEnxuto(d) {
   const base = { dia: d.dia, modalidade: d.modalidade };
+  // Dia do Montador Individual: o aparelho do aluno calcula a versão dele, e para
+  // isso precisa da estrutura e da marca. Sem elas o Portal mostra o número da
+  // turma para todos — que é o que acontecia antes desta linha existir.
+  if (d.individual) { base.individual = true; base.estrutura = d.estrutura || null; }
   if (d.hyrox) return { ...base, hyrox: d.hyrox };
   if (d.hiit) return { ...base, hiit: d.hiit };
   if (d.gap) return { ...base, gap: d.gap };
@@ -68,6 +72,13 @@ export function diaEnxuto(d) {
             exercicios: (b.exercicios || []).map((e) => ({
               nome: e.nome, padrao: e.padrao, reps: e.reps, descansoSeg: e.descansoSeg, niveis: e.niveis,
               tecnica: e.tecnica || null,
+              // Do Montador Individual: `id` casa a exceção do dia com a linha,
+              // `grupoMuscular` permite a redistribuição por foco no aparelho do
+              // aluno e `series` é o número da turma, a base de comparação. Saem
+              // como null no Treino Livre, que não os tem — e o Portal ignora.
+              id: e.id ?? null,
+              grupoMuscular: e.grupoMuscular ?? null,
+              series: e.series ?? null,
               // `?? null`, não `|| 0`: o grupo 0 é o primeiro grupo do bloco, e
               // "falsy" apagaria justamente o líder de cada bloco.
               grupo: e.grupo ?? null,
