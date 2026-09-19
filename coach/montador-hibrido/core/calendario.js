@@ -213,19 +213,28 @@ export function aulasDoTreino(t) {
  * tarefa — some na ordem, aparece no fim da lista.
  *
  * @param {any[]} treinos os treinos daquele dia
- * @returns {{treino: any, classTime: string, alunos: number, pendente: boolean}[]}
+ * @returns {{treino: any, classTime: string, alunos: number, pendente: boolean, semTreino: boolean}[]}
  */
 export function chipsDoDia(treinos) {
   const chips = [];
   for (const t of treinos || []) {
-    const aulas = aulasDoTreino(t);
-    if (!aulas.length) {
-      chips.push({ treino: t, classTime: '', alunos: 0, pendente: true });
+    // O dia marcado como SEM TREINO não é treino nem pendência: é um estado do
+    // dia. Vai na frente porque é a informação que responde "o que acontece
+    // aqui?" antes de qualquer outra — e se houver treino no mesmo dia, o coach
+    // vê os dois e percebe a contradição, que é o que ele precisa ver.
+    if (t?.semTreino === true) {
+      chips.push({ treino: t, classTime: '', alunos: 0, pendente: false, semTreino: true });
       continue;
     }
-    for (const a of aulas) chips.push({ treino: t, ...a, pendente: false });
+    const aulas = aulasDoTreino(t);
+    if (!aulas.length) {
+      chips.push({ treino: t, classTime: '', alunos: 0, pendente: true, semTreino: false });
+      continue;
+    }
+    for (const a of aulas) chips.push({ treino: t, ...a, pendente: false, semTreino: false });
   }
   return chips.sort((a, b) => {
+    if (a.semTreino !== b.semTreino) return a.semTreino ? -1 : 1;
     if (a.pendente !== b.pendente) return a.pendente ? 1 : -1;
     return a.classTime.localeCompare(b.classTime);
   });

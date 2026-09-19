@@ -168,3 +168,39 @@ export function resumo(treino) {
   const n = exerciciosDo(treino).length;
   return `${treino.sistema} · ${n} exercício${n === 1 ? '' : 's'} · ${totalSeries(treino)} séries`;
 }
+
+/** O título padrão de um dia marcado como sem treino. */
+export const TITULO_SEM_TREINO = 'Sem treino';
+
+/**
+ * O documento de um dia SEM TREINO — feriado, descanso, box fechado.
+ *
+ * `treino: null` não é descuido, é o mecanismo: os dois consumidores do
+ * servidor já pulam o documento cujo treino não é objeto —
+ * `aggregateVolumeMetrics` (`!t || !Array.isArray(t.blocos)`) e o histórico da
+ * variabilidade (`!v.treino || typeof v.treino !== 'object'`). Então o dia
+ * marcado não soma série, não entra na contagem de treinos do mês e não vira
+ * "repetição em menos de 72h" para o treino seguinte — sem precisar de uma
+ * linha nova em nenhuma das duas funções.
+ *
+ * A alternativa seria gravar um treino de zero exercícios. Ela parece
+ * equivalente e não é: `blocos: []` PASSA no teste do gatilho, e o dia entraria
+ * como treino de zero série, inflando a contagem de treinos da semana.
+ *
+ * @param {{dateId: string, motivo?: string}} meta
+ */
+export function paraGravarSemTreino({ dateId, motivo = '' }) {
+  return {
+    dateId,
+    semTreino: true,
+    titulo: String(motivo || '').trim().slice(0, 80) || TITULO_SEM_TREINO,
+    treino: null,
+    textoOriginal: '',
+    geradoEm: new Date().toISOString(),
+  };
+}
+
+/** O documento é uma marcação de dia sem treino? @param {any} doc */
+export function ehSemTreino(doc) {
+  return !!doc && doc.semTreino === true;
+}

@@ -498,7 +498,7 @@ input:focus { outline: none; border-color: var(--acc); }
 }
 
 .cobertura.alerta {
-  background: color-mix(in srgb, var(--warn) 12%, var(--sup));
+  background: color-mix(in srgb, var(--warn) 12%, var(--card));
   border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
   color: var(--txt);
 }
@@ -526,4 +526,29 @@ input:focus { outline: none; border-color: var(--acc); }
   .cobertura { padding: 10px; font-size: 13px; gap: 8px; }
   .cobertura-txt { flex: 1 1 100%; }
   .cobertura.alerta .btn { flex: 1 1 100%; }
+}
+
+/* Dia SEM TREINO — feriado, descanso, box fechado.
+   Hachurado e sem cor de modalidade: ele não é um treino de nenhum sistema, e
+   pintá-lo com a cor de um faria o mês parecer ter uma aula que não houve.
+   O risco de tinta viva é justamente esse — parecer conteúdo. */
+.cal-chip.sem-treino {
+  background: repeating-linear-gradient(
+    -45deg, var(--card2), var(--card2) 4px, var(--card) 4px, var(--card) 8px) !important;
+  color: var(--mut) !important;
+  border: 1px dashed var(--line2);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cal-chip.sem-treino:hover { color: var(--txt) !important; border-color: var(--mut); }
+/* O ícone não é riscado: riscado ele vira um borrão ilegível em 10px. */
+.cal-chip.sem-treino span { text-decoration: none; }
+
+@media (max-width: 720px) {
+  /* Em 48px de célula sobra o hachurado e o 🚫 — e é o bastante: a leitura que
+     o coach faz no celular é "esse dia está bloqueado", não qual o motivo. */
+  .cal-chip.sem-treino { font-size: 0; height: 11px; padding: 0; text-decoration: none; }
+  .cal-chip.sem-treino span { font-size: 8px; }
 }

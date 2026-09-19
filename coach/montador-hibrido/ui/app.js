@@ -25,7 +25,22 @@ const ABAS = ['lousa', 'alertas', 'turma', 'volume', 'calendario'];
 /** O uid do coach logado. Lido a cada chamada porque a sessão pode ser renovada. */
 const uid = () => usuario()?.uid || '';
 
-function irPara(aba) {
+/**
+ * A aba viaja no HASH da URL (`#calendario`), e não no localStorage.
+ *
+ * Três coisas que o localStorage não dá: o F5 volta para onde estava (que é o
+ * pedido), o botão VOLTAR do navegador anda entre as abas em vez de sair da
+ * ferramenta, e o coach pode mandar o link de uma aba para si mesmo no celular.
+ *
+ * E uma que ele daria e não queremos: memória entre SESSÕES. Abrir a ferramenta
+ * amanhã de manhã no Dashboard de Volume, porque foi ali que ele parou ontem à
+ * noite, seria lembrar demais — quem abre o Montador vai montar a aula de hoje.
+ *
+ * @param {string} aba
+ * @param {{daUrl?: boolean}} [opcoes] `daUrl` evita reescrever o hash que
+ *   acabou de mudar — sem isso, voltar pelo navegador entra em laço.
+ */
+function irPara(aba, { daUrl = false } = {}) {
   if (!ABAS.includes(aba)) return;
   for (const b of document.querySelectorAll('.tab')) {
     b.classList.toggle('active', b.getAttribute('data-view') === aba);
@@ -33,9 +48,16 @@ function irPara(aba) {
   for (const v of document.querySelectorAll('.view')) {
     v.classList.toggle('active', v.id === `view-${aba}`);
   }
+  if (!daUrl && abaDoHash() !== aba) window.location.hash = aba;
   document.dispatchEvent(new CustomEvent('hibrido:aba', { detail: aba }));
   // O topo da tela, não a posição anterior: a aba nova começa do começo.
   window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+/** A aba escrita na URL, ou '' quando não há nenhuma válida. */
+function abaDoHash() {
+  const bruto = decodeURIComponent(String(window.location.hash || '').replace(/^#/, '')).trim();
+  return ABAS.includes(bruto) ? bruto : '';
 }
 
 const ctx = { uid, irPara };
@@ -55,6 +77,18 @@ for (const [nome, mod] of Object.entries({ lousa, variabilidade, distribuicao, d
   }
 }
 
+// A aba inicial só é ativada DEPOIS de montar os módulos: é `irPara` que
+// dispara `hibrido:aba`, e quem carrega no evento (Volume e Calendário) precisa
+// já estar escutando. Ativar antes faria um F5 no Calendário abrir a aba certa
+// e vazia, que é pior que voltar para a Lousa.
+irPara(abaDoHash() || 'lousa', { daUrl: true });
+
+// Voltar/avançar do navegador troca de aba, em vez de sair da ferramenta.
+window.addEventListener('hashchange', () => {
+  const aba = abaDoHash();
+  if (aba) irPara(aba, { daUrl: true });
+});
+
 /** Indicador de etapa: mostra em quais abas já há trabalho feito. */
 function marcarProgresso() {
   const est = store.ler();
@@ -65,5 +99,3 @@ function marcarProgresso() {
 }
 store.aoMudar(marcarProgresso);
 marcarProgresso();
-
-irPara('lousa');

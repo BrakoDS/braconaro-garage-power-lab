@@ -131,7 +131,16 @@ function desenhar(alvo, { carregando: emCurso = false } = {}) {
   const celulas = grade.semanas.flat().map((d) => celula(d, porDia[d.dateId] || [])).join('');
 
   const doMes = grade.semanas.flat().filter((d) => !d.foraDoMes);
-  const total = doMes.reduce((n, d) => n + (porDia[d.dateId]?.length || 0), 0);
+  // O dia marcado como SEM TREINO não entra na contagem de treinos — ele é a
+  // afirmação de que não houve um. Contá-lo aqui faria o rodapé discordar do
+  // Dashboard de Volume, que já o ignora, e o coach não teria como saber qual
+  // dos dois números acreditar.
+  const total = doMes.reduce(
+    (n, d) => n + (porDia[d.dateId] || []).filter((t) => t?.semTreino !== true).length, 0,
+  );
+  const folgas = doMes.reduce(
+    (n, d) => n + (porDia[d.dateId] || []).filter((t) => t?.semTreino === true).length, 0,
+  );
   // Treinos e aulas são perguntas diferentes: um treino de quarta vira quatro
   // aulas. Mostrar só um dos dois esconderia metade do mês do coach.
   const aulas = doMes.reduce((n, d) => n + chipsDoDia(porDia[d.dateId] || []).filter((c) => !c.pendente).length, 0);
@@ -142,7 +151,7 @@ function desenhar(alvo, { carregando: emCurso = false } = {}) {
       ${emCurso ? '<p class="mut" style="margin:0 0 10px">Carregando os treinos do mês…</p>' : ''}
       <div class="cal-grade">${cabecalho}${celulas}</div>
       <p class="cal-rodape">
-        ${total} treino(s) e ${aulas} aula(s) neste mês${pendentes ? ` · ${pendentes} ainda sem horário (não distribuído)` : ''} ·
+        ${total} treino(s) e ${aulas} aula(s) neste mês${folgas ? ` · ${folgas} dia(s) sem treino` : ''}${pendentes ? ` · ${pendentes} ainda sem horário (não distribuído)` : ''} ·
         clique num treino de hoje ou do futuro para reabrir na Lousa, ou num dia vazio para montar nele.
       </p>
       ${legenda()}
@@ -160,6 +169,19 @@ function celula(dia, treinos) {
   // diferença para o formato antigo, onde cada horário era um documento à parte.
   const chips = chipsDoDia(treinos).map((ch) => {
     const t = ch.treino;
+
+    // DIA SEM TREINO: nem cor de modalidade nem cadeado. A cor diria um sistema
+    // que não existe, e o cadeado diria "somente leitura" quando a marcação é
+    // removível em qualquer data — ela não alimenta o volume, então tirá-la do
+    // passado não mexe em número nenhum.
+    if (ch.semTreino) {
+      return `<button class="cal-chip sem-treino" type="button"
+        data-treino="${esc(t.workoutId || '')}"
+        title="${esc(t.titulo || 'Sem treino')} — dia sem aula; não soma no volume. Clique para remover a marcação.">
+        <span aria-hidden="true">🚫</span> ${esc(t.titulo || 'Sem treino')}
+      </button>`;
+    }
+
     const c = COR_MODALIDADE[chaveDeCor(t.treino?.sistema)] || COR_SEM_MODALIDADE;
     const podeEditar = editavel(t.dateId, hojeId());
     const sistema = t.treino?.sistema || '—';
@@ -207,6 +229,27 @@ function legenda() {
 async function abrirTreino(ctx, workoutId) {
   const t = Object.values(porDia).flat().find((x) => x.workoutId === workoutId);
   if (!t) return;
+
+  // O dia marcado como sem treino não tem o que abrir: a única ação que faz
+  // sentido é DESMARCAR. Vale em qualquer data, passada inclusive — a marcação
+  // nunca entrou no volume, então removê-la não muda gráfico nenhum.
+  if (t.semTreino === true) {
+    const acao = await painel({
+      titulo: `${t.titulo || 'Sem treino'} · ${t.dateId}`,
+      corpoHTML: `<p class="dlg-texto">Este dia está marcado como <b>sem treino</b>: nenhuma aula, e
+          nenhuma série somada no Dashboard de Volume.</p>
+        <p class="dlg-texto mut">Remover a marcação deixa o dia livre de novo — e aí ele volta a
+          aparecer como dia vazio, pronto para montar.</p>`,
+      largo: false,
+      acoes: [{ id: 'remover', label: 'Remover marcação', perigo: true }],
+    });
+    if (acao !== 'remover') return;
+    const removeu = await confirmarEExcluir({
+      workoutId: t.workoutId, titulo: t.titulo || 'Sem treino', dateId: t.dateId,
+    });
+    if (removeu) await carregar(ctx, $('#calendario-corpo'));
+    return;
+  }
 
   if (editavel(t.dateId, hojeId())) {
     if (abrirTreinoSalvo(t)) {

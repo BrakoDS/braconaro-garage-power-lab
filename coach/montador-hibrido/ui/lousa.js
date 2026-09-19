@@ -30,8 +30,9 @@ import { criarLousa } from '../core/canvas.js';
 import { criarHistorico } from '../core/historico.js';
 import { criarEditor } from './editor-rico.js';
 import { paraPrompt, textoPlano, segmentosDoTreino } from '../core/texto-rico.js';
-import { paraGravar, totalSeries, exerciciosDo } from '../core/lousa-modelo.js';
+import { paraGravar, paraGravarSemTreino, totalSeries, exerciciosDo } from '../core/lousa-modelo.js';
 import { parseWorkoutLousa, salvarLousa } from '../cloud/chamadas.js';
+import { confirmar } from '../../../compartilhado/ui/dialogo.js';
 import * as store from './store.js';
 import { painel, avisar } from '../../../compartilhado/ui/dialogo.js';
 import { confirmarEExcluir } from './excluir-treino.js';
@@ -306,6 +307,63 @@ export function montar(ctx) {
     } finally {
       btnExcluir.disabled = false;
       btnExcluir.textContent = rotulo;
+    }
+  });
+
+  /* ---------------- dia sem treino ---------------- */
+
+  /**
+   * Marcar o dia como SEM TREINO — feriado, descanso, box fechado.
+   *
+   * Grava um documento com `treino: null`, e é isso que o faz não contar: os
+   * dois leitores do servidor pulam documento cujo treino não é objeto. O dia
+   * aparece no Calendário como bloqueado e some do volume — que é a diferença
+   * entre "não teve aula" e "esqueci de montar".
+   *
+   * O TÍTULO vira o motivo, se o coach tiver escrito um. "Feriado · 7 de
+   * setembro" é mais útil daqui a três meses que um genérico "Sem treino", e o
+   * campo já está ali preenchido na metade das vezes.
+   */
+  const btnSemTreino = $('#lousa-sem-treino');
+  btnSemTreino?.addEventListener('click', async () => {
+    const dia = data.value.trim();
+    if (!dia) {
+      await avisar({ titulo: 'Escolha a data', texto: 'Preencha a data antes de marcar o dia como sem treino.' });
+      return;
+    }
+    const motivo = titulo.value.trim();
+    const ok = await confirmar({
+      titulo: 'Marcar dia sem treino?',
+      texto: `O dia <b>${esc(dia)}</b> fica marcado como <b>${esc(motivo || 'Sem treino')}</b> no Calendário.<br><br>`
+        + 'Ele <b>não soma série nenhuma</b> no Dashboard de Volume e não conta como treino da semana. '
+        + 'Dá para remover a marcação depois, pelo próprio Calendário.',
+      ok: 'Marcar',
+    });
+    if (!ok) return;
+
+    btnSemTreino.disabled = true;
+    const rotulo = btnSemTreino.textContent;
+    btnSemTreino.textContent = 'Marcando…';
+    mostrarStatus('Marcando o dia como sem treino…');
+    try {
+      await salvarLousa(ctx.uid(), paraGravarSemTreino({ dateId: dia, motivo }));
+      // O rascunho é zerado: o `workoutId` da marcação não é um treino que o
+      // coach possa distribuir, e deixá-lo no estado faria a aba da Turma
+      // oferecer envio de um dia que não tem aula.
+      store.limpar();
+      editor.limpar();
+      lousa.limpar();
+      titulo.value = '';
+      historico.recomecar('sem-treino', { html: editor.html(), tracos: [] });
+      pintarBarra();
+      mostrarStatus('');
+      ctx.irPara('calendario');
+    } catch (e) {
+      mostrarStatus(/** @type {Error} */ (e).message, 'erro');
+      await avisar({ titulo: 'Não deu para marcar', texto: /** @type {Error} */ (e).message });
+    } finally {
+      btnSemTreino.disabled = false;
+      btnSemTreino.textContent = rotulo;
     }
   });
 

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   exerciciosDo, totalSeries, usoPorImplemento, trocarImplemento, removerExercicio,
   paraGravar, resumo, normalizar,
+  paraGravarSemTreino, ehSemTreino, TITULO_SEM_TREINO,
 } from './lousa-modelo.js';
 
 /** Um treino no formato que a function devolve. */
@@ -116,4 +117,38 @@ test('a normalização casa o jeito que o coach escreve com o jeito que o servid
 
 test('o resumo diz sistema, exercícios e séries', () => {
   assert.equal(resumo(treino()), 'Hipertrofia · 3 exercícios · 8 séries');
+});
+
+test('paraGravarSemTreino grava o dia sem treino nenhum', () => {
+  const d = paraGravarSemTreino({ dateId: '2026-09-20' });
+  assert.equal(d.dateId, '2026-09-20');
+  assert.equal(d.semTreino, true);
+  assert.equal(d.titulo, TITULO_SEM_TREINO);
+  // `treino: null` é o que faz o servidor pular o documento — ver a função.
+  assert.equal(d.treino, null);
+});
+
+test('o motivo escrito pelo coach vira o título', () => {
+  assert.equal(paraGravarSemTreino({ dateId: '2026-09-20', motivo: 'Feriado · 7 de setembro' }).titulo,
+    'Feriado · 7 de setembro');
+});
+
+test('motivo em branco cai no padrão, e motivo gigante é cortado', () => {
+  assert.equal(paraGravarSemTreino({ dateId: '2026-09-20', motivo: '   ' }).titulo, TITULO_SEM_TREINO);
+  assert.equal(paraGravarSemTreino({ dateId: '2026-09-20', motivo: 'x'.repeat(200) }).titulo.length, 80);
+});
+
+test('NÃO grava blocos vazios: eles passariam no filtro do gatilho de volume', () => {
+  const d = paraGravarSemTreino({ dateId: '2026-09-20' });
+  // `blocos: []` é array, e `Array.isArray([])` é true — o dia entraria como
+  // treino de zero série e inflaria a contagem de treinos da semana.
+  assert.equal(d.treino?.blocos, undefined);
+});
+
+test('ehSemTreino reconhece a marcação e só ela', () => {
+  assert.equal(ehSemTreino(paraGravarSemTreino({ dateId: '2026-09-20' })), true);
+  assert.equal(ehSemTreino({ dateId: '2026-09-20', treino: { sistema: 'HIIT' } }), false);
+  assert.equal(ehSemTreino({ semTreino: 'sim' }), false, 'só o booleano vale');
+  assert.equal(ehSemTreino(null), false);
+  assert.equal(ehSemTreino(undefined), false);
 });

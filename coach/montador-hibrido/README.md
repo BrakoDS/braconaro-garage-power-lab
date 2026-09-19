@@ -272,6 +272,54 @@ Consequência: `totalSeries` (séries prescritas) **não** é a soma de `porGrup
 (um exercício multiarticular credita mais de um grupo). São perguntas diferentes,
 e o dashboard mostra cada uma no seu lugar.
 
+### A aba viaja na URL, e não no localStorage
+
+`#calendario`, `#volume`. Três coisas que o `localStorage` não daria: o F5 volta
+para onde estava, o **botão Voltar** do navegador anda entre as abas em vez de
+sair da ferramenta, e dá para mandar o link de uma aba para si mesmo no celular.
+
+E uma que ele daria e não queremos: memória entre **sessões**. Abrir a ferramenta
+amanhã cedo no Dashboard de Volume, porque foi ali que o coach parou ontem à
+noite, seria lembrar demais — quem abre o Montador vai montar a aula de hoje.
+
+A aba inicial é ativada **depois** de montar os módulos: é `irPara` que dispara
+`hibrido:aba`, e quem carrega no evento (Volume e Calendário) precisa já estar
+escutando. Ativar antes faria um F5 no Calendário abrir a aba certa e vazia.
+
+### Dia sem treino: `treino: null` é o mecanismo
+
+Feriado, descanso, box fechado. `paraGravarSemTreino()` grava `treino: null`, e é
+isso que faz o dia não contar — os dois leitores do servidor **já publicados**
+pulam documento cujo treino não é objeto:
+
+```
+volume        (index.ts) if (!t || !Array.isArray(t.blocos)) return [];
+variabilidade (index.ts) if (!v.treino || typeof v.treino !== 'object') return [];
+```
+
+Então o dia marcado não soma série, não entra na contagem de treinos e não vira
+"repetição em menos de 72h" para o treino seguinte — **sem uma linha nova em
+nenhuma das duas funções**.
+
+A alternativa óbvia seria gravar um treino de zero exercícios. Ela parece
+equivalente e não é: `blocos: []` PASSA no teste do gatilho, e o dia entraria
+como treino de zero série, inflando a contagem da semana. Há teste cravando isso.
+
+O chip é hachurado e riscado, sem cor de modalidade: ele não é treino de sistema
+nenhum, e pintá-lo com a cor de um faria o mês parecer ter tido uma aula que não
+houve. Clicar nele só oferece **remover a marcação** — em qualquer data, passada
+inclusive, porque a marcação nunca entrou no volume e tirá-la não muda número.
+
+### `verificar-duble.mjs`
+
+Os dublês de `lousa-local.mjs` vivem dentro de template literals: uma crase, um
+`${` ou um `\n` com uma barra a menos quebram o ARQUIVO GERADO, enquanto o
+servidor segue perfeitamente válido. Isso me pegou **três vezes** nesta semana, e
+as três só apareceram com o navegador já aberto, numa tela em branco.
+
+`node ferramentas/verificar-duble.mjs` gera cada dublê e o importa de um
+`data:` URL — um segundo, sem subir servidor, e a armadilha fica de fora.
+
 ### Excluir treino: por que HARD delete
 
 O botão vermelho aparece só quando a lousa na tela **é** um documento gravado —

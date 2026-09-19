@@ -179,3 +179,35 @@ test('dia sem treino não tem chip', () => {
   assert.deepEqual(chipsDoDia([]), []);
   assert.deepEqual(chipsDoDia(null), []);
 });
+
+test('o dia SEM TREINO vira um chip próprio, na frente de tudo', () => {
+  const chips = chipsDoDia([
+    { workoutId: 'w', distribuido: { turmas: [{ classTime: '07:00', alunos: ['a'] }] } },
+    { workoutId: 'folga', semTreino: true, titulo: 'Feriado' },
+  ]);
+  assert.equal(chips.length, 2);
+  assert.equal(chips[0].semTreino, true, 'o estado do dia vem antes das aulas');
+  assert.equal(chips[0].treino.titulo, 'Feriado');
+  assert.equal(chips[1].semTreino, false);
+});
+
+test('sem treino NÃO é pendência — são coisas diferentes', () => {
+  const [c] = chipsDoDia([{ workoutId: 'folga', semTreino: true }]);
+  assert.equal(c.pendente, false, 'pendente é "montado e não distribuído"');
+  assert.equal(c.semTreino, true);
+});
+
+test('o dia sem treino não gera chip por horário', () => {
+  // Mesmo que alguém grave `distribuido` por engano num dia marcado, ele
+  // continua sendo UM chip: o dia está bloqueado, não tem aula.
+  const chips = chipsDoDia([
+    { workoutId: 'folga', semTreino: true, distribuido: { turmas: [{ classTime: '07:00', alunos: ['a'] }] } },
+  ]);
+  assert.equal(chips.length, 1);
+  assert.equal(chips[0].semTreino, true);
+});
+
+test('treino normal continua sem a marca', () => {
+  const chips = chipsDoDia([{ workoutId: 'w', distribuido: { turmas: [{ classTime: '07:00', alunos: [] }] } }]);
+  assert.equal(chips[0].semTreino, false);
+});

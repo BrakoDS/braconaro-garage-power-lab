@@ -84,7 +84,7 @@ const TREINO_EXEMPLO = {
   avisos: ['O descanso do bloco D estava ilegível na lousa — confirme antes de salvar.'],
 };
 
-const DUBLE_CHAMADAS = `
+export const DUBLE_CHAMADAS = `
 // Dublê de cloud/chamadas.js — gerado por ferramentas/lousa-local.mjs. Nenhuma rede.
 const TREINO = ${JSON.stringify(TREINO_EXEMPLO, null, 2)};
 
@@ -297,6 +297,14 @@ export async function listarLousas(_uid, inicio, fim) {
       out.push({ workoutId: 'w-' + dateId + '-b', dateId, treino: segundo,
         textoOriginal: '', geradoEm: dateId + 'T22:00:00.000Z' });
     }
+    // Um dia SEM TREINO (feriado) na terca, para a hachura aparecer na tela.
+    // treino:null e o que faz o servidor pular o documento — ver
+    // paraGravarSemTreino em core/lousa-modelo.js.
+    if (dow === 1 && d.getUTCDate() > 7 && d.getUTCDate() < 15) {
+      out.push({ workoutId: 'w-' + dateId + '-folga', dateId, semTreino: true,
+        titulo: 'Feriado · box fechado', treino: null, textoOriginal: '',
+        geradoEm: dateId + 'T00:00:00.000Z' });
+    }
     // Um treino ANTIGO, com \`classTime\` gravado antes de o campo sair: o
     // calendário tem de continuar mostrando a hora dele.
     if (d.getUTCDate() === 2) {
@@ -357,7 +365,7 @@ export async function lerMatriz() { return null; }
 export async function salvarMatriz() {}
 `;
 
-const DUBLE_CLOUD = `
+export const DUBLE_CLOUD = `
 // Dublê do login do Firebase — gerado por ferramentas/lousa-local.mjs.
 export function usuario() { return { uid: 'coach-local', email: 'coach@local' }; }
 export function cloudAtivo() { return true; }
@@ -371,7 +379,7 @@ export async function iniciar() {}
 export async function sair() {}
 `;
 
-const DUBLE_GESTAO = `
+export const DUBLE_GESTAO = `
 // Dublê da Gestão de Alunos — gerado por ferramentas/lousa-local.mjs.
 //
 // Os horários são o que importa aqui: a aba "Turma" agrupa pelo DIA e pela HORA
@@ -474,7 +482,7 @@ function gerarHarness() {
  * roda exatamente como em produção. Dublar três módulos daria o mesmo resultado
  * testando menos código real.
  */
-const DUBLE_CONFIG = `
+export const DUBLE_CONFIG = `
 // Dublê de config.js — gerado por ferramentas/lousa-local.mjs.
 export const CLOUD_ATIVO = false;
 export const firebaseConfig = {};
@@ -545,7 +553,12 @@ const GERADOS = {
   '/__local/duble-gestao.js': () => ({ corpo: DUBLE_GESTAO, tipo: TIPOS['.js'] }),
 };
 
-http.createServer((req, res) => {
+// Só sobe o servidor quando o arquivo é RODADO. Importado — por
+// `verificar-duble.mjs`, que confere se os dublês compilam — ele entrega as
+// constantes e não abre porta nenhuma.
+const RODANDO_DIRETO = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (RODANDO_DIRETO) http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   let rota = url.pathname === '/__local' ? '/__local/' : url.pathname;
   if (rota === '/__local/gestao') rota = '/__local/gestao/';
