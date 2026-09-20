@@ -2,9 +2,10 @@
 /**
  * Geração de PDF (via janela de impressão — o usuário escolhe "Salvar como PDF").
  *  - exportarAvaliacao(aluno, av): relatório de uma avaliação.
- *  - exportarFicha(aluno): ficha completa (dados + anamnese + PAR-Q + histórico).
+ *  - exportarFicha(aluno): ficha completa (dados + motor + anamnese + PAR-Q + histórico).
  */
 import * as calc from '../../compartilhado/regras/calc.js?v=5';
+import * as mtz from '../../compartilhado/regras/matriz-individualizacao.js';
 // Aviso pelo diálogo do site, não pelo alert() nativo, que o Chrome pode suprimir.
 import { avisar } from '../../compartilhado/ui/dialogo.js';
 
@@ -285,6 +286,65 @@ export function exportarAvaliacao(aluno, av) {
   abrirImpressao(`Avaliação ${aluno.nome} #${String(av.num).padStart(2, '0')}`, pagina1 + pagina2);
 }
 
+/**
+ * A Ficha do Motor de um aluno, em tabela — o que o Motor usa para adaptar o
+ * treino dele. Sai da MESMA função que a tela lê (`matrizDe`), então o papel e
+ * a aba nunca contam histórias diferentes.
+ *
+ * Adaptação vazia não vira linha: numa ficha impressa, "Regra de impacto: faz
+ * impacto normalmente" é ruído que esconde a lesão de joelho três linhas abaixo.
+ * @param {any} aluno
+ */
+function blocoMotor(aluno) {
+  const m = mtz.matrizDe(aluno);
+  const r = (lista, v, padrao) => (v && v !== padrao ? mtz.rotulo(lista, v) : '');
+
+  const perfil = [
+    row('Nível', mtz.rotulo(mtz.OPCOES_NIVEL, m.perfil.nivel)),
+    row('Objetivo do aluno', m.perfil.objetivo),
+    row('Objetivo da fase', mtz.rotulo(mtz.FASES, m.perfil.fase)),
+    row('Foco primário', mtz.rotulo(mtz.GRUPOS_COM_ROTULO, m.perfil.focoPrimario)),
+    row('Foco secundário', mtz.rotulo(mtz.GRUPOS_COM_ROTULO, m.perfil.focoSecundario)),
+  ].join('');
+
+  const cargas = mtz.LEVANTAMENTOS.map(([id, label]) => {
+    const ref = m.cargas.referencia[id];
+    if (!ref.rmEfetivo) return '';
+    const teste = ref.kg && ref.reps ? `${fmt(ref.kg)} kg × ${ref.reps}` : '';
+    const origem = ref.rm ? 'medido' : 'estimado';
+    const trabalho = `70% ${fmt(mtz.cargaDe1RM(ref.rmEfetivo, 70))} kg · 80% ${fmt(mtz.cargaDe1RM(ref.rmEfetivo, 80))} kg`;
+    return `<tr><th>${esc(label)}</th><td><b>1RM ${fmt(ref.rmEfetivo)} kg</b> (${origem})${teste ? ` · teste: ${teste}` : ''}${ref.medidoEm ? ` · ${fmtData(ref.medidoEm)}` : ''}<br>${trabalho}</td></tr>`;
+  }).join('')
+    + row('RIR habitual', mtz.rotulo(mtz.ZONAS_RIR, m.cargas.rir))
+    + row('Airbike', [
+      m.cargas.airbike.rpm ? `${fmt(m.cargas.airbike.rpm, 0)} rpm` : '',
+      m.cargas.airbike.calPorMin ? `${fmt(m.cargas.airbike.calPorMin)} cal/min` : '',
+      m.cargas.airbike.obs,
+    ].filter(Boolean).join(' · '));
+
+  const lesoes = m.adaptacoes.lesoes.map((l) => [
+    mtz.rotulo(mtz.REGIOES_LESAO, l.regiao),
+    mtz.rotulo(mtz.GRAVIDADES, l.gravidade),
+    l.desde ? `desde ${fmtData(l.desde)}` : '',
+    l.obs,
+  ].filter(Boolean).join(' · ')).join('<br>');
+
+  const adapt = [
+    row('Regra de impacto', r(mtz.REGRAS_IMPACTO, m.adaptacoes.impacto, 'livre')),
+    row('Regra de tração', r(mtz.REGRAS_TRACAO, m.adaptacoes.tracao, 'barra')),
+    row('Mobilidade', m.adaptacoes.mobilidade.map((k) => mtz.rotulo(mtz.RESTRICOES_MOBILIDADE, k)).join(' · ')),
+    m.adaptacoes.lesoes.length ? `<tr><th>Lesões / dores</th><td>${lesoes}</td></tr>` : '',
+    row('Observações para o Motor', m.adaptacoes.obs),
+  ].join('');
+
+  const tudo = perfil + cargas + adapt;
+  if (!tudo) return `<div class="blk" style="color:#999">Ficha do Motor ainda não preenchida.</div>`;
+  const semAdaptacao = !adapt
+    ? `<div class="blk" style="color:#666">Sem adaptação registrada — recebe o treino da turma com o deslocamento do objetivo e do foco.</div>`
+    : '';
+  return `<table>${tudo}</table>${semAdaptacao}`;
+}
+
 /* ============================================================
    Ficha completa do aluno
    ============================================================ */
@@ -308,6 +368,9 @@ export function exportarFicha(aluno) {
   const parqLista = respondidas > 0
     ? `<ol class="parq-ol">${PARQ_Q.map((q, i) => `<li>${esc(q)} <b>${resp['q' + i] === 'sim' ? 'Sim' : resp['q' + i] === 'nao' ? 'Não' : '—'}</b></li>`).join('')}</ol>${pq.data ? `<div class="blk" style="color:#666">Triagem em ${fmtData(pq.data)}.</div>` : ''}${pq.obs ? `<div class="blk">${esc(pq.obs)}</div>` : ''}`
     : `<div class="blk" style="color:#999">PAR-Q ainda não preenchido.</div>`;
+
+  // Ficha do Motor — a matriz de individualização, como o Motor a lê
+  const fichaMotor = blocoMotor(aluno);
 
   // Anamnese
   const anLinhas = ANAMNESE_LABELS.map(([k, l]) => row(l, an[k])).join('');
@@ -360,6 +423,7 @@ export function exportarFicha(aluno) {
       ${row('Frequência', aluno.freqVezes ? aluno.freqVezes + 'x/semana' + (aluno.freqHorario ? ' · ' + aluno.freqHorario : '') : aluno.freqHorario)}
       ${row('Obs. médicas / restrições', aluno.obs)}
     </table>
+    <h2>Ficha do Motor — individualização</h2>${fichaMotor}
     <h2>Anamnese</h2>${anamnese}
     <h2>PAR-Q — Prontidão para atividade física</h2>${parqBanner}${parqLista}
     <h2>Histórico de avaliações</h2>${historico}

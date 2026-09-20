@@ -13,6 +13,7 @@
 import { versaoDoAluno } from '../../../compartilhado/regras/perfil-treino.js';
 import { metasDoAluno, focoDe } from '../../../compartilhado/regras/metas-aluno.js';
 import { volumeDaSemanaDoAluno } from '../../../compartilhado/regras/volume-aluno.js';
+import { matrizDe, volumePorGrupo } from '../../../compartilhado/regras/matriz-individualizacao.js';
 import { dateIdDe, faixaDaSemana } from '../../../compartilhado/regras/datas-treino.js';
 import { GRUPO_LABEL, grupoDoExercicio } from '../../../compartilhado/regras/grupos.js';
 import { EXERCICIO_POR_ID } from '../../../compartilhado/dados/exercicios.js';
@@ -62,7 +63,13 @@ export function turmaDoDia(treino) {
   const doMes = [...anterior, ...treinos];
   return listarAlunos().map((aluno) => {
     const perfil = perfilDe(aluno);
-    const feitoPorGrupo = volumeDaSemanaDoAluno(doMes, treino.dateId, { diasTreino: aluno.diasTreino });
+    // A conta sai dos treinos que aconteceram; a Ficha do Motor só corrige o
+    // grupo em que o coach disse que a conta estava errada (treinou em casa,
+    // parou no meio da aula). Grupo sem correção mantém o número derivado.
+    const feitoPorGrupo = volumePorGrupo(
+      matrizDe(aluno),
+      volumeDaSemanaDoAluno(doMes, treino.dateId, { diasTreino: aluno.diasTreino }),
+    );
     const excecao = _ajustes.get(String(aluno.email || '').toLowerCase()) || null;
     const versao = versaoDoAluno({ base: treino, perfil, feitoPorGrupo, excecao, exercicioPorId });
     // A versão SEM a exceção é o ponto de comparação de "o que é ajuste de hoje".
@@ -312,6 +319,9 @@ export function mesDoAluno(aluno, mesId) {
   const porGrupo = {};
   for (const treino of doMes) {
     if ((aluno.diasTreino || []).length && !aluno.diasTreino.includes(treino.dia)) continue;
+    // Sem a correção da Ficha do Motor, de propósito: ela vale para a semana
+    // CORRENTE, e este laço reconstrói o mês inteiro dia a dia. Aplicá-la aqui
+    // carimbaria no mês passado um ajuste que o coach fez hoje.
     const feitoPorGrupo = volumeDaSemanaDoAluno(doMes, treino.dateId, { diasTreino: aluno.diasTreino });
     const excecao = null; // as exceções são por dia e ficam no documento do aluno
     const v = versaoDoAluno({ base: treino, perfil, feitoPorGrupo, excecao, exercicioPorId });

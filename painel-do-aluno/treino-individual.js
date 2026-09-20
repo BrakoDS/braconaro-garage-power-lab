@@ -17,6 +17,7 @@ import { versaoDoAluno } from '../compartilhado/regras/perfil-treino.js';
 import { metasDoAluno, focoDe } from '../compartilhado/regras/metas-aluno.js';
 import { GRUPO_LABEL } from '../compartilhado/regras/grupos.js';
 import { faixaDaSemana, diaSemanaDe } from '../compartilhado/regras/datas-treino.js';
+import { volumePorGrupo } from '../compartilhado/regras/matriz-individualizacao.js';
 
 const esc = (/** @type {any} */ v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const num = (/** @type {number} */ n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
@@ -106,7 +107,13 @@ export function volumeDaSemana(dias, dateId, perfil, ajustes = {}, diasTreino = 
  */
 export function renderVersaoDoAluno({ dia, dateId, portal, ajustes = {}, diasDoMes = {} }) {
   const perfil = perfilDoPortal(portal);
-  const feitoPorGrupo = volumeDaSemana(diasDoMes, dateId, perfil, ajustes, portal?.diasTreino || []);
+  // Mesma conta do coach, corrigida pelos mesmos números: a correção viaja no
+  // documento do aluno (`portal.matriz`), então a tela dele e a da turma não
+  // divergem. Documento antigo não tem `matriz` — aí vale só o derivado.
+  const feitoPorGrupo = volumePorGrupo(
+    portal?.matriz,
+    volumeDaSemana(diasDoMes, dateId, perfil, ajustes, portal?.diasTreino || []),
+  );
   const v = versaoDoAluno({ base: baseDoPublicado({ ...dia, dateId }), perfil, feitoPorGrupo, excecao: ajustes[dateId] || null });
   const metas = metasDoAluno(perfil);
   const foco = focoDe(perfil);
