@@ -6,3 +6,15 @@ docs/superpowers/
 
 # Contexto de marketing gerado por skill — local, nao e do produto
 .agents/
+
+# Mídia de trabalho do box — 640 MB de JPEG/HEIC que NÃO são do produto e que
+# o código não referencia em lugar nenhum. `fotos-avaliacao/` é o caso grave:
+# são as fotos de corpo das avaliações, com o nome do aluno no arquivo
+# (av1-<nome>-<ângulo>). Este repositório é público. Essas imagens vivem no
+# Storage, atrás das regras, e nunca em commit.
+alunos-box/
+banners-box/
+fotos-avaliacao/
+fotos-box/
+img-box/
+treinos-box/
