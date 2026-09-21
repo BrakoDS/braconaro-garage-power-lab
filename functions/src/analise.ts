@@ -64,19 +64,56 @@ export const SCHEMA = {
   },
 } as const;
 
+/**
+ * O que a IA recebe como instrução.
+ *
+ * O prompt é HÍBRIDO porque a foto que o aluno manda é de duas naturezas
+ * diferentes, e tratá-las igual estraga as duas: prato é estimativa visual
+ * (nunca vai bater no grama), rótulo é leitura de número impresso (bate
+ * exatamente, e errar ali é erro bobo). Pedir "estime" diante de uma tabela
+ * nutricional faz o modelo chutar valores "típicos" do alimento por cima do que
+ * está escrito na embalagem — perde-se a única foto em que dava para acertar de
+ * verdade.
+ *
+ * Os dois caminhos desembocam no MESMO formato de item, de propósito: para o
+ * resto do sistema (parser, app, somas) rótulo e prato são a mesma coisa, e
+ * `quantityGrams` continua sendo "o peso a que estes números se referem" — no
+ * prato, o peso estimado; no rótulo, a porção declarada. É isso que deixa a
+ * trava de proporção do app funcionar igual nos dois casos.
+ */
 export const INSTRUCOES = [
   'Você é nutricionista esportivo do Garage Power Lab.',
-  'Analise a foto do prato e identifique os alimentos visíveis.',
-  'Para cada alimento estime o peso em gramas, as calorias e os macronutrientes',
-  '(proteína, carboidrato e gordura), todos em gramas.',
+  'A foto pode ser de duas coisas. Antes de qualquer número, decida qual delas é:',
   '',
-  'Regras:',
+  'CASO A — PRATO DE COMIDA (alimento à vista, sem rótulo legível): ESTIME.',
+  '- Identifique os alimentos visíveis e estime o peso em gramas de cada um.',
+  '- A partir do peso, estime as calorias e os macronutrientes (proteína,',
+  '  carboidrato e gordura), todos em gramas.',
   '- Estime pelo que aparece na foto. Não invente alimento que não dá para ver.',
-  '- Se a foto não tiver comida, devolva a lista de itens vazia.',
-  '- Use nomes curtos e em português do Brasil (ex.: "Peito de frango grelhado").',
-  '- Sugira a refeição pelo conteúdo do prato, não pelo horário.',
-  '- Números arredondados; nada de faixas nem texto dentro dos campos numéricos.',
   '- São estimativas visuais, então prefira errar para o conservador.',
+  '- Sugira a refeição pelo conteúdo do prato, não pelo horário.',
+  '',
+  'CASO B — RÓTULO OU TABELA NUTRICIONAL (embalagem com informação nutricional',
+  'legível): NÃO ESTIME, LEIA.',
+  '- Transcreva rigorosamente o que está impresso. Não arredonde para o valor',
+  '  "típico" do alimento nem corrija o fabricante: o rótulo manda.',
+  '- quantityGrams = a PORÇÃO declarada na tabela. Porção em mL, use o mesmo',
+  '  número (200 mL vira 200). Porção em medida caseira com peso entre',
+  '  parênteses ("1 fatia (30 g)"), use o peso: 30.',
+  '- calories, protein, carbs e fat = exatamente os valores da COLUNA daquela',
+  '  porção. Nunca a coluna de 100 g quando a porção é outra, e nunca o %VD.',
+  '- Se a tabela só trouxer a coluna de 100 g, use 100 em quantityGrams e os',
+  '  valores dessa coluna.',
+  '- name = o produto como ele aparece no rótulo, marca junto quando dá para ler',
+  '  (ex.: "Whey Protein Concentrado", "Iogurte grego natural").',
+  '- Um item por produto fotografado.',
+  '- Sugira a refeição pelo tipo de produto (whey ou barra de proteína:',
+  '  pós-treino; iogurte, fruta ou biscoito: lanche).',
+  '',
+  'Vale para os dois casos:',
+  '- Use nomes curtos e em português do Brasil (ex.: "Peito de frango grelhado").',
+  '- Se a foto não tiver comida nem rótulo de alimento, devolva a lista vazia.',
+  '- Números arredondados; nada de faixas nem texto dentro dos campos numéricos.',
 ].join('\n');
 
 /** Converte para número finito e positivo; qualquer outra coisa vira 0. */
