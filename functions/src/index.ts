@@ -21,7 +21,9 @@ import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
-import { extrairAnalise, INSTRUCOES, SCHEMA, type Analise } from './analise';
+import {
+  extrairAnalise, limparTexto, INSTRUCOES, INSTRUCOES_TEXTO, SCHEMA, type Analise,
+} from './analise';
 import {
   decidirRodada, ehLinkMercadoLivre, extrairPreco,
   type ItemFeed, type Leitura, type ResultadoProduto, type Rodada,
@@ -181,15 +183,28 @@ export const analisarRefeicao = onCall(
       throw new HttpsError('unauthenticated', 'Entre na sua conta para usar a análise por foto.');
     }
 
-    const dados = (req.data ?? {}) as { imagemBase64?: unknown; mimeType?: unknown };
+    /*
+      Foto OU descrição na MESMA função, e não numa segunda callable, porque o
+      que muda entre as duas é uma linha de prompt e um bloco de conteúdo —
+      todo o resto (login, cota, chave, schema, parse defensivo) é idêntico.
+      Duplicar a função duplicaria também o teto diário, e dois tetos de 20
+      viram 40 análises por aluno sem ninguém ter decidido isso.
+    */
+    const dados = (req.data ?? {}) as {
+      imagemBase64?: unknown; mimeType?: unknown; texto?: unknown;
+    };
     const base64 = typeof dados.imagemBase64 === 'string' ? dados.imagemBase64 : '';
-    if (!base64) {
-      throw new HttpsError('invalid-argument', 'Nenhuma imagem recebida.');
+    const texto = limparTexto(dados.texto);
+    if (!base64 && !texto) {
+      throw new HttpsError('invalid-argument', 'Mande a foto ou escreva o que você comeu.');
     }
     if (base64.length > MAX_BASE64) {
       throw new HttpsError('invalid-argument', 'A foto é grande demais. Tente novamente.');
     }
     const mime = dados.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+
+    // Chegando os dois, a foto ganha: ela carrega mais informação que a frase.
+    const porFoto = base64.length > 0;
 
     const restantes = await consumirCota(email.trim().toLowerCase());
 
@@ -206,18 +221,20 @@ export const analisarRefeicao = onCall(
         },
         body: JSON.stringify({
           model: MODELO,
-          instructions: INSTRUCOES,
+          instructions: porFoto ? INSTRUCOES : INSTRUCOES_TEXTO,
           input: [
             {
               role: 'user',
-              content: [
-                { type: 'input_text', text: 'Analise este prato.' },
-                {
-                  type: 'input_image',
-                  image_url: `data:${mime};base64,${base64}`,
-                  detail: 'low', // 'low' basta para reconhecer prato e corta o custo
-                },
-              ],
+              content: porFoto
+                ? [
+                  { type: 'input_text', text: 'Analise este prato.' },
+                  {
+                    type: 'input_image',
+                    image_url: `data:${mime};base64,${base64}`,
+                    detail: 'low', // 'low' basta para reconhecer prato e corta o custo
+                  },
+                ]
+                : [{ type: 'input_text', text: texto }],
             },
           ],
           text: {
@@ -243,7 +260,9 @@ export const analisarRefeicao = onCall(
       }
 
       const analise = extrairAnalise(await resposta.json());
-      logger.info('Refeição analisada.', { itens: analise.items.length, restantes });
+      logger.info('Refeição analisada.', {
+        itens: analise.items.length, restantes, origem: porFoto ? 'foto' : 'texto',
+      });
       return { analise, restantes };
     } catch (e) {
       if (e instanceof HttpsError) throw e;
@@ -253,7 +272,9 @@ export const analisarRefeicao = onCall(
         'unavailable',
         abortou
           ? 'A análise demorou demais. Tente de novo ou registre na mão.'
-          : 'Não deu para analisar a foto agora. Dá para registrar a refeição na mão.',
+          : porFoto
+            ? 'Não deu para analisar a foto agora. Dá para registrar a refeição na mão.'
+            : 'Não deu para estimar essa descrição agora. Dá para preencher os números na mão.',
       );
     } finally {
       clearTimeout(timer);

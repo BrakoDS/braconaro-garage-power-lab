@@ -11,7 +11,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as ts from 'typescript';
-import { extrairAnalise, num } from './analise';
+import {
+  extrairAnalise, limparTexto, num, INSTRUCOES, INSTRUCOES_TEXTO, MAX_TEXTO,
+} from './analise';
 import { extrairPreco, decidirRodada, ehLinkMercadoLivre, type ItemFeed } from './precos';
 import { HTML_SOCIAL } from './fixtures/social-ml';
 import { extrairProposta, montarSchema, type Equip, type PropostaExercicio, type PropostaTecnica } from './pesquisa';
@@ -145,6 +147,22 @@ ok(num('12,5') === 0, 'vírgula decimal não é aceita como número (a IA manda 
 ok(num('12.5') === 12.5, 'string numérica com ponto é aceita');
 ok(num(Infinity) === 0, 'Infinity vira 0');
 ok(num(NaN) === 0, 'NaN vira 0');
+
+/* ---------- a refeição descrita em texto ---------- */
+
+ok(limparTexto('  150g de frango \n com 200g de arroz  ') === '150g de frango com 200g de arroz',
+  'a descrição chega ao modelo sem quebra de linha nem espaço sobrando');
+ok(limparTexto('x'.repeat(500)).length === MAX_TEXTO,
+  `descrição longa é cortada no teto (${MAX_TEXTO}) em vez de recusada`);
+ok(limparTexto(42) === '', 'número no lugar da descrição não vira texto');
+ok(limparTexto(null) === '' && limparTexto(undefined) === '', 'ausência de descrição não quebra');
+ok(limparTexto('    ') === '', 'descrição só de espaço é descrição nenhuma');
+
+// Os dois caminhos têm prompts DIFERENTES de propósito: mandar o da foto junto
+// de uma frase faria o modelo procurar uma imagem que não existe.
+ok(INSTRUCOES_TEXTO !== INSTRUCOES, 'a descrição tem prompt próprio, e não o da foto');
+ok(!INSTRUCOES_TEXTO.includes('A foto pode ser de duas coisas'),
+  'o prompt do texto não manda o modelo decidir entre prato e rótulo');
 
 /* ============================================================
    LEITURA DE PREÇO DA PÁGINA DO MERCADO LIVRE

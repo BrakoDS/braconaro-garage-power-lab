@@ -116,6 +116,61 @@ export const INSTRUCOES = [
   '- Números arredondados; nada de faixas nem texto dentro dos campos numéricos.',
 ].join('\n');
 
+/**
+ * O que a IA recebe quando o aluno DESCREVE a refeição em vez de fotografar.
+ *
+ * Prompt próprio, e não um parágrafo a mais no de cima: o de foto existe para
+ * decidir entre prato e rótulo OLHANDO a imagem, e essa bifurcação não tem
+ * sentido diante de uma frase. Misturar os dois só daria ao modelo instrução
+ * que não se aplica ao que ele está recebendo.
+ *
+ * A diferença de fundo é o que o aluno já entregou de graça: na frase, muitas
+ * vezes, o peso ("150 g de frango") — e aí não há o que estimar, é para
+ * obedecer. O que ele não disser é que vira estimativa, e conservadora, pelo
+ * mesmo motivo do prato: chute para cima vira déficit que não existe.
+ *
+ * O formato de saída é o MESMO da foto (`SCHEMA`), de propósito: para o parser,
+ * para o app e para as somas, refeição descrita e refeição fotografada são a
+ * mesma coisa.
+ */
+export const INSTRUCOES_TEXTO = [
+  'Você é nutricionista esportivo do Garage Power Lab.',
+  'O aluno DESCREVEU o que comeu, em português do Brasil. Transforme a',
+  'descrição em itens com peso, calorias e macronutrientes.',
+  '',
+  '- Quando ele DISSER a quantidade, ela manda: "150 g de frango" é 150, e não',
+  '  o que costuma ser uma porção. Obedeça também à medida caseira que ele usar',
+  '  ("2 ovos", "1 concha de feijão", "meio prato"), convertendo para gramas.',
+  '- Quando ele NÃO disser a quantidade, estime a porção usual de um adulto, e',
+  '  prefira errar para o conservador.',
+  '- Um item por alimento: "arroz com feijão e bife" são três itens, não um.',
+  '- Prato que não se separa ("1 fatia de bolo de cenoura", "um x-salada") vale',
+  '  como um item só, com o peso da porção inteira.',
+  '- Não invente acompanhamento que ele não citou.',
+  '- Se a descrição não for de comida, devolva a lista vazia.',
+  '',
+  'Vale o mesmo da foto:',
+  '- name = nome curto do alimento, em português do Brasil.',
+  '- quantityGrams = o peso a que os números daquele item se referem.',
+  '- Números arredondados; nada de faixas nem texto dentro dos campos numéricos.',
+  '- Sugira a refeição pelo conteúdo, não pelo horário.',
+].join('\n');
+
+/** Teto da descrição: é frase de refeição, não redação. */
+export const MAX_TEXTO = 300;
+
+/**
+ * A descrição do aluno pronta para ir ao modelo.
+ *
+ * Corta no teto e achata espaço em vez de recusar o que passou: um parágrafo
+ * colado por engano é acidente comum, e o começo dele costuma ser exatamente a
+ * refeição. Recusar devolveria erro por algo que dava para resolver sozinho.
+ */
+export function limparTexto(v: unknown): string {
+  if (typeof v !== 'string') return '';
+  return v.replace(/\s+/g, ' ').trim().slice(0, MAX_TEXTO);
+}
+
 /** Converte para número finito e positivo; qualquer outra coisa vira 0. */
 export const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : Number(v);
