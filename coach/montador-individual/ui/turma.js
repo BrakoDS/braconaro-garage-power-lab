@@ -13,7 +13,9 @@
 import { versaoDoAluno } from '../../../compartilhado/regras/perfil-treino.js';
 import { metasDoAluno, focoDe } from '../../../compartilhado/regras/metas-aluno.js';
 import { volumeDaSemanaDoAluno } from '../../../compartilhado/regras/volume-aluno.js';
-import { GRUPO_LABEL } from '../../../compartilhado/regras/grupos.js';
+import { matrizDe, volumePorGrupo } from '../../../compartilhado/regras/matriz-individualizacao.js';
+import { dateIdDe, faixaDaSemana } from '../../../compartilhado/regras/datas-treino.js';
+import { GRUPO_LABEL, grupoDoExercicio } from '../../../compartilhado/regras/grupos.js';
 import { EXERCICIO_POR_ID } from '../../../compartilhado/dados/exercicios.js';
 import { painel, confirmar } from '../../../compartilhado/ui/dialogo.js';
 import { listarAlunos, perfilDe, atualizarPerfil } from './alunos.js';
@@ -61,7 +63,13 @@ export function turmaDoDia(treino) {
   const doMes = [...anterior, ...treinos];
   return listarAlunos().map((aluno) => {
     const perfil = perfilDe(aluno);
-    const feitoPorGrupo = volumeDaSemanaDoAluno(doMes, treino.dateId, { diasTreino: aluno.diasTreino });
+    // A conta sai dos treinos que aconteceram; a Ficha do Motor só corrige o
+    // grupo em que o coach disse que a conta estava errada (treinou em casa,
+    // parou no meio da aula). Grupo sem correção mantém o número derivado.
+    const feitoPorGrupo = volumePorGrupo(
+      matrizDe(aluno),
+      volumeDaSemanaDoAluno(doMes, treino.dateId, { diasTreino: aluno.diasTreino }),
+    );
     const excecao = _ajustes.get(String(aluno.email || '').toLowerCase()) || null;
     const versao = versaoDoAluno({ base: treino, perfil, feitoPorGrupo, excecao, exercicioPorId });
     // A versão SEM a exceção é o ponto de comparação de "o que é ajuste de hoje".
@@ -172,7 +180,7 @@ export async function abrirAluno(item, dateId, aoMudar) {
     <label class="obs-aluno">Observação do dia
       <input id="obs-aluno" value="${esc(excecao?.observacao || '')}" placeholder="Segurar a carga hoje." />
     </label>
-    <p class="mut peq">“Séries hoje” e a observação valem <b>só em ${esc(dateId)}</b>. “Trocar sempre” muda a ficha do aluno e vale de hoje em diante.
+    <p class="mut peq">${ehPassado(dateId) ? `Este dia já passou: o que você mudar aqui fica como <b>registro do que aconteceu</b> em ${esc(dateId)}` : `“Séries hoje” e a observação valem <b>só em ${esc(dateId)}</b>`}. “Trocar sempre” muda a ficha do aluno e vale de hoje em diante.
       Zero séries quer dizer que ele não faz o exercício.${semEmail ? ' <b>Este aluno não tem e-mail na ficha: o ajuste do dia não tem onde ser gravado.</b>' : ''}</p>`;
 
   const acoes = [{ id: 'foco', label: 'Mudar o foco' }];
@@ -181,6 +189,9 @@ export async function abrirAluno(item, dateId, aoMudar) {
   if (escolha === 'foco') { await trocarFoco(item, aoMudar); return; }
   if (escolha === 'salvar') await salvarDoPainel(item, dateId, aoMudar);
 }
+
+/** O dia já passou? Ajuste em dia passado é registro do que aconteceu. */
+const ehPassado = (/** @type {string} */ dateId) => dateId < dateIdDe();
 
 /** O substituto já cadastrado para um exercício, se houver. */
 function restricaoAtual(perfil, id) {
@@ -224,7 +235,10 @@ async function salvarDoPainel(item, dateId, aoMudar) {
   }
 
   const temAjuste = Object.keys(linhas).length || observacao;
-  if (temAjuste) await salvarAjuste(aluno.email, dateId, { linhas, observacao, posAula: false });
+  // `posAula` separa o que foi PLANEJADO do que ACONTECEU: ajuste num dia que já
+  // passou é registro, não plano. É o que o histórico do aluno vai ler para dizer
+  // "ela fez 2 séries" em vez de "estava previsto 2".
+  if (temAjuste) await salvarAjuste(aluno.email, dateId, { linhas, observacao, posAula: ehPassado(dateId) });
   else await removerAjuste(aluno.email, dateId); // voltou ao normal: a exceção some
   await recarregarAjustes(dateId);
   aoMudar();
@@ -253,4 +267,78 @@ async function trocarFoco(item, aoMudar) {
   })) return;
   atualizarPerfil(aluno.id, { foco: escolhidos });
   aoMudar();
+}
+
+/**
+ * As trocas por restrição deste dia, aluno por aluno, já resolvidas com nome e
+ * grupo — do jeito que o aparelho do aluno consegue ler.
+ *
+ * Chamado na publicação, e só lá: enquanto o coach monta, a troca é calculada na
+ * hora, aqui na tela dele, com o catálogo em mãos.
+ * @param {any} treino
+ * @returns {{email: string, nome: string, trocas: Record<string, any>}[]}
+ */
+export function trocasPorAluno(treino) {
+  const idsDoDia = new Set((treino?.blocos || []).flatMap((b) => (b.exercicios || []).map((l) => l.id).filter(Boolean)));
+  const travados = new Set((treino?.blocos || []).flatMap((b) => (b.exercicios || []).filter((l) => l.travado).map((l) => l.id)));
+  const saida = [];
+  for (const aluno of listarAlunos()) {
+    if (!aluno.email) continue; // sem e-mail não há documento para receber a troca
+    const trocas = {};
+    for (const r of perfilDe(aluno).restricoes || []) {
+      // Linha travada é igual para a turma: nem a restrição a muda (é a regra do
+      // cadeado, e quebrá-la aqui faria a tela do coach e o Portal divergirem).
+      if (!r?.evitarId || !idsDoDia.has(r.evitarId) || travados.has(r.evitarId)) continue;
+      const sub = r.substitutoId ? EXERCICIO_POR_ID[r.substitutoId] : null;
+      if (!sub) continue; // restrição sem substituto: o coach já vê o alerta na lista
+      trocas[r.evitarId] = {
+        id: sub.id, nome: sub.nome, padrao: sub.padrao,
+        grupoMuscular: grupoDoExercicio(sub), motivo: r.motivo || '',
+      };
+    }
+    if (Object.keys(trocas).length) saida.push({ email: aluno.email, nome: aluno.nome || aluno.email, trocas });
+  }
+  return saida;
+}
+
+/**
+ * O mês de um aluno: os dias que são dele, o que ele fez em cada um e o volume
+ * por grupo contra a meta semanal dele.
+ *
+ * Os dias entram pela ficha (`diasTreino`) enquanto não há presença registrada —
+ * é a mesma regra da coluna da turma, e a presença real entra aqui quando a
+ * Gestão passar a alimentá-la.
+ * @param {any} aluno @param {string} mesId
+ */
+export function mesDoAluno(aluno, mesId) {
+  const perfil = perfilDe(aluno);
+  const metas = metasDoAluno(perfil);
+  const doMes = store.listarTreinosDoMes(mesId);
+  const dias = [];
+  /** @type {Record<string, number>} */
+  const porGrupo = {};
+  for (const treino of doMes) {
+    if ((aluno.diasTreino || []).length && !aluno.diasTreino.includes(treino.dia)) continue;
+    // Sem a correção da Ficha do Motor, de propósito: ela vale para a semana
+    // CORRENTE, e este laço reconstrói o mês inteiro dia a dia. Aplicá-la aqui
+    // carimbaria no mês passado um ajuste que o coach fez hoje.
+    const feitoPorGrupo = volumeDaSemanaDoAluno(doMes, treino.dateId, { diasTreino: aluno.diasTreino });
+    const excecao = null; // as exceções são por dia e ficam no documento do aluno
+    const v = versaoDoAluno({ base: treino, perfil, feitoPorGrupo, excecao, exercicioPorId });
+    dias.push({ dateId: treino.dateId, total: v.total, totalBase: v.totalBase, estrutura: treino.estrutura });
+    for (const l of v.linhas) {
+      if (!l.grupo || l.restrito) continue;
+      porGrupo[l.grupo] = (porGrupo[l.grupo] || 0) + l.series;
+    }
+  }
+  // A meta é semanal; o mês tem 4 a 5 semanas de treino. Comparar o mês inteiro
+  // com a meta de uma semana faria todo aluno parecer muito acima — a conta que
+  // interessa é a média por semana.
+  const semanas = new Set(dias.map((d) => faixaDaSemana(d.dateId).ini)).size || 1;
+  /** @type {Record<string, {porSemana: number, meta: number}>} */
+  const grupos = {};
+  for (const g of Object.keys(metas)) {
+    grupos[g] = { porSemana: (porGrupo[g] || 0) / semanas, meta: metas[g] };
+  }
+  return { perfil, dias, grupos, semanas };
 }

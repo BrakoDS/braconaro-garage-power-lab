@@ -15,6 +15,10 @@ import { confirmar, avisar, painel } from '../../compartilhado/ui/dialogo.js';
 import { feriadosDoMes, feriadoEm } from '../../compartilhado/regras/feriados.js';
 import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
+// A ficha que o Motor de Individualização lê. Namespace em vez de import solto:
+// são vinte exportações (listas de opção, conversões de carga e a normalização),
+// e `mtz.REGRAS_IMPACTO` diz de onde a lista veio sem precisar subir até o topo.
+import * as mtz from '../../compartilhado/regras/matriz-individualizacao.js';
 import * as calc from '../../compartilhado/regras/calc.js?v=5';
 import * as storage from '../../compartilhado/regras/storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
@@ -27,6 +31,9 @@ import { publicarRanking } from './ranking-sync.js';
 import { carregarCargasAluno } from './cargas-read.js';
 import * as matrizUI from './matriz-ui.js';
 import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
+import { carregarRotinaAluno } from './rotina-read.js';
+import { resumoDeAdesao } from '../../compartilhado/regras/adesao.js';
+import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js';
 import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../../compartilhado/regras/gamificacao.js';
@@ -224,7 +231,7 @@ function formDadosHTML(a = {}, opts = {}) {
       <div class="field full"><label>Foco (até 2 grupos)</label><div class="dias-treino">${focoHTML}</div><span class="hint">O Montador Individual tira série de onde ele está mais adiantado e põe no foco, mantendo o total do treino da turma.</span></div>
       <div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>
       <div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>
-      <div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>
+      <div class="field full"><label>Observações médicas gerais</label><textarea name="obs" placeholder="Condições de saúde, o que o médico falou, observações relevantes…">${esc(a.obs)}</textarea><span class="hint">Texto livre, para o histórico — <b>o Motor não lê este campo</b>. Lesão, regra de impacto e regra de tração viram treino adaptado na aba <b>Ficha do Motor</b>, e só lá.</span></div>
     </div>
   </div>
   <div class="form-sec">
@@ -1742,6 +1749,7 @@ function ativarAba(nome) {
   else if (nome === 'progresso') renderProgresso();
   else if (nome === 'anamnese') renderAnamnese();
   else if (nome === 'parq') renderParq();
+  else if (nome === 'motor') renderMatriz();
 }
 $$('.tab').forEach((t) => t.addEventListener('click', () => ativarAba(t.dataset.tab)));
 
@@ -2245,6 +2253,7 @@ function renderProgresso() {
   const temDesempenho = [sFlex, sPrancha, sAgach, sAbd].some((s) => s.length >= 2);
   panel.innerHTML = `
     <div class="prog-grid">
+      <div class="prog-card full"><h4>Adesão aos hábitos (app do aluno)</h4><div id="prog-adesao"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Medalhas do aluno</h4><div id="prog-medalhas"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Metas do aluno</h4><div id="prog-metas"></div></div>
       <div class="prog-card full"><h4>Evolução do peso corporal</h4>${chart(sPeso, { cor: 'var(--accent)' })}</div>
@@ -2262,9 +2271,46 @@ function renderProgresso() {
       <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
     </div>`;
   renderMetasCoach(a);
+  carregarAdesaoHabitos(a);
   carregarMedalhasAluno(a);
   carregarGastoSemana(a);
   carregarCargasForca(a);
+}
+
+/* ---- Adesão aos hábitos (rotinas/{email}, gravado pelo app mobile) ---- */
+
+/**
+ * Painel de adesão do aluno na aba Progresso.
+ *
+ * Aqui fica só o transporte: buscar o documento, tratar a troca de aluno durante
+ * a carga e a falha de rede. A conta mora em `compartilhado/regras/adesao.js` e o
+ * desenho em `compartilhado/ui/adesao-card.js` — os dois puros, testáveis no Node
+ * e conferíveis sem um aluno logado.
+ */
+async function carregarAdesaoHabitos(a) {
+  const alvoId = a.id;
+  const el = $('#prog-adesao'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  if (!email) { el.innerHTML = `<div class="prog-ph">Aluno sem e-mail cadastrado — sem rotina no app.</div>`; return; }
+
+  let doc = null;
+  try { doc = await carregarRotinaAluno(email); }
+  catch (e) {
+    console.warn('Adesão:', e?.code || e);
+    if ($('#prog-adesao') && alunoAtual?.id === alvoId) {
+      $('#prog-adesao').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`;
+    }
+    return;
+  }
+  if (!$('#prog-adesao') || alunoAtual?.id !== alvoId) return; // trocou de aluno enquanto carregava
+
+  // Telefone curto demais não vira link de WhatsApp — sem `waHref`, o card
+  // simplesmente não oferece o botão.
+  const wa = String(a.telefone || '').replace(/\D/g, '');
+  $('#prog-adesao').innerHTML = cardDeAdesao(resumoDeAdesao(doc), {
+    nome: a.nome,
+    waHref: wa.length >= 10 ? (texto) => waMsg(a.telefone, texto) : undefined,
+  });
 }
 
 /** Resumo das medalhas do aluno (mesma lógica do Portal) — para parabenizar. */
@@ -2533,6 +2579,239 @@ function renderParq() {
     db.atualizar(a.id, { parq: { respostas, data: fd.get('data') || '', obs: (fd.get('obs') || '').toString().trim() } });
     alunoAtual = db.obter(a.id);
     const fl = $('#form-parq [data-saved]'); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
+  });
+}
+
+/* ============================================================
+   ABA — Ficha do Motor (matriz de individualização)
+   ------------------------------------------------------------
+   É a ficha que o Motor de Individualização lê antes de adaptar o treino do dia
+   para este aluno. A regra e a limpeza dos dados moram em
+   `compartilhado/regras/matriz-individualizacao.js`; aqui é só tela.
+
+   Os campos do primeiro card (nível, objetivo, foco, frequência) são OS MESMOS
+   da aba Dados, não uma cópia: eles são gravados de volta no topo da ficha, que
+   é de onde `perfil-treino.js`, `niveis.js` e o Portal já os leem. Editar aqui e
+   editar lá é editar a mesma coisa — de propósito.
+   ============================================================ */
+function optsPares(lista, atual, vazio = '—') {
+  return `<option value="">${esc(vazio)}</option>`
+    + lista.map(([v, l]) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(l)}</option>`).join('');
+}
+
+/** As linhas de lesão, que entram e saem sem recarregar a aba inteira. */
+let motorLesoes = [];
+
+function lesoesHTML() {
+  if (!motorLesoes.length) {
+    return `<div class="motor-vazio">Nenhuma lesão ou dor registrada. O Motor trata este aluno sem restrição de região.</div>`;
+  }
+  return motorLesoes.map((l, i) => `
+    <div class="motor-lesao" data-lesao="${i}">
+      <select data-campo="regiao">${optsPares(mtz.REGIOES_LESAO, l.regiao, 'Região…')}</select>
+      <select data-campo="gravidade">${optsPares(mtz.GRAVIDADES, l.gravidade, '—')}</select>
+      <input type="date" data-campo="desde" value="${esc(l.desde)}" title="Desde quando" />
+      <input type="text" data-campo="obs" value="${esc(l.obs)}" placeholder="O que dói, o que evitar…" />
+      <button class="motor-x" type="button" data-remover="${i}" aria-label="Remover lesão">×</button>
+    </div>`).join('');
+}
+
+/** Lê as linhas de lesão do DOM de volta para `motorLesoes`. */
+function lerLesoes(root) {
+  motorLesoes = $$('[data-lesao]', root).map((el) => ({
+    regiao: $('[data-campo=regiao]', el).value,
+    gravidade: $('[data-campo=gravidade]', el).value,
+    desde: $('[data-campo=desde]', el).value,
+    obs: $('[data-campo=obs]', el).value,
+  }));
+}
+
+/**
+ * A linha de 1RM de um levantamento: o que o coach testou e o que sai disso.
+ * O 1RM fica editável porque nem todo número vem de uma série submáxima — quando
+ * o coach mediu a máxima de verdade, ele digita, e a estimativa sai de cena.
+ */
+function linha1RM(id, label, r) {
+  return `
+    <div class="motor-rm" data-rm="${id}">
+      <span class="motor-rm-nome">${esc(label)}</span>
+      <label class="motor-rm-campo"><span>Peso (kg)</span><input type="number" min="0" step="0.5" name="rm_${id}_kg" value="${r.kg ?? ''}" placeholder="80" /></label>
+      <label class="motor-rm-campo"><span>Reps</span><input type="number" min="1" max="20" step="1" name="rm_${id}_reps" value="${r.reps ?? ''}" placeholder="5" /></label>
+      <label class="motor-rm-campo"><span>1RM medido</span><input type="number" min="0" step="0.5" name="rm_${id}_rm" value="${r.rm ?? ''}" placeholder="—" title="Só se você mediu a máxima de verdade. Vazio = estimado pelo peso e pelas repetições." /></label>
+      <label class="motor-rm-campo"><span>Medido em</span><input type="date" name="rm_${id}_medidoEm" value="${esc(r.medidoEm)}" /></label>
+      <span class="motor-rm-saida" data-saida="${id}"></span>
+    </div>`;
+}
+
+function renderMatriz() {
+  const a = alunoAtual; if (!a) return;
+  const m = mtz.matrizDe(a);
+  const hist = mtz.historicoDaSemana(m);
+  motorLesoes = m.adaptacoes.lesoes.map((l) => ({ ...l }));
+
+  const gruposOpts = mtz.GRUPOS_COM_ROTULO;
+  const freqOpts = [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), `${n}x por semana`]);
+  const objOpts = OBJETIVOS.map((o) => [o, o]);
+  const mobHTML = mtz.RESTRICOES_MOBILIDADE.map(([v, l]) => `
+    <label class="dia-check"><input type="checkbox" name="mobilidade" value="${v}"${m.adaptacoes.mobilidade.includes(v) ? ' checked' : ''}/><span>${esc(l)}</span></label>`).join('');
+  const histHTML = gruposOpts.map(([g, l]) => `
+    <label class="motor-grupo"><span>${esc(l)}</span><input type="number" min="0" step="1" name="hist_${g}" value="${hist.correcoes[g] ?? ''}" placeholder="auto" /></label>`).join('');
+
+  $('#tab-motor').innerHTML = `
+    <div class="motor-resumo" id="motor-resumo"></div>
+    <form id="form-motor">
+
+      <div class="form-sec"><h3>1 · Perfil e objetivos</h3><div class="grid-form">
+        <div class="field"><label>Nível do aluno</label><select name="nivel">${optsPares(mtz.OPCOES_NIVEL, m.perfil.nivel)}</select><span class="hint">Escala as séries e a carga sugerida (<code>niveis.js</code>).</span></div>
+        <div class="field"><label>Frequência semanal presencial</label><select name="freqVezes">${optsPares(freqOpts, m.perfil.freqVezes)}</select><span class="hint">O que ele contratou. Os dias marcados ficam na aba Dados.</span></div>
+        <div class="field"><label>Objetivo do aluno</label><select name="objetivo">${optsPares(objOpts, m.perfil.objetivo)}</select><span class="hint">O que ele quer — não muda de mês em mês. Define reps, descanso e meta semanal.</span></div>
+        <div class="field"><label>Objetivo da fase atual</label><select name="fase">${optsPares(mtz.FASES, m.perfil.fase)}</select><span class="hint">O bloco em que ele está agora. Quem treina para emagrecer pode passar seis semanas em força.</span></div>
+        <div class="field"><label>Foco muscular primário</label><select name="focoPrimario">${optsPares(gruposOpts, m.perfil.focoPrimario, 'Sem foco')}</select></div>
+        <div class="field"><label>Foco secundário</label><select name="focoSecundario">${optsPares(gruposOpts, m.perfil.focoSecundario, 'Sem foco')}</select><span class="hint">O Motor tira série de onde ele está mais adiantado e põe no foco, mantendo o total do treino da turma.</span></div>
+      </div></div>
+
+      <div class="form-sec"><h3>2 · Métricas de carga</h3>
+        <div class="motor-rm-lista">
+          ${mtz.LEVANTAMENTOS.map(([id, label]) => linha1RM(id, label, m.cargas.referencia[id])).join('')}
+        </div>
+        <p class="hint" style="margin:10px 0 18px">Digite peso e repetições do último teste — o 1RM sai estimado por Epley e acompanha o que você mudar. Preencha <b>1RM medido</b> só se testou a máxima de verdade: aí é ele que passa a valer.</p>
+        <div class="grid-form">
+          <div class="field"><label>Zona de RIR habitual</label><select name="rir">${optsPares(mtz.ZONAS_RIR, m.cargas.rir)}</select><span class="hint">Quantas repetições ele costuma deixar na reserva. Dois alunos com a mesma carga treinam diferente se um para a 3 da falha e o outro a 1.</span></div>
+          <div class="field"><label>Airbike — RPM base</label><input type="number" min="0" step="1" name="airbikeRpm" value="${m.cargas.airbike.rpm ?? ''}" placeholder="60" /></div>
+          <div class="field"><label>Airbike — cal/min</label><input type="number" min="0" step="0.5" name="airbikeCal" value="${m.cargas.airbike.calPorMin ?? ''}" placeholder="12" /><span class="hint">O pace que ele sustenta. É a conversão de quem não pode fazer impacto.</span></div>
+          <div class="field"><label>Airbike — observação</label><input type="text" name="airbikeObs" value="${esc(m.cargas.airbike.obs)}" placeholder="Ex.: joelho reclama acima de 75 rpm" /></div>
+        </div>
+      </div>
+
+      <div class="form-sec"><h3>3 · Adaptações e segurança</h3>
+        ${a.obs ? `<div class="motor-herdado"><b>Observações médicas da aba Dados</b><p>${esc(a.obs)}</p>
+          <span>Texto livre — o Motor não lê. O que aqui virar lesão, regra de impacto ou de tração precisa ser registrado nos campos abaixo para valer no treino.</span></div>` : ''}
+        <div class="grid-form">
+        <div class="field"><label>Regra de impacto</label><select name="impacto">${optsPares(mtz.REGRAS_IMPACTO, m.adaptacoes.impacto, 'Faz impacto normalmente')}</select><span class="hint">Vale para salto, corrida e burpee no dia da turma.</span></div>
+        <div class="field"><label>Regra de tração</label><select name="tracao">${optsPares(mtz.REGRAS_TRACAO, m.adaptacoes.tracao, 'Faz barra suspensa')}</select><span class="hint">Quem não sobe na barra recebe puxada alta no lugar.</span></div>
+        <div class="field full"><label>Restrições de mobilidade</label><div class="dias-treino">${mobHTML}</div></div>
+        <div class="field full"><label>Histórico de lesões e dores</label>
+          <div class="motor-lesoes" id="motor-lesoes">${lesoesHTML()}</div>
+          <button class="btn ghost btn-sm" type="button" id="motor-add-lesao" style="align-self:flex-start;margin-top:10px">+ Registrar lesão / dor</button>
+        </div>
+        <div class="field full"><label>Observações para o Motor</label><textarea name="obsAdaptacoes" placeholder="O que mais precisa ser respeitado na prescrição dele…">${esc(m.adaptacoes.obs)}</textarea></div>
+      </div></div>
+
+      <div class="form-sec"><h3>4 · Histórico de carga · status desta semana</h3>
+        <p class="hint" style="margin:0 0 12px"><b>O sistema conta sozinho.</b> As séries por grupamento saem dos treinos que
+          realmente aconteceram, e é essa conta que decide de qual grupo o Motor tira série — ele tira de onde o aluno está
+          mais acima da meta dele. Deixe os campos em <b>auto</b> e não mexa em nada.<br />
+          Preencha só para <b>corrigir</b> o que a conta não enxerga: treinou peito em casa, parou no meio da aula, fez a mais
+          no sábado. O que você escrever vale para a semana de <b>${fmtData(hist.semanaId)}</b> e some sozinho na semana que vem.
+          ${hist.vencido ? '<br />As correções da semana anterior deixaram de valer — semana passada não é status atual.' : ''}</p>
+        <div class="motor-grupos">${histHTML}</div>
+        <button class="btn ghost btn-sm" type="button" id="motor-zerar" style="margin-top:12px">Limpar correções (voltar ao automático)</button>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn" type="submit">Salvar ficha do motor</button>
+        <span class="saved-flag" data-saved>Salvo ✓</span>
+      </div>
+    </form>`;
+
+  const form = $('#form-motor');
+
+  /** Lê o formulário inteiro para o formato que o módulo de regra entende. */
+  function lerMotor() {
+    const fd = new FormData(form);
+    const txt = (k) => String(fd.get(k) || '').trim();
+    lerLesoes(form);
+    /** @type {any} */
+    const referencia = {};
+    for (const [id] of mtz.LEVANTAMENTOS) {
+      referencia[id] = {
+        kg: txt(`rm_${id}_kg`), reps: txt(`rm_${id}_reps`),
+        rm: txt(`rm_${id}_rm`), medidoEm: txt(`rm_${id}_medidoEm`),
+      };
+    }
+    // Campo em branco é "deixa o sistema contar", e não zero: zero digitado é uma
+    // correção de verdade ("não fez perna nenhuma"). Só entra o que foi escrito.
+    const correcoes = {};
+    for (const [g] of mtz.GRUPOS_COM_ROTULO) {
+      const v = txt(`hist_${g}`);
+      if (v !== '') correcoes[g] = v;
+    }
+    return {
+      perfil: {
+        nivel: txt('nivel'), objetivo: txt('objetivo'), fase: txt('fase'),
+        focoPrimario: txt('focoPrimario'), focoSecundario: txt('focoSecundario'),
+        freqVezes: txt('freqVezes'),
+      },
+      cargas: {
+        referencia, rir: txt('rir'),
+        airbike: { rpm: txt('airbikeRpm'), calPorMin: txt('airbikeCal'), obs: txt('airbikeObs') },
+      },
+      adaptacoes: {
+        lesoes: motorLesoes, impacto: txt('impacto'), tracao: txt('tracao'),
+        mobilidade: fd.getAll('mobilidade'), obs: txt('obsAdaptacoes'),
+      },
+      // O `semanaId` vem do relógio, e não de campo escondido: o coach digita a
+      // correção, nunca a semana a que ela pertence.
+      historico: { semanaId: mtz.semanaId(), correcoes, atualizadoEm: Date.now() },
+    };
+  }
+
+  /** Recalcula o que a tela mostra derivado do que está digitado. */
+  function atualizarDerivados() {
+    const atual = mtz.matrizDe({ [mtz.CAMPO]: lerMotor() });
+    for (const [id] of mtz.LEVANTAMENTOS) {
+      const r = atual.cargas.referencia[id];
+      const el = $(`[data-saida="${id}"]`, form);
+      if (!el) continue;
+      if (!r.rmEfetivo) { el.textContent = ''; continue; }
+      const t70 = mtz.cargaDe1RM(r.rmEfetivo, 70), t80 = mtz.cargaDe1RM(r.rmEfetivo, 80);
+      // Sem máxima medida, o número na tela é a estimativa — e o campo "1RM"
+      // continua vazio de propósito, para a conta seguir o peso e as reps.
+      const estimado = !r.rm;
+      el.innerHTML = `<b>${fmtN(r.rmEfetivo, 1)} kg</b>${estimado ? ' estimado' : ' medido'} · 70% = ${fmtN(t70, 1)} kg · 80% = ${fmtN(t80, 1)} kg`;
+      // Acima de 12 repetições nenhuma fórmula de 1RM vale — inclusive esta.
+      if (estimado && Number(r.reps) > 12) el.innerHTML += ` <span class="motor-alerta">acima de 12 reps a estimativa perde o sentido</span>`;
+    }
+    const resumo = mtz.resumoDeAdaptacoes(atual);
+    $('#motor-resumo').innerHTML = resumo
+      ? `<b>O Motor adapta este aluno:</b> ${esc(resumo)}`
+      : `<b>Sem adaptação registrada.</b> Este aluno recebe o treino da turma com o deslocamento do objetivo e do foco dele, nada mais.`;
+  }
+
+  form.addEventListener('input', atualizarDerivados);
+  form.addEventListener('change', atualizarDerivados);
+  atualizarDerivados();
+
+  $('#motor-add-lesao').addEventListener('click', () => {
+    lerLesoes(form);
+    motorLesoes.push({ regiao: '', gravidade: 'leve', desde: '', obs: '' });
+    $('#motor-lesoes').innerHTML = lesoesHTML();
+  });
+  $('#motor-lesoes').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-remover]');
+    if (!btn) return;
+    lerLesoes(form);
+    motorLesoes.splice(Number(btn.dataset.remover), 1);
+    $('#motor-lesoes').innerHTML = lesoesHTML();
+    atualizarDerivados();
+  });
+  $('#motor-zerar').addEventListener('click', () => {
+    // Vazio, e não zero: zero é uma correção, vazio é devolver a conta ao sistema.
+    for (const [g] of mtz.GRUPOS_COM_ROTULO) $(`[name="hist_${g}"]`, form).value = '';
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    // `separarParaGravar` devolve os campos do topo da ficha e a matriz em
+    // separado, já limpos. Os dois vão numa gravação só: meia ficha salva seria
+    // um aluno com foco novo e restrição velha.
+    const { topo, matriz } = mtz.separarParaGravar(lerMotor());
+    db.atualizar(a.id, { ...topo, [mtz.CAMPO]: matriz });
+    // O Portal leva a matriz junto: é por ela que o aparelho do aluno calcula a
+    // versão dele. Sem republicar, a mudança só chegaria na próxima gravação.
+    agendarPublicarPortal();
+    alunoAtual = db.obter(a.id);
+    const fl = $('[data-saved]', form); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1600);
   });
 }
 

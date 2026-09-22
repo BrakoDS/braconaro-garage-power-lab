@@ -23,7 +23,9 @@ import {
   volumeDoTreino, paraSalvar,
 } from '../core/treino-base.js';
 import * as store from './store.js';
-import { renderTurma, abrirAluno, recarregarAjustes } from './turma.js';
+import { renderTurma, abrirAluno, recarregarAjustes, trocasPorAluno, mesDoAluno } from './turma.js';
+import { listarAlunos } from './alunos.js';
+import { salvarTrocas } from '../cloud-aluno.js';
 import { paraPortal, temConteudoParaPortal } from '../core/para-portal.js';
 import { publicarTreino, lerDiaPublicado } from '../../../compartilhado/firebase/treino-portal.js';
 
@@ -306,7 +308,15 @@ $('#btn-publicar').addEventListener('click', async () => {
   if (!await confirmar({ titulo: 'Publicar para os alunos?', texto, ok: 'Publicar', perigo: !!jaPublicado })) return;
   try {
     await publicarTreino(treino.dateId, paraPortal(treino));
-    avisar('Publicado. Os alunos já veem este treino no Portal.', 'ok');
+    // As trocas por restrição vão resolvidas (nome e grupo) para o documento de
+    // cada aluno: o aparelho dele não tem o catálogo para transformar um id num
+    // nome, e quem tem é esta tela, agora.
+    const comTroca = trocasPorAluno(treino);
+    await Promise.all(comTroca.map((t) => salvarTrocas(t.email, treino.dateId, t.trocas)));
+    const extra = comTroca.length
+      ? ' ' + comTroca.length + ' com troca por restrição: ' + comTroca.map((t) => t.nome).join(', ') + '.'
+      : '';
+    avisar('Publicado. Os alunos já veem este treino no Portal.' + extra, 'ok');
   } catch (e) {
     console.error('Publicar:', e);
     avisar('Não deu para publicar agora. Tente de novo.', 'erro');
@@ -325,6 +335,11 @@ $('#btn-limpar').addEventListener('click', async () => {
 const selMes = /** @type {HTMLSelectElement} */ ($('#h-mes'));
 
 function renderHistorico() {
+  // A lista de alunos vem da Gestão e pode chegar depois do primeiro render.
+  if (selAluno && !selAluno.options.length) {
+    selAluno.innerHTML = '<option value="">— escolha um aluno —</option>'
+      + listarAlunos().map((a) => `<option value="${esc(a.id)}">${esc(a.nome || a.id)}</option>`).join('');
+  }
   const meses = store.listarMeses();
   const atual = store.mesIdDe(store.dataDe(treino.dateId));
   const lista = meses.length ? meses : [atual];
@@ -349,7 +364,40 @@ function renderHistorico() {
   }).join('') : '<p class="vazio">Nenhum treino salvo neste mês.</p>';
 }
 
-selMes.addEventListener('change', renderHistorico);
+const selAluno = /** @type {HTMLSelectElement} */ ($('#h-aluno'));
+
+/**
+ * O mês de um aluno: os dias que são dele e o volume por grupo contra a meta
+ * SEMANAL dele — a média por semana, e não a soma do mês, que faria todo mundo
+ * parecer muito acima da meta.
+ */
+function renderResumoDoAluno() {
+  const alvo = $('#resumo-aluno');
+  const aluno = listarAlunos().find((a) => a.id === selAluno.value);
+  if (!aluno) { alvo.hidden = true; return; }
+  alvo.hidden = false;
+  const { perfil, dias, grupos, semanas } = mesDoAluno(aluno, selMes.value);
+  const linhasDias = dias.length
+    ? dias.map((d) => `<div class="item"><span>${esc(d.dateId)}</span><b>${num(d.total)} séries</b></div>`).join('')
+    : '<p class="vazio">Nenhum treino dele neste mês.</p>';
+  const linhasGrupos = Object.entries(grupos)
+    .filter(([, v]) => v.porSemana > 0)
+    .sort((a, b) => b[1].porSemana - a[1].porSemana)
+    .map(([g, v]) => `<div class="item"><span>${esc(GRUPO_LABEL[g])}</span><b>${num(v.porSemana)}/${v.meta}</b></div>`)
+    .join('') || '<p class="vazio">—</p>';
+  alvo.innerHTML = `
+    <div class="turma-cab">
+      <h3>${esc(aluno.nome || aluno.id)}</h3>
+      <span class="mut">${esc(perfil.objetivo || 'sem objetivo')} · ${dias.length} treino(s) em ${semanas} semana(s)</span>
+    </div>
+    <div class="grades">
+      <div class="grade"><h3>Dias dele</h3>${linhasDias}</div>
+      <div class="grade"><h3>Por grupo, por semana</h3>${linhasGrupos}</div>
+    </div>`;
+}
+
+selMes.addEventListener('change', () => { renderHistorico(); renderResumoDoAluno(); });
+selAluno.addEventListener('change', renderResumoDoAluno);
 
 $('#lista-historico').addEventListener('click', async (ev) => {
   const btn = /** @type {HTMLElement} */ (ev.target).closest('[data-acao]');

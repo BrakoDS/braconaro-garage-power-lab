@@ -8,6 +8,7 @@
  * de leitura para o aluno. Reaproveita o app Firebase já inicializado.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
+import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -50,6 +51,11 @@ export function fatia(a, todos, fechadosDoBox = []) {
     // Ficha antiga não tem nenhum dos três: entram vazios, e vazio quer dizer
     // "sem deslocamento", nunca erro.
     foco: a.foco || [], restricoes: a.restricoes || [], metasGrupo: a.metas || {},
+    // A matriz de individualização vai junto, e vai NORMALIZADA (`matrizDe`), não
+    // crua: o aparelho do aluno recebe todos os campos preenchidos, com o padrão
+    // no lugar do que a ficha não tem. Ficha antiga chega lá como "sem
+    // adaptação" em vez de chegar como metade de um objeto.
+    matriz: matrizDe(a),
     sexo: a.sexo || '', nascimento: a.nascimento || '', altura: a.altura || '',
     mensalidade: a.mensalidade || '', vencimento: a.vencimento || '', pagamentos: a.pagamentos || {},
     // Plano e grade de horários: o Portal monta com isso o bloco "Seu plano" e os

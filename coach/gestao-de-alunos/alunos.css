@@ -352,6 +352,69 @@ button{font-family:inherit}
 .insight .iv{color:var(--mut);font-size:.85rem}
 
 /* ============================================================
+   Adesão aos hábitos (rotinas/{email}, gravado pelo app mobile)
+   ------------------------------------------------------------
+   O heatmap é a peça central: uma coluna por semana, sete linhas de segunda a
+   domingo, e a intensidade do quadrado é o percentual de hábitos cumpridos no
+   dia. Serve para o coach ver a CONSISTÊNCIA sem ler número nenhum — um bloco
+   escuro no meio de quadrados claros salta aos olhos antes de qualquer legenda.
+
+   Quadrado VAZIO (.n-) é "sem dado", não "zero": antes do primeiro registro do
+   aluno, e em dia sem hábito previsto, não há adesão para medir.
+   ============================================================ */
+.ade-topo{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.ade-num{display:flex;align-items:baseline;gap:8px}
+.ade-num b{font-family:var(--font-cond);font-weight:700;font-size:2.4rem;line-height:1;color:var(--accent)}
+.ade-num b.ok{color:var(--ok)}
+.ade-num b.warn{color:var(--warn)}
+.ade-num b.bad{color:var(--bad)}
+.ade-num small{color:var(--mut);font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+.ade-chips{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.ade-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg-2);border:1px solid var(--line-2);
+  border-radius:999px;padding:5px 12px;font-size:.82rem;color:var(--mut)}
+.ade-chip b{color:var(--txt)}
+.ade-chip.ok{color:var(--ok);border-color:#3fb95055}
+.ade-chip.ok b{color:var(--ok)}
+
+.ade-mapa{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+/* A coluna dos rótulos usa a MESMA grade das semanas: se as duas divergirem, o
+   quadrado de quarta aparece na linha de terça e o painel mente em silêncio. */
+.ade-rotulos,.ade-sem{display:grid;grid-template-rows:repeat(7,13px);gap:3px}
+.ade-rotulos span{font-size:.62rem;color:var(--mut-2);line-height:13px;text-align:right;width:12px}
+.ade-semanas{display:flex;gap:3px}
+.ade-q{width:13px;height:13px;border-radius:2px;background:var(--bg-3);border:1px solid var(--line)}
+.ade-q.n0{background:#3a1f1e;border-color:#ff5b5033}
+.ade-q.n1{background:#7a2e28}
+.ade-q.n2{background:#8a6a1a}
+.ade-q.n3{background:#2f7a34}
+.ade-q.n4{background:var(--ok)}
+.ade-q.hoje{box-shadow:0 0 0 2px var(--accent)}
+
+.ade-legenda{display:flex;align-items:center;gap:5px;margin-top:10px;font-size:.72rem;color:var(--mut-2)}
+.ade-legenda .ade-q{width:11px;height:11px}
+
+.ade-blocos{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:9px}
+/* Nome com largura fixa e barra elástica: as barras só são comparáveis de relance
+   se todas começarem na mesma coluna. */
+.ade-bloco{display:grid;grid-template-columns:minmax(120px,240px) 1fr 54px;align-items:center;gap:14px;
+  background:var(--bg-2);border:1px solid var(--line);padding:9px 12px}
+.ade-bloco.obrig{border-left:3px solid var(--accent)}
+.ade-bloco .nome{font-weight:600;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ade-bloco .nome em{font-style:normal;color:var(--mut-2);font-weight:400;font-size:.8rem}
+.ade-bar{height:8px;background:var(--bg-3);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.ade-bar i{display:block;height:100%;background:var(--accent)}
+.ade-bar i.ok{background:var(--ok)}
+.ade-bar i.bad{background:var(--bad)}
+.ade-bloco .val{text-align:right;font-size:.82rem;color:var(--mut);font-variant-numeric:tabular-nums}
+.ade-bloco .val b{color:var(--txt)}
+.ade-nota{margin-top:12px;font-size:.78rem;color:var(--mut-2);line-height:1.5}
+
+@media (max-width:640px){
+  .ade-chips{margin-left:0}
+  .ade-bloco{grid-template-columns:minmax(90px,1fr) 70px 46px;gap:10px}
+}
+
+/* ============================================================
    Modal
    ============================================================ */
 .modal-bg{position:fixed;inset:0;z-index:60;display:none;align-items:flex-start;justify-content:center;
@@ -402,6 +465,63 @@ button{font-family:inherit}
 .parq-banner.alerta{color:var(--warn);border-color:rgba(255,158,27,.5);background:rgba(255,158,27,.08)}
 .parq-banner.ok{color:var(--ok);border-color:rgba(63,185,80,.5);background:rgba(63,185,80,.08)}
 @media (max-width:560px){ .parq-q{flex-direction:column;align-items:flex-start;gap:8px} }
+
+/* ---------- Ficha do Motor (matriz de individualização) ---------- */
+.motor-resumo{padding:14px 16px;margin-bottom:20px;border:1px solid var(--line-2);background:var(--bg-2);
+  color:var(--mut);font-size:.92rem;line-height:1.5;border-left:3px solid var(--accent)}
+.motor-resumo b{color:var(--txt)}
+
+/* Uma linha por levantamento: o que foi testado à esquerda, o que sai disso à direita. */
+.motor-rm-lista{display:flex;flex-direction:column;gap:10px}
+.motor-rm{display:grid;grid-template-columns:150px repeat(4,minmax(78px,1fr));align-items:end;gap:10px;
+  padding:12px 14px;border:1px solid var(--line);background:var(--bg-2)}
+.motor-rm-nome{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  font-size:.86rem;color:var(--txt);align-self:center}
+.motor-rm-campo{display:flex;flex-direction:column;gap:5px;min-width:0}
+.motor-rm-campo span{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  font-size:.68rem;color:var(--mut-2)}
+.motor-rm-campo input{width:100%;padding:.55em .6em;background:var(--card);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font-body);font-size:.92rem;outline:none}
+.motor-rm-campo input:focus{border-color:var(--accent)}
+.motor-rm-saida{grid-column:1/-1;font-size:.82rem;color:var(--mut)}
+.motor-rm-saida b{color:var(--accent);font-size:.95rem}
+.motor-alerta{color:var(--warn)}
+
+/* O texto livre da aba Dados, mostrado aqui para o coach transformá-lo em regra.
+   Fundo de aviso, e não de campo: é leitura, não tem o que digitar. */
+.motor-herdado{padding:12px 14px;margin-bottom:18px;border:1px solid rgba(255,158,27,.35);
+  background:rgba(255,158,27,.06)}
+.motor-herdado b{display:block;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;font-size:.72rem;color:var(--warn);margin-bottom:6px}
+.motor-herdado p{margin:0 0 8px;color:var(--txt);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
+.motor-herdado span{font-size:.74rem;color:var(--mut-2)}
+
+.motor-lesoes{display:flex;flex-direction:column;gap:8px}
+.motor-lesao{display:grid;grid-template-columns:1fr 1fr 150px 2fr 32px;gap:8px;align-items:center;
+  padding:10px 12px;border:1px solid var(--line);background:var(--bg-2)}
+.motor-lesao select,.motor-lesao input{width:100%;padding:.55em .6em;background:var(--card);
+  border:1px solid var(--line-2);color:var(--txt);font-family:var(--font-body);font-size:.9rem;outline:none}
+.motor-lesao select:focus,.motor-lesao input:focus{border-color:var(--accent)}
+.motor-x{width:28px;height:28px;border:1px solid var(--line-2);background:transparent;color:var(--mut);
+  cursor:pointer;font-size:1.1rem;line-height:1}
+.motor-x:hover{border-color:var(--bad);color:var(--bad)}
+.motor-vazio{padding:14px;border:1px dashed var(--line-2);color:var(--mut-2);font-size:.88rem}
+
+.motor-grupos{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
+.motor-grupo{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line);background:var(--bg-2)}
+.motor-grupo span{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  font-size:.72rem;color:var(--mut)}
+.motor-grupo input{width:100%;padding:.5em .6em;background:var(--card);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font-body);font-size:.95rem;text-align:center;outline:none}
+.motor-grupo input:focus{border-color:var(--accent)}
+
+@media (max-width:720px){
+  .motor-rm{grid-template-columns:repeat(2,1fr)}
+  .motor-rm-nome{grid-column:1/-1}
+  .motor-lesao{grid-template-columns:1fr 1fr;position:relative;padding-right:46px}
+  .motor-lesao input[data-campo=obs]{grid-column:1/-1}
+  .motor-x{position:absolute;top:10px;right:10px}
+}
 
 /* ---------- Comparar avaliações ---------- */
 .cmp-selects{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
