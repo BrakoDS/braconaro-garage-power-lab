@@ -27,6 +27,9 @@ import { publicarRanking } from './ranking-sync.js';
 import { carregarCargasAluno } from './cargas-read.js';
 import * as matrizUI from './matriz-ui.js';
 import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
+import { carregarRotinaAluno } from './rotina-read.js';
+import { resumoDeAdesao } from '../../compartilhado/regras/adesao.js';
+import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js';
 import { carregarConsentimentoLGPD } from './consentimento-read.js';
 import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../../compartilhado/regras/gamificacao.js';
@@ -2245,6 +2248,7 @@ function renderProgresso() {
   const temDesempenho = [sFlex, sPrancha, sAgach, sAbd].some((s) => s.length >= 2);
   panel.innerHTML = `
     <div class="prog-grid">
+      <div class="prog-card full"><h4>Adesão aos hábitos (app do aluno)</h4><div id="prog-adesao"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Medalhas do aluno</h4><div id="prog-medalhas"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Metas do aluno</h4><div id="prog-metas"></div></div>
       <div class="prog-card full"><h4>Evolução do peso corporal</h4>${chart(sPeso, { cor: 'var(--accent)' })}</div>
@@ -2262,9 +2266,46 @@ function renderProgresso() {
       <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
     </div>`;
   renderMetasCoach(a);
+  carregarAdesaoHabitos(a);
   carregarMedalhasAluno(a);
   carregarGastoSemana(a);
   carregarCargasForca(a);
+}
+
+/* ---- Adesão aos hábitos (rotinas/{email}, gravado pelo app mobile) ---- */
+
+/**
+ * Painel de adesão do aluno na aba Progresso.
+ *
+ * Aqui fica só o transporte: buscar o documento, tratar a troca de aluno durante
+ * a carga e a falha de rede. A conta mora em `compartilhado/regras/adesao.js` e o
+ * desenho em `compartilhado/ui/adesao-card.js` — os dois puros, testáveis no Node
+ * e conferíveis sem um aluno logado.
+ */
+async function carregarAdesaoHabitos(a) {
+  const alvoId = a.id;
+  const el = $('#prog-adesao'); if (!el) return;
+  const email = (a.email || '').trim().toLowerCase();
+  if (!email) { el.innerHTML = `<div class="prog-ph">Aluno sem e-mail cadastrado — sem rotina no app.</div>`; return; }
+
+  let doc = null;
+  try { doc = await carregarRotinaAluno(email); }
+  catch (e) {
+    console.warn('Adesão:', e?.code || e);
+    if ($('#prog-adesao') && alunoAtual?.id === alvoId) {
+      $('#prog-adesao').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`;
+    }
+    return;
+  }
+  if (!$('#prog-adesao') || alunoAtual?.id !== alvoId) return; // trocou de aluno enquanto carregava
+
+  // Telefone curto demais não vira link de WhatsApp — sem `waHref`, o card
+  // simplesmente não oferece o botão.
+  const wa = String(a.telefone || '').replace(/\D/g, '');
+  $('#prog-adesao').innerHTML = cardDeAdesao(resumoDeAdesao(doc), {
+    nome: a.nome,
+    waHref: wa.length >= 10 ? (texto) => waMsg(a.telefone, texto) : undefined,
+  });
 }
 
 /** Resumo das medalhas do aluno (mesma lógica do Portal) — para parabenizar. */
