@@ -40,7 +40,6 @@ export async function iniciar() {
   _auth = authMod.getAuth(app);
   _fns = {
     signIn: authMod.signInWithEmailAndPassword,
-    signUp: authMod.createUserWithEmailAndPassword,
     reset: authMod.sendPasswordResetEmail,
     signOut: authMod.signOut,
     onAuth: authMod.onAuthStateChanged,
@@ -70,13 +69,9 @@ export async function login(email, senha) {
   return _user;
 }
 
-/** Cria a conta do coach (primeiro acesso). @param {string} email @param {string} senha */
-export async function criarConta(email, senha) {
-  await iniciar();
-  const cred = await _fns.signUp(_auth, email, senha);
-  _user = cred.user;
-  return _user;
-}
+/* Sem "criar conta" aqui de propósito: o cadastro público está desligado no
+   Firebase Auth. Conta de aluno quem cria é o coach; conta de coach, o
+   administrador — e só vira coach quem está no ehCoach() das regras. */
 
 /** Envia e-mail de redefinição de senha. @param {string} email */
 export async function resetarSenha(email) {

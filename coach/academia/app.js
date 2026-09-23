@@ -3,7 +3,7 @@
  * Academia — Inventário + Catálogo de Exercícios.
  * Mesmo login do Coach/Montador (Firebase). Dados via ./db.js (local + nuvem).
  */
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha } from '../../compartilhado/firebase/cloud.js';
+import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { PADROES, PADRAO_LABEL } from '../../compartilhado/config/padroes.js';
@@ -856,8 +856,7 @@ $('#lista-tec').addEventListener('click', (e) => {
    ============================================================ */
 const gate = $('#gate'), gform = $('#gate-form');
 const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-erro');
-const gToggle = $('#gate-toggle'), gReset = $('#gate-reset');
-const gBtn = gform.querySelector('button[type=submit]');
+const gReset = $('#gate-reset');
 
 async function entrar(user) {
   if (user && cloudAtivo() && await bloquearSeNaoCoach(user)) return; // barra contas de aluno
@@ -873,8 +872,8 @@ function okMsg(m) { gErro.style.color = 'var(--ok)'; gErro.textContent = m; gErr
 function msgAuth(e) {
   const c = e?.code || '';
   return ({
-    'auth/invalid-credential': 'E-mail ou senha incorretos. Sem conta? Use “Primeiro acesso? Criar conta”.',
-    'auth/user-not-found': 'Conta não encontrada. Use “Primeiro acesso? Criar conta”.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/user-not-found': 'Conta não encontrada. Contas de coach são criadas pelo administrador.',
     'auth/invalid-email': 'E-mail inválido.',
     'auth/email-already-in-use': 'Essa conta já existe — faça login normalmente.',
     'auth/weak-password': 'Senha muito curta (mínimo 6 caracteres).',
@@ -886,14 +885,12 @@ function msgAuth(e) {
 
 if (cloudAtivo()) {
   gate.style.display = 'flex';
-  let criando = false;
-  gToggle.addEventListener('click', (e) => { e.preventDefault(); criando = !criando; gBtn.textContent = criando ? 'Criar conta e entrar' : 'Entrar'; gToggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta'; gErro.style.display = 'none'; });
   gReset.addEventListener('click', async (e) => { e.preventDefault(); const m = gEmail.value.trim(); if (!m) { erroMsg('Digite seu e-mail acima primeiro.'); gEmail.focus(); return; } try { await resetarSenha(m); okMsg('Enviamos um link de redefinição para seu e-mail.'); } catch (err) { erroMsg(msgAuth(err)); } });
   sessaoAtual().then((u) => { if (u) entrar(u); else gEmail.focus(); });
   gform.addEventListener('submit', async (e) => {
     e.preventDefault(); gErro.style.display = 'none';
     try {
-      const user = criando ? await criarConta(gEmail.value.trim(), gSenha.value) : await login(gEmail.value.trim(), gSenha.value);
+      const user = await login(gEmail.value.trim(), gSenha.value);
       entrar(user);
     } catch (err) { erroMsg(msgAuth(err)); console.error('Auth:', err?.code, err?.message); }
   });
@@ -901,6 +898,6 @@ if (cloudAtivo()) {
   entrar();
 } else {
   gate.style.display = 'flex';
-  gEmail?.remove(); gToggle?.remove(); gReset?.remove(); gSenha.focus();
+  gEmail?.remove(); gReset?.remove(); gSenha.focus();
   gform.addEventListener('submit', async (e) => { e.preventDefault(); if (await tentarLiberar(gSenha.value)) entrar(); else { erroMsg('Senha incorreta.'); gSenha.value = ''; gSenha.focus(); } });
 }

@@ -8,7 +8,7 @@
  * Diferente do montador, aqui o "liberar" apenas revela o hub de apps —
  * não carrega nenhum app nem sincroniza dados.
  */
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair } from '../compartilhado/firebase/cloud.js';
+import { cloudAtivo, sessaoAtual, login, resetarSenha, sair } from '../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../compartilhado/firebase/coach-guard.js';
 
@@ -17,9 +17,7 @@ const form  = document.getElementById('gate-form');
 const email = /** @type {HTMLInputElement} */ (document.getElementById('gate-email'));
 const senha = /** @type {HTMLInputElement} */ (document.getElementById('gate-senha'));
 const erro  = document.getElementById('gate-erro');
-const toggle = document.getElementById('gate-toggle');
 const reset  = document.getElementById('gate-reset');
-const btnEntrar = form?.querySelector('button[type=submit]');
 const hub   = document.getElementById('hub');
 const btnSair = document.getElementById('sair');
 
@@ -36,9 +34,9 @@ function mostrarOk(msg)  { if (erro) { erro.style.color = 'var(--ok)'; erro.text
 function msgErroAuth(e) {
   const c = e?.code || '';
   const mapa = {
-    'auth/invalid-credential': 'E-mail ou senha incorretos. Sem conta ainda? Use "Primeiro acesso? Criar conta".',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
     'auth/wrong-password': 'Senha incorreta.',
-    'auth/user-not-found': 'Conta não encontrada. Use "Primeiro acesso? Criar conta".',
+    'auth/user-not-found': 'Conta não encontrada. Contas de coach são criadas pelo administrador.',
     'auth/invalid-email': 'E-mail inválido.',
     'auth/email-already-in-use': 'Essa conta já existe — faça login normalmente.',
     'auth/weak-password': 'Senha muito curta (mínimo 6 caracteres).',
@@ -61,15 +59,6 @@ if (cloudAtivo()) {
   // ---- modo nuvem: login e-mail/senha ----
   if (gate) gate.style.display = 'flex';
 
-  let criando = false;
-  toggle?.addEventListener('click', (e) => {
-    e.preventDefault();
-    criando = !criando;
-    if (btnEntrar) btnEntrar.textContent = criando ? 'Criar conta e entrar' : 'Entrar';
-    if (toggle) toggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta';
-    if (erro) erro.style.display = 'none';
-  });
-
   reset?.addEventListener('click', async (e) => {
     e.preventDefault();
     const mail = email.value.trim();
@@ -87,7 +76,7 @@ if (cloudAtivo()) {
     ev.preventDefault();
     if (erro) erro.style.display = 'none';
     try {
-      const u = criando ? await criarConta(email.value.trim(), senha.value) : await login(email.value.trim(), senha.value);
+      const u = await login(email.value.trim(), senha.value);
       entrar(u);
     } catch (e) { mostrarErro(msgErroAuth(e)); console.error('Auth:', e?.code, e?.message); }
   });
@@ -97,9 +86,8 @@ if (cloudAtivo()) {
 } else {
   // ---- modo local: senha simples ----
   if (gate) gate.style.display = 'flex';
-  // sem nuvem, não há e-mail/criar conta/reset
+  // sem nuvem, não há e-mail/reset
   email?.closest ? email.remove() : null;
-  toggle?.remove();
   reset?.remove();
   senha?.focus();
   form?.addEventListener('submit', async (ev) => {

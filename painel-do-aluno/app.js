@@ -5,7 +5,7 @@
  * em portal/{email} e mostra boas-vindas, progresso, financeiro e avaliações
  * (com comparação). Reaproveita o design e o calc.js do app de alunos.
  */
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, sair, usuario } from '../compartilhado/firebase/cloud.js';
+import { cloudAtivo, sessaoAtual, login, resetarSenha, sair, usuario } from '../compartilhado/firebase/cloud.js';
 import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
@@ -1395,9 +1395,7 @@ $('#cargas-voltar')?.addEventListener('click', fecharCargas);
    ============================================================ */
 const gate = $('#gate'), gform = $('#gate-form');
 const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-erro');
-const gToggle = $('#gate-toggle'), gReset = $('#gate-reset');
-const gBtn = gform.querySelector('button[type=submit]');
-const gLgpdWrap = $('#gate-lgpd-wrap'), gLgpd = $('#gate-lgpd');
+const gReset = $('#gate-reset');
 
 /** Mostra o modal bloqueante de consentimento; só libera o dashboard ao aceitar. */
 function pedirConsentimento(email) {
@@ -1480,8 +1478,8 @@ function okMsg(m) { gErro.style.color = 'var(--ok)'; gErro.textContent = m; gErr
 function msgAuth(e) {
   const c = e?.code || '';
   return ({
-    'auth/invalid-credential': 'E-mail ou senha incorretos. Primeiro acesso? Use "Criar conta".',
-    'auth/user-not-found': 'Conta não encontrada. Use "Primeiro acesso? Criar conta".',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/user-not-found': 'Conta não encontrada. Fale com o coach para liberar seu acesso.',
     'auth/invalid-email': 'E-mail inválido.',
     'auth/email-already-in-use': 'Essa conta já existe — é só fazer login.',
     'auth/weak-password': 'Senha muito curta (mínimo 6 caracteres).',
@@ -1499,16 +1497,16 @@ $('#sair').addEventListener('click', async () => { try { await sair(); } catch {
 // tela com o aluno aberto na Gestão, que foi como apareceu.
 if (cloudAtivo() && !PREVIA) {
   gate.style.display = 'flex';
-  let criando = false;
-  gToggle.addEventListener('click', (e) => { e.preventDefault(); criando = !criando; gBtn.textContent = criando ? 'Criar conta e entrar' : 'Entrar'; gToggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta'; gLgpdWrap.hidden = !criando; gErro.style.display = 'none'; });
   gReset.addEventListener('click', async (e) => { e.preventDefault(); const m = gEmail.value.trim(); if (!m) { erroMsg('Digite seu e-mail acima primeiro.'); gEmail.focus(); return; } try { await resetarSenha(m); okMsg('Enviamos um link de redefinição para seu e-mail.'); } catch (err) { erroMsg(msgAuth(err)); } });
   sessaoAtual().then((u) => { if (u) entrar(u); else gEmail.focus(); });
   gform.addEventListener('submit', async (e) => {
     e.preventDefault(); gErro.style.display = 'none';
-    if (criando && !gLgpd.checked) { erroMsg('Você precisa aceitar o Termo de Consentimento e Uso de Dados para criar sua conta.'); return; }
+    // Sem "criar conta": o cadastro público está desligado no Firebase Auth e a
+    // conta do aluno é criada pelo coach. O aceite da LGPD não se perde — quem
+    // ainda não aceitou cai no modal bloqueante de `pedirConsentimento` logo
+    // depois do login, antes de ver qualquer dado.
     try {
-      const user = criando ? await criarConta(gEmail.value.trim(), gSenha.value) : await login(gEmail.value.trim(), gSenha.value);
-      if (criando) { try { await _registrarAceite(gEmail.value.trim()); } catch (er) { console.warn('LGPD:', er?.code || er); } }
+      const user = await login(gEmail.value.trim(), gSenha.value);
       entrar(user);
     } catch (err) { erroMsg(msgAuth(err)); }
   });

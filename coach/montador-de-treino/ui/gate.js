@@ -6,7 +6,7 @@
  * Em ambos, o app (app.js) só é carregado após liberar.
  */
 import { estaLiberado, tentarLiberar } from '../../../compartilhado/firebase/auth.js';
-import { cloudAtivo, sessaoAtual, login, criarConta, resetarSenha, carregarParaStore, conectarStore, usuario } from '../../../compartilhado/firebase/cloud.js';
+import { cloudAtivo, sessaoAtual, login, resetarSenha, carregarParaStore, conectarStore, usuario } from '../../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../../compartilhado/firebase/coach-guard.js';
 import { aplicarInventarioAcademia, sincronizarInventarioAcademia } from './inventario.js';
 import { construirCatalogoEfetivo } from '../../../compartilhado/dados/catalogo-efetivo.js';
@@ -36,9 +36,9 @@ function mostrarOk(msg) { if (erro) { erro.style.color = 'var(--ok)'; erro.textC
 function msgErroAuth(e) {
   const c = e?.code || '';
   const mapa = {
-    'auth/invalid-credential': 'E-mail ou senha incorretos. Sem conta ainda? Use "Primeiro acesso? Criar conta".',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
     'auth/wrong-password': 'Senha incorreta.',
-    'auth/user-not-found': 'Conta não encontrada. Use "Primeiro acesso? Criar conta".',
+    'auth/user-not-found': 'Conta não encontrada. Contas de coach são criadas pelo administrador.',
     'auth/invalid-email': 'E-mail inválido.',
     'auth/email-already-in-use': 'Essa conta já existe — faça login normalmente.',
     'auth/weak-password': 'Senha muito curta (mínimo 6 caracteres).',
@@ -73,21 +73,6 @@ if (cloudAtivo()) {
   input?.setAttribute('autocomplete', 'current-password');
   form?.insertBefore(email, input);
 
-  // link "primeiro acesso? criar conta"
-  let criando = false;
-  const btn = form?.querySelector('button[type=submit]');
-  const toggle = document.createElement('a');
-  toggle.href = '#'; toggle.style.cssText = 'color:var(--mut);font-size:13px;cursor:pointer';
-  toggle.textContent = 'Primeiro acesso? Criar conta';
-  toggle.addEventListener('click', (e) => {
-    e.preventDefault();
-    criando = !criando;
-    if (btn) btn.textContent = criando ? 'Criar conta e entrar' : 'Entrar';
-    toggle.textContent = criando ? 'Já tenho conta — entrar' : 'Primeiro acesso? Criar conta';
-    if (erro) erro.style.display = 'none';
-  });
-  form?.appendChild(toggle);
-
   // link "esqueci a senha"
   const reset = document.createElement('a');
   reset.href = '#'; reset.style.cssText = 'color:var(--mut);font-size:13px;cursor:pointer';
@@ -113,8 +98,7 @@ if (cloudAtivo()) {
     ev.preventDefault();
     if (erro) erro.style.display = 'none';
     try {
-      if (criando) await criarConta(email.value.trim(), input.value);
-      else await login(email.value.trim(), input.value);
+      await login(email.value.trim(), input.value);
       await entrarComNuvem();
     } catch (e) {
       mostrarErro(msgErroAuth(e));
