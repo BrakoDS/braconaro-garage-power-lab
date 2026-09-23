@@ -218,6 +218,7 @@ function formDadosHTML(a = {}, opts = {}) {
       <div class="field"><label>E-mail</label><input name="email" type="email" value="${esc(a.email)}" placeholder="email@exemplo.com" /></div>
       <div class="field full"><label>Endereço</label><input name="endereco" type="text" value="${esc(a.endereco)}" placeholder="Rua, número, bairro, cidade" /></div>
       <div class="field"><label>Status</label><select name="status">${stOpts}</select></div>
+      <div class="field full"><label>App mobile</label><label class="chk-app"><input type="checkbox" name="appLiberado" value="1"${a.appLiberado === true ? ' checked' : ''} /><span>Acesso ao Aplicativo Liberado</span></label><span class="hint">O app no celular é de planos específicos. Desmarcado, o aluno entra no app e para numa tela de bloqueio — o <b>Portal web continua valendo</b>. Ficha antiga, sem esta marcação, fica bloqueada.</span></div>
     </div>
   </div>
   <div class="form-sec">
@@ -281,6 +282,9 @@ function lerForm(form) {
   const o = {};
   for (const [k, v] of fd.entries()) o[k] = typeof v === 'string' ? v.trim() : v;
   o.diasTreino = fd.getAll('diasTreino'); // checkboxes múltiplos
+  // Caixa desmarcada não vai no FormData: sem o booleano explícito, desmarcar e
+  // salvar deixaria o `true` antigo intacto no `Object.assign` do db.atualizar.
+  o.appLiberado = fd.get('appLiberado') === '1';
   // Foco do aluno: até dois grupos, e é aqui que o limite vira verdade — a caixa
   // de seleção não impede o terceiro clique, e a regra de perfil também corta,
   // mas gravar três deixaria a ficha dizendo uma coisa e o treino outra.

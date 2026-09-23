@@ -38,3 +38,22 @@ test('a fatia nao leva dado que e so do coach', () => {
   assert.ok(!('anotacoesCoach' in f));
   assert.ok(!('telefone' in f));
 });
+
+test('appLiberado: so a marcacao explicita libera o app', () => {
+  // Padrao do box: ficha antiga, sem o campo, fica BLOQUEADA no app mobile.
+  assert.equal(fatia({ id: '001', email: 'a@b.com', appLiberado: true }, []).appLiberado, true);
+  assert.equal(fatia({ id: '001', email: 'a@b.com', appLiberado: false }, []).appLiberado, false);
+  assert.equal(fatia({ id: '001', email: 'a@b.com' }, []).appLiberado, false, 'ficha antiga bloqueia');
+  // Lixo que um import de planilha poderia deixar na ficha nao vira liberacao.
+  for (const lixo of ['true', 1, 'sim', {}, null]) {
+    assert.equal(fatia({ id: '001', email: 'a@b.com', appLiberado: lixo }, []).appLiberado, false, `appLiberado=${JSON.stringify(lixo)}`);
+  }
+});
+
+test('appLiberado sai como booleano, e sobrevive ao JSON da publicacao', () => {
+  // `publicarPortal` passa a fatia por JSON antes do setDoc: undefined sumiria do
+  // documento, e o campo precisa estar LA para o coach auditar no console.
+  const publicado = JSON.parse(JSON.stringify(fatia({ id: '001', email: 'a@b.com' }, [])));
+  assert.ok('appLiberado' in publicado);
+  assert.equal(typeof publicado.appLiberado, 'boolean');
+});
