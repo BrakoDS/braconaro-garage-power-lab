@@ -44,6 +44,11 @@ export function fatia(a, todos, fechadosDoBox = []) {
   return {
     id: a.id, nome: a.nome || '', email: emailKey(a.email), fotoUrl: a.fotoUrl || '',
     status: a.status || 'ativo', objetivo: a.objetivo || '', nivel: a.nivel || '',
+    // A trava do app mobile. Sai sempre como booleano, e só `true` literal
+    // libera: ficha antiga (sem o campo) publica `false` e fica bloqueada, que é
+    // o padrão que o box escolheu. O app lê com a mesma regra
+    // (`app-mobile/src/core/acessoApp.ts`); o Portal web ignora o campo.
+    appLiberado: a.appLiberado === true,
     // Perfil de treino: com objetivo, foco e restrições no documento dele, o Portal
     // calcula a versão do aluno no próprio aparelho, com os mesmos módulos de
     // `compartilhado/regras/` que o coach usa — sem ler a ficha de ninguém.
