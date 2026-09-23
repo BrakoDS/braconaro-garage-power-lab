@@ -51,6 +51,8 @@ import {
 } from './volume-agregado';
 import { preParse, montarComoIA } from './pre-parser';
 import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatalogo } from './catalogo';
+import { getAuth } from 'firebase-admin/auth';
+import { alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 
 initializeApp();
 
@@ -1712,5 +1714,74 @@ export const aggregateVolumeMetrics = onDocumentWritten(
       // relançar, que faria o Functions repetir a mesma leitura pesada em loop.
       logger.error('Falha ao consolidar volume.', { uid, dateId, erro: String(e) });
     }
+  },
+);
+
+/* ================================================================== *
+ * Acesso do aluno (Gestão → botão "Criar acesso")
+ * ================================================================== */
+
+/** Para onde o aluno volta depois de definir a senha. */
+const URL_PORTAL = 'https://garagepowerlab.com.br/painel-do-aluno/index.html';
+
+/**
+ * Cria a conta de login de um aluno e devolve o link para ele definir a senha.
+ *
+ * O cadastro público está desligado no Firebase Auth, então esta é a porta de
+ * entrada de todo aluno novo. As travas estão explicadas em `acesso.ts`: só o
+ * coach chama (UID), só para e-mail de aluno da Gestão dele, e conta que já
+ * existe não é alterada — ela recebe apenas um link novo, o que faz o mesmo
+ * botão servir de "reenviar acesso" para quem perdeu a senha.
+ *
+ * A conta nasce SEM senha: ninguém entra nela até o aluno abrir o link. Assim o
+ * coach nunca conhece a senha do aluno, e não há senha provisória circulando
+ * no WhatsApp. O link expira (1 h, padrão do Firebase); vencido, é só clicar de
+ * novo no botão.
+ */
+export const criarAcessoAluno = onCall(
+  { timeoutSeconds: 30, memory: '256MiB', maxInstances: 2 },
+  async (req): Promise<{ criado: boolean; link: string; nome: string }> => {
+    const uid = req.auth?.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Entre na sua conta de coach.');
+    if (!ehCoachPorUid(uid)) throw new HttpsError('permission-denied', 'Só o coach cria acesso de aluno.');
+
+    const email = normalizarEmail((req.data as { email?: unknown } | null)?.email);
+    if (!email) throw new HttpsError('invalid-argument', 'E-mail do aluno inválido.');
+
+    const gestao = await getFirestore().doc(`gestao/${uid}`).get();
+    const aluno = alunoDaGestao(gestao.data() ?? null, email);
+    if (!aluno) {
+      throw new HttpsError('not-found',
+        'Este e-mail não está em nenhuma ficha da sua Gestão. Salve a ficha com o e-mail e tente de novo.');
+    }
+
+    const auth = getAuth();
+    let criado = false;
+    try {
+      await auth.getUserByEmail(email);
+    } catch (e) {
+      if ((e as { code?: string }).code !== 'auth/user-not-found') throw e;
+      try {
+        await auth.createUser({ email, displayName: aluno.nome || undefined });
+        criado = true;
+      } catch (e2) {
+        // Dois cliques quase juntos: o outro criou primeiro. Segue como existente.
+        if ((e2 as { code?: string }).code !== 'auth/email-already-exists') throw e2;
+      }
+    }
+
+    let link: string;
+    try {
+      link = await auth.generatePasswordResetLink(email, { url: URL_PORTAL });
+    } catch (e) {
+      // Domínio fora da lista autorizada do Auth: o link sem retorno ainda
+      // funciona, o aluno só não é levado ao Portal no fim.
+      if ((e as { code?: string }).code !== 'auth/unauthorized-continue-uri') throw e;
+      link = await auth.generatePasswordResetLink(email);
+    }
+
+    // Sem e-mail no log: o id da ficha basta para rastrear.
+    logger.info('Acesso de aluno gerado.', { alunoId: aluno.id, criado });
+    return { criado, link, nome: aluno.nome };
   },
 );

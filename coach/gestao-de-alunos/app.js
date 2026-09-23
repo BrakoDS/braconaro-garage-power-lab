@@ -28,6 +28,7 @@ import { carregarCargasAluno } from './cargas-read.js';
 import * as matrizUI from './matriz-ui.js';
 import { carregarConclusoesDesafios, carregarTodasConclusoes } from './desafios-read.js';
 import { carregarRotinaAluno } from './rotina-read.js';
+import { criarAcesso, linkWhatsApp, mensagemConvite } from './acesso-aluno.js';
 import { resumoDeAdesao } from '../../compartilhado/regras/adesao.js';
 import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js';
 import { carregarConsentimentoLGPD } from './consentimento-read.js';
@@ -1678,6 +1679,7 @@ function abrirPerfil(id) {
   // aba dados
   $('#tab-dados').innerHTML = `
     <div class="lgpd-tag" id="lgpd-tag">Consentimento LGPD: <span>verificando…</span></div>
+    <div class="acesso-aluno" id="acesso-aluno"></div>
     <form id="form-dados">
       ${formDadosHTML(a)}
       <div class="form-actions">
@@ -1688,6 +1690,7 @@ function abrirPerfil(id) {
       </div>
     </form>`;
   carregarConsentimentoAluno(a);
+  renderAcessoAluno(a);
   // Aba "Matriz": a individualização que o Montador Híbrido lê. Ela grava pelos
   // mesmos `db.atualizar` + `agendarPublicarPortal` do formulário de dados —
   // parte do que ela edita (nível, objetivo, foco) é campo do TOPO da ficha, e
@@ -1710,6 +1713,8 @@ function abrirPerfil(id) {
     $('#p-nome').textContent = alunoAtual.nome || 'Sem nome';
     const s2 = $('#p-status'); s2.className = 'status ' + (alunoAtual.status || 'ativo'); s2.textContent = STATUS_LABEL[alunoAtual.status] || 'Ativo';
     const flag = $('[data-saved]', form); flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1600);
+    // O e-mail salvo é o que habilita o "Criar acesso", e o app liberado muda o título.
+    renderAcessoAluno(alunoAtual);
   });
   $('#btn-excluir-aluno').addEventListener('click', async () => {
     if (await confirmar({ titulo: 'Excluir aluno?', texto: `Excluir <b>${esc(a.nome || a.id)}</b>? Esta ação <b>não pode ser desfeita</b>.`, ok: 'Excluir', perigo: true })) {
@@ -1722,6 +1727,72 @@ function abrirPerfil(id) {
   // volta sempre para a aba Dados ao abrir
   ativarAba('dados');
   mostrarTela('tela-perfil');
+}
+
+/**
+ * Bloco "Acesso do aluno" na aba Dados.
+ *
+ * O cadastro público está desligado, então é daqui que sai a conta de login de
+ * todo aluno novo (ver acesso-aluno.js e a callable `criarAcessoAluno`). O botão
+ * cria a conta sem senha e devolve um link para o aluno definir a dele; para
+ * quem já tem conta, só gera um link novo — é o "reenviar acesso".
+ */
+function renderAcessoAluno(a) {
+  const el = $('#acesso-aluno'); if (!el) return;
+  const atual = db.obter(a.id) || a;
+  const email = (atual.email || '').trim();
+  const enviado = atual.acessoEnviadoEm ? new Date(atual.acessoEnviadoEm).toLocaleDateString('pt-BR') : '';
+  const dica = !email
+    ? 'Preencha e salve o e-mail da ficha para criar o acesso.'
+    : enviado
+      ? `Link enviado em ${enviado}. O mesmo botão gera outro — serve para quem esqueceu a senha.`
+      : 'Cria a conta de login e gera um link para o aluno definir a própria senha. Você não vê nem escolhe a senha.';
+  el.innerHTML = `
+    <div class="acesso-cab">
+      <div><b>Acesso ao Portal${atual.appLiberado === true ? ' e ao app' : ''}</b><span class="hint">${esc(dica)}</span></div>
+      <button class="btn btn-sm" type="button" id="btn-acesso"${email ? '' : ' disabled'}>${enviado ? 'Gerar novo link' : 'Criar acesso'}</button>
+    </div>
+    <div class="acesso-res" id="acesso-res" hidden></div>`;
+  $('#btn-acesso', el)?.addEventListener('click', () => gerarAcessoAluno(a.id));
+}
+
+async function gerarAcessoAluno(id) {
+  const a = db.obter(id); if (!a) return;
+  const email = (a.email || '').trim().toLowerCase();
+  // O servidor confere o e-mail SALVO na nuvem. Um e-mail digitado e ainda não
+  // salvo daria "não está na Gestão" — melhor dizer o motivo real antes.
+  const campo = $('#form-dados input[name=email]');
+  if (campo && campo.value.trim().toLowerCase() !== email) {
+    avisar({ titulo: 'Salve a ficha primeiro', texto: 'O e-mail da ficha mudou e ainda não foi salvo. Clique em <b>Salvar alterações</b> e depois em Criar acesso.' });
+    return;
+  }
+  const btn = $('#btn-acesso'), res = $('#acesso-res');
+  const rotulo = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Gerando…';
+  res.hidden = true;
+  try {
+    await db.enviarAgora().catch(() => undefined);
+    const r = await criarAcesso(email);
+    db.atualizar(id, { acessoEnviadoEm: Date.now() });
+    const texto = mensagemConvite(r.nome || a.nome || '', email, r.link, r.criado);
+    const wa = linkWhatsApp(a.telefone, texto);
+    res.innerHTML = `
+      <p class="acesso-ok">${r.criado ? '✓ Conta criada.' : '✓ O aluno já tinha conta — a senha dele não mudou; o link novo permite trocar.'} O link vale por 1 hora.</p>
+      <div class="acesso-acoes">
+        ${wa ? `<a class="btn btn-sm" href="${esc(wa)}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>` : '<span class="hint">Sem telefone na ficha — copie a mensagem e envie por onde preferir.</span>'}
+        <button class="btn ghost btn-sm" type="button" id="btn-acesso-copiar">Copiar mensagem</button>
+      </div>`;
+    $('#btn-acesso-copiar', res)?.addEventListener('click', async (e) => {
+      try { await navigator.clipboard.writeText(texto); e.target.textContent = 'Copiado ✓'; } catch { e.target.textContent = 'Não deu para copiar'; }
+    });
+    btn.textContent = 'Gerar novo link';
+  } catch (e) {
+    res.innerHTML = `<p class="acesso-erro">${esc(e?.message || 'Não deu para criar o acesso.')}</p>`;
+    btn.textContent = rotulo;
+  } finally {
+    btn.disabled = false;
+    res.hidden = false;
+  }
 }
 
 /** Indicador (read-only) de consentimento LGPD do aluno, na aba Dados. */

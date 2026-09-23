@@ -11,6 +11,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as ts from 'typescript';
+import { COACH_UIDS, alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 import {
   extrairAnalise, limparTexto, num, INSTRUCOES, INSTRUCOES_TEXTO, MAX_TEXTO,
 } from './analise';
@@ -1574,6 +1575,45 @@ ok(JSON.stringify(limparParaGravar({ a: 0, b: '', c: false })) === '{"a":0,"b":"
 }
 ok(limparParaGravar(null) === null && limparParaGravar(undefined) === undefined,
   'limparParaGravar não quebra com entrada vazia');
+
+/* ---------- acesso do aluno (criarAcessoAluno) ---------- */
+{
+  ok(ehCoachPorUid(COACH_UIDS[0]) === true, 'o UID do coach passa');
+  ok(!ehCoachPorUid('outroUidQualquer12345') && !ehCoachPorUid(undefined) && !ehCoachPorUid(''),
+    'outro UID, ausente ou vazio não passa');
+
+  // A lista das regras e a da função não podem se desencontrar: coach novo nas
+  // regras e não aqui ficaria sem o botão; aqui e não nas regras, criaria conta
+  // sem conseguir ver o aluno.
+  const regras = join(__dirname, '..', '..', 'firestore.rules');
+  if (existsSync(regras)) {
+    const m = readFileSync(regras, 'utf8').match(/function ehCoach\(\)[\s\S]*?request\.auth\.uid in \[([^\]]*)\]/);
+    const nasRegras = m ? m[1].split(',').map((x) => x.trim().replace(/^'|'$/g, '')).filter(Boolean) : [];
+    ok(JSON.stringify(nasRegras) === JSON.stringify(COACH_UIDS),
+      'COACH_UIDS é a mesma lista do ehCoach() do firestore.rules', JSON.stringify(nasRegras));
+  } else {
+    ok(false, 'firestore.rules ao lado das functions', regras);
+  }
+
+  ok(normalizarEmail('  Ana@Box.COM ') === 'ana@box.com', 'e-mail normalizado como id de documento');
+  for (const lixo of ['', 'ana', 'ana@box', 'a b@c.com', null, 42, {}]) {
+    ok(normalizarEmail(lixo) === '', `recusa ${JSON.stringify(lixo)}`);
+  }
+
+  const gestao = { alunos: [
+    { id: '001', nome: ' Ana Lima ', email: 'Ana@Box.com' },
+    { id: '002', nome: 'Bia', email: '' },
+    null,
+    { id: '003', nome: 'Caio', status: 'inativo', email: 'caio@box.com' },
+  ] };
+  const ana = alunoDaGestao(gestao, 'ana@box.com');
+  ok(ana?.id === '001' && ana?.nome === 'Ana Lima', 'acha o aluno pelo e-mail, sem diferenciar maiúscula');
+  ok(alunoDaGestao(gestao, 'intruso@x.com') === null, 'e-mail fora da Gestão não vira conta');
+  ok(alunoDaGestao(gestao, '') === null, 'e-mail vazio não casa com ficha sem e-mail');
+  ok(alunoDaGestao(gestao, 'caio@box.com')?.id === '003', 'aluno inativo também recebe acesso');
+  ok(alunoDaGestao(null, 'ana@box.com') === null && alunoDaGestao({}, 'ana@box.com') === null,
+    'Gestão vazia ou sem lista não quebra');
+}
 
 console.log(
   falhas === 0

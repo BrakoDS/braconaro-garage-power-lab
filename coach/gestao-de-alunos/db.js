@@ -33,6 +33,17 @@ function agendarEnvio() {
   }, 800);
 }
 
+/**
+ * Envia já o que está pendente, sem esperar os 800 ms. Para quem precisa que a
+ * nuvem esteja em dia AGORA — o "Criar acesso" confere no servidor se o e-mail
+ * está numa ficha, e a ficha acabou de ser salva.
+ */
+export async function enviarAgora() {
+  if (!_uid || !_push) return;
+  clearTimeout(_timer);
+  await _push(_uid, ler());
+}
+
 /** Grava local e (se conectado) agenda envio à nuvem. */
 function gravar(d) { setLocal(d); agendarEnvio(); if (_aoGravar) { try { _aoGravar(d); } catch {} } }
 
