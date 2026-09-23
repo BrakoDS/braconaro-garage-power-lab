@@ -6,3 +6,30 @@ docs/superpowers/
 
 # Contexto de marketing gerado por skill — local, nao e do produto
 .agents/
+
+# ── Mídia de trabalho do box — NUNCA commitar ────────────────────────────────
+# 640 MB de JPEG/HEIC parados na pasta de trabalho, que o código não referencia
+# em lugar nenhum. O caso grave é `fotos-avaliacao/`: são as fotos de corpo das
+# avaliações físicas, com o NOME DO ALUNO no próprio arquivo
+# (av1-<nome>-<ângulo>.JPEG). Este repositório é PÚBLICO.
+#
+# Conferido quando esta regra entrou: nenhuma dessas pastas está rastreada nem
+# aparece no histórico — então nada vazou, e isto é o que impede que um
+# `git add -A` distraído as publique.
+#
+# O lugar delas é o Firebase Storage, atrás das regras de /storage.rules.
+alunos-box/
+banners-box/
+fotos-avaliacao/
+fotos-box/
+img-box/
+treinos-box/
+
+# Rede de segurança para o mesmo risco: foto de avaliação solta na raiz. As
+# imagens do produto vivem em braconaro/assets/ e icons/, que seguem versionadas.
+/*.jpg
+/*.jpeg
+/*.JPG
+/*.JPEG
+/*.heic
+/*.HEIC
