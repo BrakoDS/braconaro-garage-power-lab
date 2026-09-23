@@ -2,14 +2,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ============================================================
+    // QUEM É O COACH
+    // ============================================================
+    // O coach é uma LISTA FIXA de UIDs, escrita aqui. Não é mais "quem tem um
+    // documento gestao/{uid}": essa condição era auto-provisionável. A regra de
+    // gestao/{uid} deixava qualquer conta logada criar o PRÓPRIO documento, e a
+    // partir daí ela passava a valer como coach em todas as outras regras. Ou
+    // seja, qualquer aluno podia ler a nutrição, o consentimento e a rotina de
+    // todos os alunos, e reescrever o portal/{email} de qualquer um.
+    //
+    // Por que UID e não e-mail: o UID é gerado pelo Firebase Auth, não se escolhe
+    // e não se reaproveita. Um e-mail pode ser trocado na conta, ou recadastrado
+    // por outra pessoa se a conta for apagada. As Cloud Functions usam a allowlist
+    // por e-mail (EMAILS_COACH em functions/src/index.ts), que continua valendo
+    // lá. Aqui fica a chave mais forte.
+    //
+    // Coach novo: acrescente o UID (Firebase Console › Authentication › Users)
+    // e publique as regras de teste-hibrido/.
+    function ehCoach() {
+      return request.auth != null
+        && request.auth.uid in ['G6gfpahorCfptVxOM26sCjxMOqb2'];
+    }
+
+    // O coach, e só no próprio documento (coaches/{uid}, gestao/{uid}…).
+    function ehCoachDono(uid) {
+      return ehCoach() && request.auth.uid == uid;
+    }
+
     // Montador de treino — um documento por coach, com o histórico dividido ao
     // lado: `treinos/{YYYY-MM}` (um documento por mês, para não bater no teto de
     // 1 MB) e `arquivo/{nome}` (formato semanal antigo). Regra não desce sozinha
     // para subcoleção, por isso o `{sub=**}` — mesmo dono, mesmo acesso.
     match /coaches/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if ehCoachDono(uid);
       match /{sub=**} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if ehCoachDono(uid);
       }
     }
 
@@ -18,67 +46,58 @@ service cloud.firestore {
     // `treinos/{YYYY-MM}`. Coleção separada de propósito: durante o teste, os dois
     // montadores não podem disputar o mesmo documento.
     match /montadorIndividual/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if ehCoachDono(uid);
       match /{sub=**} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if ehCoachDono(uid);
       }
     }
 
     // Gestão de alunos — um documento por coach (separado do montador)
     match /gestao/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if ehCoachDono(uid);
     }
 
     // Academia (inventário + catálogo de exercícios) — um documento por coach
     match /academia/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if ehCoachDono(uid);
     }
 
     // Portal do Aluno — fatia publicada por aluno, em portal/{email}.
     //  - o ALUNO lê apenas o documento cujo id == o e-mail logado dele;
-    //  - o COACH (quem possui um doc gestao/{uid}) publica/atualiza qualquer um.
+    //  - o COACH (ehCoach) publica/atualiza qualquer um.
     match /portal/{email} {
       allow read: if request.auth != null && request.auth.token.email == email;
-      allow write: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow write: if ehCoach();
     }
 
     // Avisos da Academia — mural único, publicado pelo coach e lido por todos.
     //  - qualquer aluno autenticado LÊ;
-    //  - só o COACH (dono de gestao/{uid}) publica.
+    //  - só o COACH (ehCoach) publica.
     match /avisosPortal/{doc} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow write: if ehCoach();
     }
 
     // Ranking do box (gamificação) — doc único publicado pelo coach, lido por todos.
     match /rankingPortal/{doc} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow write: if ehCoach();
     }
 
     // Treino da semana (Montador) — um doc por mês, publicado pelo coach, lido por
-    // qualquer aluno autenticado. O coach do Montador tem coaches/{uid}; o da Gestão,
-    // gestao/{uid} — aceitar os dois.
+    // qualquer aluno autenticado. Só o coach (ehCoach) publica.
     match /treinoPortal/{doc} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && (exists(/databases/$(database)/documents/coaches/$(request.auth.uid))
-          || exists(/databases/$(database)/documents/gestao/$(request.auth.uid)));
+      allow write: if ehCoach();
     }
 
     // Garage Store — vitrine de produtos afiliados, publicada pelo coach.
     //  - leitura PÚBLICA e sem login: a vitrine fica no site, aberta a visitante.
     //    São só produtos (nome, foto, preço, link) — nenhum dado pessoal aqui.
-    //  - escrita só do COACH, dono de academia/{uid} (onde ele edita o catálogo)
-    //    ou de gestao/{uid}, para acompanhar os outros murais.
+    //  - escrita só do COACH (ehCoach).
     match /lojaPortal/{doc} {
       allow read: if true;
-      allow write: if request.auth != null
-        && (exists(/databases/$(database)/documents/academia/$(request.auth.uid))
-          || exists(/databases/$(database)/documents/gestao/$(request.auth.uid)));
+      allow write: if ehCoach();
     }
 
     // Feed de preços lido do Mercado Livre. Escrito SÓ pela Cloud Function, que
@@ -94,41 +113,36 @@ service cloud.firestore {
     // Desafios da semana — lista única publicada pelo coach, lida por todos.
     match /desafiosPortal/{doc} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow write: if ehCoach();
     }
 
     // Progresso dos desafios por aluno (dias cumpridos + conclusões).
-    //  - o ALUNO lê/grava só o seu; o COACH (dono de gestao/{uid}) lê.
+    //  - o ALUNO lê/grava só o seu; o COACH (ehCoach) lê.
     match /desafios/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow read: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read: if ehCoach();
     }
 
     // Nutrição Básica — gasto calórico de treino, um doc por aluno.
     //  - o ALUNO lê/grava só o doc do próprio e-mail;
-    //  - o COACH (dono de gestao/{uid}) pode ler (acompanhamento).
+    //  - o COACH (ehCoach) pode ler (acompanhamento).
     match /gastoTreinos/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow read: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read: if ehCoach();
     }
 
     // Consentimento LGPD (termo de adesão) — um doc por aluno.
-    //  - o ALUNO lê/grava o seu; o COACH (dono de gestao/{uid}) lê (auditoria).
+    //  - o ALUNO lê/grava o seu; o COACH (ehCoach) lê (auditoria).
     match /consentimentos/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow read: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read: if ehCoach();
     }
 
     // Registro de cargas (carga × reps por exercício) — um doc por aluno.
-    //  - o ALUNO lê/grava o seu; o COACH (dono de gestao/{uid}) lê e grava (registrar por ele).
+    //  - o ALUNO lê/grava o seu; o COACH (ehCoach) lê e grava (registrar por ele).
     match /cargas/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow read, write: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read, write: if ehCoach();
     }
 
     // Exceções do treino por aluno (Montador Individual) — um doc por aluno, id ==
@@ -136,48 +150,43 @@ service cloud.firestore {
     // naquele dia ("hoje o João faz 2 séries de agachamento"); a versão comum de
     // cada aluno é derivada do perfil, e não fica gravada em lugar nenhum.
     //  - o ALUNO lê a dele (e grava o registro pós-aula dele);
-    //  - o COACH (dono de gestao/{uid} ou coaches/{uid}) lê e grava todas.
+    //  - o COACH (ehCoach) lê e grava todas.
     match /treinoAluno/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow read, write: if request.auth != null
-        && (exists(/databases/$(database)/documents/gestao/$(request.auth.uid))
-          || exists(/databases/$(database)/documents/coaches/$(request.auth.uid)));
+      allow read, write: if ehCoach();
     }
 
     // Leads da landing (formulário de aula experimental) — captação pública.
     //  - QUALQUER visitante pode CRIAR um lead (sem login — é a landing), mas
     //    só com os campos e tamanhos esperados (evita lixo/abuso);
     //  - ninguém de fora LÊ, EDITA ou APAGA (nem o próprio autor);
-    //  - só o COACH (dono de gestao/{uid}) lê/atualiza/apaga (acompanhar funil).
+    //  - só o COACH (ehCoach) lê/atualiza/apaga (acompanhar funil).
     match /leads/{id} {
       allow create: if request.resource.data.keys().hasOnly(['nome', 'whatsapp', 'objetivo', 'horario', 'origem', 'status', 'criadoEm', 'indicadoPor'])
         && request.resource.data.nome is string && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() < 100
         && request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() > 0 && request.resource.data.whatsapp.size() < 30
         && request.resource.data.status == 'novo'
         && (!('indicadoPor' in request.resource.data) || (request.resource.data.indicadoPor is string && request.resource.data.indicadoPor.size() < 100));
-      allow read, update, delete: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read, update, delete: if ehCoach();
     }
 
     // Rotina do aluno (app mobile) — blocos de hábitos e o que já foi concluído
     // em cada dia. Um doc por aluno, id == e-mail (mesmo padrão de desafios/cargas).
     //  - o ALUNO lê/grava só a sua;
-    //  - o COACH (dono de gestao/{uid}) lê, para acompanhar a adesão.
+    //  - o COACH (ehCoach) lê, para acompanhar a adesão.
     match /rotinas/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow read: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read: if ehCoach();
     }
 
     // Controle nutricional (app mobile) — o que o aluno COME: refeições por dia,
     // com calorias e macros. Não confundir com `gastoTreinos`, que é a energia
     // QUEIMADA no treino. Um doc por aluno, id == e-mail (padrão de cargas/rotinas).
     //  - o ALUNO lê/grava só o seu;
-    //  - o COACH (dono de gestao/{uid}) lê, para orientar a dieta.
+    //  - o COACH (ehCoach) lê, para orientar a dieta.
     match /nutricao/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow read: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read: if ehCoach();
     }
 
     // Cota diária de análise de foto pelo Coach IA — um doc por aluno.
@@ -187,21 +196,19 @@ service cloud.firestore {
     // aqui, zerar o próprio limite (e a conta da OpenAI do box) seria trivial —
     // por isso o contador não mora em nutricao/{email}, que ele edita.
     //  - o ALUNO lê o seu, para a tela mostrar quantas análises sobram;
-    //  - o COACH (dono de gestao/{uid}) lê, para enxergar consumo.
+    //  - o COACH (ehCoach) lê, para enxergar consumo.
     match /nutricaoUso/{email} {
       allow read: if request.auth != null && request.auth.token.email == email;
-      allow read: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read: if ehCoach();
       allow write: if false;
     }
 
     // Caixa de entrada do aluno → coach (foto nova + feedbacks pós-treino).
     //  - o ALUNO lê/escreve apenas a própria caixa (id == e-mail logado);
-    //  - o COACH (dono de gestao/{uid}) lê e limpa (merge para gestao/{uid}).
+    //  - o COACH (ehCoach) lê e limpa (merge para gestao/{uid}).
     match /portalInbox/{email} {
       allow read, write: if request.auth != null && request.auth.token.email == email;
-      allow read, write: if request.auth != null
-        && exists(/databases/$(database)/documents/gestao/$(request.auth.uid));
+      allow read, write: if ehCoach();
     }
   }
 }

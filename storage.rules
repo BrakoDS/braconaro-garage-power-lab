@@ -12,10 +12,19 @@ service firebase.storage {
           && request.resource.contentType.matches('image/.*'));
     }
 
-    // Fotos da Gestão de Alunos — cada coach só acessa a própria pasta
+    // O coach: a MESMA lista fixa de UIDs do firestore.rules (ver o comentário
+    // de `ehCoach` lá). Antes, esta regra perguntava ao Firestore se existia
+    // gestao/{uid}, e qualquer aluno podia criar esse documento para si. As duas
+    // listas precisam andar juntas: coach novo entra nos dois arquivos.
+    function ehCoach() {
+      return request.auth != null
+        && request.auth.uid in ['G6gfpahorCfptVxOM26sCjxMOqb2'];
+    }
+
+    // Fotos da Gestão de Alunos — só o coach, e só na própria pasta
     match /gestao/{uid}/{allPaths=**} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if request.auth != null && request.auth.uid == uid
+      allow read: if ehCoach() && request.auth.uid == uid;
+      allow write: if ehCoach() && request.auth.uid == uid
         && uploadImagemValido();
     }
 
@@ -24,13 +33,12 @@ service firebase.storage {
     // propósito: o doc nutricao/{email} tem teto de 1 MB e guarda 90 dias de
     // refeições, então imagem lá dentro estouraria o histórico.
     //  - o ALUNO lê/grava só a própria pasta;
-    //  - o COACH (dono de gestao/{uid}) lê, para orientar a dieta.
+    //  - o COACH (ehCoach) lê, para orientar a dieta.
     match /nutricao/{email}/{allPaths=**} {
       allow read: if request.auth != null && request.auth.token.email == email;
       allow write: if request.auth != null && request.auth.token.email == email
         && uploadImagemValido();
-      allow read: if request.auth != null
-        && firestore.exists(/databases/(default)/documents/gestao/$(request.auth.uid));
+      allow read: if ehCoach();
     }
 
     // Foto de perfil enviada pelo próprio aluno (Portal do Aluno).
