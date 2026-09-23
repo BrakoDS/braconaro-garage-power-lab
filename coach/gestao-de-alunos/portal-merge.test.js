@@ -9,7 +9,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mesclarPresencas } from './portal-merge.js';
+import { camposDesconhecidos, mesclarPresencas } from './portal-merge.js';
 
 test('acrescenta o dia novo mantendo os que já existiam, em ordem', () => {
   assert.deepEqual(
@@ -52,4 +52,30 @@ test('a ficha nunca perde um dia que já tinha', () => {
   const depois = mesclarPresencas(antes, ['2026-09-10']);
   assert.ok(depois);
   antes.forEach((d) => assert.ok(depois.includes(d), `sumiu ${d}`));
+});
+
+/**
+ * A caixa só pode ser apagada por inteiro quando não sobra nada dentro.
+ *
+ * Esta regra nasceu de um prejuízo: a versão publicada apagava o documento
+ * sempre, então quando o app começou a mandar `presencas` a Gestão antiga leu a
+ * caixa, ignorou o campo e destruiu o dado — em silêncio, a cada tentativa.
+ */
+test('caixa só com campos conhecidos pode ser apagada inteira', () => {
+  assert.deepEqual(camposDesconhecidos({ fotoNova: 'x', feedbacks: [], atualizadoEm: 1 }), []);
+  assert.deepEqual(camposDesconhecidos({ presencas: ['2026-09-16'] }), []);
+  assert.deepEqual(camposDesconhecidos({}), []);
+});
+
+test('campo que esta versão não entende sobrevive à limpeza', () => {
+  assert.deepEqual(
+    camposDesconhecidos({ feedbacks: [], medidasNovas: { peso: 80 } }),
+    ['medidasNovas'],
+  );
+});
+
+test('caixa ausente ou malformada não inventa campo para preservar', () => {
+  assert.deepEqual(camposDesconhecidos(null), []);
+  assert.deepEqual(camposDesconhecidos(undefined), []);
+  assert.deepEqual(camposDesconhecidos('lixo'), []);
 });

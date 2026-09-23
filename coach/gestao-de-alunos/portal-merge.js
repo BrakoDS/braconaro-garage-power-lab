@@ -25,8 +25,30 @@ async function init() {
   const fsMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
   const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
   _db = fsMod.getFirestore(app);
-  _fns = { doc: fsMod.doc, getDoc: fsMod.getDoc, deleteDoc: fsMod.deleteDoc };
+  _fns = {
+    doc: fsMod.doc,
+    getDoc: fsMod.getDoc,
+    deleteDoc: fsMod.deleteDoc,
+    updateDoc: fsMod.updateDoc,
+    deleteField: fsMod.deleteField,
+  };
 }
+
+/**
+ * Os campos que ESTA versão sabe processar.
+ *
+ * Existe por causa de um prejuízo real: a versão anterior apagava a caixa
+ * inteira com `deleteDoc`, sempre. Quando o Garage App passou a mandar
+ * `presencas`, a Gestão publicada — que não conhecia o campo — leu a caixa,
+ * ignorou a presença e apagou tudo. O aluno lançava o treino e o dado morria
+ * sem deixar rastro, a cada tentativa.
+ *
+ * Daqui em diante o que não é conhecido SOBREVIVE: a caixa só é apagada por
+ * completo quando não sobra nada dentro dela. Assim, um campo que uma versão
+ * futura do app mande fica esperando uma Gestão que o entenda, em vez de ser
+ * destruído por uma antiga.
+ */
+const CAMPOS_CONHECIDOS = ['fotoNova', 'feedbacks', 'presencas', 'atualizadoEm'];
 
 const emailKey = (e) => String(e || '').trim().toLowerCase();
 
@@ -49,6 +71,19 @@ const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
  * @param {any} vindas o que veio na caixa de entrada
  * @returns {string[]|null}
  */
+/**
+ * O que sobra na caixa depois que esta versão processou o que conhece.
+ *
+ * Lista vazia quer dizer "pode apagar a caixa"; qualquer coisa aqui quer dizer
+ * "apague só os campos conhecidos e deixe o resto para quem entender".
+ *
+ * @param {any} inbox @returns {string[]}
+ */
+export function camposDesconhecidos(inbox) {
+  if (!inbox || typeof inbox !== 'object') return [];
+  return Object.keys(inbox).filter((k) => !CAMPOS_CONHECIDOS.includes(k));
+}
+
 export function mesclarPresencas(atuais, vindas) {
   const novas = (Array.isArray(vindas) ? vindas : [])
     .filter((d) => typeof d === 'string' && DATA_ISO.test(d));
@@ -101,7 +136,20 @@ export async function mergarInboxes(alunos, aplicar) {
       if (presencas) patch.presencas = presencas;
 
       if (Object.keys(patch).length) { aplicar(a.id, patch); n++; }
-      await _fns.deleteDoc(_fns.doc(_db, 'portalInbox', key)); // esvazia a caixa já processada
+
+      // Esvazia a caixa já processada — mas só o que esta versão entende. Ver
+      // `CAMPOS_CONHECIDOS`: apagar o documento inteiro foi o que destruiu, em
+      // silêncio, as primeiras presenças mandadas pelo app.
+      const ref = _fns.doc(_db, 'portalInbox', key);
+      if (camposDesconhecidos(inbox).length) {
+        const limpar = {};
+        for (const campo of CAMPOS_CONHECIDOS) {
+          if (campo in inbox) limpar[campo] = _fns.deleteField();
+        }
+        if (Object.keys(limpar).length) await _fns.updateDoc(ref, limpar);
+      } else {
+        await _fns.deleteDoc(ref);
+      }
     }));
   } catch (e) {
     console.warn('Falha ao mesclar a caixa do Portal do Aluno:', e?.code || e);
