@@ -31,6 +31,9 @@ async function init() {
     deleteDoc: fsMod.deleteDoc,
     updateDoc: fsMod.updateDoc,
     deleteField: fsMod.deleteField,
+    // Só para o diagnóstico das caixas órfãs; sai junto com ele.
+    collection: fsMod.collection,
+    getDocs: fsMod.getDocs,
   };
 }
 
@@ -79,6 +82,33 @@ const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
  *
  * @param {any} inbox @returns {string[]}
  */
+/**
+ * DIAGNÓSTICO TEMPORÁRIO — lista as caixas que existem e aponta as órfãs.
+ *
+ * O `mergarInboxes` procura a caixa A PARTIR da ficha (`portalInbox/{email da
+ * ficha}`). Se o aluno entra no app com um e-mail e a ficha dele no painel tem
+ * outro — ou não tem e-mail nenhum —, ele escreve numa caixa que o coach nunca
+ * vai abrir, e nada no sistema reclama. Esta função mostra isso.
+ *
+ * Remover quando o diagnóstico da presença terminar.
+ */
+async function diagnosticarCaixasOrfas(alunosComEmail) {
+  try {
+    const snaps = await _fns.getDocs(_fns.collection(_db, 'portalInbox'));
+    const daFicha = new Set(alunosComEmail.map((a) => emailKey(a.email)));
+    const existentes = snaps.docs.map((d) => d.id);
+    console.log(`[INBOX] caixas existentes na nuvem (${existentes.length}): ${existentes.join(', ') || '(nenhuma)'}`);
+    const orfas = existentes.filter((id) => !daFicha.has(id));
+    if (orfas.length) {
+      console.error('[INBOX] CAIXA ORFA — o aluno escreveu, mas NENHUMA ficha tem este e-mail:', orfas);
+      console.error('[INBOX] e-mails das fichas:', [...daFicha]);
+    }
+  } catch (e) {
+    // Listar a coleção pode ser negado pela regra; não é motivo para parar o merge.
+    console.warn('[INBOX] nao deu para listar as caixas (diagnostico):', e?.code || e);
+  }
+}
+
 export function camposDesconhecidos(inbox) {
   if (!inbox || typeof inbox !== 'object') return [];
   return Object.keys(inbox).filter((k) => !CAMPOS_CONHECIDOS.includes(k));
@@ -100,16 +130,28 @@ export function mesclarPresencas(atuais, vindas) {
  * @returns {Promise<number>} quantos alunos tiveram novidade
  */
 export async function mergarInboxes(alunos, aplicar) {
-  if (!cloudAtivo()) return 0;
+  if (!cloudAtivo()) { console.warn('[INBOX] nuvem desativada — merge nao roda'); return 0; }
   let n = 0;
   try {
     await init();
     const comEmail = (alunos || []).filter((a) => emailKey(a.email));
+    console.log(`[INBOX] procurando caixa de ${comEmail.length} aluno(s) com e-mail na ficha`);
+
+    // DIAGNÓSTICO: lista as caixas que EXISTEM e cruza com as fichas.
+    //
+    // Responde a pergunta que nenhuma checagem de código responde: a caixa está
+    // lá, mas com um e-mail que nenhuma ficha tem? É o caso em que o aluno
+    // escreve e o coach nunca lê, porque o `getDoc` abaixo procura pela ficha e
+    // não pela caixa. Some quando o diagnóstico terminar.
+    await diagnosticarCaixasOrfas(comEmail);
+
     await Promise.all(comEmail.map(async (a) => {
       const key = emailKey(a.email);
       const snap = await _fns.getDoc(_fns.doc(_db, 'portalInbox', key));
       if (!snap.exists()) return;
       const inbox = snap.data() || {};
+      console.log(`[INBOX] ${key}: campos = [${Object.keys(inbox).join(', ')}]`
+        + ` · presencas = ${JSON.stringify(inbox.presencas ?? null)}`);
       const patch = {};
       if (inbox.fotoNova) patch.fotoUrl = inbox.fotoNova;
       const novos = Array.isArray(inbox.feedbacks) ? inbox.feedbacks : [];
@@ -133,7 +175,13 @@ export async function mergarInboxes(alunos, aplicar) {
       // a hora em que o aluno lançou as calorias não diz quando ele chegou. Sem
       // hora, o Portal cai no horário fixo da grade dele, que é o certo.
       const presencas = mesclarPresencas(a.presencas, inbox.presencas);
-      if (presencas) patch.presencas = presencas;
+      if (presencas) {
+        patch.presencas = presencas;
+        console.log(`[INBOX] ${key}: presenca APLICADA na ficha ${a.id} → ${presencas.join(', ')}`);
+      } else if (inbox.presencas) {
+        console.log(`[INBOX] ${key}: presenca veio mas NAO mudou nada`
+          + ` (ja estava na ficha, ou formato invalido). Ficha tem: ${JSON.stringify(a.presencas ?? [])}`);
+      }
 
       if (Object.keys(patch).length) { aplicar(a.id, patch); n++; }
 
