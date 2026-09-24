@@ -67,6 +67,10 @@ test('caixa só com campos conhecidos pode ser apagada inteira', () => {
   assert.deepEqual(camposDesconhecidos({}), []);
 });
 
+test('a origem e a hora da foto são conhecidas (a Registros lê as duas)', () => {
+  assert.deepEqual(camposDesconhecidos({ fotoNova: 'x', fotoOrigem: 'app', fotoEm: 1, atualizadoEm: 1 }), []);
+});
+
 test('campo que esta versão não entende sobrevive à limpeza', () => {
   assert.deepEqual(
     camposDesconhecidos({ feedbacks: [], medidasNovas: { peso: 80 } }),

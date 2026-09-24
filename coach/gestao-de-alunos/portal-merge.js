@@ -14,6 +14,7 @@
  * volta para o aluno na mesma rodada.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
+import { eventosDaCaixa } from './eventos.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -55,7 +56,7 @@ async function init() {
  * futura do app mande fica esperando uma Gestão que o entenda, em vez de ser
  * destruído por uma antiga.
  */
-const CAMPOS_CONHECIDOS = ['fotoNova', 'feedbacks', 'presencas', 'atualizadoEm'];
+const CAMPOS_CONHECIDOS = ['fotoNova', 'fotoOrigem', 'fotoEm', 'feedbacks', 'presencas', 'atualizadoEm'];
 
 const emailKey = (e) => String(e || '').trim().toLowerCase();
 
@@ -135,10 +136,16 @@ export function mesclarPresencas(atuais, vindas) {
 
 /**
  * Processa as caixas de entrada e aplica as mudanças via `aplicar(id, patch)`.
+ *
+ * `registrar` recebe um evento para a tela Registros por novidade aplicada
+ * (ver `eventosDaCaixa`): depois deste ponto a caixa é apagada, e a origem e a
+ * hora do que o aluno mandou só sobrevivem no evento.
+ *
  * @param {any[]} alunos @param {(id:string, patch:any)=>void} aplicar
+ * @param {(ev:any)=>void} [registrar]
  * @returns {Promise<number>} quantos alunos tiveram novidade
  */
-export async function mergarInboxes(alunos, aplicar) {
+export async function mergarInboxes(alunos, aplicar, registrar) {
   if (!cloudAtivo()) return 0;
   let n = 0;
   try {
@@ -189,7 +196,14 @@ export async function mergarInboxes(alunos, aplicar) {
       const presencas = mesclarPresencas(a.presencas, inbox.presencas);
       if (presencas) patch.presencas = presencas;
 
-      if (Object.keys(patch).length) { aplicar(a.id, patch); n++; }
+      if (Object.keys(patch).length) {
+        aplicar(a.id, patch); n++;
+        if (registrar) {
+          for (const ev of eventosDaCaixa(a, inbox, patch, Date.now())) {
+            try { registrar(ev); } catch { /* o log não pode travar o merge */ }
+          }
+        }
+      }
 
       // Esvazia a caixa já processada — mas só o que esta versão entende. Ver
       // `CAMPOS_CONHECIDOS`: apagar o documento inteiro foi o que destruiu, em

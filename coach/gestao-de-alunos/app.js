@@ -20,6 +20,9 @@ import * as storage from '../../compartilhado/regras/storage-alunos.js';
 import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal, fatia } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
+import * as eventos from './eventos.js';
+import { CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, filtrarEventos, historicoDasFichas, juntarEventos,
+  linhaHTML, resumoFicha } from './registros-ui.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
 import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizarDesafios } from './desafios.js';
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
@@ -67,6 +70,22 @@ function calcIdade(iso) { if (!iso) return ''; const n = new Date(iso + 'T00:00:
 function waLink(tel) { const d = String(tel || '').replace(/\D/g, ''); if (!d) return ''; const full = d.startsWith('55') ? d : '55' + d; return `https://wa.me/${full}`; }
 const STATUS_LABEL = { ativo: 'Ativo', inativo: 'Inativo', pendente: 'Pendente' };
 
+/**
+ * Registra o que o coach acabou de fazer, para a tela Registros. Depois da
+ * gravação, e nunca no lugar dela: o log é testemunha da ação, não condição.
+ * @param {string} tipo @param {any} a a ficha @param {string} resumo @param {any} [extra]
+ */
+function reg(tipo, a, resumo, extra = {}) {
+  if (!a) return;
+  eventos.registrar(eventos.novoEvento({ tipo, origem: 'gestao', aluno: a, em: Date.now(), resumo, ...extra }));
+}
+/** "Ficha editada · Telefone, Plano" — só quando algo mudou de verdade. */
+function regFicha(antes, depois) {
+  const campos = eventos.camposAlterados(antes, depois);
+  if (campos.length) reg('ficha-editada', { ...antes, ...depois }, resumoFicha(campos), { campos });
+}
+const ddmm = (iso) => { const [, m, d] = String(iso).split('-'); return `${d}/${m}`; };
+
 /* ---- Fotos (Firebase Storage) ---- */
 let UID = null;
 function iniciais(nome) { return ((nome || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('') || '?').toUpperCase(); }
@@ -108,6 +127,7 @@ $('#p-avatar')?.addEventListener('click', () => {
     try {
       const url = await uploadFoto(`gestao/${UID}/${a.id}/avatar.webp`, file, 600);
       db.atualizar(a.id, { fotoUrl: url });
+      reg('foto-perfil', a, 'Foto de perfil trocada pelo coach');
       alunoAtual = db.obter(a.id);
       renderAvatar(); renderLista();
     } catch (e) { avisoStorage(e); }
@@ -1070,6 +1090,113 @@ function desenharLeads() {
   atualizarBadgeLeads();
 }
 
+/* ============================================================
+   TELA — Registros (o feed do que aconteceu com os alunos)
+   ============================================================
+   Três fontes numa lista só (ver registros-ui.js): os eventos gravados, os que
+   ainda estão na fila do navegador e, quando os gravados acabam, o histórico
+   reconstruído das fichas — tudo o que é anterior ao primeiro evento. */
+const REG_PAGINA = 50;
+const REG_HIST = 60; // linhas do histórico reconstruído por "Carregar mais"
+let regEventos = [];
+let regFim = false;
+let regHist = REG_HIST;
+let regCarregando = false;
+let regErro = '';
+const regFiltro = { categoria: 'todos', origem: 'todas', alunoId: '' };
+
+async function abrirRegistros() {
+  regEventos = []; regFim = false; regHist = REG_HIST; regErro = '';
+  renderRegFiltros();
+  mostrarTela('tela-registros');
+  await carregarMaisRegistros();
+}
+
+async function carregarMaisRegistros() {
+  if (regCarregando) return;
+  if (regFim) { regHist += REG_HIST; desenharRegistros(); return; }
+  regCarregando = true;
+  desenharRegistros();
+  try {
+    const antesDe = regEventos.length ? regEventos[regEventos.length - 1].em : undefined;
+    const r = await eventos.listarEventos({ antesDe, limite: REG_PAGINA, alunoId: regFiltro.alunoId || undefined });
+    regEventos = juntarEventos(regEventos, r.eventos);
+    regFim = r.fim;
+  } catch (e) {
+    // Sem os gravados (regra ainda não publicada, sem rede), a tela ainda mostra
+    // o que as fichas contam — melhor que uma tela vazia com um erro.
+    console.warn('Registros:', e?.code || e);
+    regErro = 'Não deu para ler os registros gravados agora. Abaixo, só o que as fichas contam.';
+    regFim = true;
+  } finally {
+    regCarregando = false;
+  }
+  desenharRegistros();
+}
+
+function renderRegFiltros() {
+  const chip = (grupo, v, txt) => `<button class="filtro-chip${regFiltro[grupo] === v ? ' on' : ''}" data-g="${grupo}" data-v="${v}" type="button">${txt}</button>`;
+  $('#reg-filtros').innerHTML =
+    `<div class="reg-chips">${CATEGORIAS.map(([v, t]) => chip('categoria', v, t)).join('')}</div>` +
+    `<div class="reg-chips">${FILTROS_ORIGEM.map(([v, t]) => chip('origem', v, t)).join('')}</div>`;
+  const alunos = db.listar().slice().sort((x, y) => (x.nome || '').localeCompare(y.nome || '', 'pt-BR'));
+  $('#reg-aluno').innerHTML = `<option value="">Todos os alunos</option>` +
+    alunos.map((a) => `<option value="${esc(a.id)}"${a.id === regFiltro.alunoId ? ' selected' : ''}>${esc(a.nome || 'Sem nome')}</option>`).join('');
+}
+
+function desenharRegistros() {
+  const alunos = db.listar();
+  const porId = new Map(alunos.map((a) => [String(a.id), a]));
+  // Pendentes primeiro: se um evento está nas duas listas, fica o selo "na fila".
+  const gravados = juntarEventos(eventos.pendentes().map((e) => ({ ...e, pendente: true })), regEventos);
+  let hist = [];
+  if (regFim) {
+    const chaves = new Set(gravados.map((e) => e.chave).filter(Boolean));
+    const doAluno = regFiltro.alunoId ? gravados.filter((e) => e.alunoId === regFiltro.alunoId) : gravados;
+    const antesDe = doAluno.length ? Math.min(...doAluno.map((e) => e.em || Infinity)) : Infinity;
+    hist = filtrarEventos(historicoDasFichas(alunos, { antesDe, chaves }), regFiltro);
+  }
+  const reais = filtrarEventos(gravados, regFiltro);
+  const histVisivel = hist.slice(0, regHist);
+
+  const grupos = (lista) => agruparPorDia(lista, hoje()).map((g) =>
+    `<div class="reg-dia">${esc(g.rotulo)}</div>` + g.itens.map((e) => linhaHTML(e, porId.get(String(e.alunoId)) || null)).join('')).join('');
+
+  let html = regErro ? `<div class="prog-ph">${esc(regErro)}</div>` : '';
+  html += grupos(reais);
+  if (histVisivel.length) {
+    html += `<div class="reg-antes"><b>Antes do registro</b> Reconstruído das fichas: sem origem, e sem hora quando o check-in não foi confirmado no dia.</div>`;
+    html += grupos(histVisivel);
+  }
+  if (regCarregando) html += `<div class="prog-ph">Carregando…</div>`;
+  else if (!reais.length && !histVisivel.length) {
+    html += `<div class="empty"><b>Nada por aqui</b>${regFiltro.categoria !== 'todos' || regFiltro.origem !== 'todas' || regFiltro.alunoId ? 'Nenhum registro com esses filtros.' : 'Os check-ins, fotos, feedbacks e edições de ficha aparecem aqui.'}</div>`;
+  }
+  $('#reg-lista').innerHTML = html;
+  $('#reg-mais').hidden = regCarregando || (regFim && hist.length <= regHist);
+}
+
+$('#btn-registros').addEventListener('click', abrirRegistros);
+$('#reg-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
+$('#reg-mais').addEventListener('click', carregarMaisRegistros);
+$('#reg-filtros').addEventListener('click', (e) => {
+  const b = /** @type {HTMLElement} */ (e.target).closest('[data-g]'); if (!b) return;
+  regFiltro[b.dataset.g] = b.dataset.v;
+  renderRegFiltros();
+  desenharRegistros();
+});
+$('#reg-aluno').addEventListener('change', (e) => {
+  // Trocar o aluno muda a consulta (ela passa a trazer tudo dele), então recomeça.
+  regFiltro.alunoId = /** @type {HTMLSelectElement} */ (e.target).value;
+  regEventos = []; regFim = false; regHist = REG_HIST; regErro = '';
+  carregarMaisRegistros();
+});
+$('#reg-lista').addEventListener('click', (e) => {
+  const row = /** @type {HTMLElement} */ (e.target).closest('.reg-row'); if (!row) return;
+  if (db.obter(row.dataset.id)) abrirPerfil(row.dataset.id);
+  else avisar({ texto: 'Esse aluno não tem mais ficha na Gestão.' });
+});
+
 $('#btn-leads').addEventListener('click', () => { renderLeads(); mostrarTela('tela-leads'); });
 $('#leads-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
 $('#leads-list').addEventListener('change', async (e) => {
@@ -1373,6 +1500,8 @@ function fazerCheckin(id, diaPlanejado, ehReposicao) {
   const atestados = { ...(a.atestados || {}) };
   if (!ehReposicao) delete atestados[diaPlanejado];
   db.atualizar(id, { presencas: [...presencas].sort(), presencaHoras: horas, atestados });
+  reg('presenca', a, ehReposicao ? `Check-in da reposição · ${ddmm(dia)}` : dia === hoje() ? 'Check-in' : `Check-in · aula de ${ddmm(dia)}`,
+    { dia, chave: `presenca:${id}:${dia}` });
   agendarPublicarPortal();
   chkPainel = null;
   renderCheckin();
@@ -1390,6 +1519,9 @@ function trocarAula(id, diaPlanejado, data, hora) {
   const atestados = { ...(a.atestados || {}) };
   delete atestados[diaPlanejado]; // trocar o dia substitui o atestado
   db.atualizar(id, { remarcacoes, atestados });
+  reg('troca-aula', a, remarcacoes[diaPlanejado]
+    ? `Aula de ${ddmm(diaPlanejado)} → ${ddmm(data)}${hora ? ' ' + hora : ''}`
+    : `Aula de ${ddmm(diaPlanejado)} voltou ao horário original`, { dia: diaPlanejado });
   agendarPublicarPortal();
   chkPainel = null;
   renderCheckin();
@@ -1409,6 +1541,7 @@ function lancarAtestado(id, diaPlanejado) {
   const horas = { ...(a.presencaHoras || {}) };
   if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
   db.atualizar(id, { atestados, remarcacoes, presencas: [...presencas].sort(), presencaHoras: horas });
+  reg('atestado', a, `Atestado · aula de ${ddmm(diaPlanejado)}`, { dia: diaPlanejado, chave: `atestado:${id}:${diaPlanejado}` });
   agendarPublicarPortal();
   chkPainel = null;
   renderCheckin();
@@ -1434,6 +1567,7 @@ function desfazerAula(id, diaPlanejado, ehReposicao, origem) {
   const horas = { ...(a.presencaHoras || {}) };
   if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
   db.atualizar(id, { remarcacoes, atestados, presencas: [...presencas].sort(), presencaHoras: horas });
+  reg('presenca-removida', a, `Aula de ${ddmm(efetivo)} desfeita`, { dia: efetivo });
   agendarPublicarPortal();
   chkPainel = null;
   renderCheckin();
@@ -1447,6 +1581,7 @@ function agendarReposicao(id, origem, data, hora) {
   if (!atestados[origem]) return;
   atestados[origem] = { ...atestados[origem], reposicao: { data, hora: hora || '' } };
   db.atualizar(id, { atestados });
+  reg('reposicao', a, `Reposição da aula de ${ddmm(origem)} marcada para ${ddmm(data)}${hora ? ' ' + hora : ''}`, { dia: data });
   agendarPublicarPortal();
   chkPainel = null;
   renderCheckin();
@@ -1464,6 +1599,7 @@ function desmarcarReposicao(id, origem) {
   const horas = { ...(a.presencaHoras || {}) };
   if (rep && rep.data && !usaOutra) { presencas.delete(rep.data); delete horas[rep.data]; }
   db.atualizar(id, { atestados, presencas: [...presencas].sort(), presencaHoras: horas });
+  reg('reposicao', a, `Reposição da aula de ${ddmm(origem)} desmarcada`);
   agendarPublicarPortal();
   chkPainel = null;
   renderCheckin();
@@ -1483,6 +1619,8 @@ function toggleCheckin(id) {
     if (chkData === hoje()) horas[chkData] = new Date().toTimeString().slice(0, 5);
   }
   db.atualizar(id, { presencas: [...set].sort(), presencaHoras: horas });
+  if (set.has(chkData)) reg('presenca', a, chkData === hoje() ? 'Check-in' : `Check-in · aula de ${ddmm(chkData)}`, { dia: chkData, chave: `presenca:${id}:${chkData}` });
+  else reg('presenca-removida', a, `Check-in de ${ddmm(chkData)} desfeito`, { dia: chkData });
   agendarPublicarPortal(); // é o check-in que pinta os quadrados de "Seu horário"
   renderCheckin();
 }
@@ -1697,6 +1835,7 @@ function abrirPerfil(id) {
   // é isso que o Portal publica.
   matrizUI.montar(a, {
     aoSalvar: (salvo) => {
+      if (alunoAtual) regFicha(alunoAtual, salvo);
       agendarPublicarPortal();
       alunoAtual = salvo;
     },
@@ -1705,7 +1844,10 @@ function abrirPerfil(id) {
   wireForm(form);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    db.atualizar(a.id, lerForm(form));
+    const antes = db.obter(a.id);
+    const novo = lerForm(form);
+    db.atualizar(a.id, novo);
+    regFicha(antes, novo);
     // Republica: o Portal mostra plano, dias e horário direto desta fatia, e sem
     // isto o aluno só veria a mudança quando o coach reabrisse a Gestão.
     agendarPublicarPortal();
@@ -1719,6 +1861,8 @@ function abrirPerfil(id) {
   $('#btn-excluir-aluno').addEventListener('click', async () => {
     if (await confirmar({ titulo: 'Excluir aluno?', texto: `Excluir <b>${esc(a.nome || a.id)}</b>? Esta ação <b>não pode ser desfeita</b>.`, ok: 'Excluir', perigo: true })) {
       apagarFotosDoAluno(a);
+      // LGPD: a ficha sai, e o rastro dela na tela Registros sai junto.
+      eventos.apagarEventosDoAluno(a.id);
       db.remover(a.id); renderLista(); mostrarTela('tela-lista');
     }
   });
@@ -1944,6 +2088,7 @@ $('#form-novo').addEventListener('submit', (e) => {
   if (!dados.nome) { avisar({ texto: 'Informe o nome do aluno.' }); return; }
   const novo = db.criar(dados);
   if (!novo) { avisar({ texto: 'Já existe um aluno com esse ID. Escolha outro.' }); return; }
+  reg('aluno-criado', novo, 'Aluno cadastrado', { chave: `aluno-criado:${novo.id}` });
   fecharModal('modal-aluno');
   renderLista();
   abrirPerfil(novo.id);
@@ -2076,6 +2221,7 @@ function abrirFormAvaliacao(num) {
     const dados = lerAval(form);
     if (avalAberta == null) {
       const nv = db.addAvaliacao(a.id, dados);
+      reg('avaliacao', a, `Avaliação física #${nv.num} registrada`, { chave: `avaliacao:${a.id}:${nv.num}` });
       avalAberta = nv.num;
       $('#modal-aval-titulo').textContent = `Avaliação #${String(nv.num).padStart(2, '0')}`;
       $('#btn-del-aval').style.display = '';
@@ -2083,6 +2229,7 @@ function abrirFormAvaliacao(num) {
       const cur = (a.avaliacoes || []).find((x) => x.num === avalAberta);
       if (cur) Object.assign(cur, dados);
       db.atualizar(a.id, { avaliacoes: a.avaliacoes });
+      reg('avaliacao', a, `Avaliação física #${avalAberta} editada`);
     }
     alunoAtual = db.obter(a.id);
     renderAvaliacoes();
@@ -2137,6 +2284,7 @@ $('#btn-del-aval').addEventListener('click', async () => {
   if (await confirmar({ titulo: 'Excluir avaliação?', texto: `Excluir a <b>Avaliação #${String(avalAberta).padStart(2, '0')}</b>?`, ok: 'Excluir', perigo: true })) {
     apagarFotosDaAvaliacao(a.id, (a.avaliacoes || []).find((x) => x.num === avalAberta));
     db.removerAvaliacao(a.id, avalAberta);
+    reg('avaliacao', a, `Avaliação física #${avalAberta} excluída`);
     alunoAtual = db.obter(a.id);
     renderAvaliacoes();
     fecharModal('modal-aval');
@@ -2593,7 +2741,9 @@ function renderAnamnese() {
     e.preventDefault();
     const fd = new FormData(e.target); const o = {};
     for (const [k, v] of fd.entries()) o[k] = typeof v === 'string' ? v.trim() : v;
+    const antes = db.obter(a.id);
     db.atualizar(a.id, { anamnese: o }); alunoAtual = db.obter(a.id);
+    regFicha(antes, { anamnese: o });
     const fl = $('#form-anamnese [data-saved]'); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
   });
 }
@@ -2646,7 +2796,10 @@ function renderParq() {
     e.preventDefault();
     const fd = new FormData(form); const respostas = {};
     for (let i = 0; i < PARQ.length; i++) { const v = fd.get('q' + i); if (v) respostas['q' + i] = v; }
-    db.atualizar(a.id, { parq: { respostas, data: fd.get('data') || '', obs: (fd.get('obs') || '').toString().trim() } });
+    const antes = db.obter(a.id);
+    const parq = { respostas, data: fd.get('data') || '', obs: (fd.get('obs') || '').toString().trim() };
+    db.atualizar(a.id, { parq });
+    regFicha(antes, { parq });
     alunoAtual = db.obter(a.id);
     const fl = $('#form-parq [data-saved]'); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
   });
@@ -2667,6 +2820,7 @@ async function entrar(user) {
   renderLista();
   // Sincroniza com a nuvem (se houver usuário logado). Não bloqueia a UI.
   if (user && user.uid) {
+    eventos.configurarEventos(user.uid); // sobe o que ficou na fila da última sessão
     db.iniciarSync(user.uid, () => {
       renderLista();
       if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
@@ -2675,7 +2829,7 @@ async function entrar(user) {
       }
     }).then(async () => {
       // 1) puxa o que os alunos enviaram (foto/feedback) e mescla no coach
-      const n = await mergarInboxes(db.listar(), (id, patch) => db.atualizar(id, patch));
+      const n = await mergarInboxes(db.listar(), (id, patch) => db.atualizar(id, patch), eventos.registrar);
       if (n) {
         renderLista();
         if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
