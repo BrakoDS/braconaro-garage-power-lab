@@ -2,10 +2,13 @@
 /**
  * Mescla da caixa de entrada do aluno (lado coach).
  *
- * Lê `portalInbox/{email}` de cada aluno com e-mail, aplica no registro do
- * coach (foto nova → fotoUrl; feedbacks → a.feedbacks, sem duplicar; presenças
- * avisadas pelo app → a.presencas) e apaga a caixa. Silencioso: se a nuvem ou a
- * regra falhar, não quebra o app do coach.
+ * VARRE a coleção `portalInbox` e aplica cada caixa no registro do coach (foto
+ * nova → fotoUrl; feedbacks → a.feedbacks, sem duplicar; presenças avisadas pelo
+ * app → a.presencas), limpando só o que foi consumido. Se a nuvem ou a regra
+ * falhar, não quebra o app do coach.
+ *
+ * Varre em vez de procurar caixa por caixa a partir da ficha: era isso que fazia
+ * uma caixa sem ficha correspondente ficar invisível para sempre.
  *
  * Quem chama (app.js) republica o Portal logo depois, então o que entra aqui
  * volta para o aluno na mesma rodada.
@@ -31,7 +34,8 @@ async function init() {
     deleteDoc: fsMod.deleteDoc,
     updateDoc: fsMod.updateDoc,
     deleteField: fsMod.deleteField,
-    // Só para o diagnóstico das caixas órfãs; sai junto com ele.
+    // A varredura da coleção é o coração do merge: é ela que enxerga a caixa
+    // que nenhuma ficha aponta.
     collection: fsMod.collection,
     getDocs: fsMod.getDocs,
   };
@@ -59,6 +63,51 @@ const emailKey = (e) => String(e || '').trim().toLowerCase();
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * O que sobra na caixa depois que esta versão processou o que conhece.
+ *
+ * Lista vazia quer dizer "pode apagar a caixa"; qualquer coisa aqui quer dizer
+ * "apague só os campos conhecidos e deixe o resto para quem entender".
+ *
+ * @param {any} inbox @returns {string[]}
+ */
+export function camposDesconhecidos(inbox) {
+  if (!inbox || typeof inbox !== 'object') return [];
+  return Object.keys(inbox).filter((k) => !CAMPOS_CONHECIDOS.includes(k));
+}
+
+/**
+ * Casa as caixas encontradas na nuvem com as fichas do coach.
+ *
+ * Separado e exportado porque é onde estava o defeito: a versão anterior partia
+ * da ficha para adivinhar o id da caixa, então caixa sem ficha correspondente era
+ * invisível. Aqui a direção se inverte — parte-se da caixa — e o que não casa sai
+ * nomeado em `orfas`, para virar aviso em vez de sumiço.
+ *
+ * O casamento é pelo e-mail normalizado dos DOIS lados: o id da caixa vem do
+ * aparelho do aluno e o e-mail da ficha é digitado pelo coach, então qualquer um
+ * dos dois pode chegar com maiúscula ou espaço.
+ *
+ * @param {string[]} idsDasCaixas @param {any[]} alunos
+ * @returns {{ pares: Array<{ key: string, aluno: any }>, orfas: string[] }}
+ */
+export function casarCaixasComFichas(idsDasCaixas, alunos) {
+  const porEmail = new Map();
+  for (const a of alunos || []) {
+    const k = emailKey(a && a.email);
+    // Ficha sem e-mail não entra: ela não tem como ter caixa.
+    if (k) porEmail.set(k, a);
+  }
+  const pares = [];
+  const orfas = [];
+  for (const id of idsDasCaixas || []) {
+    const aluno = porEmail.get(emailKey(id));
+    if (aluno) pares.push({ key: id, aluno });
+    else orfas.push(id);
+  }
+  return { pares, orfas };
+}
+
+/**
  * Junta as presenças que o Garage App avisou às que a ficha já tem.
  *
  * Mesma estrutura do check-in manual (`toggleCheckin`/`fazerCheckin` do app.js):
@@ -74,46 +123,6 @@ const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
  * @param {any} vindas o que veio na caixa de entrada
  * @returns {string[]|null}
  */
-/**
- * O que sobra na caixa depois que esta versão processou o que conhece.
- *
- * Lista vazia quer dizer "pode apagar a caixa"; qualquer coisa aqui quer dizer
- * "apague só os campos conhecidos e deixe o resto para quem entender".
- *
- * @param {any} inbox @returns {string[]}
- */
-/**
- * DIAGNÓSTICO TEMPORÁRIO — lista as caixas que existem e aponta as órfãs.
- *
- * O `mergarInboxes` procura a caixa A PARTIR da ficha (`portalInbox/{email da
- * ficha}`). Se o aluno entra no app com um e-mail e a ficha dele no painel tem
- * outro — ou não tem e-mail nenhum —, ele escreve numa caixa que o coach nunca
- * vai abrir, e nada no sistema reclama. Esta função mostra isso.
- *
- * Remover quando o diagnóstico da presença terminar.
- */
-async function diagnosticarCaixasOrfas(alunosComEmail) {
-  try {
-    const snaps = await _fns.getDocs(_fns.collection(_db, 'portalInbox'));
-    const daFicha = new Set(alunosComEmail.map((a) => emailKey(a.email)));
-    const existentes = snaps.docs.map((d) => d.id);
-    console.log(`[INBOX] caixas existentes na nuvem (${existentes.length}): ${existentes.join(', ') || '(nenhuma)'}`);
-    const orfas = existentes.filter((id) => !daFicha.has(id));
-    if (orfas.length) {
-      console.error('[INBOX] CAIXA ORFA — o aluno escreveu, mas NENHUMA ficha tem este e-mail:', orfas);
-      console.error('[INBOX] e-mails das fichas:', [...daFicha]);
-    }
-  } catch (e) {
-    // Listar a coleção pode ser negado pela regra; não é motivo para parar o merge.
-    console.warn('[INBOX] nao deu para listar as caixas (diagnostico):', e?.code || e);
-  }
-}
-
-export function camposDesconhecidos(inbox) {
-  if (!inbox || typeof inbox !== 'object') return [];
-  return Object.keys(inbox).filter((k) => !CAMPOS_CONHECIDOS.includes(k));
-}
-
 export function mesclarPresencas(atuais, vindas) {
   const novas = (Array.isArray(vindas) ? vindas : [])
     .filter((d) => typeof d === 'string' && DATA_ISO.test(d));
@@ -130,28 +139,31 @@ export function mesclarPresencas(atuais, vindas) {
  * @returns {Promise<number>} quantos alunos tiveram novidade
  */
 export async function mergarInboxes(alunos, aplicar) {
-  if (!cloudAtivo()) { console.warn('[INBOX] nuvem desativada — merge nao roda'); return 0; }
+  if (!cloudAtivo()) return 0;
   let n = 0;
   try {
     await init();
-    const comEmail = (alunos || []).filter((a) => emailKey(a.email));
-    console.log(`[INBOX] procurando caixa de ${comEmail.length} aluno(s) com e-mail na ficha`);
 
-    // DIAGNÓSTICO: lista as caixas que EXISTEM e cruza com as fichas.
-    //
-    // Responde a pergunta que nenhuma checagem de código responde: a caixa está
-    // lá, mas com um e-mail que nenhuma ficha tem? É o caso em que o aluno
-    // escreve e o coach nunca lê, porque o `getDoc` abaixo procura pela ficha e
-    // não pela caixa. Some quando o diagnóstico terminar.
-    await diagnosticarCaixasOrfas(comEmail);
+    /* Varre a COLEÇÃO, em vez de adivinhar o id da caixa a partir de cada ficha.
 
-    await Promise.all(comEmail.map(async (a) => {
-      const key = emailKey(a.email);
-      const snap = await _fns.getDoc(_fns.doc(_db, 'portalInbox', key));
-      if (!snap.exists()) return;
-      const inbox = snap.data() || {};
-      console.log(`[INBOX] ${key}: campos = [${Object.keys(inbox).join(', ')}]`
-        + ` · presencas = ${JSON.stringify(inbox.presencas ?? null)}`);
+       A versão anterior fazia `getDoc('portalInbox/' + email da ficha)`. Uma caixa
+       cujo e-mail nenhuma ficha tivesse era invisível: o aluno escrevia, o coach
+       nunca abria, e nada reclamava. Pior, quando a ficha existia a caixa era
+       apagada mesmo que nada fosse aplicado — então cada tentativa destruía a
+       própria evidência, e foi isso que custou várias rodadas de teste.
+
+       Varrendo, toda caixa aparece; a que não casa com ficha fica INTACTA e vira
+       aviso. */
+    const caixas = await _fns.getDocs(_fns.collection(_db, 'portalInbox'));
+    if (caixas.empty) return 0;
+
+    const porId = new Map(caixas.docs.map((d) => [d.id, d]));
+    const { pares, orfas } = casarCaixasComFichas([...porId.keys()], alunos);
+
+    // A órfã NÃO é apagada: a caixa espera a ficha certa. Apagá-la era descartar
+    // o que o aluno mandou só porque o e-mail do painel não bate.
+    await Promise.all(pares.map(async ({ key, aluno: a }) => {
+      const inbox = porId.get(key).data() || {};
       const patch = {};
       if (inbox.fotoNova) patch.fotoUrl = inbox.fotoNova;
       const novos = Array.isArray(inbox.feedbacks) ? inbox.feedbacks : [];
@@ -199,8 +211,17 @@ export async function mergarInboxes(alunos, aplicar) {
         await _fns.deleteDoc(ref);
       }
     }));
+
+    console.log(`[INBOX] ${caixas.size} caixa(s) na nuvem · ${n} ficha(s) atualizada(s)`
+      + ` · ${orfas.length} sem ficha`);
+    if (orfas.length) {
+      // Fica em `error` de propósito: é dado de aluno parado, esperando alguém
+      // arrumar o e-mail da ficha. Silenciar aqui foi o que criou o problema.
+      console.error('[INBOX] CAIXA SEM FICHA — o aluno enviou, e nenhuma ficha tem este e-mail:', orfas);
+      console.error('[INBOX] e-mails das fichas:', (alunos || []).map((a) => a && a.email).filter(Boolean));
+    }
   } catch (e) {
-    console.warn('Falha ao mesclar a caixa do Portal do Aluno:', e?.code || e);
+    console.error('[INBOX] falha ao mesclar a caixa do Portal do Aluno:', e?.code || e, e);
   }
   return n;
 }
