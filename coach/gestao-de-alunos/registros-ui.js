@@ -200,9 +200,59 @@ export function agruparPorDia(evs, hojeIso) {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/* ---------- Diário de Evolução: a foto de cada linha ---------- */
+
 /**
- * Uma linha do feed. Sem nome nem foto: a aba fica dentro da ficha, então seriam
- * os mesmos em toda linha — e a linha não tem para onde levar, por isso não é botão.
+ * Só URL de download do nosso Storage vira `<img>`. A regra do Firestore já
+ * exige isso ao gravar, mas o documento é escrito pelo aluno — aqui se confere de novo.
+ */
+const URL_STORAGE = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/diario%2F/;
+
+/**
+ * Os documentos de `diario/{email}/fotos` indexados pelo dia, sem confiar neles:
+ * sem dia coerente com o id, sem `em` ou com URL de fora, fica de fora.
+ * @param {any[]|null} docs @returns {Map<string, { em: number, url: string, mini: string }>|null}
+ */
+export function fotosDoDiarioPorDia(docs) {
+  if (!Array.isArray(docs)) return null;
+  const porDia = new Map();
+  for (const d of docs) {
+    if (!d || !DATA_ISO.test(d.id) || d.dia !== d.id) continue;
+    const em = Number(d.em);
+    if (!(em > 0) || !URL_STORAGE.test(d.url) || !URL_STORAGE.test(d.miniUrl)) continue;
+    porDia.set(d.id, { em, url: d.url, mini: d.miniUrl });
+  }
+  return porDia;
+}
+
+/**
+ * Põe a foto nos eventos `foto-diario`. O casamento é por dia E `em`: refazer a
+ * foto do dia sobrescreve o mesmo caminho, então a linha do envio antigo não
+ * pode mostrar a foto nova — ela diz que foi refeita. Dia sem documento = o
+ * aluno apagou. Com `porDia` null (não deu para ler), nada muda.
+ *
+ * @param {any[]} evs @param {Map<string, { em: number, url: string, mini: string }>|null} porDia
+ */
+export function anexarFotosDoDiario(evs, porDia) {
+  if (!porDia) return lista(evs);
+  return lista(evs).map((e) => {
+    if (!e || e.tipo !== 'foto-diario') return e;
+    const f = porDia.get(e.dia);
+    if (!f) return { ...e, fotoEstado: 'apagada' };
+    if (f.em !== e.em) return { ...e, fotoEstado: 'refeita' };
+    return { ...e, foto: { url: f.url, mini: f.mini } };
+  });
+}
+
+const AVISO_FOTO = {
+  apagada: 'O aluno apagou esta foto do diário.',
+  refeita: 'Foto refeita depois — a atual está na linha do envio mais novo.',
+};
+
+/**
+ * Uma linha do feed. Sem nome nem foto do aluno: a aba fica dentro da ficha,
+ * então seriam os mesmos em toda linha. A foto do diário, quando há, entra como
+ * miniatura clicável (`data-foto`), que o app.js abre em tela cheia.
  * @param {any} ev
  */
 export function linhaHTML(ev) {
@@ -212,9 +262,13 @@ export function linhaHTML(ev) {
   const origem = ev.origem && ORIGEM_ROTULO[ev.origem]
     ? `<span class="reg-origem reg-origem--${esc(ev.origem)}">${esc(ORIGEM_ROTULO[ev.origem])}</span>` : '';
   const fila = ev.pendente ? `<span class="reg-fila" title="Ainda não subiu para a nuvem">na fila</span>` : '';
-  return `<div class="reg-row${ev.derivado ? ' reg-derivado' : ''}">
-    <span class="reg-hora">${hora}</span>
-    <span class="reg-txt"><span class="reg-res">${icone} ${esc(ev.resumo || '')}</span>${ev.detalhe ? `<span class="reg-det">“${esc(ev.detalhe)}”</span>` : ''}</span>
+  const foto = ev.foto
+    ? `<button class="reg-thumb" type="button" data-foto="${esc(ev.foto.url)}" data-dia="${esc(ev.dia || '')}" aria-label="Ver a foto em tela cheia"><img src="${esc(ev.foto.mini)}" alt="" loading="lazy" /></button>`
+    : '';
+  const aviso = AVISO_FOTO[ev.fotoEstado] ? `<span class="reg-aviso">${AVISO_FOTO[ev.fotoEstado]}</span>` : '';
+  return `<div class="reg-row${ev.derivado ? ' reg-derivado' : ''}${foto ? ' reg-row--foto' : ''}">
+    <span class="reg-hora">${hora}</span>${foto}
+    <span class="reg-txt"><span class="reg-res">${icone} ${esc(ev.resumo || '')}</span>${ev.detalhe ? `<span class="reg-det">“${esc(ev.detalhe)}”</span>` : ''}${aviso}</span>
     <span class="reg-selos">${origem}${fila}</span>
   </div>`;
 }

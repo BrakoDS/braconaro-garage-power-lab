@@ -9,7 +9,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  agruparPorDia, filtrarEventos, historicoDasFichas, juntarEventos, linhaDoTempoDoAluno, linhaHTML, rotuloDia,
+  agruparPorDia, anexarFotosDoDiario, filtrarEventos, fotosDoDiarioPorDia, historicoDasFichas, juntarEventos,
+  linhaDoTempoDoAluno, linhaHTML, rotuloDia,
 } from './registros-ui.js';
 
 /** ms de um horário LOCAL — é assim que a tela lê as datas. */
@@ -187,4 +188,74 @@ test('evento reconstruído sem hora mostra traço e não mostra selo de origem',
   const html = linhaHTML(ev);
   assert.ok(html.includes('—'));
   assert.ok(!html.includes('reg-origem'));
+});
+
+/* ---------- Diário de Evolução: a foto na linha ---------- */
+
+const URL_BASE = 'https://firebasestorage.googleapis.com/v0/b/projeto-garage-f0a2f.firebasestorage.app/o/diario%2Ffulano%40x.com%2F';
+const docDiario = (dia, em, extra = {}) => ({
+  id: dia, dia, em,
+  url: `${URL_BASE}${dia}.webp?alt=media&token=t`,
+  miniUrl: `${URL_BASE}${dia}_mini.webp?alt=media&token=t`,
+  ...extra,
+});
+const evDiario = (dia, em) => ({ id: `diario-012-${dia}-${em}`, tipo: 'foto-diario', origem: 'app', alunoId: '012', em, dia, resumo: 'Foto do Diário de Evolução' });
+
+test('fotos do diário: indexa pelo dia e descarta documento incoerente ou com URL de fora', () => {
+  const porDia = fotosDoDiarioPorDia([
+    docDiario('2026-09-24', 1000),
+    docDiario('2026-09-23', 900, { dia: '2026-09-22' }),        // dia ≠ id
+    docDiario('2026-09-21', 0),                                   // sem em
+    docDiario('2026-09-20', 800, { url: 'https://evil.example/x.webp' }),
+    docDiario('2026-09-19', 700, { miniUrl: 'javascript:alert(1)' }),
+    null,
+  ]);
+  assert.deepEqual([...porDia.keys()], ['2026-09-24']);
+  assert.equal(porDia.get('2026-09-24').em, 1000);
+  assert.equal(fotosDoDiarioPorDia(null), null);
+});
+
+test('evento do diário ganha a foto quando dia e em batem com o documento', () => {
+  const porDia = fotosDoDiarioPorDia([docDiario('2026-09-24', 1000)]);
+  const [ev] = anexarFotosDoDiario([evDiario('2026-09-24', 1000)], porDia);
+  assert.ok(ev.foto.url.includes('2026-09-24.webp'));
+  assert.ok(ev.foto.mini.includes('2026-09-24_mini.webp'));
+});
+
+test('foto refeita: a linha do envio antigo não mostra a foto nova', () => {
+  const porDia = fotosDoDiarioPorDia([docDiario('2026-09-24', 2000)]);
+  const [antiga, nova] = anexarFotosDoDiario([evDiario('2026-09-24', 1000), evDiario('2026-09-24', 2000)], porDia);
+  assert.equal(antiga.foto, undefined);
+  assert.equal(antiga.fotoEstado, 'refeita');
+  assert.ok(nova.foto);
+});
+
+test('foto apagada pelo aluno some da linha; sem leitura (null), nada muda', () => {
+  const [apagada] = anexarFotosDoDiario([evDiario('2026-09-24', 1000)], new Map());
+  assert.equal(apagada.foto, undefined);
+  assert.equal(apagada.fotoEstado, 'apagada');
+  const ev = evDiario('2026-09-24', 1000);
+  assert.deepEqual(anexarFotosDoDiario([ev], null), [ev]);
+});
+
+test('só o foto-diario é tocado', () => {
+  const outro = { id: 'x', tipo: 'foto-perfil', dia: '2026-09-24', em: 1 };
+  assert.equal(anexarFotosDoDiario([outro], new Map())[0], outro);
+});
+
+test('linha com foto mostra a miniatura clicável que abre a foto cheia', () => {
+  const porDia = fotosDoDiarioPorDia([docDiario('2026-09-24', 1000)]);
+  const [ev] = anexarFotosDoDiario([evDiario('2026-09-24', 1000)], porDia);
+  const html = linhaHTML(ev);
+  assert.ok(html.includes('reg-row--foto'));
+  assert.ok(html.includes('class="reg-thumb"'));
+  assert.ok(html.includes(`data-foto="${URL_BASE}2026-09-24.webp?alt=media&amp;token=t"`));
+  assert.ok(html.includes('2026-09-24_mini.webp'));
+});
+
+test('linha de foto apagada ou refeita diz o porquê, sem miniatura', () => {
+  const apagada = linhaHTML({ ...evDiario('2026-09-24', 1), fotoEstado: 'apagada' });
+  assert.ok(!apagada.includes('reg-thumb') && apagada.includes('apagou'));
+  const refeita = linhaHTML({ ...evDiario('2026-09-24', 1), fotoEstado: 'refeita' });
+  assert.ok(!refeita.includes('reg-thumb') && refeita.includes('refeita'));
 });

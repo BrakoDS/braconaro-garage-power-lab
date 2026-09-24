@@ -21,8 +21,9 @@ import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal, fatia } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import * as eventos from './eventos.js';
-import { CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, juntarEventos, linhaDoTempoDoAluno, linhaHTML,
-  resumoFicha } from './registros-ui.js';
+import { CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, anexarFotosDoDiario, fotosDoDiarioPorDia, juntarEventos,
+  linhaDoTempoDoAluno, linhaHTML, resumoFicha } from './registros-ui.js';
+import { carregarFotosDoDiario } from './diario-read.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
 import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizarDesafios } from './desafios.js';
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
@@ -1876,16 +1877,21 @@ let regEventos = [];
 let regHist = REG_HIST;
 let regCarregando = false;
 let regErro = '';
+/** As fotos do Diário do aluno, por dia (ver fotosDoDiarioPorDia); null = ainda não lidas. */
+let regFotos = null;
+let regFotosPedido = 0; // só a leitura de fotos mais recente vale (a do merge pode passar a da abertura)
 const regFiltro = { categoria: 'todos', origem: 'todas' };
 
 async function abrirRegistros() {
   if (!alunoAtual) return;
   const id = String(alunoAtual.id);
   const pedido = ++regPedido;
-  regAlunoId = id; regEventos = []; regHist = REG_HIST; regErro = ''; regCarregando = true;
+  regAlunoId = id; regEventos = []; regFotos = null; regHist = REG_HIST; regErro = ''; regCarregando = true;
   regFiltro.categoria = 'todos'; regFiltro.origem = 'todas';
   renderRegFiltros();
   desenharRegistros();
+  const fotosPedido = ++regFotosPedido;
+  const fotos = lerFotosDoDiario(alunoAtual); // em paralelo com os eventos
   try {
     const r = await eventos.listarEventos({ alunoId: id });
     if (pedido !== regPedido) return; // trocou de aluno (ou reabriu a aba) enquanto carregava
@@ -1897,8 +1903,45 @@ async function abrirRegistros() {
     console.warn('Registros:', e?.code || e);
     regErro = 'Não deu para ler os registros gravados agora. Abaixo, só o que a ficha conta.';
   }
+  const lidas = await fotos;
+  if (pedido !== regPedido) return;
+  if (fotosPedido === regFotosPedido) regFotos = lidas;
   regCarregando = false;
   desenharRegistros();
+}
+
+/**
+ * As fotos do Diário, lidas na hora (não ficam no evento: foto apagada pelo
+ * aluno tem de sumir daqui também). Falha vira null — a linha fica só com o
+ * texto, que é melhor do que dizer "apagada" para uma foto que existe.
+ */
+async function lerFotosDoDiario(a) {
+  try {
+    return fotosDoDiarioPorDia(await carregarFotosDoDiario(a && a.email));
+  } catch (e) {
+    console.warn('Registros: não deu para ler as fotos do Diário.', e?.code || e);
+    return null;
+  }
+}
+
+/** Depois do merge: um aviso novo do Diário precisa da foto dele, que ainda não foi lida. */
+async function atualizarRegistros() {
+  const pedido = regPedido;
+  const fotosPedido = ++regFotosPedido;
+  const lidas = await lerFotosDoDiario(alunoAtual);
+  if (pedido !== regPedido || fotosPedido !== regFotosPedido) return;
+  if (lidas) regFotos = lidas;
+  desenharRegistros();
+}
+
+/** A foto do Diário em tela cheia. */
+function abrirFotoDoDiario(url, dia) {
+  const [a, m, d] = String(dia || '').split('-');
+  $('#modal-foto-titulo').textContent = d ? `Diário · ${d}/${m}/${a}` : 'Diário de Evolução';
+  const img = $('#modal-foto-img');
+  img.src = url;
+  img.alt = `Foto do Diário de Evolução${d ? ` de ${d}/${m}/${a}` : ''}`;
+  abrirModal('modal-foto');
 }
 
 function renderRegFiltros() {
@@ -1913,7 +1956,9 @@ function desenharRegistros() {
   if (!a || String(a.id) !== regAlunoId) return;
   // Pendentes primeiro: se um evento está nas duas listas, fica o selo "na fila".
   const gravados = juntarEventos(eventos.pendentes().map((e) => ({ ...e, pendente: true })), regEventos);
-  const { reais, hist } = linhaDoTempoDoAluno(gravados, a, regFiltro);
+  const tempo = linhaDoTempoDoAluno(gravados, a, regFiltro);
+  const reais = anexarFotosDoDiario(tempo.reais, regFotos);
+  const hist = tempo.hist;
   // Enquanto os gravados não chegam, o histórico ainda não sabe onde começa.
   const histVisivel = regCarregando ? [] : hist.slice(0, regHist);
 
@@ -1935,6 +1980,10 @@ function desenharRegistros() {
 }
 
 $('#reg-mais').addEventListener('click', () => { regHist += REG_HIST; desenharRegistros(); });
+$('#reg-lista').addEventListener('click', (e) => {
+  const b = /** @type {HTMLElement} */ (e.target).closest('.reg-thumb'); if (!b) return;
+  abrirFotoDoDiario(b.dataset.foto, b.dataset.dia);
+});
 $('#reg-filtros').addEventListener('click', (e) => {
   const b = /** @type {HTMLElement} */ (e.target).closest('[data-g]'); if (!b) return;
   regFiltro[b.dataset.g] = b.dataset.v;
@@ -2812,8 +2861,8 @@ async function entrar(user) {
           if (a) {
             alunoAtual = a;
             if ($('#tab-progresso').classList.contains('active')) renderProgresso();
-            // O merge acabou de pôr eventos novos na fila (foto, feedback): aparecem já.
-            if ($('#tab-registros').classList.contains('active')) desenharRegistros();
+            // O merge acabou de pôr eventos novos na fila (foto, feedback, diário): aparecem já.
+            if ($('#tab-registros').classList.contains('active')) atualizarRegistros();
           }
         }
       }
