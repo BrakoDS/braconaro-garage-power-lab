@@ -9,7 +9,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { camposDesconhecidos, mesclarPresencas } from './portal-merge.js';
+import { camposDesconhecidos, casarCaixasComFichas, mesclarPresencas } from './portal-merge.js';
 
 test('acrescenta o dia novo mantendo os que já existiam, em ordem', () => {
   assert.deepEqual(
@@ -78,4 +78,50 @@ test('caixa ausente ou malformada não inventa campo para preservar', () => {
   assert.deepEqual(camposDesconhecidos(null), []);
   assert.deepEqual(camposDesconhecidos(undefined), []);
   assert.deepEqual(camposDesconhecidos('lixo'), []);
+});
+
+/**
+ * O pareamento caixa ↔ ficha.
+ *
+ * Aqui estava o defeito que custou várias rodadas de teste: o merge partia da
+ * FICHA para adivinhar o id da caixa, então caixa cujo e-mail nenhuma ficha
+ * tivesse era invisível — e, pior, quando havia ficha a caixa era apagada mesmo
+ * sem nada ser aplicado, destruindo a evidência a cada tentativa.
+ */
+test('caixa com ficha correspondente vira par', () => {
+  const r = casarCaixasComFichas(['ana@x.com'], [{ id: '001', email: 'ana@x.com' }]);
+  assert.equal(r.pares.length, 1);
+  assert.equal(r.pares[0].aluno.id, '001');
+  assert.deepEqual(r.orfas, []);
+});
+
+test('caixa sem ficha nenhuma sai como orfa, e NAO se perde', () => {
+  const r = casarCaixasComFichas(['fantasma@x.com'], [{ id: '001', email: 'ana@x.com' }]);
+  assert.deepEqual(r.pares, []);
+  assert.deepEqual(r.orfas, ['fantasma@x.com']);
+});
+
+test('maiuscula e espaco nao impedem o casamento, dos dois lados', () => {
+  const r = casarCaixasComFichas(['Ana@X.com'], [{ id: '001', email: '  ANA@x.com ' }]);
+  assert.equal(r.pares.length, 1, 'deveria casar ignorando caixa e espaco');
+  assert.deepEqual(r.orfas, []);
+});
+
+test('ficha sem e-mail nao captura caixa nenhuma', () => {
+  const r = casarCaixasComFichas(['ana@x.com'], [{ id: '001' }, { id: '002', email: '' }]);
+  assert.deepEqual(r.orfas, ['ana@x.com']);
+});
+
+test('lista vazia dos dois lados nao quebra', () => {
+  assert.deepEqual(casarCaixasComFichas([], []), { pares: [], orfas: [] });
+  assert.deepEqual(casarCaixasComFichas(undefined, undefined), { pares: [], orfas: [] });
+});
+
+test('varias caixas sao separadas corretamente entre pares e orfas', () => {
+  const r = casarCaixasComFichas(
+    ['ana@x.com', 'sem-ficha@x.com', 'bruno@x.com'],
+    [{ id: '001', email: 'ana@x.com' }, { id: '002', email: 'bruno@x.com' }],
+  );
+  assert.deepEqual(r.pares.map((p) => p.key), ['ana@x.com', 'bruno@x.com']);
+  assert.deepEqual(r.orfas, ['sem-ficha@x.com']);
 });
