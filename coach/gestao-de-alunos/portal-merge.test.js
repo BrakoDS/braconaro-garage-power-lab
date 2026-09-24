@@ -71,6 +71,10 @@ test('a origem e a hora da foto são conhecidas (a Registros lê as duas)', () =
   assert.deepEqual(camposDesconhecidos({ fotoNova: 'x', fotoOrigem: 'app', fotoEm: 1, atualizadoEm: 1 }), []);
 });
 
+test('o aviso do Diário de Evolução é conhecido (vira evento na Registros)', () => {
+  assert.deepEqual(camposDesconhecidos({ diario: [{ dia: '2026-09-24', em: 1, origem: 'app' }], atualizadoEm: 1 }), []);
+});
+
 test('campo que esta versão não entende sobrevive à limpeza', () => {
   assert.deepEqual(
     camposDesconhecidos({ feedbacks: [], medidasNovas: { peso: 80 } }),

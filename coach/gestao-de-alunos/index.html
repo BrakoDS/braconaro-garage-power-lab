@@ -57,7 +57,6 @@
             <button class="btn ghost btn-sm" id="btn-mural" type="button">Avisos do Portal</button>
             <button class="btn ghost btn-sm" id="btn-desafios" type="button">Desafios</button>
             <button class="btn ghost btn-sm" id="btn-leads" type="button">Leads</button>
-            <button class="btn ghost btn-sm" id="btn-registros" type="button">Registros</button>
           </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -216,21 +215,6 @@
       </div>
     </section>
 
-    <!-- ----------- TELA: REGISTROS ----------- -->
-    <section id="tela-registros" class="screen">
-      <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="reg-voltar" type="button">← Voltar para a listagem</button></div>
-        <span class="eyebrow">Registros · o que aconteceu, do mais novo ao mais antigo</span>
-        <p class="hint" style="margin:6px 0 16px">Check-ins, fotos, feedbacks e edições de ficha — feitos pelo aluno no app ou no Portal, ou por você aqui na Gestão.</p>
-        <div class="reg-filtros">
-          <div id="reg-filtros"></div>
-          <select id="reg-aluno" aria-label="Filtrar por aluno"></select>
-        </div>
-        <div id="reg-lista"></div>
-        <button class="btn ghost btn-sm" id="reg-mais" type="button" hidden>Carregar mais</button>
-      </div>
-    </section>
-
     <!-- ----------- TELA 2: PERFIL ----------- -->
     <section id="tela-perfil" class="screen">
       <div class="wrap">
@@ -254,6 +238,7 @@
           <button class="tab" data-tab="progresso" type="button">Progresso</button>
           <button class="tab" data-tab="matriz" type="button">Matriz</button>
           <button class="tab" data-tab="portal" type="button">Portal</button>
+          <button class="tab" data-tab="registros" type="button">Registros</button>
         </nav>
 
         <!-- ABA 1: DADOS -->
@@ -290,6 +275,14 @@
             <span class="prv-nota">Somente leitura — nada que você fizer aqui é gravado na conta do aluno.</span>
           </div>
           <div class="prv-quadro"><iframe id="prv-frame" title="Portal do Aluno (prévia)" loading="lazy"></iframe></div>
+        </div>
+
+        <!-- ABA: REGISTROS — a linha do tempo deste aluno, do mais novo ao mais antigo -->
+        <div class="tab-panel" id="tab-registros">
+          <p class="hint" style="margin:0 0 14px">Check-ins, fotos, feedbacks e edições de ficha deste aluno — feitos por ele no app ou no Portal, ou por você aqui na Gestão.</p>
+          <div class="reg-filtros"><div id="reg-filtros"></div></div>
+          <div id="reg-lista"></div>
+          <button class="btn ghost btn-sm" id="reg-mais" type="button" hidden>Carregar mais</button>
         </div>
 
         <!-- ABA 3: PROGRESSO -->
@@ -374,6 +367,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=18"></script>
+  <script type="module" src="./app.js?v=19"></script>
 </body>
 </html>

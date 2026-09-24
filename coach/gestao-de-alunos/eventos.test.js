@@ -8,7 +8,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { camposAlterados, eventosDaCaixa, novoEvento, origemDaCaixa } from './eventos.js';
+import { camposAlterados, eventosDaCaixa, eventosDoDiario, novoEvento, origemDaCaixa } from './eventos.js';
 
 const aluno = { id: '012', nome: 'Fulano de Tal', presencas: ['2026-09-20'], feedbacks: [{ id: 'fb-velho', criadoEm: 1 }] };
 
@@ -88,6 +88,45 @@ test('obs do feedback longa é cortada no detalhe', () => {
   const obs = 'x'.repeat(300);
   const [ev] = eventosDaCaixa(aluno, { feedbacks: [{ id: 'n', obs, criadoEm: 1 }] }, { feedbacks: [{ id: 'n' }] }, 9);
   assert.ok(ev.detalhe.length <= 121);
+});
+
+/* ---------- eventosDoDiario ---------- */
+
+test('cada aviso do diário vira um evento foto-diario, com a hora e a origem do aviso', () => {
+  const inbox = { diario: [{ dia: '2026-09-24', em: 1000, origem: 'app' }] };
+  const [ev, ...resto] = eventosDoDiario(aluno, inbox);
+  assert.equal(resto.length, 0);
+  assert.equal(ev.tipo, 'foto-diario');
+  assert.equal(ev.origem, 'app');
+  assert.equal(ev.em, 1000);
+  assert.equal(ev.dia, '2026-09-24');
+  assert.equal(ev.alunoId, '012');
+  assert.equal(ev.id, 'diario-012-2026-09-24-1000');
+});
+
+test('refazer a foto do dia (outro em) é outra linha; o mesmo aviso de novo é a mesma', () => {
+  const inbox = { diario: [{ dia: '2026-09-24', em: 1000, origem: 'app' }, { dia: '2026-09-24', em: 2000, origem: 'app' }] };
+  const ids = eventosDoDiario(aluno, inbox).map((e) => e.id);
+  assert.equal(new Set(ids).size, 2);
+  assert.deepEqual(eventosDoDiario(aluno, inbox).map((e) => e.id), ids);
+});
+
+test('aviso do diário sem dia válido ou sem em fica de fora; origem estranha vira "aluno"', () => {
+  const inbox = { diario: [
+    { dia: 'ontem', em: 1, origem: 'app' },
+    { dia: '2026-09-24', origem: 'app' },
+    null,
+    { dia: '2026-09-23', em: 5, origem: 'gestao' },
+  ] };
+  const evs = eventosDoDiario(aluno, inbox);
+  assert.equal(evs.length, 1);
+  assert.equal(evs[0].origem, 'aluno');
+});
+
+test('caixa sem diário (ou malformada) não gera evento', () => {
+  assert.deepEqual(eventosDoDiario(aluno, { feedbacks: [] }), []);
+  assert.deepEqual(eventosDoDiario(aluno, { diario: 'x' }), []);
+  assert.deepEqual(eventosDoDiario(null, { diario: [] }), []);
 });
 
 /* ---------- camposAlterados ---------- */

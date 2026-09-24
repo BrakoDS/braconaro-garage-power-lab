@@ -9,7 +9,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  agruparPorDia, filtrarEventos, historicoDasFichas, juntarEventos, linhaHTML, rotuloDia,
+  agruparPorDia, filtrarEventos, historicoDasFichas, juntarEventos, linhaDoTempoDoAluno, linhaHTML, rotuloDia,
 } from './registros-ui.js';
 
 /** ms de um horário LOCAL — é assim que a tela lê as datas. */
@@ -80,6 +80,45 @@ test('junta listas sem repetir id, do mais novo ao mais antigo', () => {
   assert.deepEqual(juntarEventos(a, b).map((e) => e.id), ['y', 'z', 'x']);
 });
 
+/* ---------- linhaDoTempoDoAluno ---------- */
+
+test('a linha do tempo traz só os eventos do aluno aberto', () => {
+  const gravados = [
+    { id: 'g1', tipo: 'presenca', origem: 'app', alunoId: '012', em: local('2026-09-23', 7, 12), chave: 'presenca:012:2026-09-23' },
+    { id: 'g2', tipo: 'presenca', origem: 'app', alunoId: '099', em: local('2026-09-24', 8) },
+  ];
+  const { reais } = linhaDoTempoDoAluno(gravados, ficha);
+  assert.deepEqual(reais.map((e) => e.id), ['g1']);
+});
+
+test('o histórico da ficha começa antes do primeiro evento DESTE aluno, não de outro', () => {
+  const gravados = [
+    // O evento de outro aluno é mais antigo que tudo; não pode esconder o histórico do 012.
+    { id: 'outro', tipo: 'presenca', origem: 'app', alunoId: '099', em: local('2025-01-01', 8) },
+    { id: 'g1', tipo: 'presenca', origem: 'app', alunoId: '012', em: local('2026-09-23', 7, 12), chave: 'presenca:012:2026-09-23' },
+  ];
+  const { hist } = linhaDoTempoDoAluno(gravados, ficha);
+  assert.deepEqual(hist.map((e) => e.tipo), ['feedback', 'presenca', 'atestado', 'avaliacao', 'aluno-criado']);
+  assert.ok(hist.every((e) => e.alunoId === '012' && e.em < local('2026-09-23', 7, 12)));
+});
+
+test('sem evento gravado, a linha do tempo é a ficha inteira', () => {
+  const { reais, hist } = linhaDoTempoDoAluno([], ficha);
+  assert.deepEqual(reais, []);
+  assert.equal(hist.length, 6);
+});
+
+test('os filtros valem para os gravados e para o histórico', () => {
+  const gravados = [{ id: 'g1', tipo: 'foto-perfil', origem: 'portal', alunoId: '012', em: local('2026-09-24', 9) }];
+  const { reais, hist } = linhaDoTempoDoAluno(gravados, ficha, { categoria: 'presenca', origem: 'todas' });
+  assert.deepEqual(reais, []);
+  assert.ok(hist.length > 0 && hist.every((e) => e.tipo === 'presenca' || e.tipo === 'atestado'));
+});
+
+test('sem ficha aberta, nada', () => {
+  assert.deepEqual(linhaDoTempoDoAluno([{ id: 'x', alunoId: '1', em: 1 }], null), { reais: [], hist: [] });
+});
+
 /* ---------- filtrarEventos ---------- */
 
 const evs = [
@@ -126,26 +165,26 @@ test('dia anterior a ontem leva o dia da semana e a data', () => {
 /* ---------- linhaHTML ---------- */
 
 test('a linha escapa o que veio do aluno', () => {
-  const ev = { id: '1', tipo: 'feedback', origem: 'app', alunoId: 'a', alunoNome: '<b>X</b>', em: local('2026-09-24', 8, 5), resumo: 'Feedback', detalhe: '<img src=x onerror=alert(1)>' };
-  const html = linhaHTML(ev, null);
+  const ev = { id: '1', tipo: 'feedback', origem: 'app', alunoId: 'a', alunoNome: 'X', em: local('2026-09-24', 8, 5), resumo: '<b>Feedback</b>', detalhe: '<img src=x onerror=alert(1)>' };
+  const html = linhaHTML(ev);
   assert.ok(!html.includes('<img src=x'));
   assert.ok(html.includes('&lt;img'));
-  assert.ok(html.includes('&lt;b&gt;X'));
+  assert.ok(html.includes('&lt;b&gt;Feedback'));
   assert.ok(html.includes('08:05'));
   assert.ok(html.includes('App'));
 });
 
-test('a linha usa o nome e a foto ATUAIS da ficha quando ela existe', () => {
-  const ev = { id: '1', tipo: 'presenca', origem: 'gestao', alunoId: 'a', alunoNome: 'Velho', em: 1, resumo: 'Check-in' };
-  const html = linhaHTML(ev, { id: 'a', nome: 'Novo', fotoUrl: 'https://x/y.webp' });
-  assert.ok(html.includes('Novo'));
-  assert.ok(html.includes('https://x/y.webp'));
-  assert.ok(html.includes('data-id="a"'));
+test('dentro da ficha a linha não repete o aluno nem é clicável', () => {
+  const ev = { id: '1', tipo: 'presenca', origem: 'gestao', alunoId: 'a', alunoNome: 'Fulano', em: 1, resumo: 'Check-in' };
+  const html = linhaHTML(ev);
+  assert.ok(!html.includes('Fulano'));
+  assert.ok(!html.includes('<button'));
+  assert.ok(!html.includes('data-id'));
 });
 
 test('evento reconstruído sem hora mostra traço e não mostra selo de origem', () => {
   const ev = { id: 'd', tipo: 'presenca', origem: null, alunoId: 'a', alunoNome: 'X', em: 1, semHora: true, derivado: true, resumo: 'Presença' };
-  const html = linhaHTML(ev, null);
+  const html = linhaHTML(ev);
   assert.ok(html.includes('—'));
   assert.ok(!html.includes('reg-origem'));
 });

@@ -4,7 +4,8 @@
  *
  * VARRE a coleção `portalInbox` e aplica cada caixa no registro do coach (foto
  * nova → fotoUrl; feedbacks → a.feedbacks, sem duplicar; presenças avisadas pelo
- * app → a.presencas), limpando só o que foi consumido. Se a nuvem ou a regra
+ * app → a.presencas; avisos do Diário de Evolução → só eventos, a ficha não muda),
+ * limpando só o que foi consumido. Se a nuvem ou a regra
  * falhar, não quebra o app do coach.
  *
  * Varre em vez de procurar caixa por caixa a partir da ficha: era isso que fazia
@@ -14,7 +15,7 @@
  * volta para o aluno na mesma rodada.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { eventosDaCaixa } from './eventos.js';
+import { eventosDaCaixa, eventosDoDiario } from './eventos.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -56,7 +57,7 @@ async function init() {
  * futura do app mande fica esperando uma Gestão que o entenda, em vez de ser
  * destruído por uma antiga.
  */
-const CAMPOS_CONHECIDOS = ['fotoNova', 'fotoOrigem', 'fotoEm', 'feedbacks', 'presencas', 'atualizadoEm'];
+const CAMPOS_CONHECIDOS = ['fotoNova', 'fotoOrigem', 'fotoEm', 'feedbacks', 'presencas', 'diario', 'atualizadoEm'];
 
 const emailKey = (e) => String(e || '').trim().toLowerCase();
 
@@ -196,12 +197,18 @@ export async function mergarInboxes(alunos, aplicar, registrar) {
       const presencas = mesclarPresencas(a.presencas, inbox.presencas);
       if (presencas) patch.presencas = presencas;
 
+      const evs = [];
       if (Object.keys(patch).length) {
-        aplicar(a.id, patch); n++;
-        if (registrar) {
-          for (const ev of eventosDaCaixa(a, inbox, patch, Date.now())) {
-            try { registrar(ev); } catch { /* o log não pode travar o merge */ }
-          }
+        aplicar(a.id, patch);
+        evs.push(...eventosDaCaixa(a, inbox, patch, Date.now()));
+      }
+      // Diário de Evolução: a caixa traz só o aviso (a foto já está em
+      // diario/{email}/fotos). Não mexe na ficha — vira só evento na linha do tempo.
+      evs.push(...eventosDoDiario(a, inbox));
+      if (Object.keys(patch).length || evs.length) n++;
+      if (registrar) {
+        for (const ev of evs) {
+          try { registrar(ev); } catch { /* o log não pode travar o merge */ }
         }
       }
 
