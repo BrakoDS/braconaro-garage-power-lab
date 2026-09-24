@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css" />
+  <link rel="stylesheet" href="./alunos.css?v=2" />
   <link rel="stylesheet" href="./matriz.css?v=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
@@ -367,6 +367,17 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=19"></script>
+  <!-- ============ MODAL: foto do Diário de Evolução, em tela cheia ============ -->
+  <div class="modal-bg modal-foto" id="modal-foto">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-foto-titulo">
+      <div class="modal-hd">
+        <h3 id="modal-foto-titulo">Diário de Evolução</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-foto-bd"><img id="modal-foto-img" alt="" /></div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js?v=20"></script>
 </body>
 </html>
