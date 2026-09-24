@@ -6,6 +6,10 @@
  * o que ele envia (foto nova, feedback pós-treino) vai para `portalInbox/{email}`,
  * uma caixa que o app do coach lê e mescla em gestao/{uid} (e depois limpa).
  * A regra do Firestore permite ao aluno ler/gravar só o doc do próprio e-mail.
+ *
+ * Tudo sai marcado com a origem ('portal'; o Garage App manda 'app'): a caixa
+ * é apagada depois do merge, e a tela Registros da Gestão só sabe por onde o
+ * aluno mandou porque o evento guarda o que veio aqui.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../compartilhado/firebase/config.js';
 import { comprimir, enviar } from '../compartilhado/regras/storage-alunos.js';
@@ -34,7 +38,7 @@ export async function enviarFotoPerfil(email, file) {
   const blob = await comprimir(file, 640, 0.85);
   const url = await enviar(`portal/${key}/avatar.webp`, blob);
   await init();
-  await _fns.setDoc(_fns.doc(_db, 'portalInbox', key), { fotoNova: url, atualizadoEm: Date.now() }, { merge: true });
+  await _fns.setDoc(_fns.doc(_db, 'portalInbox', key), { fotoNova: url, fotoOrigem: 'portal', fotoEm: Date.now(), atualizadoEm: Date.now() }, { merge: true });
   return url;
 }
 
@@ -45,5 +49,5 @@ export async function enviarFotoPerfil(email, file) {
 export async function enviarFeedback(email, fb) {
   const key = emailKey(email);
   await init();
-  await _fns.setDoc(_fns.doc(_db, 'portalInbox', key), { feedbacks: _fns.arrayUnion(fb), atualizadoEm: Date.now() }, { merge: true });
+  await _fns.setDoc(_fns.doc(_db, 'portalInbox', key), { feedbacks: _fns.arrayUnion({ ...fb, origem: 'portal' }), atualizadoEm: Date.now() }, { merge: true });
 }

@@ -55,6 +55,13 @@ service cloud.firestore {
     // Gestão de alunos — um documento por coach (separado do montador)
     match /gestao/{uid} {
       allow read, write: if ehCoachDono(uid);
+
+      // Log da tela Registros (eventos.js) — subcoleção, e não campo do doc
+      // acima: aquele guarda todos os alunos, tem teto de 1 MB e é regravado
+      // inteiro a cada mudança. Só o próprio coach lê e escreve.
+      match /eventos/{ev} {
+        allow read, write: if ehCoachDono(uid);
+      }
     }
 
     // Academia (inventário + catálogo de exercícios) — um documento por coach
