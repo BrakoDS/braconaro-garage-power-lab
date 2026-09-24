@@ -187,13 +187,7 @@ export async function mergarInboxes(alunos, aplicar) {
       // a hora em que o aluno lançou as calorias não diz quando ele chegou. Sem
       // hora, o Portal cai no horário fixo da grade dele, que é o certo.
       const presencas = mesclarPresencas(a.presencas, inbox.presencas);
-      if (presencas) {
-        patch.presencas = presencas;
-        console.log(`[INBOX] ${key}: presenca APLICADA na ficha ${a.id} → ${presencas.join(', ')}`);
-      } else if (inbox.presencas) {
-        console.log(`[INBOX] ${key}: presenca veio mas NAO mudou nada`
-          + ` (ja estava na ficha, ou formato invalido). Ficha tem: ${JSON.stringify(a.presencas ?? [])}`);
-      }
+      if (presencas) patch.presencas = presencas;
 
       if (Object.keys(patch).length) { aplicar(a.id, patch); n++; }
 
@@ -212,8 +206,6 @@ export async function mergarInboxes(alunos, aplicar) {
       }
     }));
 
-    console.log(`[INBOX] ${caixas.size} caixa(s) na nuvem · ${n} ficha(s) atualizada(s)`
-      + ` · ${orfas.length} sem ficha`);
     if (orfas.length) {
       // Fica em `error` de propósito: é dado de aluno parado, esperando alguém
       // arrumar o e-mail da ficha. Silenciar aqui foi o que criou o problema.
