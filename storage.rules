@@ -41,6 +41,23 @@ service firebase.storage {
       allow read: if ehCoach();
     }
 
+    // Diário de Evolução (app mobile) — uma foto por dia, em
+    // diario/{email}/{dia}.webp e a miniatura em diario/{email}/{dia}_mini.webp.
+    // Mais apertado que `uploadImagemValido`: só WebP (é o que o app gera) e
+    // menos de 1 MB (a foto cheia fica em ~150–250 KB). O nome é preso ao
+    // formato do dia e não há subpasta, então a pasta não vira depósito.
+    //  - o ALUNO grava/refaz/apaga só a própria pasta;
+    //  - o COACH (ehCoach) só lê.
+    match /diario/{email}/{arquivo} {
+      allow read: if (request.auth != null && request.auth.token.email == email)
+        || ehCoach();
+      allow create, update: if request.auth != null && request.auth.token.email == email
+        && arquivo.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}(_mini)?[.]webp')
+        && request.resource.size < 1024 * 1024
+        && request.resource.contentType == 'image/webp';
+      allow delete: if request.auth != null && request.auth.token.email == email;
+    }
+
     // Foto de perfil enviada pelo próprio aluno (Portal do Aluno).
     // Só o aluno cujo e-mail logado bate com a pasta pode ler/gravar.
     match /portal/{email}/{allPaths=**} {

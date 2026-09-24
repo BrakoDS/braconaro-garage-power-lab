@@ -210,6 +210,65 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Diário de Evolução (app mobile) — uma foto por dia, permanente.
+    //   diario/{email}              o aceite do diário: { aceite: { versao, aceitoEm } }
+    //   diario/{email}/fotos/{dia}  a foto do dia, id == 'AAAA-MM-DD'
+    // As imagens ficam no Storage (diario/{email}/{dia}.webp e {dia}_mini.webp);
+    // aqui só as URLs. O aviso ao coach vai em portalInbox/{email}.diario, que a
+    // regra da caixa já cobre.
+    //  - o ALUNO cria/edita/apaga só o seu (refazer a foto do dia é um update);
+    //  - o COACH (ehCoach) só LÊ: o diário é do aluno, nem o coach reescreve.
+    // Os campos são fechados: nada além do que o app grava, nos tamanhos dele.
+    function ehAlunoDono(email) {
+      return request.auth != null && request.auth.token.email == email;
+    }
+
+    function aceiteDiarioValido() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['aceite'])
+        && d.aceite is map
+        && d.aceite.keys().hasAll(['versao', 'aceitoEm'])
+        && d.aceite.keys().hasOnly(['versao', 'aceitoEm'])
+        && d.aceite.versao is string && d.aceite.versao.size() > 0 && d.aceite.versao.size() <= 10
+        && d.aceite.aceitoEm is number && d.aceite.aceitoEm > 0;
+    }
+
+    // As duas URLs têm de ser download URLs do nosso bucket, na pasta diario/ e
+    // no arquivo DESTE dia — o coach abre esse link, então não pode ser um
+    // endereço qualquer. `[.]` em vez de `\\.` só para o regex ficar legível.
+    function urlDiarioValida(url, dia, sufixo) {
+      return url is string && url.size() <= 1024
+        && url.matches('https://firebasestorage[.]googleapis[.]com/v0/b/projeto-garage-f0a2f[.]firebasestorage[.]app/o/diario%2F[^/?]+%2F'
+          + dia + sufixo + '[.]webp[?].*');
+    }
+
+    function fotoDiarioValida(dia) {
+      let d = request.resource.data;
+      return dia.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+        && d.keys().hasAll(['dia', 'em', 'url', 'miniUrl', 'largura', 'altura', 'origem'])
+        && d.keys().hasOnly(['dia', 'em', 'url', 'miniUrl', 'largura', 'altura', 'origem', 'nota'])
+        && d.dia == dia
+        && d.em is number && d.em > 0
+        && urlDiarioValida(d.url, dia, '')
+        && urlDiarioValida(d.miniUrl, dia, '_mini')
+        && d.largura is number && d.largura > 0 && d.largura <= 4096
+        && d.altura is number && d.altura > 0 && d.altura <= 4096
+        && d.origem in ['app', 'portal']
+        && (!('nota' in d) || (d.nota is string && d.nota.size() > 0 && d.nota.size() <= 140));
+    }
+
+    match /diario/{email} {
+      allow read: if ehAlunoDono(email) || ehCoach();
+      allow create, update: if ehAlunoDono(email) && aceiteDiarioValido();
+      allow delete: if ehAlunoDono(email);
+
+      match /fotos/{dia} {
+        allow read: if ehAlunoDono(email) || ehCoach();
+        allow create, update: if ehAlunoDono(email) && fotoDiarioValida(dia);
+        allow delete: if ehAlunoDono(email);
+      }
+    }
+
     // Caixa de entrada do aluno → coach (foto nova + feedbacks pós-treino).
     //  - o ALUNO lê/escreve apenas a própria caixa (id == e-mail logado);
     //  - o COACH (ehCoach) lê e limpa (merge para gestao/{uid}).
