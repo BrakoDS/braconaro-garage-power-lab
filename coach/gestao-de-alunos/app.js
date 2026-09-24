@@ -21,8 +21,8 @@ import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
 import { publicarPortal, fatia } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import * as eventos from './eventos.js';
-import { CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, filtrarEventos, historicoDasFichas, juntarEventos,
-  linhaHTML, resumoFicha } from './registros-ui.js';
+import { CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, juntarEventos, linhaDoTempoDoAluno, linhaHTML,
+  resumoFicha } from './registros-ui.js';
 import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
 import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizarDesafios } from './desafios.js';
 import { carregarGastoTreino, carregarTodosGastos } from './nutricao-read.js';
@@ -71,7 +71,7 @@ function waLink(tel) { const d = String(tel || '').replace(/\D/g, ''); if (!d) r
 const STATUS_LABEL = { ativo: 'Ativo', inativo: 'Inativo', pendente: 'Pendente' };
 
 /**
- * Registra o que o coach acabou de fazer, para a tela Registros. Depois da
+ * Registra o que o coach acabou de fazer, para a aba Registros. Depois da
  * gravação, e nunca no lugar dela: o log é testemunha da ação, não condição.
  * @param {string} tipo @param {any} a a ficha @param {string} resumo @param {any} [extra]
  */
@@ -1090,113 +1090,6 @@ function desenharLeads() {
   atualizarBadgeLeads();
 }
 
-/* ============================================================
-   TELA — Registros (o feed do que aconteceu com os alunos)
-   ============================================================
-   Três fontes numa lista só (ver registros-ui.js): os eventos gravados, os que
-   ainda estão na fila do navegador e, quando os gravados acabam, o histórico
-   reconstruído das fichas — tudo o que é anterior ao primeiro evento. */
-const REG_PAGINA = 50;
-const REG_HIST = 60; // linhas do histórico reconstruído por "Carregar mais"
-let regEventos = [];
-let regFim = false;
-let regHist = REG_HIST;
-let regCarregando = false;
-let regErro = '';
-const regFiltro = { categoria: 'todos', origem: 'todas', alunoId: '' };
-
-async function abrirRegistros() {
-  regEventos = []; regFim = false; regHist = REG_HIST; regErro = '';
-  renderRegFiltros();
-  mostrarTela('tela-registros');
-  await carregarMaisRegistros();
-}
-
-async function carregarMaisRegistros() {
-  if (regCarregando) return;
-  if (regFim) { regHist += REG_HIST; desenharRegistros(); return; }
-  regCarregando = true;
-  desenharRegistros();
-  try {
-    const antesDe = regEventos.length ? regEventos[regEventos.length - 1].em : undefined;
-    const r = await eventos.listarEventos({ antesDe, limite: REG_PAGINA, alunoId: regFiltro.alunoId || undefined });
-    regEventos = juntarEventos(regEventos, r.eventos);
-    regFim = r.fim;
-  } catch (e) {
-    // Sem os gravados (regra ainda não publicada, sem rede), a tela ainda mostra
-    // o que as fichas contam — melhor que uma tela vazia com um erro.
-    console.warn('Registros:', e?.code || e);
-    regErro = 'Não deu para ler os registros gravados agora. Abaixo, só o que as fichas contam.';
-    regFim = true;
-  } finally {
-    regCarregando = false;
-  }
-  desenharRegistros();
-}
-
-function renderRegFiltros() {
-  const chip = (grupo, v, txt) => `<button class="filtro-chip${regFiltro[grupo] === v ? ' on' : ''}" data-g="${grupo}" data-v="${v}" type="button">${txt}</button>`;
-  $('#reg-filtros').innerHTML =
-    `<div class="reg-chips">${CATEGORIAS.map(([v, t]) => chip('categoria', v, t)).join('')}</div>` +
-    `<div class="reg-chips">${FILTROS_ORIGEM.map(([v, t]) => chip('origem', v, t)).join('')}</div>`;
-  const alunos = db.listar().slice().sort((x, y) => (x.nome || '').localeCompare(y.nome || '', 'pt-BR'));
-  $('#reg-aluno').innerHTML = `<option value="">Todos os alunos</option>` +
-    alunos.map((a) => `<option value="${esc(a.id)}"${a.id === regFiltro.alunoId ? ' selected' : ''}>${esc(a.nome || 'Sem nome')}</option>`).join('');
-}
-
-function desenharRegistros() {
-  const alunos = db.listar();
-  const porId = new Map(alunos.map((a) => [String(a.id), a]));
-  // Pendentes primeiro: se um evento está nas duas listas, fica o selo "na fila".
-  const gravados = juntarEventos(eventos.pendentes().map((e) => ({ ...e, pendente: true })), regEventos);
-  let hist = [];
-  if (regFim) {
-    const chaves = new Set(gravados.map((e) => e.chave).filter(Boolean));
-    const doAluno = regFiltro.alunoId ? gravados.filter((e) => e.alunoId === regFiltro.alunoId) : gravados;
-    const antesDe = doAluno.length ? Math.min(...doAluno.map((e) => e.em || Infinity)) : Infinity;
-    hist = filtrarEventos(historicoDasFichas(alunos, { antesDe, chaves }), regFiltro);
-  }
-  const reais = filtrarEventos(gravados, regFiltro);
-  const histVisivel = hist.slice(0, regHist);
-
-  const grupos = (lista) => agruparPorDia(lista, hoje()).map((g) =>
-    `<div class="reg-dia">${esc(g.rotulo)}</div>` + g.itens.map((e) => linhaHTML(e, porId.get(String(e.alunoId)) || null)).join('')).join('');
-
-  let html = regErro ? `<div class="prog-ph">${esc(regErro)}</div>` : '';
-  html += grupos(reais);
-  if (histVisivel.length) {
-    html += `<div class="reg-antes"><b>Antes do registro</b> Reconstruído das fichas: sem origem, e sem hora quando o check-in não foi confirmado no dia.</div>`;
-    html += grupos(histVisivel);
-  }
-  if (regCarregando) html += `<div class="prog-ph">Carregando…</div>`;
-  else if (!reais.length && !histVisivel.length) {
-    html += `<div class="empty"><b>Nada por aqui</b>${regFiltro.categoria !== 'todos' || regFiltro.origem !== 'todas' || regFiltro.alunoId ? 'Nenhum registro com esses filtros.' : 'Os check-ins, fotos, feedbacks e edições de ficha aparecem aqui.'}</div>`;
-  }
-  $('#reg-lista').innerHTML = html;
-  $('#reg-mais').hidden = regCarregando || (regFim && hist.length <= regHist);
-}
-
-$('#btn-registros').addEventListener('click', abrirRegistros);
-$('#reg-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
-$('#reg-mais').addEventListener('click', carregarMaisRegistros);
-$('#reg-filtros').addEventListener('click', (e) => {
-  const b = /** @type {HTMLElement} */ (e.target).closest('[data-g]'); if (!b) return;
-  regFiltro[b.dataset.g] = b.dataset.v;
-  renderRegFiltros();
-  desenharRegistros();
-});
-$('#reg-aluno').addEventListener('change', (e) => {
-  // Trocar o aluno muda a consulta (ela passa a trazer tudo dele), então recomeça.
-  regFiltro.alunoId = /** @type {HTMLSelectElement} */ (e.target).value;
-  regEventos = []; regFim = false; regHist = REG_HIST; regErro = '';
-  carregarMaisRegistros();
-});
-$('#reg-lista').addEventListener('click', (e) => {
-  const row = /** @type {HTMLElement} */ (e.target).closest('.reg-row'); if (!row) return;
-  if (db.obter(row.dataset.id)) abrirPerfil(row.dataset.id);
-  else avisar({ texto: 'Esse aluno não tem mais ficha na Gestão.' });
-});
-
 $('#btn-leads').addEventListener('click', () => { renderLeads(); mostrarTela('tela-leads'); });
 $('#leads-voltar').addEventListener('click', () => { renderLista(); mostrarTela('tela-lista'); });
 $('#leads-list').addEventListener('change', async (e) => {
@@ -1861,7 +1754,7 @@ function abrirPerfil(id) {
   $('#btn-excluir-aluno').addEventListener('click', async () => {
     if (await confirmar({ titulo: 'Excluir aluno?', texto: `Excluir <b>${esc(a.nome || a.id)}</b>? Esta ação <b>não pode ser desfeita</b>.`, ok: 'Excluir', perigo: true })) {
       apagarFotosDoAluno(a);
-      // LGPD: a ficha sai, e o rastro dela na tela Registros sai junto.
+      // LGPD: a ficha sai, e o rastro dela na aba Registros sai junto.
       eventos.apagarEventosDoAluno(a.id);
       db.remover(a.id); renderLista(); mostrarTela('tela-lista');
     }
@@ -1964,8 +1857,90 @@ function ativarAba(nome) {
   else if (nome === 'progresso') renderProgresso();
   else if (nome === 'anamnese') renderAnamnese();
   else if (nome === 'parq') renderParq();
+  else if (nome === 'registros') abrirRegistros();
 }
 $$('.tab').forEach((t) => t.addEventListener('click', () => ativarAba(t.dataset.tab)));
+
+/* ============================================================
+   ABA REGISTROS — a linha do tempo DESTE aluno
+   ------------------------------------------------------------
+   Três fontes numa lista só (ver registros-ui.js): os eventos gravados do
+   aluno, os que ainda estão na fila do navegador e, antes do primeiro gravado,
+   o histórico reconstruído da ficha. A consulta por aluno já traz todos os
+   eventos dele de uma vez (eventos.listarEventos), então "Carregar mais" só
+   pagina o histórico reconstruído. */
+const REG_HIST = 60; // linhas do histórico reconstruído por "Carregar mais"
+let regAlunoId = ''; // de quem são os eventos em `regEventos`
+let regPedido = 0;   // a leitura mais recente; uma resposta atrasada de outro aluno é descartada
+let regEventos = [];
+let regHist = REG_HIST;
+let regCarregando = false;
+let regErro = '';
+const regFiltro = { categoria: 'todos', origem: 'todas' };
+
+async function abrirRegistros() {
+  if (!alunoAtual) return;
+  const id = String(alunoAtual.id);
+  const pedido = ++regPedido;
+  regAlunoId = id; regEventos = []; regHist = REG_HIST; regErro = ''; regCarregando = true;
+  regFiltro.categoria = 'todos'; regFiltro.origem = 'todas';
+  renderRegFiltros();
+  desenharRegistros();
+  try {
+    const r = await eventos.listarEventos({ alunoId: id });
+    if (pedido !== regPedido) return; // trocou de aluno (ou reabriu a aba) enquanto carregava
+    regEventos = r.eventos;
+  } catch (e) {
+    if (pedido !== regPedido) return;
+    // Sem os gravados (sem rede, regra fora do ar), a aba ainda mostra o que a
+    // ficha conta — melhor que uma lista vazia com um erro.
+    console.warn('Registros:', e?.code || e);
+    regErro = 'Não deu para ler os registros gravados agora. Abaixo, só o que a ficha conta.';
+  }
+  regCarregando = false;
+  desenharRegistros();
+}
+
+function renderRegFiltros() {
+  const chip = (grupo, v, txt) => `<button class="filtro-chip${regFiltro[grupo] === v ? ' on' : ''}" data-g="${grupo}" data-v="${v}" type="button">${txt}</button>`;
+  $('#reg-filtros').innerHTML =
+    `<div class="reg-chips">${CATEGORIAS.map(([v, t]) => chip('categoria', v, t)).join('')}</div>` +
+    `<div class="reg-chips">${FILTROS_ORIGEM.map(([v, t]) => chip('origem', v, t)).join('')}</div>`;
+}
+
+function desenharRegistros() {
+  const a = alunoAtual;
+  if (!a || String(a.id) !== regAlunoId) return;
+  // Pendentes primeiro: se um evento está nas duas listas, fica o selo "na fila".
+  const gravados = juntarEventos(eventos.pendentes().map((e) => ({ ...e, pendente: true })), regEventos);
+  const { reais, hist } = linhaDoTempoDoAluno(gravados, a, regFiltro);
+  // Enquanto os gravados não chegam, o histórico ainda não sabe onde começa.
+  const histVisivel = regCarregando ? [] : hist.slice(0, regHist);
+
+  const grupos = (lista) => agruparPorDia(lista, hoje()).map((g) =>
+    `<div class="reg-dia">${esc(g.rotulo)}</div>` + g.itens.map((e) => linhaHTML(e)).join('')).join('');
+
+  let html = regErro ? `<div class="prog-ph">${esc(regErro)}</div>` : '';
+  html += grupos(reais);
+  if (histVisivel.length) {
+    html += `<div class="reg-antes"><b>Antes do registro</b> Reconstruído da ficha: sem origem, e sem hora quando o check-in não foi confirmado no dia.</div>`;
+    html += grupos(histVisivel);
+  }
+  if (regCarregando) html += `<div class="prog-ph">Carregando…</div>`;
+  else if (!reais.length && !histVisivel.length) {
+    html += `<div class="empty"><b>Nada por aqui</b>${regFiltro.categoria !== 'todos' || regFiltro.origem !== 'todas' ? 'Nenhum registro com esses filtros.' : 'Os check-ins, fotos, feedbacks e edições de ficha deste aluno aparecem aqui.'}</div>`;
+  }
+  $('#reg-lista').innerHTML = html;
+  $('#reg-mais').hidden = regCarregando || hist.length <= regHist;
+}
+
+$('#reg-mais').addEventListener('click', () => { regHist += REG_HIST; desenharRegistros(); });
+$('#reg-filtros').addEventListener('click', (e) => {
+  const b = /** @type {HTMLElement} */ (e.target).closest('[data-g]'); if (!b) return;
+  regFiltro[b.dataset.g] = b.dataset.v;
+  renderRegFiltros();
+  desenharRegistros();
+});
 
 /* ============================================================
    ABA PORTAL — o Portal do Aluno deste aluno, em prévia
@@ -2825,16 +2800,21 @@ async function entrar(user) {
       renderLista();
       if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
         const a = db.obter(alunoAtual.id);
-        if (a) { alunoAtual = a; renderAvaliacoes(); }
+        if (a) { alunoAtual = a; renderAvaliacoes(); if ($('#tab-registros').classList.contains('active')) desenharRegistros(); }
       }
     }).then(async () => {
-      // 1) puxa o que os alunos enviaram (foto/feedback) e mescla no coach
+      // 1) puxa o que os alunos enviaram (foto/feedback/presença/diário) e mescla no coach
       const n = await mergarInboxes(db.listar(), (id, patch) => db.atualizar(id, patch), eventos.registrar);
       if (n) {
         renderLista();
         if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
           const a = db.obter(alunoAtual.id);
-          if (a) { alunoAtual = a; if ($('#tab-progresso').classList.contains('active')) renderProgresso(); }
+          if (a) {
+            alunoAtual = a;
+            if ($('#tab-progresso').classList.contains('active')) renderProgresso();
+            // O merge acabou de pôr eventos novos na fila (foto, feedback): aparecem já.
+            if ($('#tab-registros').classList.contains('active')) desenharRegistros();
+          }
         }
       }
       // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar

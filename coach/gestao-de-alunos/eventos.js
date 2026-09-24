@@ -132,6 +132,37 @@ export function eventosDaCaixa(aluno, inbox, patch, agora) {
   return evs;
 }
 
+const DIA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Os eventos dos avisos do Diário de Evolução (`portalInbox/{email}.diario`).
+ *
+ * Diferente do resto da caixa, o diário não muda a ficha: a foto mora em
+ * `diario/{email}/fotos/{dia}` e a caixa traz só a campainha `{ dia, em, origem }`.
+ * Por isso não depende de `patch` — cada aviso válido vira um evento.
+ *
+ * O id leva o `em`: refazer a foto do dia é outro aviso (outro `em`) e merece
+ * outra linha; o mesmo aviso aplicado duas vezes regrava a mesma linha. Aviso
+ * sem dia válido ou sem `em` fica de fora — sem `em` o id não seria estável.
+ *
+ * @param {any} aluno @param {any} inbox @returns {any[]}
+ */
+export function eventosDoDiario(aluno, inbox) {
+  if (!aluno || !inbox || !Array.isArray(inbox.diario)) return [];
+  const id = String(aluno.id);
+  const evs = [];
+  for (const av of inbox.diario) {
+    const em = num(av && av.em);
+    if (!em || !DIA_ISO.test(av.dia)) continue;
+    evs.push(novoEvento({
+      id: `diario-${id}-${av.dia}-${em}`, chave: `diario:${id}:${av.dia}:${em}`,
+      tipo: 'foto-diario', origem: origemDaCaixa(av.origem), aluno, em, dia: av.dia,
+      resumo: 'Foto do Diário de Evolução',
+    }));
+  }
+  return evs;
+}
+
 /** Campos que mudam sozinhos e não são "edição" do coach. */
 const CAMPOS_DERIVADOS = ['idade'];
 

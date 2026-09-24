@@ -1,8 +1,8 @@
 // @ts-check
 /**
- * Tela Registros — a parte que não precisa de DOM nem de Firebase.
+ * Aba Registros da ficha do aluno — a parte que não precisa de DOM nem de Firebase.
  *
- * Três fontes viram uma lista só:
+ * A linha do tempo de UM aluno. Três fontes viram uma lista só:
  *  - os eventos gravados em `gestao/{uid}/eventos` (ver eventos.js);
  *  - os que ainda estão na fila do navegador;
  *  - o HISTÓRICO reconstruído das fichas, para o que aconteceu antes de o log
@@ -21,6 +21,7 @@ export const TIPOS = {
   'troca-aula': { icone: '🔁', categoria: 'presenca' },
   'reposicao': { icone: '📅', categoria: 'presenca' },
   'foto-perfil': { icone: '📷', categoria: 'foto' },
+  'foto-diario': { icone: '📸', categoria: 'foto' },
   'feedback': { icone: '💬', categoria: 'feedback' },
   'ficha-editada': { icone: '✏️', categoria: 'ficha' },
   'avaliacao': { icone: '📏', categoria: 'ficha' },
@@ -139,6 +140,26 @@ export function juntarEventos(...listas) {
 }
 
 /**
+ * A linha do tempo de UM aluno: os eventos dele (gravados + fila) e, antes do
+ * primeiro, o que a ficha dele conta. O corte `antesDe` é o evento gravado mais
+ * antigo DESTE aluno — o de outro aluno não diz nada sobre quando o log dele começou.
+ *
+ * @param {any[]} gravados eventos já juntados (pendentes primeiro), de qualquer aluno
+ * @param {any} aluno a ficha aberta
+ * @param {{ categoria?: string, origem?: string }} [filtro]
+ * @returns {{ reais: any[], hist: any[] }} os dois do mais novo ao mais antigo, já filtrados
+ */
+export function linhaDoTempoDoAluno(gravados, aluno, { categoria, origem } = {}) {
+  if (!aluno || aluno.id == null) return { reais: [], hist: [] };
+  const id = String(aluno.id);
+  const doAluno = juntarEventos(gravados).filter((e) => String(e.alunoId) === id);
+  const chaves = new Set(doAluno.map((e) => e.chave).filter(Boolean));
+  const antesDe = doAluno.length ? Math.min(...doAluno.map((e) => e.em || Infinity)) : Infinity;
+  const hist = historicoDasFichas([aluno], { antesDe, chaves });
+  return { reais: filtrarEventos(doAluno, { categoria, origem }), hist: filtrarEventos(hist, { categoria, origem }) };
+}
+
+/**
  * @param {any[]} evs
  * @param {{ categoria?: string, origem?: string, alunoId?: string }} f
  */
@@ -178,26 +199,22 @@ export function agruparPorDia(evs, hojeIso) {
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const iniciais = (nome) => ((nome || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('') || '?').toUpperCase();
 
 /**
- * Uma linha do feed. Nome e foto vêm da ficha ATUAL quando ela existe (o aluno
- * pode ter trocado os dois); senão, do que o evento guardou.
- * @param {any} ev @param {any} aluno a ficha, ou null se não existe mais
+ * Uma linha do feed. Sem nome nem foto: a aba fica dentro da ficha, então seriam
+ * os mesmos em toda linha — e a linha não tem para onde levar, por isso não é botão.
+ * @param {any} ev
  */
-export function linhaHTML(ev, aluno) {
-  const nome = (aluno && aluno.nome) || ev.alunoNome || 'Aluno';
-  const foto = aluno && aluno.fotoUrl;
+export function linhaHTML(ev) {
   const d = new Date(ev.em || 0);
   const hora = ev.semHora ? '—' : `${dois(d.getHours())}:${dois(d.getMinutes())}`;
   const icone = (TIPOS[ev.tipo] || {}).icone || '•';
   const origem = ev.origem && ORIGEM_ROTULO[ev.origem]
     ? `<span class="reg-origem reg-origem--${esc(ev.origem)}">${esc(ORIGEM_ROTULO[ev.origem])}</span>` : '';
   const fila = ev.pendente ? `<span class="reg-fila" title="Ainda não subiu para a nuvem">na fila</span>` : '';
-  return `<button class="reg-row${ev.derivado ? ' reg-derivado' : ''}" data-id="${esc(ev.alunoId)}" type="button">
+  return `<div class="reg-row${ev.derivado ? ' reg-derivado' : ''}">
     <span class="reg-hora">${hora}</span>
-    <span class="rav">${foto ? `<img src="${esc(foto)}" alt="" />` : esc(iniciais(nome))}</span>
-    <span class="reg-txt"><span class="rnome">${esc(nome)}</span><span class="reg-res">${icone} ${esc(ev.resumo || '')}</span>${ev.detalhe ? `<span class="reg-det">“${esc(ev.detalhe)}”</span>` : ''}</span>
+    <span class="reg-txt"><span class="reg-res">${icone} ${esc(ev.resumo || '')}</span>${ev.detalhe ? `<span class="reg-det">“${esc(ev.detalhe)}”</span>` : ''}</span>
     <span class="reg-selos">${origem}${fila}</span>
-  </button>`;
+  </div>`;
 }
