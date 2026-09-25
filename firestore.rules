@@ -276,5 +276,33 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.token.email == email;
       allow read, write: if ehCoach();
     }
+
+    // Chat Coach ↔ Aluno (app mobile, Etapa 14):
+    //   chats/{email}                 o resumo da conversa (última mensagem), para a Gestão listar
+    //   chats/{email}/mensagens/{id}  uma mensagem: { texto, remetente, timestamp }
+    //  - o ALUNO lê a conversa dele e escreve só como 'aluno';
+    //  - o COACH (ehCoach) lê todas e escreve só como 'coach';
+    //  - ninguém edita nem apaga mensagem: a conversa é registro.
+    // Os campos são fechados: nada além do que o app grava, nos tamanhos dele.
+    function mensagemChatValida(email) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['texto', 'remetente', 'timestamp'])
+        && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000
+        && d.timestamp is number && d.timestamp > 0
+        && ((ehAlunoDono(email) && d.remetente == 'aluno')
+          || (ehCoach() && d.remetente == 'coach'));
+    }
+
+    match /chats/{email} {
+      allow read: if ehAlunoDono(email) || ehCoach();
+      allow create, update: if (ehAlunoDono(email) || ehCoach())
+        && request.resource.data.keys().hasOnly(['aluno', 'ultimaMensagem', 'atualizadoEm']);
+
+      match /mensagens/{id} {
+        allow read: if ehAlunoDono(email) || ehCoach();
+        allow create: if mensagemChatValida(email);
+        allow update, delete: if false;
+      }
+    }
   }
 }
