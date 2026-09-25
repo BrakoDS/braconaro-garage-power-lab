@@ -277,6 +277,13 @@ service cloud.firestore {
       allow read, write: if ehCoach();
     }
 
+    // Aparelho do aluno (app mobile): o Expo Push Token que o app grava para
+    // receber o push do chat. Quem envia é a Cloud Function
+    // notificarRespostaDoCoach (Admin SDK, não passa por aqui).
+    match /alunos/{email} {
+      allow read, write: if ehAlunoDono(email) || ehCoach();
+    }
+
     // Chat Coach ↔ Aluno (app mobile, Etapa 14):
     //   chats/{email}                 o resumo da conversa (última mensagem), para a Gestão listar
     //   chats/{email}/mensagens/{id}  uma mensagem: { texto, remetente, timestamp }
