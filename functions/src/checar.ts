@@ -46,6 +46,9 @@ import {
   preParse, montarComoIA, extrairSeriesReps, extrairCarga, nomeDaLinha, semMarcasDeCor, blocoDaLinha,
 } from './pre-parser';
 import { chaveDe, resolver, itemUtil, itemDaIA, daTaxonomia, limparParaGravar } from './catalogo';
+import {
+  URL_PUSH_EXPO, TITULO_PUSH, ehTokenExpo, tokenDoAluno, textoParaNotificar, payloadDoPush, lerRespostaExpo,
+} from './push';
 
 let falhas = 0;
 
@@ -1613,6 +1616,44 @@ ok(limparParaGravar(null) === null && limparParaGravar(undefined) === undefined,
   ok(alunoDaGestao(gestao, 'caio@box.com')?.id === '003', 'aluno inativo também recebe acesso');
   ok(alunoDaGestao(null, 'ana@box.com') === null && alunoDaGestao({}, 'ana@box.com') === null,
     'Gestão vazia ou sem lista não quebra');
+}
+
+/* ---------- push do chat (notificarRespostaDoCoach) ---------- */
+{
+  console.log('\nPush do chat');
+
+  ok(URL_PUSH_EXPO === 'https://exp.host/--/api/v2/push/send', 'URL da API de push da Expo');
+  ok(ehTokenExpo('ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]'), 'aceita ExponentPushToken[...]');
+  ok(ehTokenExpo('ExpoPushToken[abc123]'), 'aceita a grafia antiga ExpoPushToken[...]');
+  for (const lixo of ['', 'ExponentPushToken[]', 'ExponentPushToken[a b]', 'abc', 'fcm:token', null, 42, {}]) {
+    ok(!ehTokenExpo(lixo), `recusa token ${JSON.stringify(lixo)}`);
+  }
+
+  ok(tokenDoAluno({ expoPushToken: ' ExponentPushToken[abc] ' }) === 'ExponentPushToken[abc]',
+    'lê o token do doc do aluno, aparado');
+  ok(tokenDoAluno({ expoPushToken: 'lixo' }) === '', 'token torto no doc vira vazio');
+  ok(tokenDoAluno({}) === '' && tokenDoAluno(undefined) === '' && tokenDoAluno(null) === '',
+    'aluno sem doc ou sem token não quebra');
+
+  ok(textoParaNotificar({ remetente: 'coach', texto: '  Bora treinar!  ' }) === 'Bora treinar!',
+    'resposta do coach vira push, texto aparado');
+  ok(textoParaNotificar({ remetente: 'aluno', texto: 'oi' }) === '', 'mensagem do aluno não notifica o aluno');
+  ok(textoParaNotificar({ remetente: 'coach', texto: '   ' }) === '', 'texto vazio não vira push');
+  ok(textoParaNotificar({ remetente: 'coach' }) === '' && textoParaNotificar(undefined) === '',
+    'mensagem sem texto ou sem dados não quebra');
+
+  const p = payloadDoPush('ExponentPushToken[abc]', 'Bora treinar!');
+  ok(JSON.stringify(p) === JSON.stringify({
+    to: 'ExponentPushToken[abc]', sound: 'default', title: TITULO_PUSH, body: 'Bora treinar!', data: { tipo: 'chat' },
+  }), 'payload no formato da Expo', JSON.stringify(p));
+  ok(TITULO_PUSH === 'Coach - Garage Power Lab', 'título do push');
+
+  ok(lerRespostaExpo({ data: { status: 'ok', id: 'x' } }).ok, 'ticket ok (objeto)');
+  ok(lerRespostaExpo({ data: [{ status: 'ok', id: 'x' }] }).ok, 'ticket ok (lista)');
+  const naoRegistrado = lerRespostaExpo({ data: { status: 'error', message: 'm', details: { error: 'DeviceNotRegistered' } } });
+  ok(!naoRegistrado.ok && naoRegistrado.erro === 'DeviceNotRegistered', 'erro do ticket vem pelo código', naoRegistrado.erro);
+  ok(lerRespostaExpo({ errors: [{ code: 'VALIDATION_ERROR' }] }).erro === 'VALIDATION_ERROR', 'erro da requisição inteira');
+  ok(lerRespostaExpo(null).erro === 'resposta-inesperada', 'corpo ilegível não quebra');
 }
 
 console.log(

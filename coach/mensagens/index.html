@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Mensagens — Garage Power Lab</title>
+  <script>
+    // Sem a barra final (`/coach/mensagens`, como o `npx serve` reescreve o
+    // index.html), os caminhos relativos apontam para /coach/ e a página abre
+    // sem CSS e sem JS — o "Entrar" vira um envio de formulário comum. Volta
+    // para a pasta antes de carregar qualquer coisa.
+    if (!/\/$|\.html$/.test(location.pathname)) location.replace(location.pathname + '/' + location.hash);
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./mensagens.css?v=1" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+  <!-- ============ GATE (login do coach) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Mensagens</div>
+      <p class="gate-sub">Área restrita ao coach.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links">
+        <a href="#" id="gate-reset">Esqueci a senha</a>
+      </div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <h1>Mensagens</h1>
+      <div class="topbar-acoes">
+        <a class="btn ghost btn-sm" href="../index.html">Coach</a>
+        <a class="btn ghost btn-sm" href="../gestao-de-alunos/index.html">Gestão de alunos</a>
+      </div>
+    </header>
+
+    <main class="chat-shell" id="shell">
+      <!-- ESQUERDA: conversas, da mais recente para a mais antiga -->
+      <aside class="lista" aria-label="Conversas">
+        <div class="lista-hd">
+          <label class="busca">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="busca" type="search" placeholder="Buscar aluno…" autocomplete="off" />
+          </label>
+          <p class="lista-resumo" id="lista-resumo"></p>
+        </div>
+        <ul class="conversas" id="conversas" role="listbox" aria-label="Alunos que mandaram mensagem"></ul>
+      </aside>
+
+      <!-- DIREITA: a conversa aberta -->
+      <section class="conversa" aria-label="Conversa">
+        <div class="conv-vazia" id="conv-vazia">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <h2>Escolha uma conversa</h2>
+          <p>As mensagens que os alunos mandam pelo Garage App aparecem na lista ao lado, ao vivo.</p>
+        </div>
+
+        <div class="conv-ativa" id="conv-ativa" hidden>
+          <header class="conv-hd">
+            <button class="conv-voltar" id="conv-voltar" type="button" aria-label="Voltar para a lista">‹</button>
+            <span class="avatar" id="conv-avatar"></span>
+            <div class="conv-quem">
+              <strong id="conv-nome"></strong>
+              <span id="conv-email"></span>
+            </div>
+          </header>
+
+          <div class="mensagens" id="mensagens" aria-live="polite"></div>
+
+          <form class="resposta" id="form-resposta">
+            <textarea id="resposta" rows="1" maxlength="1000" placeholder="Responder… (Enter envia, Shift+Enter quebra a linha)" aria-label="Resposta para o aluno"></textarea>
+            <button class="btn" id="btn-enviar" type="submit" disabled>Enviar</button>
+          </form>
+          <p class="aviso" id="aviso" hidden></p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./mensagens.js?v=1"></script>
+</body>
+</html>

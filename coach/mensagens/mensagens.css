@@ -1,0 +1,152 @@
+/* ============================================================
+   MENSAGENS — Central de Mensagens do Coach · Garage Power Lab
+   Duas colunas (conversas | conversa aberta), no estilo do WhatsApp Web.
+   No celular vira uma coluna só: a lista, e a conversa por cima dela.
+   Tokens iguais aos de coach/coach.css — mesma paleta do site e do app.
+   ============================================================ */
+:root{
+  --bg:#09090b; --bg-2:#101013; --card:#141417; --card-2:#1b1b20;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --txt:#f5f5f6; --mut:#a1a1aa; --mut-2:#71717a;
+  --accent:#f5c518; --accent-2:#ffd84d; --accent-ink:#0a0a0b;
+  --glow:rgba(245,197,24,.45); --ok:#3fb950; --bad:#ff5d5d;
+  --font-display:'Anton','Barlow Condensed',sans-serif;
+  --font-cond:'Barlow Condensed',sans-serif;
+  --font-body:'Barlow',system-ui,sans-serif;
+  --topbar-h:64px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--font-body);line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+[hidden]{display:none !important}
+
+/* ---------- Botões ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;font-family:var(--font-cond);font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;font-size:.84rem;padding:.7em 1.2em;border:1px solid var(--accent);
+  background:var(--accent);color:var(--accent-ink);cursor:pointer;transition:.15s}
+.btn:hover{background:var(--accent-2);border-color:var(--accent-2)}
+.btn.ghost{background:transparent;color:var(--txt);border-color:var(--line-2)}
+.btn.ghost:hover{color:var(--accent);border-color:var(--accent)}
+.btn-sm{padding:.5em .9em;font-size:.76rem}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:disabled:hover{background:var(--accent);border-color:var(--accent)}
+
+/* ---------- Gate ---------- */
+#gate{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(80% 60% at 50% 0%, rgba(245,197,24,.08), transparent 60%), var(--bg)}
+.gate-box{width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;
+  background:var(--bg-2);border:1px solid var(--line);padding:28px 24px;
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+.brand{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.brand b{font-family:var(--font-display);font-weight:400;color:var(--accent)}
+.gate-sub{margin:0;color:var(--mut);font-size:.95rem}
+.gate-box input{width:100%;padding:.75em 1em;background:var(--card);border:1px solid var(--line-2);color:var(--txt);font:inherit;outline:none}
+.gate-box input:focus{border-color:var(--accent)}
+.gate-links{display:flex;flex-direction:column;gap:6px}
+.gate-links a{color:var(--mut);font-size:.85rem;cursor:pointer}
+.gate-links a:hover{color:var(--accent)}
+.gate-erro{color:var(--bad);font-size:.88rem;min-height:1.1em}
+
+/* ---------- Shell ---------- */
+#app{height:100vh;height:100dvh;display:flex;flex-direction:column}
+.topbar{flex:0 0 var(--topbar-h);display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:0 clamp(16px,3vw,32px);border-bottom:1px solid var(--line);background:var(--bg-2)}
+.topbar h1{font-family:var(--font-display);font-weight:400;text-transform:uppercase;letter-spacing:.02em;
+  font-size:clamp(1.1rem,3vw,1.5rem);margin:0;line-height:1}
+.topbar h1::before{content:'';display:inline-block;width:8px;height:.8em;background:var(--accent);margin-right:10px}
+.topbar-acoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+.chat-shell{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,360px) 1fr}
+
+/* ---------- Esquerda: conversas ---------- */
+.lista{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);background:var(--bg-2)}
+.lista-hd{padding:14px 14px 10px;border-bottom:1px solid var(--line)}
+.busca{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line-2);padding:0 12px}
+.busca:focus-within{border-color:var(--accent)}
+.busca svg{width:16px;height:16px;color:var(--mut-2);flex:none}
+.busca input{flex:1;min-width:0;background:transparent;border:0;outline:none;color:var(--txt);font:inherit;padding:.6em 0}
+.lista-resumo{margin:10px 2px 0;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;
+  letter-spacing:.08em;font-size:.74rem;color:var(--mut-2)}
+.lista-resumo b{color:var(--accent);font-weight:700}
+
+.conversas{list-style:none;margin:0;padding:0;overflow-y:auto;flex:1}
+.conv-item{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;
+  border-bottom:1px solid var(--line);border-left:3px solid transparent;transition:background .15s}
+.conv-item:hover{background:var(--card)}
+.conv-item[aria-selected="true"]{background:var(--card-2);border-left-color:var(--accent)}
+.conv-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.conv-meio{flex:1;min-width:0}
+.conv-linha{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.conv-nome{font-weight:700;font-size:.98rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-quando{flex:none;font-size:.74rem;color:var(--mut-2)}
+.conv-previa{display:flex;align-items:center;gap:8px;margin-top:2px}
+.conv-previa span{flex:1;min-width:0;font-size:.86rem;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-previa em{font-style:normal;color:var(--mut-2)}
+/* A última palavra foi do aluno: a conversa espera o coach. */
+.conv-item.aguarda .conv-nome{color:var(--txt)}
+.conv-item.aguarda .conv-quando{color:var(--accent);font-weight:700}
+.conv-item.aguarda .conv-previa span{color:var(--txt)}
+.ponto{flex:none;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--glow)}
+.lista-estado{padding:28px 18px;color:var(--mut);font-size:.9rem;text-align:center;line-height:1.55}
+.lista-estado b{color:var(--txt)}
+
+.avatar{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;overflow:hidden;
+  background:var(--card-2);border:2px solid var(--line-2);color:var(--accent);
+  font-family:var(--font-cond);font-weight:700;font-size:1rem;letter-spacing:.02em}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.conv-item.aguarda .avatar{border-color:var(--accent)}
+
+/* ---------- Direita: conversa aberta ---------- */
+.conversa{display:flex;flex-direction:column;min-height:0;min-width:0;
+  background:radial-gradient(70% 50% at 100% 0%, rgba(245,197,24,.05), transparent 60%), var(--bg)}
+.conv-vazia{margin:auto;max-width:360px;padding:24px;text-align:center;color:var(--mut)}
+.conv-vazia svg{width:52px;height:52px;color:var(--accent);opacity:.8}
+.conv-vazia h2{font-family:var(--font-display);font-weight:400;text-transform:uppercase;letter-spacing:.02em;
+  color:var(--txt);font-size:1.5rem;margin:12px 0 6px}
+.conv-vazia p{margin:0;line-height:1.55}
+
+.conv-ativa{flex:1;display:flex;flex-direction:column;min-height:0}
+.conv-hd{display:flex;align-items:center;gap:12px;padding:12px clamp(14px,2.5vw,24px);border-bottom:1px solid var(--line);background:var(--bg-2)}
+.conv-quem{display:flex;flex-direction:column;min-width:0}
+.conv-quem strong{font-size:1.05rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-quem span{font-size:.8rem;color:var(--mut-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-voltar{display:none;background:transparent;border:0;color:var(--mut);font-size:2rem;line-height:1;padding:0 6px 4px 0;cursor:pointer}
+.conv-voltar:hover{color:var(--accent)}
+
+.mensagens{flex:1;overflow-y:auto;padding:14px clamp(14px,4vw,48px) 18px;display:flex;flex-direction:column}
+.dia{align-self:center;margin:18px 0 6px;padding:3px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);
+  font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;color:var(--mut)}
+.balao{max-width:min(72%,560px);margin-top:10px;padding:8px 12px 6px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}
+.balao.seguido{margin-top:3px}
+.balao .txt{font-size:.97rem;line-height:1.45}
+.balao .hora{display:block;text-align:right;font-size:.7rem;margin-top:2px}
+/* O aluno fala da esquerda, em chumbo; o coach responde da direita, em amarelo. */
+.balao.aluno{align-self:flex-start;background:var(--card-2);border:1px solid var(--line-2);color:var(--txt)}
+.balao.aluno .hora{color:var(--mut-2)}
+.balao.aluno:not(.seguido){border-top-left-radius:4px}
+.balao.coach{align-self:flex-end;background:var(--accent);color:var(--accent-ink)}
+.balao.coach .hora{color:var(--accent-ink);opacity:.6}
+.balao.coach:not(.seguido){border-top-right-radius:4px}
+.balao.pendente{opacity:.7}
+.msgs-estado{margin:auto;color:var(--mut);font-size:.92rem;text-align:center;max-width:360px;line-height:1.55}
+
+.resposta{display:flex;align-items:flex-end;gap:10px;padding:12px clamp(14px,2.5vw,24px);border-top:1px solid var(--line);background:var(--bg-2)}
+.resposta textarea{flex:1;min-height:44px;max-height:160px;resize:none;padding:.65em 1em;background:var(--card);
+  border:1px solid var(--line-2);border-radius:22px;color:var(--txt);font:inherit;font-size:.97rem;line-height:1.45;outline:none}
+.resposta textarea:focus{border-color:var(--accent)}
+.resposta .btn{height:44px}
+.aviso{margin:0;padding:0 clamp(14px,2.5vw,24px) 10px;background:var(--bg-2);font-size:.84rem;color:var(--mut)}
+.aviso.erro{color:var(--bad)}
+
+/* ---------- Celular: uma coluna ---------- */
+@media (max-width:760px){
+  .chat-shell{grid-template-columns:1fr}
+  .conversa{display:none}
+  .chat-shell.aberta .lista{display:none}
+  .chat-shell.aberta .conversa{display:flex}
+  .conv-voltar{display:block}
+  .balao{max-width:85%}
+  .topbar-acoes .btn:last-child{display:none}
+}

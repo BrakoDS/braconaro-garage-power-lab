@@ -16,7 +16,7 @@
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
@@ -53,6 +53,7 @@ import { preParse, montarComoIA } from './pre-parser';
 import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatalogo } from './catalogo';
 import { getAuth } from 'firebase-admin/auth';
 import { alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
+import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 
 initializeApp();
 
@@ -1783,5 +1784,45 @@ export const criarAcessoAluno = onCall(
     // Sem e-mail no log: o id da ficha basta para rastrear.
     logger.info('Acesso de aluno gerado.', { alunoId: aluno.id, criado });
     return { criado, link, nome: aluno.nome };
+  },
+);
+
+/* ================================================================== *
+ * Push do chat (Central de Mensagens → celular do aluno)
+ * ================================================================== */
+
+/**
+ * Resposta do coach gravada em `chats/{email}/mensagens` → push no celular do
+ * aluno, pelo token que o app deixou em `alunos/{email}`. A regra está em
+ * `push.ts`. A mensagem já está salva quando isto roda: se o push falhar, o
+ * chat não perde nada — o aluno só não é avisado.
+ */
+export const notificarRespostaDoCoach = onDocumentCreated(
+  { document: 'chats/{email}/mensagens/{id}', timeoutSeconds: 30, memory: '256MiB' },
+  async (evento) => {
+    const texto = textoParaNotificar(evento.data?.data());
+    if (!texto) return;
+    const email = evento.params.email;
+
+    try {
+      const aluno = await getFirestore().doc(`alunos/${email}`).get();
+      const token = tokenDoAluno(aluno.data());
+      if (!token) {
+        logger.info('Aluno sem token de push — resposta não notificada.', { email });
+        return;
+      }
+      const r = await fetch(URL_PUSH_EXPO, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payloadDoPush(token, texto)),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const lido = lerRespostaExpo(await r.json().catch(() => null));
+      if (r.ok && lido.ok) logger.info('Push do chat enviado.', { email });
+      else logger.warn('Expo recusou o push do chat.', { email, http: r.status, erro: lido.erro });
+    } catch (e) {
+      // Sem relançar: o gatilho seria repetido e o aluno poderia levar o mesmo aviso duas vezes.
+      logger.error('Falha ao enviar o push do chat.', { email, erro: String(e) });
+    }
   },
 );
