@@ -22,7 +22,8 @@
  *
  * Toda mensagem tem o ⋯ com "Apagar" — a do coach e a do aluno. Toda foto tem
  * o botão de baixar, no balão e na tela cheia: salva o arquivo original como
- * `foto_garage_{timestamp}.jpg`.
+ * `foto_garage_{timestamp}.jpg` — ou, se o navegador recusar o fetch (CORS),
+ * abre a original numa aba nova.
  */
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
@@ -388,14 +389,38 @@ $('#lightbox-baixar').addEventListener('click', (/** @type {MouseEvent} */ ev) =
 });
 
 /** O aviso por cima da tela cheia — o `#aviso` da conversa fica escondido atrás dela. @param {string} texto */
-function avisarNaFoto(texto) {
+function avisarNaFoto(texto, erro = false) {
   const p = $('#lightbox-aviso');
   p.textContent = texto;
   p.hidden = !texto;
+  p.classList.toggle('erro', erro);
+}
+
+/** Os três desfechos do 📥 que viram aviso. */
+const AVISOS_DO_DOWNLOAD = {
+  aba: 'Abrindo foto original para salvar…',
+  bloqueada: 'O navegador bloqueou a aba da foto. Clique de novo em baixar para abrir a original.',
+  erro: 'Não deu para baixar a foto. Confira a conexão e tente de novo.',
+};
+
+/**
+ * O aviso do 📥, na conversa e — com a foto em tela cheia — por cima dela. O
+ * "Abrindo…" não é erro e sai sozinho; os de erro ficam até a próxima ação.
+ * @param {import('./chat.js').Mensagem} m @param {string} texto @param {boolean} erro
+ */
+function avisarDownload(m, texto, erro) {
+  avisar(texto, erro);
+  if (fotoAberta === m) avisarNaFoto(texto, erro);
+  if (erro) return;
+  setTimeout(() => {
+    if ($('#aviso').textContent === texto) avisar('');
+    if ($('#lightbox-aviso').textContent === texto) avisarNaFoto('');
+  }, 5000);
 }
 
 /**
- * Baixa a foto em alta (o arquivo do Storage) como `foto_garage_{timestamp}.jpg`.
+ * Baixa a foto em alta (o arquivo do Storage) como `foto_garage_{timestamp}.jpg`,
+ * ou — se o navegador recusar o fetch (CORS) — abre a original numa aba nova.
  * Enquanto o arquivo vem, o botão pulsa e não aceita outro clique.
  * @param {import('./chat.js').Mensagem} m @param {HTMLButtonElement} botao
  */
@@ -406,12 +431,13 @@ async function baixarFoto(m, botao) {
   avisar('');
   avisarNaFoto('');
   try {
-    await baixarArquivo(m.mediaUrl, nomeDaFotoBaixada(m.timestamp));
+    const r = await baixarArquivo(m.mediaUrl, nomeDaFotoBaixada(m.timestamp));
+    if (r?.modo === 'aba') {
+      avisarDownload(m, r.aberta ? AVISOS_DO_DOWNLOAD.aba : AVISOS_DO_DOWNLOAD.bloqueada, !r.aberta);
+    }
   } catch (e) {
     console.warn('Chat: não deu para baixar a foto.', e);
-    const texto = 'Não deu para baixar a foto. Confira a conexão e tente de novo.';
-    avisar(texto, true);
-    if (fotoAberta === m) avisarNaFoto(texto);
+    avisarDownload(m, AVISOS_DO_DOWNLOAD.erro, true);
   } finally {
     botao.classList.remove('baixando');
     botao.removeAttribute('aria-busy');

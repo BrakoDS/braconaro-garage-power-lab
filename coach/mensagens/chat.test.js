@@ -261,7 +261,8 @@ test('baixar a foto: fetch do arquivo, blob local e um clique no link com o nome
   URL.revokeObjectURL = (/** @type {string} */ u) => { revogados.push(u); };
   try {
     const URL_FOTO = 'https://firebasestorage.googleapis.com/v0/b/b/o/chats%2Fa%40b.com%2F1_imagem.jpg?alt=media&token=t';
-    await baixarArquivo(URL_FOTO, 'foto_garage_1.jpg');
+    assert.deepEqual(await baixarArquivo(URL_FOTO, 'foto_garage_1.jpg', () => assert.fail('com CORS, nada de aba')),
+      { modo: 'download' });
     assert.equal(pedidos[0].url, URL_FOTO, 'busca o arquivo original do Storage');
     assert.equal(pedidos[0].opcoes.credentials, 'omit', 'sem cookie: o Storage responde com Allow-Origin *');
     assert.deepEqual(cliques, [{ href: 'blob:local/1', download: 'foto_garage_1.jpg' }],
@@ -269,12 +270,55 @@ test('baixar a foto: fetch do arquivo, blob local e um clique no link com o nome
     assert.deepEqual(revogados, ['blob:local/1'], 'o blob local e solto depois');
 
     status = 404;
-    await assert.rejects(baixarArquivo(URL_FOTO, 'x.jpg'), /download-404/, 'arquivo que nao veio e erro, nao um .jpg vazio');
+    await assert.rejects(baixarArquivo(URL_FOTO, 'x.jpg', () => assert.fail('HTTP de erro nao abre aba')), /download-404/,
+      'arquivo que nao veio (apagado, token trocado) e erro — nem .jpg vazio, nem aba com a pagina de erro');
     assert.equal(cliques.length, 1, 'e nada e salvo');
   } finally {
     Object.assign(globalThis, { fetch: antes.fetch, document: antes.document, setTimeout: antes.setTimeout });
     URL.createObjectURL = antes.criar;
     URL.revokeObjectURL = antes.revogar;
+  }
+});
+
+// Depois do teste de cima, e por último entre os de `baixarArquivo`: a recusa
+// de CORS fica lembrada no módulo até a página recarregar.
+test('baixar a foto sem CORS: o fetch recusado abre a original numa aba — e dali em diante direto, dentro do clique', async () => {
+  const URL_FOTO = 'https://firebasestorage.googleapis.com/v0/b/b/o/chats%2Fa%40b.com%2F2_imagem.jpg?alt=media&token=t';
+  const antes = { fetch: globalThis.fetch, warn: console.warn, navegador: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
+  /** @type {string[]} */ const pedidos = [];
+  /** @type {string[]} */ const abas = [];
+  let abre = true;
+  const abrir = (/** @type {string} */ u) => { abas.push(u); return abre; };
+  globalThis.fetch = /** @type {any} */ (async (/** @type {string} */ url) => {
+    pedidos.push(url);
+    throw new TypeError('Failed to fetch'); // o que o navegador lança quando o CORS barra
+  });
+  console.warn = () => {};
+  const navegador = (/** @type {boolean} */ onLine) =>
+    Object.defineProperty(globalThis, 'navigator', { value: { onLine }, configurable: true, writable: true });
+  try {
+    navegador(false);
+    await assert.rejects(baixarArquivo(URL_FOTO, 'x.jpg', abrir), TypeError, 'sem rede, e erro: a aba tambem nao abriria a foto');
+    assert.equal(abas.length, 0);
+
+    navegador(true);
+    assert.deepEqual(await baixarArquivo(URL_FOTO, 'foto_garage_2.jpg', abrir), { modo: 'aba', aberta: true },
+      'com rede e o fetch recusado (CORS): abre a original numa aba');
+    assert.deepEqual(abas, [URL_FOTO], 'a foto original, em alta — o mesmo endereco do Storage');
+    assert.equal(pedidos.length, 2);
+
+    assert.deepEqual(await baixarArquivo(URL_FOTO, 'foto_garage_2.jpg', abrir), { modo: 'aba', aberta: true });
+    assert.equal(pedidos.length, 2, 'o segundo clique nem tenta o fetch: abre a aba na hora, antes de qualquer await');
+    assert.equal(abas.length, 2);
+
+    abre = false;
+    assert.deepEqual(await baixarArquivo(URL_FOTO, 'foto_garage_2.jpg', abrir), { modo: 'aba', aberta: false },
+      'o bloqueador de pop-ups barrou: a tela pede outro clique');
+  } finally {
+    globalThis.fetch = antes.fetch;
+    console.warn = antes.warn;
+    if (antes.navegador) Object.defineProperty(globalThis, 'navigator', antes.navegador);
+    else delete (/** @type {any} */ (globalThis)).navigator;
   }
 });
 

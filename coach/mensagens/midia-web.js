@@ -14,7 +14,8 @@
  *     não grava: o 🎤 desliga com o `AVISO_NAVEGADOR`.
  *
  * E o caminho de volta: `baixarArquivo` salva a foto da conversa no
- * computador do coach.
+ * computador do coach — ou, se o navegador recusar o `fetch` (CORS), abre a
+ * original numa aba nova para ele salvar por lá.
  *
  * Nada aqui fala com o Firebase: devolve blobs e sai do caminho.
  */
@@ -264,18 +265,57 @@ export async function iniciarGravacao() {
 }
 
 /**
+ * O navegador já recusou o `fetch` de um arquivo do Storage nesta página. Daí
+ * em diante nem tenta: abre a aba de cara, ainda dentro do clique — aberta
+ * depois de um `await`, a aba corre o risco de cair no bloqueador de pop-ups
+ * (o Safari é o mais bravo). Recarregar a página tenta o `fetch` de novo.
+ */
+let semCors = false;
+
+/**
+ * Abre a foto original numa aba nova, sem dar a ela acesso a esta. Devolve se
+ * abriu — o bloqueador de pop-ups faz o `window.open` devolver `null`. (Com
+ * 'noopener' no terceiro argumento ele devolve `null` sempre, por isso o
+ * `opener` é cortado à mão.)
+ * @param {string} url
+ */
+function abrirNumaAba(url) {
+  const aba = window.open(url, '_blank');
+  if (aba) aba.opener = null;
+  return !!aba;
+}
+
+/**
  * Baixa um arquivo da conversa para o computador, com o nome dado — o arquivo
  * original do Storage, em alta, e não a miniatura da tela.
  *
- * Um `<a href={url} download>` direto não serve: o `download` só vale na
- * mesma origem, e com o download URL do Storage o navegador só abriria a foto
- * numa aba. Então o arquivo vem por `fetch` (o endpoint do Firebase Storage
- * responde com `Access-Control-Allow-Origin: *`), vira `blob:` local, e esse
- * sim o link com `download` salva direto.
+ * Caminho principal: o arquivo vem por `fetch`, vira `blob:` local, e o link
+ * com `download` salva direto. Um `<a href={url} download>` no endereço do
+ * Storage não serviria: o `download` só vale na mesma origem, e o navegador
+ * só abriria a foto numa aba.
+ *
+ * Plano B: o `fetch` pode nem chegar a ler a resposta. O Storage põe
+ * `Access-Control-Allow-Origin: *` nas respostas de ERRO, mas a do arquivo de
+ * verdade segue o CORS do bucket — e o nosso não tem nenhum configurado.
+ * Quando o `fetch` rejeita (CORS, ou rede), a foto original abre numa aba
+ * nova, e o coach salva por lá. Resposta HTTP de erro (403/404: arquivo
+ * apagado, token trocado) não é caso de aba: é erro. Sem rede também — a aba
+ * não abriria a foto.
  * @param {string} url @param {string} nome
+ * @param {(url: string) => boolean} [abrir] quem abre a aba (o teste troca)
+ * @returns {Promise<{ modo: 'download' } | { modo: 'aba', aberta: boolean }>}
  */
-export async function baixarArquivo(url, nome) {
-  const resposta = await fetch(url, { credentials: 'omit' });
+export async function baixarArquivo(url, nome, abrir = abrirNumaAba) {
+  if (semCors) return { modo: 'aba', aberta: abrir(url) };
+  let resposta;
+  try {
+    resposta = await fetch(url, { credentials: 'omit' });
+  } catch (e) {
+    if (globalThis.navigator?.onLine === false) throw e;
+    semCors = true;
+    console.warn('Chat: o navegador recusou o fetch da foto (CORS?) — abrindo a original numa aba.', e);
+    return { modo: 'aba', aberta: abrir(url) };
+  }
   if (!resposta.ok) throw new Error(`download-${resposta.status}`);
   const local = URL.createObjectURL(await resposta.blob());
   const a = document.createElement('a');
@@ -287,4 +327,5 @@ export async function baixarArquivo(url, nome) {
   a.remove();
   // O clique só entrega o blob ao navegador; revogar na hora corta o download no Firefox e no Safari.
   setTimeout(() => URL.revokeObjectURL(local), 60_000);
+  return { modo: 'download' };
 }
