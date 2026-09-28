@@ -289,7 +289,10 @@ service cloud.firestore {
     //   chats/{email}/mensagens/{id}  uma mensagem: { texto, remetente, timestamp }
     //  - o ALUNO lê a conversa dele e escreve só como 'aluno';
     //  - o COACH (ehCoach) lê todas e escreve só como 'coach';
-    //  - ninguém edita nem apaga mensagem: a conversa é registro.
+    //  - padrão WhatsApp (Etapa 15.2), tudo por update — o documento nunca some:
+    //      quem ESCREVEU edita o texto (editado: true) ou apaga (texto '', apagado: true);
+    //      quem RECEBEU marca status 'entregue' / 'lido', e o status só avança;
+    //      apagada não volta, e ninguém mexe em remetente nem timestamp.
     // Os campos são fechados: nada além do que o app grava, nos tamanhos dele.
     function mensagemChatValida(email) {
       let d = request.resource.data;
@@ -300,6 +303,35 @@ service cloud.firestore {
           || (ehCoach() && d.remetente == 'coach'));
     }
 
+    // Quem está logado é quem escreveu a mensagem (lado == 'aluno' | 'coach').
+    function ladoDe(email, lado) {
+      return (lado == 'aluno' && ehAlunoDono(email)) || (lado == 'coach' && ehCoach());
+    }
+
+    // Quem escreveu troca o texto (editado: true) ou apaga (texto '', apagado: true).
+    // Apagada não volta: nem edição, nem "desapagar".
+    function alteracaoDoAutor(email) {
+      let antes = resource.data;
+      let d = request.resource.data;
+      let mudou = d.diff(antes).affectedKeys();
+      return ladoDe(email, antes.remetente)
+        && antes.get('apagado', false) != true
+        && ((mudou.hasOnly(['texto', 'editado'])
+              && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000
+              && d.editado == true)
+          || (mudou.hasOnly(['texto', 'apagado']) && d.texto == '' && d.apagado == true));
+    }
+
+    // Quem recebeu mexe só no status, e ele só avança: enviado → entregue → lido.
+    function recebimentoDoDestinatario(email) {
+      let antes = resource.data;
+      let d = request.resource.data;
+      return ladoDe(email, antes.remetente == 'aluno' ? 'coach' : 'aluno')
+        && d.diff(antes).affectedKeys().hasOnly(['status'])
+        && (d.status == 'lido'
+          || (d.status == 'entregue' && antes.get('status', 'enviado') == 'enviado'));
+    }
+
     match /chats/{email} {
       allow read: if ehAlunoDono(email) || ehCoach();
       allow create, update: if (ehAlunoDono(email) || ehCoach())
@@ -308,7 +340,8 @@ service cloud.firestore {
       match /mensagens/{id} {
         allow read: if ehAlunoDono(email) || ehCoach();
         allow create: if mensagemChatValida(email);
-        allow update, delete: if false;
+        allow update: if alteracaoDoAutor(email) || recebimentoDoDestinatario(email);
+        allow delete: if false;
       }
     }
   }
