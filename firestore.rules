@@ -329,14 +329,45 @@ service cloud.firestore {
     //    as mensagens do coach também) e o resumo junto. Apagar é só delete: o
     //    apagar por update da 15.2 (texto '', apagado: true) saiu quando a
     //    Central migrou (Etapa 17.1, web).
+    //  - mídia (Etapa 17.2): foto, vídeo e voz. O arquivo sobe antes ao Storage
+    //    (chats/{email}/{timestamp}_{tipo}.{ext}, ver storage.rules) e a
+    //    mensagem nasce com `tipo`, `mediaUrl`, `duracao` (vídeo e áudio) e, no
+    //    vídeo, `thumbUrl` (a capa). O `texto` continua obrigatório: na mídia é
+    //    o rótulo ("📷 Foto"), que o resumo e o push mostram. Mensagem de texto
+    //    vem sem `tipo` (ausente é 'texto') e sem nenhum campo de mídia.
     // Os campos são fechados: nada além do que o app grava, nos tamanhos dele.
     function mensagemChatValida(email) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['texto', 'remetente', 'timestamp'])
+      return d.keys().hasOnly(['texto', 'remetente', 'timestamp', 'tipo', 'mediaUrl', 'duracao', 'thumbUrl'])
         && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000
         && d.timestamp is number && d.timestamp > 0
+        && midiaDaMensagemValida(d)
         && ((ehAlunoDono(email) && d.remetente == 'aluno')
           || (ehCoach() && d.remetente == 'coach'));
+    }
+
+    // Os endereços da mídia têm de ser download URLs do nosso bucket, na pasta
+    // chats/ — quem recebe abre esse link, então não pode ser um endereço
+    // qualquer (mesmo cuidado de urlDiarioValida).
+    function urlChatValida(url) {
+      return url is string && url.size() <= 2048
+        && url.matches('https://firebasestorage[.]googleapis[.]com/v0/b/projeto-garage-f0a2f[.]firebasestorage[.]app/o/chats%2F[^/?]+%2F[^/?]+[?].*');
+    }
+
+    // Texto: nenhum campo de mídia. Mídia: `mediaUrl` obrigatório; `duracao`
+    // (segundos) só no vídeo e no áudio, até o teto do app mais a folga que o
+    // validarMidia dá (LIMITES_MIDIA em core/chat.ts: 3 min e 5 min, + 0,5 s);
+    // `thumbUrl` só no vídeo.
+    function midiaDaMensagemValida(d) {
+      let tipo = d.get('tipo', 'texto');
+      return tipo in ['texto', 'imagem', 'video', 'audio']
+        && (tipo == 'texto'
+          ? !d.keys().hasAny(['mediaUrl', 'duracao', 'thumbUrl'])
+          : urlChatValida(d.mediaUrl)
+            && (!('duracao' in d)
+              || (tipo != 'imagem' && d.duracao is number && d.duracao > 0
+                && d.duracao <= (tipo == 'video' ? 180.5 : 300.5)))
+            && (!('thumbUrl' in d) || (tipo == 'video' && urlChatValida(d.thumbUrl))));
     }
 
     // Quem está logado é quem escreveu a mensagem (lado == 'aluno' | 'coach').
@@ -346,12 +377,14 @@ service cloud.firestore {
 
     // Quem escreveu troca o texto (editado: true) — e só isso: apagar é delete.
     // A apagada da 15.2 (apagado: true) que ainda existir em conversa antiga
-    // não volta por edição; ela só sai de vez, por delete.
+    // não volta por edição; ela só sai de vez, por delete. Mídia não se edita
+    // (o texto dela é o rótulo): como o podeEditar do app, só mensagem de texto.
     function alteracaoDoAutor(email) {
       let antes = resource.data;
       let d = request.resource.data;
       return ladoDe(email, antes.remetente)
         && antes.get('apagado', false) != true
+        && antes.get('tipo', 'texto') == 'texto'
         && d.diff(antes).affectedKeys().hasOnly(['texto', 'editado'])
         && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000
         && d.editado == true;

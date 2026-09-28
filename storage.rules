@@ -21,6 +21,38 @@ service firebase.storage {
         && request.auth.uid in ['G6gfpahorCfptVxOM26sCjxMOqb2'];
     }
 
+    // O aluno dono da pasta: o e-mail logado é o da pasta. O mesmo
+    // `ehAlunoDono` do firestore.rules.
+    function ehAlunoDono(email) {
+      return request.auth != null && request.auth.token.email == email;
+    }
+
+    // Mídia do chat, nos tetos de LIMITES_MIDIA (app-mobile, core/chat.ts —
+    // os dois têm de andar juntos): foto até 5 MB, voz até 10 MB, vídeo até
+    // 50 MB. O nome segue o do app, {timestamp}_{tipo}.{ext}, com a capa do
+    // vídeo em {timestamp}_capa.jpg, e não há subpasta: a pasta não vira depósito.
+    function midiaChatValida(arquivo) {
+      return arquivo.matches('[0-9]+_(imagem|video|audio|capa)[.][a-z0-9]{2,4}')
+        && ((request.resource.contentType.matches('image/.*')
+            && request.resource.size <= 5 * 1024 * 1024)
+          || (request.resource.contentType.matches('audio/.*')
+            && request.resource.size <= 10 * 1024 * 1024)
+          || (request.resource.contentType.matches('video/.*')
+            && request.resource.size <= 50 * 1024 * 1024));
+    }
+
+    // Chat Coach ↔ Aluno (Etapa 17.2) — fotos, vídeos (e capas) e vozes da
+    // conversa, em chats/{email}/{arquivo}; a mensagem no Firestore guarda o
+    // download URL.
+    //  - o ALUNO dono e o COACH (ehCoach) leem e apagam — os dois lados apagam
+    //    a mensagem, e "Limpar conversa" esvazia a pasta (listAll + delete);
+    //  - os dois sobem arquivo novo, e só novo: sem `update`, ninguém troca o
+    //    arquivo por trás de uma mensagem que já saiu (o nome tem o timestamp).
+    match /chats/{email}/{arquivo} {
+      allow read, delete: if ehAlunoDono(email) || ehCoach();
+      allow create: if (ehAlunoDono(email) || ehCoach()) && midiaChatValida(arquivo);
+    }
+
     // Fotos da Gestão de Alunos — só o coach, e só na própria pasta
     match /gestao/{uid}/{allPaths=**} {
       allow read: if ehCoach() && request.auth.uid == uid;
