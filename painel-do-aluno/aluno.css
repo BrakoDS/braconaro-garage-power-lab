@@ -606,3 +606,27 @@ body.previa-coach::before {
   padding: 5px 8px; background: rgba(232,179,57,.16); color: var(--accent, #e8b339);
   border-bottom: 1px solid rgba(232,179,57,.4); position: sticky; top: 0; z-index: 90;
 }
+
+/* ---------- treino individual: a versão do aluno ---------- */
+.tdi-card{background:var(--card,#141417);border:1px solid var(--line,rgba(255,255,255,.08));
+  border-radius:14px;padding:14px}
+.tdi-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.tdi-head h3{margin:0;font-size:1.05rem}
+.tdi-selo{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;
+  border:1px solid var(--accent,#f5c518);color:var(--accent,#f5c518);border-radius:99px;padding:2px 9px}
+.tdi-aquec{font-size:.85rem;color:var(--mut,#a1a1aa);margin-bottom:8px}
+.tdi-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.tdi-ex{display:grid;grid-template-columns:1fr auto;gap:2px 10px;
+  border-bottom:1px dashed var(--line,rgba(255,255,255,.08));padding-bottom:6px}
+.tdi-nome{font-weight:600}
+.tdi-presc{text-align:right;white-space:nowrap}
+.tdi-presc small{color:var(--mut,#a1a1aa);font-weight:400}
+.tdi-motivo{grid-column:1/-1;font-size:.8rem;color:var(--mut,#a1a1aa)}
+.tdi-restrito{color:var(--bad,#ff5b50);font-size:.85rem}
+.tdi-aviso{color:var(--warn,#ff9e1b);font-size:.85rem;margin:8px 0 0}
+.tdi-metas{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.tdi-meta{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:.85rem}
+.tdi-barra{display:inline-block;width:120px;height:7px;border-radius:99px;
+  background:var(--bg-2,#101013);overflow:hidden;flex:0 0 auto}
+.tdi-barra span{display:block;height:100%;background:var(--accent,#f5c518)}
+.tdi-rodape{margin:10px 0 0;font-size:.88rem;color:var(--mut,#a1a1aa)}

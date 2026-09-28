@@ -72,3 +72,21 @@ export async function removerAjuste(email, dateId) {
     if (e?.code !== 'not-found') throw e;
   }
 }
+
+/**
+ * Grava as trocas por restrição de um dia, já resolvidas (nome e grupo juntos).
+ *
+ * Merge dentro do dia: as trocas ficam ao lado do ajuste que o coach fez na mão
+ * (`linhas`), sem apagá-lo. Elas existem porque o aparelho do aluno não tem o
+ * catálogo — quem tem é quem publica.
+ * @param {string} email @param {string} dateId
+ * @param {Record<string, {id: string, nome: string, padrao?: string, grupoMuscular?: string|null, motivo?: string}>} trocas
+ */
+export async function salvarTrocas(email, dateId, trocas) {
+  if (!ligado() || !email || !dateId) return;
+  await init();
+  await _fns.setDoc(_fns.doc(_db, 'treinoAluno', chaveEmail(email)), {
+    email: chaveEmail(email),
+    ajustes: { [dateId]: { trocas: trocas || {}, atualizadoEm: Date.now() } },
+  }, { merge: true });
+}

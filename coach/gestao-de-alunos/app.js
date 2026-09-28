@@ -17,7 +17,7 @@ import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import * as calc from '../../compartilhado/regras/calc.js?v=5';
 import * as storage from '../../compartilhado/regras/storage-alunos.js';
-import { exportarAvaliacao, exportarFicha } from './pdf.js?v=2';
+import { exportarAvaliacao, exportarFicha } from './pdf.js?v=3';
 import { publicarPortal, fatia } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import * as eventos from './eventos.js';
