@@ -72,3 +72,25 @@ test('mural de recordes: o grupo prs so e lido pelo coach, e ninguem escreve por
   assert.ok(bloco, 'match /{path=**}/prs/{id} existe');
   assert.deepEqual(bloco.split('}')[0].match(/allow [^;]+;/g), ['allow read: if ehCoach();']);
 });
+
+test('chat: apagar e so delete, e nenhum update grava apagado (Etapa 17.1)', () => {
+  // O apagar por update da 15.2 (texto '', apagado: true) saiu quando a Central
+  // migrou para o delete. Se o ramo voltar, a mensagem "apagada" fica no
+  // Firestore e o texto dela pode voltar para a tela de quem ainda lê o legado.
+  const c = codigo(firestore);
+  const chats = c.split('match /chats/{email} {')[1];
+  assert.ok(chats, 'match /chats/{email} existe');
+  const [resumo, mensagens] = chats.split('match /mensagens/{id} {');
+  assert.ok(mensagens, 'match /mensagens/{id} existe dentro de chats');
+  const allows = (/** @type {string} */ s) => s.split('}')[0].match(/allow [^;]+;/g) || [];
+  assert.ok(allows(resumo).includes('allow delete: if ehAlunoDono(email) || ehCoach();'), 'o resumo sai com a conversa');
+  assert.ok(allows(mensagens).includes('allow delete: if ehAlunoDono(email) || ehCoach();'), 'os dois lados apagam a mensagem');
+
+  const autor = c.split('function alteracaoDoAutor(email) {')[1]?.split('\n    }')[0];
+  assert.ok(autor, 'function alteracaoDoAutor existe');
+  assert.match(autor, /affectedKeys\(\)\.hasOnly\(\['texto', 'editado'\]\)/, 'o autor so troca o texto');
+  assert.deepEqual(autor.match(/apagado[^\n]*/g), ["apagado', false) != true"],
+    'apagado so aparece na guarda: a apagada antiga nao volta por edicao');
+  assert.doesNotMatch(c.split('match /chats/{email} {')[0].split('function mensagemChatValida')[1] || '', /d\.apagado/,
+    'nenhuma funcao do chat aceita apagado no documento novo');
+});

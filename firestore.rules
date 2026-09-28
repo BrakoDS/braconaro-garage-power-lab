@@ -326,9 +326,9 @@ service cloud.firestore {
     //      ninguém mexe em remetente nem timestamp.
     //  - apagar de verdade (Etapa 17.1): os DOIS lados da conversa apagam
     //    documento — a mensagem, ou a conversa inteira ("Limpar conversa" leva
-    //    as mensagens do coach também) e o resumo junto.
-    //  - o apagar antigo (texto '', apagado: true) continua valendo só até a
-    //    Central migrar para o delete; depois, o ramo sai do alteracaoDoAutor.
+    //    as mensagens do coach também) e o resumo junto. Apagar é só delete: o
+    //    apagar por update da 15.2 (texto '', apagado: true) saiu quando a
+    //    Central migrou (Etapa 17.1, web).
     // Os campos são fechados: nada além do que o app grava, nos tamanhos dele.
     function mensagemChatValida(email) {
       let d = request.resource.data;
@@ -344,19 +344,17 @@ service cloud.firestore {
       return (lado == 'aluno' && ehAlunoDono(email)) || (lado == 'coach' && ehCoach());
     }
 
-    // Quem escreveu troca o texto (editado: true) ou — legado da 15.2, só a
-    // Central ainda usa — apaga por update (texto '', apagado: true).
-    // Apagada não volta: nem edição, nem "desapagar".
+    // Quem escreveu troca o texto (editado: true) — e só isso: apagar é delete.
+    // A apagada da 15.2 (apagado: true) que ainda existir em conversa antiga
+    // não volta por edição; ela só sai de vez, por delete.
     function alteracaoDoAutor(email) {
       let antes = resource.data;
       let d = request.resource.data;
-      let mudou = d.diff(antes).affectedKeys();
       return ladoDe(email, antes.remetente)
         && antes.get('apagado', false) != true
-        && ((mudou.hasOnly(['texto', 'editado'])
-              && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000
-              && d.editado == true)
-          || (mudou.hasOnly(['texto', 'apagado']) && d.texto == '' && d.apagado == true));
+        && d.diff(antes).affectedKeys().hasOnly(['texto', 'editado'])
+        && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000
+        && d.editado == true;
     }
 
     // Quem recebeu mexe só no status, e ele só avança: enviado → entregue → lido.
