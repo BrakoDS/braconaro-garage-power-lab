@@ -10,6 +10,12 @@
  * documento; o `timestamp` é o relógio do aparelho em ms (um Timestamp do
  * Firestore também é aceito na leitura).
  *
+ * Padrão WhatsApp (Etapa 15.2): a mensagem nasce SÓ com os três campos — sem
+ * `status`, que a leitura entende como 'enviado'. O resto chega por update:
+ *   - `status`  quem RECEBEU marca 'entregue' / 'lido' (só avança, nunca volta);
+ *   - `editado` quem ESCREVEU trocou o texto;
+ *   - `apagado` quem ESCREVEU apagou — o texto original sai do documento.
+ *
  * Rodar os testes: node --test coach/mensagens/chat.test.js
  */
 
@@ -28,10 +34,15 @@ export const RESUMO_MAX = 120;
 /** Duas mensagens seguidas da mesma pessoa, dentro disto, formam um bloco. */
 export const JANELA_DO_BLOCO_MS = 5 * 60_000;
 
+/** O que aparece no lugar do texto de uma mensagem apagada. */
+export const TEXTO_APAGADA = '🚫 Mensagem apagada';
+
 /**
  * @typedef {'aluno'|'coach'} Remetente
+ * @typedef {'enviado'|'entregue'|'lido'} StatusMensagem
  * @typedef {{ texto: string, remetente: Remetente, timestamp: number }} NovaMensagem
- * @typedef {NovaMensagem & { id: string, pendente?: boolean }} Mensagem
+ * @typedef {NovaMensagem & { id: string, status: StatusMensagem, editado: boolean, apagado: boolean,
+ *   pendente?: boolean }} Mensagem
  * @typedef {{ email: string, ultimaMensagem: NovaMensagem | null, atualizadoEm: number }} Conversa
  */
 
@@ -73,6 +84,49 @@ export function novaMensagem(texto, remetente, agora = Date.now()) {
   return t ? { texto: t, remetente, timestamp: agora } : null;
 }
 
+/** O update da edição, ou `null` se o texto novo não vale uma mensagem. @param {unknown} texto */
+export function edicaoDaMensagem(texto) {
+  const t = prepararTexto(texto);
+  return t ? { texto: t, editado: /** @type {true} */ (true) } : null;
+}
+
+/** O update do apagamento — sempre o mesmo: o texto original sai do documento. */
+export function apagamentoDaMensagem() {
+  return { texto: /** @type {''} */ (''), apagado: /** @type {true} */ (true) };
+}
+
+/**
+ * O coach só mexe na resposta dele, já gravada, e mensagem apagada não volta.
+ * @param {Pick<Mensagem, 'remetente'|'apagado'|'pendente'>} m
+ */
+export function podeAlterar(m) {
+  return m.remetente === 'coach' && !m.apagado && !m.pendente;
+}
+
+/**
+ * As mensagens do aluno que o coach deve marcar, e com qual status: com a
+ * conversa à vista, 'lido'; com a aba escondida, só 'entregue' — e 'entregue'
+ * só sai de 'enviado', que o status nunca volta. A pendente fica de fora.
+ * @param {Mensagem[]} mensagens @param {boolean} aVista
+ * @returns {{ status: 'entregue'|'lido', ids: string[] }}
+ */
+export function paraMarcar(mensagens, aVista) {
+  const status = aVista ? 'lido' : 'entregue';
+  const ids = mensagens
+    .filter((m) => m.remetente === 'aluno' && !m.pendente
+      && (aVista ? m.status !== 'lido' : m.status === 'enviado'))
+    .map((m) => m.id);
+  return { status, ids };
+}
+
+/**
+ * Os ticks da resposta do coach: um ✓ enviado, dois entregue, dois em destaque lido.
+ * @param {StatusMensagem} status
+ */
+export function ticksDoStatus(status) {
+  return { marca: status === 'enviado' ? '✓' : '✓✓', lido: status === 'lido' };
+}
+
 /**
  * O resumo da conversa: a última mensagem, com o texto encurtado.
  * @param {string} aluno @param {NovaMensagem} m
@@ -97,18 +151,35 @@ export function emMs(v) {
   return 0;
 }
 
+/** Status gravado, ou 'enviado' — a mensagem nasce sem ele, e lixo não vira tick. @returns {StatusMensagem} */
+export function normalizarStatus(/** @type {unknown} */ v) {
+  return v === 'entregue' || v === 'lido' ? v : 'enviado';
+}
+
 /**
- * Lê uma mensagem do servidor sem confiar nela.
+ * Lê uma mensagem do servidor sem confiar nela. Sem texto não é mensagem, a
+ * não ser a apagada: essa perde o texto de propósito (e, se algum sobrou no
+ * documento, ele não é mostrado).
  * @param {string} id @param {unknown} dados @returns {Mensagem|null}
  */
 export function normalizarMensagem(id, dados) {
   if (!id || !dados || typeof dados !== 'object') return null;
   const d = /** @type {Record<string, unknown>} */ (dados);
   if (d.remetente !== 'aluno' && d.remetente !== 'coach') return null;
-  const texto = typeof d.texto === 'string' ? d.texto.trim() : '';
   const timestamp = emMs(d.timestamp);
-  if (!texto || !timestamp) return null;
-  return { id, texto, remetente: d.remetente, timestamp };
+  if (!timestamp) return null;
+  const apagado = d.apagado === true;
+  const texto = apagado ? '' : (typeof d.texto === 'string' ? d.texto.trim() : '');
+  if (!apagado && !texto) return null;
+  return {
+    id,
+    texto,
+    remetente: d.remetente,
+    timestamp,
+    status: normalizarStatus(d.status),
+    editado: !apagado && d.editado === true,
+    apagado,
+  };
 }
 
 /**

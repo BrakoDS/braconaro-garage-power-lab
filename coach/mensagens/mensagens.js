@@ -15,8 +15,11 @@
  */
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import { enviarResposta, ouvirConversas, ouvirMensagens } from './chat-db.js';
 import {
+  apagarMensagem, editarMensagem, enviarResposta, marcarStatus, ouvirConversas, ouvirMensagens,
+} from './chat-db.js';
+import {
+  TEXTO_APAGADA,
   aguardaResposta,
   alunoDaConversa,
   casaBusca,
@@ -24,8 +27,11 @@ import {
   horaDaMensagem,
   iniciais,
   itensDoChat,
+  paraMarcar,
+  podeAlterar,
   prepararTexto,
   quandoNaLista,
+  ticksDoStatus,
 } from './chat.js';
 
 const $ = (/** @type {string} */ s) => /** @type {any} */ (document.querySelector(s));
@@ -49,6 +55,16 @@ let carregandoLista = true;
 let erroLista = null;
 /** A próxima pintura das mensagens desce até o fim (conversa aberta agora, ou resposta enviada). */
 let descerAoFim = false;
+/** A resposta do coach que está no campo para ser editada. @type {string|null} */
+let editando = null;
+/** A mensagem com o menu (Editar / Apagar) aberto. @type {string|null} */
+let menuAberto = null;
+/**
+ * Status já mandado por mensagem do aluno: o snapshot volta a cada escrita, e
+ * uma recusa da regra não pode virar um laço de tentativas.
+ * @type {Map<string, string>}
+ */
+let jaMarcadas = new Map();
 
 const TITULO = document.title;
 
@@ -126,7 +142,7 @@ function renderCabecalho() {
   $('#conv-email').textContent = a.naFicha ? ativa : `${ativa} · sem ficha na Gestão`;
 }
 
-function renderMensagens(/** @type {string} [estado] */ estado) {
+function renderMensagens(estado = '') {
   const box = $('#mensagens');
   if (estado) { box.innerHTML = `<p class="msgs-estado">${estado}</p>`; return; }
   if (!mensagens.length) {
@@ -138,12 +154,113 @@ function renderMensagens(/** @type {string} [estado] */ estado) {
   box.innerHTML = itensDoChat(mensagens).map((it) => {
     if (it.tipo === 'dia') return `<span class="dia">${esc(it.rotulo)}</span>`;
     const m = it.mensagem;
-    const cls = ['balao', m.remetente, it.continuacao ? 'seguido' : '', m.pendente ? 'pendente' : ''].filter(Boolean).join(' ');
-    const marca = m.remetente === 'coach' ? (m.pendente ? ' · enviando…' : ' ✓') : '';
-    return `<div class="${cls}"><span class="txt">${esc(m.texto)}</span><span class="hora">${horaDaMensagem(m.timestamp)}${marca}</span></div>`;
+    const cls = ['balao', m.remetente, it.continuacao ? 'seguido' : '', m.pendente ? 'pendente' : '',
+      m.apagado ? 'apagada' : '', m.id === editando ? 'editando' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-id="${esc(m.id)}">${acoesHtml(m)}<span class="txt">${esc(m.apagado ? TEXTO_APAGADA : m.texto)}</span>`
+      + `<span class="hora">${m.editado ? '<span class="editada">editada</span>' : ''}${horaDaMensagem(m.timestamp)}${marcaHtml(m)}</span></div>`;
   }).join('');
   if (perto || descerAoFim) box.scrollTop = box.scrollHeight;
   descerAoFim = false;
+}
+
+/** Os ticks da resposta do coach (✓ enviado, ✓✓ entregue, ✓✓ amarelo lido). @param {import('./chat.js').Mensagem} m */
+function marcaHtml(m) {
+  if (m.remetente !== 'coach' || m.apagado) return '';
+  if (m.pendente) return ' · enviando…';
+  const t = ticksDoStatus(m.status);
+  const rotulo = { enviado: 'Enviada', entregue: 'Entregue', lido: 'Lida pelo aluno' }[m.status];
+  return ` <span class="ticks${t.lido ? ' lido' : ''}" title="${rotulo}" aria-label="${rotulo}">${t.marca}</span>`;
+}
+
+/** O ⋯ da resposta do coach, e o menu dele quando aberto. @param {import('./chat.js').Mensagem} m */
+function acoesHtml(m) {
+  if (!podeAlterar(m)) return '';
+  const aberto = m.id === menuAberto;
+  return `<button class="balao-mais" type="button" data-acao="menu" aria-label="Opções da mensagem"
+      aria-haspopup="menu" aria-expanded="${aberto}">⋯</button>`
+    + (aberto ? `<div class="balao-menu" role="menu">
+        <button type="button" role="menuitem" data-acao="editar">Editar</button>
+        <button type="button" role="menuitem" data-acao="apagar">Apagar</button>
+      </div>` : '');
+}
+
+/** Se a mensagem é a última da conversa, o que o resumo precisa para acompanhar a troca. @param {string} id */
+function ultimaSeFor(id) {
+  const ultima = mensagens[mensagens.length - 1];
+  return ultima?.id === id ? { remetente: ultima.remetente, timestamp: ultima.timestamp } : undefined;
+}
+
+/**
+ * Os ticks do lado do aluno: com a conversa à vista, as mensagens dele viram
+ * 'lido'; com a aba escondida (ou a lista por cima, no celular), só 'entregue'.
+ */
+function marcarRecebidas() {
+  const email = ativa;
+  if (!email) return;
+  const aVista = !document.hidden && $('#conv-ativa').offsetParent !== null;
+  const { status, ids } = paraMarcar(mensagens, aVista);
+  const novos = ids.filter((id) => jaMarcadas.get(id) !== status && jaMarcadas.get(id) !== 'lido');
+  if (!novos.length) return;
+  novos.forEach((id) => jaMarcadas.set(id, status));
+  marcarStatus(email, novos, status).catch((e) => {
+    // Sem rede, o lote já está na fila do SDK e sobe quando a conexão voltar.
+    console.warn(`Chat: não deu para marcar como ${status}.`, e?.code || e);
+  });
+}
+document.addEventListener('visibilitychange', marcarRecebidas);
+
+$('#mensagens').addEventListener('click', async (/** @type {MouseEvent} */ ev) => {
+  const botao = /** @type {HTMLElement|null} */ (/** @type {HTMLElement} */ (ev.target).closest('[data-acao]'));
+  const id = /** @type {HTMLElement|null} */ (botao?.closest('.balao'))?.dataset.id;
+  const m = id ? mensagens.find((x) => x.id === id) : undefined;
+  if (!botao || !m || !podeAlterar(m)) {
+    if (menuAberto) { menuAberto = null; renderMensagens(); }
+    return;
+  }
+  const acao = botao.dataset.acao;
+  menuAberto = acao === 'menu' && menuAberto !== m.id ? m.id : null;
+  renderMensagens();
+  if (acao === 'editar') iniciarEdicao(m);
+  if (acao === 'apagar') await apagar(m);
+});
+
+/** @param {import('./chat.js').Mensagem} m */
+function iniciarEdicao(m) {
+  editando = m.id;
+  const ta = $('#resposta');
+  ta.value = m.texto;
+  $('#editando').hidden = false;
+  $('#btn-enviar').textContent = 'Salvar';
+  ajustarCampo();
+  renderMensagens();
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function cancelarEdicao() {
+  if (!editando) return;
+  editando = null;
+  $('#resposta').value = '';
+  $('#editando').hidden = true;
+  $('#btn-enviar').textContent = 'Enviar';
+  ajustarCampo();
+  renderMensagens();
+}
+$('#editando-cancelar').addEventListener('click', cancelarEdicao);
+
+/** @param {import('./chat.js').Mensagem} m */
+async function apagar(m) {
+  if (!confirm('Apagar esta mensagem? Ela some para você e para o aluno.')) return;
+  const email = ativa;
+  if (!email) return;
+  if (editando === m.id) cancelarEdicao();
+  avisar('');
+  try {
+    await apagarMensagem(email, m.id, ultimaSeFor(m.id));
+  } catch (e) {
+    console.warn('Chat: exclusão recusada.', /** @type {any} */ (e)?.code || e);
+    avisar('Não deu para apagar a mensagem. Confira a conexão e tente de novo.', true);
+  }
 }
 
 /** @param {string} email */
@@ -151,8 +268,9 @@ function abrirConversa(email) {
   const id = emailKey(email);
   if (!id) return;
   $('#shell').classList.add('aberta');
-  if (id === ativa) return;
+  if (id === ativa) { marcarRecebidas(); return; }
 
+  cancelarEdicao();
   ativa = id;
   rodada += 1;
   const minha = rodada;
@@ -160,6 +278,8 @@ function abrirConversa(email) {
   pararMensagens?.();
   pararMensagens = null;
   mensagens = [];
+  menuAberto = null;
+  jaMarcadas = new Map();
   descerAoFim = true;
   avisar('');
   $('#conv-vazia').hidden = true;
@@ -174,6 +294,7 @@ function abrirConversa(email) {
     if (minha !== rodada) return;
     mensagens = lista;
     renderMensagens();
+    marcarRecebidas();
   }, (e) => {
     if (minha !== rodada) return;
     console.warn('Chat: não deu para escutar a conversa.', e?.code || e);
@@ -221,7 +342,28 @@ $('#resposta').addEventListener('keydown', (/** @type {KeyboardEvent} */ ev) => 
     ev.preventDefault();
     $('#form-resposta').requestSubmit();
   }
+  if (ev.key === 'Escape' && editando) { ev.preventDefault(); cancelarEdicao(); }
 });
+
+/** Salva a edição que está no campo. @param {string} email @param {string} id @param {string} texto */
+async function salvarEdicao(email, id, texto) {
+  const original = mensagens.find((m) => m.id === id);
+  const ultima = ultimaSeFor(id);
+  cancelarEdicao();
+  if (original && prepararTexto(texto) === original.texto) return; // nada mudou
+  try {
+    await editarMensagem(email, id, texto, ultima);
+  } catch (e) {
+    console.warn('Chat: edição recusada.', /** @type {any} */ (e)?.code || e);
+    const m = mensagens.find((x) => x.id === id);
+    if (ativa === email && !editando && !$('#resposta').value && m && podeAlterar(m)) {
+      iniciarEdicao(m);
+      $('#resposta').value = texto;
+      ajustarCampo();
+    }
+    avisar('Não deu para salvar a edição. Confira a conexão e tente de novo.', true);
+  }
+}
 
 $('#form-resposta').addEventListener('submit', async (/** @type {SubmitEvent} */ ev) => {
   ev.preventDefault();
@@ -229,6 +371,7 @@ $('#form-resposta').addEventListener('submit', async (/** @type {SubmitEvent} */
   const ta = $('#resposta');
   const texto = ta.value;
   if (!email || !prepararTexto(texto)) return;
+  if (editando) { avisar(''); await salvarEdicao(email, editando, texto); return; }
   // Limpa antes de esperar: o balão aparece na hora (o SDK devolve a escrita
   // pendente), e um segundo Enter não acha texto para repetir.
   ta.value = '';

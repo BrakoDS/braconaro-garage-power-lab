@@ -8,11 +8,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   RESUMO_MAX,
+  TEXTO_APAGADA,
   TEXTO_MAX,
   aguardaResposta,
   alunoDaConversa,
+  apagamentoDaMensagem,
   casaBusca,
+  edicaoDaMensagem,
   emMs,
+  normalizarStatus,
+  paraMarcar,
+  podeAlterar,
+  ticksDoStatus,
   horaDaMensagem,
   iniciais,
   itensDoChat,
@@ -139,4 +146,68 @@ test('iniciais e busca sem acento', () => {
   assert.ok(casaBusca({ nome: 'João Silva', email: 'js@box.com' }, 'JS@'));
   assert.ok(!casaBusca({ nome: 'João Silva', email: 'js@box.com' }, 'ana'));
   assert.ok(casaBusca({ nome: 'x', email: 'y' }, '  '), 'busca vazia mostra todos');
+});
+
+/* ---------- Padrão WhatsApp (Etapa 15.2) ---------- */
+
+const doServidor = (/** @type {Record<string, unknown>} */ extra) =>
+  normalizarMensagem('m1', { texto: 'Bora treinar', remetente: 'coach', timestamp: AGORA, ...extra });
+
+test('sem status gravado a mensagem esta enviada, e lixo nao vira tick', () => {
+  assert.equal(doServidor({})?.status, 'enviado');
+  assert.equal(doServidor({ status: 'entregue' })?.status, 'entregue');
+  assert.equal(doServidor({ status: 'lido' })?.status, 'lido');
+  assert.equal(normalizarStatus('visto'), 'enviado');
+  assert.equal(normalizarStatus(undefined), 'enviado');
+});
+
+test('a mensagem editada chega marcada, e a apagada chega sem o texto', () => {
+  const editada = doServidor({ texto: 'Bora treinar amanha', editado: true });
+  assert.equal(editada?.editado, true);
+  assert.equal(editada?.texto, 'Bora treinar amanha');
+  assert.equal(doServidor({ editado: 'sim' })?.editado, false, 'so true conta');
+
+  const apagada = doServidor({ texto: '', apagado: true });
+  assert.ok(apagada, 'a apagada continua na conversa, mesmo sem texto');
+  assert.equal(apagada?.apagado, true);
+  assert.equal(apagada?.texto, '');
+  assert.equal(apagada?.editado, false);
+  assert.equal(doServidor({ texto: 'sobrou', apagado: true, editado: true })?.texto, '',
+    'texto que sobrou numa apagada nao e mostrado');
+  assert.equal(TEXTO_APAGADA, '🚫 Mensagem apagada');
+});
+
+test('a edicao grava o texto preparado e editado: true; o apagamento zera o texto', () => {
+  assert.deepEqual(edicaoDaMensagem('  Pode ser amanha.  '), { texto: 'Pode ser amanha.', editado: true });
+  assert.equal(edicaoDaMensagem('   '), null, 'edicao vazia nao sai — para sumir com a mensagem, apagar');
+  assert.deepEqual(apagamentoDaMensagem(), { texto: '', apagado: true });
+});
+
+test('o coach so mexe na resposta dele, ja gravada e nao apagada', () => {
+  assert.ok(podeAlterar({ remetente: 'coach', apagado: false }));
+  assert.ok(!podeAlterar({ remetente: 'aluno', apagado: false }), 'mensagem do aluno nao');
+  assert.ok(!podeAlterar({ remetente: 'coach', apagado: true }), 'apagada nao volta');
+  assert.ok(!podeAlterar({ remetente: 'coach', apagado: false, pendente: true }), 'ainda a caminho nao');
+});
+
+test('a mensagem do aluno vira lido com a conversa a vista, e entregue com a aba escondida', () => {
+  const m = (/** @type {string} */ id, /** @type {'aluno'|'coach'} */ remetente, /** @type {any} */ status, pendente = false) =>
+    ({ id, texto: id, remetente, timestamp: AGORA, status, editado: false, apagado: false, pendente });
+  const lista = [
+    m('a1', 'aluno', 'enviado'),
+    m('a2', 'aluno', 'entregue'),
+    m('a3', 'aluno', 'lido'),
+    m('c1', 'coach', 'enviado'),
+    m('a4', 'aluno', 'enviado', true),
+  ];
+  assert.deepEqual(paraMarcar(lista, true), { status: 'lido', ids: ['a1', 'a2'] });
+  assert.deepEqual(paraMarcar(lista, false), { status: 'entregue', ids: ['a1'] },
+    'entregue so sai de enviado: o status nunca volta');
+  assert.deepEqual(paraMarcar([], true).ids, []);
+});
+
+test('os ticks: um enviado, dois entregue, dois em destaque lido', () => {
+  assert.deepEqual(ticksDoStatus('enviado'), { marca: '✓', lido: false });
+  assert.deepEqual(ticksDoStatus('entregue'), { marca: '✓✓', lido: false });
+  assert.deepEqual(ticksDoStatus('lido'), { marca: '✓✓', lido: true });
 });
