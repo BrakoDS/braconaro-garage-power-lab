@@ -18,7 +18,8 @@
  * Apagar (Etapa 17.1) é apagar de verdade: o documento sai do Firestore e a
  * escuta tira o balão da tela — não fica "Mensagem apagada" no lugar. O
  * `apagado: true` da 15.2 (texto '' no documento) ainda pode existir em
- * conversa antiga: é lido como mensagem que não existe mais.
+ * conversa antiga: é lido como mensagem que não existe mais. Na Central, o
+ * coach apaga qualquer mensagem, a dele e a do aluno (`podeApagar`).
  *
  * Mídia (Etapa 17.2 no app, 17.3 aqui): foto, vídeo e voz. O arquivo vai para
  * o Storage em `chats/{email}/{timestamp}_{tipo}.{ext}` e SÓ DEPOIS nasce a
@@ -129,20 +130,33 @@ export function edicaoDaMensagem(texto) {
 }
 
 /**
- * O coach só apaga a resposta dele, já gravada.
+ * O coach apaga QUALQUER mensagem da conversa, a dele e a do aluno — a regra
+ * deixa os dois lados apagarem, como no "Limpar conversa". Só a resposta dele
+ * ainda a caminho não: ela não chegou ao servidor. A do aluno já veio de lá —
+ * o `pendente` nela é só o 'lido' que o coach está marcando, e não impede nada.
  * @param {Pick<Mensagem, 'remetente'|'pendente'>} m
  */
 export function podeApagar(m) {
-  return m.remetente === 'coach' && !m.pendente;
+  return m.remetente === 'aluno' || !m.pendente;
 }
 
 /**
- * E só edita a de texto — foto, vídeo e voz não têm texto para trocar (a
- * regra `alteracaoDoAutor` também exige tipo texto).
+ * Editar, só a resposta dele, já gravada, e de texto — foto, vídeo e voz não
+ * têm texto para trocar (a regra `alteracaoDoAutor` exige o autor e tipo texto).
  * @param {Pick<Mensagem, 'remetente'|'pendente'|'tipo'>} m
  */
 export function podeEditar(m) {
-  return podeApagar(m) && m.tipo === 'texto';
+  return m.remetente === 'coach' && !m.pendente && m.tipo === 'texto';
+}
+
+/**
+ * O nome da foto baixada: `foto_garage_{timestamp}.jpg`, com a hora da
+ * mensagem. É sempre JPEG: o app manda JPEG e a Central converte no canvas.
+ * @param {number} timestamp
+ */
+export function nomeDaFotoBaixada(timestamp) {
+  const ts = Number.isFinite(timestamp) && timestamp > 0 ? Math.round(timestamp) : Date.now();
+  return `foto_garage_${ts}.jpg`;
 }
 
 /** Segundos como no relógio do WhatsApp: '0:05', '1:02', '1:00:00'. @param {number} segundos */

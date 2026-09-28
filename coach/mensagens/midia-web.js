@@ -13,6 +13,9 @@
  *     navegador que o iPhone toca. Navegador que só grava WebM/Opus (Firefox)
  *     não grava: o 🎤 desliga com o `AVISO_NAVEGADOR`.
  *
+ * E o caminho de volta: `baixarArquivo` salva a foto da conversa no
+ * computador do coach.
+ *
  * Nada aqui fala com o Firebase: devolve blobs e sai do caminho.
  */
 import {
@@ -258,4 +261,30 @@ export async function iniciarGravacao() {
       soltar();
     },
   };
+}
+
+/**
+ * Baixa um arquivo da conversa para o computador, com o nome dado — o arquivo
+ * original do Storage, em alta, e não a miniatura da tela.
+ *
+ * Um `<a href={url} download>` direto não serve: o `download` só vale na
+ * mesma origem, e com o download URL do Storage o navegador só abriria a foto
+ * numa aba. Então o arquivo vem por `fetch` (o endpoint do Firebase Storage
+ * responde com `Access-Control-Allow-Origin: *`), vira `blob:` local, e esse
+ * sim o link com `download` salva direto.
+ * @param {string} url @param {string} nome
+ */
+export async function baixarArquivo(url, nome) {
+  const resposta = await fetch(url, { credentials: 'omit' });
+  if (!resposta.ok) throw new Error(`download-${resposta.status}`);
+  const local = URL.createObjectURL(await resposta.blob());
+  const a = document.createElement('a');
+  a.href = local;
+  a.download = nome;
+  a.hidden = true;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // O clique só entrega o blob ao navegador; revogar na hora corta o download no Firefox e no Safari.
+  setTimeout(() => URL.revokeObjectURL(local), 60_000);
 }

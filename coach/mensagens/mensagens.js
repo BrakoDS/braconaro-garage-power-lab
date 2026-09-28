@@ -19,6 +19,10 @@
  * 📎 (ou Ctrl+V de imagem no campo) e grava voz no 🎤. Os balões são
  * reaproveitados entre pinturas (chave = id da mensagem): um tick novo ou uma
  * mensagem chegando não recria o `<audio>` que está tocando.
+ *
+ * Toda mensagem tem o ⋯ com "Apagar" — a do coach e a do aluno. Toda foto tem
+ * o botão de baixar, no balão e na tela cheia: salva o arquivo original como
+ * `foto_garage_{timestamp}.jpg`.
  */
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
@@ -38,6 +42,7 @@ import {
   iniciais,
   itensDoChat,
   lerEndereco,
+  nomeDaFotoBaixada,
   paraMarcar,
   podeApagar,
   podeEditar,
@@ -47,7 +52,7 @@ import {
   resumoAposApagar,
   ticksDoStatus,
 } from './chat.js';
-import { AVISO_NAVEGADOR, iniciarGravacao, prepararArquivo, suportaGravacao } from './midia-web.js';
+import { AVISO_NAVEGADOR, baixarArquivo, iniciarGravacao, prepararArquivo, suportaGravacao } from './midia-web.js';
 
 const $ = (/** @type {string} */ s) => /** @type {any} */ (document.querySelector(s));
 const esc = (/** @type {unknown} */ s) =>
@@ -259,12 +264,18 @@ function balao(el, it) {
   return el;
 }
 
+/** A seta para a bandeja: o "baixar" do balão e da tela cheia. */
+const ICONE_BAIXAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
+  + 'stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
+
 /** O miolo do balão: o texto, ou a foto, o vídeo, o player de voz. @param {import('./chat.js').Mensagem} m */
 function mioloHtml(m) {
   const url = esc(m.mediaUrl);
   if (m.tipo === 'imagem') {
-    return `<button class="midia-foto" type="button" data-acao="ver-foto" aria-label="Ver foto em tela cheia">`
-      + `<img src="${url}" alt="Foto" loading="lazy" decoding="async" /></button>`;
+    // Dois botões lado a lado, e não um dentro do outro: a foto abre a tela cheia, o 📥 baixa.
+    return `<div class="midia-foto-caixa"><button class="midia-foto" type="button" data-acao="ver-foto" aria-label="Ver foto em tela cheia">`
+      + `<img src="${url}" alt="Foto" loading="lazy" decoding="async" /></button>`
+      + `<button class="baixar-foto" type="button" data-acao="baixar-foto" aria-label="Baixar foto" title="Baixar foto">${ICONE_BAIXAR}</button></div>`;
   }
   if (m.tipo === 'video') {
     const capa = m.thumbUrl ? ` poster="${esc(m.thumbUrl)}"` : '';
@@ -349,11 +360,15 @@ $('#mensagens').addEventListener('play', (/** @type {Event} */ ev) => {
 
 /** @type {Element|null} */
 let focoAntesDaFoto = null;
+/** A mensagem da foto em tela cheia — o 📥 dali baixa esta. @type {import('./chat.js').Mensagem|null} */
+let fotoAberta = null;
 
-/** @param {string} url */
-function abrirFoto(url) {
+/** @param {import('./chat.js').Mensagem} m */
+function abrirFoto(m) {
   focoAntesDaFoto = document.activeElement;
-  $('#lightbox-img').src = url;
+  fotoAberta = m;
+  avisarNaFoto('');
+  $('#lightbox-img').src = m.mediaUrl;
   $('#lightbox').hidden = false;
   $('#lightbox-fechar').focus();
 }
@@ -362,10 +377,46 @@ function fecharFoto() {
   if ($('#lightbox').hidden) return;
   $('#lightbox').hidden = true;
   $('#lightbox-img').removeAttribute('src');
+  fotoAberta = null;
   /** @type {HTMLElement|null} */ (focoAntesDaFoto)?.focus?.();
 }
-// Clique em qualquer lugar (na foto, no fundo ou no ✕) fecha.
+// Clique em qualquer lugar (na foto, no fundo ou no ✕) fecha — menos no 📥.
 $('#lightbox').addEventListener('click', fecharFoto);
+$('#lightbox-baixar').addEventListener('click', (/** @type {MouseEvent} */ ev) => {
+  ev.stopPropagation();
+  if (fotoAberta) baixarFoto(fotoAberta, /** @type {HTMLButtonElement} */ (ev.currentTarget));
+});
+
+/** O aviso por cima da tela cheia — o `#aviso` da conversa fica escondido atrás dela. @param {string} texto */
+function avisarNaFoto(texto) {
+  const p = $('#lightbox-aviso');
+  p.textContent = texto;
+  p.hidden = !texto;
+}
+
+/**
+ * Baixa a foto em alta (o arquivo do Storage) como `foto_garage_{timestamp}.jpg`.
+ * Enquanto o arquivo vem, o botão pulsa e não aceita outro clique.
+ * @param {import('./chat.js').Mensagem} m @param {HTMLButtonElement} botao
+ */
+async function baixarFoto(m, botao) {
+  if (!m.mediaUrl || botao.classList.contains('baixando')) return;
+  botao.classList.add('baixando');
+  botao.setAttribute('aria-busy', 'true');
+  avisar('');
+  avisarNaFoto('');
+  try {
+    await baixarArquivo(m.mediaUrl, nomeDaFotoBaixada(m.timestamp));
+  } catch (e) {
+    console.warn('Chat: não deu para baixar a foto.', e);
+    const texto = 'Não deu para baixar a foto. Confira a conexão e tente de novo.';
+    avisar(texto, true);
+    if (fotoAberta === m) avisarNaFoto(texto);
+  } finally {
+    botao.classList.remove('baixando');
+    botao.removeAttribute('aria-busy');
+  }
+}
 
 /** Os ticks da resposta do coach (✓ enviado, ✓✓ entregue, ✓✓ amarelo lido). @param {import('./chat.js').Mensagem} m */
 function marcaHtml(m) {
@@ -376,11 +427,14 @@ function marcaHtml(m) {
   return ` <span class="ticks${t.lido ? ' lido' : ''}" title="${rotulo}" aria-label="${rotulo}">${t.marca}</span>`;
 }
 
-/** O ⋯ da resposta do coach, e o menu dele quando aberto. @param {import('./chat.js').Mensagem} m */
+/**
+ * O ⋯ de cada mensagem — do coach e do aluno —, e o menu dele quando aberto.
+ * @param {import('./chat.js').Mensagem} m
+ */
 function acoesHtml(m) {
   if (!podeApagar(m)) return '';
   const aberto = m.id === menuAberto;
-  // Foto, vídeo e voz não têm texto para editar: só apagar (a regra também não deixa).
+  // Editar, só a resposta do coach de texto; a do aluno e a mídia, só apagar (a regra também não deixa).
   return `<button class="balao-mais" type="button" data-acao="menu" aria-label="Opções da mensagem"
       aria-haspopup="menu" aria-expanded="${aberto}">⋯</button>`
     + (aberto ? `<div class="balao-menu" role="menu">`
@@ -420,7 +474,8 @@ $('#mensagens').addEventListener('click', async (/** @type {MouseEvent} */ ev) =
   const m = id ? mensagens.find((x) => x.id === id) : undefined;
   const acao = botao?.dataset.acao;
   // A mídia é de quem ver: foto e voz de qualquer um dos dois lados.
-  if (acao === 'ver-foto' && m?.mediaUrl) { abrirFoto(m.mediaUrl); return; }
+  if (acao === 'ver-foto' && m?.mediaUrl) { abrirFoto(m); return; }
+  if (acao === 'baixar-foto' && m?.mediaUrl && botao) { baixarFoto(m, /** @type {HTMLButtonElement} */ (botao)); return; }
   if (acao === 'tocar' && balaoEl) { alternarAudio(balaoEl); return; }
   if (!botao || !m || !podeApagar(m)) {
     if (menuAberto) { menuAberto = null; renderMensagens(); }
@@ -459,7 +514,8 @@ $('#editando-cancelar').addEventListener('click', cancelarEdicao);
 /** @param {import('./chat.js').Mensagem} m */
 async function apagar(m) {
   const oque = { texto: 'esta mensagem', imagem: 'esta foto', video: 'este vídeo', audio: 'esta mensagem de voz' }[m.tipo];
-  if (!confirm(`Apagar ${oque}? Ela some para você e para o aluno.`)) return;
+  const doAluno = m.remetente === 'aluno' ? ' do aluno' : '';
+  if (!confirm(`Apagar ${oque}${doAluno}? Some para você e para o aluno.`)) return;
   const email = ativa;
   if (!email) return;
   if (editando === m.id) cancelarEdicao();
