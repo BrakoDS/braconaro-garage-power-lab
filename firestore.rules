@@ -280,8 +280,29 @@ service cloud.firestore {
     // Aparelho do aluno (app mobile): o Expo Push Token que o app grava para
     // receber o push do chat. Quem envia é a Cloud Function
     // notificarRespostaDoCoach (Admin SDK, não passa por aqui).
+    //
+    // Meus Recordes (app mobile, Etapa 16.1): alunos/{email}/prs/{id}, um PR por
+    // documento, id gerado no aparelho. O app só cria e apaga — sem edição.
+    // Os campos são fechados, nos mesmos limites do validarPR (core/prs.ts);
+    // a data depois de hoje quem barra é o app — aqui só o formato.
+    function prValido() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['exercicio', 'carga', 'reps', 'data', 'criadoEm'])
+        && d.exercicio is string && d.exercicio.size() > 0 && d.exercicio.size() <= 60
+        && d.carga is number && d.carga > 0 && d.carga <= 500
+        && d.reps is int && d.reps >= 1 && d.reps <= 50
+        && d.data is string && d.data.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.criadoEm is number && d.criadoEm > 0;
+    }
+
     match /alunos/{email} {
       allow read, write: if ehAlunoDono(email) || ehCoach();
+
+      match /prs/{id} {
+        allow read, delete: if ehAlunoDono(email) || ehCoach();
+        allow create: if (ehAlunoDono(email) || ehCoach()) && prValido();
+        allow update: if false;
+      }
     }
 
     // Chat Coach ↔ Aluno (app mobile, Etapa 14):
