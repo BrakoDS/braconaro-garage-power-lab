@@ -20,6 +20,14 @@
  * `apagado: true` da 15.2 (texto '' no documento) ainda pode existir em
  * conversa antiga: é lido como mensagem que não existe mais.
  *
+ * Mídia (Etapa 17.2 no app, 17.3 aqui): foto, vídeo e voz. O arquivo vai para
+ * o Storage em `chats/{email}/{timestamp}_{tipo}.{ext}` e SÓ DEPOIS nasce a
+ * mensagem, com `tipo`, `mediaUrl`, `duracao` (vídeo e áudio) e, no vídeo,
+ * `thumbUrl` (a capa). Mensagem de texto continua sem `tipo`. O `texto` da
+ * mídia é o rótulo ("📷 Foto"): é o que a lista, o resumo e o push mostram.
+ * Os tetos e rótulos são os mesmos do app — o `npm run paridade` do app
+ * compara os dois lados.
+ *
  * Rodar os testes: node --test coach/mensagens/chat.test.js
  */
 
@@ -41,11 +49,40 @@ export const JANELA_DO_BLOCO_MS = 5 * 60_000;
 /**
  * @typedef {'aluno'|'coach'} Remetente
  * @typedef {'enviado'|'entregue'|'lido'} StatusMensagem
- * @typedef {{ texto: string, remetente: Remetente, timestamp: number }} NovaMensagem
- * @typedef {NovaMensagem & { id: string, status: StatusMensagem, editado: boolean,
- *   pendente?: boolean }} Mensagem
- * @typedef {{ email: string, ultimaMensagem: NovaMensagem | null, atualizadoEm: number }} Conversa
+ * @typedef {'texto'|'imagem'|'video'|'audio'} TipoMensagem
+ * @typedef {'imagem'|'video'|'audio'} TipoMidia
+ * @typedef {{ texto: string, remetente: Remetente, timestamp: number,
+ *   tipo?: TipoMidia, mediaUrl?: string, duracao?: number, thumbUrl?: string }} NovaMensagem
+ *   `tipo` só na mídia (texto não leva o campo); `duracao` em segundos; `thumbUrl` é a capa do vídeo.
+ * @typedef {Omit<NovaMensagem, 'tipo'> & { id: string, tipo: TipoMensagem, status: StatusMensagem,
+ *   editado: boolean, pendente?: boolean }} Mensagem
+ * @typedef {{ texto: string, remetente: Remetente, timestamp: number }} ResumoDaMensagem
+ * @typedef {{ email: string, ultimaMensagem: ResumoDaMensagem | null, atualizadoEm: number }} Conversa
  */
+
+/** @type {readonly TipoMidia[]} */
+const TIPOS_MIDIA = ['imagem', 'video', 'audio'];
+
+/**
+ * Tetos do que sobe ao Storage — os mesmos do app (`LIMITES_MIDIA` em
+ * core/chat.ts) e das regras (storage.rules: 5/10/50 MB; firestore.rules:
+ * duração até 180,5 s no vídeo e 300,5 s no áudio).
+ * @type {Record<TipoMidia, { bytes: number, duracaoMax?: number }>}
+ */
+export const LIMITES_MIDIA = {
+  imagem: { bytes: 5 * 1024 * 1024 },
+  video: { bytes: 50 * 1024 * 1024, duracaoMax: 180 },
+  audio: { bytes: 10 * 1024 * 1024, duracaoMax: 300 },
+};
+
+/** Voz mais curta que isto foi clique sem querer — não vira mensagem. */
+export const VOZ_MIN_S = 1;
+
+/** Upload parado por este tempo (sem nenhum byte novo) é cancelado. */
+export const UPLOAD_PARADO_MS = 30_000;
+
+/** O erro do upload cancelado por falta de rede: nada foi criado, é mandar de novo. */
+export const UPLOAD_PARADO = 'upload-parado';
 
 export const emailKey = (/** @type {unknown} */ e) => String(e ?? '').trim().toLowerCase();
 
@@ -92,11 +129,178 @@ export function edicaoDaMensagem(texto) {
 }
 
 /**
- * O coach só mexe na resposta dele, já gravada.
+ * O coach só apaga a resposta dele, já gravada.
  * @param {Pick<Mensagem, 'remetente'|'pendente'>} m
  */
-export function podeAlterar(m) {
+export function podeApagar(m) {
   return m.remetente === 'coach' && !m.pendente;
+}
+
+/**
+ * E só edita a de texto — foto, vídeo e voz não têm texto para trocar (a
+ * regra `alteracaoDoAutor` também exige tipo texto).
+ * @param {Pick<Mensagem, 'remetente'|'pendente'|'tipo'>} m
+ */
+export function podeEditar(m) {
+  return podeApagar(m) && m.tipo === 'texto';
+}
+
+/** Segundos como no relógio do WhatsApp: '0:05', '1:02', '1:00:00'. @param {number} segundos */
+export function formatarDuracao(segundos) {
+  const total = Number.isFinite(segundos) && segundos > 0 ? Math.floor(segundos) : 0;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+}
+
+/**
+ * O texto que a mídia leva: lista, resumo, push e quem ainda não desenha mídia.
+ * @param {TipoMidia} tipo @param {number} [duracao]
+ */
+export function rotuloDaMidia(tipo, duracao) {
+  const tempo = duracao && duracao > 0 ? ` (${formatarDuracao(duracao)})` : '';
+  if (tipo === 'imagem') return '📷 Foto';
+  if (tipo === 'video') return `🎥 Vídeo${tempo}`;
+  return `🎤 Mensagem de voz${tempo}`;
+}
+
+/**
+ * O arquivo passa nos tetos? `null` quando sim; senão, o motivo para o coach.
+ * Tamanho ou duração desconhecidos não barram — a regra do Storage tem a
+ * palavra final sobre o tamanho.
+ * @param {TipoMidia} tipo @param {{ bytes?: number|null, duracao?: number|null }} arquivo
+ * @returns {string|null}
+ */
+export function validarMidia(tipo, arquivo) {
+  const limite = LIMITES_MIDIA[tipo];
+  const nome = tipo === 'imagem' ? 'A foto' : tipo === 'video' ? 'O vídeo' : 'O áudio';
+  if (arquivo.bytes && arquivo.bytes > limite.bytes) {
+    return `${nome} passa de ${Math.round(limite.bytes / (1024 * 1024))} MB. Escolha um menor.`;
+  }
+  if (limite.duracaoMax && arquivo.duracao && arquivo.duracao > limite.duracaoMax + 0.5) {
+    return `${nome} passa de ${formatarDuracao(limite.duracaoMax)}. Mande um trecho menor.`;
+  }
+  return null;
+}
+
+/**
+ * Vídeo que o celular do aluno toca: MP4 ou MOV. WebM, AVI e MKV ficam de
+ * fora — o iPhone não abre, e comprimir vídeo no navegador não é viável.
+ * @param {string|null|undefined} mimeType @param {string} [nome]
+ */
+export function videoAceito(mimeType, nome = '') {
+  if (mimeType === 'video/mp4' || mimeType === 'video/quicktime') return true;
+  // Sem tipo informado (acontece no Windows com .mov), vale a extensão.
+  return !mimeType && /\.(mp4|m4v|mov)$/i.test(nome);
+}
+
+/**
+ * Extensão e tipo do arquivo no Storage. A foto já sai do navegador em JPEG,
+ * e a voz em M4A (AAC) — o mesmo do app.
+ * @param {TipoMidia} tipo @param {string|null} [mimeType] @param {string} [nome]
+ * @returns {{ ext: string, contentType: string }}
+ */
+export function formatoDoArquivo(tipo, mimeType, nome = '') {
+  if (tipo === 'imagem') return { ext: 'jpg', contentType: 'image/jpeg' };
+  if (tipo === 'audio') return { ext: 'm4a', contentType: 'audio/mp4' };
+  const mov = mimeType === 'video/quicktime' || /\.mov$/i.test(nome.split('?')[0]);
+  return mov ? { ext: 'mov', contentType: 'video/quicktime' } : { ext: 'mp4', contentType: 'video/mp4' };
+}
+
+/**
+ * Os formatos de gravação que o celular do aluno toca, na ordem de
+ * preferência: AAC em MP4. O `audio/mp4` sem codec fica por último — o
+ * codec real é conferido depois com `vozCompativel`.
+ */
+export const FORMATOS_DE_VOZ = ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4;codecs=aac', 'audio/mp4'];
+
+/**
+ * O formato que o `MediaRecorder` deste navegador vai usar, ou `null` se ele
+ * só grava o que o iPhone não toca (WebM/Opus, no Firefox).
+ * @param {(tipo: string) => boolean} suporta o `MediaRecorder.isTypeSupported`
+ */
+export function formatoDeGravacao(suporta) {
+  return FORMATOS_DE_VOZ.find((f) => { try { return suporta(f); } catch { return false; } }) ?? null;
+}
+
+/**
+ * O que o gravador diz que gravou é tocável no celular? MP4 sem Opus. (Um
+ * Chrome pode aceitar `audio/mp4` e encher de Opus, que o iPhone não toca.)
+ * @param {string|null|undefined} mimeType
+ */
+export function vozCompativel(mimeType) {
+  const m = String(mimeType || '').toLowerCase();
+  return m.startsWith('audio/mp4') && !m.includes('opus');
+}
+
+/**
+ * Onde o arquivo mora no Storage: `chats/{email}/{timestamp}_{tipo}.{ext}`.
+ * @param {string} email @param {number} timestamp @param {TipoMidia} tipo @param {string} ext
+ */
+export function caminhoDaMidia(email, timestamp, tipo, ext) {
+  return `chats/${emailKey(email)}/${timestamp}_${tipo}.${ext}`;
+}
+
+/** A capa do vídeo, ao lado dele: `chats/{email}/{timestamp}_capa.jpg`. @param {string} email @param {number} timestamp */
+export function caminhoDaCapa(email, timestamp) {
+  return `chats/${emailKey(email)}/${timestamp}_capa.jpg`;
+}
+
+/** Só URL https vira `<img>`/player — nada de javascript:, data: ou lixo gravado. @param {unknown} v @returns {v is string} */
+const urlValida = (v) => typeof v === 'string' && /^https:\/\/\S+$/.test(v);
+
+/** Segundos gravados, ou `undefined` se não é uma duração. @param {unknown} v */
+const duracaoValida = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined);
+
+/**
+ * A mensagem de mídia pronta para gravar, depois do upload — ou `null` se o
+ * endereço não é https. Campo vazio não vai para o documento.
+ * @param {TipoMidia} tipo @param {string} mediaUrl @param {Remetente} remetente
+ * @param {{ duracao?: number|null, thumbUrl?: string|null }} [extra] @param {number} [agora]
+ * @returns {NovaMensagem|null}
+ */
+export function novaMensagemDeMidia(tipo, mediaUrl, remetente, extra = {}, agora = Date.now()) {
+  if (!urlValida(mediaUrl)) return null;
+  const duracao = tipo === 'imagem' ? undefined : duracaoValida(extra.duracao);
+  /** @type {NovaMensagem} */
+  const m = { texto: rotuloDaMidia(tipo, duracao), remetente, timestamp: agora, tipo, mediaUrl };
+  if (duracao) m.duracao = Math.round(duracao * 10) / 10;
+  if (tipo === 'video' && urlValida(extra.thumbUrl)) m.thumbUrl = extra.thumbUrl;
+  return m;
+}
+
+/** 0–100, inteiro, para a barra do upload. @param {number} feito @param {number} total */
+export function porcentagem(feito, total) {
+  if (!(total > 0) || !(feito > 0)) return 0;
+  return Math.min(100, Math.round((feito / total) * 100));
+}
+
+/** O vigia do upload: sem byte novo por mais que o limite, desiste. @param {number} ultimoAvanco @param {number} agora */
+export function uploadParado(ultimoAvanco, agora, limite = UPLOAD_PARADO_MS) {
+  return agora - ultimoAvanco > limite;
+}
+
+/** Mídia fora dos tetos — a `message` já é o motivo, para o coach. */
+export class MidiaRecusada extends Error {
+  /** @param {string} motivo */
+  constructor(motivo) {
+    super(motivo);
+    this.name = 'MidiaRecusada';
+  }
+}
+
+/**
+ * O que a tela diz depois de mandar uma mídia. No navegador não há fila
+ * offline de verdade, então só três saídas: `sem-rede` (caiu no upload, nada
+ * foi criado), `recusada` com o motivo (arquivo fora dos tetos) e `recusada`
+ * sem motivo (regra ou erro estranho — a tela usa o texto genérico).
+ * @param {unknown} e @returns {{ resultado: 'sem-rede'|'recusada', motivo?: string }}
+ */
+export function resultadoDaFalha(e) {
+  if (e instanceof MidiaRecusada) return { resultado: 'recusada', motivo: e.message };
+  if (e instanceof Error && e.message === UPLOAD_PARADO) return { resultado: 'sem-rede' };
+  return { resultado: 'recusada' };
 }
 
 /**
@@ -111,6 +315,7 @@ export function resumoAposApagar(mensagens, id) {
   const lista = ordenarMensagens(mensagens);
   if (lista[lista.length - 1]?.id !== id) return undefined;
   const anterior = lista[lista.length - 2];
+  // Só o que o resumo leva: a mídia entra pelo rótulo, que já é o `texto` dela.
   return anterior ? { texto: anterior.texto, remetente: anterior.remetente, timestamp: anterior.timestamp } : null;
 }
 
@@ -144,7 +349,8 @@ export function ticksDoStatus(status) {
  */
 export function resumoDoChat(aluno, m) {
   const texto = m.texto.length > RESUMO_MAX ? `${m.texto.slice(0, RESUMO_MAX - 1).trimEnd()}…` : m.texto;
-  return { aluno, ultimaMensagem: { ...m, texto }, atualizadoEm: m.timestamp };
+  // Só os três campos: o endereço da mídia não mora no resumo — o rótulo basta.
+  return { aluno, ultimaMensagem: { texto, remetente: m.remetente, timestamp: m.timestamp }, atualizadoEm: m.timestamp };
 }
 
 /**
@@ -168,9 +374,9 @@ export function normalizarStatus(/** @type {unknown} */ v) {
 }
 
 /**
- * Lê uma mensagem do servidor sem confiar nela. Sem texto, sem remetente
- * conhecido ou sem hora, não é mensagem. A apagada da 15.2 (`apagado: true`)
- * também não: para a tela, ela já não existe, com ou sem texto sobrando.
+ * Lê uma mensagem do servidor sem confiar nela. Sem remetente conhecido ou
+ * sem hora, não é mensagem. A apagada da 15.2 (`apagado: true`) também não.
+ * Mídia só com endereço https; sem ele, vale o texto (o rótulo), como texto.
  * @param {string} id @param {unknown} dados @returns {Mensagem|null}
  */
 export function normalizarMensagem(id, dados) {
@@ -178,17 +384,25 @@ export function normalizarMensagem(id, dados) {
   const d = /** @type {Record<string, unknown>} */ (dados);
   if (d.remetente !== 'aluno' && d.remetente !== 'coach') return null;
   if (d.apagado === true) return null;
-  const texto = typeof d.texto === 'string' ? d.texto.trim() : '';
   const timestamp = emMs(d.timestamp);
-  if (!texto || !timestamp) return null;
-  return {
-    id,
-    texto,
-    remetente: d.remetente,
-    timestamp,
-    status: normalizarStatus(d.status),
-    editado: d.editado === true,
-  };
+  if (!timestamp) return null;
+  /** @type {Remetente} */
+  const remetente = d.remetente;
+  const base = { id, remetente, timestamp, status: normalizarStatus(d.status), editado: d.editado === true };
+  const textoGravado = typeof d.texto === 'string' ? d.texto.trim() : '';
+
+  const tipo = TIPOS_MIDIA.find((t) => t === d.tipo);
+  if (tipo && urlValida(d.mediaUrl)) {
+    const duracao = tipo === 'imagem' ? undefined : duracaoValida(d.duracao);
+    /** @type {Mensagem} */
+    const m = { ...base, texto: textoGravado || rotuloDaMidia(tipo, duracao), tipo, mediaUrl: d.mediaUrl };
+    if (duracao) m.duracao = duracao;
+    if (tipo === 'video' && urlValida(d.thumbUrl)) m.thumbUrl = d.thumbUrl;
+    return m;
+  }
+
+  if (!textoGravado) return null;
+  return { ...base, texto: textoGravado, tipo: 'texto' };
 }
 
 /**

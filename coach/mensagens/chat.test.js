@@ -18,7 +18,27 @@ import {
   lerEndereco,
   normalizarStatus,
   paraMarcar,
-  podeAlterar,
+  podeApagar,
+  podeEditar,
+  FORMATOS_DE_VOZ,
+  LIMITES_MIDIA,
+  MidiaRecusada,
+  UPLOAD_PARADO,
+  UPLOAD_PARADO_MS,
+  VOZ_MIN_S,
+  caminhoDaCapa,
+  caminhoDaMidia,
+  formatarDuracao,
+  formatoDeGravacao,
+  formatoDoArquivo,
+  novaMensagemDeMidia,
+  porcentagem,
+  resultadoDaFalha,
+  rotuloDaMidia,
+  uploadParado,
+  validarMidia,
+  videoAceito,
+  vozCompativel,
   ticksDoStatus,
   horaDaMensagem,
   iniciais,
@@ -117,7 +137,7 @@ test('hora, dia e o horario curto da lista', () => {
 
 test('cada dia abre com o separador, e o bloco junta o que veio em seguida', () => {
   const msg = (/** @type {string} */ id, /** @type {'aluno'|'coach'} */ remetente, /** @type {number} */ timestamp) =>
-    ({ id, texto: id, remetente, timestamp });
+    ({ id, texto: id, remetente, timestamp, tipo: /** @type {const} */ ('texto'), status: /** @type {const} */ ('enviado'), editado: false });
   const itens = itensDoChat([
     msg('m4', 'coach', as(25, 8, 0)),
     msg('m1', 'aluno', as(24, 18, 0)),
@@ -182,15 +202,20 @@ test('a edicao grava o texto preparado e editado: true', () => {
   assert.equal(edicaoDaMensagem('   '), null, 'edicao vazia nao sai — para sumir com a mensagem, apagar');
 });
 
-test('o coach so mexe na resposta dele, ja gravada', () => {
-  assert.ok(podeAlterar({ remetente: 'coach' }));
-  assert.ok(!podeAlterar({ remetente: 'aluno' }), 'mensagem do aluno nao');
-  assert.ok(!podeAlterar({ remetente: 'coach', pendente: true }), 'ainda a caminho nao');
+test('o coach so mexe na resposta dele, ja gravada — e so edita a de texto', () => {
+  assert.ok(podeApagar({ remetente: 'coach' }) && podeEditar({ remetente: 'coach', tipo: 'texto' }));
+  assert.ok(!podeApagar({ remetente: 'aluno' }) && !podeEditar({ remetente: 'aluno', tipo: 'texto' }), 'mensagem do aluno nao');
+  assert.ok(!podeApagar({ remetente: 'coach', pendente: true })
+    && !podeEditar({ remetente: 'coach', pendente: true, tipo: 'texto' }), 'ainda a caminho nao');
+  for (const tipo of /** @type {const} */ (['imagem', 'video', 'audio'])) {
+    assert.ok(podeApagar({ remetente: 'coach' }) && !podeEditar({ remetente: 'coach', tipo }),
+      `${tipo}: so apagar — a regra nao deixa editar midia`);
+  }
 });
 
 test('apagar de verdade: o resumo volta para a anterior, ou sai com a conversa vazia', () => {
   const m = (/** @type {string} */ id, /** @type {'aluno'|'coach'} */ remetente, /** @type {number} */ timestamp) =>
-    ({ id, texto: id, remetente, timestamp, status: /** @type {const} */ ('enviado'), editado: false });
+    ({ id, texto: id, remetente, timestamp, tipo: /** @type {const} */ ('texto'), status: /** @type {const} */ ('enviado'), editado: false });
   const fio = [m('p1', 'aluno', as(24, 9, 0)), m('p3', 'coach', as(24, 9, 2)), m('p2', 'aluno', as(24, 9, 1))];
   assert.equal(resumoAposApagar(fio, 'p1'), undefined, 'apagar uma do meio nao mexe no resumo');
   assert.equal(resumoAposApagar(fio, 'p2'), undefined);
@@ -205,7 +230,7 @@ test('apagar de verdade: o resumo volta para a anterior, ou sai com a conversa v
 
 test('a mensagem do aluno vira lido com a conversa a vista, e entregue com a aba escondida', () => {
   const m = (/** @type {string} */ id, /** @type {'aluno'|'coach'} */ remetente, /** @type {any} */ status, pendente = false) =>
-    ({ id, texto: id, remetente, timestamp: AGORA, status, editado: false, pendente });
+    ({ id, texto: id, remetente, timestamp: AGORA, tipo: /** @type {const} */ ('texto'), status, editado: false, pendente });
   const lista = [
     m('a1', 'aluno', 'enviado'),
     m('a2', 'aluno', 'entregue'),
@@ -242,4 +267,131 @@ test('endereco torto nao derruba a Central: sem @ ou com % solto, nenhuma conver
   assert.deepEqual(lerEndereco('#%E0%A4%A'), { email: '', rascunho: null });
   assert.deepEqual(lerEndereco('#ana@box.com&rascunho='), { email: 'ana@box.com', rascunho: null });
   assert.deepEqual(lerEndereco('#ana@box.com'), { email: 'ana@box.com', rascunho: null }, 'o formato antigo, sem codificar, continua valendo');
+});
+
+/* ---------- mídia (Etapa 17.3) — os mesmos casos do app ---------- */
+
+const URL_FOTO = 'https://firebasestorage.googleapis.com/v0/b/projeto-garage-f0a2f.firebasestorage.app/o/chats%2Fana%40box.com%2F1_imagem.jpg?alt=media&token=t';
+const URL_CAPA = 'https://firebasestorage.googleapis.com/v0/b/projeto-garage-f0a2f.firebasestorage.app/o/chats%2Fana%40box.com%2F1_capa.jpg?alt=media';
+const MB = 1024 * 1024;
+
+test('os tetos batem com o app e com as regras: 5/10/50 MB, 3 min de video, 5 min de voz', () => {
+  assert.deepEqual(LIMITES_MIDIA, {
+    imagem: { bytes: 5 * MB },
+    video: { bytes: 50 * MB, duracaoMax: 180 },
+    audio: { bytes: 10 * MB, duracaoMax: 300 },
+  });
+  assert.equal(VOZ_MIN_S, 1);
+  assert.equal(UPLOAD_PARADO_MS, 30_000);
+});
+
+test('duracao no relogio do WhatsApp e o rotulo da midia', () => {
+  assert.equal(formatarDuracao(5), '0:05');
+  assert.equal(formatarDuracao(62.9), '1:02');
+  assert.equal(formatarDuracao(3600), '1:00:00');
+  assert.equal(formatarDuracao(-3), '0:00');
+  assert.equal(formatarDuracao(NaN), '0:00');
+  assert.equal(rotuloDaMidia('imagem'), '📷 Foto');
+  assert.equal(rotuloDaMidia('video', 12), '🎥 Vídeo (0:12)');
+  assert.equal(rotuloDaMidia('audio', 5), '🎤 Mensagem de voz (0:05)');
+  assert.equal(rotuloDaMidia('audio'), '🎤 Mensagem de voz');
+});
+
+test('a mensagem de midia do coach grava so o que a regra aceita', () => {
+  const foto = novaMensagemDeMidia('imagem', URL_FOTO, 'coach', { duracao: 9, thumbUrl: URL_CAPA }, AGORA);
+  assert.deepEqual(foto, { texto: '📷 Foto', remetente: 'coach', timestamp: AGORA, tipo: 'imagem', mediaUrl: URL_FOTO },
+    'foto: sem duracao nem capa');
+  const voz = novaMensagemDeMidia('audio', URL_FOTO, 'coach', { duracao: 4.26 }, AGORA);
+  assert.equal(voz?.duracao, 4.3, 'um decimo de segundo basta');
+  assert.equal(voz?.texto, '🎤 Mensagem de voz (0:04)');
+  assert.ok(voz && !('thumbUrl' in voz), 'voz nao leva capa');
+  const video = novaMensagemDeMidia('video', URL_FOTO, 'coach', { duracao: 30, thumbUrl: URL_CAPA }, AGORA);
+  assert.equal(video?.thumbUrl, URL_CAPA);
+  const semCapa = novaMensagemDeMidia('video', URL_FOTO, 'coach', { duracao: 0, thumbUrl: 'blob:https://x/1' }, AGORA);
+  assert.ok(semCapa && !('duracao' in semCapa) && !('thumbUrl' in semCapa), 'duracao zero e capa local ficam de fora');
+  assert.equal(novaMensagemDeMidia('imagem', 'blob:https://x/1', 'coach'), null, 'sem endereco https, nao nasce');
+  assert.equal(novaMensagemDeMidia('imagem', 'http://x.com/a.jpg', 'coach'), null);
+  assert.equal(novaMensagem('oi', 'coach', AGORA)?.tipo, undefined, 'texto continua sem `tipo`');
+});
+
+test('a Central le a midia do app sem confiar no documento', () => {
+  const ler = (/** @type {Record<string, unknown>} */ d) => normalizarMensagem('m1', { remetente: 'aluno', timestamp: AGORA, ...d });
+  const foto = ler({ tipo: 'imagem', mediaUrl: URL_FOTO, texto: '📷 Foto' });
+  assert.equal(foto?.tipo, 'imagem');
+  assert.equal(foto?.mediaUrl, URL_FOTO);
+  assert.equal(ler({ tipo: 'audio', mediaUrl: URL_FOTO, duracao: 7 })?.texto, '🎤 Mensagem de voz (0:07)', 'sem texto, ganha o rotulo');
+  assert.equal(ler({ tipo: 'video', mediaUrl: URL_FOTO, thumbUrl: URL_CAPA })?.thumbUrl, URL_CAPA);
+  assert.equal(ler({ tipo: 'imagem', mediaUrl: URL_FOTO, thumbUrl: URL_CAPA })?.thumbUrl, undefined, 'capa so no video');
+  assert.equal(ler({ tipo: 'audio', mediaUrl: URL_FOTO, duracao: 'dez' })?.duracao, undefined);
+  const suspeita = ler({ tipo: 'imagem', mediaUrl: 'javascript:alert(1)', texto: '📷 Foto' });
+  assert.equal(suspeita?.tipo, 'texto', 'midia sem https vira o texto dela — nada de URL estranha no <img>');
+  assert.equal(suspeita?.mediaUrl, undefined);
+  assert.equal(ler({ tipo: 'imagem', texto: '' }), null);
+  assert.equal(ler({ tipo: 'gif', mediaUrl: URL_FOTO, texto: 'oi' })?.tipo, 'texto');
+  assert.equal(ler({ texto: 'oi' })?.tipo, 'texto', 'mensagem antiga, sem `tipo`, e texto');
+});
+
+test('o resumo leva so o rotulo — o endereco do arquivo fica na mensagem', () => {
+  const voz = novaMensagemDeMidia('audio', URL_FOTO, 'coach', { duracao: 4 }, AGORA);
+  const r = resumoDoChat('ana@box.com', /** @type {any} */ (voz));
+  assert.deepEqual(r.ultimaMensagem, { texto: '🎤 Mensagem de voz (0:04)', remetente: 'coach', timestamp: AGORA });
+});
+
+test('caminho no Storage no padrao da regra: chats/{email}/{timestamp}_{tipo}.{ext}', () => {
+  assert.equal(caminhoDaMidia(' Ana@Box.com ', 1_790_000_000_000, 'audio', 'm4a'), 'chats/ana@box.com/1790000000000_audio.m4a');
+  assert.equal(caminhoDaCapa('ana@box.com', 7), 'chats/ana@box.com/7_capa.jpg');
+  // O mesmo padrao do storage.rules (midiaChatValida).
+  const regra = /^[0-9]+_(imagem|video|audio|capa)[.][a-z0-9]{2,4}$/;
+  for (const tipo of /** @type {const} */ (['imagem', 'video', 'audio'])) {
+    const { ext } = formatoDoArquivo(tipo, tipo === 'video' ? 'video/quicktime' : null);
+    assert.match(caminhoDaMidia('a@b.com', 1, tipo, ext).split('/').pop() || '', regra);
+  }
+  assert.match(caminhoDaCapa('a@b.com', 1).split('/').pop() || '', regra);
+});
+
+test('formatos: foto em JPEG, voz em M4A, video MP4 ou MOV', () => {
+  assert.deepEqual(formatoDoArquivo('imagem', 'image/png', 'print.png'), { ext: 'jpg', contentType: 'image/jpeg' },
+    'o Ctrl+V (PNG) sai do canvas em JPEG');
+  assert.deepEqual(formatoDoArquivo('audio', 'audio/mp4'), { ext: 'm4a', contentType: 'audio/mp4' });
+  assert.equal(formatoDoArquivo('video', 'video/quicktime').ext, 'mov');
+  assert.equal(formatoDoArquivo('video', '', 'IMG_1.MOV').contentType, 'video/quicktime');
+  assert.equal(formatoDoArquivo('video', 'video/mp4', 'a.mp4').ext, 'mp4');
+  assert.ok(videoAceito('video/mp4') && videoAceito('video/quicktime') && videoAceito('', 'treino.MOV'));
+  assert.ok(!videoAceito('video/webm') && !videoAceito('video/x-matroska') && !videoAceito('', 'a.avi'),
+    'o iPhone nao toca WebM/MKV/AVI');
+});
+
+test('gravacao de voz: so AAC em MP4, que o celular toca', () => {
+  const suporta = (/** @type {string[]} */ lista) => (/** @type {string} */ t) => lista.includes(t);
+  assert.equal(formatoDeGravacao(suporta(FORMATOS_DE_VOZ)), 'audio/mp4;codecs=mp4a.40.2', 'prefere AAC declarado');
+  assert.equal(formatoDeGravacao(suporta(['audio/mp4'])), 'audio/mp4', 'Safari: audio/mp4 puro');
+  assert.equal(formatoDeGravacao(suporta(['audio/webm', 'audio/ogg'])), null, 'Firefox: so WebM/Ogg, o microfone desliga');
+  assert.equal(formatoDeGravacao(() => { throw new Error('x'); }), null, 'navegador que explode no isTypeSupported');
+  assert.ok(vozCompativel('audio/mp4') && vozCompativel('audio/mp4; codecs=mp4a.40.2'));
+  assert.ok(!vozCompativel('audio/mp4;codecs=opus') && !vozCompativel('audio/webm;codecs=opus') && !vozCompativel(''),
+    'Opus (mesmo em MP4) o iPhone nao toca');
+});
+
+test('validacao: os tetos, com o motivo para o coach', () => {
+  assert.equal(validarMidia('imagem', { bytes: 4 * MB }), null);
+  assert.equal(validarMidia('video', { bytes: 49 * MB, duracao: 180 }), null);
+  assert.equal(validarMidia('audio', { bytes: MB, duracao: 300 }), null);
+  assert.match(validarMidia('video', { bytes: 51 * MB }) || '', /50 MB/);
+  assert.match(validarMidia('imagem', { bytes: 6 * MB }) || '', /^A foto/);
+  assert.match(validarMidia('video', { duracao: 200 }) || '', /3:00/);
+  assert.match(validarMidia('audio', { duracao: 301 }) || '', /5:00/);
+  assert.equal(validarMidia('video', { bytes: null, duracao: null }), null, 'desconhecido nao barra');
+});
+
+test('upload: progresso, vigia de upload parado e o que a tela diz na falha', () => {
+  assert.equal(porcentagem(50, 200), 25);
+  assert.equal(porcentagem(300, 200), 100);
+  assert.equal(porcentagem(5, 0), 0);
+  assert.ok(!uploadParado(0, UPLOAD_PARADO_MS) && uploadParado(0, UPLOAD_PARADO_MS + 1));
+  const grande = new MidiaRecusada('O vídeo passa de 50 MB. Escolha um menor.');
+  assert.equal(grande.name, 'MidiaRecusada');
+  assert.deepEqual(resultadoDaFalha(grande), { resultado: 'recusada', motivo: 'O vídeo passa de 50 MB. Escolha um menor.' });
+  assert.deepEqual(resultadoDaFalha(new Error(UPLOAD_PARADO)), { resultado: 'sem-rede' });
+  assert.deepEqual(resultadoDaFalha(Object.assign(new Error('x'), { code: 'storage/unauthorized' })), { resultado: 'recusada' });
+  assert.deepEqual(resultadoDaFalha(null), { resultado: 'recusada' });
 });

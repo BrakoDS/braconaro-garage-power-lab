@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./mensagens.css?v=3" />
+  <link rel="stylesheet" href="./mensagens.css?v=4" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -84,9 +84,30 @@
             <span><b>Editando mensagem</b> · Esc cancela</span>
             <button class="btn ghost btn-sm" id="editando-cancelar" type="button">Cancelar</button>
           </div>
+          <!-- Mídia subindo: uma linha por arquivo, com a barra, até o balão nascer. -->
+          <ul class="envios" id="envios" aria-label="Enviando" hidden></ul>
+
           <form class="resposta" id="form-resposta">
+            <button class="resp-icone" id="btn-anexo" type="button" aria-label="Mandar foto ou vídeo" title="Foto ou vídeo (ou cole uma imagem com Ctrl+V)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <input id="arquivo" type="file" accept="image/*,video/mp4,video/quicktime,.mp4,.m4v,.mov" multiple hidden />
             <textarea id="resposta" rows="1" maxlength="1000" placeholder="Responder… (Enter envia, Shift+Enter quebra a linha)" aria-label="Resposta para o aluno"></textarea>
-            <button class="btn" id="btn-enviar" type="submit" disabled>Enviar</button>
+            <button class="resp-icone resp-mic" id="btn-microfone" type="button" aria-label="Gravar mensagem de voz" title="Gravar mensagem de voz">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>
+            </button>
+            <button class="btn" id="btn-enviar" type="submit" disabled hidden>Enviar</button>
+
+            <!-- Gravando: toma o lugar do campo. -->
+            <div class="gravacao" id="gravacao" hidden>
+              <button class="btn ghost btn-sm" id="grav-cancelar" type="button">Cancelar</button>
+              <span class="grav-meio" role="status">
+                <i class="grav-ponto" aria-hidden="true"></i>
+                <b id="grav-tempo">0:00</b>
+                <span>Gravando… (Esc cancela)</span>
+              </span>
+              <button class="btn" id="grav-enviar" type="button">Enviar</button>
+            </div>
           </form>
           <p class="aviso" id="aviso" hidden></p>
         </div>
@@ -94,6 +115,12 @@
     </main>
   </div>
 
-  <script type="module" src="./mensagens.js?v=4"></script>
+  <!-- A foto em tela cheia: Esc, clique ou ✕ fecham. -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Foto em tela cheia" hidden>
+    <button class="lightbox-fechar" id="lightbox-fechar" type="button" aria-label="Fechar">✕</button>
+    <img id="lightbox-img" alt="Foto da conversa" />
+  </div>
+
+  <script type="module" src="./mensagens.js?v=5"></script>
 </body>
 </html>
