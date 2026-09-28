@@ -151,16 +151,13 @@ a{color:inherit;text-decoration:none}
   .topbar-acoes .btn:last-child{display:none}
 }
 
-/* ---------- Padrão WhatsApp: ticks, editada, apagada, menu ---------- */
+/* ---------- Padrão WhatsApp: ticks, editada, menu ---------- */
 .balao{position:relative}
 /* Os ticks moram numa pílula escura: o ✓✓ amarelo do "lido" some no balão amarelo sem ela. */
 .balao .ticks{display:inline-block;margin-left:2px;padding:0 5px;border-radius:999px;background:var(--accent-ink);
   color:var(--mut-2);font-size:.68rem;letter-spacing:-.12em;line-height:1.35}
 .balao .ticks.lido{color:var(--accent)}
 .balao .editada{margin-right:6px;font-style:italic}
-.balao.apagada{opacity:.6;font-style:italic}
-.balao.coach.apagada{background:transparent;color:var(--txt);border:1px dashed var(--line-2)}
-.balao.coach.apagada .hora{color:var(--mut-2);opacity:1}
 .balao.editando{outline:2px solid var(--txt);outline-offset:2px}
 
 .balao-mais{position:absolute;top:2px;left:-30px;width:26px;height:26px;border:0;border-radius:50%;

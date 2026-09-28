@@ -6,8 +6,8 @@
  *   chats/{email}/mensagens/{id}   as mensagens
  *
  * A regra (`firestore.rules`, bloco `chats`) deixa o coach ler todas as
- * conversas e escrever só como 'coach'. Por update, o coach edita ou apaga a
- * resposta dele e marca 'entregue' / 'lido' na do aluno — o documento nunca some.
+ * conversas e escrever só como 'coach'. Por update, o coach edita a resposta
+ * dele e marca 'entregue' / 'lido' na do aluno; apagar tira o documento.
  *
  * A resposta e o resumo vão num lote só, como no app: ou os dois chegam, ou
  * nenhum — a lista nunca aponta para uma mensagem que não existe.
@@ -16,8 +16,6 @@ import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config
 import {
   LIMITE_CONVERSAS,
   LIMITE_HISTORICO,
-  TEXTO_APAGADA,
-  apagamentoDaMensagem,
   edicaoDaMensagem,
   emailKey,
   normalizarConversa,
@@ -133,18 +131,23 @@ export async function editarMensagem(email, idMensagem, texto, ultima) {
 }
 
 /**
- * Apaga uma resposta do coach para os dois lados: o documento fica (a conversa
- * não perde o lugar dela), mas o texto sai — `apagado: true`, texto ''.
- * @param {string} email @param {string} idMensagem @param {UltimaDaConversa} [ultima]
+ * Apaga uma resposta do coach para os dois lados: o documento sai do
+ * Firestore. `resumo` é o que `resumoAposApagar` devolveu — se ela era a
+ * última, o resumo passa para a anterior (ou sai, se a conversa ficou vazia)
+ * no mesmo lote, para a lista nunca mostrar o texto de uma mensagem apagada.
+ * @param {string} email @param {string} idMensagem
+ * @param {import('./chat.js').NovaMensagem|null} [resumo]
  */
-export async function apagarMensagem(email, idMensagem, ultima) {
+export async function apagarMensagem(email, idMensagem, resumo) {
   const id = emailKey(email);
   if (!id || !idMensagem) throw new Error('mensagem-invalida');
   await init();
+  const mensagem = _fs.doc(_db, 'chats', id, 'mensagens', idMensagem);
+  if (resumo === undefined) { await _fs.deleteDoc(mensagem); return; }
   const lote = _fs.writeBatch(_db);
-  lote.update(_fs.doc(_db, 'chats', id, 'mensagens', idMensagem), { ...apagamentoDaMensagem() });
-  // No resumo, o aviso — nunca o texto que acabou de sair da mensagem.
-  if (ultima) lote.set(_fs.doc(_db, 'chats', id), resumoDoChat(id, { ...ultima, texto: TEXTO_APAGADA }), { merge: true });
+  lote.delete(mensagem);
+  if (resumo) lote.set(_fs.doc(_db, 'chats', id), resumoDoChat(id, resumo));
+  else lote.delete(_fs.doc(_db, 'chats', id));
   await lote.commit();
 }
 

@@ -20,7 +20,6 @@ import {
   apagarMensagem, editarMensagem, enviarResposta, marcarStatus, ouvirConversas, ouvirMensagens,
 } from './chat-db.js';
 import {
-  TEXTO_APAGADA,
   aguardaResposta,
   alunoDaConversa,
   casaBusca,
@@ -33,6 +32,7 @@ import {
   podeAlterar,
   prepararTexto,
   quandoNaLista,
+  resumoAposApagar,
   ticksDoStatus,
 } from './chat.js';
 
@@ -157,8 +157,8 @@ function renderMensagens(estado = '') {
     if (it.tipo === 'dia') return `<span class="dia">${esc(it.rotulo)}</span>`;
     const m = it.mensagem;
     const cls = ['balao', m.remetente, it.continuacao ? 'seguido' : '', m.pendente ? 'pendente' : '',
-      m.apagado ? 'apagada' : '', m.id === editando ? 'editando' : ''].filter(Boolean).join(' ');
-    return `<div class="${cls}" data-id="${esc(m.id)}">${acoesHtml(m)}<span class="txt">${esc(m.apagado ? TEXTO_APAGADA : m.texto)}</span>`
+      m.id === editando ? 'editando' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-id="${esc(m.id)}">${acoesHtml(m)}<span class="txt">${esc(m.texto)}</span>`
       + `<span class="hora">${m.editado ? '<span class="editada">editada</span>' : ''}${horaDaMensagem(m.timestamp)}${marcaHtml(m)}</span></div>`;
   }).join('');
   if (perto || descerAoFim) box.scrollTop = box.scrollHeight;
@@ -167,7 +167,7 @@ function renderMensagens(estado = '') {
 
 /** Os ticks da resposta do coach (✓ enviado, ✓✓ entregue, ✓✓ amarelo lido). @param {import('./chat.js').Mensagem} m */
 function marcaHtml(m) {
-  if (m.remetente !== 'coach' || m.apagado) return '';
+  if (m.remetente !== 'coach') return '';
   if (m.pendente) return ' · enviando…';
   const t = ticksDoStatus(m.status);
   const rotulo = { enviado: 'Enviada', entregue: 'Entregue', lido: 'Lida pelo aluno' }[m.status];
@@ -258,7 +258,7 @@ async function apagar(m) {
   if (editando === m.id) cancelarEdicao();
   avisar('');
   try {
-    await apagarMensagem(email, m.id, ultimaSeFor(m.id));
+    await apagarMensagem(email, m.id, resumoAposApagar(mensagens, m.id));
   } catch (e) {
     console.warn('Chat: exclusão recusada.', /** @type {any} */ (e)?.code || e);
     avisar('Não deu para apagar a mensagem. Confira a conexão e tente de novo.', true);

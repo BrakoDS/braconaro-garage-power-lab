@@ -13,8 +13,12 @@
  * Padrão WhatsApp (Etapa 15.2): a mensagem nasce SÓ com os três campos — sem
  * `status`, que a leitura entende como 'enviado'. O resto chega por update:
  *   - `status`  quem RECEBEU marca 'entregue' / 'lido' (só avança, nunca volta);
- *   - `editado` quem ESCREVEU trocou o texto;
- *   - `apagado` quem ESCREVEU apagou — o texto original sai do documento.
+ *   - `editado` quem ESCREVEU trocou o texto.
+ *
+ * Apagar (Etapa 17.1) é apagar de verdade: o documento sai do Firestore e a
+ * escuta tira o balão da tela — não fica "Mensagem apagada" no lugar. O
+ * `apagado: true` da 15.2 (texto '' no documento) ainda pode existir em
+ * conversa antiga: é lido como mensagem que não existe mais.
  *
  * Rodar os testes: node --test coach/mensagens/chat.test.js
  */
@@ -34,14 +38,11 @@ export const RESUMO_MAX = 120;
 /** Duas mensagens seguidas da mesma pessoa, dentro disto, formam um bloco. */
 export const JANELA_DO_BLOCO_MS = 5 * 60_000;
 
-/** O que aparece no lugar do texto de uma mensagem apagada. */
-export const TEXTO_APAGADA = '🚫 Mensagem apagada';
-
 /**
  * @typedef {'aluno'|'coach'} Remetente
  * @typedef {'enviado'|'entregue'|'lido'} StatusMensagem
  * @typedef {{ texto: string, remetente: Remetente, timestamp: number }} NovaMensagem
- * @typedef {NovaMensagem & { id: string, status: StatusMensagem, editado: boolean, apagado: boolean,
+ * @typedef {NovaMensagem & { id: string, status: StatusMensagem, editado: boolean,
  *   pendente?: boolean }} Mensagem
  * @typedef {{ email: string, ultimaMensagem: NovaMensagem | null, atualizadoEm: number }} Conversa
  */
@@ -90,17 +91,27 @@ export function edicaoDaMensagem(texto) {
   return t ? { texto: t, editado: /** @type {true} */ (true) } : null;
 }
 
-/** O update do apagamento — sempre o mesmo: o texto original sai do documento. */
-export function apagamentoDaMensagem() {
-  return { texto: /** @type {''} */ (''), apagado: /** @type {true} */ (true) };
+/**
+ * O coach só mexe na resposta dele, já gravada.
+ * @param {Pick<Mensagem, 'remetente'|'pendente'>} m
+ */
+export function podeAlterar(m) {
+  return m.remetente === 'coach' && !m.pendente;
 }
 
 /**
- * O coach só mexe na resposta dele, já gravada, e mensagem apagada não volta.
- * @param {Pick<Mensagem, 'remetente'|'apagado'|'pendente'>} m
+ * O que o resumo `chats/{email}` vira quando a mensagem `id` é apagada — o
+ * mesmo `resumoAposApagar` do app:
+ *   - `undefined`  não era a última: o resumo fica como está;
+ *   - a mensagem   era a última: a anterior passa a ser a última;
+ *   - `null`       era a única: a conversa ficou vazia, o resumo sai também.
+ * @param {Mensagem[]} mensagens @param {string} id @returns {NovaMensagem|null|undefined}
  */
-export function podeAlterar(m) {
-  return m.remetente === 'coach' && !m.apagado && !m.pendente;
+export function resumoAposApagar(mensagens, id) {
+  const lista = ordenarMensagens(mensagens);
+  if (lista[lista.length - 1]?.id !== id) return undefined;
+  const anterior = lista[lista.length - 2];
+  return anterior ? { texto: anterior.texto, remetente: anterior.remetente, timestamp: anterior.timestamp } : null;
 }
 
 /**
@@ -157,28 +168,26 @@ export function normalizarStatus(/** @type {unknown} */ v) {
 }
 
 /**
- * Lê uma mensagem do servidor sem confiar nela. Sem texto não é mensagem, a
- * não ser a apagada: essa perde o texto de propósito (e, se algum sobrou no
- * documento, ele não é mostrado).
+ * Lê uma mensagem do servidor sem confiar nela. Sem texto, sem remetente
+ * conhecido ou sem hora, não é mensagem. A apagada da 15.2 (`apagado: true`)
+ * também não: para a tela, ela já não existe, com ou sem texto sobrando.
  * @param {string} id @param {unknown} dados @returns {Mensagem|null}
  */
 export function normalizarMensagem(id, dados) {
   if (!id || !dados || typeof dados !== 'object') return null;
   const d = /** @type {Record<string, unknown>} */ (dados);
   if (d.remetente !== 'aluno' && d.remetente !== 'coach') return null;
+  if (d.apagado === true) return null;
+  const texto = typeof d.texto === 'string' ? d.texto.trim() : '';
   const timestamp = emMs(d.timestamp);
-  if (!timestamp) return null;
-  const apagado = d.apagado === true;
-  const texto = apagado ? '' : (typeof d.texto === 'string' ? d.texto.trim() : '');
-  if (!apagado && !texto) return null;
+  if (!texto || !timestamp) return null;
   return {
     id,
     texto,
     remetente: d.remetente,
     timestamp,
     status: normalizarStatus(d.status),
-    editado: !apagado && d.editado === true,
-    apagado,
+    editado: d.editado === true,
   };
 }
 

@@ -8,11 +8,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   RESUMO_MAX,
-  TEXTO_APAGADA,
   TEXTO_MAX,
   aguardaResposta,
   alunoDaConversa,
-  apagamentoDaMensagem,
   casaBusca,
   edicaoDaMensagem,
   emMs,
@@ -32,6 +30,7 @@ import {
   ordenarMensagens,
   prepararTexto,
   quandoNaLista,
+  resumoAposApagar,
   resumoDoChat,
   rotuloDoDia,
 } from './chat.js';
@@ -163,38 +162,50 @@ test('sem status gravado a mensagem esta enviada, e lixo nao vira tick', () => {
   assert.equal(normalizarStatus(undefined), 'enviado');
 });
 
-test('a mensagem editada chega marcada, e a apagada chega sem o texto', () => {
+test('a mensagem editada chega marcada', () => {
   const editada = doServidor({ texto: 'Bora treinar amanha', editado: true });
   assert.equal(editada?.editado, true);
   assert.equal(editada?.texto, 'Bora treinar amanha');
   assert.equal(doServidor({ editado: 'sim' })?.editado, false, 'so true conta');
-
-  const apagada = doServidor({ texto: '', apagado: true });
-  assert.ok(apagada, 'a apagada continua na conversa, mesmo sem texto');
-  assert.equal(apagada?.apagado, true);
-  assert.equal(apagada?.texto, '');
-  assert.equal(apagada?.editado, false);
-  assert.equal(doServidor({ texto: 'sobrou', apagado: true, editado: true })?.texto, '',
-    'texto que sobrou numa apagada nao e mostrado');
-  assert.equal(TEXTO_APAGADA, '🚫 Mensagem apagada');
+  assert.ok(!('apagado' in /** @type {object} */ (doServidor({}))), 'a mensagem lida nao carrega mais o apagado');
 });
 
-test('a edicao grava o texto preparado e editado: true; o apagamento zera o texto', () => {
+test('a apagada da 15.2 que sobrou em conversa antiga nao e mais mensagem: nada de balao "Mensagem apagada"', () => {
+  assert.equal(doServidor({ texto: '', apagado: true }), null);
+  assert.equal(doServidor({ texto: 'sobrou', apagado: true, editado: true }), null,
+    'nem com texto sobrando no documento');
+  assert.ok(doServidor({ apagado: false }), 'so apagado: true tira a mensagem');
+});
+
+test('a edicao grava o texto preparado e editado: true', () => {
   assert.deepEqual(edicaoDaMensagem('  Pode ser amanha.  '), { texto: 'Pode ser amanha.', editado: true });
   assert.equal(edicaoDaMensagem('   '), null, 'edicao vazia nao sai — para sumir com a mensagem, apagar');
-  assert.deepEqual(apagamentoDaMensagem(), { texto: '', apagado: true });
 });
 
-test('o coach so mexe na resposta dele, ja gravada e nao apagada', () => {
-  assert.ok(podeAlterar({ remetente: 'coach', apagado: false }));
-  assert.ok(!podeAlterar({ remetente: 'aluno', apagado: false }), 'mensagem do aluno nao');
-  assert.ok(!podeAlterar({ remetente: 'coach', apagado: true }), 'apagada nao volta');
-  assert.ok(!podeAlterar({ remetente: 'coach', apagado: false, pendente: true }), 'ainda a caminho nao');
+test('o coach so mexe na resposta dele, ja gravada', () => {
+  assert.ok(podeAlterar({ remetente: 'coach' }));
+  assert.ok(!podeAlterar({ remetente: 'aluno' }), 'mensagem do aluno nao');
+  assert.ok(!podeAlterar({ remetente: 'coach', pendente: true }), 'ainda a caminho nao');
+});
+
+test('apagar de verdade: o resumo volta para a anterior, ou sai com a conversa vazia', () => {
+  const m = (/** @type {string} */ id, /** @type {'aluno'|'coach'} */ remetente, /** @type {number} */ timestamp) =>
+    ({ id, texto: id, remetente, timestamp, status: /** @type {const} */ ('enviado'), editado: false });
+  const fio = [m('p1', 'aluno', as(24, 9, 0)), m('p3', 'coach', as(24, 9, 2)), m('p2', 'aluno', as(24, 9, 1))];
+  assert.equal(resumoAposApagar(fio, 'p1'), undefined, 'apagar uma do meio nao mexe no resumo');
+  assert.equal(resumoAposApagar(fio, 'p2'), undefined);
+  assert.deepEqual(resumoAposApagar(fio, 'p3'), { texto: 'p2', remetente: 'aluno', timestamp: as(24, 9, 1) },
+    'apagar a ultima devolve o resumo a anterior (pela hora, nao pela posicao na lista)');
+  assert.equal(resumoAposApagar([m('so', 'coach', AGORA)], 'so'), null,
+    'apagar a unica: a conversa ficou vazia e o resumo sai tambem');
+  assert.equal(resumoAposApagar([], 'x'), undefined);
+  assert.equal(resumoAposApagar(fio, 'nao-existe'), undefined, 'id que nao esta na conversa nao mexe no resumo');
+  assert.equal(fio.map((x) => x.id).join(','), 'p1,p3,p2', 'nao reordena a lista original');
 });
 
 test('a mensagem do aluno vira lido com a conversa a vista, e entregue com a aba escondida', () => {
   const m = (/** @type {string} */ id, /** @type {'aluno'|'coach'} */ remetente, /** @type {any} */ status, pendente = false) =>
-    ({ id, texto: id, remetente, timestamp: AGORA, status, editado: false, apagado: false, pendente });
+    ({ id, texto: id, remetente, timestamp: AGORA, status, editado: false, pendente });
   const lista = [
     m('a1', 'aluno', 'enviado'),
     m('a2', 'aluno', 'entregue'),
