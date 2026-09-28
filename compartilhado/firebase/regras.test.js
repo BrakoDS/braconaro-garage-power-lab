@@ -94,3 +94,49 @@ test('chat: apagar e so delete, e nenhum update grava apagado (Etapa 17.1)', () 
   assert.doesNotMatch(c.split('match /chats/{email} {')[0].split('function mensagemChatValida')[1] || '', /d\.apagado/,
     'nenhuma funcao do chat aceita apagado no documento novo');
 });
+
+test('chat: a midia da mensagem so aponta para o nosso bucket, na pasta chats (Etapa 17.2)', () => {
+  // Quem recebe abre o mediaUrl/thumbUrl. Sem a trava, uma mensagem "📷 Foto"
+  // poderia levar a qualquer endereço; sem o hasOnly, qualquer campo entraria.
+  const c = codigo(firestore);
+  const valida = c.split('function mensagemChatValida(email) {')[1]?.split('\n    }')[0];
+  assert.ok(valida, 'function mensagemChatValida existe');
+  assert.match(valida, /hasOnly\(\['texto', 'remetente', 'timestamp', 'tipo', 'mediaUrl', 'duracao', 'thumbUrl'\]\)/);
+  assert.match(valida, /midiaDaMensagemValida\(d\)/, 'a criação passa pela validação da mídia');
+
+  // Do texto cru: o `codigo()` cortaria o `https://` como se fosse comentário.
+  const url = firestore.split('function urlChatValida(url) {')[1]?.split('\n    }')[0];
+  assert.ok(url, 'function urlChatValida existe');
+  assert.ok(url.includes("'https://firebasestorage[.]googleapis[.]com/v0/b/projeto-garage-f0a2f[.]firebasestorage[.]app/o/chats%2F"),
+    'download URL do bucket do projeto, na pasta chats/');
+
+  const midia = c.split('function midiaDaMensagemValida(d) {')[1]?.split('\n    }')[0];
+  assert.ok(midia, 'function midiaDaMensagemValida existe');
+  assert.match(midia, /tipo in \['texto', 'imagem', 'video', 'audio'\]/);
+  assert.match(midia, /urlChatValida\(d\.mediaUrl\)/, 'mídia exige o mediaUrl');
+  assert.match(midia, /urlChatValida\(d\.thumbUrl\)/, 'a capa também é do bucket');
+
+  const autor = c.split('function alteracaoDoAutor(email) {')[1]?.split('\n    }')[0];
+  assert.match(autor || '', /antes\.get\('tipo', 'texto'\) == 'texto'/, 'mídia não se edita: o texto dela é o rótulo');
+});
+
+test('chat: no Storage os dois lados leem e apagam, e so sobem arquivo novo nos tetos do app (Etapa 17.2)', () => {
+  // Com `update`, um lado trocaria o arquivo por trás da mensagem que o outro
+  // mandou (a URL continua a mesma). Os tetos são os de LIMITES_MIDIA no app.
+  const s = codigo(storage);
+  const bloco = s.split('match /chats/{email}/{arquivo} {')[1];
+  assert.ok(bloco, 'match /chats/{email}/{arquivo} existe');
+  assert.deepEqual(bloco.split('}')[0].match(/allow [^;]+;/g), [
+    'allow read, delete: if ehAlunoDono(email) || ehCoach();',
+    'allow create: if (ehAlunoDono(email) || ehCoach()) && midiaChatValida(arquivo);',
+  ]);
+
+  const dono = s.split('function ehAlunoDono(email) {')[1]?.split('}')[0];
+  assert.match(dono || '', /request\.auth != null && request\.auth\.token\.email == email;/);
+
+  const midia = s.split('function midiaChatValida(arquivo) {')[1]?.split('\n    }')[0];
+  assert.ok(midia, 'function midiaChatValida existe');
+  const tetos = [...midia.matchAll(/contentType\.matches\('(\w+)\/\.\*'\)\s*&& request\.resource\.size <= (\d+) \* 1024 \* 1024/g)]
+    .map(([, tipo, mb]) => [tipo, Number(mb)]);
+  assert.deepEqual(tetos, [['image', 5], ['audio', 10], ['video', 50]]);
+});
