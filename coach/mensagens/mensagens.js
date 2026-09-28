@@ -13,28 +13,41 @@
  * A conversa aberta fica no endereço (`#email`): recarregar a página volta
  * nela, e dá para abrir uma conversa nova com quem ainda não escreveu. Com
  * `&rascunho=`, o texto chega pronto no campo (o parabéns do Mural de Recordes).
+ *
+ * Mídia (Etapa 17.3): foto (clique abre em tela cheia), vídeo (player nativo,
+ * com a capa) e voz (player próprio: ▶/❚❚, barra e tempo). O coach manda pelo
+ * 📎 (ou Ctrl+V de imagem no campo) e grava voz no 🎤. Os balões são
+ * reaproveitados entre pinturas (chave = id da mensagem): um tick novo ou uma
+ * mensagem chegando não recria o `<audio>` que está tocando.
  */
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
 import {
-  apagarMensagem, editarMensagem, enviarResposta, marcarStatus, ouvirConversas, ouvirMensagens,
+  apagarMensagem, editarMensagem, enviarMidia, enviarResposta, marcarStatus, ouvirConversas, ouvirMensagens,
 } from './chat-db.js';
 import {
+  LIMITES_MIDIA,
+  MidiaRecusada,
+  VOZ_MIN_S,
   aguardaResposta,
   alunoDaConversa,
   casaBusca,
   emailKey,
+  formatarDuracao,
   horaDaMensagem,
   iniciais,
   itensDoChat,
   lerEndereco,
   paraMarcar,
-  podeAlterar,
+  podeApagar,
+  podeEditar,
   prepararTexto,
   quandoNaLista,
+  resultadoDaFalha,
   resumoAposApagar,
   ticksDoStatus,
 } from './chat.js';
+import { AVISO_NAVEGADOR, iniciarGravacao, prepararArquivo, suportaGravacao } from './midia-web.js';
 
 const $ = (/** @type {string} */ s) => /** @type {any} */ (document.querySelector(s));
 const esc = (/** @type {unknown} */ s) =>
@@ -144,26 +157,215 @@ function renderCabecalho() {
   $('#conv-email').textContent = a.naFicha ? ativa : `${ativa} · sem ficha na Gestão`;
 }
 
+/** Perto do fim da conversa: mensagem nova (ou foto que termina de carregar) puxa para baixo. */
+const pertoDoFim = (/** @type {HTMLElement} */ box) => box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+/** Se a conversa estava colada no fim antes de algo crescer — atualizado a cada rolagem. */
+let coladoNoFim = true;
+$('#mensagens').addEventListener('scroll', () => { coladoNoFim = pertoDoFim($('#mensagens')); }, { passive: true });
+
+/** Para áudio e vídeo de um trecho que vai sair da tela. @param {Element} el */
+function pausarMidias(el) {
+  el.querySelectorAll('audio, video').forEach((m) => /** @type {HTMLMediaElement} */ (m).pause());
+}
+
+/**
+ * Pinta a conversa reaproveitando o que já está na tela: cada separador e
+ * cada balão tem a sua chave (`data-key`), só o que mudou é reescrito, e o
+ * miolo da mídia (`<img>`, `<video>`, `<audio>`) nasce uma vez só — um tick
+ * novo não para o áudio que o coach está ouvindo.
+ */
 function renderMensagens(estado = '') {
   const box = $('#mensagens');
-  if (estado) { box.innerHTML = `<p class="msgs-estado">${estado}</p>`; return; }
-  if (!mensagens.length) {
-    box.innerHTML = '<p class="msgs-estado">Nenhuma mensagem nesta conversa ainda. A primeira pode ser sua.</p>';
+  if (estado || !mensagens.length) {
+    pausarMidias(box);
+    box.innerHTML = `<p class="msgs-estado">${estado || 'Nenhuma mensagem nesta conversa ainda. A primeira pode ser sua.'}</p>`;
     return;
   }
   // Quem está lendo o histórico lá em cima não é puxado para baixo por uma mensagem nova.
-  const perto = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  box.innerHTML = itensDoChat(mensagens).map((it) => {
-    if (it.tipo === 'dia') return `<span class="dia">${esc(it.rotulo)}</span>`;
-    const m = it.mensagem;
-    const cls = ['balao', m.remetente, it.continuacao ? 'seguido' : '', m.pendente ? 'pendente' : '',
-      m.id === editando ? 'editando' : ''].filter(Boolean).join(' ');
-    return `<div class="${cls}" data-id="${esc(m.id)}">${acoesHtml(m)}<span class="txt">${esc(m.texto)}</span>`
-      + `<span class="hora">${m.editado ? '<span class="editada">editada</span>' : ''}${horaDaMensagem(m.timestamp)}${marcaHtml(m)}</span></div>`;
-  }).join('');
+  const perto = pertoDoFim(box);
+  /** @type {Map<string, HTMLElement>} */
+  const naTela = new Map();
+  for (const el of /** @type {HTMLElement[]} */ ([...box.children])) if (el.dataset.key) naTela.set(el.dataset.key, el);
+
+  const desejados = itensDoChat(mensagens).map((it) => (it.tipo === 'dia'
+    ? separador(naTela.get(it.id), it)
+    : balao(naTela.get(it.id), it)));
+
+  // Põe cada um no lugar, movendo só o que está fora de ordem; o que sobra saiu da conversa.
+  let cursor = box.firstElementChild;
+  for (const el of desejados) {
+    if (el === cursor) cursor = cursor.nextElementSibling;
+    else box.insertBefore(el, cursor);
+  }
+  while (cursor) {
+    const proximo = cursor.nextElementSibling;
+    pausarMidias(cursor);
+    cursor.remove();
+    cursor = proximo;
+  }
   if (perto || descerAoFim) box.scrollTop = box.scrollHeight;
+  coladoNoFim = pertoDoFim(box);
   descerAoFim = false;
 }
+
+/** @param {HTMLElement|undefined} el @param {{ id: string, rotulo: string }} it */
+function separador(el, it) {
+  if (!el) {
+    el = document.createElement('span');
+    el.className = 'dia';
+    el.dataset.key = it.id;
+  }
+  if (el.textContent !== it.rotulo) el.textContent = it.rotulo;
+  return el;
+}
+
+/** Troca o HTML de um pedaço só quando ele mudou — sem roubar o foco do menu. @param {Element} el @param {string} html */
+function trocarSeMudou(el, html) {
+  const alvo = /** @type {HTMLElement} */ (el);
+  if (alvo.dataset.html !== html) {
+    alvo.innerHTML = html;
+    alvo.dataset.html = html;
+  }
+}
+
+/**
+ * Um balão: cria na primeira vez (com o miolo da mídia), e depois só
+ * atualiza classe, menu, texto e rodapé.
+ * @param {HTMLElement|undefined} el
+ * @param {{ mensagem: import('./chat.js').Mensagem, continuacao: boolean }} it
+ */
+function balao(el, it) {
+  const m = it.mensagem;
+  // Mudou o arquivo (não acontece: mídia não se edita), o balão nasce de novo.
+  const midia = m.tipo === 'texto' ? '' : `${m.tipo}|${m.mediaUrl}|${m.thumbUrl || ''}`;
+  if (!el || el.dataset.midia !== midia) {
+    if (el) pausarMidias(el);
+    el = document.createElement('div');
+    el.dataset.key = m.id;
+    el.dataset.id = m.id;
+    el.dataset.midia = midia;
+    el.innerHTML = `<span class="acoes-slot"></span>${mioloHtml(m)}<span class="hora"></span>`;
+    if (m.tipo !== 'texto') ligarMidia(el, m);
+  }
+  el.className = ['balao', m.remetente, it.continuacao ? 'seguido' : '', m.pendente ? 'pendente' : '',
+    m.id === editando ? 'editando' : '', m.tipo !== 'texto' ? `com-midia midia-${m.tipo}` : ''].filter(Boolean).join(' ');
+  trocarSeMudou(/** @type {Element} */ (el.querySelector('.acoes-slot')), acoesHtml(m));
+  if (m.tipo === 'texto') {
+    const txt = /** @type {HTMLElement} */ (el.querySelector('.txt'));
+    if (txt.textContent !== m.texto) txt.textContent = m.texto;
+  }
+  trocarSeMudou(/** @type {Element} */ (el.querySelector('.hora')),
+    `${m.editado ? '<span class="editada">editada</span>' : ''}${horaDaMensagem(m.timestamp)}${marcaHtml(m)}`);
+  return el;
+}
+
+/** O miolo do balão: o texto, ou a foto, o vídeo, o player de voz. @param {import('./chat.js').Mensagem} m */
+function mioloHtml(m) {
+  const url = esc(m.mediaUrl);
+  if (m.tipo === 'imagem') {
+    return `<button class="midia-foto" type="button" data-acao="ver-foto" aria-label="Ver foto em tela cheia">`
+      + `<img src="${url}" alt="Foto" loading="lazy" decoding="async" /></button>`;
+  }
+  if (m.tipo === 'video') {
+    const capa = m.thumbUrl ? ` poster="${esc(m.thumbUrl)}"` : '';
+    return `<video class="midia-video" src="${url}"${capa} controls preload="metadata" playsinline></video>`;
+  }
+  if (m.tipo === 'audio') {
+    return `<div class="audio"><button class="audio-play" type="button" data-acao="tocar" aria-label="Ouvir mensagem de voz">▶</button>`
+      + `<input class="audio-barra" type="range" min="0" max="1000" step="1" value="0" aria-label="Posição da mensagem de voz" />`
+      + `<span class="audio-tempo">${formatarDuracao(m.duracao || 0)}</span>`
+      + `<audio src="${url}" preload="none"></audio></div>`;
+  }
+  return '<span class="txt"></span>';
+}
+
+/**
+ * Liga os eventos do miolo recém-criado. A foto e o vídeo, ao carregar,
+ * mantêm a conversa colada no fim (se estava). A voz ganha o player: o botão,
+ * a barra que acompanha e deixa arrastar, e o tempo — o total parado, o
+ * decorrido tocando.
+ * @param {HTMLElement} el @param {import('./chat.js').Mensagem} m
+ */
+function ligarMidia(el, m) {
+  const manterNoFim = () => { if (coladoNoFim) { const box = $('#mensagens'); box.scrollTop = box.scrollHeight; } };
+  el.querySelector('img')?.addEventListener('load', manterNoFim);
+  el.querySelector('video')?.addEventListener('loadedmetadata', manterNoFim);
+
+  const audio = /** @type {HTMLAudioElement|null} */ (el.querySelector('audio'));
+  if (!audio) return;
+  const botao = /** @type {HTMLButtonElement} */ (el.querySelector('.audio-play'));
+  const barra = /** @type {HTMLInputElement} */ (el.querySelector('.audio-barra'));
+  const tempo = /** @type {HTMLElement} */ (el.querySelector('.audio-tempo'));
+  let arrastando = false;
+  const total = () => (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : (m.duracao || 0));
+  const pintar = () => {
+    const t = total();
+    if (!arrastando) barra.value = String(t ? Math.round((audio.currentTime / t) * 1000) : 0);
+    barra.style.setProperty('--feito', `${Number(barra.value) / 10}%`);
+    const mostrar = arrastando ? (Number(barra.value) / 1000) * t
+      : (audio.currentTime > 0 || !audio.paused ? audio.currentTime : t);
+    tempo.textContent = formatarDuracao(mostrar);
+  };
+  audio.addEventListener('timeupdate', pintar);
+  audio.addEventListener('loadedmetadata', pintar);
+  audio.addEventListener('play', () => { botao.textContent = '❚❚'; botao.setAttribute('aria-label', 'Pausar mensagem de voz'); });
+  audio.addEventListener('pause', () => { botao.textContent = '▶'; botao.setAttribute('aria-label', 'Ouvir mensagem de voz'); });
+  audio.addEventListener('waiting', () => botao.classList.add('carregando'));
+  audio.addEventListener('playing', () => botao.classList.remove('carregando'));
+  // Acabou: volta ao começo, pronto para ouvir de novo.
+  audio.addEventListener('ended', () => { audio.currentTime = 0; pintar(); });
+  audio.addEventListener('error', () => {
+    botao.classList.remove('carregando');
+    tempo.textContent = 'indisponível';
+  });
+  barra.addEventListener('input', () => { arrastando = true; pintar(); });
+  barra.addEventListener('change', () => {
+    arrastando = false;
+    const t = total();
+    if (t) audio.currentTime = (Number(barra.value) / 1000) * t;
+    pintar();
+  });
+}
+
+/** ▶/❚❚ da voz. @param {HTMLElement} el */
+function alternarAudio(el) {
+  const audio = /** @type {HTMLAudioElement|null} */ (el.querySelector('audio'));
+  if (!audio) return;
+  if (!audio.paused) { audio.pause(); return; }
+  audio.play().catch((e) => {
+    console.warn('Chat: não deu para tocar a voz.', e);
+    avisar('Não deu para tocar essa mensagem de voz neste navegador.', true);
+  });
+}
+
+// Uma mídia por vez: começou a tocar, as outras param.
+$('#mensagens').addEventListener('play', (/** @type {Event} */ ev) => {
+  for (const outra of $('#mensagens').querySelectorAll('audio, video')) {
+    if (outra !== ev.target && !outra.paused) outra.pause();
+  }
+}, true);
+
+/* ---------- a foto em tela cheia ---------- */
+
+/** @type {Element|null} */
+let focoAntesDaFoto = null;
+
+/** @param {string} url */
+function abrirFoto(url) {
+  focoAntesDaFoto = document.activeElement;
+  $('#lightbox-img').src = url;
+  $('#lightbox').hidden = false;
+  $('#lightbox-fechar').focus();
+}
+
+function fecharFoto() {
+  if ($('#lightbox').hidden) return;
+  $('#lightbox').hidden = true;
+  $('#lightbox-img').removeAttribute('src');
+  /** @type {HTMLElement|null} */ (focoAntesDaFoto)?.focus?.();
+}
+// Clique em qualquer lugar (na foto, no fundo ou no ✕) fecha.
+$('#lightbox').addEventListener('click', fecharFoto);
 
 /** Os ticks da resposta do coach (✓ enviado, ✓✓ entregue, ✓✓ amarelo lido). @param {import('./chat.js').Mensagem} m */
 function marcaHtml(m) {
@@ -176,14 +378,14 @@ function marcaHtml(m) {
 
 /** O ⋯ da resposta do coach, e o menu dele quando aberto. @param {import('./chat.js').Mensagem} m */
 function acoesHtml(m) {
-  if (!podeAlterar(m)) return '';
+  if (!podeApagar(m)) return '';
   const aberto = m.id === menuAberto;
+  // Foto, vídeo e voz não têm texto para editar: só apagar (a regra também não deixa).
   return `<button class="balao-mais" type="button" data-acao="menu" aria-label="Opções da mensagem"
       aria-haspopup="menu" aria-expanded="${aberto}">⋯</button>`
-    + (aberto ? `<div class="balao-menu" role="menu">
-        <button type="button" role="menuitem" data-acao="editar">Editar</button>
-        <button type="button" role="menuitem" data-acao="apagar">Apagar</button>
-      </div>` : '');
+    + (aberto ? `<div class="balao-menu" role="menu">`
+      + (podeEditar(m) ? '<button type="button" role="menuitem" data-acao="editar">Editar</button>' : '')
+      + '<button type="button" role="menuitem" data-acao="apagar">Apagar</button></div>' : '');
 }
 
 /** Se a mensagem é a última da conversa, o que o resumo precisa para acompanhar a troca. @param {string} id */
@@ -213,16 +415,20 @@ document.addEventListener('visibilitychange', marcarRecebidas);
 
 $('#mensagens').addEventListener('click', async (/** @type {MouseEvent} */ ev) => {
   const botao = /** @type {HTMLElement|null} */ (/** @type {HTMLElement} */ (ev.target).closest('[data-acao]'));
-  const id = /** @type {HTMLElement|null} */ (botao?.closest('.balao'))?.dataset.id;
+  const balaoEl = /** @type {HTMLElement|null} */ (botao?.closest('.balao'));
+  const id = balaoEl?.dataset.id;
   const m = id ? mensagens.find((x) => x.id === id) : undefined;
-  if (!botao || !m || !podeAlterar(m)) {
+  const acao = botao?.dataset.acao;
+  // A mídia é de quem ver: foto e voz de qualquer um dos dois lados.
+  if (acao === 'ver-foto' && m?.mediaUrl) { abrirFoto(m.mediaUrl); return; }
+  if (acao === 'tocar' && balaoEl) { alternarAudio(balaoEl); return; }
+  if (!botao || !m || !podeApagar(m)) {
     if (menuAberto) { menuAberto = null; renderMensagens(); }
     return;
   }
-  const acao = botao.dataset.acao;
   menuAberto = acao === 'menu' && menuAberto !== m.id ? m.id : null;
   renderMensagens();
-  if (acao === 'editar') iniciarEdicao(m);
+  if (acao === 'editar' && podeEditar(m)) iniciarEdicao(m);
   if (acao === 'apagar') await apagar(m);
 });
 
@@ -252,13 +458,16 @@ $('#editando-cancelar').addEventListener('click', cancelarEdicao);
 
 /** @param {import('./chat.js').Mensagem} m */
 async function apagar(m) {
-  if (!confirm('Apagar esta mensagem? Ela some para você e para o aluno.')) return;
+  const oque = { texto: 'esta mensagem', imagem: 'esta foto', video: 'este vídeo', audio: 'esta mensagem de voz' }[m.tipo];
+  if (!confirm(`Apagar ${oque}? Ela some para você e para o aluno.`)) return;
   const email = ativa;
   if (!email) return;
   if (editando === m.id) cancelarEdicao();
   avisar('');
+  // O arquivo (e a capa do vídeo) sai do Storage junto.
+  const arquivos = [m.mediaUrl, m.thumbUrl].filter((a) => typeof a === 'string' && !!a);
   try {
-    await apagarMensagem(email, m.id, resumoAposApagar(mensagens, m.id));
+    await apagarMensagem(email, m.id, resumoAposApagar(mensagens, m.id), /** @type {string[]} */ (arquivos));
   } catch (e) {
     console.warn('Chat: exclusão recusada.', /** @type {any} */ (e)?.code || e);
     avisar('Não deu para apagar a mensagem. Confira a conexão e tente de novo.', true);
@@ -273,6 +482,8 @@ function abrirConversa(email) {
   if (id === ativa) { marcarRecebidas(); return; }
 
   cancelarEdicao();
+  // A voz gravada era para a conversa anterior: trocou, descarta.
+  cancelarGravacao();
   ativa = id;
   rodada += 1;
   const minha = rodada;
@@ -328,14 +539,217 @@ function avisar(/** @type {string} */ texto, erro = false) {
   p.classList.toggle('erro', erro);
 }
 
-/** O campo cresce com o texto até o teto do CSS, e o botão só acende com texto. */
+/**
+ * O campo cresce com o texto até o teto do CSS. Como no WhatsApp: com o
+ * campo vazio, o 🎤 no lugar do Enviar; editando, nem 🎤 nem 📎.
+ */
 function ajustarCampo() {
   const ta = $('#resposta');
   ta.style.height = 'auto';
   ta.style.height = `${ta.scrollHeight + 2}px`;
-  $('#btn-enviar').disabled = !prepararTexto(ta.value);
+  const temTexto = !!prepararTexto(ta.value);
+  const mostrarMicrofone = !temTexto && !editando;
+  $('#btn-enviar').disabled = !temTexto;
+  $('#btn-enviar').hidden = mostrarMicrofone;
+  $('#btn-microfone').hidden = !mostrarMicrofone;
+  $('#btn-anexo').hidden = !!editando;
 }
 $('#resposta').addEventListener('input', ajustarCampo);
+
+/* ---------- mídia do coach: 📎, Ctrl+V e 🎤 ---------- */
+
+const NOME_DA_MIDIA = { imagem: 'a foto', video: 'o vídeo', audio: 'a mensagem de voz' };
+const NOME_NO_ENVIO = { imagem: 'foto', video: 'vídeo', audio: 'mensagem de voz' };
+
+/**
+ * As mídias subindo, na ordem em que o coach mandou — cada uma com a barra
+ * até o balão nascer. `para` é o aluno: o coach pode trocar de conversa
+ * enquanto o vídeo sobe.
+ * @type {{ id: number, tipo: import('./chat.js').TipoMidia, progresso: number, previaUrl?: string, para: string }[]}
+ */
+let envios = [];
+let proximoEnvio = 0;
+
+function renderEnvios() {
+  const ul = $('#envios');
+  ul.hidden = !envios.length;
+  ul.innerHTML = envios.map((e) => `<li class="envio" data-envio="${e.id}" role="progressbar"
+      aria-label="Enviando ${NOME_NO_ENVIO[e.tipo]} para ${esc(e.para)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${e.progresso}">`
+    + (e.previaUrl ? `<img src="${esc(e.previaUrl)}" alt="" />` : `<span class="envio-ic">${e.tipo === 'audio' ? '🎤' : '🎥'}</span>`)
+    + `<div class="envio-meio"><span class="envio-txt"></span><i class="envio-trilha"><i></i></i></div></li>`).join('');
+  envios.forEach(atualizarEnvio);
+}
+
+/** Só a porcentagem e a barra — sem recriar a miniatura a cada byte. @param {typeof envios[number]} e */
+function atualizarEnvio(e) {
+  const li = $(`#envios [data-envio="${e.id}"]`);
+  if (!li) return;
+  li.setAttribute('aria-valuenow', String(e.progresso));
+  li.querySelector('.envio-txt').textContent =
+    `Enviando ${NOME_NO_ENVIO[e.tipo]} para ${e.para}… ${e.progresso < 100 ? `${e.progresso}%` : 'quase lá'}`;
+  li.querySelector('.envio-trilha i').style.width = `${Math.max(3, e.progresso)}%`;
+}
+
+/**
+ * Sobe uma mídia pronta e diz o que deu errado, se deu.
+ * @param {string} email @param {import('./midia-web.js').MidiaPronta} midia
+ */
+async function mandarMidia(email, midia) {
+  const envio = { id: ++proximoEnvio, tipo: midia.tipo, progresso: 0, previaUrl: midia.previaUrl, para: alunoDaConversa(email, alunos).nome };
+  envios.push(envio);
+  renderEnvios();
+  if (email === ativa) descerAoFim = true;
+  try {
+    await enviarMidia(email, midia, (pct) => { envio.progresso = pct; atualizarEnvio(envio); });
+  } catch (e) {
+    const r = resultadoDaFalha(e);
+    const code = /** @type {any} */ (e)?.code;
+    if (!r.motivo) console.warn('Chat: mídia recusada.', code || e);
+    const nome = NOME_DA_MIDIA[midia.tipo];
+    avisar(r.resultado === 'sem-rede'
+      ? `Sem conexão — não deu para enviar ${nome}. Tente de novo.`
+      : r.motivo || (code === 'storage/unauthorized' || code === 'permission-denied'
+        ? `O Firebase recusou ${nome}. Confira se as regras de mídia do chat estão publicadas.`
+        : `Não deu para enviar ${nome}. Confira a conexão e tente de novo.`), true);
+  } finally {
+    envios = envios.filter((x) => x !== envio);
+    if (midia.previaUrl) URL.revokeObjectURL(midia.previaUrl);
+    renderEnvios();
+  }
+}
+
+/**
+ * Fotos e vídeos escolhidos no 📎 (ou colados), um depois do outro — as
+ * mensagens nascem na ordem em que o coach mandou.
+ * @param {File[]} arquivos
+ */
+async function mandarArquivos(arquivos) {
+  const email = ativa;
+  if (!email || !arquivos.length) return;
+  avisar('');
+  for (const arquivo of arquivos) {
+    /** @type {import('./midia-web.js').MidiaPronta} */
+    let midia;
+    try {
+      midia = await prepararArquivo(arquivo);
+    } catch (e) {
+      if (!(e instanceof MidiaRecusada)) console.warn('Chat: arquivo recusado.', e);
+      avisar(e instanceof MidiaRecusada ? e.message : 'Não deu para abrir esse arquivo. Tente outro.', true);
+      continue;
+    }
+    await mandarMidia(email, midia);
+  }
+}
+
+$('#btn-anexo').addEventListener('click', () => $('#arquivo').click());
+$('#arquivo').addEventListener('change', () => {
+  const input = $('#arquivo');
+  const arquivos = /** @type {File[]} */ ([...(input.files || [])]);
+  input.value = ''; // o mesmo arquivo de novo também dispara
+  mandarArquivos(arquivos);
+});
+
+// Ctrl+V de imagem no campo: o print vai direto, sem passar pelo 📎.
+$('#resposta').addEventListener('paste', (/** @type {ClipboardEvent} */ ev) => {
+  const imagens = [...(ev.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
+  if (!imagens.length || editando) return;
+  ev.preventDefault();
+  mandarArquivos(imagens);
+});
+
+/* A voz. */
+
+/** @type {import('./midia-web.js').Gravacao|null} */
+let gravacao = null;
+/** A conversa em que a gravação começou — é para ela que a voz vai. @type {string|null} */
+let emailDaGravacao = null;
+/** @type {ReturnType<typeof setInterval>|undefined} */
+let relogio;
+const GRAVA_NESTE_NAVEGADOR = suportaGravacao();
+
+// Navegador que só grava WebM/Opus (Firefox): o 🎤 fica apagado, com o motivo.
+// `aria-disabled`, e não `disabled`: botão desligado nem mostra o title.
+if (!GRAVA_NESTE_NAVEGADOR) {
+  const mic = $('#btn-microfone');
+  mic.setAttribute('aria-disabled', 'true');
+  mic.classList.add('desligado');
+  mic.title = AVISO_NAVEGADOR;
+}
+
+async function comecarGravacao() {
+  if (!GRAVA_NESTE_NAVEGADOR) { avisar(AVISO_NAVEGADOR); return; }
+  if (gravacao || !ativa) return;
+  const email = ativa;
+  avisar('');
+  try {
+    const nova = await iniciarGravacao();
+    // Trocou de conversa enquanto o navegador pedia o microfone: não grava.
+    if (ativa !== email) { nova.cancelar(); return; }
+    gravacao = nova;
+  } catch (e) {
+    avisar(e instanceof MidiaRecusada ? e.message : 'Não deu para usar o microfone. Tente de novo.', true);
+    if (!(e instanceof MidiaRecusada)) console.warn('Chat: microfone.', e);
+    return;
+  }
+  emailDaGravacao = email;
+  $('#form-resposta').classList.add('gravando');
+  $('#gravacao').hidden = false;
+  $('#grav-tempo').textContent = '0:00';
+  const teto = LIMITES_MIDIA.audio.duracaoMax ?? 300;
+  relogio = setInterval(() => {
+    if (!gravacao) return;
+    const s = gravacao.segundos();
+    $('#grav-tempo').textContent = formatarDuracao(s);
+    // No teto a voz para sozinha e vai, como se o coach tivesse clicado em Enviar.
+    if (s >= teto) enviarGravacao();
+  }, 250);
+  $('#grav-enviar').focus();
+}
+
+function fecharGravacao() {
+  clearInterval(relogio);
+  gravacao = null;
+  emailDaGravacao = null;
+  $('#form-resposta').classList.remove('gravando');
+  $('#gravacao').hidden = true;
+}
+
+async function enviarGravacao() {
+  const g = gravacao;
+  const email = emailDaGravacao;
+  if (!g || !email) return;
+  fecharGravacao();
+  $('#resposta').focus();
+  const voz = await g.parar();
+  if (voz.duracao < VOZ_MIN_S) {
+    avisar('Gravação curta demais. Clique no microfone, fale e depois em Enviar.');
+    return;
+  }
+  await mandarMidia(email, { tipo: 'audio', blob: voz.blob, nome: 'voz.m4a', mimeType: 'audio/mp4', duracao: voz.duracao });
+}
+
+function cancelarGravacao() {
+  const g = gravacao;
+  if (!g) return;
+  fecharGravacao();
+  g.cancelar();
+}
+
+$('#btn-microfone').addEventListener('click', comecarGravacao);
+$('#grav-enviar').addEventListener('click', enviarGravacao);
+$('#grav-cancelar').addEventListener('click', () => { cancelarGravacao(); $('#resposta').focus(); });
+
+// Esc: fecha a foto em tela cheia, ou cancela a gravação.
+document.addEventListener('keydown', (/** @type {KeyboardEvent} */ ev) => {
+  if (ev.key !== 'Escape') return;
+  if (!$('#lightbox').hidden) { ev.preventDefault(); fecharFoto(); return; }
+  if (gravacao) { ev.preventDefault(); cancelarGravacao(); }
+});
+
+// Fechar a aba com mídia subindo (ou gravando) perde o que estava indo.
+window.addEventListener('beforeunload', (ev) => {
+  if (envios.length || gravacao) ev.preventDefault();
+});
 
 $('#resposta').addEventListener('keydown', (/** @type {KeyboardEvent} */ ev) => {
   // Enter envia; Shift+Enter quebra a linha. Durante a composição (acento no
@@ -358,7 +772,7 @@ async function salvarEdicao(email, id, texto) {
   } catch (e) {
     console.warn('Chat: edição recusada.', /** @type {any} */ (e)?.code || e);
     const m = mensagens.find((x) => x.id === id);
-    if (ativa === email && !editando && !$('#resposta').value && m && podeAlterar(m)) {
+    if (ativa === email && !editando && !$('#resposta').value && m && podeEditar(m)) {
       iniciarEdicao(m);
       $('#resposta').value = texto;
       ajustarCampo();
