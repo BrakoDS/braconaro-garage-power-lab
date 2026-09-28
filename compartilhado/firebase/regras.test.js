@@ -63,3 +63,12 @@ test('o aluno continua limitado ao proprio e-mail no portal', () => {
   assert.match(portal, /allow read: if request\.auth != null && request\.auth\.token\.email == email;/);
   assert.match(portal, /allow write: if ehCoach\(\);/, 'só o coach escreve (é o que protege o appLiberado)');
 });
+
+test('mural de recordes: o grupo prs so e lido pelo coach, e ninguem escreve por ele', () => {
+  // A consulta de grupo (collectionGroup('prs')) alcança a subcoleção de TODOS
+  // os alunos: aberta para aluno, um leria os PRs dos outros; com escrita, a
+  // validação de prValido() ficaria para trás.
+  const bloco = codigo(firestore).split('match /{path=**}/prs/{id} {')[1];
+  assert.ok(bloco, 'match /{path=**}/prs/{id} existe');
+  assert.deepEqual(bloco.split('}')[0].match(/allow [^;]+;/g), ['allow read: if ehCoach();']);
+});

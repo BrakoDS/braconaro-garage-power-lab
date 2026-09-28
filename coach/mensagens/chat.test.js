@@ -16,6 +16,8 @@ import {
   casaBusca,
   edicaoDaMensagem,
   emMs,
+  enderecoDaConversa,
+  lerEndereco,
   normalizarStatus,
   paraMarcar,
   podeAlterar,
@@ -210,4 +212,23 @@ test('os ticks: um enviado, dois entregue, dois em destaque lido', () => {
   assert.deepEqual(ticksDoStatus('enviado'), { marca: '✓', lido: false });
   assert.deepEqual(ticksDoStatus('entregue'), { marca: '✓✓', lido: false });
   assert.deepEqual(ticksDoStatus('lido'), { marca: '✓✓', lido: true });
+});
+
+test('o endereco abre a conversa e pode trazer um rascunho, tudo no #', () => {
+  assert.equal(enderecoDaConversa(' Ana@Box.com '), '#ana%40box.com');
+  assert.deepEqual(lerEndereco('#ana%40box.com'), { email: 'ana@box.com', rascunho: null });
+
+  const texto = 'Parabéns, Ana! 🏆 Novo PR de Back Squat: 102,5 kg × 5 reps & mais';
+  const hash = enderecoDaConversa('ana@box.com', texto);
+  assert.match(hash, /^#ana%40box\.com&rascunho=/);
+  assert.deepEqual(lerEndereco(hash), { email: 'ana@box.com', rascunho: texto }, 'o & do texto nao corta o rascunho');
+  assert.equal(enderecoDaConversa('ana@box.com', '   '), '#ana%40box.com', 'rascunho vazio nao entra');
+});
+
+test('endereco torto nao derruba a Central: sem @ ou com % solto, nenhuma conversa', () => {
+  assert.deepEqual(lerEndereco(''), { email: '', rascunho: null });
+  assert.deepEqual(lerEndereco('#sem-arroba'), { email: '', rascunho: null });
+  assert.deepEqual(lerEndereco('#%E0%A4%A'), { email: '', rascunho: null });
+  assert.deepEqual(lerEndereco('#ana@box.com&rascunho='), { email: 'ana@box.com', rascunho: null });
+  assert.deepEqual(lerEndereco('#ana@box.com'), { email: 'ana@box.com', rascunho: null }, 'o formato antigo, sem codificar, continua valendo');
 });
