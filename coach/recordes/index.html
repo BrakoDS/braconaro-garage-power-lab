@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Mural de Recordes — Garage Power Lab</title>
+  <script>
+    // Sem a barra final (`/coach/recordes`, como o `npx serve` reescreve o
+    // index.html), os caminhos relativos apontam para /coach/ e a página abre
+    // sem CSS e sem JS. Volta para a pasta antes de carregar qualquer coisa.
+    if (!/\/$|\.html$/.test(location.pathname)) location.replace(location.pathname + '/' + location.hash);
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./recordes.css?v=1" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+  <!-- ============ GATE (login do coach) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Recordes</div>
+      <p class="gate-sub">Área restrita ao coach.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links">
+        <a href="#" id="gate-reset">Esqueci a senha</a>
+      </div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <h1>Mural de Recordes</h1>
+      <div class="topbar-acoes">
+        <a class="btn ghost btn-sm" href="../index.html">Coach</a>
+        <a class="btn ghost btn-sm" href="../mensagens/index.html">Mensagens</a>
+      </div>
+    </header>
+
+    <main class="mural">
+      <section class="mural-hero">
+        <span class="eyebrow">Garage Power Lab · PRs</span>
+        <h2>Quem quebrou recorde na box</h2>
+        <p>Os PRs que os alunos registram no Garage App (Meus Recordes) chegam aqui na hora. Dê o parabéns ou apague o que foi digitado errado.</p>
+        <div class="stats" id="stats"></div>
+      </section>
+
+      <section class="filtros" aria-label="Filtros do mural">
+        <label class="campo">
+          <span>Exercício</span>
+          <select id="f-exercicio"><option value="">Todos</option></select>
+        </label>
+        <label class="campo">
+          <span>Aluno</span>
+          <select id="f-aluno"><option value="">Todos</option></select>
+        </label>
+        <button class="btn ghost btn-sm" id="f-limpar" type="button" hidden>Limpar filtros</button>
+        <p class="filtros-resumo" id="f-resumo"></p>
+      </section>
+
+      <p class="aviso" id="aviso" role="status" hidden></p>
+      <ol class="feed" id="feed" aria-label="PRs, do mais recente para o mais antigo"></ol>
+      <p class="feed-rodape" id="feed-rodape" hidden></p>
+    </main>
+  </div>
+
+  <script type="module" src="./recordes.js?v=1"></script>
+</body>
+</html>

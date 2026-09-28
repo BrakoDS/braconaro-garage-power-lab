@@ -11,7 +11,8 @@
  * a mesma que o hub do coach lê. Sem ficha, a conversa aparece pelo e-mail.
  *
  * A conversa aberta fica no endereço (`#email`): recarregar a página volta
- * nela, e dá para abrir uma conversa nova com quem ainda não escreveu.
+ * nela, e dá para abrir uma conversa nova com quem ainda não escreveu. Com
+ * `&rascunho=`, o texto chega pronto no campo (o parabéns do Mural de Recordes).
  */
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
@@ -27,6 +28,7 @@ import {
   horaDaMensagem,
   iniciais,
   itensDoChat,
+  lerEndereco,
   paraMarcar,
   podeAlterar,
   prepararTexto,
@@ -435,8 +437,24 @@ async function entrar(/** @type {any} */ user) {
     console.warn('Chat:', e);
   }
 
-  const doEndereco = emailKey(decodeURIComponent(location.hash.slice(1)));
-  if (doEndereco.includes('@')) abrirConversa(doEndereco);
+  // Lido antes de abrir: a conversa aberta regrava o endereço só com o e-mail.
+  const { email: doEndereco, rascunho } = lerEndereco(location.hash);
+  if (doEndereco) {
+    abrirConversa(doEndereco);
+    if (rascunho) colarRascunho(rascunho);
+  }
+}
+
+/**
+ * O texto pronto que outra tela mandou pelo endereço (o parabéns do Mural de
+ * Recordes) vai para o campo — sem enviar: o coach revisa e aperta Enter.
+ * @param {string} texto
+ */
+function colarRascunho(texto) {
+  const ta = $('#resposta');
+  ta.value = texto;
+  ajustarCampo();
+  ta.setSelectionRange(texto.length, texto.length);
 }
 
 const gate = $('#gate'), gErro = $('#gate-erro');

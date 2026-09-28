@@ -314,3 +314,30 @@ export function casaBusca(x, termo) {
   const t = norm(String(termo || '').trim());
   return !t || norm(x.nome).includes(t) || norm(x.email).includes(t);
 }
+
+/**
+ * O endereço da Central: `#email` abre a conversa, e `&rascunho=texto` deixa um
+ * texto pronto no campo de resposta — é assim que o Mural de Recordes manda o
+ * parabéns. Tudo no `#`, que não sai do navegador: nem o e-mail nem o texto
+ * vão parar no log do servidor.
+ * @param {string} email @param {string} [rascunho]
+ */
+export function enderecoDaConversa(email, rascunho) {
+  const base = `#${encodeURIComponent(emailKey(email))}`;
+  const t = prepararTexto(rascunho);
+  return t ? `${base}&${new URLSearchParams({ rascunho: t })}` : base;
+}
+
+/**
+ * Lê o endereço que `enderecoDaConversa` monta. Sem '@' não é aluno, e um `%`
+ * solto no endereço não derruba a página.
+ * @param {string} hash @returns {{ email: string, rascunho: string|null }}
+ */
+export function lerEndereco(hash) {
+  const h = String(hash || '').replace(/^#/, '');
+  const i = h.indexOf('&');
+  let email = '';
+  try { email = emailKey(decodeURIComponent(i < 0 ? h : h.slice(0, i))); } catch { /* endereço torto */ }
+  const rascunho = i < 0 ? null : prepararTexto(new URLSearchParams(h.slice(i + 1)).get('rascunho'));
+  return { email: email.includes('@') ? email : '', rascunho };
+}

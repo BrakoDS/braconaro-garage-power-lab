@@ -1,0 +1,197 @@
+/* ============================================================
+   RECORDES — Mural de Recordes (PRs) do Coach · Garage Power Lab
+   Um feed: o PR mais recente em cima, com o selo 🏆 em ouro.
+   No celular cada PR vira um cartão de três linhas.
+   Tokens iguais aos de coach/coach.css — mesma paleta do site e do app.
+   ============================================================ */
+:root{
+  --bg:#09090b; --bg-2:#101013; --card:#141417; --card-2:#1b1b20;
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --txt:#f5f5f6; --mut:#a1a1aa; --mut-2:#71717a;
+  --accent:#f5c518; --accent-2:#ffd84d; --accent-ink:#0a0a0b;
+  --glow:rgba(245,197,24,.45); --ok:#3fb950; --bad:#ff5d5d;
+  --font-display:'Anton','Barlow Condensed',sans-serif;
+  --font-cond:'Barlow Condensed',sans-serif;
+  --font-body:'Barlow',system-ui,sans-serif;
+  --topbar-h:64px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--font-body);line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+[hidden]{display:none !important}
+
+/* ---------- Botões ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;font-family:var(--font-cond);font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;font-size:.84rem;padding:.7em 1.2em;border:1px solid var(--accent);
+  background:var(--accent);color:var(--accent-ink);cursor:pointer;transition:.15s}
+.btn:hover{background:var(--accent-2);border-color:var(--accent-2)}
+.btn.ghost{background:transparent;color:var(--txt);border-color:var(--line-2)}
+.btn.ghost:hover{color:var(--accent);border-color:var(--accent)}
+.btn.danger{background:transparent;color:var(--bad);border-color:var(--bad)}
+.btn.danger:hover{background:rgba(255,93,93,.12)}
+.btn-sm{padding:.5em .9em;font-size:.76rem}
+.btn:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px}
+
+/* ---------- Gate ---------- */
+#gate{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(80% 60% at 50% 0%, rgba(245,197,24,.08), transparent 60%), var(--bg)}
+.gate-box{width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;
+  background:var(--bg-2);border:1px solid var(--line);padding:28px 24px;
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+.brand{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.brand b{font-family:var(--font-display);font-weight:400;color:var(--accent)}
+.gate-sub{margin:0;color:var(--mut);font-size:.95rem}
+.gate-box input{width:100%;padding:.75em 1em;background:var(--card);border:1px solid var(--line-2);color:var(--txt);font:inherit;outline:none}
+.gate-box input:focus{border-color:var(--accent)}
+.gate-links{display:flex;flex-direction:column;gap:6px}
+.gate-links a{color:var(--mut);font-size:.85rem;cursor:pointer}
+.gate-links a:hover{color:var(--accent)}
+.gate-erro{color:var(--bad);font-size:.88rem;min-height:1.1em}
+
+/* ---------- Topbar ---------- */
+.topbar{position:sticky;top:0;z-index:10;height:var(--topbar-h);display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:0 clamp(16px,3vw,32px);border-bottom:1px solid var(--line);background:var(--bg-2)}
+.topbar h1{font-family:var(--font-display);font-weight:400;text-transform:uppercase;letter-spacing:.02em;
+  font-size:clamp(1.1rem,3vw,1.5rem);margin:0;line-height:1;white-space:nowrap}
+.topbar h1::before{content:'';display:inline-block;width:8px;height:.8em;background:var(--accent);margin-right:10px}
+.topbar-acoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+/* ---------- Topo do mural ---------- */
+.mural{max-width:1080px;margin:0 auto;padding:clamp(22px,4vw,40px) clamp(16px,3vw,32px) 64px}
+.mural-hero{position:relative;padding-bottom:4px}
+.mural-hero::before{content:'';position:absolute;inset:-40px -20% auto auto;width:420px;height:260px;pointer-events:none;
+  background:radial-gradient(closest-side, rgba(245,197,24,.10), transparent)}
+.eyebrow{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.3em;font-size:.78rem;color:var(--accent)}
+.mural-hero h2{font-family:var(--font-display);font-weight:400;text-transform:uppercase;letter-spacing:.01em;
+  font-size:clamp(1.9rem,5vw,3rem);line-height:1.05;margin:.25em 0 .2em}
+.mural-hero p{margin:0;color:var(--mut);max-width:620px}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px}
+.stat{background:var(--card);border:1px solid var(--line);padding:15px 18px;display:flex;flex-direction:column;
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)}
+.stat-v{font-family:var(--font-display);font-weight:400;font-size:2rem;line-height:1;color:var(--accent)}
+.stat-l{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+  font-size:.76rem;color:var(--txt);margin-top:8px}
+.stat-s{font-size:.74rem;color:var(--mut-2);margin-top:2px}
+
+/* ---------- Filtros ---------- */
+.filtros{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px 14px;margin:28px 0 14px;padding:14px 16px;
+  background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--accent)}
+.campo{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 200px;max-width:300px}
+.campo span{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:.74rem;color:var(--mut)}
+.campo select{width:100%;appearance:none;-webkit-appearance:none;padding:.6em 2.2em .6em .9em;background:var(--card);
+  border:1px solid var(--line-2);color:var(--txt);font:inherit;font-size:.95rem;outline:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f5c518' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right .7em center;background-size:14px}
+.campo select:focus{border-color:var(--accent)}
+.campo select option{background:var(--card);color:var(--txt)}
+.filtros-resumo{margin:0 0 0 auto;align-self:center;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;
+  letter-spacing:.08em;font-size:.74rem;color:var(--mut-2)}
+
+.aviso{margin:0 0 12px;font-size:.88rem;color:var(--mut)}
+.aviso.erro{color:var(--bad)}
+
+/* ---------- Feed ---------- */
+.feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.pr{position:relative;display:grid;align-items:center;gap:16px;
+  grid-template-columns:52px minmax(0,1fr) minmax(130px,auto) 112px auto;
+  padding:14px 16px;background:var(--card);border:1px solid var(--line);transition:border-color .15s,opacity .15s}
+.pr:hover{border-color:var(--line-2)}
+/* PR da última semana: o ouro acende. */
+.pr.novo{border-color:rgba(245,197,24,.35);
+  background:linear-gradient(90deg, rgba(245,197,24,.09), transparent 45%), var(--card)}
+.pr.novo::before{content:'';position:absolute;left:-1px;top:-1px;bottom:-1px;width:3px;background:var(--accent);box-shadow:0 0 14px var(--glow)}
+.pr.apagando{opacity:.45;pointer-events:none}
+
+.pr-selo{grid-area:auto;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-size:1.45rem;line-height:1;
+  background:radial-gradient(circle at 35% 30%, rgba(255,216,77,.28), rgba(245,197,24,.06) 70%);
+  border:2px solid var(--accent);box-shadow:0 0 18px -6px var(--glow)}
+.pr:not(.novo) .pr-selo{border-color:rgba(245,197,24,.55);box-shadow:none}
+
+.pr-quem{display:flex;align-items:center;gap:12px;min-width:0}
+.avatar{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;overflow:hidden;
+  background:var(--card-2);border:2px solid var(--line-2);color:var(--accent);
+  font-family:var(--font-cond);font-weight:700;font-size:.95rem;letter-spacing:.02em}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.pr-quem-txt{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+/* Nome e exercício são atalhos de filtro: parecem texto, acendem no hover. */
+.pr-nome,.pr-exercicio{max-width:100%;background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr-nome{font-weight:700;font-size:1rem}
+.pr-exercicio{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.84rem;color:var(--accent)}
+.pr-nome:hover,.pr-exercicio:hover{text-decoration:underline;text-underline-offset:3px}
+.pr-nome:hover{color:var(--accent)}
+.pr-nome:focus-visible,.pr-exercicio:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.pr-marca{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:6px;line-height:1}
+.pr-marca b{font-family:var(--font-display);font-weight:400;font-size:2rem;letter-spacing:.01em;color:var(--txt)}
+.pr-marca .un{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;font-size:.9rem;color:var(--accent)}
+.pr-marca .reps{flex-basis:100%;margin-top:5px;font-family:var(--font-cond);font-weight:600;letter-spacing:.04em;font-size:.9rem;color:var(--mut)}
+
+.pr-quando{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+.pr-quando time{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.82rem;color:var(--mut)}
+.pr.novo .pr-quando time{color:var(--txt)}
+.selo-novo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:.64rem;
+  padding:2px 8px;background:var(--accent);color:var(--accent-ink)}
+
+.pr-acoes{display:flex;align-items:center;gap:8px}
+.pr-parabens svg{width:15px;height:15px}
+.pr-apagar{width:36px;height:36px;display:grid;place-items:center;flex:none;background:transparent;
+  border:1px solid var(--line-2);color:var(--mut);cursor:pointer;transition:.15s}
+.pr-apagar svg{width:17px;height:17px}
+.pr-apagar:hover{color:var(--bad);border-color:var(--bad);background:rgba(255,93,93,.08)}
+.pr-apagar:focus-visible{outline:2px solid var(--bad);outline-offset:2px}
+.pr-apagar:disabled{opacity:.4;cursor:default}
+
+.feed-estado{padding:40px 20px;text-align:center;color:var(--mut);line-height:1.6;
+  background:var(--card);border:1px dashed var(--line-2)}
+.feed-estado b{color:var(--txt)}
+.feed-estado-ic{display:block;font-size:2.2rem;margin-bottom:8px}
+.feed-rodape{margin:14px 0 0;text-align:center;font-size:.85rem;color:var(--mut-2)}
+
+/* ---------- Modal (compartilhado/ui/dialogo.js) ---------- */
+.modal-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.modal-bg[hidden]{display:none}
+.modal{width:100%;max-width:480px;margin:auto;background:var(--card);border:1px solid var(--line-2);
+  display:flex;flex-direction:column;max-height:calc(100vh - 32px)}
+.modal-hd{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.modal-hd h3{margin:0;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:1rem}
+.modal-x{margin-left:auto;background:none;border:0;color:var(--mut);font-size:24px;line-height:1;cursor:pointer;padding:0 4px}
+.modal-x:hover{color:var(--txt)}
+.modal-bd{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.modal-ft{display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.dlg-texto{margin:0;color:var(--mut);line-height:1.55}
+.dlg-texto b{color:var(--txt)}
+
+/* ---------- Tablet ---------- */
+@media (max-width:900px){
+  .pr{grid-template-columns:48px minmax(0,1fr) auto auto;
+    grid-template-areas:"selo quem marca acoes" "selo quem quando acoes"}
+  .pr-selo{grid-area:selo}
+  .pr-quem{grid-area:quem}
+  .pr-marca{grid-area:marca}
+  .pr-quando{grid-area:quando;flex-direction:row;align-items:center}
+  .pr-acoes{grid-area:acoes}
+  .pr-marca .reps{flex-basis:auto;margin-top:0}
+}
+
+/* ---------- Celular: cartão de três linhas ---------- */
+@media (max-width:640px){
+  .topbar-acoes .btn:last-child{display:none}
+  .stats{gap:8px}
+  .stat{padding:12px}
+  .stat-v{font-size:1.6rem}
+  .stat-s{display:none}
+  .campo{max-width:none}
+  .filtros-resumo{margin-left:0;flex-basis:100%}
+  .pr{gap:10px 12px;padding:14px;grid-template-columns:44px minmax(0,1fr) auto;
+    grid-template-areas:"selo quem quem" "marca marca quando" "acoes acoes acoes"}
+  .pr-selo{width:42px;height:42px;font-size:1.25rem}
+  .pr-quem .avatar{display:none}
+  .pr-quando{flex-direction:column;align-items:flex-end}
+  .pr-acoes{padding-top:10px;border-top:1px solid var(--line)}
+  .pr-parabens{flex:1}
+  .modal-ft .btn{flex:1}
+}
