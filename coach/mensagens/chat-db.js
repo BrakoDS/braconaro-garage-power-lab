@@ -6,7 +6,8 @@
  *   chats/{email}/mensagens/{id}   as mensagens
  *
  * A regra (`firestore.rules`, bloco `chats`) deixa o coach ler todas as
- * conversas e escrever só como 'coach'; ninguém edita nem apaga mensagem.
+ * conversas e escrever só como 'coach'. Por update, o coach edita ou apaga a
+ * resposta dele e marca 'entregue' / 'lido' na do aluno — o documento nunca some.
  *
  * A resposta e o resumo vão num lote só, como no app: ou os dois chegam, ou
  * nenhum — a lista nunca aponta para uma mensagem que não existe.
@@ -15,6 +16,9 @@ import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config
 import {
   LIMITE_CONVERSAS,
   LIMITE_HISTORICO,
+  TEXTO_APAGADA,
+  apagamentoDaMensagem,
+  edicaoDaMensagem,
   emailKey,
   normalizarConversa,
   normalizarMensagem,
@@ -103,5 +107,57 @@ export async function enviarResposta(email, texto) {
   const lote = _fs.writeBatch(_db);
   lote.set(_fs.doc(_fs.collection(_db, 'chats', id, 'mensagens')), nova);
   lote.set(_fs.doc(_db, 'chats', id), resumoDoChat(id, nova), { merge: true });
+  await lote.commit();
+}
+
+/**
+ * Remetente e hora da mensagem alterada, quando ela é a última da conversa: o
+ * resumo que a lista mostra tem o texto dela e precisa acompanhar a troca.
+ * @typedef {Pick<import('./chat.js').NovaMensagem, 'remetente'|'timestamp'>} UltimaDaConversa
+ */
+
+/**
+ * Troca o texto de uma resposta do coach e marca `editado`. Lança se o texto é
+ * vazio ou se a regra recusou.
+ * @param {string} email @param {string} idMensagem @param {string} texto @param {UltimaDaConversa} [ultima]
+ */
+export async function editarMensagem(email, idMensagem, texto, ultima) {
+  const id = emailKey(email);
+  const edicao = edicaoDaMensagem(texto);
+  if (!id || !idMensagem || !edicao) throw new Error('mensagem-vazia');
+  await init();
+  const lote = _fs.writeBatch(_db);
+  lote.update(_fs.doc(_db, 'chats', id, 'mensagens', idMensagem), { ...edicao });
+  if (ultima) lote.set(_fs.doc(_db, 'chats', id), resumoDoChat(id, { ...ultima, texto: edicao.texto }), { merge: true });
+  await lote.commit();
+}
+
+/**
+ * Apaga uma resposta do coach para os dois lados: o documento fica (a conversa
+ * não perde o lugar dela), mas o texto sai — `apagado: true`, texto ''.
+ * @param {string} email @param {string} idMensagem @param {UltimaDaConversa} [ultima]
+ */
+export async function apagarMensagem(email, idMensagem, ultima) {
+  const id = emailKey(email);
+  if (!id || !idMensagem) throw new Error('mensagem-invalida');
+  await init();
+  const lote = _fs.writeBatch(_db);
+  lote.update(_fs.doc(_db, 'chats', id, 'mensagens', idMensagem), { ...apagamentoDaMensagem() });
+  // No resumo, o aviso — nunca o texto que acabou de sair da mensagem.
+  if (ultima) lote.set(_fs.doc(_db, 'chats', id), resumoDoChat(id, { ...ultima, texto: TEXTO_APAGADA }), { merge: true });
+  await lote.commit();
+}
+
+/**
+ * Marca as mensagens do aluno como 'entregue' ou 'lido' — os ticks do lado dele.
+ * @param {string} email @param {string[]} ids @param {'entregue'|'lido'} status
+ */
+export async function marcarStatus(email, ids, status) {
+  const id = emailKey(email);
+  if (!id || !ids.length) return;
+  await init();
+  // Um lote aguenta 500 escritas; a conversa escuta no máximo LIMITE_HISTORICO (200).
+  const lote = _fs.writeBatch(_db);
+  for (const idMensagem of ids) lote.update(_fs.doc(_db, 'chats', id, 'mensagens', idMensagem), { status });
   await lote.commit();
 }
