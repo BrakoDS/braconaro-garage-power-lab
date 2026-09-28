@@ -1,6 +1,7 @@
 // @ts-check
 /**
- * A regra do chat do lado coach — o mesmo formato que o app grava.
+ * A regra do chat do lado coach — o mesmo formato que o app grava. E o
+ * download da foto (`baixarArquivo`, de midia-web.js), com fetch e DOM de mentira.
  *
  * Rodar: node --test coach/mensagens/chat.test.js
  */
@@ -53,7 +54,9 @@ import {
   resumoAposApagar,
   resumoDoChat,
   rotuloDoDia,
+  nomeDaFotoBaixada,
 } from './chat.js';
+import { baixarArquivo } from './midia-web.js';
 
 // Horários no fuso local: 25/09/2026 às 10:30.
 const AGORA = new Date(2026, 8, 25, 10, 30).getTime();
@@ -202,14 +205,76 @@ test('a edicao grava o texto preparado e editado: true', () => {
   assert.equal(edicaoDaMensagem('   '), null, 'edicao vazia nao sai — para sumir com a mensagem, apagar');
 });
 
-test('o coach so mexe na resposta dele, ja gravada — e so edita a de texto', () => {
+test('o coach apaga qualquer mensagem, a dele e a do aluno — e so edita a resposta dele, de texto', () => {
   assert.ok(podeApagar({ remetente: 'coach' }) && podeEditar({ remetente: 'coach', tipo: 'texto' }));
-  assert.ok(!podeApagar({ remetente: 'aluno' }) && !podeEditar({ remetente: 'aluno', tipo: 'texto' }), 'mensagem do aluno nao');
+  assert.ok(podeApagar({ remetente: 'aluno' }), 'a do aluno tambem sai (a regra deixa o coach apagar)');
+  assert.ok(!podeEditar({ remetente: 'aluno', tipo: 'texto' }), 'mas nao edita o que o aluno escreveu');
   assert.ok(!podeApagar({ remetente: 'coach', pendente: true })
-    && !podeEditar({ remetente: 'coach', pendente: true, tipo: 'texto' }), 'ainda a caminho nao');
+    && !podeEditar({ remetente: 'coach', pendente: true, tipo: 'texto' }), 'resposta ainda a caminho nao');
+  assert.ok(podeApagar({ remetente: 'aluno', pendente: true }),
+    'a do aluno com o lido a caminho (pendente) ja esta no servidor: apaga');
   for (const tipo of /** @type {const} */ (['imagem', 'video', 'audio'])) {
-    assert.ok(podeApagar({ remetente: 'coach' }) && !podeEditar({ remetente: 'coach', tipo }),
-      `${tipo}: so apagar — a regra nao deixa editar midia`);
+    for (const remetente of /** @type {const} */ (['coach', 'aluno'])) {
+      assert.ok(podeApagar({ remetente }) && !podeEditar({ remetente, tipo }),
+        `${tipo} do ${remetente}: so apagar — a regra nao deixa editar midia`);
+    }
+  }
+});
+
+test('apagar a ultima mensagem do aluno: o resumo volta para a anterior, com o rotulo da midia', () => {
+  const fio = [
+    { id: 'c1', texto: '🎤 Mensagem de voz (0:04)', remetente: /** @type {const} */ ('coach'), timestamp: as(24, 9, 0),
+      tipo: /** @type {const} */ ('audio'), mediaUrl: 'https://x/v.m4a', duracao: 4, status: /** @type {const} */ ('lido'), editado: false },
+    { id: 'a1', texto: '📷 Foto', remetente: /** @type {const} */ ('aluno'), timestamp: as(24, 9, 5),
+      tipo: /** @type {const} */ ('imagem'), mediaUrl: 'https://x/f.jpg', status: /** @type {const} */ ('lido'), editado: false },
+  ];
+  assert.deepEqual(resumoAposApagar(fio, 'a1'),
+    { texto: '🎤 Mensagem de voz (0:04)', remetente: 'coach', timestamp: as(24, 9, 0) },
+    'a foto do aluno sai; a lista mostra a voz do coach, e a conversa deixa de aguardar resposta');
+  assert.equal(resumoAposApagar(fio, 'c1'), undefined, 'a do coach era do meio: o resumo fica');
+  assert.equal(resumoAposApagar([fio[1]], 'a1'), null, 'a unica, do aluno: o resumo sai com ela');
+});
+
+test('a foto baixada se chama foto_garage_{timestamp}.jpg', () => {
+  assert.equal(nomeDaFotoBaixada(1_790_000_000_000), 'foto_garage_1790000000000.jpg');
+  assert.equal(nomeDaFotoBaixada(1_790_000_000_000.4), 'foto_garage_1790000000000.jpg', 'sem casa decimal no nome');
+  for (const torto of [0, -1, NaN, Infinity]) {
+    assert.match(nomeDaFotoBaixada(torto), /^foto_garage_\d{13}\.jpg$/, `hora torta (${torto}) cai na de agora`);
+  }
+});
+
+test('baixar a foto: fetch do arquivo, blob local e um clique no link com o nome — sem abrir aba', async () => {
+  const cliques = [];
+  const revogados = [];
+  const antes = { fetch: globalThis.fetch, document: globalThis.document, setTimeout: globalThis.setTimeout,
+    criar: URL.createObjectURL, revogar: URL.revokeObjectURL };
+  const link = { href: '', download: '', hidden: false, click() { cliques.push({ href: this.href, download: this.download }); }, remove() {} };
+  /** @type {any[]} */ const pedidos = [];
+  let status = 200;
+  globalThis.fetch = /** @type {any} */ (async (/** @type {string} */ url, /** @type {any} */ opcoes) => {
+    pedidos.push({ url, opcoes });
+    return { ok: status === 200, status, blob: async () => new Blob(['jpeg'], { type: 'image/jpeg' }) };
+  });
+  globalThis.document = /** @type {any} */ ({ createElement: () => link, body: { appendChild() {} } });
+  globalThis.setTimeout = /** @type {any} */ ((/** @type {() => void} */ fn) => { fn(); return 0; });
+  URL.createObjectURL = () => 'blob:local/1';
+  URL.revokeObjectURL = (/** @type {string} */ u) => { revogados.push(u); };
+  try {
+    const URL_FOTO = 'https://firebasestorage.googleapis.com/v0/b/b/o/chats%2Fa%40b.com%2F1_imagem.jpg?alt=media&token=t';
+    await baixarArquivo(URL_FOTO, 'foto_garage_1.jpg');
+    assert.equal(pedidos[0].url, URL_FOTO, 'busca o arquivo original do Storage');
+    assert.equal(pedidos[0].opcoes.credentials, 'omit', 'sem cookie: o Storage responde com Allow-Origin *');
+    assert.deepEqual(cliques, [{ href: 'blob:local/1', download: 'foto_garage_1.jpg' }],
+      'o clique e no blob local, com download — nao no endereco do Storage');
+    assert.deepEqual(revogados, ['blob:local/1'], 'o blob local e solto depois');
+
+    status = 404;
+    await assert.rejects(baixarArquivo(URL_FOTO, 'x.jpg'), /download-404/, 'arquivo que nao veio e erro, nao um .jpg vazio');
+    assert.equal(cliques.length, 1, 'e nada e salvo');
+  } finally {
+    Object.assign(globalThis, { fetch: antes.fetch, document: antes.document, setTimeout: antes.setTimeout });
+    URL.createObjectURL = antes.criar;
+    URL.revokeObjectURL = antes.revogar;
   }
 });
 

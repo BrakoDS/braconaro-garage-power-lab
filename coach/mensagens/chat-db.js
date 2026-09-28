@@ -7,7 +7,8 @@
  *
  * A regra (`firestore.rules`, bloco `chats`) deixa o coach ler todas as
  * conversas e escrever só como 'coach'. Por update, o coach edita a resposta
- * dele e marca 'entregue' / 'lido' na do aluno; apagar tira o documento.
+ * dele e marca 'entregue' / 'lido' na do aluno; apagar tira o documento — de
+ * qualquer mensagem, a dele ou a do aluno.
  *
  * A resposta e o resumo vão num lote só, como no app: ou os dois chegam, ou
  * nenhum — a lista nunca aponta para uma mensagem que não existe.
@@ -156,8 +157,8 @@ export async function editarMensagem(email, idMensagem, texto, ultima) {
 }
 
 /**
- * Apaga uma resposta do coach para os dois lados: o documento sai do
- * Firestore. `resumo` é o que `resumoAposApagar` devolveu — se ela era a
+ * Apaga uma mensagem — do coach ou do aluno — para os dois lados: o documento
+ * sai do Firestore. `resumo` é o que `resumoAposApagar` devolveu — se ela era a
  * última, o resumo passa para a anterior (ou sai, se a conversa ficou vazia)
  * no mesmo lote, para a lista nunca mostrar o texto de uma mensagem apagada.
  * `arquivos` são os endereços da mídia dela (arquivo e capa): saem do Storage
