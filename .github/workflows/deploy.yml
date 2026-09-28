@@ -1,22 +1,75 @@
-name: Deploy to GitHub Pages
+name: Testes e deploy (GitHub Pages)
+
+# Nada vai ao ar sem os testes passarem. Antes, este workflow publicava a raiz
+# do repositório a cada push na master sem rodar nada — os 800+ testes da
+# Central só existiam na máquina de quem lembrasse de rodá-los.
+#
+#  - PR:          só os testes (o deploy nem aparece);
+#  - push master: testes → deploy, e o deploy só sai se os testes passarem.
 
 on:
   push:
     branches: [master]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
-  deploy:
+  testes:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # Todos os *.test.js versionados, e não uma lista de pastas: a lista à mão
+      # do README antigo deixava de fora as pastas que nasceram depois dela
+      # (montador-hibrido, mensagens, recordes).
+      - name: Testes da Central, do Portal e da loja (node --test)
+        run: node --test $(git ls-files '*.test.js')
+
+      - name: Nenhum import quebrado
+        run: node ferramentas/verificar-imports.mjs
+
+      - name: As telas renderizam igual à referência
+        run: node ferramentas/comparar-render.mjs
+
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Instalar
+        working-directory: functions
+        run: npm ci
+
+      - name: Tipos e conferência das Cloud Functions
+        working-directory: functions
+        run: npm run checar
+
+  deploy:
+    needs: [testes, functions]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
