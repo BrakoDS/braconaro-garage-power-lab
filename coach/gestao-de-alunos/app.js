@@ -238,6 +238,7 @@ function formDadosHTML(a = {}, opts = {}) {
       <div class="field full"><label>Endereço</label><input name="endereco" type="text" value="${esc(a.endereco)}" placeholder="Rua, número, bairro, cidade" /></div>
       <div class="field"><label>Status</label><select name="status">${stOpts}</select></div>
       <div class="field full"><label>App mobile</label><label class="chk-app"><input type="checkbox" name="appLiberado" value="1"${a.appLiberado === true ? ' checked' : ''} /><span>Acesso ao Aplicativo Liberado</span></label><span class="hint">O app no celular é de planos específicos. Desmarcado, o aluno entra no app e para numa tela de bloqueio — o <b>Portal web continua valendo</b>. Ficha antiga, sem esta marcação, fica bloqueada.</span></div>
+      <div class="field full"><label>Tela do app</label><label class="chk-app"><input type="checkbox" name="modoLite" value="1"${a.modoLite === true ? ' checked' : ''} /><span>Modo simplificado (Lite)</span></label><span class="hint">Para quem quer o app sem distração: a tela inicial mostra só o <b>treino do dia</b> em destaque e os atalhos de água e de conversa com você, e o app fica com duas abas (Hoje e Perfil). Só você liga e desliga — o aluno não mexe nisso.</span></div>
     </div>
   </div>
   <div class="form-sec">
@@ -304,6 +305,7 @@ function lerForm(form) {
   // Caixa desmarcada não vai no FormData: sem o booleano explícito, desmarcar e
   // salvar deixaria o `true` antigo intacto no `Object.assign` do db.atualizar.
   o.appLiberado = fd.get('appLiberado') === '1';
+  o.modoLite = fd.get('modoLite') === '1'; // mesmo motivo do appLiberado
   // Foco do aluno: até dois grupos, e é aqui que o limite vira verdade — a caixa
   // de seleção não impede o terceiro clique, e a regra de perfil também corta,
   // mas gravar três deixaria a ficha dizendo uma coisa e o treino outra.

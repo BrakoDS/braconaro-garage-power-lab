@@ -43,7 +43,7 @@ const ROTULO_CAMPO = {
   endereco: 'Endereço', altura: 'Altura', peso: 'Peso', objetivo: 'Objetivo', nivel: 'Nível',
   status: 'Status', obs: 'Observações', diasTreino: 'Dias de treino', horarios: 'Horários',
   freqVezes: 'Frequência', foco: 'Foco', mensalidade: 'Mensalidade', vencimento: 'Vencimento',
-  pagoPor: 'Pago por', parceria: 'Parceria', appLiberado: 'Acesso ao app', id: 'ID',
+  pagoPor: 'Pago por', parceria: 'Parceria', appLiberado: 'Acesso ao app', modoLite: 'Modo Lite', id: 'ID',
   anamnese: 'Anamnese', parq: 'PAR-Q', matriz: 'Matriz',
 };
 
