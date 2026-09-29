@@ -50,6 +50,10 @@ export function fatia(a, todos, fechadosDoBox = []) {
     // o padrão que o box escolheu. O app lê com a mesma regra
     // (`app-mobile/src/core/acessoApp.ts`); o Portal web ignora o campo.
     appLiberado: a.appLiberado === true,
+    // A tela simplificada do app (Home só com o treino do dia, duas abas). Mesma
+    // regra da trava: só `true` literal liga, e ficha antiga publica `false` — a
+    // tela completa de sempre. O app lê em `app-mobile/src/services/portalService.ts`.
+    modoLite: a.modoLite === true,
     // Perfil de treino: com objetivo, foco e restrições no documento dele, o Portal
     // calcula a versão do aluno no próprio aparelho, com os mesmos módulos de
     // `compartilhado/regras/` que o coach usa — sem ler a ficha de ninguém.

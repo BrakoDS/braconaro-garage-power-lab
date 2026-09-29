@@ -50,6 +50,18 @@ test('appLiberado: so a marcacao explicita libera o app', () => {
   }
 });
 
+test('modoLite: so a marcacao explicita liga a tela simplificada', () => {
+  // Ficha antiga, sem o campo, continua com a Home completa de sempre.
+  assert.equal(fatia({ id: '001', email: 'a@b.com', modoLite: true }, []).modoLite, true);
+  assert.equal(fatia({ id: '001', email: 'a@b.com', modoLite: false }, []).modoLite, false);
+  assert.equal(fatia({ id: '001', email: 'a@b.com' }, []).modoLite, false, 'ficha antiga fica na tela completa');
+  for (const lixo of ['true', 1, 'sim', {}, null]) {
+    assert.equal(fatia({ id: '001', email: 'a@b.com', modoLite: lixo }, []).modoLite, false, `modoLite=${JSON.stringify(lixo)}`);
+  }
+  const publicado = JSON.parse(JSON.stringify(fatia({ id: '001', email: 'a@b.com' }, [])));
+  assert.equal(typeof publicado.modoLite, 'boolean', 'o campo vai ao documento mesmo desligado');
+});
+
 test('appLiberado sai como booleano, e sobrevive ao JSON da publicacao', () => {
   // `publicarPortal` passa a fatia por JSON antes do setDoc: undefined sumiria do
   // documento, e o campo precisa estar LA para o coach auditar no console.
