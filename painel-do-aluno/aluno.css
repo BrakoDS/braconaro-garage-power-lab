@@ -476,6 +476,8 @@ button.crono-hoje:hover,button.crono-hoje:focus-visible{border-color:var(--line-
 .fin-badge.pago{color:var(--ok);border-color:rgba(63,185,80,.4)}
 .fin-badge.vencido{color:var(--bad);border-color:rgba(255,91,80,.4)}
 .fin-badge.pendente{color:var(--warn);border-color:rgba(255,158,27,.4)}
+/* A conta do mês seguinte (dia 28 em diante): ainda não está em aberto, então nem amarelo nem vermelho. */
+.fin-badge.proximo{color:#22d3ee;border-color:rgba(34,211,238,.4)}
 
 /* ---------- Avaliações ---------- */
 .av-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}

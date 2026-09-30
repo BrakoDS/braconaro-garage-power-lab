@@ -41,7 +41,7 @@ export function mesIdDoConsumo(dataIso, diaVencimento) {
 }
 
 /** O mês seguinte a um 'YYYY-MM'. */
-function proximoMes(mesId) {
+export function proximoMes(mesId) {
   const [a, m] = mesId.split('-').map(Number);
   const d = new Date(a, m, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;

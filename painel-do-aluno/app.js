@@ -12,6 +12,7 @@ import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
 import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from '../compartilhado/regras/semana.js';
 import { faturaComDependentes, parteCoberta, faturaDoMes } from '../compartilhado/regras/consumo.js';
+import { mesDaCobranca, statusDaCobranca } from '../compartilhado/regras/cobranca.js';
 import { renderTreinoDia } from './treino-dia.js';
 import { ehIndividual, renderVersaoDoAluno } from './treino-individual.js';
 import { carregarAjustes } from './treino-aluno-db.js';
@@ -626,9 +627,11 @@ function renderPagLembrete() {
   const banner = $('#pag-banner');
   const valor = numf(PORTAL?.mensalidade) || 0;
   if (!valor) { banner.hidden = true; return; }
-  const mesId = mesIdLocal();
+  // A mesma conta do Financeiro. A do mês seguinte (dia 28 em diante) ainda não
+  // está vencendo: banner ali seria cobrança antes da hora.
+  const mesId = mesDaCobranca(PORTAL, dateIdDe());
   const st = statusFin(mesId);
-  if (st === 'pago') { banner.hidden = true; return; }
+  if (st === 'pago' || st === 'proximo') { banner.hidden = true; return; }
   const M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   const mesNome = M[Number(mesId.split('-')[1]) - 1];
   const txt = st === 'vencido'
@@ -668,17 +671,18 @@ function renderMetas() {
   $('#metas').innerHTML = html;
 }
 
+/**
+ * 'pago' | 'pendente' | 'vencido' — e 'proximo' para a conta do mês seguinte,
+ * que aparece a partir do dia 28 (ver compartilhado/regras/cobranca.js).
+ */
 function statusFin(mesId) {
-  if (PORTAL.pagamentos && PORTAL.pagamentos[mesId]) return 'pago';
-  const [ano, m] = mesId.split('-').map(Number);
-  const ultimoDia = new Date(ano, m, 0).getDate();
-  const dia = Math.min(Math.max(1, parseInt(PORTAL.vencimento, 10) || 10), ultimoDia);
-  const venc = `${ano}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-  return dateIdDe() > venc ? 'vencido' : 'pendente';
+  return statusDaCobranca(PORTAL, mesId, dateIdDe());
 }
 
 function renderFinanceiro() {
-  const mesId = mesIdLocal();
+  // Do dia 28 em diante, já é a conta do mês seguinte — salvo se a do mês atual
+  // ainda estiver em aberto: a virada não esconde dívida (cobranca.js).
+  const mesId = mesDaCobranca(PORTAL, dateIdDe());
   // A conta do mês é a mensalidade, o que ele consumiu no box e o que ele paga
   // por outro. O Pix, o total em destaque e a notinha saem todos daqui — três
   // números que não podem divergir.
@@ -692,7 +696,7 @@ function renderFinanceiro() {
     return;
   }
   const st = valor ? statusFin(mesId) : 'pago';
-  const lbl = !valor ? (resp ? 'Acertado' : 'Sem cobrança') : st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : 'Pendente';
+  const lbl = !valor ? (resp ? 'Acertado' : 'Sem cobrança') : st === 'pago' ? 'Pago' : st === 'vencido' ? 'Vencido' : st === 'proximo' ? 'Próximo mês' : 'Pendente';
   const M = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const mesNome = M[Number(mesId.split('-')[1]) - 1];
 
@@ -761,7 +765,9 @@ function renderFinanceiro() {
       <div>
         <div class="fin-cap">${!valor ? 'Sua conta' : (fatura.extras > 0 || conta.dependentes.length) ? 'A pagar' : 'Mensalidade'} · ${mesNome}</div>
         <div class="fin-val">${brl(valor)}</div>
-        ${PORTAL.vencimento ? `<div class="av-sub">vence dia ${esc(PORTAL.vencimento)}</div>` : ''}
+        ${st === 'proximo'
+          ? `<div class="av-sub">vence dia ${esc(String(PORTAL.vencimento || 10))} de ${esc(mesNome.toLowerCase())} · já pode pagar</div>`
+          : PORTAL.vencimento ? `<div class="av-sub">vence dia ${esc(PORTAL.vencimento)}</div>` : ''}
       </div>
       <span class="fin-badge ${st}">${lbl}</span>
     </div>
