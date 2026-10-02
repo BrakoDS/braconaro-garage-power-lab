@@ -3,3 +3,5 @@ lib/
 *.log
 .env
 .env.local
+# Segredos falsos para o emulador (ex.: OPENAI_API_KEY=teste) — nunca versionar
+.secret.local

@@ -54,6 +54,7 @@ import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatal
 import { getAuth } from 'firebase-admin/auth';
 import { alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
+import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 
 initializeApp();
 
@@ -1826,3 +1827,73 @@ export const notificarRespostaDoCoach = onDocumentCreated(
     }
   },
 );
+
+/* ------------------------------------------------------------------ *
+ * Motor de conquistas: XP e medalhas em conquistas_aluno/{email}
+ * ------------------------------------------------------------------ */
+
+/**
+ * Recalcula as medalhas e o XP do aluno e grava em `conquistas_aluno/{email}`.
+ *
+ * O aluno só LÊ esse documento (regra do Firestore); quem grava é esta função,
+ * com o Admin SDK. A regra das medalhas é a do app e do site (`gamificacao.ts`);
+ * o que é daqui (contexto, acúmulo, XP) está em `conquistas.ts`.
+ *
+ * Idempotente: lê tudo de novo a cada disparo e só grava se o resultado mudou.
+ * Por isso pode ser chamada por vários gatilhos, repetida pelo Eventarc, ou
+ * rodar duas vezes em paralelo sem estragar nada.
+ */
+async function recalcularConquistas(emailDoEvento: string, origem: string): Promise<void> {
+  const email = normalizarEmail(emailDoEvento);
+  if (!email) {
+    logger.warn('Conquistas: id de documento não é e-mail, ignorado.', { origem, id: emailDoEvento });
+    return;
+  }
+
+  const db = getFirestore();
+  const [portal, gastoTreinos, desafios, rotinas, gravado] = await Promise.all(
+    ['portal', 'gastoTreinos', 'desafios', 'rotinas', 'conquistas_aluno'].map((colecao) => db.doc(`${colecao}/${email}`).get()),
+  );
+  const atual = gravado.data();
+
+  // Síncrono de propósito: ver `noFusoDoBox`.
+  const resultado = noFusoDoBox(() => calcularConquistas(
+    contextoDoAluno({
+      portal: portal.data(),
+      gastoTreinos: gastoTreinos.data(),
+      desafios: desafios.data(),
+      rotinas: rotinas.data(),
+    }),
+    atual,
+  ));
+
+  if (!mudou(atual, resultado)) return;
+
+  await db.doc(`conquistas_aluno/${email}`).set(
+    { ...resultado, ultimaAtualizacao: new Date().toISOString() },
+    { merge: true },
+  );
+  logger.info('Conquistas atualizadas.', {
+    email, origem, xpAtual: resultado.xpAtual, medalhas: resultado.conquistasDesbloqueadas.length,
+  });
+}
+
+/**
+ * Um gatilho por documento que alimenta as medalhas. `onDocumentWritten`, e não
+ * só `Updated`: o primeiro check-in do aluno CRIA o `gastoTreinos/{email}`.
+ *
+ * `rotinas/{email}` fica de fora de propósito: ele muda a cada hábito marcado
+ * no app, e só alimenta a medalha "1ª vez no app" — que entra no próximo
+ * recálculo disparado por qualquer um dos outros três.
+ */
+const gatilhoDeConquistas = (colecao: string) => onDocumentWritten(
+  { document: `${colecao}/{email}`, timeoutSeconds: 30, memory: '256MiB' },
+  (evento) => recalcularConquistas(evento.params.email, colecao),
+);
+
+/** Treinos lançados e check-ins rápidos (app e Portal), água e creatina. */
+export const calcularConquistasXP = gatilhoDeConquistas('gastoTreinos');
+/** Presenças marcadas pelo coach, avaliações, pagamentos, feedbacks. */
+export const calcularConquistasXPPortal = gatilhoDeConquistas('portal');
+/** Desafios da semana concluídos. */
+export const calcularConquistasXPDesafios = gatilhoDeConquistas('desafios');

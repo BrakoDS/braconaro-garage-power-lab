@@ -2042,7 +2042,9 @@ function renderPortalPrevia() {
   prvSemana = 0;
   prvPronto = false;
   // `?previa=1` é o que liga o modo no Portal, e ele só aceita dentro de quadro.
-  frame.src = `../../painel-do-aluno/index.html?previa=1&t=${Date.now()}`;
+  // `previa.html` e não `index.html`: o index do portal antigo agora só redireciona
+  // para o portal novo, que ainda não tem prévia; previa.html é o antigo, só para cá.
+  frame.src = `../../painel-do-aluno/previa.html?previa=1&t=${Date.now()}`;
 }
 
 // O Portal avisa quando terminou de carregar; só então os dados são enviados —

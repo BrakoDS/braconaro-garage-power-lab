@@ -9,10 +9,12 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "checar": "tsc && node lib/checar.js",
+    "checar": "tsc && node lib/checar.js && node lib/checar-conquistas.js",
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "checar:emulador": "firebase emulators:exec --only firestore --project fake \"node testes-emulador.cjs\""
+    "checar:emulador": "firebase emulators:exec --only firestore --project fake \"node testes-emulador.cjs\"",
+    "checar:conquistas": "tsc && node lib/checar-conquistas.js",
+    "checar:emulador:conquistas": "npm run build && firebase emulators:exec --only functions,firestore --project demo-garage \"node testes-conquistas-emulador.cjs\""
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",

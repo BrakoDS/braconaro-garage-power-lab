@@ -413,5 +413,30 @@ service cloud.firestore {
         allow delete: if ehAlunoDono(email) || ehCoach();
       }
     }
+
+    // Portal do Aluno em React (portal-aluno-web) — coleções só dele, um doc por
+    // aluno, id == e-mail. O aluno lê e grava apenas o próprio documento; o COACH
+    // (ehCoach) só lê, para a gestão acompanhar o progresso.
+    //
+    // A comparação é em minúsculas dos DOIS lados (e não o `==` direto do
+    // ehAlunoDono): o portal grava o id sempre minúsculo, e assim um e-mail
+    // cadastrado com maiúscula no Auth não fica trancado fora do próprio doc.
+    // Sem `token.email` (login sem e-mail), a leitura do campo falha e nega.
+
+    // Metas do aluno: mapa `objetivos[id]` (services/goalsService.ts do portal).
+    match /metas_aluno/{email} {
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
+      allow read: if ehCoach();
+    }
+
+    // Gamificação do aluno: XP e medalhas desbloqueadas.
+    // Quem grava é a Cloud Function `calcularConquistasXP*` (functions/src/index.ts),
+    // com o Admin SDK, que não passa por estas regras. O ALUNO só LÊ: se pudesse
+    // gravar, daria XP e medalhas a si mesmo pelo console do navegador. O COACH
+    // lê e grava (correção manual; a função recalcula o XP no próximo disparo).
+    match /conquistas_aluno/{email} {
+      allow read: if request.auth != null && request.auth.token.email.lower() == email.lower();
+      allow read, write: if ehCoach();
+    }
   }
 }

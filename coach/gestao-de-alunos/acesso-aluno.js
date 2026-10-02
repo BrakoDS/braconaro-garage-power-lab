@@ -17,7 +17,8 @@ import { firebaseConfig } from '../../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 const REGIAO = 'southamerica-east1';
-const URL_PORTAL = 'https://garagepowerlab.com.br/painel-do-aluno/index.html';
+// O portal novo (portal-aluno-web). O antigo, /painel-do-aluno/, redireciona para cá.
+const URL_PORTAL = 'https://portal-garagepowerlab.web.app';
 
 const ERROS = {
   'functions/permission-denied': 'Só a conta do coach cria acesso de aluno.',
