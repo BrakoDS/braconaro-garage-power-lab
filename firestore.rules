@@ -73,7 +73,7 @@ service cloud.firestore {
     //  - o ALUNO lê apenas o documento cujo id == o e-mail logado dele;
     //  - o COACH (ehCoach) publica/atualiza qualquer um.
     match /portal/{email} {
-      allow read: if request.auth != null && request.auth.token.email == email;
+      allow read: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow write: if ehCoach();
     }
 
@@ -126,7 +126,7 @@ service cloud.firestore {
     // Progresso dos desafios por aluno (dias cumpridos + conclusões).
     //  - o ALUNO lê/grava só o seu; o COACH (ehCoach) lê.
     match /desafios/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read: if ehCoach();
     }
 
@@ -134,21 +134,21 @@ service cloud.firestore {
     //  - o ALUNO lê/grava só o doc do próprio e-mail;
     //  - o COACH (ehCoach) pode ler (acompanhamento).
     match /gastoTreinos/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read: if ehCoach();
     }
 
     // Consentimento LGPD (termo de adesão) — um doc por aluno.
     //  - o ALUNO lê/grava o seu; o COACH (ehCoach) lê (auditoria).
     match /consentimentos/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read: if ehCoach();
     }
 
     // Registro de cargas (carga × reps por exercício) — um doc por aluno.
     //  - o ALUNO lê/grava o seu; o COACH (ehCoach) lê e grava (registrar por ele).
     match /cargas/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read, write: if ehCoach();
     }
 
@@ -159,7 +159,7 @@ service cloud.firestore {
     //  - o ALUNO lê a dele (e grava o registro pós-aula dele);
     //  - o COACH (ehCoach) lê e grava todas.
     match /treinoAluno/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read, write: if ehCoach();
     }
 
@@ -182,7 +182,7 @@ service cloud.firestore {
     //  - o ALUNO lê/grava só a sua;
     //  - o COACH (ehCoach) lê, para acompanhar a adesão.
     match /rotinas/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read: if ehCoach();
     }
 
@@ -192,7 +192,7 @@ service cloud.firestore {
     //  - o ALUNO lê/grava só o seu;
     //  - o COACH (ehCoach) lê, para orientar a dieta.
     match /nutricao/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read: if ehCoach();
     }
 
@@ -205,7 +205,7 @@ service cloud.firestore {
     //  - o ALUNO lê o seu, para a tela mostrar quantas análises sobram;
     //  - o COACH (ehCoach) lê, para enxergar consumo.
     match /nutricaoUso/{email} {
-      allow read: if request.auth != null && request.auth.token.email == email;
+      allow read: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read: if ehCoach();
       allow write: if false;
     }
@@ -219,8 +219,10 @@ service cloud.firestore {
     //  - o ALUNO cria/edita/apaga só o seu (refazer a foto do dia é um update);
     //  - o COACH (ehCoach) só LÊ: o diário é do aluno, nem o coach reescreve.
     // Os campos são fechados: nada além do que o app grava, nos tamanhos dele.
+    // E-mail comparado em minúsculas dos dois lados (como em metas_aluno): os
+    // clientes gravam o id em minúsculas, e um login "Aluno@…" não pode ser barrado.
     function ehAlunoDono(email) {
-      return request.auth != null && request.auth.token.email == email;
+      return request.auth != null && request.auth.token.email.lower() == email.lower();
     }
 
     function aceiteDiarioValido() {
@@ -273,7 +275,7 @@ service cloud.firestore {
     //  - o ALUNO lê/escreve apenas a própria caixa (id == e-mail logado);
     //  - o COACH (ehCoach) lê e limpa (merge para gestao/{uid}).
     match /portalInbox/{email} {
-      allow read, write: if request.auth != null && request.auth.token.email == email;
+      allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read, write: if ehCoach();
     }
 

@@ -9,7 +9,7 @@
  * A regra do Firestore já previa esta leitura desde a Fase 2B:
  *
  *     match /rotinas/{email} {
- *       allow read, write: if request.auth.token.email == email;   // o aluno
+ *       allow read, write: if request.auth.token.email.lower() == email.lower();   // o aluno
  *       allow read: if exists(/databases/$(database)/documents/gestao/$(request.auth.uid));  // o coach
  *     }
  *
