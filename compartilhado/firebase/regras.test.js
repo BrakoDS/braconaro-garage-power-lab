@@ -57,10 +57,19 @@ test('documentos de coach exigem ehCoach, nao so ser o dono', () => {
   assert.doesNotMatch(c, /allow [^;]*:\s*if request\.auth != null && request\.auth\.uid == uid;/);
 });
 
+// Os clientes gravam o id em minúsculas; um login "Aluno@…" comparado de forma exata era barrado
+// em tudo. Nenhuma regra pode voltar a comparar o e-mail sem o .lower() dos dois lados.
+test('o e-mail do aluno e comparado sem diferenca de maiusculas em todas as regras', () => {
+  for (const [nome, regras] of [['firestore.rules', firestore], ['storage.rules', storage]]) {
+    assert.doesNotMatch(codigo(regras), /token\.email\s*==\s*email\b/, nome);
+    assert.doesNotMatch(codigo(regras), /token\.email\.lower\(\)\s*==\s*email(?!\.lower\(\))/, nome);
+  }
+});
+
 test('o aluno continua limitado ao proprio e-mail no portal', () => {
   const c = codigo(firestore);
   const portal = c.split('match /portal/{email} {')[1].split('}')[0];
-  assert.match(portal, /allow read: if request\.auth != null && request\.auth\.token\.email == email;/);
+  assert.match(portal, /allow read: if request\.auth != null && request\.auth\.token\.email\.lower\(\) == email\.lower\(\);/);
   assert.match(portal, /allow write: if ehCoach\(\);/, 'só o coach escreve (é o que protege o appLiberado)');
 });
 
@@ -132,7 +141,7 @@ test('chat: no Storage os dois lados leem e apagam, e so sobem arquivo novo nos 
   ]);
 
   const dono = s.split('function ehAlunoDono(email) {')[1]?.split('}')[0];
-  assert.match(dono || '', /request\.auth != null && request\.auth\.token\.email == email;/);
+  assert.match(dono || '', /request\.auth != null && request\.auth\.token\.email\.lower\(\) == email\.lower\(\);/);
 
   const midia = s.split('function midiaChatValida(arquivo) {')[1]?.split('\n    }')[0];
   assert.ok(midia, 'function midiaChatValida existe');
