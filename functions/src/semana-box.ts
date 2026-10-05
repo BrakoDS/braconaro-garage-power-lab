@@ -323,6 +323,39 @@ export function problemasParaPublicar(
   return problemas;
 }
 
+/**
+ * Uma semana JÁ GRAVADA conferida contra limites novos — o que `salvarInventarioBox`
+ * faz com as semanas que ainda não terminaram quando um smith entra em manutenção.
+ *
+ * Usa o `consumoEquipamentos` que cada dia já guarda: o consumo de um bloco não
+ * muda com o inventário, só o limite. Não relê o catálogo nem refaz o bloco, e
+ * NÃO decide status — semana publicada continua publicada; quem resolve é o coach.
+ *
+ * `null` quando o documento não tem a forma de uma semana (não há o que conferir).
+ */
+export function reconferirSemana(
+  doc: unknown,
+  limites: Record<RecursoInventario, number>,
+): { alertas: AlertaEquipamento[]; problemasParaPublicar: string[] } | null {
+  const brutos = (doc as { dias?: unknown } | null)?.dias;
+  if (!brutos || typeof brutos !== 'object') return null;
+  const dias = {} as Record<DiaSemana, DiaProgramado>;
+  for (const dia of DIAS_SEMANA) {
+    const d = ((brutos as Record<string, unknown>)[dia] ?? {}) as Partial<DiaProgramado>;
+    dias[dia] = {
+      treinos: Array.isArray(d.treinos) ? d.treinos : [],
+      blocoPrincipal: Array.isArray(d.blocoPrincipal) ? d.blocoPrincipal : [],
+      sessaoForca: d.sessaoForca ?? null,
+      blocosMetabolicos: Array.isArray(d.blocosMetabolicos) ? d.blocosMetabolicos : [],
+      cadencia: typeof d.cadencia === 'string' ? d.cadencia : CADENCIA_PADRAO,
+      descansos: d.descansos ?? { entreSeriesSeg: 0, entreExerciciosSeg: 0 },
+      consumoEquipamentos: d.consumoEquipamentos && typeof d.consumoEquipamentos === 'object' ? d.consumoEquipamentos : {},
+    };
+  }
+  const alertas = alertasDaSemana(dias, limites);
+  return { alertas, problemasParaPublicar: problemasParaPublicar(dias, alertas) };
+}
+
 /* ───────────────────────────── o aluno ───────────────────────────── */
 
 /**

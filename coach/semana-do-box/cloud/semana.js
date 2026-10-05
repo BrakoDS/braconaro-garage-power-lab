@@ -87,6 +87,31 @@ export function publicar(semanaId, publicar = true) {
 }
 
 /**
+ * Grava o inventário (total, em manutenção, observação por recurso) e RECONFERE
+ * as semanas que ainda não terminaram. A resposta traz o inventário salvo, com
+ * `limitesAtivos` calculado pelo servidor, e `semanasAfetadas` (as que passaram
+ * do limite novo; `null` se a reconferência falhou).
+ *
+ * Com `{}` não muda nada: só grava os padrões do servidor quando o documento
+ * ainda não existe — é assim que a tela abre sem copiar esses padrões.
+ * @param {Record<string, {total?: number, emManutencao?: number, observacao?: string}>} equipamentos
+ */
+export function salvarInventario(equipamentos) {
+  return chamar('salvarInventarioBox', { equipamentos });
+}
+
+/**
+ * O inventário gravado (`coaches/{uid}/inventario/atual`), ou `null` se ainda
+ * não existe. Só o coach lê; só a função grava.
+ * @param {string} uid
+ */
+export async function lerInventario(uid) {
+  const { db, fs } = await firestore();
+  const snap = await fs.getDoc(fs.doc(db, `coaches/${uid}/inventario/atual`));
+  return snap.exists() ? snap.data() : null;
+}
+
+/**
  * As semanas pedidas, por chave. Ausente = ainda não gerada (`null`). Uma
  * leitura por semana (até 6 num mês) — `coaches/{uid}/semanas` só o coach lê.
  * @param {string} uid @param {string[]} chaves

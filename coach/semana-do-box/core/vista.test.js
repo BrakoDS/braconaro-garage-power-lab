@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   DIAS, RECURSOS, NOME_INSTANCIA, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
   consumoVisivel, publicacao, variacaoSeguinte, msDe, datasDosDias, tituloForca,
+  linhasDoInventario, alteracoesDoInventario, semanaAfetada, segundaDaChave,
 } from './vista.js';
 
 /**
@@ -97,4 +98,47 @@ test('vocabulário cobre o que o servidor manda', () => {
   for (const d of Object.values(W42.dias)) {
     for (const e of d.blocoPrincipal) assert.ok(NOME_INSTANCIA[e.instancia], `instância sem nome: ${e.instancia}`);
   }
+});
+
+test('inventário: linhas a partir do documento, com os ativos do servidor', () => {
+  const doc = {
+    equipamentos: {
+      smith: { total: 2, emManutencao: 1, observacao: 'cabo rompido' },
+      banco: { total: 2, emManutencao: 0, observacao: '' },
+      monocross: { total: 3, emManutencao: 0, observacao: '' },
+      maquinaLegs: { total: 1, emManutencao: 0, observacao: '' },
+      cavalinho: { total: 2, emManutencao: 0, observacao: '' },
+    },
+    limitesAtivos: { smith: 1, banco: 2, monocross: 3, maquinaLegs: 1, cavalinho: 2 },
+  };
+  const linhas = linhasDoInventario(doc);
+  assert.deepEqual(linhas.map((l) => l.recurso), RECURSOS);
+  assert.deepEqual(linhas[0], { recurso: 'smith', nome: 'Smith', total: 2, emManutencao: 1, observacao: 'cabo rompido', ativos: 1 });
+  assert.deepEqual(linhasDoInventario(null), [], 'sem documento, sem linhas');
+  assert.equal(linhasDoInventario({ equipamentos: {} })[0].ativos, null, 'sem limitesAtivos, a tela não inventa');
+});
+
+test('inventário: só manda o que mudou', () => {
+  const original = linhasDoInventario({
+    equipamentos: { smith: { total: 2, emManutencao: 0, observacao: '' }, banco: { total: 2, emManutencao: 0, observacao: '' } },
+    limitesAtivos: {},
+  });
+  const editado = original.map((l) => (l.recurso === 'smith' ? { ...l, emManutencao: 1, observacao: '  cabo rompido ' } : { ...l }));
+  assert.deepEqual(alteracoesDoInventario(original, editado), { smith: { emManutencao: 1, observacao: 'cabo rompido' } });
+  assert.deepEqual(alteracoesDoInventario(original, original.map((l) => ({ ...l }))), {}, 'nada mudou, nada vai');
+});
+
+test('semana afetada: publicada não é despublicada, e a tela diz isso', () => {
+  const pub = semanaAfetada({ semanaId: '2026-W42', status: 'publicado', alertas: [{ dia: 'segunda', recurso: 'smith', usado: 2, limite: 1 }] });
+  assert.equal(pub.titulo, 'Semana 2026-W42 · publicada');
+  assert.deepEqual(pub.alertas, ['Limite de Smiths atingido na segunda: 2 em uso, 1 ativo.']);
+  assert.match(pub.acao, /Volte para rascunho/);
+  assert.match(semanaAfetada({ semanaId: '2026-W43', status: 'rascunho', alertas: [] }).acao, /^Sorteie de novo/);
+});
+
+test('segunda-feira da chave: abre a semana afetada no mês certo', () => {
+  assert.equal(segundaDaChave('2026-W42'), '2026-10-12');
+  assert.equal(segundaDaChave('2026-W01'), '2025-12-29', 'semana 1 que começa no ano anterior');
+  assert.equal(segundaDaChave('2026-W53'), '2026-12-28');
+  assert.equal(segundaDaChave('x'), '');
 });

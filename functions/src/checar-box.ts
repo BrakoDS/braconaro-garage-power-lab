@@ -15,7 +15,7 @@ import {
 } from './modelo-box';
 import {
   alertasDaSemana, aplicarInventario, consumoDoDia, historicoComSessao, intervaloDaSemana, lerDias,
-  lerExercicioCatalogo, lerInventario, lerSessaoAluno, problemasParaPublicar, semanaAnterior, semanaDoPedido,
+  lerExercicioCatalogo, lerInventario, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior, semanaDoPedido,
   volumeDaSessao,
 } from './semana-box';
 import { descansoDaVaga, gerarSemana, idsDaSemana, montarBloco } from './gerador-box';
@@ -324,6 +324,33 @@ console.log('\nGerador: trava de equipamento (catálogo forjado)');
   });
   ok(!apertada.alertas.length, 'catálogo base com 1 smith e 1 monocross: a semana fecha sem alerta', JSON.stringify(apertada.alertas));
   ok(DIAS_SEMANA.every((d) => (apertada.dias[d].consumoEquipamentos.smith ?? 0) <= 1), 'nenhum dia passa de 1 smith');
+}
+
+console.log('\nReconferir semana gravada quando o inventário muda');
+{
+  // Semana gravada como o servidor grava, com o inventário padrão (smith 2).
+  const gravada = JSON.parse(JSON.stringify(gerarSemana({
+    semanaId: '2026-W42', catalogo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null,
+  })));
+  const comSmith = DIAS_SEMANA.filter((d) => (gravada.dias[d].consumoEquipamentos.smith ?? 0) > 0);
+  ok(comSmith.length > 0, 'a semana de teste usa smith em algum dia', comSmith.join(','));
+
+  const igualAntes = reconferirSemana(gravada, { ...INVENTARIO_PADRAO });
+  ok(!!igualAntes && igualAntes.alertas.length === 0 && igualAntes.problemasParaPublicar.length === 0,
+    'mesmo inventário: nada muda');
+
+  const semSmith = reconferirSemana(gravada, { ...INVENTARIO_PADRAO, smith: 0 });
+  ok(!!semSmith && igual(semSmith.alertas.map((a) => a.dia), comSmith) && semSmith.alertas.every((a) => a.recurso === 'smith' && a.limite === 0),
+    'os 2 smiths em manutenção: alerta em todo dia que usa smith', JSON.stringify(semSmith?.alertas));
+  ok(!!semSmith && semSmith.problemasParaPublicar.length === semSmith.alertas.length, 'cada alerta vira um motivo para não publicar');
+
+  const voltou = reconferirSemana({ ...gravada, alertas: semSmith?.alertas }, { ...INVENTARIO_PADRAO });
+  ok(!!voltou && voltou.alertas.length === 0, 'o smith voltou do conserto: o alerta some');
+
+  ok(reconferirSemana(null, INVENTARIO_PADRAO) === null && reconferirSemana({ status: 'rascunho' }, INVENTARIO_PADRAO) === null,
+    'documento sem dias: não há o que conferir');
+  const torto = reconferirSemana({ dias: { segunda: { treinos: ['Hyrox'] } } }, INVENTARIO_PADRAO);
+  ok(!!torto && torto.alertas.length === 0 && torto.problemasParaPublicar.length === 0, 'dia sem consumo gravado não estoura nada');
 }
 
 console.log('\nSanidade do vocabulário');
