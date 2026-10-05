@@ -1135,7 +1135,7 @@ function desenharNutricao() {
       <h3 class="sec-titulo">Sua semana (Seg a Sáb)</h3>
       <div class="nut-total"><span class="nt-l">Total queimado na semana</span><span class="nt-v">${fmt(totalSemana, 0)} <i>kcal</i></span></div>
       ${barrasSemana(somaDia, ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'], hj, dias)}
-      ${lanc.length ? `<div class="nut-lanc">${lanc.map((g) => `<div class="nl-row"><span class="nl-d">${fmtData(g.data)}</span><span class="nl-k">${fmt(numf(g.calorias), 0)} kcal</span><button class="nl-x" data-id="${esc(g.id)}" type="button" aria-label="Remover lançamento">×</button></div>`).join('')}</div>` : '<p class="nut-nota">Nenhum treino registrado nesta semana ainda.</p>'}
+      ${lanc.length ? `<div class="nut-lanc">${lanc.map((g) => `<div class="nl-row"><span class="nl-d">${fmtData(g.data)}</span><span class="nl-k">${numf(g.calorias) == null ? 'Check-in ✓' : `${fmt(numf(g.calorias), 0)} kcal`}</span><button class="nl-x" data-id="${esc(g.id)}" type="button" aria-label="Remover lançamento">×</button></div>`).join('')}</div>` : '<p class="nut-nota">Nenhum treino registrado nesta semana ainda.</p>'}
     </section>`;
 
   $$('#nut-conteudo .nn-modo button').forEach((btn) => btn.addEventListener('click', () => {
