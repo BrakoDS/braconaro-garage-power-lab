@@ -1,0 +1,505 @@
+{
+  "status": "rascunho",
+  "dataInicio": {
+    "seconds": 1791774000,
+    "nanoseconds": 0
+  },
+  "dataFim": {
+    "seconds": 1792292399,
+    "nanoseconds": 0
+  },
+  "anoMes": "2026-10",
+  "dias": {
+    "segunda": {
+      "treinos": [
+        "H1"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "bulgaro_caixote",
+          "nome": "Agachamento búlgaro no caixote",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "crucifixo_crossover_medial",
+          "nome": "Crucifixo no crossover medial",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "elevacao_lateral_halter",
+          "nome": "Elevação lateral com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": []
+        },
+        {
+          "exercicioId": "remada_curvada_barra",
+          "nome": "Remada curvada com barra",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "terra_barra_livre",
+          "nome": "Levantamento terra (barra livre)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "puxada_fechada_triangulo",
+          "nome": "Puxada fechada triângulo (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H1",
+        "papel": "principal",
+        "nome": "Força Base — Agachar/Empurrar"
+      },
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "monocross": 2
+      }
+    },
+    "terca": {
+      "treinos": [
+        "Cross",
+        "H1"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "bulgaro_caixote",
+          "nome": "Agachamento búlgaro no caixote",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "crucifixo_crossover_medial",
+          "nome": "Crucifixo no crossover medial",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "elevacao_lateral_halter",
+          "nome": "Elevação lateral com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": []
+        },
+        {
+          "exercicioId": "remada_curvada_barra",
+          "nome": "Remada curvada com barra",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "terra_barra_livre",
+          "nome": "Levantamento terra (barra livre)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "puxada_fechada_triangulo",
+          "nome": "Puxada fechada triângulo (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H1",
+        "papel": "alternativa",
+        "nome": "Força Base — Agachar/Empurrar"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "Cross",
+          "papel": "principal",
+          "formato": "WOD",
+          "descricao": "AMRAP, EMOM, For Time ou Chipper — movimentos a definir pelo coach."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "monocross": 2
+      }
+    },
+    "quarta": {
+      "treinos": [
+        "H2"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "estender_quadril",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "remada_halter_unilateral",
+          "nome": "Remada unilateral com halter",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "puxar_horizontal",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "puxada_aberta_pronada",
+          "nome": "Puxada aberta pronada (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "cadeira_extensora",
+          "nome": "Cadeira extensora",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": [
+            "maquinaLegs"
+          ]
+        },
+        {
+          "exercicioId": "flexao_trx",
+          "nome": "Flexão no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "pallof_press",
+          "nome": "Pallof press",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 45,
+          "instancia": "estabilizar_tronco",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H2",
+        "papel": "principal",
+        "nome": "Força Base — Cadeia Posterior/Puxar"
+      },
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "banco": 2,
+        "monocross": 2,
+        "maquinaLegs": 1
+      }
+    },
+    "quinta": {
+      "treinos": [
+        "Hyrox"
+      ],
+      "blocoPrincipal": [],
+      "sessaoForca": null,
+      "blocosMetabolicos": [
+        {
+          "modalidade": "Hyrox",
+          "papel": "principal",
+          "formato": "For Time",
+          "descricao": "Formato da competição: corrida intercalada com estações funcionais."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {}
+    },
+    "sexta": {
+      "treinos": [
+        "H3",
+        "HIIT"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "leg_press_vertical_smith",
+          "nome": "Vertical Leg Press no Smith",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": [
+            "smith"
+          ]
+        },
+        {
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "supino_halter",
+          "nome": "Supino reto com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "remada_cavalinho_fechada",
+          "nome": "Remada cavalinho pegada fechada",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": [
+            "cavalinho"
+          ]
+        },
+        {
+          "exercicioId": "elevacao_lateral_monocross",
+          "nome": "Elevação lateral no monocross",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "puxada_braco_estendido",
+          "nome": "Puxada com braço estendido no monocross",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H3",
+        "papel": "principal",
+        "nome": "Consolidação Full Body"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "HIIT",
+          "papel": "alternativa",
+          "formato": "TABATA",
+          "descricao": "4 estações TABATA (Inferiores · Core · Superiores · Cardio), 16 rounds cada."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "smith": 1,
+        "banco": 1,
+        "cavalinho": 1,
+        "monocross": 2
+      }
+    },
+    "sabado": {
+      "treinos": [
+        "HIIT",
+        "H3"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "leg_press_vertical_smith",
+          "nome": "Vertical Leg Press no Smith",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": [
+            "smith"
+          ]
+        },
+        {
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "supino_halter",
+          "nome": "Supino reto com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "remada_cavalinho_fechada",
+          "nome": "Remada cavalinho pegada fechada",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": [
+            "cavalinho"
+          ]
+        },
+        {
+          "exercicioId": "elevacao_lateral_monocross",
+          "nome": "Elevação lateral no monocross",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "puxada_braco_estendido",
+          "nome": "Puxada com braço estendido no monocross",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H3",
+        "papel": "alternativa",
+        "nome": "Consolidação Full Body"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "HIIT",
+          "papel": "principal",
+          "formato": "TABATA",
+          "descricao": "4 estações TABATA (Inferiores · Core · Superiores · Cardio), 16 rounds cada."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "smith": 1,
+        "banco": 1,
+        "cavalinho": 1,
+        "monocross": 2
+      }
+    }
+  },
+  "alertas": [],
+  "problemasParaPublicar": [],
+  "limitesUsados": {
+    "smith": 1,
+    "banco": 2,
+    "monocross": 3,
+    "maquinaLegs": 1,
+    "cavalinho": 2
+  },
+  "geracao": {
+    "variacao": 0,
+    "semanaAnterior": null,
+    "trocas": [
+      {
+        "sessao": "H2",
+        "posicao": 5,
+        "de": "supino_inclinado_halter",
+        "para": "flexao_trx",
+        "recurso": "banco",
+        "deNome": "Supino inclinado com halteres",
+        "paraNome": "Flexão no TRX"
+      }
+    ],
+    "avisos": []
+  }
+}

@@ -179,18 +179,29 @@ export function lerExercicioCatalogo(doc: unknown): ExercicioCatalogo | null {
 
 /** Unidades de cada recurso que o bloco ocupa: cada exercício é uma estação. */
 export function consumoDoDia(
-  bloco: ExercicioProgramado[],
+  bloco: readonly { exercicioId: string }[],
   catalogo: ReadonlyMap<string, ExercicioCatalogo>,
 ): Partial<Record<RecursoInventario, number>> {
   const consumo: Partial<Record<RecursoInventario, number>> = {};
   for (const ex of bloco) {
     const item = catalogo.get(ex.exercicioId);
     if (!item) continue;
-    // Set: um exercício que use flexora E extensora ainda ocupa UMA máquina.
-    const recursos = new Set(item.equipamentos.map((e) => RECURSO_DO_EQUIPAMENTO[e]).filter(Boolean));
-    for (const r of recursos) consumo[r!] = (consumo[r!] ?? 0) + 1;
+    for (const r of recursosDo(item)) consumo[r] = (consumo[r] ?? 0) + 1;
   }
   return consumo;
+}
+
+/**
+ * Os recursos limitados que um exercício ocupa, sem repetir: um exercício que
+ * use flexora E extensora ainda ocupa UMA `maquinaLegs`.
+ */
+export function recursosDo(item: ExercicioCatalogo): RecursoInventario[] {
+  const recursos = new Set<RecursoInventario>();
+  for (const e of item.equipamentos) {
+    const r = RECURSO_DO_EQUIPAMENTO[e];
+    if (r) recursos.add(r);
+  }
+  return RECURSOS_INVENTARIO.filter((r) => recursos.has(r));
 }
 
 /** O que passa do limite ativo, dia a dia, na ordem da semana. */
@@ -271,7 +282,10 @@ export function lerDias(
       if (!repeticoes) return { erro: `${dia}, ${item.nome}: escreva as repetições.` };
       const descansoSeg = x.descansoSeg === undefined ? entreSeriesSeg : inteiro(x.descansoSeg, 0, 600);
       if (descansoSeg === null) return { erro: `${dia}, ${item.nome}: descanso é um inteiro de 0 a 600 segundos.` };
-      bloco.push({ exercicioId: id, nome: item.nome, series, repeticoes, descansoSeg });
+      bloco.push({
+        exercicioId: id, nome: item.nome, series, repeticoes, descansoSeg,
+        instancia: item.instancia, recursos: recursosDo(item),
+      });
     }
 
     const cadencia = d.cadencia === undefined ? CADENCIA_PADRAO : texto(d.cadencia, 4).toUpperCase();

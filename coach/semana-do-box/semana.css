@@ -1,0 +1,71 @@
+/* ============================================================
+   SEMANA DO BOX — o que falta sobre a moldura do Montador Híbrido
+   (tokens, login, barra, .panel, .btn, .card vêm de ../montador-hibrido/app.css)
+   ============================================================ */
+
+/* ---------- semanas do mês ---------- */
+/* 150px: no celular (375) cabem 2 por linha — um mês de 5 ou 6 semanas em coluna única
+   empurrava a semana escolhida para baixo da dobra. */
+.lista-semanas { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 14px 0 6px; }
+.semana-card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; cursor: pointer;
+  background: var(--card); color: var(--txt); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; font: inherit; }
+.semana-card:hover { border-color: var(--line2); }
+.semana-card.ativa { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc); }
+.semana-rotulo { font-weight: 700; }
+.semana-chave { font-size: 12px; }
+.semana-alertas { color: var(--bad); font-size: 12px; font-weight: 600; }
+
+.selo { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  border-radius: 999px; padding: 2px 9px; border: 1px solid var(--line2); color: var(--mut); }
+.selo-rascunho { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+.selo-publicado { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
+
+.semana-status { min-height: 1.4em; margin: 4px 2px; font-size: 13px; color: var(--mut); }
+.semana-status.ok { color: var(--ok); }
+.semana-status.erro { color: var(--bad); }
+
+/* ---------- detalhe ---------- */
+.semana-detalhe { display: grid; gap: 14px; }
+.detalhe-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+.detalhe-h h2 { margin: 0; font-size: 20px; }
+.motivos { flex: 1 1 100%; margin: 0; padding-left: 18px; color: var(--bad); font-size: 13px; }
+
+.alerta-equip h3 { color: var(--bad); }
+.alerta-equip ul { margin: 6px 0 8px; padding-left: 18px; font-weight: 600; }
+.notas-gerador ul { margin: 4px 0 8px; padding-left: 18px; font-size: 13px; }
+.notas-gerador h4 { margin-top: 10px; }
+
+/* ---------- a grade ---------- */
+/* `align-items: start`: dia de Hyrox (um bloco só) ao lado de um H2 (seis exercícios)
+   esticava até a altura do vizinho e virava um cartão quase vazio. */
+.grade-dias { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.dia { display: flex; flex-direction: column; gap: 10px; }
+.dia-estourado { border-color: color-mix(in srgb, var(--bad) 55%, transparent); }
+.dia-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.dia-h h3 { margin: 0; }
+.treinos { display: flex; gap: 6px; flex-wrap: wrap; }
+.treino-chip { font-size: 12px; font-weight: 700; border-radius: 7px; padding: 2px 8px; border: 1px solid var(--line2); color: var(--mut); }
+.treino-chip.principal { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+
+.forca h4, .metabolico h4 { margin: 0 0 6px; }
+.exercicios { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; counter-reset: vaga; }
+.exercicio { display: grid; grid-template-columns: 1.6em 1fr; column-gap: 6px; padding: 6px 8px; border-radius: 8px;
+  background: var(--card2); border: 1px solid transparent; counter-increment: vaga; }
+.exercicio::before { content: counter(vaga); grid-row: span 3; color: var(--mut2); font-weight: 700; font-size: 13px; }
+.ex-inst { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--mut); }
+.ex-nome { font-weight: 600; font-size: 14px; }
+.ex-presc { font-size: 12px; color: var(--mut); }
+.exercicio.em-alerta { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--card2)); }
+.exercicio.em-alerta .ex-nome::after { content: ' ⚠'; color: var(--bad); }
+.dia-rodape { margin: 6px 0 0; font-size: 12px; }
+
+.metabolico { border-left: 3px solid var(--line2); padding-left: 10px; }
+.metabolico.principal { border-left-color: var(--acc); }
+.metabolico p { margin: 0; font-size: 13px; }
+
+.consumo { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; border-top: 1px solid var(--line); }
+.consumo-chip { font-size: 12px; border-radius: 7px; padding: 2px 8px; background: var(--card2); color: var(--mut); }
+.consumo-chip.estourou { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad); font-weight: 700; }
+
+@media (max-width: 980px) { .grade-dias { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .grade-dias { grid-template-columns: 1fr; } }
