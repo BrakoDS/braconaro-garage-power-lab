@@ -1986,7 +1986,8 @@ export const salvarSemanaBox = onCall(
     ]);
     const lido = lerDias(dados.dias, catalogo);
     if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
-    const alertas = alertasDaSemana(lido.dias, lerInventario(inv.data()).limitesAtivos);
+    const limitesUsados = lerInventario(inv.data()).limitesAtivos;
+    const alertas = alertasDaSemana(lido.dias, limitesUsados);
     const problemas = problemasParaPublicar(lido.dias, alertas);
 
     const ref = refSemana(db, uid, semanaId);
@@ -1997,7 +1998,9 @@ export const salvarSemanaBox = onCall(
         throw new HttpsError('failed-precondition', `A semana está publicada e esta versão não pode ser: ${problemas[0]}`);
       }
       // `set` sem merge: `dias` é mapa, e o merge manteria chave velha de
-      // `consumoEquipamentos` que a versão nova não tem mais.
+      // `consumoEquipamentos` que a versão nova não tem mais. Leva junto a
+      // `geracao`, de propósito: depois de uma edição à mão, as trocas e avisos
+      // do sorteio falam de uma semana que não é mais esta.
       tx.set(ref, {
         status: publicada ? 'publicado' : 'rascunho',
         dataInicio: Timestamp.fromMillis(intervalo.inicioMs),
@@ -2005,6 +2008,8 @@ export const salvarSemanaBox = onCall(
         anoMes: intervalo.anoMes,
         dias: lido.dias,
         alertas,
+        problemasParaPublicar: problemas,
+        limitesUsados,
         atualizadoEm: FieldValue.serverTimestamp(),
         ...(atual?.publicadoEm ? { publicadoEm: atual.publicadoEm } : {}),
       });
@@ -2043,12 +2048,19 @@ export const publicarSemanaBox = onCall(
     const [catalogo, inv] = await Promise.all([carregarCatalogo(db, idsDosDias(gravado)), refInventario(db, uid).get()]);
     const lido = lerDias(gravado, catalogo);
     if ('erro' in lido) throw new HttpsError('failed-precondition', `A semana salva não fecha mais com o catálogo: ${lido.erro}`);
-    const alertas = alertasDaSemana(lido.dias, lerInventario(inv.data()).limitesAtivos);
+    const limitesUsados = lerInventario(inv.data()).limitesAtivos;
+    const alertas = alertasDaSemana(lido.dias, limitesUsados);
     const problemas = problemasParaPublicar(lido.dias, alertas);
-    if (problemas.length) throw new HttpsError('failed-precondition', problemas.join(' '));
+    if (problemas.length) {
+      // Grava a conta nova ANTES de recusar: se o inventário mudou desde o
+      // rascunho (um smith entrou em manutenção), a tela tem de mostrar o
+      // alerta de agora, e não o de quando a semana foi gerada.
+      await ref.update({ alertas, problemasParaPublicar: problemas, limitesUsados, atualizadoEm: FieldValue.serverTimestamp() });
+      throw new HttpsError('failed-precondition', problemas.join(' '));
+    }
 
     await ref.update({
-      status: 'publicado', dias: lido.dias, alertas,
+      status: 'publicado', dias: lido.dias, alertas, problemasParaPublicar: [], limitesUsados,
       publicadoEm: FieldValue.serverTimestamp(), atualizadoEm: FieldValue.serverTimestamp(),
     });
     return { semanaId, status: 'publicado' as const };
@@ -2101,11 +2113,13 @@ export const gerarMatrizSemanalBox = onCall(
     ]);
     if (!catalogo.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
 
+    const limitesUsados = lerInventario(inv.data()).limitesAtivos;
     const gerado = gerarSemana({
-      semanaId, catalogo, limites: lerInventario(inv.data()).limitesAtivos,
+      semanaId, catalogo, limites: limitesUsados,
       diasDaSemanaAnterior: anterior?.data()?.dias, variacao,
     });
     const problemas = problemasParaPublicar(gerado.dias, gerado.alertas);
+    const semanaAnteriorUsada = anterior?.exists ? anteriorId : null;
 
     const ref = refSemana(db, uid, semanaId);
     await db.runTransaction(async (tx) => {
@@ -2123,6 +2137,11 @@ export const gerarMatrizSemanalBox = onCall(
         anoMes: intervalo.anoMes,
         dias: gerado.dias,
         alertas: gerado.alertas,
+        problemasParaPublicar: problemas,
+        limitesUsados,
+        // O que o sorteio decidiu fica NA semana: a tela que reabre o rascunho
+        // amanhã precisa mostrar as trocas que a trava de equipamento fez.
+        geracao: { variacao, semanaAnterior: semanaAnteriorUsada, trocas: gerado.trocas, avisos: gerado.avisos },
         geradoEm: FieldValue.serverTimestamp(),
         atualizadoEm: FieldValue.serverTimestamp(),
       });
@@ -2131,9 +2150,9 @@ export const gerarMatrizSemanalBox = onCall(
       uid, semanaId, anteriorId, trocas: gerado.trocas.length, alertas: gerado.alertas.length,
     });
     return {
-      semanaId, status: 'rascunho', semanaAnterior: anterior?.exists ? anteriorId : null,
+      semanaId, status: 'rascunho', semanaAnterior: semanaAnteriorUsada,
       dias: gerado.dias, alertas: gerado.alertas, trocas: gerado.trocas, avisos: gerado.avisos,
-      problemasParaPublicar: problemas,
+      problemasParaPublicar: problemas, limitesUsados,
     };
   },
 );

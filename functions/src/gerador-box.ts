@@ -120,13 +120,13 @@ function filaDaInstancia(instancia: Instancia, ctx: ContextoBloco): string[] {
 
 /** Recursos acima do limite num bloco (na ordem de `RECURSOS_INVENTARIO`) e quantas unidades sobram ao todo. */
 function excedentes(ids: string[], ctx: ContextoBloco): { recursos: RecursoInventario[]; sobra: number } {
-  const consumo = consumoDoDia(ids.map((exercicioId) => ({ exercicioId, nome: '', series: 0, repeticoes: '', descansoSeg: 0 })), ctx.catalogo);
+  const consumo = consumoDoDia(ids.map((exercicioId) => ({ exercicioId })), ctx.catalogo);
   const recursos = RECURSOS_INVENTARIO.filter((r) => (consumo[r] ?? 0) > ctx.limites[r]);
   return { recursos, sobra: recursos.reduce((s, r) => s + (consumo[r] ?? 0) - ctx.limites[r], 0) };
 }
 
 const usa = (id: string, r: RecursoInventario, ctx: ContextoBloco): boolean =>
-  consumoDoDia([{ exercicioId: id, nome: '', series: 0, repeticoes: '', descansoSeg: 0 }], ctx.catalogo)[r] === 1;
+  consumoDoDia([{ exercicioId: id }], ctx.catalogo)[r] === 1;
 
 export interface BlocoGerado {
   ids: string[];
@@ -173,7 +173,10 @@ export function montarBloco(instancias: readonly Instancia[], ctx: ContextoBloco
           return depois.sobra < antes.sobra && depois.recursos.every((r) => antes.recursos.includes(r));
         });
         if (!para) continue;
-        trocas.push({ posicao: pos + 1, de: ids[pos], para, recurso });
+        trocas.push({
+          posicao: pos + 1, de: ids[pos], para, recurso,
+          deNome: ctx.catalogo.get(ids[pos])!.nome, paraNome: ctx.catalogo.get(para)!.nome,
+        });
         ids[pos] = para;
         trocou = true;
       }

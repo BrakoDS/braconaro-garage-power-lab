@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Semana do Box — Garage Power Lab</title>
+  <!-- A moldura (cores, login, barra, botões) é a do Montador Híbrido; semana.css só acrescenta a grade. -->
+  <link rel="stylesheet" href="../montador-hibrido/app.css?v=1" />
+  <link rel="stylesheet" href="./semana.css?v=1" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0A0A0A" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+  <!-- Porta de acesso -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Semana do Box</div>
+      <p>Acesso restrito ao coach.</p>
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div id="gate-erro" class="gate-erro">Senha incorreta.</div>
+      <a class="gate-voltar" href="../index.html">← Voltar ao Coach</a>
+    </form>
+  </div>
+
+  <header class="topbar" hidden>
+    <div class="brand"><b>GARAGE POWER LAB</b> · Semana do Box</div>
+    <nav class="topbar-sai">
+      <a class="sai-btn sai-coach" href="../index.html"><span class="tb-longo">← Voltar ao Coach</span><span class="tb-curto">Coach</span></a>
+    </nav>
+  </header>
+
+  <main hidden>
+    <section class="panel">
+      <button class="btn ghost" id="mes-anterior" type="button" aria-label="Mês anterior">‹</button>
+      <strong id="mes-titulo" class="cal-titulo">—</strong>
+      <button class="btn ghost" id="mes-seguinte" type="button" aria-label="Mês seguinte">›</button>
+      <button class="btn ghost" id="mes-hoje" type="button">Hoje</button>
+      <p class="mut intro">
+        A grade da semana é montada <b>no servidor</b>: H1 · H2 · H3 de força, Cross, Hyrox e HIIT,
+        com rodízio contra a semana anterior e o equipamento de cada dia conferido contra o inventário.
+      </p>
+    </section>
+
+    <div id="lista-semanas" class="lista-semanas" aria-label="Semanas do mês"></div>
+    <p id="semana-status" class="semana-status" role="status" aria-live="polite"></p>
+    <section id="semana-detalhe" class="semana-detalhe"></section>
+  </main>
+
+  <script type="module" src="./ui/gate.js?v=1"></script>
+</body>
+</html>

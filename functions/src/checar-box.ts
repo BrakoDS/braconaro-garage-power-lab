@@ -34,7 +34,7 @@ const catalogo = new Map<string, ExercicioCatalogo>(Object.entries(CATALOGO_BASE
 
 /** O bloco passa de algum limite? */
 function excedeAlgum(ids: string[], cat: ReadonlyMap<string, ExercicioCatalogo>, limites: Record<RecursoInventario, number>): boolean {
-  const consumo = consumoDoDia(ids.map((exercicioId) => ({ exercicioId, nome: '', series: 0, repeticoes: '', descansoSeg: 0 })), cat);
+  const consumo = consumoDoDia(ids.map((exercicioId) => ({ exercicioId })), cat);
   return RECURSOS_INVENTARIO.some((r) => (consumo[r] ?? 0) > limites[r]);
 }
 
@@ -227,6 +227,17 @@ console.log('\nGerador: matriz, grade e rodízio (catálogo base, inventário pa
   ok(igual(descansos('terca'), descansos('segunda')) && igual(descansos('sabado'), descansos('sexta')),
     'o catch-up herda o descanso da sessão original');
   ok(descansoDaVaga('H1', 1, 'estabilizar_tronco') === 45, 'core vence a regra de posição');
+
+  // O que a tela usa sem ler o catálogo: instância e recursos de cada exercício.
+  ok(w41.dias.segunda.blocoPrincipal.every((e, i) => e.instancia === MATRIZ_H.H1.instancias[i]),
+    'cada exercício traz a instância da vaga');
+  const recursosDe = (id: string) => lerDias({ segunda: { treinos: ['H1'], blocoPrincipal: [{ exercicioId: id, series: 3, repeticoes: '10' }] } }, catalogo);
+  const sup = recursosDe('supino_smith');
+  ok('dias' in sup && igual(sup.dias.segunda.blocoPrincipal[0].recursos, ['smith', 'banco']), 'supino no smith ocupa smith e banco');
+  const flex = recursosDe('mesa_flexora');
+  ok('dias' in flex && igual(flex.dias.segunda.blocoPrincipal[0].recursos, ['maquinaLegs']), 'mesa flexora ocupa a maquinaLegs');
+  const tri = recursosDe('flexao_trx');
+  ok('dias' in tri && tri.dias.segunda.blocoPrincipal[0].recursos.length === 0, 'TRX não ocupa recurso limitado');
   ok(!w41.alertas.length && problemasParaPublicar(w41.dias, w41.alertas).length === 0, 'semana gerada pode publicar direto');
   ok(igual(gerarSemana({ semanaId: '2026-W41', catalogo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null }), w41),
     'mesma entrada, mesma semana (determinístico)');
@@ -281,8 +292,10 @@ console.log('\nGerador: trava de equipamento (catálogo forjado)');
     'com 3 smiths no box, os 3 de smith ficam', tres.ids.join(','));
 
   const dois = montarBloco(MATRIZ_H.H1.instancias, ctx(2));
-  ok(igual(dois.trocas, [{ posicao: 3, de: 'ev_smith', para: 'ev_halter', recurso: 'smith' }]),
-    'limite 2: re-sorteia o ÚLTIMO conflitante (vaga 3) por um da mesma instância sem smith', JSON.stringify(dois.trocas));
+  ok(igual(dois.trocas, [{
+    posicao: 3, de: 'ev_smith', para: 'ev_halter', recurso: 'smith',
+    deNome: 'empurrar_vertical smith', paraNome: 'empurrar_vertical halteres',
+  }]), 'limite 2: re-sorteia o ÚLTIMO conflitante (vaga 3) por um da mesma instância sem smith, com os nomes', JSON.stringify(dois.trocas));
   ok(dois.ids[0] === 'ag_smith' && dois.ids[1] === 'eh_smith', 'os conflitantes anteriores ficam');
 
   const um = montarBloco(MATRIZ_H.H1.instancias, ctx(1));

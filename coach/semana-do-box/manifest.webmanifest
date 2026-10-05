@@ -1,0 +1,16 @@
+{
+  "name": "Semana do Box — Braconaro",
+  "short_name": "Semana",
+  "description": "Gera, revisa e publica a matriz semanal do box: H1, H2, H3, Cross, Hyrox e HIIT.",
+  "scope": "/coach/semana-do-box/",
+  "start_url": "/coach/semana-do-box/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

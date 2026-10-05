@@ -211,6 +211,10 @@ export interface ExercicioProgramado {
   repeticoes: string;
   /** Descanso entre as séries DESTE exercício. Sem valor no pedido, vale o `descansos.entreSeriesSeg` do dia. */
   descansoSeg: number;
+  /** CALCULADO (catálogo): a vaga que o exercício ocupa. Para a tela não precisar ler o catálogo. */
+  instancia: Instancia;
+  /** CALCULADO (catálogo): os recursos limitados que ele ocupa — é o que a tela destaca num alerta. */
+  recursos: RecursoInventario[];
 }
 
 export interface Descansos {
@@ -261,8 +265,22 @@ export interface SemanaBox {
   dias: Record<DiaSemana, DiaProgramado>;
   /** CALCULADO: o que passa do inventário ativo. Semana com alerta não publica. */
   alertas: AlertaEquipamento[];
+  /** CALCULADO: por que ainda não publica (vazio = pode). A tela mostra, quem decide é `publicarSemanaBox`. */
+  problemasParaPublicar: string[];
+  /** CALCULADO: os limites ativos do inventário usados na última conta ("Smith 2/2" na tela). */
+  limitesUsados: Record<RecursoInventario, number>;
+  /** Só em semana saída do gerador; some quando o coach salva uma edição à mão. */
+  geracao?: GeracaoSemana;
   atualizadoEm: Timestamp;
   publicadoEm?: Timestamp;
+}
+
+/** O que o gerador decidiu, guardado para a tela mostrar ao reabrir o rascunho. */
+export interface GeracaoSemana {
+  variacao: number;
+  semanaAnterior: string | null;
+  trocas: TrocaEquipamento[];
+  avisos: string[];
 }
 
 /* ───────────────────────── gerarMatrizSemanalBox ───────────────────────── */
@@ -287,6 +305,9 @@ export interface TrocaEquipamento {
   posicao: number;
   de: string;
   para: string;
+  /** Nomes do catálogo, para a tela não traduzir id. */
+  deNome: string;
+  paraNome: string;
   recurso: RecursoInventario;
 }
 
@@ -299,6 +320,7 @@ export interface RespostaGerarMatriz {
   trocas: TrocaEquipamento[];
   avisos: string[];
   problemasParaPublicar: string[];
+  limitesUsados: Record<RecursoInventario, number>;
 }
 
 export interface AlertaEquipamento {
