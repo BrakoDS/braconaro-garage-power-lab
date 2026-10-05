@@ -85,10 +85,9 @@ export type PerfilExercicio = {
  * a IA os classifica bem, e duplicar o que já funciona só cria um segundo lugar
  * para errar.
  *
- * Sobre primário × secundário: os dois creditam a série INTEIRA, seguindo a
- * convenção que `volume-agregado.ts` já documenta e que o Portal do Aluno usa.
- * A separação está aqui porque é verdade sobre o movimento e porque a tela pode
- * querer mostrá-la — não para virar peso 0,5 escondido num gráfico.
+ * Sobre primário × secundário: desde 05/10/2026 o secundário pesa 0,5 no
+ * dashboard (decisão do coach, a mesma regra do histórico do aluno). Quando é a
+ * taxonomia que preenche um exercício, `secundariosDoExercicio` diz quais são.
  */
 export const TAXONOMIA: PerfilExercicio[] = [
   {
@@ -270,6 +269,16 @@ export function gruposDoExercicio(nomeExercicio: string): string[] {
   const p = perfilDe(nomeExercicio);
   if (!p) return [];
   return [...new Set([...p.primarios, ...p.secundarios])];
+}
+
+/**
+ * Os SECUNDÁRIOS de um exercício pela taxonomia — os que pesam 0,5 no volume.
+ * Músculo que a tabela lista nas duas colunas conta como primário.
+ */
+export function secundariosDoExercicio(nomeExercicio: string): string[] {
+  const p = perfilDe(nomeExercicio);
+  if (!p) return [];
+  return [...new Set(p.secundarios.filter((m) => !p.primarios.includes(m)))];
 }
 
 /**

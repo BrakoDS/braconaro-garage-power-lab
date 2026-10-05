@@ -1656,6 +1656,47 @@ ok(limparParaGravar(null) === null && limparParaGravar(undefined) === undefined,
   ok(lerRespostaExpo(null).erro === 'resposta-inesperada', 'corpo ilegível não quebra');
 }
 
+console.log('\nDASHBOARD: SECUNDÁRIO PESA 0,5 (decisão de 05/10/2026)\n');
+{
+  // A IA devolve principais em `grupamentos` e secundários à parte; o gravado
+  // junta os dois e marca quais são secundários.
+  const t = extrairTreino(lousa([{ ...EX_BASE, grupamentos: ['Peito'], grupamentosSecundarios: ['Tríceps', 'Ombro', 'Peito'] }]));
+  const ex = t.blocos[0].exercicios[0];
+  ok(JSON.stringify(ex.grupamentos) === JSON.stringify(['Peito', 'Tríceps', 'Ombro']), 'gravado tem a lista completa', JSON.stringify(ex.grupamentos));
+  ok(JSON.stringify(ex.grupamentosSecundarios) === JSON.stringify(['Tríceps', 'Ombro']), 'músculo nas duas listas fica principal');
+  const schemaEx = (montarSchemaLousa() as any).properties.exercicios.items;
+  ok(schemaEx.required.includes('grupamentosSecundarios') && !!schemaEx.properties.grupamentosSecundarios,
+    'schema estrito pede os secundários (todo campo em required)');
+
+  // Taxonomia preenchendo: a separação vem dela.
+  const burpee = extrairTreino(lousa([{ ...EX_BASE, nome: 'Burpee', grupamentos: [] }])).blocos[0].exercicios[0];
+  ok(!!burpee.grupamentosSecundarios?.includes('Tríceps') && !burpee.grupamentosSecundarios.includes('Peito'),
+    'Burpee preenchido pela taxonomia: Tríceps secundário, Peito principal', JSON.stringify(burpee.grupamentosSecundarios));
+
+  const semana = (exercicios: TreinoParaVolume['exercicios']) =>
+    consolidar([{ dateId: '2026-10-05', sistema: 'Hipertrofia', exercicios }], 'semana', 'x', faixaDaSemana('2026-10-05'));
+  const nova = semana([{ nome: 'Supino', series: 4, grupamentos: ['Peito', 'Tríceps', 'Ombro'], grupamentosSecundarios: ['Tríceps', 'Ombro'], implemento: 'Barra' }]);
+  ok(nova.porGrupo.peito === 4 && nova.porGrupo.braco === 2 && nova.porGrupo.ombro === 2,
+    'lousa nova: 4 séries → peito 4, braço 2, ombro 2', JSON.stringify(nova.porGrupo));
+  ok(nova.totalSeries === 4, 'o total de séries não muda com o peso');
+  const antiga = semana([{ nome: 'Supino', series: 4, grupamentos: ['Peito', 'Tríceps'], implemento: 'Barra' }]);
+  ok(antiga.porGrupo.peito === 4 && antiga.porGrupo.braco === 4, 'lousa antiga (sem o campo) continua 1,0 em tudo');
+
+  // Caminho rápido (sem IA): o catálogo carrega a separação até o treino montado.
+  const item = itemDaIA('Remada X', { grupamentos: ['Costas'], grupamentosSecundarios: ['Bíceps'], implemento: 'Cabo' });
+  ok(JSON.stringify(item?.grupamentos) === JSON.stringify(['Costas', 'Bíceps']) && item?.grupamentosSecundarios?.[0] === 'Bíceps',
+    'item aprendido guarda lista completa e secundários');
+  const pre = preParse(['Hipertrofia', 'C — Força', 'Remada X 3x10'].join('\n'));
+  if (pre.ok && item) {
+    const montado = montarTreino(montarComoIA(pre, new Map([[chaveDe(pre.linhas[0].nome), item]]), chaveDe)).blocos[0].exercicios[0];
+    ok(JSON.stringify(montado.grupamentosSecundarios) === JSON.stringify(['Bíceps']) && montado.grupamentos.includes('Costas'),
+      'pre-parser + catálogo: secundário chega ao treino', JSON.stringify(montado));
+  } else {
+    ok(false, 'pre-parser leu a linha de teste', JSON.stringify(pre));
+  }
+  ok(daTaxonomia('Wall Ball')?.grupamentosSecundarios?.join() === 'Ombro', 'item de fábrica da taxonomia traz os secundários');
+}
+
 console.log(
   falhas === 0
     ? '\n✓ A leitura da IA, a de preço e o Montador Híbrido aguentam entrada torta.\n'

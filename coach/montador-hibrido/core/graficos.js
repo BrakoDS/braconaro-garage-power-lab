@@ -73,6 +73,19 @@ const PCT_MINIMO_ROTULO = 15;
  */
 
 /**
+ * Número para a tela, no jeito brasileiro: vírgula decimal e no máximo uma casa
+ * ("3,5", "12", "-1,5"). Desde 05/10/2026 o músculo secundário pesa 0,5, então o
+ * volume por grupamento passou a ter meia série — e "3.5" na tela do coach é
+ * número de planilha americana.
+ * @param {unknown} v
+ */
+export function numeroBR(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '0';
+  return (Math.round(n * 10) / 10).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+}
+
+/**
  * Barras do tracker, todas na mesma régua.
  *
  * O máximo inclui as METAS e não só os valores: uma semana em que nenhum grupo

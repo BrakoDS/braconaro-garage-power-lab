@@ -242,11 +242,14 @@ export const ROTULOS_CONHECIDOS: readonly string[] = MUSCULOS_LABEL;
  */
 export function montarComoIA(
   pre: Extract<ResultadoPreParse, { ok: true }>,
-  catalogo: Map<string, { nome: string; grupamentos: string[]; implemento: string }>,
+  catalogo: Map<string, { nome: string; grupamentos: string[]; grupamentosSecundarios?: string[]; implemento: string }>,
   chaveDe: (nome: string) => string,
 ): Record<string, unknown> {
   const exercicios = pre.linhas.map((l) => {
     const item = catalogo.get(chaveDe(l.nome));
+    // O objeto imita a RESPOSTA DA IA: `grupamentos` leva só os principais, e
+    // `montarTreino` junta os secundários de volta na lista completa.
+    const secundarios = item?.grupamentosSecundarios || [];
     const carga = l.cargaKg !== null ? `${String(l.cargaKg).replace('.', ',')} kg` : '';
     const observacao = [carga, l.observacao].filter(Boolean).join(' · ').slice(0, 200);
     return {
@@ -255,7 +258,8 @@ export function montarComoIA(
       series: l.series,
       reps: l.reps,
       implemento: item?.implemento || '',
-      grupamentos: item?.grupamentos || [],
+      grupamentos: (item?.grupamentos || []).filter((g) => !secundarios.includes(g)),
+      grupamentosSecundarios: secundarios,
       observacao,
     };
   });

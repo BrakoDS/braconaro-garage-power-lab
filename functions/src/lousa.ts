@@ -30,7 +30,7 @@
  */
 
 /** Rótulos de músculo que a Academia grava — ver o cabeçalho sobre duplicação. */
-import { completarGrupamentos } from './taxonomia.js';
+import { completarGrupamentos, secundariosDoExercicio } from './taxonomia.js';
 
 export const MUSCULOS_LABEL = [
   'Peito', 'Ombro', 'Tríceps', 'Costas', 'Bíceps', 'Quadríceps',
@@ -77,8 +77,17 @@ export type ExercicioLousa = {
   reps: string;
   /** Rótulo do implemento como o coach escreveu ('Barra', 'Halter', 'Airbike'). */
   implemento: string;
-  /** Rótulos de `MUSCULOS_LABEL`; o que a IA inventar é descartado. */
+  /**
+   * Rótulos de `MUSCULOS_LABEL`, principais E secundários juntos; o que a IA
+   * inventar é descartado. Continua sendo a lista completa para quem já lia só
+   * este campo (telas, distribuição).
+   */
   grupamentos: string[];
+  /**
+   * Quais de `grupamentos` são SECUNDÁRIOS — pesam 0,5 no dashboard de volume.
+   * Lousa salva antes de 05/10/2026 não tem o campo: tudo conta 1,0, como antes.
+   */
+  grupamentosSecundarios?: string[];
   /** A caneta vermelha: RIR, descanso, carga, alerta de intensidade. */
   observacao: string;
 };
@@ -175,7 +184,11 @@ export function aplicarRegrasGlobais(treino: TreinoEstruturado): TreinoEstrutura
       // A taxonomia completa o que a IA deixou vazio — e é aplicada AQUI, com o
       // nome JÁ SUBSTITUÍDO. Antes da troca, "Corrida 400m" não casaria com
       // nada; depois dela o exercício é "Airbike", que a tabela conhece.
-      return { ...ex, nome, grupamentos: completarGrupamentos(nome, ex.grupamentos) };
+      // Quando é ela que preenche, a separação principal/secundário também vem dela.
+      const vazio = !ex.grupamentos.length;
+      const grupamentos = completarGrupamentos(nome, ex.grupamentos);
+      const grupamentosSecundarios = vazio ? secundariosDoExercicio(nome) : ex.grupamentosSecundarios ?? [];
+      return { ...ex, nome, grupamentos, grupamentosSecundarios };
     }),
   }));
   return { ...treino, blocos, substituicoes };
@@ -205,7 +218,7 @@ export function montarSchema(): Record<string, unknown> {
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['nome', 'bloco', 'series', 'reps', 'implemento', 'grupamentos', 'observacao'],
+          required: ['nome', 'bloco', 'series', 'reps', 'implemento', 'grupamentos', 'grupamentosSecundarios', 'observacao'],
           properties: {
             nome: { type: 'string' },
             bloco: { type: 'string', enum: [...BLOCO_IDS] },
@@ -213,6 +226,7 @@ export function montarSchema(): Record<string, unknown> {
             reps: { type: 'string' },
             implemento: { type: 'string' },
             grupamentos: { type: 'array', items: { type: 'string', enum: [...MUSCULOS_LABEL] } },
+            grupamentosSecundarios: { type: 'array', items: { type: 'string', enum: [...MUSCULOS_LABEL] } },
             observacao: { type: 'string' },
           },
         },
@@ -249,7 +263,8 @@ export function instrucoes(textoDigitado: string): string {
     '- "series" é NÚMERO. Se a lousa não disser, devolva 0 e o sistema aplica o padrão do bloco.',
     '- "reps" é TEXTO livre, exatamente como está na lousa: "8-12", "30s", "AMRAP 8min", "20 cada lado".',
     '- "implemento" é o equipamento em uma ou duas palavras: Barra, Halter, Kettlebell, Cabo, Anilha, Airbike, Corda, Peso corporal.',
-    '- "grupamentos" só aceita os rótulos do vocabulário fechado. Na dúvida, devolva lista vazia em vez de chutar.',
+    '- "grupamentos" são os músculos PRINCIPAIS do exercício (o alvo). "grupamentosSecundarios" são os que ele recruta junto (ex.: supino → principal Peito; secundários Tríceps e Ombro). Um músculo fica em uma lista só.',
+    '- Os dois só aceitam os rótulos do vocabulário fechado. Na dúvida, devolva lista vazia em vez de chutar.',
     '- NÃO invente exercício que não está na lousa. Lousa ilegível gera "avisos", não exercício imaginado.',
     '- "avisos" é onde vai o que você não conseguiu ler ou o que ficou ambíguo.',
     '- "sistema" é a classificação do treino inteiro: HIIT, GAP, Hipertrofia ou Hyrox.',
@@ -391,13 +406,18 @@ export function montarTreino(o: Record<string, unknown>): TreinoEstruturado {
 
     const bloco = (BLOCO_IDS.includes(String(e.bloco)) ? String(e.bloco) : 'C') as BlocoId;
     const series = seriesValidas(e.series) ?? SERIES_PADRAO[bloco];
+    // `grupamentos` chega com os PRINCIPAIS; o gravado tem principais + secundários
+    // (ver `ExercicioLousa`). Músculo nas duas listas fica principal.
+    const principais = grupamentosValidos(e.grupamentos);
+    const secundarios = grupamentosValidos(e.grupamentosSecundarios).filter((g) => !principais.includes(g));
     porBloco.get(bloco)?.push({
       nome,
       bloco,
       series,
       reps: texto(e.reps, 60),
       implemento: texto(e.implemento, 40),
-      grupamentos: grupamentosValidos(e.grupamentos),
+      grupamentos: [...principais, ...secundarios],
+      grupamentosSecundarios: secundarios,
       observacao: texto(e.observacao),
     });
   }
