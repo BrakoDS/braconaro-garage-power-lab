@@ -169,6 +169,134 @@ export function datasDosDias(dataInicio) {
   return datas;
 }
 
+/* ───────────────────────────── edição manual ───────────────────────────── */
+
+/** 'segunda e terça', 'quarta'. @param {string[]} dias */
+export function rotuloDias(dias) {
+  const nomes = (dias ?? []).map((d) => dia(d).nome.toLowerCase());
+  return nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}` : (nomes[0] ?? '');
+}
+
+/**
+ * 'AAAA-MM-DD' de cada dia, a partir do `dataInicio` gravado.
+ * @param {any} dataInicio @returns {Record<string, string>}
+ */
+export function datasIsoDosDias(dataInicio) {
+  const inicio = msDe(dataInicio);
+  /** @type {Record<string, string>} */
+  const datas = {};
+  DIAS.forEach((d, i) => { datas[d.id] = Number.isFinite(inicio) ? new Date(inicio + i * DIA_MS).toISOString().slice(0, 10) : ''; });
+  return datas;
+}
+
+/**
+ * Dá para trocar exercício desta sessão? ESPELHA a trava do servidor
+ * (`diasPassadosAlterados` em `edicao-box.ts`) só para decidir se a tela mostra
+ * o botão: semana que já foi publicada não muda numa sessão com dia passado.
+ * Quem recusa de verdade é `salvarSemanaBox`.
+ * @param {any} doc @param {string} sessao @param {string} hojeIso
+ */
+export function sessaoEditavel(doc, sessao, hojeIso) {
+  if (!doc) return false;
+  if (doc.status !== 'publicado' && !doc.publicadoEm) return true;
+  const datas = datasIsoDosDias(doc.dataInicio);
+  return !DIAS.some((d) => doc.dias?.[d.id]?.sessaoForca?.sessao === sessao && datas[d.id] && datas[d.id] < hojeIso);
+}
+
+/**
+ * Os `dias` no formato que `salvarSemanaBox` recebe, com as trocas aplicadas em
+ * TODOS os dias da sessão (o H1 da segunda e o catch-up de terça mudam juntos).
+ * Só monta o pedido: o servidor revalida e recalcula tudo.
+ * @param {any} doc @param {{sessao: string, posicao: number, exercicioId: string}[]} [trocas]
+ */
+export function diasParaSalvar(doc, trocas = []) {
+  /** @type {Record<string, any>} */
+  const dias = {};
+  for (const d of DIAS) {
+    const x = doc?.dias?.[d.id] ?? {};
+    const sessao = x.sessaoForca?.sessao;
+    dias[d.id] = {
+      treinos: Array.isArray(x.treinos) ? [...x.treinos] : [],
+      blocoPrincipal: (Array.isArray(x.blocoPrincipal) ? x.blocoPrincipal : []).map((e, i) => {
+        const t = trocas.find((tr) => tr.sessao === sessao && tr.posicao === i + 1);
+        return { exercicioId: t ? t.exercicioId : e.exercicioId, series: e.series, repeticoes: e.repeticoes, descansoSeg: e.descansoSeg };
+      }),
+      cadencia: x.cadencia,
+      descansos: x.descansos ? { ...x.descansos } : undefined,
+    };
+  }
+  return dias;
+}
+
+/**
+ * O que a tela diz sobre os conflitos de uma opção, um por linha.
+ * @param {{mesmoBloco: boolean, repeticoes: any[], semanaAnterior: boolean, equipamento: any[], instanciaDiferente: boolean}} c
+ * @param {string} sessao a sessão que está sendo editada
+ */
+export function textoConflitos(c, sessao) {
+  const linhas = [];
+  if (c.mesmoBloco) linhas.push(`Já está em outra vaga do ${sessao}. Um bloco não repete exercício.`);
+  for (const r of c.repeticoes ?? []) linhas.push(`Já está no ${r.sessao} (vaga ${r.posicao} · ${rotuloDias(r.dias)}).`);
+  if (c.semanaAnterior) linhas.push('Foi usado na semana passada: quebra o rodízio.');
+  for (const e of c.equipamento ?? []) {
+    linhas.push(`Passa do limite de ${nomeRecurso(e.recurso).varios}: ${e.usado} em uso, ${e.limite} ${e.limite === 1 ? 'ativo' : 'ativos'}. A semana não publica assim.`);
+  }
+  if (c.instanciaDiferente) linhas.push(`É de outra instância: a matriz do ${sessao} muda nesta vaga.`);
+  return linhas;
+}
+
+/** Os selos curtos da lista de opções. @param {any} c */
+export function selosDaOpcao(c) {
+  const selos = [];
+  if (c.mesmoBloco) selos.push({ id: 'bloco', rotulo: 'já no bloco' });
+  if (c.equipamento?.length) selos.push({ id: 'equipamento', rotulo: '🔧 equipamento' });
+  if (c.repeticoes?.length) selos.push({ id: 'repetido', rotulo: `⚠ no ${c.repeticoes.map((r) => r.sessao).join(', ')}` });
+  if (c.semanaAnterior) selos.push({ id: 'rodizio', rotulo: '↺ semana passada' });
+  return selos;
+}
+
+/**
+ * Como seguir depois de escolher uma opção com conflito. Equipamento NÃO tem
+ * "manter": a semana não publica acima do limite (decisão do coach). Mesmo
+ * bloco também não: o servidor não salva.
+ * @param {any} opcao
+ * As saídas recomendadas (substituir no outro lugar, escolher outro exercício)
+ * vêm cheias; "escolher outro substituto" e "manter" vêm `secundaria`.
+ * @returns {{id: string, label: string, secundaria?: boolean}[]}
+ */
+export function acoesDoConflito(opcao) {
+  const c = opcao.conflitos;
+  if (c.mesmoBloco) return [{ id: 'outro', label: 'Escolher outro exercício' }];
+  if (c.equipamento?.length) return [{ id: 'outro', label: 'Escolher outro exercício' }];
+  const acoes = [];
+  for (const s of opcao.substitutos ?? []) {
+    for (const x of s.opcoes ?? []) {
+      acoes.push({ id: `substituir:${s.sessao}:${s.posicao}:${x.exercicioId}`, label: `Trocar no ${s.sessao} por ${x.nome}` });
+    }
+    acoes.push({ id: `outro-substituto:${s.sessao}:${s.posicao}`, label: `Escolher outro para o ${s.sessao}…`, secundaria: true });
+  }
+  acoes.push({
+    id: 'manter',
+    label: c.repeticoes?.length ? 'Manter assim mesmo' : c.semanaAnterior ? 'Manter (quebra o rodízio)' : 'Trocar mesmo assim',
+    // Sem substituto para oferecer, "manter" é a saída principal.
+    secundaria: (opcao.substitutos ?? []).some((s) => s.opcoes?.length),
+  });
+  return acoes;
+}
+
+/** Tem algo a perguntar antes de trocar? @param {any} c */
+export const temConflito = (c) =>
+  !!(c.mesmoBloco || c.repeticoes?.length || c.semanaAnterior || c.equipamento?.length || c.instanciaDiferente);
+
+/** As notas que a semana guarda (`avisosEdicao`). @param {any} a */
+export function textoAvisoEdicao(a) {
+  if (a?.tipo === 'repeticao') {
+    return `${a.nome || a.exercicioId} está em ${(a.lugares ?? []).map((l) => `${l.sessao} (vaga ${l.posicao})`).join(' e ')}.`;
+  }
+  if (a?.tipo === 'semanaAnterior') return `${a.nome || a.exercicioId} (${a.sessao}, vaga ${a.posicao}) foi usado na semana passada.`;
+  return '';
+}
+
 /* ───────────────────────────── inventário ───────────────────────────── */
 
 /** Teto do seletor — o mesmo `inteiro(…, 0, 50)` que `aplicarInventario` aceita no servidor. */

@@ -58,13 +58,14 @@ import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conqu
 import {
   DIAS_SEMANA, EXERCICIOS_POR_BLOCO, MODALIDADES, SESSOES_H,
   type AlertaEquipamento, type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type FeedbackExercicio,
-  type Modalidade, type PedidoGerarMatriz, type PresencaAluno, type RespostaGerarMatriz,
+  type Modalidade, type PedidoGerarMatriz, type PresencaAluno, type RespostaGerarMatriz, type SessaoH,
 } from './modelo-box';
 import {
   alertasDaSemana, aplicarInventario, historicoComSessao, intervaloDaSemana, lerDias, lerExercicioCatalogo,
   lerInventario, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior, semanaDoPedido, volumeDaSessao,
 } from './semana-box';
-import { gerarSemana } from './gerador-box';
+import { gerarSemana, idsDaSemana } from './gerador-box';
+import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
 
 initializeApp();
 
@@ -1969,6 +1970,12 @@ const refInventario = (db: Firestore, uid: string) => db.doc(`coaches/${uid}/inv
  * Semana nova nasce `rascunho`. Semana JÁ publicada continua publicada, mas
  * só se a versão nova também passar em `problemasParaPublicar` — senão o aluno
  * veria uma semana que não poderia ter sido publicada.
+ *
+ * É também a gravação da EDIÇÃO MANUAL (`coach/semana-do-box/ui/troca.js`):
+ *  - semana que já foi publicada (agora ou antes) não muda em dia que já
+ *    passou — o aluno pode ter registrado aquela sessão;
+ *  - grava `avisosEdicao` (repetição entre sessões, rodízio quebrado): nota
+ *    para o coach, não bloqueio.
  */
 export const salvarSemanaBox = onCall(
   { timeoutSeconds: 30, memory: '256MiB' },
@@ -1980,20 +1987,30 @@ export const salvarSemanaBox = onCall(
     const semanaId = dados.semanaId as string;
 
     const db = getFirestore();
-    const [catalogo, inv] = await Promise.all([
+    const anteriorId = semanaAnterior(semanaId);
+    const [catalogo, inv, anterior] = await Promise.all([
       carregarCatalogo(db, idsDosDias(dados.dias)),
       refInventario(db, uid).get(),
+      anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
     ]);
     const lido = lerDias(dados.dias, catalogo);
     if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
     const limitesUsados = lerInventario(inv.data()).limitesAtivos;
     const alertas = alertasDaSemana(lido.dias, limitesUsados);
     const problemas = problemasParaPublicar(lido.dias, alertas);
+    const avisosEdicao = avisosDeEdicao(lido.dias, idsDaSemana(anterior?.data()?.dias));
 
     const ref = refSemana(db, uid, semanaId);
     const status = await db.runTransaction(async (tx) => {
       const atual = (await tx.get(ref)).data();
       const publicada = atual?.status === 'publicado';
+      if (publicada || atual?.publicadoEm) {
+        const passados = diasPassadosAlterados(atual?.dias, lido.dias, intervalo.datas, diaSaoPaulo());
+        if (passados.length) {
+          throw new HttpsError('failed-precondition',
+            `Esta semana já foi publicada: ${passados.join(', ')} já passou e não muda mais (o aluno pode ter registrado a sessão).`);
+        }
+      }
       if (publicada && problemas.length) {
         throw new HttpsError('failed-precondition', `A semana está publicada e esta versão não pode ser: ${problemas[0]}`);
       }
@@ -2010,12 +2027,68 @@ export const salvarSemanaBox = onCall(
         alertas,
         problemasParaPublicar: problemas,
         limitesUsados,
+        avisosEdicao,
         atualizadoEm: FieldValue.serverTimestamp(),
         ...(atual?.publicadoEm ? { publicadoEm: atual.publicadoEm } : {}),
       });
       return publicada ? 'publicado' : 'rascunho';
     });
-    return { semanaId, status, dias: lido.dias, alertas, problemasParaPublicar: problemas };
+    return { semanaId, status, dias: lido.dias, alertas, problemasParaPublicar: problemas, avisosEdicao };
+  },
+);
+
+/**
+ * As opções para trocar UMA vaga de uma sessão — o catálogo inteiro, cada
+ * opção já com os conflitos (repetição em outra sessão, rodízio, equipamento,
+ * instância) e, quando repete, os substitutos sugeridos para o outro lugar.
+ * Só leitura: quem grava a troca é `salvarSemanaBox`. Regra em `edicao-box.ts`.
+ *
+ * Diz também se a sessão está TRAVADA (semana já publicada com um dia dela no
+ * passado) e se um dia dela é HOJE — a tela avisa antes de trocar.
+ */
+export const opcoesTrocaBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; sessao?: unknown; posicao?: unknown };
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    const semanaId = dados.semanaId as string;
+    if (!(SESSOES_H as readonly unknown[]).includes(dados.sessao)) throw new HttpsError('invalid-argument', 'Sessão: H1, H2 ou H3.');
+    const sessao = dados.sessao as SessaoH;
+    const posicao = Number(dados.posicao);
+    if (!Number.isInteger(posicao) || posicao < 1 || posicao > EXERCICIOS_POR_BLOCO) {
+      throw new HttpsError('invalid-argument', `Vaga de 1 a ${EXERCICIOS_POR_BLOCO}.`);
+    }
+
+    const db = getFirestore();
+    const anteriorId = semanaAnterior(semanaId);
+    const [semana, catalogo, inv, anterior] = await Promise.all([
+      refSemana(db, uid, semanaId).get(),
+      carregarCatalogoInteiro(db),
+      refInventario(db, uid).get(),
+      anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
+    ]);
+    const doc = semana.data();
+    if (!doc) throw new HttpsError('not-found', 'Gere a semana antes de editar.');
+
+    const resultado = opcoesDaVaga({
+      dias: doc.dias, sessao, posicao, catalogo,
+      limites: lerInventario(inv.data()).limitesAtivos,
+      semanaPassada: idsDaSemana(anterior?.data()?.dias),
+      semente: `${semanaId}:${sessao}:${posicao}`,
+    });
+    if (!resultado) throw new HttpsError('not-found', `${sessao} não tem a vaga ${posicao} nesta semana.`);
+
+    const hoje = diaSaoPaulo();
+    const jaPublicada = doc.status === 'publicado' || !!doc.publicadoEm;
+    return {
+      semanaId,
+      ...resultado,
+      travada: jaPublicada && sessoesTravadas(doc.dias, intervalo.datas, hoje).includes(sessao),
+      temHoje: resultado.vaga.dias.some((d) => intervalo.datas[d] === hoje),
+      publicada: doc.status === 'publicado',
+    };
   },
 );
 
@@ -2142,6 +2215,9 @@ export const gerarMatrizSemanalBox = onCall(
         // O que o sorteio decidiu fica NA semana: a tela que reabre o rascunho
         // amanhã precisa mostrar as trocas que a trava de equipamento fez.
         geracao: { variacao, semanaAnterior: semanaAnteriorUsada, trocas: gerado.trocas, avisos: gerado.avisos },
+        // Mesmo campo que a edição manual grava: repetição que o gerador não
+        // conseguiu evitar aparece igual à escolhida pelo coach.
+        avisosEdicao: avisosDeEdicao(gerado.dias, idsDaSemana(anterior?.data()?.dias)),
         geradoEm: FieldValue.serverTimestamp(),
         atualizadoEm: FieldValue.serverTimestamp(),
       });

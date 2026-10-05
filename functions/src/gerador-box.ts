@@ -118,6 +118,22 @@ function filaDaInstancia(instancia: Instancia, ctx: ContextoBloco): string[] {
   return sorteados.sort((a, b) => camada(a, ctx) - camada(b, ctx));
 }
 
+/**
+ * A MESMA ordem de preferência do gerador, para quem sugere troca fora dele
+ * (`edicao-box.ts`): fora da semana anterior primeiro, depois fora da semana
+ * atual, sorteio estável pela `semente`. Um segundo critério de "melhor
+ * substituto" faria a edição manual e o sorteio discordarem sobre o mesmo box.
+ */
+export function candidatosEmOrdem(
+  instancia: Instancia,
+  o: { catalogo: ReadonlyMap<string, ExercicioCatalogo>; semanaPassada: ReadonlySet<string>; usadosNaSemana: ReadonlySet<string>; semente: string },
+): string[] {
+  return filaDaInstancia(instancia, {
+    catalogo: o.catalogo, semanaPassada: o.semanaPassada, usadosNaSemana: o.usadosNaSemana,
+    limites: {} as Record<RecursoInventario, number>, rng: mulberry32(hashSeed(o.semente)),
+  });
+}
+
 /** Recursos acima do limite num bloco (na ordem de `RECURSOS_INVENTARIO`) e quantas unidades sobram ao todo. */
 function excedentes(ids: string[], ctx: ContextoBloco): { recursos: RecursoInventario[]; sobra: number } {
   const consumo = consumoDoDia(ids.map((exercicioId) => ({ exercicioId })), ctx.catalogo);

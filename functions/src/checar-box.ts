@@ -19,6 +19,9 @@ import {
   volumeDaSessao,
 } from './semana-box';
 import { descansoDaVaga, gerarSemana, idsDaSemana, montarBloco } from './gerador-box';
+import {
+  avisosDeEdicao, blocosDaSemana, conflitosDaTroca, diasDaSessao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas, sugestoesPara,
+} from './edicao-box';
 
 let falhas = 0;
 function ok(condicao: boolean, descricao: string, detalhe = ''): void {
@@ -351,6 +354,75 @@ console.log('\nReconferir semana gravada quando o inventário muda');
     'documento sem dias: não há o que conferir');
   const torto = reconferirSemana({ dias: { segunda: { treinos: ['Hyrox'] } } }, INVENTARIO_PADRAO);
   ok(!!torto && torto.alertas.length === 0 && torto.problemasParaPublicar.length === 0, 'dia sem consumo gravado não estoura nada');
+}
+
+console.log('\nEdição manual: conflitos, sugestões, avisos e trava');
+{
+  const H1 = ['agachamento_smith', 'supino_halter', 'desenvolvimento_halter', 'remada_trx', 'rdl_halter', 'puxada_aberta_neutra'];
+  const H2 = ['rdl_smith', 'remada_cavalinho_fechada', 'puxada_fechada_triangulo', 'afundo_halter', 'flexao_trx', 'pallof_press'];
+  const semanaCom = (h1: string[], h2: string[]) => {
+    const r = lerDias({
+      segunda: { treinos: ['H1'], blocoPrincipal: bloco(h1) },
+      terca: { treinos: ['Cross', 'H1'], blocoPrincipal: bloco(h1) },
+      quarta: { treinos: ['H2'], blocoPrincipal: bloco(h2) },
+      quinta: { treinos: ['Hyrox'] },
+    }, catalogo);
+    if (!('dias' in r)) throw new Error(r.erro);
+    return r.dias;
+  };
+  const dias = semanaCom(H1, H2);
+  const vazio = new Set<string>();
+  const base = { dias, catalogo, limites: { ...INVENTARIO_PADRAO }, semanaPassada: vazio };
+
+  ok(igual(diasDaSessao(dias, 'H1'), ['segunda', 'terca']) && igual(blocosDaSemana(dias).H1, H1), 'H1 é UMA sessão em dois dias');
+
+  const repete = conflitosDaTroca({ ...base, sessao: 'H1', posicao: 5, exercicioId: 'rdl_smith' });
+  ok(igual(repete.repeticoes, [{ sessao: 'H2', posicao: 1, dias: ['quarta'] }]) && !repete.instanciaDiferente && !repete.mesmoBloco,
+    'trocar para um exercício do H2: repetição apontando o H2, vaga 1, quarta', JSON.stringify(repete.repeticoes));
+  ok(repete.equipamento.length === 0, 'com 2 smiths, o segundo smith do H1 cabe');
+  const semSmith = conflitosDaTroca({ ...base, limites: { ...INVENTARIO_PADRAO, smith: 1 }, sessao: 'H1', posicao: 5, exercicioId: 'rdl_smith' });
+  ok(igual(semSmith.equipamento, [{ recurso: 'smith', usado: 2, limite: 1 }]), 'com 1 smith ativo: conflito de equipamento');
+  ok(conflitosDaTroca({ ...base, sessao: 'H1', posicao: 1, exercicioId: 'supino_halter' }).mesmoBloco, 'exercício que já está em outra vaga do H1: mesmo bloco');
+  const livre = conflitosDaTroca({ ...base, sessao: 'H1', posicao: 1, exercicioId: 'pallof_press' });
+  ok(livre.instanciaDiferente && livre.repeticoes[0]?.sessao === 'H2', 'core na vaga de agachar: instância diferente (e repete o H2)');
+  ok(conflitosDaTroca({ ...base, sessao: 'H1', posicao: 2, exercicioId: 'supino_inclinado_halter' }).repeticoes.length === 0,
+    'o catch-up de terça NÃO conta como repetição');
+  ok(conflitosDaTroca({ ...base, semanaPassada: new Set(['supino_inclinado_halter']), sessao: 'H1', posicao: 2, exercicioId: 'supino_inclinado_halter' }).semanaAnterior,
+    'exercício da semana anterior: quebra o rodízio');
+
+  const depois = semanaCom(H1.map((x, i) => (i === 4 ? 'rdl_smith' : x)), H2);
+  const sug = sugestoesPara({
+    blocos: blocosDaSemana(depois), sessao: 'H2', posicao: 1, proibidos: new Set(['rdl_smith']),
+    catalogo, limites: { ...INVENTARIO_PADRAO }, semanaPassada: new Set(['elevacao_pelvica']), semente: 't',
+  });
+  ok(sug.length === 3 && sug.every((id) => catalogo.get(id)?.instancia === 'estender_quadril' && id !== 'rdl_smith' && !H2.includes(id)),
+    '3 substitutos para o H2, vaga 1: estender quadril, fora do bloco e sem o que foi para o H1', sug.join(','));
+  ok(sug[0] !== 'elevacao_pelvica', 'o da semana anterior não vem primeiro');
+
+  const op = opcoesDaVaga({ ...base, sessao: 'H1', posicao: 5, semente: 't' })!;
+  ok(!!op && op.vaga.instancia === 'estender_quadril' && igual(op.vaga.dias, ['segunda', 'terca']) && op.vaga.atual.exercicioId === 'rdl_halter',
+    'a vaga: instância, dias da sessão e o exercício atual');
+  ok(!op.opcoes.some((x) => x.exercicioId === 'rdl_halter'), 'o exercício atual não é opção');
+  const primeiraOutra = op.opcoes.findIndex((x) => !x.mesmaInstancia);
+  ok(primeiraOutra > 0 && op.opcoes.slice(primeiraOutra).every((x) => !x.mesmaInstancia), 'a instância da vaga vem primeiro');
+  const opRdl = op.opcoes.find((x) => x.exercicioId === 'rdl_smith')!;
+  ok(opRdl.substitutos.length === 1 && opRdl.substitutos[0].opcoes.length === 3 && opRdl.substitutos[0].opcoes.every((x) => x.nome),
+    'a opção que repete o H2 já traz 3 substitutos com nome');
+  ok(opcoesDaVaga({ ...base, sessao: 'H3', posicao: 1, semente: 't' }) === null && opcoesDaVaga({ ...base, sessao: 'H1', posicao: 7, semente: 't' }) === null,
+    'vaga que não existe: null');
+
+  ok(avisosDeEdicao(dias, vazio).length === 0, 'semana sem repetição entre sessões: sem aviso (o catch-up não conta)');
+  const av = avisosDeEdicao(depois, new Set(['flexao_trx']));
+  ok(av.some((a) => a.tipo === 'repeticao' && a.exercicioId === 'rdl_smith' && a.lugares.length === 2 && a.nome === 'Levantamento terra romeno no Smith'),
+    'repetição consciente fica como aviso, com nome', JSON.stringify(av));
+  ok(av.some((a) => a.tipo === 'semanaAnterior' && a.exercicioId === 'flexao_trx' && a.sessao === 'H2' && a.posicao === 5), 'rodízio quebrado fica como aviso');
+
+  const datas = intervaloDaSemana('2026-W42')!.datas;
+  ok(igual(diasPassadosAlterados(dias, depois, datas, '2026-10-13'), ['segunda']), 'na terça, mexer no H1 altera a segunda, que já passou');
+  ok(diasPassadosAlterados(dias, depois, datas, '2026-10-12').length === 0, 'na segunda, hoje ainda é editável');
+  ok(diasPassadosAlterados(dias, dias, datas, '2026-10-20').length === 0, 'semana igual não acusa nada');
+  ok(igual(sessoesTravadas(dias, datas, '2026-10-13'), ['H1']) && igual(sessoesTravadas(dias, datas, '2026-10-15'), ['H1', 'H2']),
+    'sessões travadas: as que têm algum dia passado');
 }
 
 console.log('\nSanidade do vocabulário');

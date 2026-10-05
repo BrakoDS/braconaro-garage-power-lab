@@ -6,6 +6,7 @@ import {
   DIAS, RECURSOS, NOME_INSTANCIA, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
   consumoVisivel, publicacao, variacaoSeguinte, msDe, datasDosDias, tituloForca,
   linhasDoInventario, alteracoesDoInventario, semanaAfetada, segundaDaChave,
+  rotuloDias, datasIsoDosDias, sessaoEditavel, diasParaSalvar, textoConflitos, selosDaOpcao, acoesDoConflito, temConflito, textoAvisoEdicao,
 } from './vista.js';
 
 /**
@@ -141,4 +142,53 @@ test('segunda-feira da chave: abre a semana afetada no mês certo', () => {
   assert.equal(segundaDaChave('2026-W01'), '2025-12-29', 'semana 1 que começa no ano anterior');
   assert.equal(segundaDaChave('2026-W53'), '2026-12-28');
   assert.equal(segundaDaChave('x'), '');
+});
+
+test('edição: a troca vale para TODOS os dias da sessão (H1 = segunda e terça)', () => {
+  const novo = diasParaSalvar(W42, [{ sessao: 'H1', posicao: 2, exercicioId: 'supino_smith' }]);
+  assert.equal(novo.segunda.blocoPrincipal[1].exercicioId, 'supino_smith');
+  assert.equal(novo.terca.blocoPrincipal[1].exercicioId, 'supino_smith', 'o catch-up muda junto');
+  assert.deepEqual(novo.quarta.blocoPrincipal, W42.dias.quarta.blocoPrincipal.map((e) => ({
+    exercicioId: e.exercicioId, series: e.series, repeticoes: e.repeticoes, descansoSeg: e.descansoSeg,
+  })), 'o H2 não muda');
+  const s = W42.dias.segunda.blocoPrincipal[1];
+  assert.deepEqual(novo.segunda.blocoPrincipal[1], { exercicioId: 'supino_smith', series: s.series, repeticoes: s.repeticoes, descansoSeg: s.descansoSeg },
+    'séries, reps e descanso da vaga ficam');
+  assert.deepEqual(novo.quinta, { treinos: ['Hyrox'], blocoPrincipal: [], cadencia: W42.dias.quinta.cadencia, descansos: W42.dias.quinta.descansos });
+  assert.deepEqual(diasParaSalvar(W42).segunda.blocoPrincipal.map((e) => e.exercicioId),
+    W42.dias.segunda.blocoPrincipal.map((e) => e.exercicioId), 'sem troca, a semana volta igual');
+});
+
+test('edição: sessão travada só em semana já publicada com dia passado', () => {
+  assert.equal(sessaoEditavel(W42, 'H1', '2026-10-20'), true, 'rascunho nunca trava');
+  const pub = { ...W42, status: 'publicado' };
+  assert.equal(sessaoEditavel(pub, 'H1', '2026-10-12'), true, 'segunda é hoje: ainda dá');
+  assert.equal(sessaoEditavel(pub, 'H1', '2026-10-13'), false, 'na terça, o H1 (segunda já passou) trava');
+  assert.equal(sessaoEditavel(pub, 'H2', '2026-10-13'), true, 'o H2 de quarta segue editável');
+  assert.equal(sessaoEditavel({ ...W42, publicadoEm: { seconds: 1 } }, 'H1', '2026-10-13'), false, 'voltou para rascunho depois de publicada: trava igual');
+  assert.equal(datasIsoDosDias(W42.dataInicio).sabado, '2026-10-17');
+});
+
+test('edição: textos, selos e as ações do aviso', () => {
+  const rep = { mesmoBloco: false, repeticoes: [{ sessao: 'H2', posicao: 1, dias: ['quarta'] }], semanaAnterior: true, equipamento: [], instanciaDiferente: false };
+  assert.deepEqual(textoConflitos(rep, 'H1'), ['Já está no H2 (vaga 1 · quarta).', 'Foi usado na semana passada: quebra o rodízio.']);
+  assert.deepEqual(selosDaOpcao(rep).map((s) => s.id), ['repetido', 'rodizio']);
+  assert.equal(rotuloDias(['segunda', 'terca']), 'segunda e terça');
+
+  const opcao = { conflitos: rep, substitutos: [{ sessao: 'H2', posicao: 1, dias: ['quarta'], opcoes: [{ exercicioId: 'ponte_gluteo', nome: 'Ponte de glúteo no chão' }] }] };
+  assert.deepEqual(acoesDoConflito(opcao).map((a) => a.id),
+    ['substituir:H2:1:ponte_gluteo', 'outro-substituto:H2:1', 'manter'], 'substituir no outro lugar, escolher outro, ou manter');
+  assert.equal(acoesDoConflito(opcao)[0].label, 'Trocar no H2 por Ponte de glúteo no chão');
+
+  const equip = { conflitos: { ...rep, repeticoes: [], semanaAnterior: false, equipamento: [{ recurso: 'smith', usado: 3, limite: 2 }] }, substitutos: [] };
+  assert.deepEqual(acoesDoConflito(equip).map((a) => a.id), ['outro'], 'equipamento acima do limite NÃO tem "manter"');
+  assert.equal(textoConflitos(equip.conflitos, 'H1')[0], 'Passa do limite de Smiths: 3 em uso, 2 ativos. A semana não publica assim.');
+  assert.deepEqual(acoesDoConflito({ conflitos: { ...rep, repeticoes: [], semanaAnterior: false, mesmoBloco: true }, substitutos: [] }).map((a) => a.id), ['outro']);
+  assert.equal(temConflito({ mesmoBloco: false, repeticoes: [], semanaAnterior: false, equipamento: [], instanciaDiferente: false }), false);
+});
+
+test('edição: notas gravadas na semana', () => {
+  assert.equal(textoAvisoEdicao({ tipo: 'repeticao', nome: 'RDL Smith', lugares: [{ sessao: 'H1', posicao: 5 }, { sessao: 'H2', posicao: 1 }] }),
+    'RDL Smith está em H1 (vaga 5) e H2 (vaga 1).');
+  assert.equal(textoAvisoEdicao({ tipo: 'semanaAnterior', nome: 'Flexão no TRX', sessao: 'H2', posicao: 5 }), 'Flexão no TRX (H2, vaga 5) foi usado na semana passada.');
 });
