@@ -8,12 +8,18 @@
  * RELÊ o documento da semana em vez de usar a resposta da chamada — assim o que
  * aparece é sempre o que está gravado, inclusive quando a chamada falha depois
  * de o servidor ter atualizado os alertas (ver `publicarSemanaBox`).
+ *
+ * Duas seções na barra do topo: Semanas (esta tela) e Inventário
+ * (`inventario.js`). Elas conversam por evento: o inventário salvo pede
+ * `semana:recarregar` (o servidor reconferiu as semanas em aberto) e o atalho
+ * de uma semana afetada pede `semana:abrir`.
  */
 import { usuario } from '../../../compartilhado/firebase/cloud.js';
 import { confirmar } from '../../../compartilhado/ui/dialogo.js';
 import { chaveMes, chaveSemana, rotuloMes, semanasDoMes } from '../../montador-hibrido/core/periodos.js';
-import { variacaoSeguinte } from '../core/vista.js';
+import { segundaDaChave, variacaoSeguinte } from '../core/vista.js';
 import { gerarMatriz, publicar, lerSemanas } from '../cloud/semana.js';
+import * as inventario from './inventario.js';
 import { esc, renderLista, renderSemana } from './render.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
@@ -165,6 +171,53 @@ $('#mes-hoje').addEventListener('click', () => {
   estado.selecionada = chaveSemana(hoje());
   carregarMes();
 });
-$('main').addEventListener('click', (ev) => { aoClicar(ev).catch((e) => console.error(e)); });
+$('#view-semanas').addEventListener('click', (ev) => { aoClicar(ev).catch((e) => console.error(e)); });
+
+/* ---------- seções (Semanas | Inventário) ---------- */
+
+const VISTAS = ['semanas', 'inventario'];
+
+/** @param {string} vista */
+function irPara(vista) {
+  if (!VISTAS.includes(vista)) vista = 'semanas';
+  for (const b of document.querySelectorAll('.tab')) b.classList.toggle('active', b.getAttribute('data-vista') === vista);
+  for (const v of document.querySelectorAll('.view')) v.classList.toggle('active', v.id === `view-${vista}`);
+  // O endereço guarda a seção: recarregar a página (ou mandar o link) volta para ela.
+  history.replaceState(null, '', vista === 'semanas' ? location.pathname : `#${vista}`);
+  document.dispatchEvent(new CustomEvent('semana:vista', { detail: vista }));
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+for (const b of document.querySelectorAll('.tab')) {
+  b.addEventListener('click', () => irPara(b.getAttribute('data-vista') || 'semanas'));
+}
+
+// O inventário salvo reconferiu as semanas em aberto: os alertas podem ter mudado.
+document.addEventListener('semana:recarregar', () => { if (!estado.ocupado) carregarMes(); });
+
+// "Abrir 2026-W42" de uma semana afetada: vai para o mês dela, com ela escolhida.
+document.addEventListener('semana:abrir', (ev) => {
+  const chave = /** @type {CustomEvent} */ (ev).detail;
+  const segunda = segundaDaChave(chave);
+  if (!segunda) return;
+  estado.mes = chaveMes(segunda);
+  estado.selecionada = chave;
+  irPara('semanas');
+  carregarMes();
+});
+
+/** @param {string} msg @param {'ok'|'erro'|''} [tipo] */
+function statusInventario(msg, tipo = '') {
+  const el = $('#inventario-status');
+  el.textContent = msg;
+  el.className = `semana-status ${tipo}`;
+}
+
+try {
+  inventario.montar({ uid, status: statusInventario });
+} catch (e) {
+  console.error('Falha ao montar o inventário:', e);
+}
 
 carregarMes();
+irPara(location.hash === '#inventario' ? 'inventario' : 'semanas');

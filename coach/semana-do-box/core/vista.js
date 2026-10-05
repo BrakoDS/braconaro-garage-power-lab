@@ -169,6 +169,88 @@ export function datasDosDias(dataInicio) {
   return datas;
 }
 
+/* ───────────────────────────── inventário ───────────────────────────── */
+
+/** Teto do seletor — o mesmo `inteiro(…, 0, 50)` que `aplicarInventario` aceita no servidor. */
+export const MAX_UNIDADES = 50;
+
+/**
+ * As linhas da tela a partir de `coaches/{uid}/inventario/atual` (ou da resposta
+ * de `salvarInventarioBox`, que tem a mesma forma). `ativos` é o `limitesAtivos`
+ * que o SERVIDOR calculou — a tela não refaz a conta. Documento ausente = `[]`.
+ * @param {any} doc
+ * @returns {{recurso: string, nome: string, total: number, emManutencao: number, observacao: string, ativos: number|null}[]}
+ */
+export function linhasDoInventario(doc) {
+  const eq = doc?.equipamentos;
+  if (!eq || typeof eq !== 'object') return [];
+  return RECURSOS.map((r) => {
+    const x = eq[r] ?? {};
+    const ativos = doc.limitesAtivos?.[r];
+    return {
+      recurso: r,
+      nome: nomeRecurso(r).um,
+      total: Number.isInteger(x.total) ? x.total : 0,
+      emManutencao: Number.isInteger(x.emManutencao) ? x.emManutencao : 0,
+      observacao: typeof x.observacao === 'string' ? x.observacao : '',
+      ativos: Number.isInteger(ativos) ? ativos : null,
+    };
+  });
+}
+
+/**
+ * Só o que mudou, por recurso, no formato que `salvarInventarioBox` recebe.
+ * Mandar só a diferença é o que impede a tela de sobrescrever com o valor
+ * velho um campo que ela nem mexeu.
+ * @param {ReturnType<typeof linhasDoInventario>} original
+ * @param {ReturnType<typeof linhasDoInventario>} editado
+ * @returns {Record<string, {total?: number, emManutencao?: number, observacao?: string}>}
+ */
+export function alteracoesDoInventario(original, editado) {
+  /** @type {Record<string, any>} */
+  const mudou = {};
+  for (const e of editado) {
+    const o = original.find((x) => x.recurso === e.recurso);
+    if (!o) continue;
+    const campos = {};
+    if (e.total !== o.total) campos.total = e.total;
+    if (e.emManutencao !== o.emManutencao) campos.emManutencao = e.emManutencao;
+    if (e.observacao.trim() !== o.observacao) campos.observacao = e.observacao.trim();
+    if (Object.keys(campos).length) mudou[e.recurso] = campos;
+  }
+  return mudou;
+}
+
+/**
+ * Uma semana que o novo inventário deixou acima do limite. Semana publicada NÃO
+ * é despublicada pelo servidor — a ação sugerida diz isso ao coach.
+ * @param {{semanaId: string, status: string, alertas: any[]}} s
+ */
+export function semanaAfetada(s) {
+  const publicada = s.status === 'publicado';
+  return {
+    semanaId: s.semanaId,
+    titulo: `Semana ${s.semanaId} · ${publicada ? 'publicada' : 'rascunho'}`,
+    alertas: (s.alertas ?? []).map(textoAlerta),
+    acao: publicada
+      ? 'Os alunos já veem esta semana. Volte para rascunho e sorteie de novo, ou devolva o equipamento ao inventário.'
+      : 'Sorteie de novo para o gerador trocar os exercícios, ou devolva o equipamento ao inventário.',
+  };
+}
+
+/**
+ * A segunda-feira ('AAAA-MM-DD') de uma chave ISO 'AAAA-Www' — para abrir a
+ * semana afetada no mês certo. '' se a chave não é de semana.
+ * @param {string} chave
+ */
+export function segundaDaChave(chave) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(String(chave || ''));
+  if (!m) return '';
+  const quatroJan = Date.UTC(Number(m[1]), 0, 4);
+  const diaIso = (new Date(quatroJan).getUTCDay() + 6) % 7;
+  return new Date(quatroJan - diaIso * DIA_MS + (Number(m[2]) - 1) * 7 * DIA_MS).toISOString().slice(0, 10);
+}
+
 /**
  * O título da sessão de força do dia: "H1 · Força Base — Agachar/Empurrar",
  * com "(catch-up)" quando ela é a alternativa do dia.

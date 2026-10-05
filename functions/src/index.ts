@@ -57,12 +57,12 @@ import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, toke
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
   DIAS_SEMANA, EXERCICIOS_POR_BLOCO, MODALIDADES, SESSOES_H,
-  type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type FeedbackExercicio,
+  type AlertaEquipamento, type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type FeedbackExercicio,
   type Modalidade, type PedidoGerarMatriz, type PresencaAluno, type RespostaGerarMatriz,
 } from './modelo-box';
 import {
   alertasDaSemana, aplicarInventario, historicoComSessao, intervaloDaSemana, lerDias, lerExercicioCatalogo,
-  lerInventario, lerSessaoAluno, problemasParaPublicar, semanaAnterior, semanaDoPedido, volumeDaSessao,
+  lerInventario, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior, semanaDoPedido, volumeDaSessao,
 } from './semana-box';
 import { gerarSemana } from './gerador-box';
 
@@ -2164,13 +2164,40 @@ export const salvarInventarioBox = onCall(
     const { uid } = exigirCoach(req);
     const db = getFirestore();
     const ref = refInventario(db, uid);
-    return db.runTransaction(async (tx) => {
+    const inventario = await db.runTransaction(async (tx) => {
       const atual = lerInventario((await tx.get(ref)).data());
       const r = aplicarInventario(atual, (req.data as { equipamentos?: unknown } | null)?.equipamentos);
       if ('erro' in r) throw new HttpsError('invalid-argument', r.erro);
       tx.set(ref, { ...r.inventario, atualizadoEm: FieldValue.serverTimestamp() });
       return r.inventario;
     });
+
+    // RECONFERE as semanas que ainda não terminaram contra os limites novos: um
+    // smith que entrou em manutenção tem de aparecer como alerta na semana já
+    // gerada — inclusive na PUBLICADA, que NÃO é despublicada aqui (decisão do
+    // coach). Fora da transação de propósito: o inventário salvo é o que importa;
+    // se a reconferência falhar, a tela avisa e a publicação ainda reconfere.
+    let semanasAfetadas: { semanaId: string; status: string; alertas: AlertaEquipamento[] }[] | null = [];
+    let reconferidas = 0;
+    try {
+      const abertas = await db.collection(`coaches/${uid}/semanas`).where('dataFim', '>=', Timestamp.now()).get();
+      const lote = db.batch();
+      for (const s of abertas.docs) {
+        const r = reconferirSemana(s.data(), inventario.limitesAtivos);
+        if (!r) continue;
+        reconferidas++;
+        lote.update(s.ref, {
+          alertas: r.alertas, problemasParaPublicar: r.problemasParaPublicar,
+          limitesUsados: inventario.limitesAtivos, atualizadoEm: FieldValue.serverTimestamp(),
+        });
+        if (r.alertas.length) semanasAfetadas.push({ semanaId: s.id, status: String(s.data().status ?? ''), alertas: r.alertas });
+      }
+      if (reconferidas) await lote.commit();
+    } catch (e) {
+      logger.error('Inventário salvo, mas a reconferência das semanas falhou.', { uid, erro: String(e) });
+      semanasAfetadas = null;
+    }
+    return { ...inventario, reconferidas, semanasAfetadas };
   },
 );
 

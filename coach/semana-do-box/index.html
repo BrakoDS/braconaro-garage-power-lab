@@ -6,7 +6,7 @@
   <title>Semana do Box — Garage Power Lab</title>
   <!-- A moldura (cores, login, barra, botões) é a do Montador Híbrido; semana.css só acrescenta a grade. -->
   <link rel="stylesheet" href="../montador-hibrido/app.css?v=1" />
-  <link rel="stylesheet" href="./semana.css?v=1" />
+  <link rel="stylesheet" href="./semana.css?v=2" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0A0A0A" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -26,12 +26,18 @@
 
   <header class="topbar" hidden>
     <div class="brand"><b>GARAGE POWER LAB</b> · Semana do Box</div>
+    <nav class="tabs" aria-label="Seções">
+      <button class="tab active" data-vista="semanas" type="button">Semanas</button>
+      <button class="tab" data-vista="inventario" type="button">Inventário</button>
+    </nav>
     <nav class="topbar-sai">
       <a class="sai-btn sai-coach" href="../index.html"><span class="tb-longo">← Voltar ao Coach</span><span class="tb-curto">Coach</span></a>
     </nav>
   </header>
 
   <main hidden>
+    <!-- ============ SEMANAS ============ -->
+    <section class="view active" id="view-semanas">
     <section class="panel">
       <button class="btn ghost" id="mes-anterior" type="button" aria-label="Mês anterior">‹</button>
       <strong id="mes-titulo" class="cal-titulo">—</strong>
@@ -46,8 +52,15 @@
     <div id="lista-semanas" class="lista-semanas" aria-label="Semanas do mês"></div>
     <p id="semana-status" class="semana-status" role="status" aria-live="polite"></p>
     <section id="semana-detalhe" class="semana-detalhe"></section>
+    </section>
+
+    <!-- ============ INVENTÁRIO ============ -->
+    <section class="view" id="view-inventario">
+      <p id="inventario-status" class="semana-status" role="status" aria-live="polite"></p>
+      <div id="inventario-corpo" class="inventario"></div>
+    </section>
   </main>
 
-  <script type="module" src="./ui/gate.js?v=1"></script>
+  <script type="module" src="./ui/gate.js?v=2"></script>
 </body>
 </html>
