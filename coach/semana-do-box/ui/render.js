@@ -8,7 +8,7 @@
  */
 import {
   DIAS, NOME_INSTANCIA, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
-  consumoVisivel, publicacao, datasDosDias, tituloForca,
+  consumoVisivel, publicacao, datasDosDias, tituloForca, sessaoEditavel, textoAvisoEdicao,
 } from '../core/vista.js';
 
 /** @param {unknown} s */
@@ -110,10 +110,25 @@ function notasDoGerador(doc) {
 }
 
 /**
- * Um dia da grade.
- * @param {any} doc @param {{id: string, nome: string}} d @param {string} data
+ * As notas que a semana guarda (`avisosEdicao`): repetição entre sessões e
+ * rodízio quebrado. Informam — quem escolheu "manter assim mesmo" continua vendo.
+ * @param {any} doc
  */
-function cartaoDia(doc, d, data) {
+function avisosEdicao(doc) {
+  const lista = (doc?.avisosEdicao ?? []).map(textoAvisoEdicao).filter(Boolean);
+  if (!lista.length) return '';
+  return `<section class="card notas-gerador avisos-edicao">
+    <h3>Avisos da semana</h3>
+    <ul>${lista.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+    <p class="mut">Não impedem publicar. Para mudar, use "trocar" no exercício.</p>
+  </section>`;
+}
+
+/**
+ * Um dia da grade.
+ * @param {any} doc @param {{id: string, nome: string}} d @param {string} data @param {string} hoje 'AAAA-MM-DD'
+ */
+function cartaoDia(doc, d, data, hoje) {
   const dia = doc.dias?.[d.id];
   if (!dia) return '';
   const chips = (dia.treinos ?? []).map((t, i) =>
@@ -121,6 +136,9 @@ function cartaoDia(doc, d, data) {
 
   const emAlerta = posicoesEmAlerta(doc, d.id);
   const bloco = dia.blocoPrincipal ?? [];
+  // Troca é por SESSÃO: o botão aparece nos dois dias do H1 e muda os dois.
+  const sessao = dia.sessaoForca?.sessao;
+  const podeTrocar = !!sessao && hoje !== undefined && sessaoEditavel(doc, sessao, hoje);
   const forca = dia.sessaoForca ? `
     <div class="forca">
       <h4>${esc(tituloForca(dia))}</h4>
@@ -129,6 +147,8 @@ function cartaoDia(doc, d, data) {
           <span class="ex-inst">${esc(NOME_INSTANCIA[e.instancia] ?? e.instancia ?? '')}</span>
           <span class="ex-nome">${esc(e.nome)}</span>
           <span class="ex-presc">${esc(e.series)} × ${esc(e.repeticoes)} · ${esc(e.descansoSeg)} s</span>
+          ${podeTrocar ? `<button class="ex-trocar" type="button" data-trocar="${esc(sessao)}:${i + 1}"
+            aria-label="Trocar ${esc(e.nome)} (${esc(sessao)}, vaga ${i + 1})">trocar</button>` : ''}
         </li>`).join('')}
       </ol>
       <p class="mut dia-rodape">Cadência ${esc(dia.cadencia)} · troca de estação ${esc(dia.descansos?.entreExerciciosSeg)} s</p>
@@ -153,9 +173,10 @@ function cartaoDia(doc, d, data) {
 
 /**
  * O detalhe de uma semana: ações, alertas, notas e a grade dos 6 dias.
- * @param {{chave: string, rotulo: string, inicio: string, doc: any, ocupado?: boolean}} o
+ * `hoje` ('AAAA-MM-DD') liga o botão "trocar"; sem ele, a grade é só leitura.
+ * @param {{chave: string, rotulo: string, inicio: string, doc: any, ocupado?: boolean, hoje?: string}} o
  */
-export function renderSemana({ chave, rotulo, inicio, doc, ocupado = false }) {
+export function renderSemana({ chave, rotulo, inicio, doc, ocupado = false, hoje }) {
   const estado = estadoDaSemana(doc);
   const cabeca = `<header class="detalhe-h"><h2>Semana ${esc(chave)} <span class="mut">· ${esc(rotulo)}</span></h2>${selo(estado)}</header>`;
   if (!doc) return `${cabeca}${acoes({ chave, inicio, doc, ocupado })}`;
@@ -163,6 +184,7 @@ export function renderSemana({ chave, rotulo, inicio, doc, ocupado = false }) {
   return `${cabeca}
     ${acoes({ chave, inicio, doc, ocupado })}
     ${alertas(doc)}
+    ${avisosEdicao(doc)}
     ${notasDoGerador(doc)}
-    <div class="grade-dias">${DIAS.map((d) => cartaoDia(doc, d, datas[d.id])).join('')}</div>`;
+    <div class="grade-dias">${DIAS.map((d) => cartaoDia(doc, d, datas[d.id], ocupado ? undefined : hoje)).join('')}</div>`;
 }

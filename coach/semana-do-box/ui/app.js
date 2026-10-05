@@ -20,6 +20,7 @@ import { chaveMes, chaveSemana, rotuloMes, semanasDoMes } from '../../montador-h
 import { segundaDaChave, variacaoSeguinte } from '../core/vista.js';
 import { gerarMatriz, publicar, lerSemanas } from '../cloud/semana.js';
 import * as inventario from './inventario.js';
+import { trocarExercicio } from './troca.js';
 import { esc, renderLista, renderSemana } from './render.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
@@ -51,7 +52,7 @@ function desenhar() {
   $('#lista-semanas').innerHTML = renderLista(estado.semanas, estado.docs, estado.selecionada);
   const s = estado.semanas.find((x) => x.chave === estado.selecionada);
   $('#semana-detalhe').innerHTML = s
-    ? renderSemana({ ...s, doc: estado.docs[s.chave] ?? null, ocupado: estado.ocupado })
+    ? renderSemana({ ...s, doc: estado.docs[s.chave] ?? null, ocupado: estado.ocupado, hoje: hoje() })
     : '<p class="vazio">Escolha uma semana.</p>';
 }
 
@@ -105,7 +106,7 @@ async function executar(chave, ocupando, pedido, sucesso) {
 }
 
 async function aoClicar(ev) {
-  const alvo = /** @type {HTMLElement} */ (ev.target).closest('[data-semana], [data-acao]');
+  const alvo = /** @type {HTMLElement} */ (ev.target).closest('[data-semana], [data-acao], [data-trocar]');
   if (!alvo || estado.ocupado) return;
 
   const semana = alvo.getAttribute('data-semana');
@@ -120,6 +121,18 @@ async function aoClicar(ev) {
   if (!s) return;
   const doc = estado.docs[s.chave];
   const acao = alvo.getAttribute('data-acao');
+
+  // "trocar" num exercício: o fluxo inteiro (opções, aviso, gravação) é do troca.js.
+  const vaga = alvo.getAttribute('data-trocar');
+  if (vaga) {
+    const [sessao, posicao] = vaga.split(':');
+    await trocarExercicio({
+      semanaId: s.chave, sessao, posicao: Number(posicao), status,
+      lerDoc: async () => { await reler(s.chave); desenhar(); return estado.docs[s.chave]; },
+      ocupar: (sim) => { estado.ocupado = sim; desenhar(); },
+    });
+    return;
+  }
 
   if (acao === 'gerar') {
     const data = $('#semana-data')?.value || s.inicio;

@@ -123,17 +123,21 @@ export async function confirmar({ titulo, texto, ok = 'Confirmar', cancelar = 'C
 /**
  * Painel de conteúdo com botões de ação. Resolve com o `id` da ação clicada, ou
  * `null` se foi fechado sem escolher.
- * @param {{titulo: string, corpoHTML: string, acoes?: {id: string, label: string, perigo?: boolean}[], largo?: boolean}} o
+ *
+ * `secundaria` desenha a ação contornada, para a recomendada se destacar entre
+ * várias; `fechar` troca o rótulo do botão que fecha sem escolher ("Cancelar a
+ * troca") — assim não aparecem "Fechar" e "Cancelar" lado a lado fazendo o mesmo.
+ * @param {{titulo: string, corpoHTML: string, acoes?: {id: string, label: string, perigo?: boolean, secundaria?: boolean}[], largo?: boolean, fechar?: string}} o
  * @returns {Promise<string|null>}
  */
-export function painel({ titulo, corpoHTML, acoes = [], largo = true }) {
+export function painel({ titulo, corpoHTML, acoes = [], largo = true, fechar = 'Fechar' }) {
   const botoes = acoes
-    .map((a) => `<button class="btn${a.perigo ? ' danger' : ''}" data-acao="${esc(a.id)}" type="button">${esc(a.label)}</button>`)
+    .map((a) => `<button class="btn${a.perigo ? ' danger' : a.secundaria ? ' ghost' : ''}" data-acao="${esc(a.id)}" type="button">${esc(a.label)}</button>`)
     .join('');
   return abrir({
     titulo,
     corpoHTML,
-    acoesHTML: `<button class="btn ghost" data-fechar type="button">Fechar</button>${botoes}`,
+    acoesHTML: `<button class="btn ghost" data-fechar type="button">${esc(fechar)}</button>${botoes}`,
     largo,
   });
 }

@@ -87,6 +87,24 @@ export function publicar(semanaId, publicar = true) {
 }
 
 /**
+ * As opções para trocar a vaga `posicao` (1 a 6) da `sessao` — o catálogo com
+ * os conflitos já calculados pelo servidor, e se a sessão está travada.
+ * @param {string} semanaId @param {string} sessao @param {number} posicao
+ */
+export function opcoesTroca(semanaId, sessao, posicao) {
+  return chamar('opcoesTrocaBox', { semanaId, sessao, posicao });
+}
+
+/**
+ * Grava a semana editada. O servidor revalida tudo (catálogo, bloco, equipamento,
+ * dias passados de semana já publicada) e recalcula alertas e avisos.
+ * @param {string} semanaId @param {Record<string, any>} dias
+ */
+export function salvarSemana(semanaId, dias) {
+  return chamar('salvarSemanaBox', { semanaId, dias });
+}
+
+/**
  * Grava o inventário (total, em manutenção, observação por recurso) e RECONFERE
  * as semanas que ainda não terminaram. A resposta traz o inventário salvo, com
  * `limitesAtivos` calculado pelo servidor, e `semanasAfetadas` (as que passaram

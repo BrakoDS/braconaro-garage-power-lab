@@ -76,3 +76,26 @@ test('dado do Firestore é escapado', () => {
   const h = renderSemana({ ...BASE, doc });
   assert.ok(!h.includes('<img src=x'), 'nome de exercício não vira HTML');
 });
+
+test('trocar: botão em cada exercício do rascunho, por sessão e vaga', () => {
+  const h = renderSemana({ ...BASE, doc: W42, hoje: '2026-10-12' });
+  assert.equal((h.match(/data-trocar="/g) || []).length, 5 * 6, '5 dias com força × 6 vagas');
+  assert.equal((h.match(/data-trocar="H1:1"/g) || []).length, 2, 'H1 vaga 1 aparece na segunda e na terça (mesma sessão)');
+  assert.equal((renderSemana({ ...BASE, doc: W42 }).match(/data-trocar="/g) || []).length, 0, 'sem "hoje", só leitura');
+  assert.equal((renderSemana({ ...BASE, doc: W42, hoje: '2026-10-12', ocupado: true }).match(/data-trocar="/g) || []).length, 0,
+    'ocupado: sem troca');
+});
+
+test('trocar: semana publicada trava a sessão que já tem dia passado', () => {
+  const h = renderSemana({ ...BASE, doc: { ...W42, status: 'publicado' }, hoje: '2026-10-13' });
+  assert.doesNotMatch(h, /data-trocar="H1:/, 'H1 (segunda já passou) travado');
+  assert.match(h, /data-trocar="H2:1"/, 'H2 (quarta) ainda dá');
+  assert.equal((h.match(/data-trocar="/g) || []).length, 3 * 6, 'quarta, sexta e sábado');
+});
+
+test('avisos de edição gravados aparecem como nota', () => {
+  const doc = { ...W42, avisosEdicao: [{ tipo: 'repeticao', exercicioId: 'x', nome: 'RDL Smith', lugares: [{ sessao: 'H1', posicao: 5 }, { sessao: 'H2', posicao: 1 }] }] };
+  const h = renderSemana({ ...BASE, doc, hoje: '2026-10-12' });
+  assert.ok(h.includes('Avisos da semana') && h.includes('RDL Smith está em H1 (vaga 5) e H2 (vaga 1).'));
+  assert.ok(!renderSemana({ ...BASE, doc: W42, hoje: '2026-10-12' }).includes('Avisos da semana'));
+});
