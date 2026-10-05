@@ -34,11 +34,33 @@ service cloud.firestore {
     // lado: `treinos/{YYYY-MM}` (um documento por mês, para não bater no teto de
     // 1 MB) e `arquivo/{nome}` (formato semanal antigo). Regra não desce sozinha
     // para subcoleção, por isso o `{sub=**}` — mesmo dono, mesmo acesso.
+    //
+    // Duas subcoleções são SÓ LEITURA para o cliente, inclusive para o coach:
+    // `semanas/{AAAA-Www}` (matriz semanal do box) e `inventario/atual`. Quem
+    // grava é a Cloud Function (salvarSemanaBox, publicarSemanaBox,
+    // salvarInventarioBox), com o Admin SDK — a contagem de equipamento e a
+    // validação da semana não podem vir do navegador. Por isso o wildcard abaixo
+    // separa o nome da subcoleção (`colecao`) em vez de usar só `{sub=**}`.
     match /coaches/{uid} {
       allow read, write: if ehCoachDono(uid);
-      match /{sub=**} {
-        allow read, write: if ehCoachDono(uid);
+      match /{colecao}/{resto=**} {
+        allow read: if ehCoachDono(uid);
+        allow write: if ehCoachDono(uid) && !(colecao in ['semanas', 'inventario']);
       }
+      // A semana PUBLICADA é o treino do box: qualquer aluno logado lê (como
+      // treinoPortal). Rascunho, só o coach — pela regra de cima.
+      match /semanas/{semanaId} {
+        allow read: if ehCoachDono(uid) || (request.auth != null && resource.data.status == 'publicado');
+      }
+    }
+
+    // Catálogo base de exercícios (instância de movimento, músculos, equipamento,
+    // adaptações). Igual para todo coach; quem grava é o seed
+    // (functions/src/seed-catalogo.ts) com o Admin SDK. Não confundir com
+    // coaches/{uid}/catalogoExercicios, que é a memória da leitura de lousa.
+    match /catalogoExercicios/{exercicioId} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
 
     // Montador individual (o montador novo, em teste ao lado do atual) — mesma
@@ -161,6 +183,14 @@ service cloud.firestore {
     match /treinoAluno/{email} {
       allow read, write: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read, write: if ehCoach();
+
+      // Histórico mensal (volume por músculo, presenças, PSE/RIR), um doc por
+      // 'AAAA-MM'. Só a Cloud Function registrarSessaoAluno grava: se o aluno
+      // pudesse, ele escreveria o próprio volume. Aluno e coach só leem.
+      match /historico/{anoMes} {
+        allow read: if (request.auth != null && request.auth.token.email.lower() == email.lower()) || ehCoach();
+        allow write: if false;
+      }
     }
 
     // Leads da landing (formulário de aula experimental) — captação pública.

@@ -77,8 +77,15 @@ export type TreinoParaVolume = {
    * valeria para treino novo e todo o histórico do box continuaria fora do
    * gráfico até alguém reescrever cada lousa à mão.
    */
-  exercicios: { nome?: string; series: number; grupamentos: string[]; implemento: string }[];
+  exercicios: {
+    nome?: string; series: number; grupamentos: string[]; implemento: string;
+    /** Quais de `grupamentos` pesam 0,5. Ausente = lousa antiga, tudo 1,0. */
+    grupamentosSecundarios?: string[];
+  }[];
 };
+
+/** Peso do músculo secundário — o mesmo `PESO_SECUNDARIO` do histórico do aluno (`modelo-box.ts`). */
+export const PESO_SECUNDARIO_DASHBOARD = 0.5;
 
 export type Consolidado = {
   /** 'YYYY-Www' ou 'YYYY-MM'. */
@@ -191,12 +198,13 @@ export function faixaDoMes(dateId: string): { inicio: string; fim: string } {
 /**
  * A consolidação em si.
  *
- * Convenção de crédito: uma série conta INTEIRA para cada grupamento que a
- * lousa marcou no exercício. É diferente do 1,0/0,5 de
- * `compartilhado/regras/volume.js`, e de propósito: lá existe a distinção entre
- * primário e secundário, porque o catálogo da Academia a carrega; aqui a lousa
- * escrita à mão não distingue — o coach escreve "costas, bíceps" e as duas são
- * intenção dele. Inventar um peso 0,5 para a segunda seria precisão falsa.
+ * Convenção de crédito (decisão do coach, 05/10/2026): uma série conta 1,0 para
+ * cada grupamento PRINCIPAL e 0,5 para cada secundário — a mesma regra do
+ * histórico do aluno e de `compartilhado/regras/volume.js`. A separação vem de
+ * `grupamentosSecundarios`, que a leitura da lousa passou a gravar nessa data.
+ * Lousa ANTIGA não tem o campo e continua contando tudo 1,0: não há como saber,
+ * depois do fato, o que a IA teria chamado de secundário — e chutar seria
+ * reescrever o histórico do box com precisão falsa.
  *
  * O efeito é que `totalSeries` (séries reais prescritas) NÃO é a soma de
  * `porGrupo` (séries por grupamento, que um exercício multiarticular credita
@@ -232,10 +240,12 @@ export function consolidar(
       // 0 kg conta igual a série com 100 kg, porque a pergunta aqui é quanto
       // ESTÍMULO o grupo levou, não quanto peso subiu.
       const rotulos = completarGrupamentos(ex.nome || '', ex.grupamentos);
+      const secundarios = Array.isArray(ex.grupamentosSecundarios) ? ex.grupamentosSecundarios : [];
       for (const rotulo of rotulos) {
         const g = GRUPO_POR_ROTULO[rotulo];
         if (!g) continue; // rótulo fora do vocabulário: some do grupo, não do total
-        porGrupo[g] = (porGrupo[g] || 0) + series;
+        const peso = secundarios.includes(rotulo) ? PESO_SECUNDARIO_DASHBOARD : 1;
+        porGrupo[g] = (porGrupo[g] || 0) + series * peso;
       }
 
       const tipo: TipoContagem | 'indefinido' = perfilDe(ex.nome || '')?.tipoContagem ?? 'indefinido';

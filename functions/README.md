@@ -4,11 +4,86 @@ Região `southamerica-east1`, Node 22, TypeScript (`src/` → `lib/`).
 
 ```bash
 npm run build                      # tsc
-npm run checar                     # lógica pura (IA, preços, Montador e conquistas), sem rede
+npm run checar                     # lógica pura (IA, preços, Montador, conquistas e semana do box), sem rede
+npm run checar:box                 # só a semana do box
 npm run checar:emulador            # exclusão de treino contra o emulador do Firestore
 npm run checar:emulador:conquistas # motor de conquistas de ponta a ponta (Firestore + Functions)
+npm run seed:catalogo              # simula o seed do catálogo base; `-- --gravar` grava
 npm run deploy                     # build + firebase deploy --only functions
 ```
+
+## Semana do box (`gerarMatrizSemanalBox`, `salvarSemanaBox`, `publicarSemanaBox`, `salvarInventarioBox`, `registrarSessaoAluno`)
+
+Modelo em `src/modelo-box.ts`, regra pura em `src/semana-box.ts` e o gerador em
+`src/gerador-box.ts` (os três conferidos pelo `checar-box`). Os quatro caminhos são **só
+leitura** para qualquer cliente (`firestore.rules`); quem grava são estas funções, com o Admin SDK:
+
+| Caminho | Quem grava | Quem lê |
+| --- | --- | --- |
+| `catalogoExercicios/{id}` | `seed-catalogo.ts` | qualquer logado |
+| `coaches/{uid}/semanas/{AAAA-Www}` | `gerarMatrizSemanalBox` / `salvarSemanaBox` / `publicarSemanaBox` | o coach; aluno logado se `status == 'publicado'` |
+| `coaches/{uid}/inventario/atual` | `salvarInventarioBox` | o coach |
+| `treinoAluno/{email}/historico/{AAAA-MM}` | `registrarSessaoAluno` | o aluno e o coach |
+
+### Gerar a semana (`gerarMatrizSemanalBox`)
+
+O cliente manda **só a semana** e espera a resposta. Nada de exercício, contagem ou rodízio:
+
+```js
+const gerar = httpsCallable(getFunctions(app, 'southamerica-east1'), 'gerarMatrizSemanalBox');
+const { data } = await gerar({ data: '2026-10-12' });        // ou { semanaId: '2026-W42' }
+// data: { semanaId, status: 'rascunho', semanaAnterior, dias, alertas, trocas, avisos, problemasParaPublicar }
+```
+
+| Campo do pedido | Para quê |
+| --- | --- |
+| `semanaId` **ou** `data` | A semana (`'2026-W42'`) ou qualquer dia dela (`'2026-10-12'`). |
+| `variacao` (0–999, opcional) | Outro sorteio para a mesma semana ("sortear de novo"). |
+| `substituirRascunho` (opcional) | Gera por cima de um rascunho existente. Sem isso, rascunho existente → `already-exists`. Semana publicada nunca é sobrescrita (`failed-precondition`). |
+
+O que o servidor faz, nesta ordem:
+
+1. **Grade fixa** (`GRADE_SEMANAL`): seg H1 · ter Cross (+H1 alternativa) · qua H2 · qui Hyrox ·
+   sex H3 (+HIIT alternativa) · sáb HIIT (+H3 alternativa). O primeiro treino do dia é o principal;
+   `sessaoForca` e `blocosMetabolicos` dizem o papel de cada um.
+2. **Matriz** (`MATRIZ_H`): as 6 instâncias de cada H, na ordem do bloco. Terça repete o bloco do
+   H1 da segunda; sábado repete o do H3 da sexta. Dia sem H fica com bloco vazio.
+3. **Rodízio:** lê `semanas/{semana anterior}` e joga para o fim da fila a variação exata usada lá.
+   Ela só volta se a instância não tiver outra opção — e então sai em `avisos`.
+4. **Trava de equipamento:** enquanto o dia passar do limite ativo de `inventario/atual`, o
+   exercício conflitante mais para o fim do bloco é re-sorteado entre os da mesma instância que não
+   usam aquele recurso nem estouram outro. Cada troca sai em `trocas`; o que não tem troca
+   possível fica em `alertas`, e a semana não publica até o coach resolver.
+5. Grava como `rascunho`, com a prescrição de `PRESCRICAO_FORCA` (4 × 8-12, cadência 3010) e o
+   descanso de cada exercício em `descansoSeg` (`descansoDaVaga`): **45 s** em `estabilizar_tronco`;
+   **120 s** nas vagas 1 e 2 do H1 e do H2 (compostos pesados); **90 s** no resto. Exercício salvo
+   pelo coach sem `descansoSeg` herda o `descansos.entreSeriesSeg` do dia.
+
+Determinístico: mesma semana + mesma semana anterior + mesmo catálogo + mesmo inventário = mesma
+semana. Cross, Hyrox e HIIT saem sinalizados com formato e descrição; os movimentos deles ainda são
+do coach.
+
+### Regras de conta
+
+- **Equipamento:** cada exercício do bloco principal ocupa uma estação de cada recurso que usa.
+  `flexora` e `extensora` consomem a mesma `maquinaLegs` (uma máquina híbrida, limite 1). Passou do
+  limite ativo (`total - emManutencao`) vira `alertas`, e semana com alerta não publica.
+- **Bloco principal:** 6 exercícios em dia com sessão H; vazio em dia só metabólico.
+- **Volume (aluno e dashboard do coach):** cada série soma 1,0 ao músculo principal e 0,5 ao
+  secundário. No dashboard, a separação vem de `grupamentosSecundarios`, que a leitura de lousa grava
+  desde 05/10/2026; lousa antiga, sem o campo, continua 1,0 em tudo. RIR alto não descarta série.
+- **Presença em Cross/Hyrox/HIIT** entra no histórico sem volume (o conteúdo ainda não é estruturado).
+- Aluno lendo a semana precisa filtrar `where('status', '==', 'publicado')` — a regra recusa a
+  consulta que poderia trazer rascunho.
+
+Deploy, sempre por função (ver o aviso das funções órfãs):
+
+```bash
+firebase deploy --only functions:gerarMatrizSemanalBox,functions:salvarSemanaBox,functions:publicarSemanaBox,functions:salvarInventarioBox,functions:registrarSessaoAluno
+```
+
+A mudança do 0,5 no dashboard está em funções que JÁ existem — `parseWorkoutLousa` e
+`aggregateVolumeMetrics` — e só vale depois do deploy delas.
 
 ## Motor de conquistas (`calcularConquistasXP*`)
 

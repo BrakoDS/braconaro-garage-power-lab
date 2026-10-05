@@ -21,7 +21,7 @@
  *    fatias da rosca (e quem vai imprimir a semana) precisa dos números.
  */
 import { GRUPOS, GRUPO_LABEL } from '../../../compartilhado/regras/grupos.js';
-import { escalaBarras, arcosRosca, pontosLinha } from '../core/graficos.js';
+import { escalaBarras, arcosRosca, pontosLinha, numeroBR } from '../core/graficos.js';
 import { chaveSemana, chaveMes, rotuloMes, rotuloSemana, semanasDoMes, faixaDaSemana } from '../core/periodos.js';
 import { lerConsolidado, marcaDasLousas } from '../cloud/chamadas.js';
 import { esc } from './render-treino.js';
@@ -246,7 +246,7 @@ function relatorioMensal(c, mes, serie) {
     ${barras(itens)}
     <p class="balanco">
       ${abaixo.length
-        ? `<b>${abaixo.length} grupamento(s) abaixo da meta do ciclo:</b> ${abaixo.map((b) => `${esc(b.rotulo)} (${b.saldo})`).join(', ')}.`
+        ? `<b>${abaixo.length} grupamento(s) abaixo da meta do ciclo:</b> ${abaixo.map((b) => `${esc(b.rotulo)} (${numeroBR(b.saldo)})`).join(', ')}.`
         : '<b>Todos os grupamentos fecharam o ciclo na meta ou acima.</b>'}
     </p>
     <h4 class="grafico-sub">Volume por semana do mês</h4>
@@ -275,11 +275,11 @@ function barras(itens) {
   const linhas = escalaBarras(itens).map((b) => `
     <div class="barra-linha">
       <span class="barra-rot">${esc(b.rotulo)}</span>
-      <span class="barra-trilho" title="${esc(b.rotulo)}: ${b.valor} séries · meta ${b.meta}">
+      <span class="barra-trilho" title="${esc(b.rotulo)}: ${numeroBR(b.valor)} séries · meta ${numeroBR(b.meta)}">
         <span class="barra-fill" style="width:${b.pctValor}%;background:${COR_SERIE}"></span>
         <span class="barra-meta" style="left:${b.pctMeta}%"></span>
       </span>
-      <span class="barra-val ${b.estado}">${b.valor}<small>/${b.meta}</small></span>
+      <span class="barra-val ${b.estado}">${numeroBR(b.valor)}<small>/${numeroBR(b.meta)}</small></span>
     </div>`).join('');
   return `<div class="barras">${linhas}</div>`;
 }
@@ -301,7 +301,7 @@ function linha(serie) {
 
   const marcas = r.pontos.map((p) => `
     <circle cx="${p.x}" cy="${p.y}" r="4" fill="${COR_SERIE}" stroke="#121212" stroke-width="2">
-      <title>${esc(p.rotulo)}: ${p.valor} séries</title>
+      <title>${esc(p.rotulo)}: ${numeroBR(p.valor)} séries</title>
     </circle>`).join('');
 
   return `
@@ -311,11 +311,11 @@ function linha(serie) {
         <path d="${r.d}" fill="none" stroke="${COR_SERIE}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
         ${marcas}
         ${r.ultimo ? `<text x="${Math.min(r.ultimo.x, 292)}" y="${Math.max(r.ultimo.y - 10, 12)}"
-            text-anchor="end" class="svg-rot">${r.ultimo.valor}</text>` : ''}
+            text-anchor="end" class="svg-rot">${numeroBR(r.ultimo.valor)}</text>` : ''}
         ${r.pontos.map((p, i) => `<text x="${p.x}" y="134" text-anchor="${i === 0 ? 'start' : i === r.pontos.length - 1 ? 'end' : 'middle'}"
             class="svg-eixo">${esc(p.rotulo.slice(0, 5))}</text>`).join('')}
       </svg>
-      <figcaption class="mut">Topo da régua: ${r.max} séries. A régua começa em zero.</figcaption>
+      <figcaption class="mut">Topo da régua: ${numeroBR(r.max)} séries. A régua começa em zero.</figcaption>
     </figure>`;
 }
 
@@ -336,7 +336,7 @@ function roscaVariabilidade(c, mes) {
 
   const caminhos = arcos.map((a) => `
     <path d="${a.d}" fill="${a.cor}">
-      <title>${esc(a.rotulo)}: ${a.pct}% (${a.valor} exercícios)</title>
+      <title>${esc(a.rotulo)}: ${numeroBR(a.pct)}% (${a.valor} exercícios)</title>
     </path>`).join('');
 
   // Só as fatias grandes recebem número dentro do arco; as pequenas ficariam
@@ -344,11 +344,11 @@ function roscaVariabilidade(c, mes) {
   // legenda e na tabela.
   const rotulos = arcos.filter((a) => a.rotulavel).map((a) => `
     <text x="${a.centro.x}" y="${a.centro.y}" text-anchor="middle" dominant-baseline="central"
-      class="svg-fatia">${a.pct}%</text>`).join('');
+      class="svg-fatia">${numeroBR(a.pct)}%</text>`).join('');
 
   const legenda = arcos.map((a) => `
     <li><span class="leg-bola" style="background:${a.cor}"></span>
-      ${esc(a.rotulo)} <b>${a.pct}%</b></li>`).join('');
+      ${esc(a.rotulo)} <b>${numeroBR(a.pct)}%</b></li>`).join('');
 
   return `<section class="card">
     <header class="grafico-h">
@@ -381,7 +381,7 @@ function tabela(itens, colunaA, legenda) {
       <caption class="mut">${esc(legenda)}</caption>
       <thead><tr><th>${esc(colunaA)}</th><th>Valor</th><th>Referência</th></tr></thead>
       <tbody>${itens.map((i) => `<tr>
-        <td>${esc(i.rotulo)}</td><td>${i.valor}</td><td>${i.meta}</td>
+        <td>${esc(i.rotulo)}</td><td>${numeroBR(i.valor)}</td><td>${numeroBR(i.meta)}</td>
       </tr>`).join('')}</tbody>
     </table>
   </details>`;

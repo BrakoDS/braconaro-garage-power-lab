@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  escalaBarras, arcosRosca, pontosLinha, PALETA_ROSCA, COR_OUTROS, MAX_FATIAS,
+  escalaBarras, arcosRosca, pontosLinha, numeroBR, PALETA_ROSCA, COR_OUTROS, MAX_FATIAS,
 } from './graficos.js';
 
 test('barras: prescrito e meta medem contra a MESMA régua', () => {
@@ -115,4 +115,14 @@ test('linha: um ponto só não quebra a conta de passo', () => {
 
 test('linha: série vazia devolve caminho vazio', () => {
   assert.deepEqual(pontosLinha([]), { pontos: [], d: '', max: 0, ultimo: null });
+});
+
+test('numeroBR: vírgula decimal, uma casa no máximo', () => {
+  assert.equal(numeroBR(3.5), '3,5');
+  assert.equal(numeroBR(12), '12');
+  assert.equal(numeroBR(-1.5), '-1,5');
+  assert.equal(numeroBR(33.333), '33,3');
+  assert.equal(numeroBR(0.25), '0,3');
+  assert.equal(numeroBR(undefined), '0');
+  assert.equal(numeroBR('x'), '0');
 });

@@ -20,14 +20,16 @@
  * gráfico errado sem nada na tela dizendo que foi chute.
  */
 
-import { perfilDe } from './taxonomia.js';
+import { perfilDe, secundariosDoExercicio } from './taxonomia.js';
 import { MUSCULOS_LABEL } from './lousa.js';
 
 export type ItemCatalogo = {
   /** Nome canônico — o que vai para o treino. */
   nome: string;
-  /** Rótulos de `MUSCULOS_LABEL`. */
+  /** Rótulos de `MUSCULOS_LABEL`, principais e secundários juntos. */
   grupamentos: string[];
+  /** Quais de `grupamentos` são secundários (0,5 no volume). Item aprendido antes de 05/10/2026 não tem. */
+  grupamentosSecundarios?: string[];
   implemento: string;
   /** De onde veio: 'taxonomia' (código) ou 'ia' (aprendido numa leitura). */
   origem: 'taxonomia' | 'ia';
@@ -78,6 +80,7 @@ export function daTaxonomia(nome: string): ItemCatalogo | null {
   return {
     nome: p.nome,
     grupamentos: [...new Set([...p.primarios, ...p.secundarios])],
+    grupamentosSecundarios: secundariosDoExercicio(p.nome),
     implemento: p.implemento,
     origem: 'taxonomia',
   };
@@ -120,14 +123,21 @@ export function resolver(
 export function itemDaIA(nome: string, cru: unknown): ItemCatalogo | null {
   const o = (cru ?? {}) as Record<string, unknown>;
   const validos = new Set<string>(MUSCULOS_LABEL as readonly string[]);
-  const grupamentos = Array.isArray(o.grupamentos)
-    ? [...new Set(o.grupamentos.filter((g): g is string => typeof g === 'string' && validos.has(g)))]
+  const lista = (v: unknown) => Array.isArray(v)
+    ? [...new Set(v.filter((g): g is string => typeof g === 'string' && validos.has(g)))]
     : [];
+  // Entrada no formato da RESPOSTA DA IA: `grupamentos` são os PRINCIPAIS. Quem
+  // tem a lista completa (exercício já montado) tira os secundários antes de
+  // chamar. Músculo nas duas listas fica principal.
+  const principais = lista(o.grupamentos);
+  const grupamentosSecundarios = lista(o.grupamentosSecundarios).filter((g) => !principais.includes(g));
+  const grupamentos = [...principais, ...grupamentosSecundarios];
   const implemento = typeof o.implemento === 'string' ? o.implemento.trim().slice(0, 40) : '';
   if (!grupamentos.length || !implemento) return null;
   return {
     nome: String(nome || '').trim().slice(0, 80),
     grupamentos,
+    grupamentosSecundarios,
     implemento,
     origem: 'ia',
     aprendidoEm: new Date().toISOString(),

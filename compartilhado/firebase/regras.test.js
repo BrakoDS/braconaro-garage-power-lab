@@ -149,3 +149,31 @@ test('chat: no Storage os dois lados leem e apagam, e so sobem arquivo novo nos 
     .map(([, tipo, mb]) => [tipo, Number(mb)]);
   assert.deepEqual(tetos, [['image', 5], ['audio', 10], ['video', 50]]);
 });
+
+test('semana do box: semana, inventario, catalogo base e historico do aluno so a Cloud Function grava', () => {
+  // A contagem de equipamento da semana e o volume do aluno saem do servidor
+  // (functions/src/semana-box.ts). Se o cliente pudesse gravar esses caminhos,
+  // gravaria a conta que quisesse — inclusive o coach, pelo console.
+  const c = codigo(firestore);
+  const coaches = c.split('match /coaches/{uid} {')[1].split(/\n    match \//)[0];
+  assert.doesNotMatch(coaches, /\{sub=\*\*\}/, 'o wildcard de coaches separa o nome da subcolecao');
+  const sub = coaches.split('match /{colecao}/{resto=**} {')[1]?.split('}')[0];
+  assert.ok(sub, 'match /{colecao}/{resto=**} existe dentro de coaches');
+  assert.deepEqual(sub.match(/allow [^;]+;/g), [
+    'allow read: if ehCoachDono(uid);',
+    "allow write: if ehCoachDono(uid) && !(colecao in ['semanas', 'inventario']);",
+  ]);
+  const semanas = coaches.split('match /semanas/{semanaId} {')[1]?.split('}')[0];
+  assert.deepEqual(semanas?.match(/allow [^;]+;/g), [
+    "allow read: if ehCoachDono(uid) || (request.auth != null && resource.data.status == 'publicado');",
+  ], 'aluno so le semana publicada, e ninguem escreve por aqui');
+
+  const catalogo = c.split('match /catalogoExercicios/{exercicioId} {')[1]?.split('}')[0];
+  assert.deepEqual(catalogo?.match(/allow [^;]+;/g), ['allow read: if request.auth != null;', 'allow write: if false;']);
+
+  const historico = c.split('match /treinoAluno/{email} {')[1]?.split('match /historico/{anoMes} {')[1]?.split('}')[0];
+  assert.deepEqual(historico?.match(/allow [^;]+;/g), [
+    'allow read: if (request.auth != null && request.auth.token.email.lower() == email.lower()) || ehCoach();',
+    'allow write: if false;',
+  ]);
+});

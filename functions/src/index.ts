@@ -19,7 +19,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import {
   extrairAnalise, limparTexto, INSTRUCOES, INSTRUCOES_TEXTO, SCHEMA, type Analise,
@@ -55,6 +55,16 @@ import { getAuth } from 'firebase-admin/auth';
 import { alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
+import {
+  DIAS_SEMANA, EXERCICIOS_POR_BLOCO, MODALIDADES, SESSOES_H,
+  type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type FeedbackExercicio,
+  type Modalidade, type PedidoGerarMatriz, type PresencaAluno, type RespostaGerarMatriz,
+} from './modelo-box';
+import {
+  alertasDaSemana, aplicarInventario, historicoComSessao, intervaloDaSemana, lerDias, lerExercicioCatalogo,
+  lerInventario, lerSessaoAluno, problemasParaPublicar, semanaAnterior, semanaDoPedido, volumeDaSessao,
+} from './semana-box';
+import { gerarSemana } from './gerador-box';
 
 initializeApp();
 
@@ -1068,10 +1078,11 @@ function schemaClassificacao(nomes: string[]): Record<string, unknown> {
         type: 'array', maxItems: nomes.length,
         items: {
           type: 'object', additionalProperties: false,
-          required: ['nome', 'grupamentos', 'implemento'],
+          required: ['nome', 'grupamentos', 'grupamentosSecundarios', 'implemento'],
           properties: {
             nome: { type: 'string' },
             grupamentos: { type: 'array', items: { type: 'string', enum: [...MUSCULOS_LABEL] } },
+            grupamentosSecundarios: { type: 'array', items: { type: 'string', enum: [...MUSCULOS_LABEL] } },
             implemento: { type: 'string' },
           },
         },
@@ -1100,7 +1111,8 @@ async function classificarComIA(nomes: string[]): Promise<ItemCatalogo[]> {
       instructions: [
         'Você classifica exercícios de academia e de treino funcional.',
         'Para CADA nome recebido, devolva os grupamentos musculares trabalhados e o implemento usado.',
-        `- "grupamentos" só aceita os rótulos: ${MUSCULOS_LABEL.join(', ')}.`,
+        '- "grupamentos" são os músculos PRINCIPAIS; "grupamentosSecundarios" os que o exercício recruta junto. Um músculo fica em uma lista só.',
+        `- Os dois só aceitam os rótulos: ${MUSCULOS_LABEL.join(', ')}.`,
         '- "implemento" é o equipamento (Barra, Halter, Kettlebell, Peso corporal, Máquina, Cabo, Bola, Caixa...).',
         '- Devolva o "nome" exatamente como recebeu.',
         '- Se não reconhecer o exercício, devolva grupamentos vazio — não chute.',
@@ -1253,7 +1265,13 @@ export const parseWorkoutLousa = onCall(
       if (uid) {
         const itens = treino.blocos
           .flatMap((b) => b.exercicios)
-          .map((ex) => itemDaIA(ex.nome, { grupamentos: ex.grupamentos, implemento: ex.implemento }))
+          .map((ex) => {
+            // `itemDaIA` recebe os principais em `grupamentos` (formato da resposta da IA).
+            const sec = ex.grupamentosSecundarios ?? [];
+            return itemDaIA(ex.nome, {
+              grupamentos: ex.grupamentos.filter((g) => !sec.includes(g)), grupamentosSecundarios: sec, implemento: ex.implemento,
+            });
+          })
           .filter((x): x is ItemCatalogo => x !== null);
         await aprenderNoCatalogo(uid, itens);
       }
@@ -1686,6 +1704,8 @@ export const aggregateVolumeMetrics = onDocumentWritten(
           sistema: t.sistema,
           exercicios: t.blocos.flatMap((b) => (b.exercicios || []).map((ex) => ({
             nome: ex.nome || '', series: ex.series, grupamentos: ex.grupamentos || [], implemento: ex.implemento || '',
+            // Ausente (lousa antiga) é diferente de vazio: ver `consolidar`.
+            ...(Array.isArray(ex.grupamentosSecundarios) ? { grupamentosSecundarios: ex.grupamentosSecundarios } : {}),
           }))),
         }];
       });
@@ -1897,3 +1917,308 @@ export const calcularConquistasXP = gatilhoDeConquistas('gastoTreinos');
 export const calcularConquistasXPPortal = gatilhoDeConquistas('portal');
 /** Desafios da semana concluídos. */
 export const calcularConquistasXPDesafios = gatilhoDeConquistas('desafios');
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SEMANA DO BOX — matriz semanal, inventário e histórico mensal do aluno.
+ *
+ * Modelo em `modelo-box.ts`, regra em `semana-box.ts`. Estes callables só leem,
+ * chamam a regra e gravam: os quatro caminhos têm `write: if false` nas regras,
+ * então é aqui — e só aqui — que contagem de equipamento e volume são feitos.
+ *
+ * Os nomes NÃO são `gerarTreinosDaSemanaCallable`/`publicarSemanaCallable`/
+ * `registrarExecucaoTreinoCallable` de propósito: essas três rodam em produção
+ * sem fonte conhecida, e um deploy com o mesmo nome as sobrescreveria.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const EH_ID_CATALOGO = /^[a-z0-9_-]{1,100}$/;
+
+/** Os ids de exercício que aparecem nos `dias` crus — no máximo 6 por dia. */
+function idsDosDias(dias: unknown): string[] {
+  const d = (dias ?? {}) as Record<string, { blocoPrincipal?: unknown } | undefined>;
+  const ids: string[] = [];
+  for (const dia of DIAS_SEMANA) {
+    const bloco = d[dia]?.blocoPrincipal;
+    if (!Array.isArray(bloco)) continue;
+    for (const x of bloco.slice(0, EXERCICIOS_POR_BLOCO)) {
+      const id = (x as { exercicioId?: unknown } | null)?.exercicioId;
+      if (typeof id === 'string' && EH_ID_CATALOGO.test(id)) ids.push(id);
+    }
+  }
+  return ids;
+}
+
+/** Os itens do catálogo base com esses ids. Item torto fica de fora (ver `lerExercicioCatalogo`). */
+async function carregarCatalogo(db: Firestore, ids: string[]): Promise<Map<string, ExercicioCatalogo>> {
+  const unicos = [...new Set(ids)];
+  const mapa = new Map<string, ExercicioCatalogo>();
+  if (!unicos.length) return mapa;
+  const docs = await db.getAll(...unicos.map((id) => db.doc(`catalogoExercicios/${id}`)));
+  for (const d of docs) {
+    const item = lerExercicioCatalogo(d.data());
+    if (item) mapa.set(d.id, item);
+  }
+  return mapa;
+}
+
+const refSemana = (db: Firestore, uid: string, semanaId: string) => db.doc(`coaches/${uid}/semanas/${semanaId}`);
+const refInventario = (db: Firestore, uid: string) => db.doc(`coaches/${uid}/inventario/atual`);
+
+/**
+ * Salva a semana do coach (cria ou substitui).
+ *
+ * Semana nova nasce `rascunho`. Semana JÁ publicada continua publicada, mas
+ * só se a versão nova também passar em `problemasParaPublicar` — senão o aluno
+ * veria uma semana que não poderia ter sido publicada.
+ */
+export const salvarSemanaBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; dias?: unknown };
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    const semanaId = dados.semanaId as string;
+
+    const db = getFirestore();
+    const [catalogo, inv] = await Promise.all([
+      carregarCatalogo(db, idsDosDias(dados.dias)),
+      refInventario(db, uid).get(),
+    ]);
+    const lido = lerDias(dados.dias, catalogo);
+    if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
+    const alertas = alertasDaSemana(lido.dias, lerInventario(inv.data()).limitesAtivos);
+    const problemas = problemasParaPublicar(lido.dias, alertas);
+
+    const ref = refSemana(db, uid, semanaId);
+    const status = await db.runTransaction(async (tx) => {
+      const atual = (await tx.get(ref)).data();
+      const publicada = atual?.status === 'publicado';
+      if (publicada && problemas.length) {
+        throw new HttpsError('failed-precondition', `A semana está publicada e esta versão não pode ser: ${problemas[0]}`);
+      }
+      // `set` sem merge: `dias` é mapa, e o merge manteria chave velha de
+      // `consumoEquipamentos` que a versão nova não tem mais.
+      tx.set(ref, {
+        status: publicada ? 'publicado' : 'rascunho',
+        dataInicio: Timestamp.fromMillis(intervalo.inicioMs),
+        dataFim: Timestamp.fromMillis(intervalo.fimMs),
+        anoMes: intervalo.anoMes,
+        dias: lido.dias,
+        alertas,
+        atualizadoEm: FieldValue.serverTimestamp(),
+        ...(atual?.publicadoEm ? { publicadoEm: atual.publicadoEm } : {}),
+      });
+      return publicada ? 'publicado' : 'rascunho';
+    });
+    return { semanaId, status, dias: lido.dias, alertas, problemasParaPublicar: problemas };
+  },
+);
+
+/**
+ * Publica (ou volta para rascunho) uma semana salva.
+ *
+ * Publicar RECALCULA tudo com o catálogo e o inventário de AGORA: se um smith
+ * entrou em manutenção depois do rascunho, é aqui que o coach fica sabendo.
+ */
+export const publicarSemanaBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; publicar?: unknown };
+    if (!intervaloDaSemana(dados.semanaId)) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    const semanaId = dados.semanaId as string;
+    const publicar = dados.publicar !== false;
+
+    const db = getFirestore();
+    const ref = refSemana(db, uid, semanaId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Salve a semana antes de publicar.');
+
+    if (!publicar) {
+      await ref.update({ status: 'rascunho', atualizadoEm: FieldValue.serverTimestamp() });
+      return { semanaId, status: 'rascunho' as const };
+    }
+
+    const gravado = snap.data()?.dias;
+    const [catalogo, inv] = await Promise.all([carregarCatalogo(db, idsDosDias(gravado)), refInventario(db, uid).get()]);
+    const lido = lerDias(gravado, catalogo);
+    if ('erro' in lido) throw new HttpsError('failed-precondition', `A semana salva não fecha mais com o catálogo: ${lido.erro}`);
+    const alertas = alertasDaSemana(lido.dias, lerInventario(inv.data()).limitesAtivos);
+    const problemas = problemasParaPublicar(lido.dias, alertas);
+    if (problemas.length) throw new HttpsError('failed-precondition', problemas.join(' '));
+
+    await ref.update({
+      status: 'publicado', dias: lido.dias, alertas,
+      publicadoEm: FieldValue.serverTimestamp(), atualizadoEm: FieldValue.serverTimestamp(),
+    });
+    return { semanaId, status: 'publicado' as const };
+  },
+);
+
+/** O catálogo base inteiro (~40 documentos). Item torto fica de fora. */
+async function carregarCatalogoInteiro(db: Firestore): Promise<Map<string, ExercicioCatalogo>> {
+  const snap = await db.collection('catalogoExercicios').get();
+  const mapa = new Map<string, ExercicioCatalogo>();
+  for (const d of snap.docs) {
+    const item = lerExercicioCatalogo(d.data());
+    if (item) mapa.set(d.id, item);
+  }
+  return mapa;
+}
+
+/**
+ * Monta a semana do box no SERVIDOR e grava como `rascunho`.
+ *
+ * O cliente manda só a semana (`semanaId` ou uma `data` dela) — ver
+ * `PedidoGerarMatriz`. Matriz H1/H2/H3, grade, rodízio contra a semana anterior
+ * e trava de equipamento estão em `gerador-box.ts`.
+ *
+ * Nunca sobrescreve semana publicada. Rascunho existente só com
+ * `substituirRascunho: true`: o coach pode ter editado à mão, e regerar sem
+ * pedir apagaria a edição.
+ */
+export const gerarMatrizSemanalBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req): Promise<RespostaGerarMatriz> => {
+    const { uid } = exigirCoach(req);
+    const pedido = (req.data ?? {}) as PedidoGerarMatriz;
+    const semanaId = semanaDoPedido(pedido);
+    const intervalo = semanaId ? intervaloDaSemana(semanaId) : null;
+    if (!semanaId || !intervalo) {
+      throw new HttpsError('invalid-argument', 'Mande a semana como semanaId (2026-W42) ou uma data dela (2026-10-12).');
+    }
+    const variacao = pedido.variacao === undefined ? 0 : Number(pedido.variacao);
+    if (!Number.isInteger(variacao) || variacao < 0 || variacao > 999) {
+      throw new HttpsError('invalid-argument', 'variacao é um inteiro de 0 a 999.');
+    }
+
+    const db = getFirestore();
+    const anteriorId = semanaAnterior(semanaId);
+    const [catalogo, inv, anterior] = await Promise.all([
+      carregarCatalogoInteiro(db),
+      refInventario(db, uid).get(),
+      anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
+    ]);
+    if (!catalogo.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
+
+    const gerado = gerarSemana({
+      semanaId, catalogo, limites: lerInventario(inv.data()).limitesAtivos,
+      diasDaSemanaAnterior: anterior?.data()?.dias, variacao,
+    });
+    const problemas = problemasParaPublicar(gerado.dias, gerado.alertas);
+
+    const ref = refSemana(db, uid, semanaId);
+    await db.runTransaction(async (tx) => {
+      const atual = (await tx.get(ref)).data();
+      if (atual?.status === 'publicado') {
+        throw new HttpsError('failed-precondition', 'Essa semana já está publicada. Volte para rascunho antes de gerar de novo.');
+      }
+      if (atual && pedido.substituirRascunho !== true) {
+        throw new HttpsError('already-exists', 'Já existe um rascunho dessa semana. Mande substituirRascunho: true para gerar por cima.');
+      }
+      tx.set(ref, {
+        status: 'rascunho',
+        dataInicio: Timestamp.fromMillis(intervalo.inicioMs),
+        dataFim: Timestamp.fromMillis(intervalo.fimMs),
+        anoMes: intervalo.anoMes,
+        dias: gerado.dias,
+        alertas: gerado.alertas,
+        geradoEm: FieldValue.serverTimestamp(),
+        atualizadoEm: FieldValue.serverTimestamp(),
+      });
+    });
+    logger.info('Semana do box gerada.', {
+      uid, semanaId, anteriorId, trocas: gerado.trocas.length, alertas: gerado.alertas.length,
+    });
+    return {
+      semanaId, status: 'rascunho', semanaAnterior: anterior?.exists ? anteriorId : null,
+      dias: gerado.dias, alertas: gerado.alertas, trocas: gerado.trocas, avisos: gerado.avisos,
+      problemasParaPublicar: problemas,
+    };
+  },
+);
+
+/** Atualiza total / em manutenção / observação dos recursos que limitam a semana. */
+export const salvarInventarioBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const db = getFirestore();
+    const ref = refInventario(db, uid);
+    return db.runTransaction(async (tx) => {
+      const atual = lerInventario((await tx.get(ref)).data());
+      const r = aplicarInventario(atual, (req.data as { equipamentos?: unknown } | null)?.equipamentos);
+      if ('erro' in r) throw new HttpsError('invalid-argument', r.erro);
+      tx.set(ref, { ...r.inventario, atualizadoEm: FieldValue.serverTimestamp() });
+      return r.inventario;
+    });
+  },
+);
+
+/**
+ * O aluno registra uma sessão da semana publicada: séries válidas por
+ * exercício e, se quiser, PSE / RIR / comentário. Grava em
+ * `treinoAluno/{email}/historico/{AAAA-MM}`, no mês da AULA (não do envio).
+ *
+ * A data sai da semana + dia, não do aparelho; aula que ainda não aconteceu
+ * é recusada. Registrar a mesma sessão de novo substitui (ver `historicoComSessao`).
+ */
+export const registrarSessaoAluno = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const email = normalizarEmail(req.auth?.token?.email);
+    if (!req.auth || !email) throw new HttpsError('unauthenticated', 'Entre na sua conta para registrar o treino.');
+
+    const dados = (req.data ?? {}) as {
+      coachUid?: unknown; semanaId?: unknown; dia?: unknown; modalidade?: unknown; exercicios?: unknown;
+    };
+    if (!ehCoachPorUid(dados.coachUid)) throw new HttpsError('invalid-argument', 'Coach desconhecido.');
+    const coachUid = dados.coachUid as string;
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    const semanaId = dados.semanaId as string;
+    if (!(DIAS_SEMANA as readonly unknown[]).includes(dados.dia)) throw new HttpsError('invalid-argument', 'Dia de segunda a sábado.');
+    const dia = dados.dia as DiaSemana;
+    if (!(MODALIDADES as readonly unknown[]).includes(dados.modalidade)) {
+      throw new HttpsError('invalid-argument', `Modalidade: ${MODALIDADES.join(', ')}.`);
+    }
+    const modalidade = dados.modalidade as Modalidade;
+    const data = intervalo.datas[dia];
+    if (data > diaSaoPaulo()) throw new HttpsError('failed-precondition', 'Essa aula ainda não aconteceu.');
+
+    const db = getFirestore();
+    const [gestao, semana] = await Promise.all([db.doc(`gestao/${coachUid}`).get(), refSemana(db, coachUid, semanaId).get()]);
+    if (!alunoDaGestao(gestao.data(), email)) throw new HttpsError('permission-denied', 'Você não está na lista de alunos desse coach.');
+    if (semana.data()?.status !== 'publicado') throw new HttpsError('failed-precondition', 'Essa semana não está publicada.');
+    const doDia = (semana.data()?.dias ?? {})[dia] as DiaProgramado | undefined;
+    if (!doDia || !Array.isArray(doDia.blocoPrincipal) || !doDia.treinos?.includes(modalidade)) {
+      throw new HttpsError('failed-precondition', `Não teve ${modalidade} na ${dia} dessa semana.`);
+    }
+
+    // O bloco principal do dia é da sessão H. Cross/Hyrox/HIIT registram só a
+    // presença: o conteúdo deles ainda não é estruturado, então não há série
+    // para somar volume — e somar as do bloco H seria creditar o que ele não fez.
+    const ehForca = (SESSOES_H as readonly string[]).includes(modalidade);
+    const sessao = ehForca ? lerSessaoAluno(dados, doDia) : { series: {}, feedbacks: [] };
+    if ('erro' in sessao) throw new HttpsError('invalid-argument', sessao.erro);
+    const catalogo = await carregarCatalogo(db, Object.keys(sessao.series));
+    const volume = volumeDaSessao(sessao.series, catalogo);
+
+    const sessaoId = `${data}_${modalidade}`;
+    // `Timestamp.now()` e não `serverTimestamp()`: o Firestore não aceita
+    // sentinela dentro de array.
+    const presenca: PresencaAluno = {
+      sessaoId, data, semanaId, dia, modalidade, coachUid, series: sessao.series, volume, registradoEm: Timestamp.now(),
+    };
+    const feedbacks: FeedbackExercicio[] = sessao.feedbacks.map((f) => ({ ...f, sessaoId, data }));
+
+    const anoMes = data.slice(0, 7);
+    const ref = db.doc(`treinoAluno/${email}/historico/${anoMes}`);
+    const volumeAcumulado = await db.runTransaction(async (tx) => {
+      const novo = historicoComSessao((await tx.get(ref)).data(), presenca, feedbacks);
+      tx.set(ref, { anoMes, ...novo, atualizadoEm: FieldValue.serverTimestamp() });
+      return novo.volumeAcumulado;
+    });
+    return { anoMes, sessaoId, volumeSessao: volume, volumeAcumulado };
+  },
+);
