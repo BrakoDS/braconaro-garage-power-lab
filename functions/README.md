@@ -165,6 +165,24 @@ dia, e o WOD fica em até `MINUTOS_MAX_WOD` = **15 min**.
 - **Troca no WOD:** bloqueia também "tira a técnica" (tirar o último movimento que serve de foco); o
   movimento que entra no lugar do foco vira o foco (`viraFoco`, só informa).
 
+**Estratégia do Coach** (`src/estrategia-cross.ts`, 06/10/2026)
+
+Um parágrafo de 3 frases que liga o bloco 1 ao WOD, mostrado entre os dois na tela do coach e no app.
+`cross.estrategia` é CALCULADA pelo servidor no sorteio (`gerarCross`) e a cada gravação (`lerCross`),
+então acompanha toda troca de movimento ou de foco; a que vier no pedido é ignorada.
+
+1. **Ponte:** tipo do bloco (técnica, força, skill) × formato do WOD.
+2. **Fadiga:** os músculos do catálogo viram 4 regiões (pernas, ombros, costas e pegada, core). Se outro
+   movimento do WOD tem músculo principal na região principal do foco, avisa e cita até 2 deles; senão,
+   diz qual região o resto do WOD puxa e que dá para acelerar.
+3. **Estratégia:** formato × `cross.tecnica.chave` do foco (o detalhe técnico, no imperativo, fixo por
+   movimento como a dinâmica; sem chave, usa o `objetivo`). For Time e Chipper com 10+ reps do foco
+   ganham a quebra das séries (12 → 5-4-3).
+
+Cada frase tem 2 versões; a escolha vem do hash do WOD (mesmo WOD, mesmo texto). Até 480 caracteres.
+`null` = WOD sem foco; ausente = WOD gravado antes (a tela não mostra o bloco). Revisar uma chave é só
+editar o catálogo e rodar o seed — não precisa de deploy.
+
 **WOD do Cross**
 
 - **Formato** sorteado entre AMRAP, EMOM, For Time e Chipper (`REGRA_FORMATO_CROSS`), nunca o da

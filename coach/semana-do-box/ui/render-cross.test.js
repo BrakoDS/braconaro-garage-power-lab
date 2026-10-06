@@ -188,6 +188,23 @@ test('a aula de Cross em dois blocos: 1 · Técnica / Força antes de 2 · WOD',
   assert.ok(fatia(h, 'Power clean (barra)</span>', '</li>').length > 0);
 });
 
+test('Estratégia do Coach: entre o bloco 1 e o WOD; sem ela, não desenha', () => {
+  const w = W44.dias.terca.cross;
+  const h = crossHtml(W44, '2026-10-20');
+  const i1 = h.indexOf('<span class="cross-n">1</span> Técnica / Força');
+  const iE = h.indexOf('<aside class="estrategia" aria-label="Estratégia do Coach">');
+  const i2 = h.indexOf('<span class="cross-n">2</span> WOD');
+  assert.ok(i1 > 0 && iE > i1 && i2 > iE, 'técnica → estratégia → WOD');
+  assert.ok(h.includes('💡</span> Estratégia do Coach</p>') && h.includes(`<p>${esc(w.estrategia)}</p>`));
+  assert.ok(w.estrategia.includes('power clean'), 'a fixture traz o texto do servidor');
+
+  const semEstrategia = (cross) => crossHtml({ ...W44, dias: { ...W44.dias, terca: { ...W44.dias.terca, cross } } }, '2026-10-20');
+  const { estrategia: _e, ...antigo } = w;
+  assert.ok(!semEstrategia(antigo).includes('class="estrategia"'), 'WOD gravado antes: sem o bloco');
+  assert.ok(!semEstrategia({ ...w, estrategia: null }).includes('class="estrategia"'), 'null (sem foco): sem o bloco');
+  assert.ok(semEstrategia({ ...w, estrategia: '<b>x</b>' }).includes('&lt;b&gt;x&lt;/b&gt;'), 'o texto é escapado');
+});
+
 test('Técnica / Força: alerta próprio, sem foco e WOD de antes do bloco', () => {
   const alerta = { recurso: 'barraOlimpica', usado: 5, limite: 4, exercicios: ['power_clean'], dias: ['terca'], bloco: 'tecnica' };
   const h = crossHtml({ ...W44, alertasCross: [alerta] }, '2026-10-20');
