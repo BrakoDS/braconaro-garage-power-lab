@@ -13,13 +13,16 @@ import { CATALOGO_BASE } from './catalogo-base';
 import { CATALOGO_HIIT } from './catalogo-hiit';
 import {
   DIAS_SEMANA, ESTACOES_HIIT, INVENTARIO_PADRAO, NOME_ESTACAO_HIIT, RECURSOS_FIXOS_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
-  type EstacaoHiit, type EstacaoProgramada, type ExercicioSoHiit, type ItemCatalogo, type RecursoHiit,
+  type DiaSemana, type EstacaoHiit, type EstacaoProgramada, type ExercicioCatalogo, type ExercicioSoHiit, type ItemCatalogo, type RecursoHiit,
 } from './modelo-box';
 import {
   aplicarInventario, diasComHiitGravado, intervaloDaSemana, lerDias, lerExercicioCatalogo, lerInventario, lerItemCatalogo,
-  problemasParaPublicar, reconferirSemana,
+  lerHiit, problemasParaPublicar, reconferirSemana,
 } from './semana-box';
-import { diasPassadosAlterados } from './edicao-box';
+import { conflitosDaTroca, diasPassadosAlterados } from './edicao-box';
+import {
+  diasDoHiit, estacoesComTroca, estacoesDaSemana, hiitTravado, opcoesDoHiit, type ConflitosHiit, type OpcoesDoHiit,
+} from './edicao-hiit';
 import { gerarSemana, idsDoHiit } from './gerador-box';
 import {
   alunosPorEstacao, consumoPorAluno, contarHiit, gerarHiit, slotsDe, type ContextoHiit, type HiitGerado,
@@ -38,6 +41,11 @@ const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b
 const catalogo = new Map<string, ItemCatalogo>([...Object.entries(CATALOGO_BASE), ...Object.entries(CATALOGO_HIIT)]);
 const INV = lerInventario(undefined);
 const LIMITES = INV.limitesAtivos as Record<RecursoHiit, number>;
+/** Só os de força: o que a troca do bloco H enxerga. */
+const catalogoForca = new Map([...catalogo].filter((par): par is [string, ExercicioCatalogo] => par[1].instancia !== null));
+/** A opção não tem conflito nenhum? */
+const temAlgum = (c: ConflitosHiit) => c.noHiit || c.tamanhoDiferente || c.semanaAnterior
+  || c.equipamento.length > 0 || c.fixoEmOutraEstacao.length > 0 || c.noBlocoDoDia.length > 0;
 const SEMENTES = Array.from({ length: 200 }, (_, i) => `2026-W42:HIIT:${i}`);
 
 /** Contexto com o catálogo real e o inventário de fábrica. */
@@ -467,6 +475,89 @@ console.log('\nA semana com o HIIT (gerar, salvar, publicar, reconferir)');
   const comNull = JSON.parse(JSON.stringify(legado));
   for (const d of DIAS_SEMANA) comNull[d].hiit = null;
   ok(!diasPassadosAlterados(legado, comNull, datas, '2026-10-19').length, 'hiit ausente e hiit null são o mesmo dia (semana antiga salva de novo)');
+}
+
+console.log('\nTroca manual do HIIT (edicao-hiit)');
+{
+  // Uma semana montada à mão para controlar cada conflito. O H3 da sexta e do
+  // sábado tem a ponte de glúteo (que também é de HIIT, Pernas).
+  const cru = (porEstacao: Record<string, string[]>) => ({
+    estacoes: Object.entries(porEstacao).map(([estacao, ids]) => ({ estacao, slots: ids.map((exercicioId) => ({ exercicioId })) })),
+  });
+  const montar = (porEstacao: Record<string, string[]>) => {
+    const h = lerHiit(cru(porEstacao), catalogo, 'sabado');
+    if ('erro' in h) throw new Error(h.erro);
+    const dia = (papelH3: 'principal' | 'alternativa') => ({
+      treinos: papelH3 === 'principal' ? ['H3', 'HIIT'] : ['HIIT', 'H3'],
+      sessaoForca: { sessao: 'H3', papel: papelH3, nome: 'Consolidação Full Body' },
+      blocoPrincipal: [{ exercicioId: 'ponte_gluteo', nome: 'Ponte de glúteo no chão' }],
+      hiit: h.hiit,
+    });
+    return { segunda: { treinos: ['H1'], sessaoForca: { sessao: 'H1' }, blocoPrincipal: [] }, sexta: dia('principal'), sabado: dia('alternativa') };
+  };
+  const BASE = {
+    pernas: ['kb_swing', 'agachamento_livre', 'afundo_reverso', 'afundo_reverso'],
+    core: ['fallout_trx', 'abdominal_supra', 'abdominal_bicicleta', 'abdominal_remador'],
+    superiores: ['thruster_wallball', 'flexao', 'flexao_pike', 'thruster_halteres'],
+    cardio: ['burpee', 'polichinelo', 'high_knees', 'mountain_climber'],
+  };
+  const dias = montar(BASE);
+  const op = (o: { estacao: string; slot: number; limites?: Record<RecursoHiit, number>; passada?: string[]; d?: unknown }) => opcoesDoHiit({
+    dias: o.d ?? dias, estacao: o.estacao, slot: o.slot, catalogo, limites: o.limites ?? LIMITES, alunosPorAula: 6,
+    semanaPassada: new Set(o.passada ?? []),
+  })!;
+  const de = (r: OpcoesDoHiit, id: string) => r.opcoes.find((x) => x.exercicioId === id)!;
+
+  const kb = op({ estacao: 'pernas', slot: 1 });
+  ok(igual(kb.vaga, { estacao: 'pernas', nome: 'Pernas', slots: [1], unilateral: false, dias: ['sexta', 'sabado'], atual: { exercicioId: 'kb_swing', nome: 'Kettlebell swing' } }),
+    'a vaga: Pernas, slot 1, o kettlebell swing, valendo para sexta e sábado', JSON.stringify(kb.vaga));
+  ok(kb.opcoes.every((x) => catalogo.get(x.exercicioId)!.hiit!.estacoes.includes('pernas')) && !de(kb, 'kb_swing'),
+    'só exercícios de Pernas, sem o atual');
+  ok(!de(kb, 'goblet_squat').bloqueada && !temAlgum(de(kb, 'goblet_squat').conflitos), 'goblet: livre');
+  ok(de(kb, 'agachamento_livre').conflitos.noHiit && de(kb, 'agachamento_livre').bloqueada, 'já no HIIT (slot 2): bloqueado');
+  ok(de(kb, 'afundo_kb').conflitos.tamanhoDiferente && de(kb, 'afundo_kb').bloqueada, 'unilateral no lugar de bilateral: tamanho diferente, bloqueado');
+  ok(igual(de(kb, 'sandbag_clean').conflitos.equipamento, [{ recurso: 'sandbag', usado: 2, limite: 1, slot: null }]) && de(kb, 'sandbag_clean').bloqueada,
+    'sandbag para 2 alunos com 1 no box: bloqueado');
+  ok(igual(de(kb, 'agachamento_trx').conflitos.fixoEmOutraEstacao, [{ recurso: 'trx', estacoes: ['core'] }]) && de(kb, 'agachamento_trx').bloqueada,
+    'TRX com o Core já no TRX: bloqueado pela regra espacial');
+  ok(igual(de(kb, 'ponte_gluteo').conflitos.noBlocoDoDia, [{ sessao: 'H3', dias: ['sexta', 'sabado'] }]) && de(kb, 'ponte_gluteo').bloqueada,
+    'ponte de glúteo está no H3 do dia: bloqueado');
+  ok(!de(kb, 'wall_ball_shot').bloqueada, 'wall ball shot com 4 bolas no box: livre (2 + 2 no slot 1)');
+  const poucasBolas = op({ estacao: 'pernas', slot: 1, limites: { ...LIMITES, wallBall: 2 } });
+  ok(igual(de(poucasBolas, 'wall_ball_shot').conflitos.equipamento, [{ recurso: 'wallBall', usado: 4, limite: 2, slot: 1 }]),
+    'com 2 bolas: o thruster de Superiores no mesmo slot soma 4 — bloqueado pela soma do slot');
+
+  const rod = op({ estacao: 'pernas', slot: 1, passada: ['goblet_squat'] });
+  ok(de(rod, 'goblet_squat').conflitos.semanaAnterior && !de(rod, 'goblet_squat').bloqueada, 'rodízio quebrado: aviso, não bloqueia');
+  const grupos = rod.opcoes.map((x) => (x.bloqueada ? 2 : x.conflitos.semanaAnterior ? 1 : 0));
+  ok(igual(grupos, [...grupos].sort((a, b) => a - b)), 'ordem: livres, rodízio, bloqueados');
+
+  const uniD = op({ estacao: 'pernas', slot: 3 });
+  const uniE = op({ estacao: 'pernas', slot: 4 });
+  ok(igual(uniD.vaga.slots, [3, 4]) && uniD.vaga.unilateral && igual(uniE.vaga, uniD.vaga), 'unilateral: tocar no D ou no E é a mesma vaga (slots 3 e 4)');
+  ok(!de(uniD, 'afundo_kb').bloqueada && de(uniD, 'goblet_squat').conflitos.tamanhoDiferente, 'unilateral troca por unilateral; bilateral fica bloqueado');
+
+  const trocado = estacoesComTroca(estacoesDaSemana(dias)!, 'pernas', 3, 2, 'afundo_kb');
+  const relido = lerHiit({ estacoes: trocado }, catalogo, 'sabado');
+  ok('hiit' in relido && igual(relido.hiit.estacoes[0].slots.map((x) => [x.exercicioId, x.lado]),
+    [['kb_swing', null], ['agachamento_livre', null], ['afundo_kb', 'D'], ['afundo_kb', 'E']]),
+  'a troca do unilateral ocupa os dois slots e o servidor aceita (D e E)');
+  ok(op({ estacao: 'pernas', slot: 1, d: { sexta: { treinos: ['HIIT'] } } }) === null && op({ estacao: 'pernas', slot: 9 }) === null,
+    'semana sem HIIT ou vaga que não existe: null');
+
+  const datas = { segunda: '2026-10-19', terca: '2026-10-20', quarta: '2026-10-21', quinta: '2026-10-22', sexta: '2026-10-23', sabado: '2026-10-24' } as Record<DiaSemana, string>;
+  ok(!hiitTravado(dias, datas, '2026-10-23') && hiitTravado(dias, datas, '2026-10-24'), 'trava: na sexta ainda dá; no sábado a sexta já passou');
+  ok(igual(diasDoHiit(dias), ['sexta', 'sabado']), 'o HIIT da semana está na sexta e no sábado');
+
+  // O bônus: a troca do H3 enxerga o HIIT do dia.
+  const h3 = conflitosDaTroca({
+    dias, sessao: 'H3', posicao: 1, exercicioId: 'fallout_trx', catalogo: catalogoForca, limites: { ...INVENTARIO_PADRAO }, semanaPassada: new Set(),
+  });
+  ok(igual(h3.noHiit, ['sexta', 'sabado']), 'H3 → exercício que já está no HIIT do dia: conflito "no HIIT" (sexta e sábado)');
+  const h1 = conflitosDaTroca({
+    dias, sessao: 'H1', posicao: 1, exercicioId: 'fallout_trx', catalogo: catalogoForca, limites: { ...INVENTARIO_PADRAO }, semanaPassada: new Set(),
+  });
+  ok(igual(h1.noHiit, []), 'H1 (segunda, sem HIIT): sem esse conflito');
 }
 
 console.log(falhas ? `\n✗ ${falhas} verificação(ões) falharam.\n` : '\n✓ HIIT: tudo certo.\n');

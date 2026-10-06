@@ -254,6 +254,7 @@ export function textoConflitos(c, sessao) {
     linhas.push(`Passa do limite de ${nomeRecurso(e.recurso).varios}: ${e.usado} em uso, ${e.limite} ${e.limite === 1 ? 'ativo' : 'ativos'}. A semana não publica assim.`);
   }
   if (c.instanciaDiferente) linhas.push(`É de outra instância: a matriz do ${sessao} muda nesta vaga.`);
+  if (c.noHiit?.length) linhas.push(`Já está no HIIT (${rotuloDias(c.noHiit)}): o dia não repete exercício. A semana não publica assim.`);
   return linhas;
 }
 
@@ -261,6 +262,7 @@ export function textoConflitos(c, sessao) {
 export function selosDaOpcao(c) {
   const selos = [];
   if (c.mesmoBloco) selos.push({ id: 'bloco', rotulo: 'já no bloco' });
+  if (c.noHiit?.length) selos.push({ id: 'bloco', rotulo: 'no HIIT do dia' });
   if (c.equipamento?.length) selos.push({ id: 'equipamento', rotulo: '🔧 equipamento' });
   if (c.repeticoes?.length) selos.push({ id: 'repetido', rotulo: `⚠ no ${c.repeticoes.map((r) => r.sessao).join(', ')}` });
   if (c.semanaAnterior) selos.push({ id: 'rodizio', rotulo: '↺ semana passada' });
@@ -278,7 +280,7 @@ export function selosDaOpcao(c) {
  */
 export function acoesDoConflito(opcao) {
   const c = opcao.conflitos;
-  if (c.mesmoBloco) return [{ id: 'outro', label: 'Escolher outro exercício' }];
+  if (c.mesmoBloco || c.noHiit?.length) return [{ id: 'outro', label: 'Escolher outro exercício' }];
   if (c.equipamento?.length) return [{ id: 'outro', label: 'Escolher outro exercício' }];
   const acoes = [];
   for (const s of opcao.substitutos ?? []) {
@@ -298,7 +300,7 @@ export function acoesDoConflito(opcao) {
 
 /** Tem algo a perguntar antes de trocar? @param {any} c */
 export const temConflito = (c) =>
-  !!(c.mesmoBloco || c.repeticoes?.length || c.semanaAnterior || c.equipamento?.length || c.instanciaDiferente);
+  !!(c.mesmoBloco || c.repeticoes?.length || c.semanaAnterior || c.equipamento?.length || c.instanciaDiferente || c.noHiit?.length);
 
 /** As notas que a semana guarda (`avisosEdicao`). @param {any} a */
 export function textoAvisoEdicao(a) {
@@ -540,4 +542,90 @@ export function slotsEmAlertaHiit(doc) {
  */
 export function textoForaDoHiit(f) {
   return `${f.nome}: precisa de ${f.precisa} ${f.precisa === 1 ? nomeRecurso(f.recurso).um : nomeRecurso(f.recurso).varios}, o box tem ${f.limite} ${f.limite === 1 ? 'ativo' : 'ativos'}.`;
+}
+
+/* ───────────────────────────── troca no HIIT ───────────────────────────── */
+
+/**
+ * Dá para trocar exercício do HIIT? ESPELHA a trava do servidor (`hiitTravado`
+ * em `edicao-hiit.ts`) só para decidir se a tela mostra o botão: semana que já
+ * foi publicada não muda o HIIT se a sexta ou o sábado já passaram.
+ * @param {any} doc @param {string} hojeIso
+ */
+export function hiitEditavel(doc, hojeIso) {
+  if (!hiitDaSemana(doc)) return false;
+  if (doc.status !== 'publicado' && !doc.publicadoEm) return true;
+  const datas = datasIsoDosDias(doc.dataInicio);
+  return !DIAS.some((d) => Array.isArray(doc.dias?.[d.id]?.hiit?.estacoes) && datas[d.id] && datas[d.id] < hojeIso);
+}
+
+/**
+ * Os `dias` para `salvarSemanaBox` com UMA troca no HIIT, aplicada em todo dia
+ * que tem o HIIT (sexta e sábado). O novo exercício ocupa exatamente os slots
+ * do antigo (`slots`, vindos do servidor). Só monta o pedido: o servidor
+ * revalida tudo (`lerHiit`) e recalcula os alertas.
+ * @param {any} doc @param {{estacao: string, slots: number[], exercicioId: string}} troca
+ */
+export function diasComHiitTrocado(doc, troca) {
+  const dias = diasParaSalvar(doc);
+  for (const d of DIAS) {
+    const estacoes = doc?.dias?.[d.id]?.hiit?.estacoes;
+    if (!Array.isArray(estacoes)) continue;
+    dias[d.id].hiit = {
+      estacoes: estacoes.map((e) => ({
+        estacao: e.estacao,
+        slots: (e.slots ?? []).map((x, i) => ({
+          exercicioId: e.estacao === troca.estacao && troca.slots.includes(i + 1) ? troca.exercicioId : x.exercicioId,
+        })),
+      })),
+    };
+  }
+  return dias;
+}
+
+/**
+ * Os selos de uma opção da troca do HIIT. Os de bloqueio dizem POR QUE a opção
+ * está desabilitada; o do rodízio só avisa.
+ * @param {{unilateral: boolean, conflitos: any}} opcao
+ */
+export function selosDaOpcaoHiit(opcao) {
+  const c = opcao.conflitos;
+  const selos = [];
+  if (c.noHiit) selos.push({ id: 'bloco', rotulo: 'já no HIIT' });
+  if (c.tamanhoDiferente) selos.push({ id: 'bloco', rotulo: opcao.unilateral ? 'ocupa 2 slots' : 'ocupa 1 slot' });
+  for (const e of c.equipamento ?? []) {
+    const r = nomeRecurso(e.recurso);
+    selos.push({
+      id: 'equipamento',
+      rotulo: e.slot === null || e.slot === undefined
+        ? `🔧 ${e.usado} ${e.usado === 1 ? r.um : r.varios}, ${e.limite} ${e.limite === 1 ? 'ativo' : 'ativos'}`
+        : `🔧 slot ${e.slot}: ${e.usado} ${r.varios}`,
+    });
+  }
+  for (const f of c.fixoEmOutraEstacao ?? []) {
+    selos.push({ id: 'equipamento', rotulo: `📍 ${nomeRecurso(f.recurso).um} no ${(f.estacoes ?? []).map((e) => NOME_ESTACAO_HIIT[e] ?? e).join(', ')}` });
+  }
+  for (const b of c.noBlocoDoDia ?? []) selos.push({ id: 'bloco', rotulo: `no ${b.sessao}` });
+  if (c.semanaAnterior) selos.push({ id: 'rodizio', rotulo: '↺ semana passada' });
+  return selos;
+}
+
+/**
+ * Como seguir depois de escolher uma opção do HIIT. Bloqueada não chega aqui
+ * (está desabilitada na lista). Só o rodízio pergunta: manter ou escolher outro.
+ * @param {{conflitos: any, bloqueada?: boolean}} opcao
+ * @returns {{id: string, label: string, secundaria?: boolean}[]}
+ */
+export function acoesDoConflitoHiit(opcao) {
+  if (opcao.bloqueada) return [{ id: 'outro', label: 'Escolher outro exercício' }];
+  if (!opcao.conflitos?.semanaAnterior) return [];
+  return [
+    { id: 'manter', label: 'Manter (quebra o rodízio)' },
+    { id: 'outro', label: 'Escolher outro exercício', secundaria: true },
+  ];
+}
+
+/** 'slot 1' / 'slots 3 e 4' — onde a vaga fica na estação. @param {number[]} slots */
+export function rotuloSlots(slots) {
+  return slots.length > 1 ? `slots ${slots.slice(0, -1).join(', ')} e ${slots[slots.length - 1]}` : `slot ${slots[0]}`;
 }

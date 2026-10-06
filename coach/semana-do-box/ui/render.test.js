@@ -167,3 +167,17 @@ test('HIIT: nome vindo do catálogo é escapado', () => {
   doc.dias.sexta.hiit.estacoes[0].slots[0].nome = '<img src=x>';
   assert.ok(!renderSemana({ ...BASE_HIIT, doc }).includes('<img src=x>'));
 });
+
+test('troca no HIIT: "trocar" por exercício, o unilateral uma vez só (no D)', () => {
+  const h = renderSemana({ ...BASE_HIIT, doc: HIIT, hoje: '2026-10-19' });
+  const est = HIIT.dias.sabado.hiit.estacoes;
+  const esperados = est.reduce((n, e) => n + e.slots.filter((x) => x.lado !== 'E').length, 0);
+  assert.equal((h.match(/data-trocar-hiit="/g) || []).length, esperados, 'um por exercício (16 slots menos os E)');
+  const pernas = est.find((e) => e.estacao === 'pernas');
+  const iD = pernas.slots.findIndex((x) => x.lado === 'D');
+  assert.ok(h.includes(`data-trocar-hiit="pernas:${iD + 1}"`) && !h.includes(`data-trocar-hiit="pernas:${iD + 2}"`), 'unilateral: no D, não no E');
+  assert.ok(!renderSemana({ ...BASE_HIIT, doc: HIIT }).includes('data-trocar-hiit'), 'sem "hoje": só leitura');
+  assert.ok(!renderSemana({ ...BASE_HIIT, doc: HIIT, hoje: '2026-10-19', ocupado: true }).includes('data-trocar-hiit'), 'ocupado: sem botão');
+  const pub = { ...HIIT, status: 'publicado' };
+  assert.ok(!renderSemana({ ...BASE_HIIT, doc: pub, hoje: '2026-10-24' }).includes('data-trocar-hiit'), 'publicada com a sexta no passado: travado');
+});

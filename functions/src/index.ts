@@ -66,8 +66,9 @@ import {
   diasComHiitGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior,
   semanaDoPedido, volumeDaSessao,
 } from './semana-box';
-import { gerarSemana, idsDaSemana } from './gerador-box';
+import { gerarSemana, idsDaSemana, idsDoHiit } from './gerador-box';
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
+import { hiitTravado, opcoesDoHiit } from './edicao-hiit';
 
 initializeApp();
 
@@ -2112,6 +2113,62 @@ export const opcoesTrocaBox = onCall(
       semanaId,
       ...resultado,
       travada: jaPublicada && sessoesTravadas(doc.dias, intervalo.datas, hoje).includes(sessao),
+      temHoje: resultado.vaga.dias.some((d) => intervalo.datas[d] === hoje),
+      publicada: doc.status === 'publicado',
+    };
+  },
+);
+
+/**
+ * As opções para trocar UM exercício de uma estação do HIIT — os exercícios da
+ * estação, cada um com os conflitos calculados pela mesma conta do gerador
+ * sobre o HIIT já trocado (`edicao-hiit.ts`). Só leitura: quem grava é
+ * `salvarSemanaBox`, que revalida tudo (`lerHiit`).
+ *
+ * `slot` é qualquer slot do exercício (o unilateral responde pelo D e pelo E).
+ * Diz também se o HIIT está TRAVADO (semana já publicada com a sexta ou o
+ * sábado no passado) e se um dos dias dele é HOJE.
+ */
+export const opcoesTrocaHiitBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; estacao?: unknown; slot?: unknown };
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    const semanaId = dados.semanaId as string;
+    if (!(ESTACOES_HIIT as readonly unknown[]).includes(dados.estacao)) {
+      throw new HttpsError('invalid-argument', `Estação: ${ESTACOES_HIIT.join(', ')}.`);
+    }
+    const slot = Number(dados.slot);
+    if (!Number.isInteger(slot) || slot < 1 || slot > SLOTS_POR_ESTACAO) {
+      throw new HttpsError('invalid-argument', `Slot de 1 a ${SLOTS_POR_ESTACAO}.`);
+    }
+
+    const db = getFirestore();
+    const anteriorId = semanaAnterior(semanaId);
+    const [semana, catalogo, inv, anterior] = await Promise.all([
+      refSemana(db, uid, semanaId).get(),
+      carregarCatalogoInteiro(db),
+      refInventario(db, uid).get(),
+      anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
+    ]);
+    const doc = semana.data();
+    if (!doc) throw new HttpsError('not-found', 'Gere a semana antes de editar.');
+
+    const { limitesAtivos, alunosPorAula } = lerInventario(inv.data());
+    const resultado = opcoesDoHiit({
+      dias: doc.dias, estacao: dados.estacao as string, slot, catalogo, limites: limitesAtivos, alunosPorAula,
+      semanaPassada: idsDoHiit(anterior?.data()?.dias),
+    });
+    if (!resultado) throw new HttpsError('not-found', `Esta semana não tem o slot ${slot} na estação ${dados.estacao} do HIIT.`);
+
+    const hoje = diaSaoPaulo();
+    const jaPublicada = doc.status === 'publicado' || !!doc.publicadoEm;
+    return {
+      semanaId,
+      ...resultado,
+      travada: jaPublicada && hiitTravado(doc.dias, intervalo.datas, hoje),
       temHoje: resultado.vaga.dias.some((d) => intervalo.datas[d] === hoje),
       publicada: doc.status === 'publicado',
     };

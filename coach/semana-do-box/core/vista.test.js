@@ -9,6 +9,7 @@ import {
   rotuloDias, datasIsoDosDias, sessaoEditavel, diasParaSalvar, textoConflitos, selosDaOpcao, acoesDoConflito, temConflito, textoAvisoEdicao,
   RECURSOS_HIIT, TURMA_MAX, TURMA_MIN, alunosPorEstacao, hiitDaSemana, inventarioCompleto, nomesDoHiit,
   rotuloDiasHiit, slotsEmAlertaHiit, textoAlertaHiit, textoForaDoHiit, totalDeAlertas, turmaDoInventario,
+  acoesDoConflitoHiit, diasComHiitTrocado, hiitEditavel, rotuloSlots, selosDaOpcaoHiit,
 } from './vista.js';
 
 /**
@@ -302,4 +303,55 @@ test('paridade: as listas de recursos da tela são as do servidor (functions/src
   assert.deepEqual(RECURSOS, lista('RECURSOS_INVENTARIO'));
   assert.deepEqual(RECURSOS_HIIT, lista('RECURSOS_HIIT'));
   for (const r of [...RECURSOS, ...RECURSOS_HIIT]) assert.ok(NOME_RECURSO[r], `recurso sem nome na tela: ${r}`);
+});
+
+test('troca no HIIT: a trava espelha a do servidor (sexta ou sábado no passado)', () => {
+  assert.equal(hiitEditavel(HIIT, '2026-10-30'), true, 'rascunho: sempre');
+  const pub = { ...HIIT, status: 'publicado' };
+  assert.equal(hiitEditavel(pub, '2026-10-23'), true, 'publicada, na sexta: ainda dá (com aviso)');
+  assert.equal(hiitEditavel(pub, '2026-10-24'), false, 'publicada, no sábado: a sexta passou');
+  assert.equal(hiitEditavel(W42, '2026-10-01'), false, 'semana sem estações: nada a trocar');
+});
+
+test('troca no HIIT: o pedido leva a troca na sexta E no sábado, nos slots da vaga', () => {
+  const pernas = HIIT.dias.sabado.hiit.estacoes.find((e) => e.estacao === 'pernas');
+  const iD = pernas.slots.findIndex((x) => x.lado === 'D');
+  const dias = diasComHiitTrocado(HIIT, { estacao: 'pernas', slots: [iD + 1, iD + 2], exercicioId: 'afundo_kb' });
+  for (const d of ['sexta', 'sabado']) {
+    const ids = dias[d].hiit.estacoes.find((e) => e.estacao === 'pernas').slots.map((x) => x.exercicioId);
+    assert.equal(ids[iD], 'afundo_kb');
+    assert.equal(ids[iD + 1], 'afundo_kb');
+    assert.equal(ids.filter((x) => x === 'afundo_kb').length, 2, `${d}: só os dois slots da vaga`);
+  }
+  assert.equal(dias.segunda.hiit, undefined, 'dia sem HIIT não ganha hiit');
+  assert.deepEqual(Object.keys(dias.sabado.hiit.estacoes[0].slots[0]), ['exercicioId'], 'o pedido manda só ids (o servidor calcula o resto)');
+  assert.deepEqual(dias.sabado.hiit.estacoes.map((e) => e.estacao), HIIT.dias.sabado.hiit.estacoes.map((e) => e.estacao), 'a ordem das estações fica');
+  assert.ok(Array.isArray(dias.sexta.blocoPrincipal) && dias.sexta.blocoPrincipal.length === 6, 'o H3 vai junto, intacto');
+});
+
+test('troca no HIIT: selos dizem por que a opção está bloqueada', () => {
+  const sem = { noHiit: false, tamanhoDiferente: false, equipamento: [], fixoEmOutraEstacao: [], noBlocoDoDia: [], semanaAnterior: false };
+  const rot = (c, unilateral = false) => selosDaOpcaoHiit({ unilateral, conflitos: { ...sem, ...c } }).map((x) => x.rotulo);
+  assert.deepEqual(rot({}), []);
+  assert.deepEqual(rot({ noHiit: true }), ['já no HIIT']);
+  assert.deepEqual(rot({ tamanhoDiferente: true }, true), ['ocupa 2 slots']);
+  assert.deepEqual(rot({ tamanhoDiferente: true }, false), ['ocupa 1 slot']);
+  assert.deepEqual(rot({ equipamento: [{ recurso: 'sandbag', usado: 2, limite: 1, slot: null }] }), ['🔧 2 Sandbags, 1 ativo']);
+  assert.deepEqual(rot({ equipamento: [{ recurso: 'wallBall', usado: 4, limite: 2, slot: 1 }] }), ['🔧 slot 1: 4 Wall balls']);
+  assert.deepEqual(rot({ fixoEmOutraEstacao: [{ recurso: 'trx', estacoes: ['core'] }] }), ['📍 TRX no Core']);
+  assert.deepEqual(rot({ noBlocoDoDia: [{ sessao: 'H3', dias: ['sexta', 'sabado'] }] }), ['no H3']);
+  assert.deepEqual(rot({ semanaAnterior: true }), ['↺ semana passada']);
+  assert.deepEqual(acoesDoConflitoHiit({ conflitos: { ...sem, semanaAnterior: true } }).map((a) => [a.id, !!a.secundaria]),
+    [['manter', false], ['outro', true]], 'rodízio: manter ou escolher outro');
+  assert.deepEqual(acoesDoConflitoHiit({ conflitos: sem }), [], 'sem conflito: grava direto');
+  assert.equal(rotuloSlots([1]), 'slot 1');
+  assert.equal(rotuloSlots([3, 4]), 'slots 3 e 4');
+});
+
+test('troca no H: exercício que já está no HIIT do dia bloqueia', () => {
+  const c = { mesmoBloco: false, repeticoes: [], semanaAnterior: false, equipamento: [], instanciaDiferente: false, noHiit: ['sexta', 'sabado'] };
+  assert.ok(temConflito(c));
+  assert.deepEqual(selosDaOpcao(c).map((x) => x.rotulo), ['no HIIT do dia']);
+  assert.deepEqual(acoesDoConflito({ conflitos: c, substitutos: [] }).map((a) => a.id), ['outro'], 'sem "manter"');
+  assert.ok(textoConflitos(c, 'H3').some((l) => l.includes('Já está no HIIT (sexta e sábado)')));
 });

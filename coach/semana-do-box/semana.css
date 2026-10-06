@@ -161,3 +161,8 @@
 
 @media (max-width: 980px) { .hiit-estacoes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .hiit-estacoes { grid-template-columns: 1fr; } }
+
+/* ---------- troca no HIIT ---------- */
+/* O slot é uma linha flex (não a grade do exercício do H): o botão vai no fim da linha. */
+.hiit-trocar { grid-column: auto; margin: 0 0 0 auto; padding: 1px 8px; flex: none; }
+.hiit-slot .hiit-lado + .hiit-trocar { margin-left: 0; }

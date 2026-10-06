@@ -25,6 +25,7 @@ import {
   type DiaSemana, type ExercicioCatalogo, type Instancia, type RecursoInventario, type SessaoH,
 } from './modelo-box';
 import { consumoDoDia, recursosDo } from './semana-box';
+import { diasNoHiit } from './edicao-hiit';
 
 type Blocos = Partial<Record<SessaoH, string[]>>;
 type Catalogo = ReadonlyMap<string, ExercicioCatalogo>;
@@ -75,6 +76,11 @@ export interface ConflitosTroca {
   equipamento: { recurso: RecursoInventario; usado: number; limite: number }[];
   /** Não é da instância da vaga (troca livre — permitida, mas a matriz do H muda). */
   instanciaDiferente: boolean;
+  /**
+   * Os dias desta sessão em que o exercício já está no HIIT (o H3 divide a sexta
+   * e o sábado com ele). O dia não repete exercício: não publica. Bloqueia.
+   */
+  noHiit: DiaSemana[];
 }
 
 /** Os conflitos de pôr `exercicioId` na vaga `posicao` (1 a 6) da `sessao`. */
@@ -101,6 +107,7 @@ export function conflitosDaTroca(o: {
       .filter((r) => usaRecursos.has(r) && (consumo[r] ?? 0) > o.limites[r])
       .map((r) => ({ recurso: r, usado: consumo[r] ?? 0, limite: o.limites[r] })),
     instanciaDiferente: !!atual && !!item && o.catalogo.get(atual)?.instancia !== item.instancia,
+    noHiit: diasNoHiit(o.dias, o.sessao, o.exercicioId),
   };
 }
 
@@ -145,7 +152,7 @@ export interface OpcoesDaVaga {
 }
 
 const peso = (c: ConflitosTroca) =>
-  (c.mesmoBloco ? 100 : 0) + (c.equipamento.length ? 10 : 0) + (c.repeticoes.length ? 2 : 0) + (c.semanaAnterior ? 1 : 0);
+  (c.mesmoBloco ? 100 : 0) + (c.equipamento.length || c.noHiit.length ? 10 : 0) + (c.repeticoes.length ? 2 : 0) + (c.semanaAnterior ? 1 : 0);
 
 /**
  * Todo o catálogo para uma vaga, com os conflitos já calculados — a lista que o
