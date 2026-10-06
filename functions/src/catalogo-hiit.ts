@@ -35,13 +35,29 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Agachamento goblet com kettlebell',
     musculoPrincipal: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
     equipamentos: ['kettlebell'], hiit: { estacoes: ['pernas'] },
-    cross: { padrao: 'agachar', unidade: 'reps', rx: 12, carga: { rx: '16/12 kg', scaled: '12/8 kg' } },
+    cross: {
+      padrao: 'agachar', unidade: 'reps', rx: 12, carga: { rx: '16/12 kg', scaled: '12/8 kg' },
+      tecnica: {
+        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10,
+        dinamica: '4 × 8 com 2 s de pausa embaixo, 1 min de descanso.',
+        objetivo: 'Profundidade com o tronco ereto e os joelhos na linha dos pés.',
+        carga: 'Moderada, a carga RX do WOD',
+      },
+    },
   },
   kb_swing: {
     ...SEM, nome: 'Kettlebell swing',
     musculoPrincipal: ['gluteo', 'posterior_coxa'], musculosSecundarios: ['core', 'ombro'],
     equipamentos: ['kettlebell'], hiit: { estacoes: ['pernas'] },
-    cross: { padrao: 'quadril', unidade: 'reps', rx: 15, carga: { rx: '16/12 kg', scaled: '12/8 kg' } },
+    cross: {
+      padrao: 'quadril', unidade: 'reps', rx: 15, carga: { rx: '16/12 kg', scaled: '12/8 kg' },
+      tecnica: {
+        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10,
+        dinamica: '4 × 10 com carga moderada, 1 min de descanso.',
+        objetivo: 'Dobradiça de quadril (não é agachamento) e lombar neutra no topo.',
+        carga: 'Moderada, a carga RX do WOD',
+      },
+    },
   },
   wall_ball_shot: {
     ...SEM, nome: 'Wall ball shot',
@@ -102,13 +118,27 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Flexão de braço',
     musculoPrincipal: ['peito'], musculosSecundarios: ['triceps', 'ombro', 'core'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['superiores'] },
-    cross: { padrao: 'empurrar', unidade: 'reps', rx: 12 },
+    cross: {
+      padrao: 'empurrar', unidade: 'reps', rx: 12,
+      tecnica: {
+        categoria: 'ginastica', tipo: 'skill', minutos: 10,
+        dinamica: 'EMOM 10 min: 5–8 flexões estritas (escala: joelho no chão ou mãos no caixote).',
+        objetivo: 'Corpo em prancha, peito no chão e cotovelos a 45°.',
+      },
+    },
   },
   flexao_pike: {
     ...SEM, nome: 'Flexão pike',
     musculoPrincipal: ['ombro'], musculosSecundarios: ['triceps'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['superiores'] },
-    cross: { padrao: 'empurrar', unidade: 'reps', rx: 10 },
+    cross: {
+      padrao: 'empurrar', unidade: 'reps', rx: 10,
+      tecnica: {
+        categoria: 'ginastica', tipo: 'skill', minutos: 10,
+        dinamica: 'EMOM 10 min: 5–8 flexões pike estritas (escala: pés no chão, menos inclinação).',
+        objetivo: 'Força de ombro na posição invertida, cabeça passando à frente das mãos.',
+      },
+    },
   },
   thruster_wallball: {
     ...SEM, nome: 'Thruster com wall ball',
@@ -131,7 +161,15 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Desenvolvimento unilateral com kettlebell', unilateral: true,
     musculoPrincipal: ['ombro'], musculosSecundarios: ['triceps', 'core'],
     equipamentos: ['kettlebell'], hiit: { estacoes: ['superiores'] },
-    cross: { padrao: 'empurrar', unidade: 'reps', rx: 8, carga: { rx: '12/8 kg', scaled: '8/6 kg' } },
+    cross: {
+      padrao: 'empurrar', unidade: 'reps', rx: 8, carga: { rx: '12/8 kg', scaled: '8/6 kg' },
+      tecnica: {
+        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10,
+        dinamica: '4 × 6 por lado com carga moderada, 1 min de descanso.',
+        objetivo: 'Ombro estável e core firme no empurrar de um braço só.',
+        carga: 'Moderada, a carga RX do WOD',
+      },
+    },
   },
 
   /* ───────────── cardio ───────────── */

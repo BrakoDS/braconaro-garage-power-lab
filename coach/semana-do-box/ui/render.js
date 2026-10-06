@@ -11,6 +11,9 @@ import {
   consumoVisivel, publicacao, datasDosDias, tituloForca, sessaoEditavel, textoAvisoEdicao,
   alunosPorEstacao, hiitDaSemana, hiitEditavel, nomesDoHiit, rotuloDiasHiit, slotsEmAlertaHiit, textoAlertaHiit, textoForaDoHiit,
   totalDeAlertas,
+  NIVEIS_HYROX, NOME_PADRAO_CROSS, UNIDADE_HYROX, conteudoEditavel, estacoesEmAlerta, linhasDaCorrida, movimentosEmAlerta,
+  nomesDoWod, quantidadeCross, temSubstitutaHyrox, textoAlertaCross, textoAlertaHyrox, textoContaWod, tituloHyrox, tituloWod,
+  alertasDaTecnica, tituloTecnica, unidadesNaTecnica,
 } from '../core/vista.js';
 
 /** @param {unknown} s */
@@ -162,23 +165,155 @@ function cartaoDia(doc, d, data, hoje) {
   // HIIT com estações: o cartão só chama a faixa da semana (o mesmo HIIT está
   // na sexta e no sábado, e as 16 linhas não cabem bem num cartão estreito).
   const comHiit = (b) => b.modalidade === 'HIIT' && Array.isArray(dia.hiit?.estacoes);
+  // O WOD e o Hyrox são a aula do dia e cabem no cartão: entram inteiros nele.
   const nHiit = (doc.alertasHiit ?? []).length;
-  const metabolicos = (dia.blocosMetabolicos ?? []).map((b) => `
+  const metabolicos = (dia.blocosMetabolicos ?? []).map((b) => {
+    if (b.modalidade === 'Cross' && Array.isArray(dia.cross?.movimentos)) return blocoWod(doc, dia, b, hoje);
+    if (b.modalidade === 'Hyrox' && Array.isArray(dia.hyrox?.estacoes)) return blocoHyrox(doc, dia, b, hoje);
+    return `
     <div class="metabolico${b.papel === 'principal' ? ' principal' : ''}">
       <h4>${esc(b.modalidade)} <span class="mut">· ${esc(b.formato)}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
       <p class="mut">${esc(b.descricao)}</p>
       ${comHiit(b) ? `<button class="ver-hiit${nHiit ? ' com-alerta' : ''}" type="button" data-ver-hiit>ver estações ↓${nHiit ? ` · ⚠ ${nHiit} alerta${nHiit > 1 ? 's' : ''}` : ''}</button>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   const consumo = consumoVisivel(dia, doc.limitesUsados);
   const equip = consumo.length ? `<div class="consumo">${consumo.map((c) =>
     `<span class="consumo-chip${c.estourou ? ' estourou' : ''}">${esc(c.nome)} ${esc(c.usado)}${c.limite === null ? '' : `/${esc(c.limite)}`}</span>`).join('')}</div>` : '';
 
+  const doDia = (a) => (a.dias ?? []).includes(d.id);
+  const estourado = consumo.some((c) => c.estourou)
+    || (doc.alertasCross ?? []).some(doDia) || (doc.alertasHyrox ?? []).some(doDia);
   const vazio = !forca && !metabolicos ? '<p class="mut">Sem aula.</p>' : '';
-  return `<article class="card dia${consumo.some((c) => c.estourou) ? ' dia-estourado' : ''}">
+  // A aula principal vem primeiro, como no app do aluno: na terça o WOD, e o H1
+  // de catch-up embaixo; no sábado, o HIIT antes do H3.
+  const principalPrimeiro = dia.sessaoForca?.papel === 'alternativa';
+  return `<article class="card dia${estourado ? ' dia-estourado' : ''}">
     <header class="dia-h"><h3>${esc(d.nome)} <span class="mut">${esc(data)}</span></h3><div class="treinos">${chips}</div></header>
-    ${forca}${metabolicos}${vazio}${equip}
+    ${principalPrimeiro ? `${metabolicos}${forca}` : `${forca}${metabolicos}`}${vazio}${equip}
   </article>`;
+}
+
+/** A caixa vermelha dos alertas de um bloco (WOD, Hyrox). @param {string} titulo @param {string[]} textos @param {string} rodape */
+function caixaAlerta(titulo, textos, rodape) {
+  if (!textos.length) return '';
+  return `<div class="metab-alerta" role="alert">
+      <h4>⚠ ${esc(titulo)}</h4>
+      <ul>${textos.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+      <p class="mut">${esc(rodape)}</p>
+    </div>`;
+}
+
+/**
+ * O bloco 1 da aula de Cross: a Técnica / Força no movimento-foco — dinâmica,
+ * objetivo, carga e a conta das duplas. `undefined` (WOD gravado antes do
+ * bloco) não desenha nada; `null` avisa que falta o foco.
+ * @param {any} doc @param {any} w o `cross` do dia @param {boolean} podeTrocar
+ */
+function blocoTecnica(doc, w, podeTrocar) {
+  const t = w.tecnica;
+  if (t === undefined) return '';
+  if (t === null) {
+    return `<section class="cross-bloco tecnica">
+        <h5><span class="cross-n">1</span> Técnica / Força</h5>
+        <p class="tecnica-falta">Nenhum movimento do WOD serve de foco (olímpico, barra, kettlebell ou ginástica).
+          Troque um movimento: a semana não publica sem este bloco.</p>
+      </section>`;
+  }
+  const alertas = alertasDaTecnica(doc).map((a) => textoAlertaCross(a, nomesDoWod(doc)));
+  const duplas = Number.isInteger(doc.alunosPorAula)
+    ? `Duplas revezando: até ${unidadesNaTecnica(doc.alunosPorAula)} ao mesmo tempo (turma de ${doc.alunosPorAula}).` : '';
+  return `<section class="cross-bloco tecnica${alertas.length ? ' em-alerta' : ''}">
+      <h5><span class="cross-n">1</span> Técnica / Força</h5>
+      <p class="tecnica-foco">${esc(tituloTecnica(t))}</p>
+      ${caixaAlerta('Equipamento da Técnica / Força acima do limite', alertas, 'Troque o foco, troque o movimento no WOD ou ajuste o inventário.')}
+      <p class="tecnica-dinamica">${esc(t.dinamica)}</p>
+      <p class="tecnica-linha"><b>Objetivo:</b> ${esc(t.objetivo)}</p>
+      ${t.carga ? `<p class="tecnica-linha"><b>Carga:</b> ${esc(t.carga)}</p>` : ''}
+      ${duplas ? `<p class="mut dia-rodape">${esc(duplas)}</p>` : ''}
+      ${podeTrocar && t.alternativas?.length ? `<button class="ex-trocar tecnica-trocar" type="button" data-trocar-foco
+        aria-label="Trocar o foco da Técnica / Força (${esc(t.nome)})">trocar foco</button>` : ''}
+    </section>`;
+}
+
+/**
+ * A aula de Cross no cartão do dia, em dois blocos: 1 · Técnica / Força (o
+ * movimento-foco) e 2 · WOD (formato e tempo, os movimentos com RX e Scaled,
+ * a carga e o rodapé com a conta da turma). Movimento em alerta fica
+ * vermelho; o foco leva o selo; com `hoje`, cada movimento ganha "trocar".
+ * @param {any} doc @param {any} dia @param {{modalidade: string, papel: string}} b @param {string} [hoje]
+ */
+function blocoWod(doc, dia, b, hoje) {
+  const w = dia.cross;
+  const emAlerta = movimentosEmAlerta(doc);
+  const podeTrocar = hoje !== undefined && conteudoEditavel(doc, 'cross', hoje);
+  const nomes = nomesDoWod(doc);
+  const alertas = (doc.alertasCross ?? []).filter((a) => !a.bloco).map((a) => textoAlertaCross(a, nomes));
+  const foco = w.tecnica?.exercicioId;
+  const movs = w.movimentos.map((m, i) => `
+        <li class="wod-mov${emAlerta.has(m.exercicioId) ? ' em-alerta' : ''}">
+          <span class="ex-inst">${esc(NOME_PADRAO_CROSS[m.padrao] ?? m.padrao ?? '')}${m.exercicioId === foco ? ' <span class="wod-foco">★ foco da técnica</span>' : ''}</span>
+          <span class="ex-nome">${esc(m.nome)}</span>
+          <span class="wod-presc"><b>RX</b> ${esc(quantidadeCross(m, m.rx))} <span class="mut">·</span> <b>Scaled</b> ${esc(quantidadeCross(m, m.scaled))}</span>
+          ${m.carga ? `<span class="wod-carga mut">Carga ${esc(m.carga.rx)} · Scaled ${esc(m.carga.scaled)}</span>` : ''}
+          ${podeTrocar ? `<button class="ex-trocar" type="button" data-trocar-cross="${i + 1}"
+            aria-label="Trocar ${esc(m.nome)} (WOD, movimento ${i + 1})">trocar</button>` : ''}
+        </li>`).join('');
+  const conta = textoContaWod(w, doc.alunosPorAula);
+  const comTecnica = w.tecnica !== undefined;
+  return `
+    <div class="metabolico wod${b.papel === 'principal' ? ' principal' : ''}">
+      <h4>Cross <span class="mut">· ${comTecnica ? 'Técnica / Força + WOD' : esc(tituloWod(w))}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
+      ${blocoTecnica(doc, w, podeTrocar)}
+      <section class="cross-bloco">
+        ${comTecnica ? `<h5><span class="cross-n">2</span> WOD <span class="mut">· ${esc(tituloWod(w))}</span></h5>` : ''}
+        <p class="mut">${esc(w.descricao)}</p>
+        ${caixaAlerta('Equipamento do WOD acima do limite', alertas, 'Os movimentos envolvidos estão marcados. Troque um deles, sorteie de novo ou ajuste o inventário.')}
+        <ol class="wod-movs">${movs}</ol>
+        ${conta ? `<p class="mut dia-rodape">${esc(conta)}</p>` : ''}
+      </section>
+    </div>`;
+}
+
+/**
+ * O Hyrox no cartão do dia: o formato, a corrida (com a air bike) e as
+ * estações numa tabela com os 4 níveis. Estação na substituta leva o selo e a
+ * estação da prova embaixo; em alerta fica vermelha; com `hoje`, a que tem
+ * substituta ganha "trocar".
+ * @param {any} doc @param {any} dia @param {{modalidade: string, papel: string}} b @param {string} [hoje]
+ */
+function blocoHyrox(doc, dia, b, hoje) {
+  const h = dia.hyrox;
+  const emAlerta = estacoesEmAlerta(doc);
+  const podeTrocar = hoje !== undefined && conteudoEditavel(doc, 'hyrox', hoje);
+  const nomeDe = new Map(h.estacoes.map((e) => [e.estacao, e.nome]));
+  const alertas = (doc.alertasHyrox ?? []).map((a) => textoAlertaHyrox(a, nomeDe.get(a.estacao)));
+  const celulas = (valores) => valores.map((v) => `<td class="hy-num">${esc(v)}</td>`).join('');
+  const corrida = linhasDaCorrida(h).map((l) => `
+          <tr class="hy-corrida"><th scope="row">${esc(l.rotulo)}${l.unidade ? ` <span class="mut">(${esc(l.unidade)})</span>` : ''}</th>${celulas(l.valores)}</tr>`).join('');
+  const estacoes = h.estacoes.map((e) => `
+          <tr class="hy-estacao${emAlerta.has(e.estacao) ? ' em-alerta' : ''}${e.substituta ? ' substituta' : ''}">
+            <th scope="row">
+              <span class="hy-n">${esc(e.n)}</span> <span class="hy-nome">${esc(e.nome)}</span>
+              <span class="mut hy-unid">(${esc(UNIDADE_HYROX[e.tipo] ?? e.tipo)})</span>
+              ${e.substituta ? `<span class="hy-sub">substituta de ${esc(e.base)}</span>` : ''}
+              ${podeTrocar && temSubstitutaHyrox(e.estacao) ? `<button class="ex-trocar hy-trocar" type="button" data-trocar-hyrox="${esc(e.estacao)}"
+                aria-label="Trocar ${esc(e.nome)} (Hyrox, estação ${esc(e.n)})">trocar</button>` : ''}
+            </th>${celulas(NIVEIS_HYROX.map((n) => String(e.prescricao?.[n.id] ?? '—')))}
+          </tr>`).join('');
+  return `
+    <div class="metabolico hyrox${b.papel === 'principal' ? ' principal' : ''}">
+      <h4>Hyrox <span class="mut">· ${esc(tituloHyrox(h))}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
+      <p class="mut">${esc(h.descricao)}</p>
+      ${caixaAlerta('Estação do Hyrox sem equipamento', alertas, 'Troque a estação pela substituta ou ajuste o inventário.')}
+      <table class="hy-tabela">
+        <thead><tr><th scope="col"><span class="sr">Estação</span></th>${NIVEIS_HYROX.map((n) => `<th scope="col" title="${esc(n.nome)}">${esc(n.curto)}</th>`).join('')}</tr></thead>
+        <tbody>${corrida}${estacoes}
+        </tbody>
+      </table>
+      <p class="mut dia-rodape">A corrida vem antes de cada estação. Air bike: mesmo esforço, sem impacto.</p>
+    </div>`;
 }
 
 /**

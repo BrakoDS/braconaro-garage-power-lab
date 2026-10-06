@@ -121,7 +121,14 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     equipamentos: ['trx'],
     hiit: { estacoes: ['superiores'] },
     adaptacoes: {},
-    cross: { padrao: 'puxar', unidade: 'reps', rx: 12 },
+    cross: {
+      padrao: 'puxar', unidade: 'reps', rx: 12,
+      tecnica: {
+        categoria: 'ginastica', tipo: 'skill', minutos: 10,
+        dinamica: 'EMOM 10 min: 8–10 remadas estritas, ajustando o ângulo do corpo.',
+        objetivo: 'Retração das escápulas e corpo em prancha do começo ao fim.',
+      },
+    },
   },
   face_pull_monocross: {
     nome: 'Face pull na corda', instancia: 'puxar_horizontal',
@@ -171,7 +178,15 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
       joelho: 'elevacao_pelvica', lombar: 'leg_press_vertical_smith',
       ombro: 'bulgaro_caixote', mobilidade: 'agachamento_trx',
     },
-    cross: { padrao: 'agachar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' } },
+    cross: {
+      padrao: 'agachar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
+      tecnica: {
+        categoria: 'barra', tipo: 'forca', minutos: 12,
+        dinamica: '5 × 5 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.',
+        objetivo: 'Força de perna com o tronco ereto e os cotovelos altos no rack.',
+        carga: 'Acima da carga RX do WOD nas últimas séries',
+      },
+    },
   },
   bulgaro_caixote: {
     nome: 'Agachamento búlgaro no caixote', instancia: 'agachar',
@@ -229,7 +244,15 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     musculoPrincipal: ['posterior_coxa', 'gluteo', 'costas'], musculosSecundarios: ['core', 'antebraco'],
     equipamentos: ['barra', 'anilhas'],
     adaptacoes: { lombar: 'elevacao_pelvica', mobilidade: 'rdl_halter' },
-    cross: { padrao: 'quadril', unidade: 'reps', rx: 10, carga: { rx: '60/40 kg', scaled: '40/25 kg' } },
+    cross: {
+      padrao: 'quadril', unidade: 'reps', rx: 10, carga: { rx: '60/40 kg', scaled: '40/25 kg' },
+      tecnica: {
+        categoria: 'barra', tipo: 'forca', minutos: 12,
+        dinamica: '5 × 5 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.',
+        objetivo: 'Força de puxada do chão com a coluna neutra e a barra colada no corpo.',
+        carga: 'Acima da carga RX do WOD nas últimas séries',
+      },
+    },
   },
   rdl_smith: {
     nome: 'Levantamento terra romeno no Smith', instancia: 'estender_quadril',

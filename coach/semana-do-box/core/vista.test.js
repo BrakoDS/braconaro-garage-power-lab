@@ -9,7 +9,7 @@ import {
   rotuloDias, datasIsoDosDias, sessaoEditavel, diasParaSalvar, textoConflitos, selosDaOpcao, acoesDoConflito, temConflito, textoAvisoEdicao,
   RECURSOS_HIIT, TURMA_MAX, TURMA_MIN, alunosPorEstacao, hiitDaSemana, inventarioCompleto, nomesDoHiit,
   rotuloDiasHiit, slotsEmAlertaHiit, textoAlertaHiit, textoForaDoHiit, totalDeAlertas, turmaDoInventario,
-  acoesDoConflitoHiit, diasComHiitTrocado, hiitEditavel, rotuloSlots, selosDaOpcaoHiit,
+  acoesDoConflitoHiit, diasComHiitTrocado, hiitEditavel, rotuloSlots, selosDaOpcaoHiit, RECURSOS_CROSS_HYROX,
 } from './vista.js';
 
 /**
@@ -212,8 +212,13 @@ test('inventário: turma e documento de antes do HIIT', () => {
     alunosPorAula: 6,
   };
   assert.equal(turmaDoInventario(novo), 6);
-  assert.equal(inventarioCompleto(novo), true);
-  assert.equal(inventarioCompleto({ ...novo, alunosPorAula: 0 }), false, 'turma fora da faixa = incompleto');
+  assert.equal(inventarioCompleto(novo), false, 'de depois do HIIT e antes do Cross/Hyrox: sem barras e sled, normaliza');
+  const atual = {
+    ...novo,
+    equipamentos: { ...novo.equipamentos, ...Object.fromEntries(RECURSOS_CROSS_HYROX.map((r) => [r, { total: 1, emManutencao: 0 }])) },
+  };
+  assert.equal(inventarioCompleto(atual), true);
+  assert.equal(inventarioCompleto({ ...atual, alunosPorAula: 0 }), false, 'turma fora da faixa = incompleto');
   assert.deepEqual([TURMA_MIN, TURMA_MAX], [1, 40], 'mesma faixa do servidor');
   assert.deepEqual([1, 4, 5, 6, 8, 9].map(alunosPorEstacao), [1, 1, 2, 2, 2, 3], 'turma ÷ 4, para cima (espelho do servidor)');
 });
@@ -302,7 +307,8 @@ test('paridade: as listas de recursos da tela são as do servidor (functions/src
   };
   assert.deepEqual(RECURSOS, lista('RECURSOS_INVENTARIO'));
   assert.deepEqual(RECURSOS_HIIT, lista('RECURSOS_HIIT'));
-  for (const r of [...RECURSOS, ...RECURSOS_HIIT]) assert.ok(NOME_RECURSO[r], `recurso sem nome na tela: ${r}`);
+  assert.deepEqual(RECURSOS_CROSS_HYROX, lista('RECURSOS_CROSS_HYROX'));
+  for (const r of [...RECURSOS, ...RECURSOS_HIIT, ...RECURSOS_CROSS_HYROX]) assert.ok(NOME_RECURSO[r], `recurso sem nome na tela: ${r}`);
 });
 
 test('troca no HIIT: a trava espelha a do servidor (sexta ou sábado no passado)', () => {

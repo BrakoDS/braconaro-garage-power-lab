@@ -14,11 +14,12 @@ import {
   MUSCULOS, NIVEIS_HYROX, OBSERVACAO_PADRAO, PADROES_CROSS, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA,
   RECURSO_DO_EQUIPAMENTO, RECURSOS_BOX, RECURSOS_CROSS, REGRA_FORMATO_CROSS, REGRA_FORMATO_HYROX, RODADAS_CROSS,
   NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, RECURSOS_INVENTARIO, SESSOES_H, SESSOES_METABOLICAS, SLOTS_POR_ESTACAO,
-  UNIDADES_CROSS,
+  UNIDADES_CROSS, CATEGORIAS_FOCO, MINUTOS_TECNICA, TIPOS_TECNICA,
   type AlertaCrossDaSemana, type AlertaEquipamento, type AlertaHiitDaSemana, type AlertaHyrox, type AlertaHyroxDaSemana, type DadosCross,
   type DadosHiit, type DiaProgramado, type DiaSemana, type EstacaoHiit, type EstacaoHyrox, type EstacaoHyroxProgramada,
   type EstacaoProgramada, type ExercicioCatalogo, type FormatoCross, type FormatoHyrox, type HiitProgramado,
   type HyroxProgramado, type MovimentoCross, type NivelHyrox, type SlotHiit, type UnidadeCross, type WodProgramado,
+  type DadosTecnica, type TecnicaProgramada,
   type ExercicioProgramado, type FeedbackExercicio, type ItemCatalogo, type Modalidade, type Musculo, type PapelSessao,
   type RecursoBox, type RecursoCross, type RecursoHiit, type RecursoInventario, type SessaoH, type SessaoMetabolica,
   type StatusRecurso,
@@ -254,6 +255,28 @@ function lerDadosCross(v: unknown): DadosCross | null {
       consumo[r] = q;
     }
     dados.consumoPorAluno = consumo;
+  }
+  if (c.tecnica !== undefined) {
+    const tecnica = lerDadosTecnica(c.tecnica);
+    if (!tecnica) return null;
+    dados.tecnica = tecnica;
+  }
+  return dados;
+}
+
+function lerDadosTecnica(v: unknown): DadosTecnica | null {
+  const t = (v ?? null) as Record<string, unknown> | null;
+  if (!t || typeof t !== 'object') return null;
+  if (!em(CATEGORIAS_FOCO, t.categoria) || !em(TIPOS_TECNICA, t.tipo)) return null;
+  const minutos = inteiro(t.minutos, MINUTOS_TECNICA.min, MINUTOS_TECNICA.max);
+  const dinamica = texto(t.dinamica, 300);
+  const objetivo = texto(t.objetivo, 300);
+  if (minutos === null || !dinamica || !objetivo) return null;
+  const dados: DadosTecnica = { categoria: t.categoria, tipo: t.tipo, minutos, dinamica, objetivo };
+  if (t.carga !== undefined) {
+    const carga = texto(t.carga, 120);
+    if (!carga) return null;
+    dados.carga = carga;
   }
   return dados;
 }
@@ -517,7 +540,50 @@ export function lerCross(
     minutos = inteiro(c.minutos, MINUTOS_CROSS.min, MINUTOS_CROSS.max);
     if (minutos === null) return { erro: `${dia}: o ${formato} precisa dos minutos (inteiro de ${MINUTOS_CROSS.min} a ${MINUTOS_CROSS.max}).` };
   }
-  return { cross: { formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos } };
+
+  // O foco da Técnica / Força: o que o pedido escolheu, se é um movimento do WOD
+  // que serve de foco; sem escolha, o de categoria mais à frente.
+  const t = (c.tecnica ?? null) as { exercicioId?: unknown } | null;
+  const escolhido = t ? texto(t.exercicioId, 100) : '';
+  if (escolhido) {
+    const item = catalogo.get(escolhido);
+    if (!movimentos.some((m) => m.exercicioId === escolhido)) {
+      return { erro: `${dia}: o foco da Técnica / Força tem de ser um movimento do WOD.` };
+    }
+    if (!item?.cross?.tecnica) return { erro: `${dia}: ${item?.nome ?? escolhido} não tem bloco de Técnica / Força no catálogo.` };
+  }
+  const tecnica = tecnicaDoWod(movimentos.map((m) => m.exercicioId), catalogo, escolhido || undefined);
+  return { cross: { formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos, tecnica } };
+}
+
+/**
+ * O bloco de Técnica / Força de um WOD: o foco é `preferido` (se for um dos
+ * movimentos e tiver técnica) ou o de categoria mais à frente em
+ * `CATEGORIAS_FOCO` (olímpico > barra > kettlebell > ginástica); empate, o
+ * primeiro no WOD. `null` se nenhum movimento serve de foco. O gerador, a
+ * validação e a troca usam ESTE.
+ */
+export function tecnicaDoWod(
+  ids: readonly string[],
+  catalogo: ReadonlyMap<string, ItemCatalogo>,
+  preferido?: string,
+): TecnicaProgramada | null {
+  const candidatos = ids
+    .map((id) => ({ id, item: catalogo.get(id) }))
+    .filter((x): x is { id: string; item: ItemCatalogo & { cross: DadosCross & { tecnica: DadosTecnica } } } => !!x.item?.cross?.tecnica);
+  if (!candidatos.length) return null;
+  const rank = (x: (typeof candidatos)[number]) => CATEGORIAS_FOCO.indexOf(x.item.cross.tecnica.categoria);
+  const foco = candidatos.find((x) => x.id === preferido)
+    ?? [...candidatos].sort((a, b) => rank(a) - rank(b))[0];
+  const t = foco.item.cross.tecnica;
+  return {
+    exercicioId: foco.id, nome: foco.item.nome,
+    categoria: t.categoria, tipo: t.tipo, minutos: t.minutos, dinamica: t.dinamica, objetivo: t.objetivo,
+    carga: t.carga ?? null,
+    consumoPorAluno: consumoCross(foco.item),
+    alternativas: candidatos.filter((x) => x.id !== foco.id)
+      .map((x) => ({ exercicioId: x.id, nome: x.item.nome, categoria: x.item.cross.tecnica.categoria })),
+  };
 }
 
 /* ───────────────────────────── o Hyrox ───────────────────────────── */
@@ -802,6 +868,10 @@ export function problemasParaPublicar(
       if (d.cross.movimentos.length < minimo) {
         problemas.push(`${dia}: o WOD (${d.cross.formato}) tem ${d.cross.movimentos.length} de ${minimo} movimentos.`);
       }
+      // `null` = nenhum movimento serve de foco. Ausente = WOD de antes do bloco: não trava.
+      if (d.cross.tecnica === null) {
+        problemas.push(`${dia}: o WOD não tem movimento para a Técnica / Força (olímpico, barra, kettlebell ou ginástica).`);
+      }
     }
   }
   for (const a of alertas) {
@@ -821,6 +891,11 @@ export function problemasParaPublicar(
   for (const a of alertasCross) {
     const wod = dias[a.dias[0]].cross;
     const quem = a.exercicios.map((id) => nomes.get(id) ?? id).join(' + ');
+    if (a.bloco === 'tecnica') {
+      problemas.push(`${rotuloDias(a.dias)}: na Técnica / Força, ${quem} precisa de ${a.usado} ${a.recurso} (duplas revezando, `
+        + `${alunosPorAula} alunos), e o box tem ${a.limite} ativo(s).`);
+      continue;
+    }
     const porque = !wod ? '' : REGRA_FORMATO_CROSS[wod.formato].escalonado
       ? ` (${alunosPorMovimento(wod.formato, alunosPorAula, wod.movimentos.length)} alunos por movimento)`
       : ` (no ${wod.formato}, os ${alunosPorAula} alunos no mesmo minuto)`;

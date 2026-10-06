@@ -5,7 +5,7 @@
  *
  * Carrega na primeira vez que a aba aparece, não no boot: quem abre a ferramenta
  * para gerar a semana não paga a leitura. Documento que ainda não existe — ou
- * gravado antes do HIIT, sem os recursos dele e sem a turma — passa por
+ * gravado antes do HIIT ou do Cross/Hyrox, sem os recursos deles ou sem a turma — passa por
  * `salvarInventario({})`: o servidor grava os PADRÕES dele e os devolve, e a
  * tela não precisa conhecer "smith 2, banco 2, kettlebell 10…".
  *
@@ -63,7 +63,7 @@ export function montar(ctx) {
     desenhar();
     try {
       let doc = await lerInventario(ctx.uid());
-      // Primeira vez, ou inventário de antes do HIIT: o servidor grava os
+      // Primeira vez, ou inventário de antes do HIIT/Cross/Hyrox: o servidor grava os
       // padrões dele (e mantém o que já estava gravado) e devolve.
       if (!inventarioCompleto(doc)) doc = await salvarInventario({});
       aplicar(doc);

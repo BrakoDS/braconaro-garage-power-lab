@@ -40,37 +40,85 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     ...SEM, nome: 'Power clean (barra)',
     musculoPrincipal: ['posterior_coxa', 'gluteo', 'quadriceps'], musculosSecundarios: ['trapezio', 'costas', 'core'],
     equipamentos: [...BARRA],
-    cross: { padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '50/35 kg', scaled: '30/20 kg' } },
+    cross: {
+      padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '50/35 kg', scaled: '30/20 kg' },
+      tecnica: {
+        categoria: 'olimpico', tipo: 'tecnica', minutos: 10,
+        dinamica: 'EMOM 10 min: 3 power cleans por minuto, subindo a carga de leve a moderada.',
+        objetivo: 'Recepção rápida da barra e extensão completa de quadril.',
+        carga: 'Leve a moderada, até a carga RX do WOD',
+      },
+    },
   },
   hang_power_clean: {
     ...SEM, nome: 'Hang power clean (barra)',
     musculoPrincipal: ['posterior_coxa', 'gluteo'], musculosSecundarios: ['trapezio', 'quadriceps', 'core'],
     equipamentos: [...BARRA],
-    cross: { padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '50/35 kg', scaled: '30/20 kg' } },
+    cross: {
+      padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '50/35 kg', scaled: '30/20 kg' },
+      tecnica: {
+        categoria: 'olimpico', tipo: 'tecnica', minutos: 10,
+        dinamica: 'EMOM 10 min: 3 hang power cleans por minuto, subindo a carga de leve a moderada.',
+        objetivo: 'Extensão explosiva de quadril a partir do hang e cotovelos rápidos na recepção.',
+        carga: 'Leve a moderada, até a carga RX do WOD',
+      },
+    },
   },
   ground_to_overhead: {
     ...SEM, nome: 'Ground to overhead (barra)',
     musculoPrincipal: ['ombro', 'gluteo', 'quadriceps'], musculosSecundarios: ['trapezio', 'triceps', 'core'],
     equipamentos: [...BARRA],
-    cross: { padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '40/30 kg', scaled: '25/15 kg' } },
+    cross: {
+      padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
+      tecnica: {
+        categoria: 'olimpico', tipo: 'tecnica', minutos: 10,
+        dinamica: 'EMOM 10 min: 2 ground to overhead por minuto, subindo a carga de leve a moderada.',
+        objetivo: 'Chão → ombro → acima da cabeça com a barra perto do corpo e o tronco firme.',
+        carga: 'Leve a moderada, até a carga RX do WOD',
+      },
+    },
   },
   push_press: {
     ...SEM, nome: 'Push press (barra, após o clean)',
     musculoPrincipal: ['ombro'], musculosSecundarios: ['triceps', 'quadriceps', 'core'],
     equipamentos: [...BARRA],
-    cross: { padrao: 'empurrar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' } },
+    cross: {
+      padrao: 'empurrar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
+      tecnica: {
+        categoria: 'barra', tipo: 'forca', minutos: 12,
+        dinamica: '5 × 5 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.',
+        objetivo: 'Dip and drive: a força da perna passando para a barra acima da cabeça.',
+        carga: 'Acima da carga RX do WOD nas últimas séries',
+      },
+    },
   },
   thruster_barra: {
     ...SEM, nome: 'Thruster (barra, após o clean)',
     musculoPrincipal: ['quadriceps', 'ombro'], musculosSecundarios: ['gluteo', 'triceps', 'core'],
     equipamentos: [...BARRA],
-    cross: { padrao: 'corpo_todo', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' } },
+    cross: {
+      padrao: 'corpo_todo', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
+      tecnica: {
+        categoria: 'barra', tipo: 'forca', minutos: 12,
+        dinamica: '5 × 3 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.',
+        objetivo: 'Agachamento frontal ligado ao empurrar, sem pausa no fundo.',
+        carga: 'Acima da carga RX do WOD nas últimas séries',
+      },
+    },
   },
   sdhp_barra: {
     ...SEM, nome: 'Sumo deadlift high pull (barra)',
     musculoPrincipal: ['trapezio', 'posterior_coxa', 'gluteo'], musculosSecundarios: ['ombro', 'costas'],
     equipamentos: [...BARRA],
-    cross: { padrao: 'puxar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' } },
+    cross: {
+      padrao: 'puxar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
+      tecnica: {
+        categoria: 'barra', tipo: 'tecnica', minutos: 10,
+        dinamica: '4 × 6 com carga moderada, 1 min de descanso — duplas revezando a barra.',
+        objetivo: 'Sequência pernas → quadril → braços, com os cotovelos acima das mãos.',
+        carga: 'Moderada, a carga RX do WOD',
+      },
+    },
   },
 
   /* ───────────── kettlebell ───────────── */
@@ -78,7 +126,15 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     ...SEM, nome: 'Sumo deadlift high pull (kettlebell)',
     musculoPrincipal: ['trapezio', 'gluteo'], musculosSecundarios: ['ombro', 'posterior_coxa'],
     equipamentos: ['kettlebell'],
-    cross: { padrao: 'puxar', unidade: 'reps', rx: 12, carga: { rx: '16/12 kg', scaled: '12/8 kg' } },
+    cross: {
+      padrao: 'puxar', unidade: 'reps', rx: 12, carga: { rx: '16/12 kg', scaled: '12/8 kg' },
+      tecnica: {
+        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10,
+        dinamica: '4 × 8 com carga moderada, 1 min de descanso.',
+        objetivo: 'Sequência pernas → quadril → braços, com o kettlebell perto do corpo.',
+        carga: 'Moderada, a carga RX do WOD',
+      },
+    },
   },
   farmer_carry_kb: {
     ...SEM, nome: 'Farmer carry (2 kettlebells)',

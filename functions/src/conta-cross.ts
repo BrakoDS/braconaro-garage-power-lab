@@ -20,7 +20,7 @@
  * gargalo de fila é do coach organizar, como sempre foi.
  */
 import {
-  RECURSO_CROSS_DO_EQUIPAMENTO, RECURSOS_BOX, RECURSOS_CROSS, REGRA_FORMATO_CROSS,
+  ALUNOS_POR_EQUIPAMENTO_TECNICA, RECURSO_CROSS_DO_EQUIPAMENTO, RECURSOS_BOX, RECURSOS_CROSS, REGRA_FORMATO_CROSS,
   type AlertaCross, type AlertaHyrox, type FormatoCross, type ItemCatalogo, type RecursoBox, type RecursoCross,
 } from './modelo-box';
 
@@ -56,18 +56,26 @@ export function demandaDoMovimento(
   return d;
 }
 
+/** Alunos por unidade na Técnica / Força: duplas revezando, então turma ÷ 2 (para cima) unidades. */
+export function unidadesNaTecnica(alunosPorAula: number): number {
+  return Math.max(1, Math.ceil(alunosPorAula / ALUNOS_POR_EQUIPAMENTO_TECNICA));
+}
+
 /**
- * A conta de equipamento de um WOD montado — o gerado ou o editado. Usa o
+ * A conta de equipamento do Cross montado — o gerado ou o editado. Usa o
  * `consumoPorAluno` gravado em cada movimento (não relê o catálogo).
  *
- *  - `consumo`: o pico de cada recurso (soma no escalonado, maior no EMOM);
+ *  - `consumo`: o pico de cada recurso NO WOD (soma no escalonado, maior no EMOM);
  *  - `alertas`: no EMOM, um por movimento que sozinho passa; no escalonado, um
- *    por recurso cuja SOMA passa, com todos os movimentos que o usam.
+ *    por recurso cuja SOMA passa, com todos os movimentos que o usam;
+ *  - e a Técnica / Força, que acontece ANTES (não soma com o WOD): duplas
+ *    revezando, turma ÷ 2 × consumo do foco. Passou: alerta com `bloco: 'tecnica'`.
  */
 export function contarCross(
   wod: {
     formato: FormatoCross;
     movimentos: readonly { exercicioId: string; consumoPorAluno?: Partial<Record<RecursoCross, number>> }[];
+    tecnica?: { exercicioId: string; consumoPorAluno?: Partial<Record<RecursoCross, number>> } | null;
   },
   limites: Record<RecursoCross, number>,
   alunosPorAula: number,
@@ -92,6 +100,12 @@ export function contarCross(
   if (escalonado) {
     for (const r of RECURSOS_CROSS) {
       if ((consumo[r] ?? 0) > limites[r]) alertas.push({ recurso: r, usado: consumo[r]!, limite: limites[r], exercicios: quem[r]! });
+    }
+  }
+  if (wod.tecnica) {
+    const d = demandaDoMovimento(wod.tecnica.consumoPorAluno ?? {}, unidadesNaTecnica(alunosPorAula));
+    for (const [r, n] of Object.entries(d) as [RecursoCross, number][]) {
+      if (n > limites[r]) alertas.push({ recurso: r, usado: n, limite: limites[r], exercicios: [wod.tecnica.exercicioId], bloco: 'tecnica' });
     }
   }
   return { consumo, alertas };
