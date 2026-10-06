@@ -81,7 +81,8 @@ console.log('\nDatas da semana');
 console.log('\nInventário');
 {
   const padrao = lerInventario(undefined);
-  ok(igual(padrao.limitesAtivos, INVENTARIO_PADRAO), 'sem documento = padrão (smith 2, banco 2, monocross 3, maquinaLegs 1, cavalinho 2)');
+  ok(igual(RECURSOS_INVENTARIO.map((r) => padrao.limitesAtivos[r]), RECURSOS_INVENTARIO.map((r) => INVENTARIO_PADRAO[r])),
+    'sem documento = padrão (smith 2, banco 2, monocross 3, maquinaLegs 1, cavalinho 2)');
   const quebrado = lerInventario({ equipamentos: { smith: { total: 2, emManutencao: 1 }, banco: { total: -1 } } });
   ok(quebrado.limitesAtivos.smith === 1, 'smith com 1 em manutenção = 1 ativo');
   ok(quebrado.limitesAtivos.banco === 2, 'valor torto gravado volta ao padrão');

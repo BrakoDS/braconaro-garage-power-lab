@@ -6,6 +6,7 @@ Região `southamerica-east1`, Node 22, TypeScript (`src/` → `lib/`).
 npm run build                      # tsc
 npm run checar                     # lógica pura (IA, preços, Montador, conquistas e semana do box), sem rede
 npm run checar:box                 # só a semana do box
+npm run checar:hiit                # só o gerador do HIIT
 npm run checar:emulador            # exclusão de treino contra o emulador do Firestore
 npm run checar:emulador:conquistas # motor de conquistas de ponta a ponta (Firestore + Functions)
 npm run seed:catalogo              # simula o seed do catálogo base; `-- --gravar` grava
@@ -84,6 +85,37 @@ firebase deploy --only functions:gerarMatrizSemanalBox,functions:salvarSemanaBox
 
 A mudança do 0,5 no dashboard está em funções que JÁ existem — `parseWorkoutLousa` e
 `aggregateVolumeMetrics` — e só vale depois do deploy delas.
+
+### HIIT (`src/gerador-hiit.ts`, conferido pelo `checar-hiit`)
+
+Módulo separado da matriz H. Regras do coach (05/10/2026):
+
+- **4 estações** — Pernas, Core, Superiores, Cardio — em ordem sorteada, cada uma com o protocolo
+  `PROTOCOLO_HIIT` ("2 Músicas de Tabata (16 rounds no total). 4x cada exercício.").
+- **4 slots por estação, exatos.** Unilateral (`unilateral: true` no catálogo) ocupa 2 slots
+  seguidos, lado D e depois E; bilateral ocupa 1. Unilateral nunca começa no último slot.
+- **Sem repetição no dia:** nem entre estações, nem com o bloco de força do dia (`proibidos` = o H3,
+  que divide a sexta e o sábado com o HIIT). Um HIIT por semana, o mesmo nos dois dias.
+- **Rodízio:** o que esteve no HIIT da semana anterior vai para o fim da fila; repetir vira aviso.
+- **Equipamento:** a turma (`alunosPorAula` do inventário, padrão **6**) se divide entre as 4
+  estações, que rodam ao mesmo tempo. Alunos por estação = turma ÷ 4, para cima (6 → 2).
+  - um exercício exige alunos por estação × consumo por aluno (1 de cada recurso que os
+    `equipamentos` tocam, ou `hiit.consumoPorAluno`). Se nem sozinho cabe (clean com sandbag para 2
+    alunos, com 1 sandbag), sai do sorteio e fica em `foraPorEquipamento`;
+  - no round N toda estação está no slot N: o slot N das 4 estações somado também respeita o limite
+    (TRX em Pernas e em Superiores nunca no mesmo slot com 2 TRX no box).
+  - sem combinação dentro do inventário, sai completo assim mesmo, com `alertas` (como o bloco H).
+
+**Catálogo:** `hiit: { estacoes: [...] }` (lista fechada `ESTACOES_HIIT`) marca o exercício para o
+HIIT. Os de força que servem também (TRX, ponte, step-up, abdominais) ganharam `hiit` no
+`catalogo-base.ts`; os só de HIIT, sem instância de força, estão em `catalogo-hiit.ts` — o bloco H
+não os vê (`lerExercicioCatalogo` descarta; `lerItemCatalogo` lê os dois).
+
+**Inventário:** `inventario/atual` ganhou os recursos do HIIT (`RECURSOS_HIIT`: kettlebell 10,
+wall ball 4, caixote 4, corda naval 2, corda de pular 2, sandbag 1, air bike 2, TRX 2, halteres 4)
+e `alunosPorAula`. Um inventário gravado antes disso é lido com os números de fábrica do HIIT. Os
+recursos do HIIT ficam fora de `RECURSOS_INVENTARIO`: o bloco H continua sem contar TRX nem
+kettlebell.
 
 ## Motor de conquistas (`calcularConquistasXP*`)
 

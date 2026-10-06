@@ -47,7 +47,7 @@ export function descansoDaVaga(sessao: SessaoH, posicao: number, instancia: Inst
 const MAX_TROCAS_POR_BLOCO = 30;
 
 /** Mesmo mulberry32 do `gerador.js`: RNG pequeno e reproduzível. */
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a |= 0; a = (a + 0x6d2b79f5) | 0;
@@ -58,7 +58,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /** Mesmo FNV-1a do `gerador.js`. */
-function hashSeed(texto: string): number {
+export function hashSeed(texto: string): number {
   let h = 2166136261;
   for (let i = 0; i < texto.length; i++) {
     h ^= texto.charCodeAt(i);
@@ -67,7 +67,7 @@ function hashSeed(texto: string): number {
   return h >>> 0;
 }
 
-function embaralhar<T>(lista: readonly T[], rng: () => number): T[] {
+export function embaralhar<T>(lista: readonly T[], rng: () => number): T[] {
   const a = [...lista];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
