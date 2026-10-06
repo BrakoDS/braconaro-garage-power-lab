@@ -1123,3 +1123,14 @@ export function historicoComSessao<P extends { sessaoId: string; volume: Partial
     volumeAcumulado: somarVolumes(presencas.map((p) => p.volume ?? {})),
   };
 }
+
+/**
+ * A semana inteira SEM AULA: os 6 dias sem `treinos` e com o aviso (feriado,
+ * recesso, evento). Vai gravado no documento (`emBranco`) para o motor de
+ * conquistas e as telas acharem as semanas que PAUSAM a sequência sem ler e
+ * analisar todas as semanas — uma consulta `status == publicado && emBranco ==
+ * true`. Semana com um dia de aula não é em branco: a sequência vale.
+ */
+export function semanaEmBrancoNosDias(dias: Record<DiaSemana, Pick<DiaProgramado, 'treinos' | 'aviso'>>): boolean {
+  return DIAS_SEMANA.every((dia) => !dias[dia]?.treinos.length && !!dias[dia]?.aviso);
+}

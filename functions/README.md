@@ -271,6 +271,13 @@ status da semana continua `rascunho`/`publicado` — a regra do Firestore libera
   motivo"). Semana em branco publica. `reconferirSemana` lê o aviso (o inventário salvo não transforma
   feriado em problema) e a trava de dia passado (`diasPassadosAlterados`) inclui o aviso.
 - `registrarSessaoAluno` num dia de aviso: "Não teve aula no box na quinta dessa semana (feriado)".
+- **Pausa da sequência** (06/10/2026): a semana grava `emBranco: true` quando os 6 dias estão sem aula e com
+  aviso (`semanaEmBrancoNosDias`; recalculado no gerar, no salvar e no programar dia — programar um dia tira
+  a pausa). `streakSemanas(dias, meta, pausadas)` (original em `compartilhado/regras/gamificacao.js`, cópias
+  no app, aqui e no Portal) PULA a semana pausada sem treino: não soma e não quebra; com treino, conta. O
+  motor de conquistas lê as pausadas (`lerSemanasPausadas`: `status == publicado && emBranco == true`) e
+  passa em `contextoDoAluno({ semanasPausadas })`; as telas (app, Portal, Gestão de Alunos, Portal antigo)
+  fazem a mesma consulta (`compartilhado/firebase/semanas-pausadas.js` no site).
 
 ## Motor de conquistas (`calcularConquistasXP*`)
 

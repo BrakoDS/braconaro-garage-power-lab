@@ -17,7 +17,7 @@ import {
 } from './modelo-box';
 import {
   alertasDaSemana, aplicarInventario, consumoDoDia, contaDaSemana, diasComConteudoGravado, historicoComSessao, intervaloDaSemana,
-  lerAviso, lerDias,
+  lerAviso, lerDias, semanaEmBrancoNosDias,
   lerExercicioCatalogo, lerInventario, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior, semanaDoPedido,
   volumeDaSessao,
 } from './semana-box';
@@ -459,6 +459,9 @@ console.log('\nSemana em branco (feriado, recesso, evento) e um dia programado d
   const branca = semanaEmBranco({ tipo: 'recesso', texto: 'Recesso de fim de ano' });
   ok(DIAS_SEMANA.every((d) => !branca.dias[d].treinos.length && branca.dias[d].aviso?.tipo === 'recesso'), 'em branco: 6 dias sem aula, todos com o aviso');
   ok(!branca.trocas.length && !branca.avisos.length && !branca.alertas.length, 'em branco: sem sorteio, sem troca, sem alerta');
+  ok(semanaEmBrancoNosDias(branca.dias), 'emBranco: os 6 dias sem aula e com aviso (pausa a sequência)');
+  ok(!semanaEmBrancoNosDias({ ...branca.dias, sabado: { treinos: ['HIIT'], aviso: null } }), 'um dia de aula: não é em branco');
+  ok(!semanaEmBrancoNosDias({ ...branca.dias, quarta: { treinos: [], aviso: null } }), 'dia vazio sem aviso: não é em branco');
   const contaBranca = contaDaSemana(branca.dias, { ...INVENTARIO_PADRAO }, 6);
   ok(!contaBranca.alertas.length && !contaBranca.alertasHiit.length && !contaBranca.alertasCross.length && !contaBranca.alertasHyrox.length
     && !contaBranca.problemasParaPublicar.length, 'em branco: a conta do inventário não trava e a semana PUBLICA', contaBranca.problemasParaPublicar.join(' | '));
