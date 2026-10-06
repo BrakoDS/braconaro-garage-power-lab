@@ -251,6 +251,27 @@ servidor calcula o resto. Não publica com: WOD com menos movimentos que o forma
     volta à da prova), bloqueada se o equipamento dela não está ativo.
   - Os dois dizem `travada`, `temHoje` e `publicada`, como as trocas do H e do HIIT.
 
+### Semana em branco e dia sem aula (06/10/2026)
+
+Feriado, recesso ou evento (o Murph): o DIA sem aula guarda o motivo em `aviso: { tipo, texto }`
+(`TIPOS_AVISO`: feriado, recesso, evento; texto livre até `MAX_TEXTO_AVISO` = 500, acima é erro). O
+status da semana continua `rascunho`/`publicado` — a regra do Firestore libera a semana ao aluno por
+`status == 'publicado'`.
+
+- **Semana em branco:** `gerarMatrizSemanalBox({ data, emBranco: { tipo, texto } })` grava os 6 dias sem
+  aula com o aviso, sem sorteio (`semanaEmBranco` em `gerador-box.ts`; `geracao: null`).
+- **Marcar sem aula / editar o aviso:** a tela manda o dia com `treinos: []` e o `aviso` pelo
+  `salvarSemanaBox`. `diasComConteudoGravado` só devolve o HIIT/WOD/Hyrox gravados a um dia que ainda tem
+  aquela aula, e o aviso gravado só a um dia que continua sem aula.
+- **Programar um dia:** `programarDiaBox({ semanaId, dia })` sorteia a semana inteira (mesmo gerador,
+  rodízio, inventário e `geracao.variacao`) e grava SÓ aquele dia (`programarDia`): o H1 que já está
+  gravado na segunda (ou na terça) e o HIIT de sexta/sábado são copiados, para continuarem um só. Vale em
+  semana publicada, com as travas de `gravarDiasEditados` (as mesmas do `salvarSemanaBox`).
+- **Publicar:** dia sem aula publica COM o aviso; dia vazio sem aviso trava ("dia sem aula precisa do
+  motivo"). Semana em branco publica. `reconferirSemana` lê o aviso (o inventário salvo não transforma
+  feriado em problema) e a trava de dia passado (`diasPassadosAlterados`) inclui o aviso.
+- `registrarSessaoAluno` num dia de aviso: "Não teve aula no box na quinta dessa semana (feriado)".
+
 ## Motor de conquistas (`calcularConquistasXP*`)
 
 Grava `conquistas_aluno/{email}`: `{ xpAtual, conquistasDesbloqueadas, ultimaAtualizacao }`.

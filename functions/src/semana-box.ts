@@ -14,8 +14,8 @@ import {
   MUSCULOS, NIVEIS_HYROX, OBSERVACAO_PADRAO, PADROES_CROSS, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA,
   RECURSO_DO_EQUIPAMENTO, RECURSOS_BOX, RECURSOS_CROSS, REGRA_FORMATO_CROSS, REGRA_FORMATO_HYROX, RODADAS_CROSS,
   NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, RECURSOS_INVENTARIO, SESSOES_H, SESSOES_METABOLICAS, SLOTS_POR_ESTACAO,
-  UNIDADES_CROSS, CATEGORIAS_FOCO, MINUTOS_TECNICA, TIPOS_TECNICA,
-  type AlertaCrossDaSemana, type AlertaEquipamento, type AlertaHiitDaSemana, type AlertaHyrox, type AlertaHyroxDaSemana, type DadosCross,
+  UNIDADES_CROSS, CATEGORIAS_FOCO, MINUTOS_TECNICA, TIPOS_TECNICA, MAX_TEXTO_AVISO, NOME_TIPO_AVISO, TIPOS_AVISO,
+  type AvisoDoDia, type AlertaCrossDaSemana, type AlertaEquipamento, type AlertaHiitDaSemana, type AlertaHyrox, type AlertaHyroxDaSemana, type DadosCross,
   type DadosHiit, type DiaProgramado, type DiaSemana, type EstacaoHiit, type EstacaoHyrox, type EstacaoHyroxProgramada,
   type EstacaoProgramada, type ExercicioCatalogo, type FormatoCross, type FormatoHyrox, type HiitProgramado,
   type HyroxProgramado, type MovimentoCross, type NivelHyrox, type SlotHiit, type UnidadeCross, type WodProgramado,
@@ -450,6 +450,11 @@ export function lerDias(
       hyrox = h.hyrox;
     }
 
+    const a = lerAviso(d.aviso, dia);
+    if (a && 'erro' in a) return a;
+    const aviso = a?.aviso ?? null;
+    if (aviso && treinos.length) return { erro: `${dia}: o aviso de ${NOME_TIPO_AVISO[aviso.tipo].toLowerCase()} é só de dia sem aula — tire os treinos ou o aviso.` };
+
     dias[dia] = {
       treinos,
       blocoPrincipal: bloco,
@@ -461,9 +466,27 @@ export function lerDias(
       hiit,
       cross,
       hyrox,
+      aviso,
     };
   }
   return { dias };
+}
+
+/**
+ * O aviso de um dia sem aula (`{ tipo, texto }`), ou `null` quando não tem.
+ * Texto acima de `MAX_TEXTO_AVISO` é erro, não corte: o coach precisa saber
+ * que a orientação do evento não coube.
+ */
+export function lerAviso(v: unknown, dia: string): { aviso: AvisoDoDia } | { erro: string } | null {
+  if (v === undefined || v === null) return null;
+  const a = v as Record<string, unknown>;
+  if (typeof v !== 'object' || !em(TIPOS_AVISO, a.tipo)) {
+    return { erro: `${dia}: o aviso é ${TIPOS_AVISO.join(', ')}.` };
+  }
+  if (a.texto !== undefined && typeof a.texto !== 'string') return { erro: `${dia}: o texto do aviso é um texto.` };
+  const bruto = typeof a.texto === 'string' ? a.texto.trim() : '';
+  if (bruto.length > MAX_TEXTO_AVISO) return { erro: `${dia}: o texto do aviso tem até ${MAX_TEXTO_AVISO} caracteres (veio ${bruto.length}).` };
+  return { aviso: { tipo: a.tipo, texto: bruto } };
 }
 
 /* ───────────────────────────── o WOD do Cross ───────────────────────────── */
@@ -722,7 +745,8 @@ export function lerHiit(
 }
 
 /** O conteúdo metabólico que o gerador monta e que o pedido de salvar pode não mandar. */
-const CONTEUDO_GRAVADO = ['hiit', 'cross', 'hyrox'] as const;
+/** Cada conteúdo gravado e a modalidade que o dia precisa ter para ele voltar. */
+const CONTEUDO_GRAVADO = [['hiit', 'HIIT'], ['cross', 'Cross'], ['hyrox', 'Hyrox']] as const;
 
 /**
  * Dias de um pedido de `salvarSemanaBox` com o HIIT, o WOD e o Hyrox GRAVADOS
@@ -732,6 +756,10 @@ const CONTEUDO_GRAVADO = ['hiit', 'cross', 'hyrox'] as const;
  *
  * Vale para cada chave em separado: um pedido com o `hiit` novo e sem `cross`
  * troca o HIIT e mantém o WOD.
+ *
+ * Só volta o que o dia do PEDIDO ainda comporta: o WOD gravado não volta num
+ * dia que o coach acabou de marcar "sem aula" (ele manda `treinos: []`), e o
+ * aviso gravado só volta num dia que continua sem aula.
  */
 export function diasComConteudoGravado(pedido: unknown, gravados: unknown): unknown {
   if (!pedido || typeof pedido !== 'object') return pedido;
@@ -743,7 +771,11 @@ export function diasComConteudoGravado(pedido: unknown, gravados: unknown): unkn
       continue;
     }
     const completo: Record<string, unknown> = { ...d };
-    for (const k of CONTEUDO_GRAVADO) if (!(k in d) && g[dia]?.[k]) completo[k] = g[dia]![k];
+    const treinos = Array.isArray((d as { treinos?: unknown }).treinos) ? (d as { treinos: unknown[] }).treinos : [];
+    for (const [k, modalidade] of CONTEUDO_GRAVADO) {
+      if (!(k in d) && g[dia]?.[k] && treinos.includes(modalidade)) completo[k] = g[dia]![k];
+    }
+    if (!('aviso' in d) && g[dia]?.aviso && !treinos.length) completo.aviso = g[dia]!.aviso;
     dias[dia] = completo;
   }
   return dias;
@@ -915,7 +947,11 @@ export function problemasParaPublicar(
     problemas.push(`${rotuloDias(a.dias)}: no Hyrox, ${nome} precisa de ${a.precisa} ${a.recurso}, e o box tem ${a.limite} ativo(s)`
       + `${a.temSubstituta ? ' — troque pela substituta' : ''}.`);
   }
-  if (DIAS_SEMANA.every((dia) => !dias[dia].treinos.length)) problemas.push('A semana não tem nenhum treino.');
+  // Dia sem aula publica — feriado, recesso, evento —, mas com o MOTIVO: um dia
+  // vazio sem aviso é esquecimento, e o aluno veria só "sem aula" sem saber por quê.
+  const semMotivo = DIAS_SEMANA.filter((dia) => !dias[dia].treinos.length && !dias[dia].aviso);
+  if (semMotivo.length === DIAS_SEMANA.length) problemas.push('A semana não tem nenhum treino.');
+  else if (semMotivo.length) problemas.push(`${rotuloDias(semMotivo)}: dia sem aula precisa do motivo (feriado, recesso ou evento).`);
   return problemas;
 }
 
@@ -980,6 +1016,8 @@ export function reconferirSemana(
       hiit: d.hiit && Array.isArray(d.hiit.estacoes) ? d.hiit : null,
       cross: d.cross && Array.isArray(d.cross.movimentos) && em(FORMATOS_CROSS, d.cross.formato) ? d.cross : null,
       hyrox: d.hyrox && Array.isArray(d.hyrox.estacoes) ? d.hyrox : null,
+      // Sem ele, todo feriado viraria "dia sem motivo" nos problemas da reconferência.
+      aviso: (() => { const a = lerAviso(d.aviso, dia); return a && 'aviso' in a ? a.aviso : null; })(),
     };
   }
   return contaDaSemana(dias, limites, alunosPorAula);

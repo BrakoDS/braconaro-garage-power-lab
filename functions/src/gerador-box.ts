@@ -27,7 +27,7 @@ import {
   FORMATOS_CROSS, FORMATOS_HYROX, GRADE_SEMANAL, MATRIZ_H, PRESCRICAO_FORCA, RECURSOS_INVENTARIO, SESSOES_H,
   VAGAS_COMPOSTO_PESADO,
   type AlertaCrossDaSemana, type AlertaEquipamento, type AlertaHiitDaSemana, type AlertaHyroxDaSemana,
-  type DiaProgramado, type DiaSemana, type EstacaoHyrox, type ExercicioCatalogo, type ForaPorEquipamento,
+  type AvisoDoDia, type DiaProgramado, type DiaSemana, type EstacaoHyrox, type ExercicioCatalogo, type ForaPorEquipamento,
   type FormatoCross, type FormatoHyrox, type Instancia, type ItemCatalogo, type Modalidade, type RecursoBox,
   type RecursoCross, type RecursoHiit, type RecursoInventario, type SessaoH, type TrocaEquipamento,
 } from './modelo-box';
@@ -363,4 +363,55 @@ export function gerarSemana(entrada: {
     alertasCross: alertasCrossDaSemana(lido.dias, limitesBox, alunosPorAula),
     alertasHyrox: alertasHyroxDaSemana(lido.dias, limitesBox),
   };
+}
+
+/* ───────────────────── Semana em branco e um dia programado depois ───────────────────── */
+
+/**
+ * Os 6 dias de uma semana EM BRANCO (feriado, recesso, evento), crus: sem aula
+ * e com o aviso. Passam por `lerDias` como qualquer pedido. Sem sorteio — o
+ * coach programa um dia depois, se quiser (`programarDia`).
+ */
+export function diasEmBranco(aviso: AvisoDoDia): Record<DiaSemana, unknown> {
+  return Object.fromEntries(DIAS_SEMANA.map((dia) => [dia, { treinos: [], aviso: { ...aviso } }])) as Record<DiaSemana, unknown>;
+}
+
+/**
+ * A semana em branco no formato do gerador, para `gerarMatrizSemanalBox`
+ * gravá-la pelo mesmo caminho: sem trocas, sem avisos, sem alertas.
+ */
+export function semanaEmBranco(aviso: AvisoDoDia): ResultadoGerador {
+  const lido = lerDias(diasEmBranco(aviso), new Map());
+  if ('erro' in lido) throw new Error(`Semana em branco inválida: ${lido.erro}`);
+  return { dias: lido.dias, alertas: [], trocas: [], avisos: [], alertasHiit: [], hiitFora: [], alertasCross: [], alertasHyrox: [] };
+}
+
+/**
+ * A semana `atuais` com o dia `dia` PROGRAMADO a partir de uma semana inteira
+ * sorteada (`sorteada`, saída de `gerarSemana` com o mesmo rodízio e o mesmo
+ * inventário). O dia ganha as aulas da grade e perde o aviso.
+ *
+ * O que a grade divide entre dois dias continua UM só: se o H1 já está gravado
+ * na segunda, a terça programada copia esse H1 (e não o sorteado); o mesmo vale
+ * para o HIIT de sexta e sábado. Os outros dias não mudam.
+ */
+export function programarDia(
+  atuais: Record<DiaSemana, DiaProgramado>,
+  dia: DiaSemana,
+  sorteada: Record<DiaSemana, DiaProgramado>,
+): Record<DiaSemana, DiaProgramado> {
+  const novo: DiaProgramado = { ...sorteada[dia], aviso: null };
+  const sessao = novo.sessaoForca?.sessao;
+  const irmaoH = sessao && DIAS_SEMANA.find((o) => o !== dia && atuais[o].sessaoForca?.sessao === sessao && atuais[o].blocoPrincipal.length);
+  if (irmaoH) {
+    const d = atuais[irmaoH];
+    Object.assign(novo, {
+      blocoPrincipal: d.blocoPrincipal, cadencia: d.cadencia, descansos: d.descansos, consumoEquipamentos: d.consumoEquipamentos,
+    });
+  }
+  if (novo.hiit) {
+    const irmaoHiit = DIAS_SEMANA.find((o) => o !== dia && atuais[o].hiit);
+    if (irmaoHiit) novo.hiit = atuais[irmaoHiit].hiit;
+  }
+  return { ...atuais, [dia]: novo };
 }
