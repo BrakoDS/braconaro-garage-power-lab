@@ -3,10 +3,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  DIAS, RECURSOS, NOME_INSTANCIA, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
+  DIAS, RECURSOS, NOME_INSTANCIA, NOME_RECURSO, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
   consumoVisivel, publicacao, variacaoSeguinte, msDe, datasDosDias, tituloForca,
   linhasDoInventario, alteracoesDoInventario, semanaAfetada, segundaDaChave,
   rotuloDias, datasIsoDosDias, sessaoEditavel, diasParaSalvar, textoConflitos, selosDaOpcao, acoesDoConflito, temConflito, textoAvisoEdicao,
+  RECURSOS_HIIT, TURMA_MAX, TURMA_MIN, alunosPorEstacao, hiitDaSemana, inventarioCompleto, nomesDoHiit,
+  rotuloDiasHiit, slotsEmAlertaHiit, textoAlertaHiit, textoForaDoHiit, totalDeAlertas, turmaDoInventario,
 } from './vista.js';
 
 /**
@@ -14,6 +16,8 @@ import {
  * com 1 smith ativo — é a forma real do documento, não uma imitação dela.
  */
 const W42 = JSON.parse(readFileSync(new URL('./fixtures/semana-w42.json', import.meta.url), 'utf8'));
+/** Saída real do gerador do servidor com o HIIT (W43, inventário de fábrica, turma de 6). */
+const HIIT = JSON.parse(readFileSync(new URL('./fixtures/semana-hiit.json', import.meta.url), 'utf8'));
 
 test('estado: sem documento, rascunho e publicada', () => {
   assert.equal(estadoDaSemana(null).id, 'vazia');
@@ -113,8 +117,9 @@ test('inventário: linhas a partir do documento, com os ativos do servidor', () 
     limitesAtivos: { smith: 1, banco: 2, monocross: 3, maquinaLegs: 1, cavalinho: 2 },
   };
   const linhas = linhasDoInventario(doc);
-  assert.deepEqual(linhas.map((l) => l.recurso), RECURSOS);
-  assert.deepEqual(linhas[0], { recurso: 'smith', nome: 'Smith', total: 2, emManutencao: 1, observacao: 'cabo rompido', ativos: 1 });
+  assert.deepEqual(linhas.filter((l) => l.grupo === 'forca').map((l) => l.recurso), RECURSOS);
+  assert.deepEqual(linhas.filter((l) => l.grupo === 'hiit').map((l) => l.recurso), RECURSOS_HIIT, 'depois da força, os do HIIT');
+  assert.deepEqual(linhas[0], { recurso: 'smith', grupo: 'forca', nome: 'Smith', total: 2, emManutencao: 1, observacao: 'cabo rompido', ativos: 1 });
   assert.deepEqual(linhasDoInventario(null), [], 'sem documento, sem linhas');
   assert.equal(linhasDoInventario({ equipamentos: {} })[0].ativos, null, 'sem limitesAtivos, a tela não inventa');
 });
@@ -191,4 +196,95 @@ test('edição: notas gravadas na semana', () => {
   assert.equal(textoAvisoEdicao({ tipo: 'repeticao', nome: 'RDL Smith', lugares: [{ sessao: 'H1', posicao: 5 }, { sessao: 'H2', posicao: 1 }] }),
     'RDL Smith está em H1 (vaga 5) e H2 (vaga 1).');
   assert.equal(textoAvisoEdicao({ tipo: 'semanaAnterior', nome: 'Flexão no TRX', sessao: 'H2', posicao: 5 }), 'Flexão no TRX (H2, vaga 5) foi usado na semana passada.');
+});
+
+test('inventário: turma e documento de antes do HIIT', () => {
+  const antigo = {
+    equipamentos: { smith: { total: 2, emManutencao: 0 }, banco: { total: 2 }, monocross: { total: 3 }, maquinaLegs: { total: 1 }, cavalinho: { total: 2 } },
+    limitesAtivos: { smith: 2 },
+  };
+  assert.equal(turmaDoInventario(antigo), null, 'inventário antigo não tem turma');
+  assert.equal(inventarioCompleto(antigo), false, 'e precisa ser normalizado pelo servidor');
+  const novo = {
+    ...antigo,
+    equipamentos: { ...antigo.equipamentos, ...Object.fromEntries(RECURSOS_HIIT.map((r) => [r, { total: 2, emManutencao: 0 }])) },
+    alunosPorAula: 6,
+  };
+  assert.equal(turmaDoInventario(novo), 6);
+  assert.equal(inventarioCompleto(novo), true);
+  assert.equal(inventarioCompleto({ ...novo, alunosPorAula: 0 }), false, 'turma fora da faixa = incompleto');
+  assert.deepEqual([TURMA_MIN, TURMA_MAX], [1, 40], 'mesma faixa do servidor');
+  assert.deepEqual([1, 4, 5, 6, 8, 9].map(alunosPorEstacao), [1, 1, 2, 2, 2, 3], 'turma ÷ 4, para cima (espelho do servidor)');
+});
+
+test('HIIT: a faixa da semana vem das estações gravadas na sexta e no sábado', () => {
+  const h = hiitDaSemana(HIIT);
+  assert.ok(h);
+  assert.equal(h.estacoes.length, 4);
+  assert.deepEqual(h.dias, [
+    { id: 'sexta', nome: 'Sexta', papel: 'alternativa' },
+    { id: 'sabado', nome: 'Sábado', papel: 'principal' },
+  ]);
+  assert.equal(rotuloDiasHiit(h.dias), 'sexta (alternativa) e sábado (principal)');
+  assert.equal(h.protocolo, '2 Músicas de Tabata (16 rounds no total). 4x cada exercício.');
+  assert.equal(hiitDaSemana(W42), null, 'semana de antes do gerador do HIIT: sem faixa');
+  assert.equal(nomesDoHiit(HIIT).get('kb_swing'), 'Kettlebell swing');
+});
+
+test('HIIT: textos dos alertas, com e sem o nome dos exercícios', () => {
+  const nomes = nomesDoHiit(HIIT);
+  const slot = { recurso: 'trx', usado: 4, limite: 2, slot: 2, exercicios: ['flexao_trx', 'fallout_trx'], dias: ['sexta', 'sabado'] };
+  assert.equal(textoAlertaHiit(slot, nomes),
+    'Limite de TRX atingido no slot 2 do HIIT (sexta e sábado): 4 em uso, 2 ativos — Flexão no TRX + Fallout no TRX.');
+  assert.equal(textoAlertaHiit(slot), 'Limite de TRX atingido no slot 2 do HIIT (sexta e sábado): 4 em uso, 2 ativos.',
+    'sem a semana (aviso do inventário): sem nome');
+  const sozinho = { recurso: 'sandbag', usado: 2, limite: 1, slot: null, exercicios: ['sandbag_clean'], dias: ['sexta', 'sabado'] };
+  assert.equal(textoAlertaHiit(sozinho, new Map([['sandbag_clean', 'Clean com sandbag']])),
+    'Clean com sandbag no HIIT (sexta e sábado) precisa sozinho de 2 Sandbags: 1 ativo.');
+  assert.equal(textoAlertaHiit(sozinho), 'Um exercício no HIIT (sexta e sábado) precisa sozinho de 2 Sandbags: 1 ativo.');
+  assert.equal(textoForaDoHiit(HIIT.geracao.hiitFora[0]), 'Clean com sandbag: precisa de 2 Sandbags, o box tem 1 ativo.');
+});
+
+test('HIIT: slots em alerta e o total de alertas da semana', () => {
+  assert.equal(slotsEmAlertaHiit(HIIT).size, 0, 'semana gerada sem alerta: nada marcado');
+  const superiores = HIIT.dias.sabado.hiit.estacoes.find((e) => e.estacao === 'superiores');
+  const iTrx = superiores.slots.findIndex((x) => x.exercicioId === 'flexao_trx');
+  const pernas = HIIT.dias.sabado.hiit.estacoes.find((e) => e.estacao === 'pernas');
+  const uni = pernas.slots.find((x) => x.lado === 'D').exercicioId;
+  const doc = {
+    ...HIIT,
+    alertasHiit: [
+      { recurso: 'trx', usado: 4, limite: 2, slot: iTrx + 1, exercicios: ['flexao_trx'], dias: ['sexta', 'sabado'] },
+      { recurso: 'caixote', usado: 2, limite: 1, slot: null, exercicios: [uni], dias: ['sexta', 'sabado'] },
+    ],
+  };
+  const m = slotsEmAlertaHiit(doc);
+  assert.ok(m.has(`superiores:${iTrx}`), 'alerta de slot marca o exercício daquele slot');
+  const lados = pernas.slots.map((x, i) => (x.exercicioId === uni ? i : -1)).filter((i) => i >= 0);
+  assert.equal(lados.length, 2);
+  assert.ok(lados.every((i) => m.has(`pernas:${i}`)), 'alerta de exercício sozinho marca os dois lados do unilateral');
+  assert.equal(m.size, 3);
+  assert.equal(totalDeAlertas(doc), 2, 'a lista de semanas conta os alertas do HIIT');
+  assert.equal(totalDeAlertas({ alertas: [{}], alertasHiit: [{}, {}] }), 3);
+});
+
+test('semana afetada: alertas do HIIT entram no aviso do inventário', () => {
+  const a = semanaAfetada({
+    semanaId: '2026-W43', status: 'rascunho', alertas: [],
+    alertasHiit: [{ recurso: 'airbike', usado: 2, limite: 1, slot: null, exercicios: ['air_bike_sprint'], dias: ['sexta', 'sabado'] }],
+  });
+  assert.deepEqual(a.alertas, ['Um exercício no HIIT (sexta e sábado) precisa sozinho de 2 Air bikes: 1 ativo.']);
+});
+
+test('paridade: as listas de recursos da tela são as do servidor (functions/src/modelo-box.ts)', () => {
+  const modelo = readFileSync(new URL('../../../functions/src/modelo-box.ts', import.meta.url), 'utf8');
+  const lista = (nome) => {
+    const ini = modelo.indexOf(`export const ${nome} = [`);
+    const m = ini < 0 ? null : [null, modelo.slice(ini, modelo.indexOf(']', ini))];
+    assert.ok(m, `${nome} não encontrado no modelo do servidor`);
+    return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  };
+  assert.deepEqual(RECURSOS, lista('RECURSOS_INVENTARIO'));
+  assert.deepEqual(RECURSOS_HIIT, lista('RECURSOS_HIIT'));
+  for (const r of [...RECURSOS, ...RECURSOS_HIIT]) assert.ok(NOME_RECURSO[r], `recurso sem nome na tela: ${r}`);
 });

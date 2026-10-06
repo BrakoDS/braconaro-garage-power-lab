@@ -1,0 +1,796 @@
+{
+  "status": "rascunho",
+  "dataInicio": {
+    "seconds": 1792378800,
+    "nanoseconds": 0
+  },
+  "dataFim": {
+    "seconds": 1792897199,
+    "nanoseconds": 999000000
+  },
+  "anoMes": "2026-10",
+  "dias": {
+    "segunda": {
+      "treinos": [
+        "H1"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "agachamento_trx",
+          "nome": "Agachamento no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "crucifixo_crossover_medial",
+          "nome": "Crucifixo no crossover medial",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "desenvolvimento_halter",
+          "nome": "Desenvolvimento militar com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "face_pull_monocross",
+          "nome": "Face pull na corda",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "mesa_flexora",
+          "nome": "Mesa flexora",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": [
+            "maquinaLegs"
+          ]
+        },
+        {
+          "exercicioId": "puxada_aberta_neutra",
+          "nome": "Puxada aberta neutra (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H1",
+        "papel": "principal",
+        "nome": "Força Base — Agachar/Empurrar"
+      },
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "monocross": 3,
+        "banco": 1,
+        "maquinaLegs": 1
+      },
+      "hiit": null
+    },
+    "terca": {
+      "treinos": [
+        "Cross",
+        "H1"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "agachamento_trx",
+          "nome": "Agachamento no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "crucifixo_crossover_medial",
+          "nome": "Crucifixo no crossover medial",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "desenvolvimento_halter",
+          "nome": "Desenvolvimento militar com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "face_pull_monocross",
+          "nome": "Face pull na corda",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "mesa_flexora",
+          "nome": "Mesa flexora",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": [
+            "maquinaLegs"
+          ]
+        },
+        {
+          "exercicioId": "puxada_aberta_neutra",
+          "nome": "Puxada aberta neutra (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H1",
+        "papel": "alternativa",
+        "nome": "Força Base — Agachar/Empurrar"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "Cross",
+          "papel": "principal",
+          "formato": "WOD",
+          "descricao": "AMRAP, EMOM, For Time ou Chipper — movimentos a definir pelo coach."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "monocross": 3,
+        "banco": 1,
+        "maquinaLegs": 1
+      },
+      "hiit": null
+    },
+    "quarta": {
+      "treinos": [
+        "H2"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "rdl_halter",
+          "nome": "Levantamento terra romeno com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "remada_halter_unilateral",
+          "nome": "Remada unilateral com halter",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "puxar_horizontal",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "puxada_fechada_triangulo",
+          "nome": "Puxada fechada triângulo (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "agachamento_smith",
+          "nome": "Agachamento no Smith",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": [
+            "smith"
+          ]
+        },
+        {
+          "exercicioId": "flexao_trx",
+          "nome": "Flexão no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "russian_twist",
+          "nome": "Russian twist",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 45,
+          "instancia": "estabilizar_tronco",
+          "recursos": []
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H2",
+        "papel": "principal",
+        "nome": "Força Base — Cadeia Posterior/Puxar"
+      },
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "banco": 1,
+        "monocross": 1,
+        "smith": 1
+      },
+      "hiit": null
+    },
+    "quinta": {
+      "treinos": [
+        "Hyrox"
+      ],
+      "blocoPrincipal": [],
+      "sessaoForca": null,
+      "blocosMetabolicos": [
+        {
+          "modalidade": "Hyrox",
+          "papel": "principal",
+          "formato": "For Time",
+          "descricao": "Formato da competição: corrida intercalada com estações funcionais."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {},
+      "hiit": null
+    },
+    "sexta": {
+      "treinos": [
+        "H3",
+        "HIIT"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "box_step_up",
+          "nome": "Step-up no caixote",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "supino_halter",
+          "nome": "Supino reto com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "remada_trx",
+          "nome": "Remada no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "elevacao_lateral_halter",
+          "nome": "Elevação lateral com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": []
+        },
+        {
+          "exercicioId": "puxada_braco_estendido",
+          "nome": "Puxada com braço estendido no monocross",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H3",
+        "papel": "principal",
+        "nome": "Consolidação Full Body"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "HIIT",
+          "papel": "alternativa",
+          "formato": "TABATA",
+          "descricao": "4 estações TABATA (Pernas · Core · Superiores · Cardio), 16 rounds cada."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "banco": 1,
+        "monocross": 1
+      },
+      "hiit": {
+        "estacoes": [
+          {
+            "estacao": "cardio",
+            "nome": "Cardio",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "corrida_100m",
+                "nome": "Corrida 100 m (rua)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "mountain_climber",
+                "nome": "Mountain climber (escalador)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "corda_naval",
+                "nome": "Battle ropes (corda naval)",
+                "consumoPorAluno": {
+                  "cordaNaval": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "burpee",
+                "nome": "Burpee",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "superiores",
+            "nome": "Superiores",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "thruster_halteres",
+                "nome": "Thruster com halteres",
+                "consumoPorAluno": {
+                  "halteres": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "flexao_trx",
+                "nome": "Flexão no TRX",
+                "consumoPorAluno": {
+                  "trx": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "thruster_wallball",
+                "nome": "Thruster com wall ball",
+                "consumoPorAluno": {
+                  "wallBall": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "flexao",
+                "nome": "Flexão de braço",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "pernas",
+            "nome": "Pernas",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "kb_swing",
+                "nome": "Kettlebell swing",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "afundo_reverso",
+                "nome": "Afundo reverso (peso corporal)",
+                "consumoPorAluno": {},
+                "lado": "D"
+              },
+              {
+                "exercicioId": "afundo_reverso",
+                "nome": "Afundo reverso (peso corporal)",
+                "consumoPorAluno": {},
+                "lado": "E"
+              },
+              {
+                "exercicioId": "agachamento_livre",
+                "nome": "Agachamento livre (peso corporal)",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "core",
+            "nome": "Core",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "fallout_trx",
+                "nome": "Fallout no TRX",
+                "consumoPorAluno": {
+                  "trx": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "abdominal_supra",
+                "nome": "Abdominal Supra (Crunch)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "abdominal_bicicleta",
+                "nome": "Abdominal bicicleta",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "abdominal_remador",
+                "nome": "Abdominal Remador",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "sabado": {
+      "treinos": [
+        "HIIT",
+        "H3"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "box_step_up",
+          "nome": "Step-up no caixote",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "supino_halter",
+          "nome": "Supino reto com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "remada_trx",
+          "nome": "Remada no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "elevacao_lateral_halter",
+          "nome": "Elevação lateral com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": []
+        },
+        {
+          "exercicioId": "puxada_braco_estendido",
+          "nome": "Puxada com braço estendido no monocross",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H3",
+        "papel": "alternativa",
+        "nome": "Consolidação Full Body"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "HIIT",
+          "papel": "principal",
+          "formato": "TABATA",
+          "descricao": "4 estações TABATA (Pernas · Core · Superiores · Cardio), 16 rounds cada."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "banco": 1,
+        "monocross": 1
+      },
+      "hiit": {
+        "estacoes": [
+          {
+            "estacao": "cardio",
+            "nome": "Cardio",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "corrida_100m",
+                "nome": "Corrida 100 m (rua)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "mountain_climber",
+                "nome": "Mountain climber (escalador)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "corda_naval",
+                "nome": "Battle ropes (corda naval)",
+                "consumoPorAluno": {
+                  "cordaNaval": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "burpee",
+                "nome": "Burpee",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "superiores",
+            "nome": "Superiores",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "thruster_halteres",
+                "nome": "Thruster com halteres",
+                "consumoPorAluno": {
+                  "halteres": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "flexao_trx",
+                "nome": "Flexão no TRX",
+                "consumoPorAluno": {
+                  "trx": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "thruster_wallball",
+                "nome": "Thruster com wall ball",
+                "consumoPorAluno": {
+                  "wallBall": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "flexao",
+                "nome": "Flexão de braço",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "pernas",
+            "nome": "Pernas",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "kb_swing",
+                "nome": "Kettlebell swing",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "afundo_reverso",
+                "nome": "Afundo reverso (peso corporal)",
+                "consumoPorAluno": {},
+                "lado": "D"
+              },
+              {
+                "exercicioId": "afundo_reverso",
+                "nome": "Afundo reverso (peso corporal)",
+                "consumoPorAluno": {},
+                "lado": "E"
+              },
+              {
+                "exercicioId": "agachamento_livre",
+                "nome": "Agachamento livre (peso corporal)",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "core",
+            "nome": "Core",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "fallout_trx",
+                "nome": "Fallout no TRX",
+                "consumoPorAluno": {
+                  "trx": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "abdominal_supra",
+                "nome": "Abdominal Supra (Crunch)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "abdominal_bicicleta",
+                "nome": "Abdominal bicicleta",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "abdominal_remador",
+                "nome": "Abdominal Remador",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "alertas": [],
+  "alertasHiit": [],
+  "alunosPorAula": 6,
+  "problemasParaPublicar": [],
+  "limitesUsados": {
+    "smith": 2,
+    "banco": 2,
+    "monocross": 3,
+    "maquinaLegs": 1,
+    "cavalinho": 2,
+    "kettlebell": 10,
+    "wallBall": 4,
+    "caixote": 4,
+    "cordaNaval": 2,
+    "cordaPular": 2,
+    "sandbag": 1,
+    "airbike": 2,
+    "trx": 2,
+    "halteres": 4
+  },
+  "geracao": {
+    "variacao": 0,
+    "semanaAnterior": null,
+    "trocas": [],
+    "avisos": [],
+    "hiitFora": [
+      {
+        "exercicioId": "sandbag_clean",
+        "nome": "Clean com sandbag",
+        "recurso": "sandbag",
+        "precisa": 2,
+        "limite": 1
+      }
+    ]
+  },
+  "avisosEdicao": []
+}

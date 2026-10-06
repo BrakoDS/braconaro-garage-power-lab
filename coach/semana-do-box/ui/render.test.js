@@ -99,3 +99,70 @@ test('avisos de edição gravados aparecem como nota', () => {
   assert.ok(h.includes('Avisos da semana') && h.includes('RDL Smith está em H1 (vaga 5) e H2 (vaga 1).'));
   assert.ok(!renderSemana({ ...BASE, doc: W42, hoje: '2026-10-12' }).includes('Avisos da semana'));
 });
+
+/** A W43 com o HIIT, saída real do gerador do servidor — ver `core/fixtures/semana-hiit.json`. */
+const HIIT = JSON.parse(readFileSync(new URL('../core/fixtures/semana-hiit.json', import.meta.url), 'utf8'));
+const BASE_HIIT = { chave: '2026-W43', rotulo: '19/10 a 25/10', inicio: '2026-10-19' };
+const fatia = (h, ini, fim) => h.slice(h.indexOf(ini), fim ? h.indexOf(fim, h.indexOf(ini)) : undefined);
+
+test('HIIT: uma faixa só, abaixo da grade, com as 4 estações na ordem sorteada', () => {
+  const h = renderSemana({ ...BASE_HIIT, doc: HIIT });
+  assert.equal((h.match(/id="hiit-da-semana"/g) || []).length, 1, 'o HIIT aparece UMA vez');
+  assert.ok(h.indexOf('id="hiit-da-semana"') > h.indexOf('class="grade-dias"'), 'abaixo da grade');
+  assert.ok(h.includes('HIIT da semana <span class="mut">· sexta (alternativa) e sábado (principal)</span>'));
+  assert.ok(h.includes('2 Músicas de Tabata (16 rounds no total). 4x cada exercício.'));
+  assert.ok(h.includes('turma de 6, até 2 por estação'));
+  const nomes = [...h.matchAll(/<article class="hiit-estacao">\s*<h4>([^<]+)<\/h4>/g)].map((m) => m[1]);
+  assert.deepEqual(nomes, HIIT.dias.sabado.hiit.estacoes.map((e) => e.nome), 'na ordem gravada pelo servidor');
+  assert.equal((h.match(/class="hiit-slot[ "]/g) || []).length, 16, '4 estações × 4 slots');
+});
+
+test('HIIT: unilateral em dois slots seguidos, D e E, ligados', () => {
+  const h = renderSemana({ ...BASE_HIIT, doc: HIIT });
+  const pernas = HIIT.dias.sabado.hiit.estacoes.find((e) => e.estacao === 'pernas');
+  const iD = pernas.slots.findIndex((x) => x.lado === 'D');
+  const nome = pernas.slots[iD].nome;
+  const bloco = fatia(h, '<h4>Pernas</h4>', '</ol>');
+  assert.ok(bloco.includes(`<li class="hiit-slot uni uni-d"><span class="hiit-n">${iD + 1}</span><span class="hiit-nome">${esc(nome)}</span><span class="hiit-lado" title="Lado direito">D</span>`));
+  assert.ok(bloco.includes(`<li class="hiit-slot uni uni-e"><span class="hiit-n">${iD + 2}</span><span class="hiit-nome">${esc(nome)}</span><span class="hiit-lado" title="Lado esquerdo">E</span>`));
+  assert.equal((fatia(h, '<h4>Cardio</h4>', '</ol>').match(/hiit-lado/g) || []).length, 0, 'bilateral não tem selo de lado');
+});
+
+test('HIIT: sexta e sábado chamam a faixa; os outros dias não', () => {
+  const h = renderSemana({ ...BASE_HIIT, doc: HIIT });
+  assert.equal((h.match(/data-ver-hiit/g) || []).length, 2, 'sexta e sábado');
+  assert.ok(!h.includes('ver estações ↓ ·'), 'sem alerta, o botão não conta alerta');
+  assert.ok(h.includes('Fora do sorteio do HIIT (equipamento)') && h.includes('Clean com sandbag: precisa de 2 Sandbags, o box tem 1 ativo.'));
+  assert.ok(!h.includes('hiit-alerta'), 'sem alerta, sem caixa de alerta');
+});
+
+test('HIIT: alertas do servidor viram texto com nomes e slots marcados', () => {
+  const sup = HIIT.dias.sabado.hiit.estacoes.find((e) => e.estacao === 'superiores');
+  const i = sup.slots.findIndex((x) => x.exercicioId === 'flexao_trx');
+  const doc = {
+    ...HIIT,
+    alertasHiit: [{ recurso: 'trx', usado: 4, limite: 2, slot: i + 1, exercicios: ['flexao_trx', 'fallout_trx'], dias: ['sexta', 'sabado'] }],
+  };
+  const h = renderSemana({ ...BASE_HIIT, doc });
+  assert.match(h, /class="card hiit-semana hiit-estourado"/);
+  assert.ok(h.includes(`Limite de TRX atingido no slot ${i + 1} do HIIT (sexta e sábado): 4 em uso, 2 ativos — Flexão no TRX + Fallout no TRX.`));
+  assert.ok(fatia(h, '<h4>Superiores</h4>', '</ol>').includes(`<li class="hiit-slot em-alerta"><span class="hiit-n">${i + 1}</span>`));
+  assert.equal((h.match(/ver estações ↓ · ⚠ 1 alerta/g) || []).length, 2, 'o botão de sexta e sábado avisa');
+  assert.ok(renderLista([{ chave: '2026-W43', rotulo: '19/10' }], { '2026-W43': doc }, '').includes('⚠ 1 alerta'), 'a lista conta o alerta do HIIT');
+});
+
+test('HIIT: semana de antes do gerador fica como era; estação incompleta mostra o slot vazio', () => {
+  const h = renderSemana({ ...BASE, doc: W42 });
+  assert.ok(!h.includes('hiit-da-semana') && !h.includes('data-ver-hiit'), 'W42 (sem estações): sem faixa e sem botão');
+  const incompleta = JSON.parse(JSON.stringify(HIIT));
+  for (const d of ['sexta', 'sabado']) incompleta.dias[d].hiit.estacoes[0].slots.pop();
+  const hi = renderSemana({ ...BASE_HIIT, doc: incompleta });
+  assert.equal((hi.match(/hiit-slot vazio/g) || []).length, 1);
+});
+
+test('HIIT: nome vindo do catálogo é escapado', () => {
+  const doc = JSON.parse(JSON.stringify(HIIT));
+  doc.dias.sabado.hiit.estacoes[0].slots[0].nome = '<img src=x>';
+  doc.dias.sexta.hiit.estacoes[0].slots[0].nome = '<img src=x>';
+  assert.ok(!renderSemana({ ...BASE_HIIT, doc }).includes('<img src=x>'));
+});
