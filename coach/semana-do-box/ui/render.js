@@ -9,7 +9,7 @@
 import {
   DIAS, NOME_INSTANCIA, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
   consumoVisivel, publicacao, datasDosDias, tituloForca, sessaoEditavel, textoAvisoEdicao,
-  alunosPorEstacao, hiitDaSemana, nomesDoHiit, rotuloDiasHiit, slotsEmAlertaHiit, textoAlertaHiit, textoForaDoHiit,
+  alunosPorEstacao, hiitDaSemana, hiitEditavel, nomesDoHiit, rotuloDiasHiit, slotsEmAlertaHiit, textoAlertaHiit, textoForaDoHiit,
   totalDeAlertas,
 } from '../core/vista.js';
 
@@ -183,17 +183,21 @@ function cartaoDia(doc, d, data, hoje) {
 
 /**
  * Uma estação do HIIT: os 4 slots, com D e E no unilateral (dois slots seguidos,
- * ligados) e o slot em alerta em vermelho.
- * @param {any} e @param {Set<string>} emAlerta
+ * ligados) e o slot em alerta em vermelho. Com `podeTrocar`, cada EXERCÍCIO
+ * ganha "trocar" — o unilateral uma vez só, na linha do D.
+ * @param {any} e @param {Set<string>} emAlerta @param {boolean} [podeTrocar]
  */
-function cartaoEstacao(e, emAlerta) {
+function cartaoEstacao(e, emAlerta, podeTrocar = false) {
   const slots = e.slots ?? [];
   const linhas = slots.map((x, i) => {
     const classes = ['hiit-slot', x.lado ? `uni uni-${x.lado === 'D' ? 'd' : 'e'}` : '', emAlerta.has(`${e.estacao}:${i}`) ? 'em-alerta' : '']
       .filter(Boolean).join(' ');
     const lado = x.lado
       ? `<span class="hiit-lado" title="${x.lado === 'D' ? 'Lado direito' : 'Lado esquerdo'}">${esc(x.lado)}</span>` : '';
-    return `<li class="${classes}"><span class="hiit-n">${i + 1}</span><span class="hiit-nome">${esc(x.nome)}</span>${lado}</li>`;
+    const trocar = podeTrocar && x.lado !== 'E'
+      ? `<button class="ex-trocar hiit-trocar" type="button" data-trocar-hiit="${esc(e.estacao)}:${i + 1}"
+          aria-label="Trocar ${esc(x.nome)} (${esc(e.nome)}, slot ${i + 1})">trocar</button>` : '';
+    return `<li class="${classes}"><span class="hiit-n">${i + 1}</span><span class="hiit-nome">${esc(x.nome)}</span>${lado}${trocar}</li>`;
   });
   // Estação incompleta (só por edição à mão): o slot vazio aparece, e publicar avisa.
   for (let i = slots.length; i < 4; i++) linhas.push(`<li class="hiit-slot vazio"><span class="hiit-n">${i + 1}</span><span class="hiit-nome mut">vazio</span></li>`);
@@ -206,14 +210,16 @@ function cartaoEstacao(e, emAlerta) {
 /**
  * A faixa do HIIT da semana, abaixo da grade: UMA vez, porque o mesmo HIIT está
  * na sexta e no sábado. Semana gerada antes do gerador do HIIT não tem faixa.
- * @param {any} doc
+ * `hoje` ('AAAA-MM-DD') liga o "trocar"; sem ele, a faixa é só leitura.
+ * @param {any} doc @param {string} [hoje]
  */
-function faixaHiit(doc) {
+function faixaHiit(doc, hoje) {
   const h = hiitDaSemana(doc);
   if (!h) return '';
   const lista = doc.alertasHiit ?? [];
   const nomes = nomesDoHiit(doc);
   const emAlerta = slotsEmAlertaHiit(doc);
+  const podeTrocar = hoje !== undefined && hiitEditavel(doc, hoje);
   const turma = Number.isInteger(doc.alunosPorAula)
     ? ` · turma de ${doc.alunosPorAula}, até ${alunosPorEstacao(doc.alunosPorAula)} por estação` : '';
   const alerta = lista.length ? `<div class="hiit-alerta" role="alert">
@@ -225,7 +231,7 @@ function faixaHiit(doc) {
     <header class="hiit-h"><h3>HIIT da semana <span class="mut">· ${esc(rotuloDiasHiit(h.dias))}</span></h3></header>
     <p class="hiit-protocolo"><b>Cada estação:</b> ${esc(h.protocolo)}<span class="mut">${esc(turma)}</span></p>
     ${alerta}
-    <div class="hiit-estacoes">${h.estacoes.map((e) => cartaoEstacao(e, emAlerta)).join('')}</div>
+    <div class="hiit-estacoes">${h.estacoes.map((e) => cartaoEstacao(e, emAlerta, podeTrocar)).join('')}</div>
     <p class="mut hiit-rodape">As 4 estações rodam ao mesmo tempo, na mesma música: o slot 1 de todas acontece junto.
       <span class="hiit-lado">D</span> <span class="hiit-lado">E</span> = exercício unilateral, um lado em cada slot.</p>
   </section>`;
@@ -247,5 +253,5 @@ export function renderSemana({ chave, rotulo, inicio, doc, ocupado = false, hoje
     ${avisosEdicao(doc)}
     ${notasDoGerador(doc)}
     <div class="grade-dias">${DIAS.map((d) => cartaoDia(doc, d, datas[d.id], ocupado ? undefined : hoje)).join('')}</div>
-    ${faixaHiit(doc)}`;
+    ${faixaHiit(doc, ocupado ? undefined : hoje)}`;
 }

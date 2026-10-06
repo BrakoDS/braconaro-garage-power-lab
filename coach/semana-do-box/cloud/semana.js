@@ -96,6 +96,16 @@ export function opcoesTroca(semanaId, sessao, posicao) {
 }
 
 /**
+ * As opções para trocar o exercício do `slot` (1 a 4; o unilateral responde
+ * pelo D e pelo E) da `estacao` do HIIT — os exercícios da estação com os
+ * conflitos já calculados pelo servidor, e se o HIIT está travado.
+ * @param {string} semanaId @param {string} estacao @param {number} slot
+ */
+export function opcoesTrocaHiit(semanaId, estacao, slot) {
+  return chamar('opcoesTrocaHiitBox', { semanaId, estacao, slot });
+}
+
+/**
  * Grava a semana editada. O servidor revalida tudo (catálogo, bloco, equipamento,
  * dias passados de semana já publicada) e recalcula alertas e avisos.
  * @param {string} semanaId @param {Record<string, any>} dias

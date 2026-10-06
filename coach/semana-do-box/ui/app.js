@@ -21,6 +21,7 @@ import { segundaDaChave, variacaoSeguinte } from '../core/vista.js';
 import { gerarMatriz, publicar, lerSemanas } from '../cloud/semana.js';
 import * as inventario from './inventario.js';
 import { trocarExercicio } from './troca.js';
+import { trocarExercicioHiit } from './troca-hiit.js';
 import { esc, renderLista, renderSemana } from './render.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
@@ -106,7 +107,7 @@ async function executar(chave, ocupando, pedido, sucesso) {
 }
 
 async function aoClicar(ev) {
-  const alvo = /** @type {HTMLElement} */ (ev.target).closest('[data-semana], [data-acao], [data-trocar]');
+  const alvo = /** @type {HTMLElement} */ (ev.target).closest('[data-semana], [data-acao], [data-trocar], [data-trocar-hiit]');
   if (!alvo || estado.ocupado) return;
 
   const semana = alvo.getAttribute('data-semana');
@@ -128,6 +129,18 @@ async function aoClicar(ev) {
     const [sessao, posicao] = vaga.split(':');
     await trocarExercicio({
       semanaId: s.chave, sessao, posicao: Number(posicao), status,
+      lerDoc: async () => { await reler(s.chave); desenhar(); return estado.docs[s.chave]; },
+      ocupar: (sim) => { estado.ocupado = sim; desenhar(); },
+    });
+    return;
+  }
+
+  // "trocar" num exercício do HIIT: mesmo molde, fluxo no troca-hiit.js.
+  const vagaHiit = alvo.getAttribute('data-trocar-hiit');
+  if (vagaHiit) {
+    const [estacao, slot] = vagaHiit.split(':');
+    await trocarExercicioHiit({
+      semanaId: s.chave, estacao, slot: Number(slot), status,
       lerDoc: async () => { await reler(s.chave); desenhar(); return estado.docs[s.chave]; },
       ocupar: (sim) => { estado.ocupado = sim; desenhar(); },
     });

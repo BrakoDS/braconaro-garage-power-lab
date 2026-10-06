@@ -81,7 +81,7 @@ deles ainda são do coach.
 Deploy, sempre por função (ver o aviso das funções órfãs):
 
 ```bash
-firebase deploy --only functions:gerarMatrizSemanalBox,functions:salvarSemanaBox,functions:publicarSemanaBox,functions:salvarInventarioBox,functions:registrarSessaoAluno,functions:opcoesTrocaBox
+firebase deploy --only functions:gerarMatrizSemanalBox,functions:salvarSemanaBox,functions:publicarSemanaBox,functions:salvarInventarioBox,functions:registrarSessaoAluno,functions:opcoesTrocaBox,functions:opcoesTrocaHiitBox
 ```
 
 A mudança do 0,5 no dashboard está em funções que JÁ existem — `parseWorkoutLousa` e
@@ -133,6 +133,12 @@ kettlebell.
 - `salvarInventarioBox` aceita `alunosPorAula` e os recursos do HIIT, e a reconferência das semanas
   abertas refaz `alertasHiit` com a turma nova (pelo `consumoPorAluno` gravado, sem reler o catálogo).
 - A trava de semana publicada também olha o HIIT: dia que passou não muda de estação.
+- **Troca manual** (`opcoesTrocaHiitBox`, regra em `src/edicao-hiit.ts`): os exercícios da estação para um
+  exercício do HIIT, com os conflitos calculados pelo `contarHiit` sobre o HIIT já trocado. Só do
+  mesmo tamanho (bilateral × bilateral, unilateral × unilateral). Bloqueiam: já no HIIT, tamanho
+  diferente, equipamento (sozinho, soma do slot, TRX em outra estação) e estar no bloco H do dia;
+  só o rodízio é aviso. A troca do bloco H (`opcoesTrocaBox`) ganhou o conflito `noHiit`. Quem grava
+  é o `salvarSemanaBox`, como sempre.
 
 ## Motor de conquistas (`calcularConquistasXP*`)
 
