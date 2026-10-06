@@ -1,0 +1,329 @@
+{
+  "status": "rascunho",
+  "dataInicio": {
+    "seconds": 1793588400,
+    "nanoseconds": 0
+  },
+  "dataFim": {
+    "seconds": 1794106799,
+    "nanoseconds": 0
+  },
+  "anoMes": "2026-11",
+  "dias": {
+    "segunda": {
+      "treinos": [],
+      "blocoPrincipal": [],
+      "sessaoForca": null,
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {},
+      "hiit": null,
+      "cross": null,
+      "hyrox": null,
+      "aviso": {
+        "tipo": "recesso",
+        "texto": "Recesso de fim de ano — voltamos na segunda, 09/11."
+      }
+    },
+    "terca": {
+      "treinos": [
+        "Cross",
+        "H1"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "box_step_up",
+          "nome": "Step-up no caixote",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "supino_halter",
+          "nome": "Supino reto com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "desenvolvimento_halter",
+          "nome": "Desenvolvimento militar com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "face_pull_monocross",
+          "nome": "Face pull na corda",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "terra_barra_livre",
+          "nome": "Levantamento terra (barra livre)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "puxada_aberta_pronada",
+          "nome": "Puxada aberta pronada (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H1",
+        "papel": "alternativa",
+        "nome": "Força Base — Agachar/Empurrar"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "Cross",
+          "papel": "principal",
+          "formato": "WOD",
+          "descricao": "AMRAP, EMOM, For Time ou Chipper, com RX e Scaled."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "banco": 2,
+        "monocross": 2
+      },
+      "hiit": null,
+      "cross": {
+        "formato": "Chipper",
+        "descricao": "Uma lista longa, na ordem, cada movimento uma vez só — dentro do time cap.",
+        "minutos": 15,
+        "rodadas": null,
+        "movimentos": [
+          {
+            "exercicioId": "polichinelo",
+            "nome": "Polichinelo (jumping jacks)",
+            "padrao": "cardio",
+            "unidade": "reps",
+            "rx": 80,
+            "scaled": 55,
+            "porLado": false,
+            "carga": null,
+            "consumoPorAluno": {}
+          },
+          {
+            "exercicioId": "terra_barra_livre",
+            "nome": "Levantamento terra (barra livre)",
+            "padrao": "quadril",
+            "unidade": "reps",
+            "rx": 20,
+            "scaled": 14,
+            "porLado": false,
+            "carga": {
+              "rx": "60/40 kg",
+              "scaled": "40/25 kg"
+            },
+            "consumoPorAluno": {
+              "barraOlimpica": 1
+            }
+          },
+          {
+            "exercicioId": "box_jump",
+            "nome": "Box jump",
+            "padrao": "agachar",
+            "unidade": "reps",
+            "rx": 25,
+            "scaled": 18,
+            "porLado": false,
+            "carga": {
+              "rx": "caixote 60/50 cm",
+              "scaled": "step-up no caixote"
+            },
+            "consumoPorAluno": {
+              "caixote": 1
+            }
+          },
+          {
+            "exercicioId": "abdominal_infra",
+            "nome": "Abdominal Infra (Elevação de pernas)",
+            "padrao": "core",
+            "unidade": "reps",
+            "rx": 30,
+            "scaled": 20,
+            "porLado": false,
+            "carga": null,
+            "consumoPorAluno": {}
+          },
+          {
+            "exercicioId": "hang_power_clean",
+            "nome": "Hang power clean (barra)",
+            "padrao": "olimpico",
+            "unidade": "reps",
+            "rx": 16,
+            "scaled": 11,
+            "porLado": false,
+            "carga": {
+              "rx": "50/35 kg",
+              "scaled": "30/20 kg"
+            },
+            "consumoPorAluno": {
+              "barraOlimpica": 1
+            }
+          }
+        ],
+        "tecnica": {
+          "exercicioId": "hang_power_clean",
+          "nome": "Hang power clean (barra)",
+          "categoria": "olimpico",
+          "tipo": "tecnica",
+          "minutos": 10,
+          "dinamica": "EMOM 10 min: 3 hang power cleans por minuto, subindo a carga de leve a moderada.",
+          "objetivo": "Extensão explosiva de quadril a partir do hang e cotovelos rápidos na recepção.",
+          "carga": "Leve a moderada, até a carga RX do WOD",
+          "consumoPorAluno": {
+            "barraOlimpica": 1
+          },
+          "alternativas": [
+            {
+              "exercicioId": "terra_barra_livre",
+              "nome": "Levantamento terra (barra livre)",
+              "categoria": "barra"
+            }
+          ]
+        },
+        "estrategia": "A técnica de hang power clean não termina no bloco 1: no Chipper, a meta é manter a mesma qualidade de movimento com o coração acelerado. O cansaço vai aparecer nas pernas: polichinelo e levantamento terra batem nos mesmos músculos que o bloco 1 acabou de trabalhar. No Chipper, hang power clean aparece uma vez só: chegue com fôlego, quebre as 16 reps em 7-5-4 e deixe o quadril ser o motor e gire os cotovelos rápido para receber a barra."
+      },
+      "hyrox": null,
+      "aviso": null
+    },
+    "quarta": {
+      "treinos": [],
+      "blocoPrincipal": [],
+      "sessaoForca": null,
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {},
+      "hiit": null,
+      "cross": null,
+      "hyrox": null,
+      "aviso": {
+        "tipo": "recesso",
+        "texto": "Recesso de fim de ano — voltamos na segunda, 09/11."
+      }
+    },
+    "quinta": {
+      "treinos": [],
+      "blocoPrincipal": [],
+      "sessaoForca": null,
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {},
+      "hiit": null,
+      "cross": null,
+      "hyrox": null,
+      "aviso": {
+        "tipo": "recesso",
+        "texto": "Recesso de fim de ano — voltamos na segunda, 09/11."
+      }
+    },
+    "sexta": {
+      "treinos": [],
+      "blocoPrincipal": [],
+      "sessaoForca": null,
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {},
+      "hiit": null,
+      "cross": null,
+      "hyrox": null,
+      "aviso": {
+        "tipo": "recesso",
+        "texto": "Recesso de fim de ano — voltamos na segunda, 09/11."
+      }
+    },
+    "sabado": {
+      "treinos": [],
+      "blocoPrincipal": [],
+      "sessaoForca": null,
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {},
+      "hiit": null,
+      "cross": null,
+      "hyrox": null,
+      "aviso": {
+        "tipo": "evento",
+        "texto": "Murph no sábado, 8h na praça. 1 milha, 100 barras, 200 flexões, 300 agachamentos, 1 milha."
+      }
+    }
+  },
+  "alertas": [],
+  "alertasHiit": [],
+  "alertasCross": [],
+  "alertasHyrox": [],
+  "problemasParaPublicar": [],
+  "alunosPorAula": 6,
+  "limitesUsados": {
+    "smith": 2,
+    "banco": 2,
+    "monocross": 3,
+    "maquinaLegs": 1,
+    "cavalinho": 2,
+    "kettlebell": 10,
+    "wallBall": 4,
+    "caixote": 4,
+    "cordaNaval": 2,
+    "cordaPular": 2,
+    "sandbag": 1,
+    "airbike": 2,
+    "trx": 2,
+    "halteres": 4,
+    "barraOlimpica": 4,
+    "sled": 1
+  },
+  "geracao": null,
+  "avisosEdicao": []
+}

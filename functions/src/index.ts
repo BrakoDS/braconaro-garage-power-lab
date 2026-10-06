@@ -19,7 +19,9 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
-import { FieldValue, getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import {
+  FieldValue, getFirestore, Timestamp, type DocumentReference, type DocumentSnapshot, type Firestore,
+} from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import {
   extrairAnalise, limparTexto, INSTRUCOES, INSTRUCOES_TEXTO, SCHEMA, type Analise,
@@ -56,7 +58,7 @@ import { alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
-  DIAS_SEMANA, ESTACOES_HIIT, ESTACOES_HYROX, EXERCICIOS_POR_BLOCO, MODALIDADES, SESSOES_H, SLOTS_POR_ESTACAO,
+  DIAS_SEMANA, ESTACOES_HIIT, ESTACOES_HYROX, EXERCICIOS_POR_BLOCO, MODALIDADES, NOME_TIPO_AVISO, SESSOES_H, SLOTS_POR_ESTACAO,
   type DiaProgramado, type DiaSemana, type ExercicioCatalogo,
   type FeedbackExercicio, type ItemCatalogo as ItemCatalogoBox, type Modalidade, type PedidoGerarMatriz, type PresencaAluno,
   type RecursoCross, type RespostaGerarMatriz, type SessaoH,
@@ -64,9 +66,9 @@ import {
 import {
   aplicarInventario, contaDaSemana, historicoComSessao, intervaloDaSemana, lerDias,
   diasComConteudoGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, reconferirSemana, semanaAnterior,
-  semanaDoPedido, volumeDaSessao, type ContaDaSemana,
+  semanaDoPedido, volumeDaSessao, lerAviso, type ContaDaSemana, type IntervaloSemana,
 } from './semana-box';
-import { crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit } from './gerador-box';
+import { crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit, programarDia, semanaEmBranco } from './gerador-box';
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
 import { hiitTravado, opcoesDoHiit } from './edicao-hiit';
 import { conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
@@ -2026,6 +2028,28 @@ export const salvarSemanaBox = onCall(
     const catalogo = await carregarCatalogo(db, idsDosDias(diasPedido));
     const lido = lerDias(diasPedido, catalogo);
     if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
+    return gravarDiasEditados({ db, ref, semanaId, intervalo, gravada, inv, anterior, dias: lido.dias });
+  },
+);
+
+/**
+ * A gravação de uma EDIÇÃO da semana — a de `salvarSemanaBox` e a de
+ * `programarDiaBox`: a conta do inventário, os avisos de edição e, na
+ * transação, as três travas (a semana mudou no meio, dia que já passou numa
+ * semana publicada, semana publicada que deixaria de poder ser).
+ */
+async function gravarDiasEditados(o: {
+  db: Firestore;
+  ref: DocumentReference;
+  semanaId: string;
+  intervalo: IntervaloSemana;
+  gravada: DocumentSnapshot;
+  inv: DocumentSnapshot;
+  anterior: DocumentSnapshot | null;
+  dias: Record<DiaSemana, DiaProgramado>;
+}) {
+    const { db, ref, semanaId, intervalo, gravada, inv, anterior } = o;
+    const lido = { dias: o.dias };
     const { limitesAtivos: limitesUsados, alunosPorAula } = lerInventario(inv.data());
     const conta = contaDaSemana(lido.dias, limitesUsados, alunosPorAula);
     const problemas = conta.problemasParaPublicar;
@@ -2069,6 +2093,55 @@ export const salvarSemanaBox = onCall(
       return publicada ? 'publicado' : 'rascunho';
     });
     return { semanaId, status, dias: lido.dias, ...camposDaConta(conta), avisosEdicao };
+}
+
+/**
+ * Programa UM dia sem aula (feriado cancelado, treino de última hora): sorteia
+ * a semana inteira com o mesmo gerador, o mesmo rodízio e o mesmo inventário e
+ * grava só aquele dia (`programarDia` em `gerador-box.ts` — o H1 e o HIIT que
+ * a grade divide entre dois dias continuam um só). Vale em rascunho e em
+ * semana PUBLICADA, com as travas da edição manual (`gravarDiasEditados`): dia
+ * que já passou não muda.
+ */
+export const programarDiaBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; dia?: unknown };
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    if (!(DIAS_SEMANA as readonly unknown[]).includes(dados.dia)) throw new HttpsError('invalid-argument', 'Dia de segunda a sábado.');
+    const semanaId = dados.semanaId as string;
+    const dia = dados.dia as DiaSemana;
+
+    const db = getFirestore();
+    const ref = refSemana(db, uid, semanaId);
+    const anteriorId = semanaAnterior(semanaId);
+    const [gravada, inv, anterior, catalogo] = await Promise.all([
+      ref.get(),
+      refInventario(db, uid).get(),
+      anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
+      carregarCatalogoInteiro(db),
+    ]);
+    if (!gravada.exists) throw new HttpsError('failed-precondition', 'Essa semana ainda não existe: gere a semana ou crie em branco antes.');
+    if (!catalogo.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
+    const atual = lerDias(gravada.data()?.dias, catalogo);
+    if ('erro' in atual) throw new HttpsError('failed-precondition', `A semana gravada não passa na validação: ${atual.erro}`);
+    if (atual.dias[dia].treinos.length) {
+      throw new HttpsError('failed-precondition', `A ${dia} já tem aula. Para mudar um exercício, use "trocar"; para tirar a aula, "Marcar sem aula".`);
+    }
+
+    const { limitesAtivos, alunosPorAula } = lerInventario(inv.data());
+    const v = gravada.data()?.geracao?.variacao;
+    const sorteada = gerarSemana({
+      semanaId, catalogo, limites: limitesAtivos, alunosPorAula,
+      diasDaSemanaAnterior: anterior?.data()?.dias, variacao: Number.isInteger(v) ? v : 0,
+    });
+    const lido = lerDias(programarDia(atual.dias, dia, sorteada.dias), catalogo);
+    if ('erro' in lido) throw new HttpsError('internal', `O dia programado saiu inválido: ${lido.erro}`);
+    const r = await gravarDiasEditados({ db, ref, semanaId, intervalo, gravada, inv, anterior, dias: lido.dias });
+    logger.info('Dia da semana do box programado.', { uid, semanaId, dia, treinos: lido.dias[dia].treinos });
+    return r;
   },
 );
 
@@ -2356,17 +2429,22 @@ export const gerarMatrizSemanalBox = onCall(
       throw new HttpsError('invalid-argument', 'variacao é um inteiro de 0 a 999.');
     }
 
+    // Semana EM BRANCO (feriado, recesso, evento): os 6 dias sem aula, com o aviso, sem sorteio.
+    const branco = pedido.emBranco === undefined ? null : lerAviso(pedido.emBranco, 'semana');
+    if (branco && 'erro' in branco) throw new HttpsError('invalid-argument', branco.erro);
+    if (pedido.emBranco !== undefined && !branco) throw new HttpsError('invalid-argument', 'emBranco precisa do tipo: feriado, recesso ou evento.');
+
     const db = getFirestore();
     const anteriorId = semanaAnterior(semanaId);
     const [catalogo, inv, anterior] = await Promise.all([
-      carregarCatalogoInteiro(db),
+      branco ? Promise.resolve(new Map<string, ItemCatalogoBox>()) : carregarCatalogoInteiro(db),
       refInventario(db, uid).get(),
       anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
     ]);
-    if (!catalogo.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
+    if (!branco && !catalogo.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
 
     const { limitesAtivos: limitesUsados, alunosPorAula } = lerInventario(inv.data());
-    const gerado = gerarSemana({
+    const gerado = branco ? semanaEmBranco(branco.aviso) : gerarSemana({
       semanaId, catalogo, limites: limitesUsados, alunosPorAula,
       diasDaSemanaAnterior: anterior?.data()?.dias, variacao,
     });
@@ -2393,7 +2471,8 @@ export const gerarMatrizSemanalBox = onCall(
         limitesUsados,
         // O que o sorteio decidiu fica NA semana: a tela que reabre o rascunho
         // amanhã precisa mostrar as trocas que a trava de equipamento fez.
-        geracao: {
+        // Semana em branco não teve sorteio: sem `geracao`, a tela não mostra "o que o gerador decidiu".
+        geracao: branco ? null : {
           variacao, semanaAnterior: semanaAnteriorUsada, trocas: gerado.trocas, avisos: gerado.avisos, hiitFora: gerado.hiitFora,
         },
         // Mesmo campo que a edição manual grava: repetição que o gerador não
@@ -2403,8 +2482,8 @@ export const gerarMatrizSemanalBox = onCall(
         atualizadoEm: FieldValue.serverTimestamp(),
       });
     });
-    logger.info('Semana do box gerada.', {
-      uid, semanaId, anteriorId, trocas: gerado.trocas.length, alertas: conta.alertas.length, alertasHiit: conta.alertasHiit.length,
+    logger.info(branco ? 'Semana do box criada em branco.' : 'Semana do box gerada.', {
+      uid, semanaId, emBranco: branco?.aviso.tipo ?? null, anteriorId, trocas: gerado.trocas.length, alertas: conta.alertas.length, alertasHiit: conta.alertasHiit.length,
       alertasCross: conta.alertasCross.length, alertasHyrox: conta.alertasHyrox.length,
     });
     return {
@@ -2505,6 +2584,10 @@ export const registrarSessaoAluno = onCall(
     if (!alunoDaGestao(gestao.data(), email)) throw new HttpsError('permission-denied', 'Você não está na lista de alunos desse coach.');
     if (semana.data()?.status !== 'publicado') throw new HttpsError('failed-precondition', 'Essa semana não está publicada.');
     const doDia = (semana.data()?.dias ?? {})[dia] as DiaProgramado | undefined;
+    if (doDia?.aviso && !doDia.treinos?.length) {
+      const motivo = NOME_TIPO_AVISO[doDia.aviso.tipo] ?? 'Dia sem aula';
+      throw new HttpsError('failed-precondition', `Não teve aula no box na ${dia} dessa semana (${motivo.toLowerCase()}).`);
+    }
     if (!doDia || !Array.isArray(doDia.blocoPrincipal) || !doDia.treinos?.includes(modalidade)) {
       throw new HttpsError('failed-precondition', `Não teve ${modalidade} na ${dia} dessa semana.`);
     }

@@ -14,6 +14,7 @@ import {
   NIVEIS_HYROX, NOME_PADRAO_CROSS, UNIDADE_HYROX, conteudoEditavel, estacoesEmAlerta, linhasDaCorrida, movimentosEmAlerta,
   nomesDoWod, quantidadeCross, temSubstitutaHyrox, textoAlertaCross, textoAlertaHyrox, textoContaWod, tituloHyrox, tituloWod,
   alertasDaTecnica, tituloTecnica, unidadesNaTecnica,
+  diaEditavel, semanaEmBranco, tituloAviso,
 } from '../core/vista.js';
 
 /** @param {unknown} s */
@@ -38,6 +39,7 @@ export function renderLista(semanas, docs, selecionada) {
       <span class="semana-rotulo">${esc(s.rotulo)}</span>
       <span class="semana-chave mut">${esc(s.chave)}</span>
       ${selo(estadoDaSemana(doc))}
+      ${semanaEmBranco(doc) ? `<span class="semana-branco">${esc(tituloAviso(doc.dias.segunda.aviso))}</span>` : ''}
       ${n ? `<span class="semana-alertas">⚠ ${n} alerta${n > 1 ? 's' : ''}</span>` : ''}
     </button>`;
   }).join('');
@@ -60,9 +62,12 @@ function acoes({ chave, inicio, doc, ocupado }) {
       <div class="field"><label for="semana-data">Data da semana</label>
         <input id="semana-data" type="date" value="${esc(inicio)}" min="${esc(inicio)}" max="${esc(fim)}" /></div>
       <button class="btn btn-ouro" data-acao="gerar" type="button"${dis}>⚡ Gerar Matriz Semanal</button>
+      <button class="btn ghost" data-acao="em-branco" type="button"${dis}>Semana em branco</button>
       <p class="mut intro">O servidor monta os 6 dias, faz o rodízio contra a semana anterior e
         confere o equipamento de cada dia contra o inventário. A semana nasce como <b>rascunho</b>:
         o aluno só vê depois que você publicar.</p>
+      <p class="mut intro"><b>Semana em branco</b> é para feriado, recesso ou evento (o Murph): os 6 dias
+        sem aula, com o aviso que o aluno vê. Dá para programar um dia depois.</p>
     </div>`;
   }
   if (estado.id === 'publicado') {
@@ -185,13 +190,28 @@ function cartaoDia(doc, d, data, hoje) {
   const doDia = (a) => (a.dias ?? []).includes(d.id);
   const estourado = consumo.some((c) => c.estourou)
     || (doc.alertasCross ?? []).some(doDia) || (doc.alertasHyrox ?? []).some(doDia);
-  const vazio = !forca && !metabolicos ? '<p class="mut">Sem aula.</p>' : '';
+  // Dia sem aula: o aviso (feriado, recesso, evento) e, se ainda dá para mexer,
+  // "Programar este dia" e "Editar aviso". Dia COM aula ganha "Marcar sem aula".
+  const editavel = hoje !== undefined && diaEditavel(doc, d.id, hoje);
+  const semAula = !(dia.treinos ?? []).length;
+  const vazio = semAula ? `
+    <div class="sem-aula${dia.aviso ? '' : ' sem-motivo'}">
+      <p class="sem-aula-titulo">${esc(tituloAviso(dia.aviso))}</p>
+      ${dia.aviso?.texto ? `<p class="sem-aula-texto">${esc(dia.aviso.texto)}</p>` : ''}
+      ${dia.aviso ? '' : '<p class="mut">Falta o motivo (feriado, recesso ou evento): a semana não publica assim.</p>'}
+    </div>` : '';
+  const acoesDia = !editavel ? '' : semAula
+    ? `<div class="dia-acoes">
+        <button class="dia-acao" type="button" data-acao="programar-dia" data-dia="${esc(d.id)}">Programar este dia</button>
+        <button class="dia-acao" type="button" data-acao="editar-aviso" data-dia="${esc(d.id)}">${dia.aviso ? 'Editar aviso' : 'Definir motivo'}</button>
+      </div>`
+    : `<div class="dia-acoes"><button class="dia-acao" type="button" data-acao="sem-aula" data-dia="${esc(d.id)}">Marcar sem aula</button></div>`;
   // A aula principal vem primeiro, como no app do aluno: na terça o WOD, e o H1
   // de catch-up embaixo; no sábado, o HIIT antes do H3.
   const principalPrimeiro = dia.sessaoForca?.papel === 'alternativa';
   return `<article class="card dia${estourado ? ' dia-estourado' : ''}">
     <header class="dia-h"><h3>${esc(d.nome)} <span class="mut">${esc(data)}</span></h3><div class="treinos">${chips}</div></header>
-    ${principalPrimeiro ? `${metabolicos}${forca}` : `${forca}${metabolicos}`}${vazio}${equip}
+    ${principalPrimeiro ? `${metabolicos}${forca}` : `${forca}${metabolicos}`}${vazio}${equip}${acoesDia}
   </article>`;
 }
 

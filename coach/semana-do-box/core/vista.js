@@ -959,3 +959,50 @@ export function diasComHyroxTrocado(doc, estacao, substituta) {
   }
   return dias;
 }
+
+/* ───────────────────── Semana em branco e dia sem aula (06/10/2026) ───────────────────── */
+
+/** Os motivos de um dia sem aula, na ordem do servidor (`TIPOS_AVISO`). */
+export const TIPOS_AVISO = [
+  { id: 'feriado', nome: 'Feriado', icone: '🏖️' },
+  { id: 'recesso', nome: 'Recesso', icone: '🌴' },
+  { id: 'evento', nome: 'Evento', icone: '🏁' },
+];
+/** O texto livre do aviso (`MAX_TEXTO_AVISO` do servidor). */
+export const MAX_TEXTO_AVISO = 500;
+
+/** '🏖️ Feriado'. Tipo desconhecido: 'Sem aula'. @param {{tipo?: string} | null | undefined} aviso */
+export function tituloAviso(aviso) {
+  const t = TIPOS_AVISO.find((x) => x.id === aviso?.tipo);
+  return t ? `${t.icone} ${t.nome}` : 'Sem aula';
+}
+
+/**
+ * Dá para mexer neste DIA (marcar sem aula, editar o aviso, programar)?
+ * ESPELHA a trava do servidor (`diasPassadosAlterados`): semana que já foi
+ * publicada não muda num dia que já passou. Quem recusa de verdade é o servidor.
+ * @param {any} doc @param {string} diaId @param {string} hojeIso
+ */
+export function diaEditavel(doc, diaId, hojeIso) {
+  if (!doc) return false;
+  if (doc.status !== 'publicado' && !doc.publicadoEm) return true;
+  const data = datasIsoDosDias(doc.dataInicio)[diaId];
+  return !!data && data >= hojeIso;
+}
+
+/**
+ * Os `dias` para `salvarSemanaBox` com UM dia sem aula e o `aviso` dado (marcar
+ * sem aula, editar o aviso). Os outros dias vão como estão — o servidor devolve
+ * a eles o HIIT, o WOD, o Hyrox e o aviso gravados (`diasComConteudoGravado`).
+ * @param {any} doc @param {string} diaId @param {{tipo: string, texto: string}} aviso
+ */
+export function diasComAviso(doc, diaId, aviso) {
+  const dias = diasParaSalvar(doc);
+  dias[diaId] = { treinos: [], blocoPrincipal: [], aviso: { tipo: aviso.tipo, texto: aviso.texto } };
+  return dias;
+}
+
+/** Os 6 dias sem aula e com aviso: a semana foi criada (ou ficou) em branco. @param {any} doc */
+export function semanaEmBranco(doc) {
+  return !!doc?.dias && DIAS.every((d) => !(doc.dias[d.id]?.treinos ?? []).length && !!doc.dias[d.id]?.aviso);
+}

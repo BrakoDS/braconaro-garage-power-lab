@@ -727,6 +727,31 @@ export interface DiaProgramado {
   cross: WodProgramado | null;
   /** O Hyrox, só em dia com Hyrox na grade. `null` em semana de antes do gerador do Hyrox. */
   hyrox: HyroxProgramado | null;
+  /**
+   * Por que o dia NÃO tem aula (feriado, recesso, evento) — só em dia sem
+   * `treinos`. O aluno vê o aviso no lugar do treino. `null` = dia com aula;
+   * ausente = semana de antes do aviso.
+   */
+  aviso?: AvisoDoDia | null;
+}
+
+/* ───────────────────── Semana em branco (decisão do coach, 06/10/2026) ───────────────────── */
+
+/**
+ * Dia sem aula: feriado, recesso ou evento (o Murph, por exemplo). O status
+ * da semana continua `rascunho`/`publicado` — a regra do Firestore libera a
+ * semana ao aluno por `status == 'publicado'`; o motivo mora no DIA.
+ */
+export const TIPOS_AVISO = ['feriado', 'recesso', 'evento'] as const;
+export type TipoAviso = (typeof TIPOS_AVISO)[number];
+export const NOME_TIPO_AVISO: Readonly<Record<TipoAviso, string>> = { feriado: 'Feriado', recesso: 'Recesso', evento: 'Evento' };
+/** Texto livre do aviso (orientações e horário de um evento cabem). */
+export const MAX_TEXTO_AVISO = 500;
+
+export interface AvisoDoDia {
+  tipo: TipoAviso;
+  /** 'Recesso de fim de ano', 'Murph — sábado 8h na praça'. Pode ser vazio. */
+  texto: string;
 }
 
 /** Um slot de estação do HIIT. Unilateral aparece em dois slots seguidos, D e depois E. */
@@ -846,6 +871,12 @@ export interface PedidoGerarMatriz {
   variacao?: number;
   /** Sobrescrever um rascunho que já existe. Semana publicada nunca é sobrescrita. */
   substituirRascunho?: boolean;
+  /**
+   * Semana EM BRANCO: os 6 dias sem aula, com este aviso, sem sorteio
+   * (feriado, recesso, evento). O coach programa um dia depois, se quiser
+   * (`programarDiaBox`).
+   */
+  emBranco?: AvisoDoDia;
 }
 
 /** Um exercício trocado pela trava de equipamento. */

@@ -39,6 +39,8 @@ function ok(condicao: boolean, descricao: string, detalhe = ''): void {
   }
 }
 const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/** Os problemas MENOS o "dia sem aula precisa do motivo": as semanas de teste aqui têm só terça e quinta. */
+const semOMotivo = (p: string[]) => p.filter((x) => !x.includes('dia sem aula precisa do motivo'));
 
 const catalogo = new Map<string, ItemCatalogo>(Object.entries(CATALOGO_COMPLETO));
 const INV = lerInventario(undefined);
@@ -378,12 +380,12 @@ console.log('\nPublicação e reconferência');
   const curto = semana({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'kb_swing']) });
   ok(problemasParaPublicar(curto, []).some((p) => p.includes('tem 2 de 3 movimentos')), 'AMRAP com 2 movimentos: não publica');
   const legado = semana(null, null);
-  ok(!problemasParaPublicar(legado, []).length, 'semana de antes do gerador (Cross e Hyrox sem conteúdo): publica');
+  ok(!semOMotivo(problemasParaPublicar(legado, [])).length, 'semana de antes do gerador (Cross e Hyrox sem conteúdo): publica');
 
   const barra = { formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'power_clean', 'thruster_barra']) };
   const doc = { dias: semana(barra, { formato: 'metadeA', estacoes: ESTACOES_HYROX.slice(0, 4).map((estacao) => ({ estacao })) }) };
   const ok6 = reconferirSemana(doc, INV.limitesAtivos, 6)!;
-  ok(!ok6.alertasCross.length && !ok6.alertasHyrox.length && !ok6.problemasParaPublicar.length, 'WOD com 2 barras e turma de 6: cabe');
+  ok(!ok6.alertasCross.length && !ok6.alertasHyrox.length && !semOMotivo(ok6.problemasParaPublicar).length, 'WOD com 2 barras e turma de 6: cabe');
   const t9 = reconferirSemana(doc, INV.limitesAtivos, 9)!;
   const t9wod = t9.alertasCross.filter((a) => !a.bloco);
   ok(t9wod.length === 1 && t9wod[0].usado === 6 && igual(t9wod[0].dias, ['terca']),

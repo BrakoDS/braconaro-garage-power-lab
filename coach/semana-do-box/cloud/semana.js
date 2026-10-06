@@ -74,11 +74,23 @@ async function chamar(nome, payload) {
 }
 
 /**
- * Pede ao servidor a semana de `data` ('AAAA-MM-DD', qualquer dia dela).
- * @param {{data: string, variacao?: number, substituirRascunho?: boolean}} pedido
+ * Pede ao servidor a semana de `data` ('AAAA-MM-DD', qualquer dia dela). Com
+ * `emBranco`, a semana nasce sem sorteio: os 6 dias sem aula, com o aviso.
+ * @param {{data: string, variacao?: number, substituirRascunho?: boolean, emBranco?: {tipo: string, texto: string}}} pedido
  */
-export function gerarMatriz({ data, variacao = 0, substituirRascunho = false }) {
-  return chamar('gerarMatrizSemanalBox', { data, variacao, substituirRascunho });
+export function gerarMatriz({ data, variacao = 0, substituirRascunho = false, emBranco = undefined }) {
+  return chamar('gerarMatrizSemanalBox', emBranco ? { data, emBranco } : { data, variacao, substituirRascunho });
+}
+
+/**
+ * Programa UM dia sem aula: o servidor sorteia com o mesmo gerador, o mesmo
+ * rodízio e o mesmo inventário e grava só esse dia (o H1 e o HIIT que a grade
+ * divide entre dois dias continuam um só). Vale em semana publicada, menos em
+ * dia que já passou.
+ * @param {string} semanaId @param {string} dia 'segunda'…'sabado'
+ */
+export function programarDia(semanaId, dia) {
+  return chamar('programarDiaBox', { semanaId, dia });
 }
 
 /** Publica (ou devolve para rascunho) uma semana já gravada. @param {string} semanaId @param {boolean} publicar */

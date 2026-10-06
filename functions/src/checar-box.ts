@@ -9,17 +9,19 @@
  */
 import { CATALOGO_BASE } from './catalogo-base';
 import { CATALOGO_HIIT } from './catalogo-hiit';
+import { CATALOGO_COMPLETO } from './catalogo-completo';
 import { chaveSemana } from './volume-agregado';
 import {
-  DIAS_SEMANA, INSTANCIAS, INVENTARIO_PADRAO, MATRIZ_H, RECURSOS_INVENTARIO,
+  DIAS_SEMANA, INSTANCIAS, INVENTARIO_PADRAO, MATRIZ_H, MAX_TEXTO_AVISO, RECURSOS_INVENTARIO,
   type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type Instancia, type ItemCatalogo, type RecursoInventario,
 } from './modelo-box';
 import {
-  alertasDaSemana, aplicarInventario, consumoDoDia, historicoComSessao, intervaloDaSemana, lerDias,
+  alertasDaSemana, aplicarInventario, consumoDoDia, contaDaSemana, diasComConteudoGravado, historicoComSessao, intervaloDaSemana,
+  lerAviso, lerDias,
   lerExercicioCatalogo, lerInventario, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior, semanaDoPedido,
   volumeDaSessao,
 } from './semana-box';
-import { descansoDaVaga, gerarSemana, idsDaSemana, montarBloco } from './gerador-box';
+import { descansoDaVaga, gerarSemana, idsDaSemana, montarBloco, programarDia, semanaEmBranco } from './gerador-box';
 import {
   avisosDeEdicao, blocosDaSemana, conflitosDaTroca, diasDaSessao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas, sugestoesPara,
 } from './edicao-box';
@@ -33,6 +35,14 @@ function ok(condicao: boolean, descricao: string, detalhe = ''): void {
   }
 }
 const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/**
+ * Os problemas MENOS o "dia sem aula precisa do motivo": várias semanas de teste
+ * aqui têm só alguns dias montados, e os vazios não têm aviso de propósito —
+ * quem testa o aviso é a seção "Semana em branco".
+ */
+/** Os problemas de publicação de uma semana inteira, com a conta do inventário de fábrica. */
+const semanaProblemas = (dias: Record<DiaSemana, DiaProgramado>) => contaDaSemana(dias, { ...INVENTARIO_PADRAO }, 6).problemasParaPublicar;
+const semOMotivo = (p: string[]) => p.filter((x) => !x.includes('dia sem aula precisa do motivo'));
 
 const catalogo = new Map<string, ExercicioCatalogo>(Object.entries(CATALOGO_BASE));
 /** Força e só HIIT: o que o gerador da semana lê do Firestore. */
@@ -125,7 +135,7 @@ console.log('\nDias e consumo de equipamento');
     const semSmith = { ...INVENTARIO_PADRAO, smith: 1 };
     ok(igual(alertasDaSemana(r.dias, semSmith), [{ dia: 'segunda', recurso: 'smith', usado: 2, limite: 1 }]),
       'um smith em manutenção vira alerta na segunda');
-    const p = problemasParaPublicar(r.dias, []);
+    const p = semOMotivo(problemasParaPublicar(r.dias, []));
     ok(p.length === 0, 'semana com só a segunda completa pode publicar', p.join(' | '));
   }
 
@@ -144,7 +154,7 @@ console.log('\nDias e consumo de equipamento');
     'zero séries é recusado');
 
   const incompleto = lerDias({ segunda: { treinos: ['H2'], blocoPrincipal: bloco(DIA_OK.slice(0, 4)) } }, catalogo);
-  ok('dias' in incompleto && problemasParaPublicar(incompleto.dias, []).length === 1, 'bloco com 4 de 6 salva, mas não publica');
+  ok('dias' in incompleto && semOMotivo(problemasParaPublicar(incompleto.dias, [])).length === 1, 'bloco com 4 de 6 salva, mas não publica');
   const vazia = lerDias({}, catalogo);
   ok('dias' in vazia && problemasParaPublicar(vazia.dias, []).some((p) => p.includes('nenhum treino')), 'semana sem treino não publica');
 }
@@ -197,7 +207,7 @@ console.log('\nSessão H, metabólicas e a nova regra de bloco');
       'terça: Cross é a aula principal');
     ok(r.dias.quinta.sessaoForca === null && r.dias.quinta.blocosMetabolicos[0]?.formato === 'For Time',
       'quinta: Hyrox estruturado, sem sessão de força');
-    ok(problemasParaPublicar(r.dias, []).length === 0, 'dia só metabólico publica com bloco vazio');
+    ok(semOMotivo(problemasParaPublicar(r.dias, [])).length === 0, 'dia só metabólico publica com bloco vazio');
   }
 }
 
@@ -357,7 +367,7 @@ console.log('\nReconferir semana gravada quando o inventário muda');
   ok(reconferirSemana(null, INVENTARIO_PADRAO) === null && reconferirSemana({ status: 'rascunho' }, INVENTARIO_PADRAO) === null,
     'documento sem dias: não há o que conferir');
   const torto = reconferirSemana({ dias: { segunda: { treinos: ['Hyrox'] } } }, INVENTARIO_PADRAO);
-  ok(!!torto && torto.alertas.length === 0 && torto.problemasParaPublicar.length === 0, 'dia sem consumo gravado não estoura nada');
+  ok(!!torto && torto.alertas.length === 0 && semOMotivo(torto.problemasParaPublicar).length === 0, 'dia sem consumo gravado não estoura nada');
 }
 
 console.log('\nEdição manual: conflitos, sugestões, avisos e trava');
@@ -427,6 +437,84 @@ console.log('\nEdição manual: conflitos, sugestões, avisos e trava');
   ok(diasPassadosAlterados(dias, dias, datas, '2026-10-20').length === 0, 'semana igual não acusa nada');
   ok(igual(sessoesTravadas(dias, datas, '2026-10-13'), ['H1']) && igual(sessoesTravadas(dias, datas, '2026-10-15'), ['H1', 'H2']),
     'sessões travadas: as que têm algum dia passado');
+}
+
+console.log('\nSemana em branco (feriado, recesso, evento) e um dia programado depois');
+{
+  const completo = new Map<string, ItemCatalogo>(Object.entries(CATALOGO_COMPLETO));
+
+  // O aviso.
+  const lido = lerAviso({ tipo: 'recesso', texto: '  Recesso de fim de ano  ' }, 'segunda');
+  ok(!!lido && 'aviso' in lido && lido.aviso.texto === 'Recesso de fim de ano', 'aviso válido, texto aparado');
+  const soTipo = lerAviso({ tipo: 'evento' }, 'sabado');
+  ok(!!soTipo && 'aviso' in soTipo && soTipo.aviso.texto === '', 'aviso sem texto vale (só o tipo)');
+  ok(lerAviso(undefined, 'x') === null && lerAviso(null, 'x') === null, 'sem aviso: null');
+  ok('erro' in lerAviso({ tipo: 'folga' }, 'x')!, 'tipo fora da lista: erro');
+  ok('erro' in lerAviso({ tipo: 'evento', texto: 'x'.repeat(MAX_TEXTO_AVISO + 1) }, 'x')!, `texto acima de ${MAX_TEXTO_AVISO}: erro, não corte`);
+  ok('aviso' in lerAviso({ tipo: 'evento', texto: `${'x'.repeat(MAX_TEXTO_AVISO)}   ` }, 'x')!, `${MAX_TEXTO_AVISO} caracteres (e espaço sobrando) cabem`);
+  const comAula = lerDias({ quinta: { treinos: ['Hyrox'], aviso: { tipo: 'feriado' } } }, completo);
+  ok('erro' in comAula && comAula.erro.includes('só de dia sem aula'), 'aviso em dia COM aula: erro');
+
+  // A semana inteira em branco.
+  const branca = semanaEmBranco({ tipo: 'recesso', texto: 'Recesso de fim de ano' });
+  ok(DIAS_SEMANA.every((d) => !branca.dias[d].treinos.length && branca.dias[d].aviso?.tipo === 'recesso'), 'em branco: 6 dias sem aula, todos com o aviso');
+  ok(!branca.trocas.length && !branca.avisos.length && !branca.alertas.length, 'em branco: sem sorteio, sem troca, sem alerta');
+  const contaBranca = contaDaSemana(branca.dias, { ...INVENTARIO_PADRAO }, 6);
+  ok(!contaBranca.alertas.length && !contaBranca.alertasHiit.length && !contaBranca.alertasCross.length && !contaBranca.alertasHyrox.length
+    && !contaBranca.problemasParaPublicar.length, 'em branco: a conta do inventário não trava e a semana PUBLICA', contaBranca.problemasParaPublicar.join(' | '));
+  const reconf = reconferirSemana({ dias: JSON.parse(JSON.stringify(branca.dias)) }, { ...INVENTARIO_PADRAO, smith: 0 }, 6);
+  ok(!!reconf && !reconf.problemasParaPublicar.length, 'a reconferência do inventário lê o aviso (o feriado não vira "sem motivo")');
+
+  // Dia sem aula numa semana normal.
+  const normal = gerarSemana({ semanaId: '2026-W43', catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null });
+  const semQuinta = { ...normal.dias, quinta: { ...normal.dias.quinta, treinos: [], blocosMetabolicos: [], hyrox: null, aviso: null } };
+  ok(semanaProblemas(semQuinta).includes('quinta: dia sem aula precisa do motivo (feriado, recesso ou evento).'), 'quinta vazia SEM motivo: não publica');
+  const feriado = lerDias({ ...semQuinta, quinta: { treinos: [], aviso: { tipo: 'feriado', texto: 'Feriado municipal' } } }, completo);
+  ok('dias' in feriado && !semanaProblemas(feriado.dias).some((p) => p.includes('motivo')), 'quinta de feriado com o motivo: publica');
+  const vazia = lerDias(Object.fromEntries(DIAS_SEMANA.map((d) => [d, { treinos: [] }])), completo);
+  ok('dias' in vazia && igual(problemasParaPublicar(vazia.dias, []), ['A semana não tem nenhum treino.']), 'tudo vazio e sem motivo: o aviso de sempre, uma vez só');
+
+  // Salvar "marcar sem aula": o conteúdo gravado não volta; o aviso gravado volta só em dia que continua sem aula.
+  type Dias = Record<string, Record<string, unknown>>;
+  const pedidoSemAula = diasComConteudoGravado({ quinta: { treinos: [], aviso: { tipo: 'feriado' } } }, normal.dias) as Dias;
+  ok(!('hyrox' in pedidoSemAula.quinta), 'marcar sem aula: o Hyrox gravado não volta para o dia');
+  const gravadoFeriado = { quinta: { treinos: [], aviso: { tipo: 'feriado', texto: 'x' } } };
+  ok(igual((diasComConteudoGravado({ quinta: { treinos: [] } }, gravadoFeriado) as Dias).quinta.aviso, { tipo: 'feriado', texto: 'x' }),
+    'pedido sem a chave aviso num dia sem aula: o aviso gravado volta');
+  ok(!('aviso' in (diasComConteudoGravado({ quinta: { treinos: ['Hyrox'] } }, gravadoFeriado) as Dias).quinta),
+    'dia que voltou a ter aula: o aviso gravado NÃO volta');
+  const comWod = diasComConteudoGravado({ terca: { treinos: ['Cross', 'H1'], blocoPrincipal: [] } }, normal.dias) as Dias;
+  ok(!!comWod.terca.cross, 'a troca do bloco H continua preservando o WOD (dia com Cross)');
+
+  // A trava de dia passado vale para o aviso.
+  const datas = intervaloDaSemana('2026-W43')!.datas;
+  const outroTexto = { ...branca.dias, segunda: { ...branca.dias.segunda, aviso: { tipo: 'recesso' as const, texto: 'outro' } } };
+  ok(igual(diasPassadosAlterados(branca.dias, outroTexto, datas, datas.terca), ['segunda']), 'semana publicada: mudar o aviso de um dia que passou trava');
+  ok(!diasPassadosAlterados({ segunda: { treinos: [] } }, { segunda: { treinos: [], aviso: null } }, datas, datas.sabado).length,
+    'semana de antes do aviso (sem a chave) × aviso null: mesmo retrato');
+
+  // Programar um dia depois.
+  const sorteada = normal.dias;
+  const comTerca = programarDia(branca.dias, 'terca', sorteada);
+  ok(igual(comTerca.terca.treinos, ['Cross', 'H1']) && comTerca.terca.aviso === null && !!comTerca.terca.cross,
+    'programar a terça: Cross + H1 da grade, sem o aviso');
+  ok(DIAS_SEMANA.filter((d) => d !== 'terca').every((d) => igual(comTerca[d], branca.dias[d])), 'os outros dias não mudam');
+  const outroH1 = { ...sorteada, segunda: { ...sorteada.segunda, blocoPrincipal: [...sorteada.segunda.blocoPrincipal].reverse() } };
+  const comSegunda = programarDia(comTerca, 'segunda', outroH1);
+  ok(igual(comSegunda.segunda.blocoPrincipal, comTerca.terca.blocoPrincipal), 'programar a segunda: o H1 copia o da terça (o H1 é um só)');
+  const comSexta = programarDia(comTerca, 'sexta', sorteada);
+  const comSabado = programarDia(comSexta, 'sabado', { ...sorteada, sabado: { ...sorteada.sabado, hiit: { ...sorteada.sabado.hiit!, estacoes: [] } } });
+  ok(!!comSabado.sabado.hiit && igual(comSabado.sabado.hiit, comSexta.sexta.hiit), 'programar o sábado: o HIIT copia o da sexta');
+  const relido = lerDias(JSON.parse(JSON.stringify(comSabado)), completo);
+  ok('dias' in relido, 'a semana com dias programados passa na validação de salvar', 'erro' in relido ? relido.erro : '');
+  if ('dias' in relido) {
+    const p = semanaProblemas(relido.dias);
+    ok(!p.length, 'semana em branco com 3 dias programados: publica', p.join(' | '));
+  }
+
+  // A semana depois de uma em branco sorteia normalmente.
+  const depois = gerarSemana({ semanaId: '2026-W44', catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: branca.dias });
+  ok(DIAS_SEMANA.every((d) => depois.dias[d].treinos.length), 'semana seguinte a uma em branco: sorteio normal');
 }
 
 console.log('\nSanidade do vocabulário');

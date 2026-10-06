@@ -17,8 +17,9 @@
 import { usuario } from '../../../compartilhado/firebase/cloud.js';
 import { confirmar } from '../../../compartilhado/ui/dialogo.js';
 import { chaveMes, chaveSemana, rotuloMes, semanasDoMes } from '../../montador-hibrido/core/periodos.js';
-import { segundaDaChave, variacaoSeguinte } from '../core/vista.js';
-import { gerarMatriz, publicar, lerSemanas } from '../cloud/semana.js';
+import { DIAS, diasComAviso, segundaDaChave, tituloAviso, variacaoSeguinte } from '../core/vista.js';
+import { gerarMatriz, programarDia, publicar, lerSemanas, salvarSemana } from '../cloud/semana.js';
+import { pedirAviso } from './dia-sem-aula.js';
 import * as inventario from './inventario.js';
 import { trocarExercicio } from './troca.js';
 import { trocarExercicioHiit } from './troca-hiit.js';
@@ -165,6 +166,50 @@ async function aoClicar(ev) {
   const estacaoHyrox = alvo.getAttribute('data-trocar-hyrox');
   if (estacaoHyrox) {
     await trocarEstacaoHyrox({ ...ctxTroca, estacao: estacaoHyrox });
+    return;
+  }
+
+  // Semana em branco e dia sem aula (feriado, recesso, evento).
+  const diaId = alvo.getAttribute('data-dia') || '';
+  const infoDia = DIAS.find((d) => d.id === diaId);
+  const nomeDia = infoDia?.nome ?? diaId;
+  if (acao === 'em-branco') {
+    const aviso = await pedirAviso({
+      titulo: `Semana em branco · ${s.chave}`,
+      explicacao: 'Os 6 dias ficam sem aula, com este aviso para o aluno. Nada é sorteado; dá para programar um dia depois.',
+      ok: 'Criar em branco',
+    });
+    if (!aviso) return;
+    const data = $('#semana-data')?.value || s.inicio;
+    await executar(s.chave, 'Criando a semana em branco…', () => gerarMatriz({ data, emBranco: aviso }),
+      'Semana em branco criada como rascunho. Publique para os alunos verem o aviso.');
+    return;
+  }
+  if (acao === 'sem-aula' || acao === 'editar-aviso') {
+    const atual = doc?.dias?.[diaId]?.aviso ?? null;
+    const aviso = await pedirAviso({
+      titulo: `${acao === 'sem-aula' ? 'Marcar sem aula' : 'Aviso'} · ${nomeDia}`,
+      explicacao: acao === 'sem-aula'
+        ? `As aulas de ${nomeDia.toLowerCase()} saem da semana e o aluno vê este aviso no lugar. Os outros dias não mudam.`
+        : `O aviso que o aluno vê ${infoDia?.prep ?? 'na'} ${nomeDia.toLowerCase()}.`,
+      ok: acao === 'sem-aula' ? 'Marcar sem aula' : 'Salvar aviso',
+      aviso: atual,
+    });
+    if (!aviso) return;
+    await executar(s.chave, 'Gravando…', () => salvarSemana(s.chave, diasComAviso(doc, diaId, aviso)),
+      `${nomeDia}: ${tituloAviso(aviso)} gravado.`);
+    return;
+  }
+  if (acao === 'programar-dia') {
+    const ok = await confirmar({
+      titulo: `Programar ${nomeDia.toLowerCase()}?`,
+      texto: `O servidor sorteia as aulas de <b>${esc(nomeDia.toLowerCase())}</b> com o mesmo rodízio e o mesmo inventário da semana e tira o aviso. `
+        + 'Se o H1 (ou o HIIT) já está em outro dia, ele é repetido igual.',
+      ok: 'Programar',
+    });
+    if (!ok) return;
+    await executar(s.chave, `Programando ${nomeDia.toLowerCase()}…`, () => programarDia(s.chave, diaId),
+      `${nomeDia} programada. Revise as aulas e o equipamento.`);
     return;
   }
 

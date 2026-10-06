@@ -247,6 +247,8 @@ function retrato(d: any): string {
     hyrox: Array.isArray(d?.hyrox?.estacoes)
       ? [d.hyrox.formato, d.hyrox.estacoes.map((e: any) => [e?.estacao, !!e?.substituta])]
       : null,
+    // Ausente (semana de antes do aviso) e `null` também têm o mesmo retrato.
+    aviso: d?.aviso ? [d.aviso.tipo ?? null, d.aviso.texto ?? ''] : null,
   });
 }
 

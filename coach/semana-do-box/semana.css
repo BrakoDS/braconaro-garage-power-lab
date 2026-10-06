@@ -225,3 +225,24 @@
 .wod-foco { display: inline-block; margin-left: 4px; font-size: 10px; font-weight: 700; letter-spacing: .3px; color: var(--acc); }
 .troca-selo.selo-foco { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 50%, transparent); }
 
+
+/* ── Semana em branco: dia sem aula (feriado, recesso, evento) ── */
+.sem-aula { padding: 10px 12px; border-radius: 8px; background: var(--card2); border: 1px dashed var(--line2); }
+.sem-aula.sem-motivo { border-color: var(--bad); }
+.sem-aula p { margin: 0; }
+.sem-aula .sem-aula-titulo { font-size: 15px; font-weight: 800; }
+.sem-aula .sem-aula-texto { margin-top: 4px; font-size: 13px; line-height: 1.45; white-space: pre-line; }
+.sem-aula .mut { margin-top: 4px; font-size: 12px; }
+.dia-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.dia-acao { background: transparent; border: 1px solid var(--line2); color: var(--txt); border-radius: 7px;
+  padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.dia-acao:hover { border-color: var(--acc); background: rgba(255,199,0,.08); }
+.semana-branco { font-size: 11px; font-weight: 700; color: var(--mut); }
+.aviso-form fieldset { border: 0; padding: 0; margin: 0 0 12px; }
+.aviso-form legend { font-weight: 700; margin-bottom: 6px; }
+.aviso-tipos { display: flex; flex-wrap: wrap; gap: 8px; }
+.aviso-tipos label { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--line2);
+  border-radius: 8px; cursor: pointer; }
+.aviso-tipos label:has(input:checked) { border-color: var(--acc); background: rgba(255,199,0,.08); }
+.aviso-form textarea { width: 100%; min-height: 96px; resize: vertical; box-sizing: border-box; }
+.aviso-form .aviso-conta { text-align: right; font-size: 12px; margin-top: 4px; }
