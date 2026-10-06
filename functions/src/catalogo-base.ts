@@ -16,6 +16,9 @@
  * `unilateral` e `hiit` (05/10/2026): os exercícios de força que também servem
  * ao HIIT levam a estação aqui; os que SÓ servem ao HIIT (burpee, air bike)
  * estão em `catalogo-hiit.ts`, porque não têm instância de força.
+ *
+ * `cross` (06/10/2026): os que também entram no WOD do Cross levam o padrão,
+ * a unidade e o RX aqui; os que SÓ servem ao Cross estão em `catalogo-cross.ts`.
  */
 import type { ExercicioCatalogo } from './modelo-box';
 
@@ -45,6 +48,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     equipamentos: ['trx'],
     hiit: { estacoes: ['superiores'] },
     adaptacoes: {},
+    cross: { padrao: 'empurrar', unidade: 'reps', rx: 12 },
   },
   crucifixo_crossover_medial: {
     nome: 'Crucifixo no crossover medial', instancia: 'empurrar_horizontal',
@@ -117,6 +121,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     equipamentos: ['trx'],
     hiit: { estacoes: ['superiores'] },
     adaptacoes: {},
+    cross: { padrao: 'puxar', unidade: 'reps', rx: 12 },
   },
   face_pull_monocross: {
     nome: 'Face pull na corda', instancia: 'puxar_horizontal',
@@ -166,6 +171,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
       joelho: 'elevacao_pelvica', lombar: 'leg_press_vertical_smith',
       ombro: 'bulgaro_caixote', mobilidade: 'agachamento_trx',
     },
+    cross: { padrao: 'agachar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' } },
   },
   bulgaro_caixote: {
     nome: 'Agachamento búlgaro no caixote', instancia: 'agachar',
@@ -200,6 +206,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     unilateral: true,
     hiit: { estacoes: ['pernas'] },
     adaptacoes: { joelho: 'ponte_gluteo' },
+    cross: { padrao: 'agachar', unidade: 'reps', rx: 10 },
   },
   agachamento_trx: {
     nome: 'Agachamento no TRX', instancia: 'agachar',
@@ -222,6 +229,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     musculoPrincipal: ['posterior_coxa', 'gluteo', 'costas'], musculosSecundarios: ['core', 'antebraco'],
     equipamentos: ['barra', 'anilhas'],
     adaptacoes: { lombar: 'elevacao_pelvica', mobilidade: 'rdl_halter' },
+    cross: { padrao: 'quadril', unidade: 'reps', rx: 10, carga: { rx: '60/40 kg', scaled: '40/25 kg' } },
   },
   rdl_smith: {
     nome: 'Levantamento terra romeno no Smith', instancia: 'estender_quadril',
@@ -293,6 +301,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     equipamentos: ['colchonete'],
     hiit: { estacoes: ['core'] },
     adaptacoes: { lombar: 'pallof_press' },
+    cross: { padrao: 'core', unidade: 'reps', rx: 15 },
   },
   russian_twist: {
     nome: 'Russian twist', instancia: 'estabilizar_tronco',
@@ -300,5 +309,6 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     equipamentos: ['anilhas', 'colchonete'],
     hiit: { estacoes: ['core'] },
     adaptacoes: { lombar: 'pallof_press' },
+    cross: { padrao: 'core', unidade: 'reps', rx: 20, carga: { rx: 'anilha 10/5 kg', scaled: 'sem carga' } },
   },
 };

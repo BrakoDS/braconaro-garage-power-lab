@@ -7,9 +7,10 @@ npm run build                      # tsc
 npm run checar                     # lógica pura (IA, preços, Montador, conquistas e semana do box), sem rede
 npm run checar:box                 # só a semana do box
 npm run checar:hiit                # só o gerador do HIIT
+npm run checar:cross               # só os geradores do Cross e do Hyrox
 npm run checar:emulador            # exclusão de treino contra o emulador do Firestore
 npm run checar:emulador:conquistas # motor de conquistas de ponta a ponta (Firestore + Functions)
-npm run seed:catalogo              # simula o seed do catálogo base; `-- --gravar` grava
+npm run seed:catalogo              # simula o seed do catálogo (força, HIIT e Cross); `-- --gravar` grava
 npm run deploy                     # build + firebase deploy --only functions
 ```
 
@@ -62,8 +63,8 @@ O que o servidor faz, nesta ordem:
 
 Determinístico: mesma semana + mesma semana anterior + mesmo catálogo + mesmo inventário = mesma
 semana. O HIIT sai montado (estações em `dias.sexta.hiit` e `dias.sabado.hiit`, o mesmo nos dois dias;
-ver "HIIT" abaixo); Cross e Hyrox saem só sinalizados com formato e descrição, e os movimentos
-deles ainda são do coach.
+ver "HIIT" abaixo), e também o WOD da terça (`dias.terca.cross`) e o Hyrox da quinta
+(`dias.quinta.hyrox`) — ver "Cross e Hyrox" abaixo.
 
 ### Regras de conta
 
@@ -74,7 +75,8 @@ deles ainda são do coach.
 - **Volume (aluno e dashboard do coach):** cada série soma 1,0 ao músculo principal e 0,5 ao
   secundário. No dashboard, a separação vem de `grupamentosSecundarios`, que a leitura de lousa grava
   desde 05/10/2026; lousa antiga, sem o campo, continua 1,0 em tudo. RIR alto não descarta série.
-- **Presença em Cross/Hyrox/HIIT** entra no histórico sem volume (o conteúdo ainda não é estruturado).
+- **Presença em Cross/Hyrox/HIIT** entra no histórico sem volume (decisão do coach, 06/10/2026: a
+  conta de volume das sessões metabólicas fica para uma etapa própria).
 - Aluno lendo a semana precisa filtrar `where('status', '==', 'publicado')` — a regra recusa a
   consulta que poderia trazer rascunho.
 
@@ -127,7 +129,7 @@ kettlebell.
   `geracao.hiitFora`; os avisos do HIIT entram em `geracao.avisos` com `HIIT:` na frente.
 - `salvarSemanaBox` valida o `hiit` de cada dia (`lerHiit`: o pedido manda só os ids, o servidor
   calcula lado D/E, nome, protocolo e `consumoPorAluno`). **Dia sem a chave `hiit` no pedido mantém o
-  HIIT gravado** (`diasComHiitGravado`): a troca manual do bloco H manda só o bloco. `hiit: null` apaga.
+  HIIT gravado** (`diasComConteudoGravado`, que também preserva o `cross` e o `hyrox`): a troca manual do bloco H manda só o bloco. `hiit: null` apaga.
 - Não publica com: estação incompleta, `alertasHiit`, ou exercício no bloco H e no HIIT do mesmo dia.
   Semana gerada antes do HIIT (dia de HIIT com `hiit` ausente) não trava.
 - `salvarInventarioBox` aceita `alunosPorAula` e os recursos do HIIT, e a reconferência das semanas
@@ -139,6 +141,60 @@ kettlebell.
   diferente, equipamento (sozinho, soma do slot, TRX em outra estação) e estar no bloco H do dia;
   só o rodízio é aviso. A troca do bloco H (`opcoesTrocaBox`) ganhou o conflito `noHiit`. Quem grava
   é o `salvarSemanaBox`, como sempre.
+
+### Cross e Hyrox (`src/gerador-cross.ts` e `src/gerador-hyrox.ts`, conferidos pelo `checar-cross`)
+
+Um WOD e um Hyrox por semana, nos dias da grade que os têm (terça e quinta). Regras do coach (06/10/2026):
+
+**WOD do Cross**
+
+- **Formato** sorteado entre AMRAP, EMOM, For Time e Chipper (`REGRA_FORMATO_CROSS`), nunca o da
+  semana anterior. Tempo: AMRAP 12–20 min; For Time 3–5 rodadas, time cap de 4 min por rodada; EMOM
+  movimentos × rodadas entre 12 e 20 min (cada minuto um movimento, a lista reinicia); Chipper 20 min.
+- **Movimentos:** 3–4 (Chipper: 5), sem repetir **padrão** (`PADROES_CROSS`: cardio, agachar, quadril,
+  empurrar, puxar, corpo_todo, olimpico, core) e com um **cardio** abrindo o WOD.
+- **Rodízio:** primeiro sem nenhum movimento do Cross da semana anterior; sem combinação nova, repete
+  o mínimo possível, com aviso. O H1 da terça não entra (é alternativa, de outra turma). Caso real: no
+  EMOM com turma de 6, a corrida é o único cardio que cabe — air bike, corda de pular e corda naval têm
+  2 de cada.
+- **Prescrição** calculada pelo servidor (`movimentoCross`): RX = `cross.rx` do catálogo (uma rodada de
+  AMRAP) × fator do formato (EMOM 0,6; Chipper 2,5); **Scaled = RX × 0,7**; arredondados para a lousa
+  (`arredondarPrescricao`). A carga RX/Scaled é texto do catálogo (`'40/30 kg'` = homem/mulher).
+- **Equipamento — regra mista** (`src/conta-cross.ts`):
+  - **EMOM (estrito):** a turma inteira faz o mesmo movimento no mesmo minuto — cada movimento exige
+    turma × consumo por aluno, e os movimentos não somam (minutos diferentes);
+  - **AMRAP, For Time, Chipper (escalonado):** a turma se espalha pelo WOD — cada movimento tem turma ÷
+    nº de movimentos (para cima) alunos ao mesmo tempo, e os movimentos **somam** (dois movimentos de
+    barra no mesmo AMRAP disputam as mesmas barras).
+  - sem combinação que caiba, sai completo assim mesmo, com `alertasCross` (como o HIIT).
+
+**Hyrox**
+
+- **Formato** em rodízio (`REGRA_FORMATO_HYROX`), nunca o da semana anterior: **prova completa** (as 8
+  estações, uma corrida antes de cada); **metade A** (estações 1–4) e **metade B** (5–8), com a corrida
+  dobrada; **compromised running** (4 estações sorteadas — preferindo as que não estiveram no Hyrox da
+  semana anterior —, 2 rodadas de corrida + metade da estação).
+- **Níveis:** Iniciante, Intermediário, Avançado e Competição — prescrição de cada estação e corrida
+  (com a air bike como alternativa, mesmo esforço sem impacto) por nível. Dados em `src/catalogo-hyrox.ts`,
+  portados do `hyrox.js` do montador antigo; as estações ficam FORA do `catalogoExercicios/`.
+- **Equipamento:** for time em rodízio, então a estação só precisa das unidades dela **ativas** (1 sled,
+  1 sandbag). Sem elas, entra a **substituta** da estação (sled em manutenção → Plate push e Remada no
+  TRX); sem substituta que caiba, a estação fica e vira `alertasHyrox`.
+
+**Catálogo:** `cross: { padrao, unidade, rx, carga?, consumoPorAluno? }` marca o movimento para o WOD.
+Os que já existiam (TRX, KB, wall ball, terra, frontal…) ganharam `cross` no próprio item; os só de
+Cross — barra olímpica **do chão** (o box não tem rack: power clean, hang power clean, ground to overhead,
+push press, thruster, sumo deadlift high pull), corrida e farmer com kettlebells — estão em
+`catalogo-cross.ts`. `catalogo-completo.ts` junta os três arquivos (é o que o seed grava).
+
+**Inventário:** `inventario/atual` ganhou `barraOlimpica` (4) e `sled` (1) (`RECURSOS_CROSS_HYROX`). O
+resto do que o Cross e o Hyrox usam é o equipamento do HIIT e o monocross, nas mesmas linhas.
+
+**Na semana:** `dias.terca.cross` (`WodProgramado`) e `dias.quinta.hyrox` (`HyroxProgramado`), `null` em
+semana gerada antes disso (não trava a publicação). O pedido de salvar manda só o formato, os
+minutos/rodadas e os ids (`lerCross`), ou o formato e as estações com `substituta` (`lerHyrox`); o
+servidor calcula o resto. Não publica com: WOD com menos movimentos que o formato pede,
+`alertasCross` ou `alertasHyrox`. A reconferência do inventário refaz os dois pelo consumo gravado.
 
 ## Motor de conquistas (`calcularConquistasXP*`)
 

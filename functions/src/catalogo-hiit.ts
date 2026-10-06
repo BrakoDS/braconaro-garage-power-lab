@@ -16,6 +16,8 @@
  * Equipamento traduzido como no `catalogo-base.ts`: `corporal` e `corrida` →
  * `peso_corporal`. O músculo `estabilizadores` do catálogo antigo não soma
  * volume e ficou de fora.
+ *
+ * `cross` (06/10/2026): os que também entram no WOD do Cross — ver `catalogo-cross.ts`.
  */
 import type { ExercicioSoHiit } from './modelo-box';
 
@@ -27,36 +29,43 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Agachamento livre (peso corporal)',
     musculoPrincipal: ['quadriceps'], musculosSecundarios: ['gluteo'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['pernas'] },
+    cross: { padrao: 'agachar', unidade: 'reps', rx: 20 },
   },
   goblet_squat: {
     ...SEM, nome: 'Agachamento goblet com kettlebell',
     musculoPrincipal: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
     equipamentos: ['kettlebell'], hiit: { estacoes: ['pernas'] },
+    cross: { padrao: 'agachar', unidade: 'reps', rx: 12, carga: { rx: '16/12 kg', scaled: '12/8 kg' } },
   },
   kb_swing: {
     ...SEM, nome: 'Kettlebell swing',
     musculoPrincipal: ['gluteo', 'posterior_coxa'], musculosSecundarios: ['core', 'ombro'],
     equipamentos: ['kettlebell'], hiit: { estacoes: ['pernas'] },
+    cross: { padrao: 'quadril', unidade: 'reps', rx: 15, carga: { rx: '16/12 kg', scaled: '12/8 kg' } },
   },
   wall_ball_shot: {
     ...SEM, nome: 'Wall ball shot',
     musculoPrincipal: ['quadriceps', 'ombro'], musculosSecundarios: ['gluteo'],
     equipamentos: ['wall_ball'], hiit: { estacoes: ['pernas'] },
+    cross: { padrao: 'corpo_todo', unidade: 'reps', rx: 15, carga: { rx: '14/10 lb', scaled: '10 lb, alvo mais baixo' } },
   },
   sandbag_clean: {
     ...SEM, nome: 'Clean com sandbag',
     musculoPrincipal: ['gluteo', 'posterior_coxa'], musculosSecundarios: ['quadriceps', 'costas', 'trapezio'],
     equipamentos: ['sandbag'], hiit: { estacoes: ['pernas'] },
+    cross: { padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '20 kg', scaled: '20 kg' } },
   },
   afundo_kb: {
     ...SEM, nome: 'Afundo com kettlebell', unilateral: true,
     musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: ['core'],
     equipamentos: ['kettlebell'], hiit: { estacoes: ['pernas'] },
+    cross: { padrao: 'agachar', unidade: 'reps', rx: 10, carga: { rx: '16/12 kg', scaled: 'sem carga' } },
   },
   afundo_reverso: {
     ...SEM, nome: 'Afundo reverso (peso corporal)', unilateral: true,
     musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: [],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['pernas'] },
+    cross: { padrao: 'agachar', unidade: 'reps', rx: 10 },
   },
 
   /* ───────────── core ───────────── */
@@ -64,11 +73,13 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Abdominal Supra (Crunch)',
     musculoPrincipal: ['core'], musculosSecundarios: [],
     equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
+    cross: { padrao: 'core', unidade: 'reps', rx: 15 },
   },
   abdominal_remador: {
     ...SEM, nome: 'Abdominal Remador',
     musculoPrincipal: ['core'], musculosSecundarios: ['quadriceps'],
     equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
+    cross: { padrao: 'core', unidade: 'reps', rx: 12 },
   },
   abdominal_bicicleta: {
     ...SEM, nome: 'Abdominal bicicleta',
@@ -91,11 +102,13 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Flexão de braço',
     musculoPrincipal: ['peito'], musculosSecundarios: ['triceps', 'ombro', 'core'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['superiores'] },
+    cross: { padrao: 'empurrar', unidade: 'reps', rx: 12 },
   },
   flexao_pike: {
     ...SEM, nome: 'Flexão pike',
     musculoPrincipal: ['ombro'], musculosSecundarios: ['triceps'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['superiores'] },
+    cross: { padrao: 'empurrar', unidade: 'reps', rx: 10 },
   },
   thruster_wallball: {
     ...SEM, nome: 'Thruster com wall ball',
@@ -106,16 +119,19 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Thruster com halteres',
     musculoPrincipal: ['ombro', 'quadriceps'], musculosSecundarios: ['gluteo', 'triceps'],
     equipamentos: ['halteres'], hiit: { estacoes: ['superiores'] },
+    cross: { padrao: 'corpo_todo', unidade: 'reps', rx: 12, carga: { rx: 'par de 10/7 kg', scaled: 'par de 5/3 kg' } },
   },
   remada_unilateral_kb: {
     ...SEM, nome: 'Remada unilateral com kettlebell', unilateral: true,
     musculoPrincipal: ['costas'], musculosSecundarios: ['biceps', 'core'],
     equipamentos: ['kettlebell'], hiit: { estacoes: ['superiores'] },
+    cross: { padrao: 'puxar', unidade: 'reps', rx: 10, carga: { rx: '16/12 kg', scaled: '12/8 kg' } },
   },
   desenvolvimento_unilateral_kb: {
     ...SEM, nome: 'Desenvolvimento unilateral com kettlebell', unilateral: true,
     musculoPrincipal: ['ombro'], musculosSecundarios: ['triceps', 'core'],
     equipamentos: ['kettlebell'], hiit: { estacoes: ['superiores'] },
+    cross: { padrao: 'empurrar', unidade: 'reps', rx: 8, carga: { rx: '12/8 kg', scaled: '8/6 kg' } },
   },
 
   /* ───────────── cardio ───────────── */
@@ -123,31 +139,37 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Burpee',
     musculoPrincipal: ['quadriceps', 'peito'], musculosSecundarios: ['core', 'ombro', 'triceps'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'corpo_todo', unidade: 'reps', rx: 10 },
   },
   pular_corda: {
     ...SEM, nome: 'Pular corda (speed rope)',
     musculoPrincipal: ['panturrilha'], musculosSecundarios: ['ombro'],
     equipamentos: ['corda_pular'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'cardio', unidade: 'reps', rx: 50 },
   },
   air_bike_sprint: {
     ...SEM, nome: 'Air bike (sprint/cals)',
     musculoPrincipal: ['quadriceps', 'core'], musculosSecundarios: ['ombro', 'costas'],
     equipamentos: ['air_bike'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'cardio', unidade: 'calorias', rx: 12 },
   },
   corda_naval: {
     ...SEM, nome: 'Battle ropes (corda naval)',
     musculoPrincipal: ['ombro', 'core'], musculosSecundarios: ['antebraco'],
     equipamentos: ['corda_naval'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'cardio', unidade: 'segundos', rx: 30 },
   },
   box_jump: {
     ...SEM, nome: 'Box jump',
     musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha', 'posterior_coxa'],
     equipamentos: ['caixote'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'agachar', unidade: 'reps', rx: 12, carga: { rx: 'caixote 60/50 cm', scaled: 'step-up no caixote' } },
   },
   agachamento_salto: {
     ...SEM, nome: 'Agachamento com salto (squat jump)',
     musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'agachar', unidade: 'reps', rx: 15 },
   },
   skater: {
     ...SEM, nome: 'Skater (saltos laterais)',
@@ -158,6 +180,7 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Mountain climber (escalador)',
     musculoPrincipal: ['core'], musculosSecundarios: ['ombro', 'quadriceps'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'core', unidade: 'reps', rx: 20 },
   },
   high_knees: {
     ...SEM, nome: 'High knees (joelho alto)',

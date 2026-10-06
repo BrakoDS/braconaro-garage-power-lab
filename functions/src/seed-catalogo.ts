@@ -1,5 +1,5 @@
 /**
- * SEED DO CATÁLOGO — grava `CATALOGO_BASE` (força) e `CATALOGO_HIIT` (só HIIT)
+ * SEED DO CATÁLOGO — grava `CATALOGO_COMPLETO` (força, só HIIT e só Cross)
  * em `catalogoExercicios/{id}`.
  *
  *     npm run seed:catalogo                     # simulação: lista o que mudaria, não grava
@@ -17,14 +17,10 @@
  */
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { CATALOGO_BASE } from './catalogo-base';
-import { CATALOGO_HIIT } from './catalogo-hiit';
+import { CATALOGO_COMPLETO } from './catalogo-completo';
 import { lerItemCatalogo } from './semana-box';
 
-/** Os dois catálogos num só. Um id nos dois é erro: um apagaria o outro. */
-const repetidos = Object.keys(CATALOGO_HIIT).filter((id) => id in CATALOGO_BASE);
-if (repetidos.length) throw new Error(`Id nos dois catálogos: ${repetidos.join(', ')}.`);
-const CATALOGO: Readonly<Record<string, object>> = { ...CATALOGO_BASE, ...CATALOGO_HIIT };
+const CATALOGO: Readonly<Record<string, object>> = CATALOGO_COMPLETO;
 
 const PROJETO = process.env.GCLOUD_PROJECT || 'projeto-garage-f0a2f';
 const GRAVAR = process.argv.includes('--gravar');

@@ -9,15 +9,23 @@
 import { chaveSemana } from './volume-agregado';
 import {
   ADAPTACOES, ALUNOS_POR_AULA_MAX, ALUNOS_POR_AULA_PADRAO, CADENCIA_PADRAO, DIAS_SEMANA, EQUIPAMENTOS, ESTACOES_HIIT,
-  EXERCICIOS_POR_BLOCO, FORMATO_METABOLICO, INSTANCIAS, INVENTARIO_HIIT_PADRAO, INVENTARIO_PADRAO, MATRIZ_H, MODALIDADES,
-  MUSCULOS, OBSERVACAO_PADRAO, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA, RECURSO_DO_EQUIPAMENTO, RECURSOS_BOX,
+  ESTACOES_HYROX, EXERCICIOS_POR_BLOCO, FATOR_SCALED, FORMATO_METABOLICO, FORMATOS_CROSS, FORMATOS_HYROX, INSTANCIAS,
+  INVENTARIO_CROSS_HYROX_PADRAO, INVENTARIO_HIIT_PADRAO, INVENTARIO_PADRAO, MATRIZ_H, MINUTOS_CROSS, MODALIDADES,
+  MUSCULOS, NIVEIS_HYROX, OBSERVACAO_PADRAO, PADROES_CROSS, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA,
+  RECURSO_DO_EQUIPAMENTO, RECURSOS_BOX, RECURSOS_CROSS, REGRA_FORMATO_CROSS, REGRA_FORMATO_HYROX, RODADAS_CROSS,
   NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, RECURSOS_INVENTARIO, SESSOES_H, SESSOES_METABOLICAS, SLOTS_POR_ESTACAO,
-  type AlertaEquipamento, type AlertaHiitDaSemana, type DadosHiit, type DiaProgramado, type DiaSemana,
-  type EstacaoHiit, type EstacaoProgramada, type ExercicioCatalogo, type HiitProgramado, type SlotHiit,
+  UNIDADES_CROSS,
+  type AlertaCrossDaSemana, type AlertaEquipamento, type AlertaHiitDaSemana, type AlertaHyrox, type AlertaHyroxDaSemana, type DadosCross,
+  type DadosHiit, type DiaProgramado, type DiaSemana, type EstacaoHiit, type EstacaoHyrox, type EstacaoHyroxProgramada,
+  type EstacaoProgramada, type ExercicioCatalogo, type FormatoCross, type FormatoHyrox, type HiitProgramado,
+  type HyroxProgramado, type MovimentoCross, type NivelHyrox, type SlotHiit, type UnidadeCross, type WodProgramado,
   type ExercicioProgramado, type FeedbackExercicio, type ItemCatalogo, type Modalidade, type Musculo, type PapelSessao,
-  type RecursoBox, type RecursoHiit, type RecursoInventario, type SessaoH, type SessaoMetabolica, type StatusRecurso,
+  type RecursoBox, type RecursoCross, type RecursoHiit, type RecursoInventario, type SessaoH, type SessaoMetabolica,
+  type StatusRecurso,
 } from './modelo-box';
 import { alunosPorEstacao, consumoPorAluno, contarHiit } from './conta-hiit';
+import { alunosPorMovimento, cabeNoInventario, consumoCross, contarCross, contarHyrox } from './conta-cross';
+import { CORRIDA_HYROX, DADOS_ESTACAO_HYROX } from './catalogo-hyrox';
 
 /** O box fica em São Paulo, que não tem horário de verão desde 2019. */
 const OFFSET_BOX_MS = -3 * 3600_000;
@@ -108,14 +116,16 @@ export interface InventarioLido {
   alunosPorAula: number;
 }
 
-/** Unidades de fábrica de qualquer recurso do inventário (bloco H ou HIIT). */
-const PADRAO_BOX: Readonly<Record<RecursoBox, number>> = { ...INVENTARIO_PADRAO, ...INVENTARIO_HIIT_PADRAO };
+/** Unidades de fábrica de qualquer recurso do inventário (bloco H, HIIT ou Cross/Hyrox). */
+export const PADRAO_BOX: Readonly<Record<RecursoBox, number>> = {
+  ...INVENTARIO_PADRAO, ...INVENTARIO_HIIT_PADRAO, ...INVENTARIO_CROSS_HYROX_PADRAO,
+};
 
 /**
- * O inventário gravado, completado com `INVENTARIO_PADRAO` / `INVENTARIO_HIIT_PADRAO`
+ * O inventário gravado, completado com os números de fábrica (`PADRAO_BOX`)
  * no que faltar. Documento inexistente ou torto vira o padrão — a semana nunca
- * fica sem limite. Um inventário gravado ANTES do HIIT (só os 5 recursos do H)
- * ganha os recursos do HIIT com os números de fábrica.
+ * fica sem limite. Um inventário gravado ANTES do HIIT ou do Cross/Hyrox ganha
+ * os recursos novos com os números de fábrica.
  */
 export function lerInventario(doc: unknown): InventarioLido {
   const d = (doc ?? {}) as { equipamentos?: unknown; alunosPorAula?: unknown };
@@ -184,12 +194,13 @@ const lista = <T extends string>(v: unknown, fechada: readonly T[]): T[] | null 
   Array.isArray(v) && v.every((x) => em(fechada, x)) ? [...new Set(v as T[])] : null;
 
 /**
- * Qualquer documento do catálogo: de força (com `instancia`) ou só de HIIT
- * (`instancia: null` e `hiit`). Quem monta o bloco H usa `lerExercicioCatalogo`,
- * que descarta os só-HIIT; o gerador do HIIT usa este.
+ * Qualquer documento do catálogo: de força (com `instancia`) ou sem força
+ * (`instancia: null`, com `hiit` e/ou `cross`). Quem monta o bloco H usa
+ * `lerExercicioCatalogo`, que descarta os sem força; os geradores do HIIT e do
+ * Cross usam este.
  *
- * `hiit` torto (estação desconhecida, consumo que não é inteiro) torna o item
- * INTEIRO torto, como no resto da leitura.
+ * `hiit` ou `cross` torto (estação desconhecida, consumo que não é inteiro,
+ * RX zero) torna o item INTEIRO torto, como no resto da leitura.
  */
 export function lerItemCatalogo(doc: unknown): ItemCatalogo | null {
   const d = (doc ?? null) as Record<string, unknown> | null;
@@ -202,6 +213,8 @@ export function lerItemCatalogo(doc: unknown): ItemCatalogo | null {
   if (d.unilateral !== undefined && typeof d.unilateral !== 'boolean') return null;
   const hiit = d.hiit === undefined ? undefined : lerDadosHiit(d.hiit);
   if (hiit === null) return null;
+  const cross = d.cross === undefined ? undefined : lerDadosCross(d.cross);
+  if (cross === null) return null;
 
   const adaptacoes: ExercicioCatalogo['adaptacoes'] = {};
   const a = (d.adaptacoes ?? {}) as Record<string, unknown>;
@@ -209,10 +222,40 @@ export function lerItemCatalogo(doc: unknown): ItemCatalogo | null {
   const base = {
     nome, musculoPrincipal, musculosSecundarios, equipamentos, adaptacoes,
     ...(d.unilateral ? { unilateral: true } : {}),
+    ...(hiit ? { hiit } : {}),
+    ...(cross ? { cross } : {}),
   };
-  if (em(INSTANCIAS, d.instancia)) return { ...base, instancia: d.instancia, ...(hiit ? { hiit } : {}) };
-  // Sem instância só vale se for de HIIT: senão o exercício não serve a nada.
-  return (d.instancia === null || d.instancia === undefined) && hiit ? { ...base, instancia: null, hiit } : null;
+  if (em(INSTANCIAS, d.instancia)) return { ...base, instancia: d.instancia };
+  // Sem instância só vale se for de HIIT ou de Cross: senão o exercício não serve a nada.
+  return (d.instancia === null || d.instancia === undefined) && (hiit || cross) ? { ...base, instancia: null } : null;
+}
+
+function lerDadosCross(v: unknown): DadosCross | null {
+  const c = (v ?? null) as Record<string, unknown> | null;
+  if (!c || typeof c !== 'object') return null;
+  if (!em(PADROES_CROSS, c.padrao) || !em(UNIDADES_CROSS, c.unidade)) return null;
+  const rx = inteiro(c.rx, 1, 5000);
+  if (rx === null) return null;
+  const dados: DadosCross = { padrao: c.padrao, unidade: c.unidade, rx };
+  if (c.carga !== undefined) {
+    const k = (c.carga ?? null) as Record<string, unknown> | null;
+    const cargaRx = texto(k?.rx, 60);
+    const cargaScaled = texto(k?.scaled, 60);
+    if (!cargaRx || !cargaScaled) return null;
+    dados.carga = { rx: cargaRx, scaled: cargaScaled };
+  }
+  if (c.consumoPorAluno !== undefined) {
+    const k = c.consumoPorAluno as Record<string, unknown> | null;
+    if (!k || typeof k !== 'object') return null;
+    const consumo: Partial<Record<RecursoCross, number>> = {};
+    for (const [r, n] of Object.entries(k)) {
+      const q = inteiro(n, 0, 10);
+      if (!em(RECURSOS_CROSS, r) || q === null) return null;
+      consumo[r] = q;
+    }
+    dados.consumoPorAluno = consumo;
+  }
+  return dados;
 }
 
 function lerDadosHiit(v: unknown): DadosHiit | null {
@@ -283,8 +326,9 @@ export function alertasDaSemana(
  * O rascunho aceita bloco incompleto (o coach monta aos poucos); quem exige os
  * seis exercícios é `problemasParaPublicar`.
  *
- * `catalogo` pode trazer os exercícios só de HIIT: o bloco de força os recusa,
- * o `hiit` do dia os usa. Dia sem `hiit` (ou `null`) fica sem estações.
+ * `catalogo` pode trazer os exercícios sem força (só HIIT, só Cross): o bloco
+ * de força os recusa, o `hiit` e o `cross` do dia os usam. Dia sem `hiit`,
+ * `cross` ou `hyrox` (ou com `null`) fica sem esse conteúdo.
  */
 export function lerDias(
   entrada: unknown,
@@ -334,7 +378,9 @@ export function lerDias(
       const id = texto(x.exercicioId, 100);
       const item = catalogo.get(id);
       if (!item) return { erro: `${dia}, exercício ${i + 1}: "${id || '(vazio)'}" não está no catálogo.` };
-      if (item.instancia === null) return { erro: `${dia}: ${item.nome} é só de HIIT e não entra no bloco de força.` };
+      if (item.instancia === null) {
+        return { erro: `${dia}: ${item.nome} é só de ${item.hiit ? 'HIIT' : 'Cross'} e não entra no bloco de força.` };
+      }
       if (bloco.some((b) => b.exercicioId === id)) return { erro: `${dia}: ${item.nome} aparece duas vezes no bloco.` };
       const series = inteiro(x.series, 1, 10);
       if (series === null) return { erro: `${dia}, ${item.nome}: séries precisa ser um inteiro de 1 a 10.` };
@@ -359,6 +405,22 @@ export function lerDias(
       hiit = h.hiit;
     }
 
+    let cross: WodProgramado | null = null;
+    if (d.cross !== undefined && d.cross !== null) {
+      if (!treinos.includes('Cross')) return { erro: `${dia}: só dia com Cross na grade tem WOD.` };
+      const c = lerCross(d.cross, catalogo, dia);
+      if ('erro' in c) return c;
+      cross = c.cross;
+    }
+
+    let hyrox: HyroxProgramado | null = null;
+    if (d.hyrox !== undefined && d.hyrox !== null) {
+      if (!treinos.includes('Hyrox')) return { erro: `${dia}: só dia com Hyrox na grade tem estações de Hyrox.` };
+      const h = lerHyrox(d.hyrox, dia);
+      if ('erro' in h) return h;
+      hyrox = h.hyrox;
+    }
+
     dias[dia] = {
       treinos,
       blocoPrincipal: bloco,
@@ -368,9 +430,163 @@ export function lerDias(
       descansos: { entreSeriesSeg, entreExerciciosSeg },
       consumoEquipamentos: consumoDoDia(bloco, catalogo),
       hiit,
+      cross,
+      hyrox,
     };
   }
   return { dias };
+}
+
+/* ───────────────────────────── o WOD do Cross ───────────────────────────── */
+
+/** Mais que isso no WOD é erro de pedido, não escolha do coach. */
+const MAX_MOVIMENTOS_CROSS = 6;
+
+/**
+ * Arredonda uma prescrição para um número que se escreve na lousa: reps de 20
+ * para cima e segundos de 5 em 5; metros de 5 em 5 até 50, de 10 em 10 até
+ * 100 e de 50 em 50 daí para cima; calorias inteiras. Nunca zero.
+ */
+export function arredondarPrescricao(v: number, unidade: UnidadeCross): number {
+  switch (unidade) {
+    case 'reps': return v < 20 ? Math.max(1, Math.round(v)) : Math.round(v / 5) * 5;
+    case 'metros':
+      if (v < 50) return Math.max(5, Math.round(v / 5) * 5);
+      return v < 100 ? Math.round(v / 10) * 10 : Math.round(v / 50) * 50;
+    case 'calorias': return Math.max(1, Math.round(v));
+    case 'segundos': return Math.max(5, Math.round(v / 5) * 5);
+  }
+}
+
+/**
+ * Um movimento do WOD calculado do catálogo e do formato: RX = RX-base ×
+ * fator do formato; Scaled = RX × `FATOR_SCALED`, os dois arredondados.
+ * O gerador e a validação usam ESTE — o coach não digita prescrição.
+ */
+export function movimentoCross(id: string, item: ItemCatalogo & { cross: DadosCross }, formato: FormatoCross): MovimentoCross {
+  const c = item.cross;
+  const rx = arredondarPrescricao(c.rx * REGRA_FORMATO_CROSS[formato].fator, c.unidade);
+  return {
+    exercicioId: id, nome: item.nome, padrao: c.padrao, unidade: c.unidade,
+    rx, scaled: arredondarPrescricao(rx * FATOR_SCALED, c.unidade),
+    porLado: !!item.unilateral,
+    carga: c.carga ? { rx: c.carga.rx, scaled: c.carga.scaled } : null,
+    consumoPorAluno: consumoCross(item),
+  };
+}
+
+/**
+ * O WOD de um dia, validado e calculado. O pedido manda só
+ * `{ formato, minutos?, rodadas?, movimentos: [{ exercicioId }] }`:
+ *  - AMRAP, Chipper: `minutos` (duração / time cap); sem rodadas;
+ *  - For Time: `minutos` (time cap) e `rodadas`;
+ *  - EMOM: `rodadas` (voltas na lista); os minutos são movimentos × rodadas.
+ * Prescrição, carga e consumo saem do catálogo (`movimentoCross`). WOD com
+ * movimentos a menos passa no rascunho; quem exige é `problemasParaPublicar`.
+ */
+export function lerCross(
+  entrada: unknown,
+  catalogo: ReadonlyMap<string, ItemCatalogo>,
+  dia: string,
+): { cross: WodProgramado } | { erro: string } {
+  const c = (entrada ?? null) as Record<string, unknown> | null;
+  if (!c || typeof c !== 'object') return { erro: `${dia}: o WOD precisa de formato e movimentos.` };
+  if (!em(FORMATOS_CROSS, c.formato)) return { erro: `${dia}: formato de WOD aceito é ${FORMATOS_CROSS.join(', ')}.` };
+  const formato = c.formato;
+  if (!Array.isArray(c.movimentos) || c.movimentos.length > MAX_MOVIMENTOS_CROSS) {
+    return { erro: `${dia}: o WOD tem uma lista de até ${MAX_MOVIMENTOS_CROSS} movimentos.` };
+  }
+  const movimentos: MovimentoCross[] = [];
+  for (const cru of c.movimentos) {
+    const id = texto((cru as { exercicioId?: unknown } | null)?.exercicioId, 100);
+    const item = catalogo.get(id);
+    if (!item?.cross) return { erro: `${dia}: "${id || '(vazio)'}" não é movimento de Cross do catálogo.` };
+    if (movimentos.some((m) => m.exercicioId === id)) return { erro: `${dia}: ${item.nome} aparece duas vezes no WOD.` };
+    movimentos.push(movimentoCross(id, item as ItemCatalogo & { cross: DadosCross }, formato));
+  }
+
+  let rodadas: number | null = null;
+  if (formato === 'For Time' || formato === 'EMOM') {
+    rodadas = inteiro(c.rodadas, RODADAS_CROSS.min, RODADAS_CROSS.max);
+    if (rodadas === null) return { erro: `${dia}: o ${formato} precisa de rodadas (inteiro de ${RODADAS_CROSS.min} a ${RODADAS_CROSS.max}).` };
+  }
+  let minutos: number | null;
+  if (formato === 'EMOM') {
+    minutos = movimentos.length * rodadas!;
+  } else {
+    minutos = inteiro(c.minutos, MINUTOS_CROSS.min, MINUTOS_CROSS.max);
+    if (minutos === null) return { erro: `${dia}: o ${formato} precisa dos minutos (inteiro de ${MINUTOS_CROSS.min} a ${MINUTOS_CROSS.max}).` };
+  }
+  return { cross: { formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos } };
+}
+
+/* ───────────────────────────── o Hyrox ───────────────────────────── */
+
+/**
+ * O Hyrox calculado de `catalogo-hyrox.ts` e do formato: a prescrição de cada
+ * nível × `fatorEstacao`, a corrida × `fatorCorrida`. O gerador e a validação
+ * usam ESTE — o coach não digita prescrição.
+ */
+export function montarHyrox(
+  formato: FormatoHyrox,
+  escolhas: readonly { estacao: EstacaoHyrox; substituta: boolean }[],
+): HyroxProgramado {
+  const regra = REGRA_FORMATO_HYROX[formato];
+  const porNivel = <T>(f: (n: NivelHyrox) => T) =>
+    Object.fromEntries(NIVEIS_HYROX.map((n) => [n, f(n)])) as Record<NivelHyrox, T>;
+  const estacoes: EstacaoHyroxProgramada[] = escolhas.map(({ estacao, substituta }) => {
+    const dados = DADOS_ESTACAO_HYROX[estacao];
+    const v = substituta && dados.substituta ? dados.substituta : dados;
+    return {
+      estacao, n: dados.n, nome: v.nome, base: dados.base, tipo: v.tipo,
+      prescricao: porNivel((n) => arredondarPrescricao(v.prescricao[n] * regra.fatorEstacao, v.tipo)),
+      carga: v.carga, nota: v.nota, substituta: v !== dados, recursos: { ...v.recursos },
+    };
+  });
+  return {
+    formato, nome: regra.nome, descricao: regra.descricao, rodadas: regra.rodadas,
+    corrida: porNivel((n) => ({
+      metros: arredondarPrescricao(CORRIDA_HYROX[n].metros * regra.fatorCorrida, 'metros'),
+      bikeSeg: arredondarPrescricao(CORRIDA_HYROX[n].bikeSeg * regra.fatorCorrida, 'segundos'),
+    })),
+    estacoes,
+  };
+}
+
+/**
+ * O Hyrox de um dia, validado e calculado. O pedido manda só
+ * `{ formato, estacoes: [{ estacao, substituta? }] }`. As estações têm de ser
+ * as do formato (prova: as 8; metade A/B: 1–4 / 5–8), na ordem da prova; no
+ * compromised, as que o formato sorteia (4 distintas), também na ordem da prova.
+ */
+export function lerHyrox(entrada: unknown, dia: string): { hyrox: HyroxProgramado } | { erro: string } {
+  const h = (entrada ?? null) as Record<string, unknown> | null;
+  if (!h || typeof h !== 'object') return { erro: `${dia}: o Hyrox precisa de formato e estações.` };
+  if (!em(FORMATOS_HYROX, h.formato)) return { erro: `${dia}: formato de Hyrox aceito é ${FORMATOS_HYROX.join(', ')}.` };
+  const formato = h.formato;
+  const regra = REGRA_FORMATO_HYROX[formato];
+  if (!Array.isArray(h.estacoes)) return { erro: `${dia}: o Hyrox precisa da lista de estações.` };
+  const escolhas: { estacao: EstacaoHyrox; substituta: boolean }[] = [];
+  for (const cru of h.estacoes) {
+    const x = (cru ?? {}) as Record<string, unknown>;
+    if (!em(ESTACOES_HYROX, x.estacao)) return { erro: `${dia}: estação de Hyrox desconhecida: ${String(x.estacao)}.` };
+    if (x.substituta !== undefined && typeof x.substituta !== 'boolean') return { erro: `${dia}: substituta é sim ou não.` };
+    const dados = DADOS_ESTACAO_HYROX[x.estacao];
+    if (x.substituta && !dados.substituta) return { erro: `${dia}: ${dados.nome} não tem substituta.` };
+    if (escolhas.some((e) => e.estacao === x.estacao)) return { erro: `${dia}: ${dados.nome} aparece duas vezes no Hyrox.` };
+    escolhas.push({ estacao: x.estacao, substituta: !!x.substituta });
+  }
+  const ids = escolhas.map((e) => e.estacao);
+  const fixas = regra.estacoes;
+  if (typeof fixas === 'number') {
+    const ordem = ids.map((e) => DADOS_ESTACAO_HYROX[e].n);
+    if (ids.length !== fixas || ordem.some((n, i) => i > 0 && n < ordem[i - 1])) {
+      return { erro: `${dia}: o formato ${regra.nome} tem ${fixas} estações, na ordem da prova.` };
+    }
+  } else if (ids.join() !== fixas.join()) {
+    return { erro: `${dia}: o formato ${regra.nome} tem as estações ${fixas.map((e) => DADOS_ESTACAO_HYROX[e].n).join(', ')}, nessa ordem.` };
+  }
+  return { hyrox: montarHyrox(formato, escolhas) };
 }
 
 /**
@@ -431,18 +647,30 @@ export function lerHiit(
   return { hiit: { estacoes } };
 }
 
+/** O conteúdo metabólico que o gerador monta e que o pedido de salvar pode não mandar. */
+const CONTEUDO_GRAVADO = ['hiit', 'cross', 'hyrox'] as const;
+
 /**
- * Dias de um pedido de `salvarSemanaBox` com o HIIT GRAVADO onde o pedido não
- * fala dele (`hiit` ausente). A troca manual do bloco H manda só o bloco: sem
- * isso, trocar um exercício do H3 apagaria as estações do HIIT da sexta e do
- * sábado. `hiit: null` no pedido apaga de propósito.
+ * Dias de um pedido de `salvarSemanaBox` com o HIIT, o WOD e o Hyrox GRAVADOS
+ * onde o pedido não fala deles (chave ausente). A troca manual do bloco H manda
+ * só o bloco: sem isso, trocar um exercício do H1 apagaria o WOD da terça.
+ * A chave com `null` no pedido apaga de propósito.
+ *
+ * Vale para cada chave em separado: um pedido com o `hiit` novo e sem `cross`
+ * troca o HIIT e mantém o WOD.
  */
-export function diasComHiitGravado(pedido: unknown, gravados: unknown): unknown {
+export function diasComConteudoGravado(pedido: unknown, gravados: unknown): unknown {
   if (!pedido || typeof pedido !== 'object') return pedido;
-  const g = (gravados ?? {}) as Record<string, { hiit?: unknown } | undefined>;
+  const g = (gravados ?? {}) as Record<string, Record<string, unknown> | undefined>;
   const dias: Record<string, unknown> = {};
   for (const [dia, d] of Object.entries(pedido as Record<string, unknown>)) {
-    dias[dia] = d && typeof d === 'object' && !('hiit' in d) && g[dia]?.hiit ? { ...d, hiit: g[dia]!.hiit } : d;
+    if (!d || typeof d !== 'object') {
+      dias[dia] = d;
+      continue;
+    }
+    const completo: Record<string, unknown> = { ...d };
+    for (const k of CONTEUDO_GRAVADO) if (!(k in d) && g[dia]?.[k]) completo[k] = g[dia]![k];
+    dias[dia] = completo;
   }
   return dias;
 }
@@ -472,6 +700,63 @@ export function alertasHiitDaSemana(
   return [...grupos.values()].flatMap((g) => contarHiit(g.hiit.estacoes, lim, alunosPorAula).alertas.map((a) => ({ ...a, dias: g.dias })));
 }
 
+/** O mesmo conteúdo em mais de um dia sai UMA vez, com os dias juntos. */
+function agruparPorConteudo<T>(
+  dias: Record<DiaSemana, DiaProgramado>,
+  pegar: (d: DiaProgramado) => T | null,
+): { conteudo: T; dias: DiaSemana[] }[] {
+  const grupos = new Map<string, { conteudo: T; dias: DiaSemana[] }>();
+  for (const dia of DIAS_SEMANA) {
+    const c = pegar(dias[dia]);
+    if (!c) continue;
+    const chave = JSON.stringify(c);
+    const g = grupos.get(chave);
+    if (g) g.dias.push(dia);
+    else grupos.set(chave, { conteudo: c, dias: [dia] });
+  }
+  return [...grupos.values()];
+}
+
+/** Os limites do Cross, com os de fábrica onde o inventário não tem o recurso. */
+function limitesCross(limites: Partial<Record<RecursoBox, number>>): Record<RecursoCross, number> {
+  return { ...PADRAO_BOX, ...limites } as Record<RecursoCross, number>;
+}
+
+/** Equipamento do WOD acima do limite, na semana (regra mista: `conta-cross.ts`). */
+export function alertasCrossDaSemana(
+  dias: Record<DiaSemana, DiaProgramado>,
+  limites: Partial<Record<RecursoBox, number>>,
+  alunosPorAula: number,
+): AlertaCrossDaSemana[] {
+  const lim = limitesCross(limites);
+  return agruparPorConteudo(dias, (d) => d.cross).flatMap((g) =>
+    contarCross(g.conteudo, lim, alunosPorAula).alertas.map((a) => ({ ...a, dias: g.dias })));
+}
+
+/**
+ * As estações de UM Hyrox sem o equipamento que pedem. `temSubstituta`: a
+ * estação ainda não está na substituta, e a substituta cabe no inventário.
+ */
+export function alertasDoHyrox(
+  hyrox: Pick<HyroxProgramado, 'estacoes'>,
+  limites: Partial<Record<RecursoBox, number>>,
+): AlertaHyrox[] {
+  const lim = { ...PADRAO_BOX, ...limites };
+  return contarHyrox(hyrox.estacoes.map((e) => {
+    const sub = DADOS_ESTACAO_HYROX[e.estacao]?.substituta;
+    return { ...e, temSubstituta: !e.substituta && !!sub && cabeNoInventario(sub.recursos, lim) };
+  }), lim);
+}
+
+/** Estação do Hyrox sem o equipamento que pede, na semana. */
+export function alertasHyroxDaSemana(
+  dias: Record<DiaSemana, DiaProgramado>,
+  limites: Partial<Record<RecursoBox, number>>,
+): AlertaHyroxDaSemana[] {
+  return agruparPorConteudo(dias, (d) => d.hyrox).flatMap((g) =>
+    alertasDoHyrox(g.conteudo, limites).map((a) => ({ ...a, dias: g.dias })));
+}
+
 /** 'sexta e sábado' */
 function rotuloDias(dias: readonly DiaSemana[]): string {
   const nome = (d: DiaSemana) => ({ terca: 'terça', sabado: 'sábado' } as Partial<Record<DiaSemana, string>>)[d] ?? d;
@@ -484,6 +769,8 @@ export function problemasParaPublicar(
   alertas: AlertaEquipamento[],
   alertasHiit: AlertaHiitDaSemana[] = [],
   alunosPorAula: number = ALUNOS_POR_AULA_PADRAO,
+  alertasCross: AlertaCrossDaSemana[] = [],
+  alertasHyrox: AlertaHyroxDaSemana[] = [],
 ): string[] {
   const problemas: string[] = [];
   const nomes = new Map<string, string>();
@@ -507,6 +794,15 @@ export function problemasParaPublicar(
       repetidos.add(x.exercicioId);
       problemas.push(`${dia}: ${x.nome} está no bloco do ${d.sessaoForca?.sessao ?? 'dia'} e no HIIT — o dia não repete exercício.`);
     }
+    // WOD com movimento a menos trava; dia de Cross SEM WOD (semana de antes do
+    // gerador) não, como o HIIT.
+    if (d.cross) {
+      d.cross.movimentos.forEach((m) => nomes.set(m.exercicioId, m.nome));
+      const minimo = REGRA_FORMATO_CROSS[d.cross.formato].movimentos[0];
+      if (d.cross.movimentos.length < minimo) {
+        problemas.push(`${dia}: o WOD (${d.cross.formato}) tem ${d.cross.movimentos.length} de ${minimo} movimentos.`);
+      }
+    }
   }
   for (const a of alertas) {
     problemas.push(`${a.dia}: ${a.usado} estações de ${a.recurso}, e o box tem ${a.limite} ativa(s).`);
@@ -522,6 +818,20 @@ export function problemasParaPublicar(
       ? `${rotuloDias(a.dias)}: no HIIT, ${quem} precisa de ${a.usado} ${a.recurso} (${porEstacao} alunos por estação), e o box tem ${a.limite} ativo(s).`
       : `${rotuloDias(a.dias)}: no slot ${a.slot} do HIIT, ${quem} usam ${a.usado} ${a.recurso} ao mesmo tempo, e o box tem ${a.limite} ativo(s).`);
   }
+  for (const a of alertasCross) {
+    const wod = dias[a.dias[0]].cross;
+    const quem = a.exercicios.map((id) => nomes.get(id) ?? id).join(' + ');
+    const porque = !wod ? '' : REGRA_FORMATO_CROSS[wod.formato].escalonado
+      ? ` (${alunosPorMovimento(wod.formato, alunosPorAula, wod.movimentos.length)} alunos por movimento)`
+      : ` (no ${wod.formato}, os ${alunosPorAula} alunos no mesmo minuto)`;
+    problemas.push(`${rotuloDias(a.dias)}: no WOD, ${quem} precisa(m) de ${a.usado} ${a.recurso} ao mesmo tempo${porque}, e o box tem ${a.limite} ativo(s).`);
+  }
+  for (const a of alertasHyrox) {
+    // O nome GRAVADO: com a substituta em uso, é o dela.
+    const nome = dias[a.dias[0]].hyrox?.estacoes.find((e) => e.estacao === a.estacao)?.nome ?? a.estacao;
+    problemas.push(`${rotuloDias(a.dias)}: no Hyrox, ${nome} precisa de ${a.precisa} ${a.recurso}, e o box tem ${a.limite} ativo(s)`
+      + `${a.temSubstituta ? ' — troque pela substituta' : ''}.`);
+  }
   if (DIAS_SEMANA.every((dia) => !dias[dia].treinos.length)) problemas.push('A semana não tem nenhum treino.');
   return problemas;
 }
@@ -531,16 +841,20 @@ export function problemasParaPublicar(
  * faz com as semanas que ainda não terminaram quando um smith entra em manutenção.
  *
  * Usa o `consumoEquipamentos` que cada dia já guarda (e o `consumoPorAluno` de
- * cada slot do HIIT): o consumo não muda com o inventário, só o limite e a turma. Não relê o catálogo nem refaz o bloco, e
+ * cada slot do HIIT e de cada movimento do WOD, e os `recursos` de cada estação
+ * do Hyrox): o consumo não muda com o inventário, só o limite e a turma. Não relê o catálogo nem refaz o bloco, e
  * NÃO decide status — semana publicada continua publicada; quem resolve é o coach.
  *
  * `null` quando o documento não tem a forma de uma semana (não há o que conferir).
  */
 export function reconferirSemana(
   doc: unknown,
-  limites: Record<RecursoInventario, number> & Partial<Record<RecursoHiit, number>>,
+  limites: Record<RecursoInventario, number> & Partial<Record<RecursoBox, number>>,
   alunosPorAula: number = ALUNOS_POR_AULA_PADRAO,
-): { alertas: AlertaEquipamento[]; alertasHiit: AlertaHiitDaSemana[]; problemasParaPublicar: string[] } | null {
+): {
+  alertas: AlertaEquipamento[]; alertasHiit: AlertaHiitDaSemana[]; alertasCross: AlertaCrossDaSemana[];
+  alertasHyrox: AlertaHyroxDaSemana[]; problemasParaPublicar: string[];
+} | null {
   const brutos = (doc as { dias?: unknown } | null)?.dias;
   if (!brutos || typeof brutos !== 'object') return null;
   const dias = {} as Record<DiaSemana, DiaProgramado>;
@@ -555,11 +869,18 @@ export function reconferirSemana(
       descansos: d.descansos ?? { entreSeriesSeg: 0, entreExerciciosSeg: 0 },
       consumoEquipamentos: d.consumoEquipamentos && typeof d.consumoEquipamentos === 'object' ? d.consumoEquipamentos : {},
       hiit: d.hiit && Array.isArray(d.hiit.estacoes) ? d.hiit : null,
+      cross: d.cross && Array.isArray(d.cross.movimentos) && em(FORMATOS_CROSS, d.cross.formato) ? d.cross : null,
+      hyrox: d.hyrox && Array.isArray(d.hyrox.estacoes) ? d.hyrox : null,
     };
   }
   const alertas = alertasDaSemana(dias, limites);
   const alertasHiit = alertasHiitDaSemana(dias, limites, alunosPorAula);
-  return { alertas, alertasHiit, problemasParaPublicar: problemasParaPublicar(dias, alertas, alertasHiit, alunosPorAula) };
+  const alertasCross = alertasCrossDaSemana(dias, limites, alunosPorAula);
+  const alertasHyrox = alertasHyroxDaSemana(dias, limites);
+  return {
+    alertas, alertasHiit, alertasCross, alertasHyrox,
+    problemasParaPublicar: problemasParaPublicar(dias, alertas, alertasHiit, alunosPorAula, alertasCross, alertasHyrox),
+  };
 }
 
 /* ───────────────────────────── o aluno ───────────────────────────── */

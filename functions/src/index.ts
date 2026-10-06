@@ -63,7 +63,7 @@ import {
 } from './modelo-box';
 import {
   alertasDaSemana, alertasHiitDaSemana, aplicarInventario, historicoComSessao, intervaloDaSemana, lerDias,
-  diasComHiitGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior,
+  diasComConteudoGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior,
   semanaDoPedido, volumeDaSessao,
 } from './semana-box';
 import { gerarSemana, idsDaSemana, idsDoHiit } from './gerador-box';
@@ -2011,7 +2011,7 @@ export const salvarSemanaBox = onCall(
       refInventario(db, uid).get(),
       anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
     ]);
-    const diasPedido = diasComHiitGravado(dados.dias, gravada.data()?.dias);
+    const diasPedido = diasComConteudoGravado(dados.dias, gravada.data()?.dias);
     const catalogo = await carregarCatalogo(db, idsDosDias(diasPedido));
     const lido = lerDias(diasPedido, catalogo);
     if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
