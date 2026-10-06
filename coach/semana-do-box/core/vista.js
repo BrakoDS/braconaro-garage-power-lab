@@ -767,12 +767,61 @@ export function textoAlertaCross(a, nomes) {
   const ativos = a.limite === 1 ? '1 ativo' : `${a.limite} ativos`;
   const onde = a.dias?.length ? ` (${rotuloDias(a.dias)})` : '';
   const quem = nomes ? (a.exercicios ?? []).map((id) => nomes.get(id) ?? id).join(' + ') : '';
+  if (a.bloco === 'tecnica') {
+    return `Limite de ${r.varios} atingido na Técnica / Força${onde}: ${a.usado} em uso com a turma em duplas, ${ativos}${quem ? ` — ${quem}` : ''}.`;
+  }
   return `Limite de ${r.varios} atingido no WOD${onde}: ${a.usado} em uso, ${ativos}${quem ? ` — ${quem}` : ''}.`;
 }
 
-/** Os movimentos do WOD que a tela pinta de vermelho (ids). @param {any} doc */
+/** Os movimentos do WOD que a tela pinta de vermelho (ids) — só os alertas do WOD. @param {any} doc */
 export function movimentosEmAlerta(doc) {
-  return new Set((doc?.alertasCross ?? []).flatMap((a) => a.exercicios ?? []));
+  return new Set((doc?.alertasCross ?? []).filter((a) => !a.bloco).flatMap((a) => a.exercicios ?? []));
+}
+
+/* ── Técnica / Força ── */
+
+/** Nome de cada tipo de bloco (`NOME_TIPO_TECNICA` do servidor). @type {Record<string, string>} */
+export const NOME_TIPO_TECNICA = { tecnica: 'Técnica', forca: 'Força', skill: 'Skill' };
+
+/** Nome de cada categoria de foco, na ordem de prioridade do servidor (`CATEGORIAS_FOCO`). @type {Record<string, string>} */
+export const NOME_CATEGORIA_FOCO = { olimpico: 'Olímpico', barra: 'Barra', kettlebell: 'Kettlebell', ginastica: 'Ginástica' };
+
+/** 'Power clean (barra) · Técnica · 10 min'. @param {{nome: string, tipo: string, minutos: number}} t */
+export function tituloTecnica(t) {
+  return `${t.nome} · ${NOME_TIPO_TECNICA[t.tipo] ?? t.tipo} · ${t.minutos} min`;
+}
+
+/**
+ * Unidades de equipamento na Técnica / Força: duplas revezando, turma ÷ 2.
+ * ESPELHA `unidadesNaTecnica` do servidor (`conta-cross.ts`) só para o rodapé.
+ * @param {number} turma
+ */
+export function unidadesNaTecnica(turma) {
+  return Math.max(1, Math.ceil(turma / 2));
+}
+
+/** Os alertas de equipamento da Técnica / Força. @param {any} doc */
+export function alertasDaTecnica(doc) {
+  return (doc?.alertasCross ?? []).filter((a) => a.bloco === 'tecnica');
+}
+
+/**
+ * Os `dias` para `salvarSemanaBox` com OUTRO foco da Técnica / Força (um dos
+ * movimentos do WOD que servem de foco — `tecnica.alternativas`). O WOD fica.
+ * @param {any} doc @param {string} exercicioId
+ */
+export function diasComFocoTrocado(doc, exercicioId) {
+  const dias = diasParaSalvar(doc);
+  for (const d of DIAS) {
+    const w = doc?.dias?.[d.id]?.cross;
+    if (!Array.isArray(w?.movimentos)) continue;
+    dias[d.id].cross = {
+      formato: w.formato, minutos: w.minutos, rodadas: w.rodadas,
+      movimentos: w.movimentos.map((m) => ({ exercicioId: m.exercicioId })),
+      tecnica: { exercicioId },
+    };
+  }
+  return dias;
 }
 
 /**
@@ -786,9 +835,12 @@ export function diasComCrossTrocado(doc, posicao, exercicioId) {
   for (const d of DIAS) {
     const w = doc?.dias?.[d.id]?.cross;
     if (!Array.isArray(w?.movimentos)) continue;
+    const movimentos = w.movimentos.map((m, i) => ({ exercicioId: i === posicao - 1 ? exercicioId : m.exercicioId }));
+    // O foco da Técnica / Força FICA se continuar no WOD; se saiu, o servidor escolhe outro.
+    const foco = w.tecnica?.exercicioId;
     dias[d.id].cross = {
-      formato: w.formato, minutos: w.minutos, rodadas: w.rodadas,
-      movimentos: w.movimentos.map((m, i) => ({ exercicioId: i === posicao - 1 ? exercicioId : m.exercicioId })),
+      formato: w.formato, minutos: w.minutos, rodadas: w.rodadas, movimentos,
+      ...(foco && movimentos.some((m) => m.exercicioId === foco) ? { tecnica: { exercicioId: foco } } : {}),
     };
   }
   return dias;
@@ -805,8 +857,10 @@ export function selosDaOpcaoCross(opcao) {
   if (c.noWod) selos.push({ id: 'bloco', rotulo: 'já no WOD' });
   if (c.padraoRepetido) selos.push({ id: 'bloco', rotulo: `mesmo padrão de ${c.padraoRepetido}` });
   if (c.tiraOCardio) selos.push({ id: 'bloco', rotulo: 'tira o cardio' });
+  if (c.tiraATecnica) selos.push({ id: 'bloco', rotulo: 'tira a Técnica / Força' });
   for (const r of c.equipamento ?? []) selos.push({ id: 'equipamento', rotulo: `🔧 ${nomeRecurso(r).varios}` });
   if (c.semanaAnterior) selos.push({ id: 'rodizio', rotulo: '↺ semana passada' });
+  if (c.viraFoco) selos.push({ id: 'foco', rotulo: '★ vira o foco da técnica' });
   return selos;
 }
 

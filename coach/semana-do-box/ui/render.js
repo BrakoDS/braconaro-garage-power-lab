@@ -13,6 +13,7 @@ import {
   totalDeAlertas,
   NIVEIS_HYROX, NOME_PADRAO_CROSS, UNIDADE_HYROX, conteudoEditavel, estacoesEmAlerta, linhasDaCorrida, movimentosEmAlerta,
   nomesDoWod, quantidadeCross, temSubstitutaHyrox, textoAlertaCross, textoAlertaHyrox, textoContaWod, tituloHyrox, tituloWod,
+  alertasDaTecnica, tituloTecnica, unidadesNaTecnica,
 } from '../core/vista.js';
 
 /** @param {unknown} s */
@@ -205,9 +206,42 @@ function caixaAlerta(titulo, textos, rodape) {
 }
 
 /**
- * O WOD do Cross no cartão do dia: formato e tempo, os movimentos com RX e
- * Scaled (e a carga, quando tem) e o rodapé com a conta da turma. Movimento
- * em alerta fica vermelho; com `hoje`, cada um ganha "trocar".
+ * O bloco 1 da aula de Cross: a Técnica / Força no movimento-foco — dinâmica,
+ * objetivo, carga e a conta das duplas. `undefined` (WOD gravado antes do
+ * bloco) não desenha nada; `null` avisa que falta o foco.
+ * @param {any} doc @param {any} w o `cross` do dia @param {boolean} podeTrocar
+ */
+function blocoTecnica(doc, w, podeTrocar) {
+  const t = w.tecnica;
+  if (t === undefined) return '';
+  if (t === null) {
+    return `<section class="cross-bloco tecnica">
+        <h5><span class="cross-n">1</span> Técnica / Força</h5>
+        <p class="tecnica-falta">Nenhum movimento do WOD serve de foco (olímpico, barra, kettlebell ou ginástica).
+          Troque um movimento: a semana não publica sem este bloco.</p>
+      </section>`;
+  }
+  const alertas = alertasDaTecnica(doc).map((a) => textoAlertaCross(a, nomesDoWod(doc)));
+  const duplas = Number.isInteger(doc.alunosPorAula)
+    ? `Duplas revezando: até ${unidadesNaTecnica(doc.alunosPorAula)} ao mesmo tempo (turma de ${doc.alunosPorAula}).` : '';
+  return `<section class="cross-bloco tecnica${alertas.length ? ' em-alerta' : ''}">
+      <h5><span class="cross-n">1</span> Técnica / Força</h5>
+      <p class="tecnica-foco">${esc(tituloTecnica(t))}</p>
+      ${caixaAlerta('Equipamento da Técnica / Força acima do limite', alertas, 'Troque o foco, troque o movimento no WOD ou ajuste o inventário.')}
+      <p class="tecnica-dinamica">${esc(t.dinamica)}</p>
+      <p class="tecnica-linha"><b>Objetivo:</b> ${esc(t.objetivo)}</p>
+      ${t.carga ? `<p class="tecnica-linha"><b>Carga:</b> ${esc(t.carga)}</p>` : ''}
+      ${duplas ? `<p class="mut dia-rodape">${esc(duplas)}</p>` : ''}
+      ${podeTrocar && t.alternativas?.length ? `<button class="ex-trocar tecnica-trocar" type="button" data-trocar-foco
+        aria-label="Trocar o foco da Técnica / Força (${esc(t.nome)})">trocar foco</button>` : ''}
+    </section>`;
+}
+
+/**
+ * A aula de Cross no cartão do dia, em dois blocos: 1 · Técnica / Força (o
+ * movimento-foco) e 2 · WOD (formato e tempo, os movimentos com RX e Scaled,
+ * a carga e o rodapé com a conta da turma). Movimento em alerta fica
+ * vermelho; o foco leva o selo; com `hoje`, cada movimento ganha "trocar".
  * @param {any} doc @param {any} dia @param {{modalidade: string, papel: string}} b @param {string} [hoje]
  */
 function blocoWod(doc, dia, b, hoje) {
@@ -215,10 +249,11 @@ function blocoWod(doc, dia, b, hoje) {
   const emAlerta = movimentosEmAlerta(doc);
   const podeTrocar = hoje !== undefined && conteudoEditavel(doc, 'cross', hoje);
   const nomes = nomesDoWod(doc);
-  const alertas = (doc.alertasCross ?? []).map((a) => textoAlertaCross(a, nomes));
+  const alertas = (doc.alertasCross ?? []).filter((a) => !a.bloco).map((a) => textoAlertaCross(a, nomes));
+  const foco = w.tecnica?.exercicioId;
   const movs = w.movimentos.map((m, i) => `
         <li class="wod-mov${emAlerta.has(m.exercicioId) ? ' em-alerta' : ''}">
-          <span class="ex-inst">${esc(NOME_PADRAO_CROSS[m.padrao] ?? m.padrao ?? '')}</span>
+          <span class="ex-inst">${esc(NOME_PADRAO_CROSS[m.padrao] ?? m.padrao ?? '')}${m.exercicioId === foco ? ' <span class="wod-foco">★ foco da técnica</span>' : ''}</span>
           <span class="ex-nome">${esc(m.nome)}</span>
           <span class="wod-presc"><b>RX</b> ${esc(quantidadeCross(m, m.rx))} <span class="mut">·</span> <b>Scaled</b> ${esc(quantidadeCross(m, m.scaled))}</span>
           ${m.carga ? `<span class="wod-carga mut">Carga ${esc(m.carga.rx)} · Scaled ${esc(m.carga.scaled)}</span>` : ''}
@@ -226,13 +261,18 @@ function blocoWod(doc, dia, b, hoje) {
             aria-label="Trocar ${esc(m.nome)} (WOD, movimento ${i + 1})">trocar</button>` : ''}
         </li>`).join('');
   const conta = textoContaWod(w, doc.alunosPorAula);
+  const comTecnica = w.tecnica !== undefined;
   return `
     <div class="metabolico wod${b.papel === 'principal' ? ' principal' : ''}">
-      <h4>Cross <span class="mut">· ${esc(tituloWod(w))}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
-      <p class="mut">${esc(w.descricao)}</p>
-      ${caixaAlerta('Equipamento do WOD acima do limite', alertas, 'Os movimentos envolvidos estão marcados. Troque um deles, sorteie de novo ou ajuste o inventário.')}
-      <ol class="wod-movs">${movs}</ol>
-      ${conta ? `<p class="mut dia-rodape">${esc(conta)}</p>` : ''}
+      <h4>Cross <span class="mut">· ${comTecnica ? 'Técnica / Força + WOD' : esc(tituloWod(w))}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
+      ${blocoTecnica(doc, w, podeTrocar)}
+      <section class="cross-bloco">
+        ${comTecnica ? `<h5><span class="cross-n">2</span> WOD <span class="mut">· ${esc(tituloWod(w))}</span></h5>` : ''}
+        <p class="mut">${esc(w.descricao)}</p>
+        ${caixaAlerta('Equipamento do WOD acima do limite', alertas, 'Os movimentos envolvidos estão marcados. Troque um deles, sorteie de novo ou ajuste o inventário.')}
+        <ol class="wod-movs">${movs}</ol>
+        ${conta ? `<p class="mut dia-rodape">${esc(conta)}</p>` : ''}
+      </section>
     </div>`;
 }
 

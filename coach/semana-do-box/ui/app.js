@@ -22,7 +22,7 @@ import { gerarMatriz, publicar, lerSemanas } from '../cloud/semana.js';
 import * as inventario from './inventario.js';
 import { trocarExercicio } from './troca.js';
 import { trocarExercicioHiit } from './troca-hiit.js';
-import { trocarEstacaoHyrox, trocarMovimentoCross } from './troca-cross.js';
+import { trocarEstacaoHyrox, trocarFocoTecnica, trocarMovimentoCross } from './troca-cross.js';
 import { esc, renderLista, renderSemana } from './render.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
@@ -109,7 +109,7 @@ async function executar(chave, ocupando, pedido, sucesso) {
 
 async function aoClicar(ev) {
   const alvo = /** @type {HTMLElement} */ (ev.target)
-    .closest('[data-semana], [data-acao], [data-trocar], [data-trocar-hiit], [data-trocar-cross], [data-trocar-hyrox]');
+    .closest('[data-semana], [data-acao], [data-trocar], [data-trocar-hiit], [data-trocar-cross], [data-trocar-hyrox], [data-trocar-foco]');
   if (!alvo || estado.ocupado) return;
 
   const semana = alvo.getAttribute('data-semana');
@@ -156,6 +156,10 @@ async function aoClicar(ev) {
   const movimento = alvo.getAttribute('data-trocar-cross');
   if (movimento) {
     await trocarMovimentoCross({ ...ctxTroca, posicao: Number(movimento) });
+    return;
+  }
+  if (alvo.hasAttribute('data-trocar-foco')) {
+    await trocarFocoTecnica(ctxTroca);
     return;
   }
   const estacaoHyrox = alvo.getAttribute('data-trocar-hyrox');

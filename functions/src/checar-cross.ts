@@ -13,13 +13,14 @@ import { CATALOGO_COMPLETO } from './catalogo-completo';
 import { CATALOGO_CROSS } from './catalogo-cross';
 import { CORRIDA_HYROX, DADOS_ESTACAO_HYROX } from './catalogo-hyrox';
 import {
-  ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, REGRA_FORMATO_CROSS, REGRA_FORMATO_HYROX,
+  CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, REGRA_FORMATO_CROSS,
+  REGRA_FORMATO_HYROX,
   type DiaSemana, type FormatoCross, type ItemCatalogo, type RecursoBox, type RecursoCross,
 } from './modelo-box';
 import {
   aplicarInventario, arredondarPrescricao, contaDaSemana, diasComConteudoGravado, intervaloDaSemana, lerCross, lerDias,
   lerExercicioCatalogo, lerHyrox, lerInventario, lerItemCatalogo, montarHyrox, movimentoCross, problemasParaPublicar,
-  reconferirSemana,
+  reconferirSemana, tecnicaDoWod,
 } from './semana-box';
 import { diasPassadosAlterados } from './edicao-box';
 import { bloqueiaCross, conflitosDoCross, conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
@@ -103,7 +104,7 @@ console.log('\nPrescrição (RX, Scaled e formato)');
   const swing = (f: FormatoCross) => wod(f, ['kb_swing']).movimentos[0];
   ok(swing('AMRAP').rx === 15 && swing('AMRAP').scaled === 11, 'AMRAP: RX = RX-base (15), Scaled −30% (11)');
   ok(swing('EMOM').rx === 9 && swing('EMOM').scaled === 6, 'EMOM: RX × 0,6 (9), Scaled 6');
-  ok(swing('Chipper').rx === 40 && swing('Chipper').scaled === 30, 'Chipper: RX × 2,5 (37,5 → 40), Scaled 30');
+  ok(swing('Chipper').rx === 30 && swing('Chipper').scaled === 20, 'Chipper: RX × 2 (cap de 15 min com a Técnica antes), Scaled 21 → 20');
   const kb = swing('AMRAP');
   ok(igual(kb.carga, { rx: '16/12 kg', scaled: '12/8 kg' }), 'a carga RX/Scaled vem do catálogo');
   ok(wod('AMRAP', ['afundo_kb']).movimentos[0].porLado && !kb.porLado, 'unilateral: a quantidade é por lado');
@@ -158,12 +159,15 @@ console.log('\nGerador do WOD');
     'EMOM com turma de 6: nunca barra (4) nem wall ball (4) — a turma inteira no mesmo minuto');
 
   const tempoOk = todos.every(({ wod: w }) => {
-    if (w.formato === 'AMRAP') return w.rodadas === null && w.minutos >= 12 && w.minutos <= 20;
-    if (w.formato === 'For Time') return w.rodadas !== null && w.minutos === w.rodadas * 4;
-    if (w.formato === 'EMOM') return w.rodadas !== null && w.minutos === w.rodadas * w.movimentos.length && w.minutos >= 12 && w.minutos <= 20;
-    return w.rodadas === null && w.minutos === 20;
+    if (w.formato === 'AMRAP') return w.rodadas === null && w.minutos >= 12 && w.minutos <= 15;
+    if (w.formato === 'For Time') return w.rodadas !== null && w.minutos === Math.min(15, w.rodadas * 4);
+    if (w.formato === 'EMOM') return w.rodadas !== null && w.minutos === w.rodadas * w.movimentos.length && w.minutos >= 12 && w.minutos <= 15;
+    return w.rodadas === null && w.minutos === 15;
   });
-  ok(tempoOk, 'tempo: AMRAP 12–20 min; For Time 4 min por rodada; EMOM movimentos × rodadas entre 12 e 20; Chipper 20');
+  ok(tempoOk, 'tempo, com a Técnica antes (aula de 60 min): AMRAP 12–15; For Time 3 ou 4 rodadas, cap 12 ou 15; EMOM 12–15; Chipper 15');
+  ok(todos.every(({ wod: w }) => w.minutos <= 15), 'nenhum WOD passa de 15 min');
+  ok(todos.some(({ wod: w }) => w.formato === 'For Time' && w.rodadas === 4 && w.minutos === 15),
+    'For Time de 4 rodadas com cap 15, como a aula de 06/10');
 
   const a = gerarCross(ctx({ semente: 's1' }));
   ok(igual(a, gerarCross(ctx({ semente: 's1' }))), 'determinístico: mesma semente, mesmo WOD');
@@ -380,8 +384,13 @@ console.log('\nPublicação e reconferência');
   const ok6 = reconferirSemana(doc, INV.limitesAtivos, 6)!;
   ok(!ok6.alertasCross.length && !ok6.alertasHyrox.length && !ok6.problemasParaPublicar.length, 'WOD com 2 barras e turma de 6: cabe');
   const t9 = reconferirSemana(doc, INV.limitesAtivos, 9)!;
-  ok(t9.alertasCross.length === 1 && t9.alertasCross[0].usado === 6 && igual(t9.alertasCross[0].dias, ['terca']),
-    'turma sobe para 9: 3 alunos por movimento × 2 barras = 6 de 4 → alerta');
+  const t9wod = t9.alertasCross.filter((a) => !a.bloco);
+  ok(t9wod.length === 1 && t9wod[0].usado === 6 && igual(t9wod[0].dias, ['terca']),
+    'turma sobe para 9: 3 alunos por movimento × 2 barras = 6 de 4 → alerta no WOD');
+  const t9tec = t9.alertasCross.filter((a) => a.bloco === 'tecnica');
+  ok(t9tec.length === 1 && t9tec[0].usado === 5 && igual(t9tec[0].exercicios, ['power_clean']),
+    'e na Técnica / Força: 9 alunos em duplas = 5 barras de 4 → alerta da técnica');
+  ok(t9.problemasParaPublicar.some((p) => p.includes('na Técnica / Força') && p.includes('duplas revezando')), 'a mensagem da técnica diz que é em duplas');
   ok(t9.problemasParaPublicar.some((p) => p.includes('3 alunos por movimento') && p.includes('Power clean')), 'a mensagem explica a conta');
   const semSled = reconferirSemana(doc, { ...INV.limitesAtivos, sled: 0 }, 6)!;
   ok(semSled.alertasHyrox.length === 2 && semSled.alertasHyrox.every((a) => a.temSubstituta),
@@ -432,6 +441,77 @@ console.log('\nA semana inteira (gerarSemana)');
   ok(!falhou, '30 semanas encadeadas: formato e movimentos nunca repetem a semana anterior, nenhum alerta', falhou);
 }
 
+/* ───────────────────────────── Técnica / Força ───────────────────────────── */
+
+console.log('\nTécnica / Força (o bloco antes do WOD)');
+{
+  const focos = doCross.filter((id) => catalogo.get(id)!.cross!.tecnica);
+  ok(focos.length === 15, `${focos.length} movimentos servem de foco`);
+  for (const c of CATEGORIAS_FOCO) {
+    const n = focos.filter((id) => catalogo.get(id)!.cross!.tecnica!.categoria === c).length;
+    ok(n >= 2, `categoria ${c}: ${n} movimentos`);
+  }
+  ok(!focos.some((id) => catalogo.get(id)!.cross!.padrao === 'cardio'), 'cardio nunca é foco');
+  ok(focos.every((id) => [10, 12].includes(catalogo.get(id)!.cross!.tecnica!.minutos)), 'todo bloco tem 10 ou 12 min (decisão do coach)');
+  const pc = catalogo.get('power_clean')!.cross!.tecnica!;
+  ok(pc.tipo === 'tecnica' && pc.dinamica.startsWith('EMOM 10 min: 3 power cleans por minuto') && pc.objetivo.includes('Recepção rápida'),
+    'power clean calibrado pela aula de 06/10: EMOM 10 min, 3 por minuto, recepção rápida');
+
+  const base = { nome: 'X', musculoPrincipal: ['core'], musculosSecundarios: [], equipamentos: ['peso_corporal'], adaptacoes: {}, instancia: null };
+  const t = { categoria: 'ginastica', tipo: 'skill', minutos: 10, dinamica: 'EMOM 10 min', objetivo: 'Qualidade' };
+  const comT = (tecnica: object) => lerItemCatalogo({ ...base, cross: { padrao: 'core', unidade: 'reps', rx: 10, tecnica } });
+  ok(comT(t)?.cross?.tecnica?.tipo === 'skill', 'técnica válida é lida');
+  ok(comT({ ...t, categoria: 'cardio' }) === null, 'categoria desconhecida: torto');
+  ok(comT({ ...t, minutos: 0 }) === null, 'minutos fora da faixa: torto');
+  ok(comT({ ...t, objetivo: '' }) === null, 'sem objetivo: torto');
+
+  // A escolha do foco: olímpico > barra > kettlebell > ginástica.
+  const t1 = tecnicaDoWod(['corrida', 'flexao', 'kb_swing', 'terra_barra_livre', 'power_clean'], catalogo)!;
+  ok(t1.exercicioId === 'power_clean' && t1.tipo === 'tecnica' && t1.minutos === 10, 'olímpico vence: power clean');
+  ok(igual(t1.alternativas.map((a) => a.exercicioId), ['flexao', 'kb_swing', 'terra_barra_livre']), 'as outras opções de foco, na ordem do WOD');
+  ok(tecnicaDoWod(['corrida', 'flexao', 'kb_swing', 'terra_barra_livre'], catalogo)!.exercicioId === 'terra_barra_livre', 'sem olímpico: barra');
+  ok(tecnicaDoWod(['corrida', 'flexao', 'kb_swing'], catalogo)!.exercicioId === 'kb_swing', 'sem barra: kettlebell');
+  ok(tecnicaDoWod(['corrida', 'flexao', 'abdominal_supra'], catalogo)!.exercicioId === 'flexao', 'só ginástica: ginástica');
+  ok(tecnicaDoWod(['corrida', 'flexao', 'power_clean'], catalogo, 'flexao')!.exercicioId === 'flexao', 'o foco escolhido pelo coach vale');
+  ok(tecnicaDoWod(['corrida', 'flexao', 'power_clean'], catalogo, 'corrida')!.exercicioId === 'power_clean', 'escolha que não serve de foco: volta à prioridade');
+  ok(tecnicaDoWod(['corrida', 'abdominal_supra', 'burpee'], catalogo) === null, 'nenhum serve de foco: null');
+
+  // O gerador.
+  const todos = SEMENTES.map((semente) => gerarCross(ctx({ semente })));
+  ok(todos.every((g) => g.wod.tecnica && g.cru.tecnica?.exercicioId === g.wod.tecnica.exercicioId), `${SEMENTES.length} sorteios: todo WOD tem Técnica / Força`);
+  ok(todos.every((g) => {
+    const cats = g.wod.movimentos.map((m) => catalogo.get(m.exercicioId)!.cross!.tecnica?.categoria).filter(Boolean) as string[];
+    const melhor = Math.min(...cats.map((c) => CATEGORIAS_FOCO.indexOf(c as never)));
+    return CATEGORIAS_FOCO.indexOf(g.wod.tecnica!.categoria) === melhor;
+  }), 'o foco é sempre o da categoria mais à frente no WOD');
+  ok(new Set(todos.map((g) => g.wod.tecnica!.categoria)).size === 4, 'as 4 categorias aparecem como foco');
+  ok(todos.every((g) => !g.alertas.length), 'inventário de fábrica, turma de 6: a técnica cabe (3 barras em duplas)');
+  const duasBarras = SEMENTES.slice(0, 150).map((semente) => gerarCross(ctx({ semente, limites: { ...LIM_CROSS, barraOlimpica: 2 } })));
+  ok(duasBarras.every((g) => g.wod.tecnica && !g.alertas.length), '2 barras ativas: a técnica nunca é de barra (precisaria de 3), e nada passa do limite');
+  ok(duasBarras.some((g) => g.wod.movimentos.some((m) => comBarra.has(m.exercicioId))), '…mas a barra ainda entra no WOD (2 por movimento)');
+  const semFoco = new Map([...catalogo].filter(([, i]) => !i.cross?.tecnica));
+  const g0 = gerarCross(ctx({ catalogo: semFoco }));
+  ok(g0.wod.tecnica === null && g0.avisos.some((a) => a.includes('sem movimento para a Técnica')), 'catálogo sem foco: técnica null, com aviso');
+
+  // A validação do salvar.
+  const mov = (ids: string[]) => ids.map((exercicioId) => ({ exercicioId }));
+  const wodCru = { formato: 'AMRAP', minutos: 14, movimentos: mov(['corrida', 'flexao', 'power_clean']) };
+  const auto = lerCross(wodCru, catalogo, 'terca');
+  ok('cross' in auto && auto.cross.tecnica?.exercicioId === 'power_clean', 'sem escolha no pedido: o servidor escolhe pela prioridade');
+  const pedido = lerCross({ ...wodCru, tecnica: { exercicioId: 'flexao', dinamica: 'outra coisa' } }, catalogo, 'terca');
+  ok('cross' in pedido && pedido.cross.tecnica?.exercicioId === 'flexao' && pedido.cross.tecnica.dinamica.startsWith('EMOM 10 min: 5–8 flexões'),
+    'foco escolhido no pedido vale; dinâmica e objetivo saem do catálogo');
+  ok(erro(lerCross({ ...wodCru, tecnica: { exercicioId: 'kb_swing' } }, catalogo, 'terca')).includes('movimento do WOD'), 'foco fora do WOD: erro');
+  ok(erro(lerCross({ ...wodCru, tecnica: { exercicioId: 'corrida' } }, catalogo, 'terca')).includes('não tem bloco'), 'foco sem técnica no catálogo: erro');
+  const semTecnica = lerDias({ terca: { treinos: ['Cross'], cross: { formato: 'AMRAP', minutos: 14, movimentos: mov(['corrida', 'abdominal_supra', 'burpee']) } } }, catalogo);
+  ok('dias' in semTecnica && semTecnica.dias.terca.cross?.tecnica === null
+    && problemasParaPublicar(semTecnica.dias, []).some((p) => p.includes('não tem movimento para a Técnica / Força')),
+    'WOD sem foco: não publica');
+  const legado = lerDias({ terca: { treinos: ['Cross'], cross: { formato: 'AMRAP', minutos: 14, movimentos: mov(['corrida', 'flexao', 'kb_swing']) } } }, catalogo);
+  if ('dias' in legado) delete legado.dias.terca.cross!.tecnica;
+  ok('dias' in legado && !problemasParaPublicar(legado.dias, []).some((p) => p.includes('Técnica')), 'WOD gravado antes do bloco (sem a chave): não trava');
+}
+
 /* ───────────────────────────── edição manual ───────────────────────────── */
 
 console.log('\nTroca manual no WOD');
@@ -468,6 +548,22 @@ console.log('\nTroca manual no WOD');
   ok(op.opcoes.every((x, i, l) => i === 0 || grupo(l[i - 1]) <= grupo(x)), 'ordem: livres, rodízio, bloqueados');
   ok(op.opcoes.find((x) => !x.bloqueada)?.padrao === 'empurrar', 'dentro dos livres, o mesmo padrão da vaga primeiro');
   ok(opcoesDoCross({ ...base, dias: semana(null), posicao: 1 }) === null, 'semana sem WOD: null');
+
+  // Técnica / Força na troca: WOD com a flexão como ÚNICO foco (ginástica).
+  const soFlexao = semana({ formato: 'AMRAP', minutos: 14, movimentos: mov(['corrida', 'flexao', 'agachamento_livre']) });
+  const baseF = { ...base, dias: soFlexao };
+  const cf = (posicao: number, exercicioId: string, alunosPorAula = 6) =>
+    conflitosDoCross({ ...baseF, posicao, exercicioId, alunosPorAula })!;
+  ok(cf(2, 'burpee').tiraATecnica && bloqueiaCross(cf(2, 'burpee')), 'trocar o único foco por um que não serve: bloqueia (tira a técnica)');
+  ok(!cf(2, 'flexao_pike').tiraATecnica && !bloqueiaCross(cf(2, 'flexao_pike')), 'trocar o foco por outro foco: livre');
+  // O foco FICA enquanto estiver no WOD (o coach não vê o foco mudar sozinho);
+  // só quando ele mesmo sai é que o substituto (ou outro) vira o foco.
+  ok(!cf(3, 'goblet_squat').viraFoco && !bloqueiaCross(cf(3, 'goblet_squat')), 'trocar outro movimento: o foco (flexão) fica');
+  ok(cf(2, 'flexao_pike').viraFoco, 'trocar o foco por outro que serve: ele vira o foco (só informa)');
+  const pushPress9 = cf(2, 'push_press', 9);
+  ok(igual(pushPress9.equipamento, ['barraOlimpica']) && bloqueiaCross(pushPress9),
+    'com turma de 9, a barra vira foco: 5 barras em duplas de 4 → bloqueia por equipamento da técnica');
+  ok(!cf(2, 'push_press', 6).equipamento.length && cf(2, 'push_press', 6).viraFoco, 'com turma de 6: 3 barras em duplas, cabe');
 
   // A troca escolhida passa no salvar, com a prescrição recalculada.
   const trocado = lerCross({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'power_clean', 'push_press', 'kb_swing']) }, catalogo, 'terca');

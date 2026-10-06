@@ -12,10 +12,10 @@
  *     prescrição do novo movimento ou da estação.
  */
 import { avisar, confirmar, painel } from '../../../compartilhado/ui/dialogo.js';
-import { diasComCrossTrocado, diasComHyroxTrocado, rotuloDias } from '../core/vista.js';
+import { diasComCrossTrocado, diasComFocoTrocado, diasComHyroxTrocado, rotuloDias } from '../core/vista.js';
 import { opcoesTrocaCross, opcoesTrocaHyrox, salvarSemana } from '../cloud/semana.js';
 import { esc } from './render.js';
-import { renderAvisoCross, renderOpcoesCross, renderOpcoesHyrox } from './render-troca.js';
+import { renderAvisoCross, renderOpcoesCross, renderOpcoesFoco, renderOpcoesHyrox } from './render-troca.js';
 
 /**
  * @typedef {{
@@ -110,6 +110,32 @@ export async function trocarMovimentoCross(o) {
     if (decisao === 'manter') await gravar(o, montar, `${sucesso} Quebra o rodízio, com aviso.`);
     return;
   }
+}
+
+/**
+ * Troca o foco da Técnica / Força por outro movimento do WOD que serve de foco.
+ * As opções já estão na semana (`tecnica.alternativas`, gravadas pelo servidor):
+ * não precisa de chamada. A trava de dia passado fica no servidor (`salvarSemanaBox`).
+ * @param {Contexto} o
+ */
+export async function trocarFocoTecnica(o) {
+  const doc = await o.lerDoc();
+  const dia = Object.values(doc?.dias ?? {}).find((d) => /** @type {any} */ (d)?.cross?.tecnica);
+  const t = /** @type {any} */ (dia)?.cross?.tecnica;
+  if (!t) return;
+  if (doc.status === 'publicado') {
+    const ok = await confirmar({
+      titulo: 'Semana publicada',
+      texto: 'Os alunos veem a troca do foco da Técnica / Força na hora.',
+      ok: 'Continuar',
+    });
+    if (!ok) return;
+  }
+  const escolha = await painel({ titulo: 'Trocar foco · Técnica / Força', corpoHTML: renderOpcoesFoco(t) });
+  if (!escolha || !escolha.startsWith('foco:')) return;
+  const novo = (t.alternativas ?? []).find((a) => a.exercicioId === escolha.slice('foco:'.length));
+  if (!novo) return;
+  await gravar(o, (d) => diasComFocoTrocado(d, novo.exercicioId), `${novo.nome} é o foco da Técnica / Força.`);
 }
 
 /** Troca uma estação do Hyrox pela substituta (ou volta à da prova). @param {Contexto & {estacao: string}} o */

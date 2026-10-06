@@ -352,8 +352,9 @@ export const REGRA_FORMATO_CROSS: Readonly<Record<FormatoCross, {
     movimentos: [3, 4], fator: 1, escalonado: true,
     descricao: 'Complete as rodadas o mais rápido possível, dentro do time cap.',
   },
+  // 2 (e não 2,5) desde 06/10/2026: com a Técnica / Força antes, o cap é 15 min.
   Chipper: {
-    movimentos: [5, 5], fator: 2.5, escalonado: true,
+    movimentos: [5, 5], fator: 2, escalonado: true,
     descricao: 'Uma lista longa, na ordem, cada movimento uma vez só — dentro do time cap.',
   },
 };
@@ -366,6 +367,53 @@ export const MINUTOS_CROSS = { min: 5, max: 60 } as const;
 /** Rodadas do For Time e voltas na lista do EMOM. */
 export const RODADAS_CROSS = { min: 1, max: 10 } as const;
 
+/**
+ * Teto do WOD (duração ou time cap). A aula de Cross tem 60 min e o bloco de
+ * Técnica / Força (10–12 min) vem antes: o WOD fica em até 15. Decisão do coach, 06/10/2026.
+ */
+export const MINUTOS_MAX_WOD = 15;
+
+/* ── Técnica / Força: o bloco ANTES do WOD, no movimento principal do dia ── */
+
+/**
+ * De que tipo é o movimento-foco, NA ORDEM DE PRIORIDADE: o gerador escolhe
+ * para a Técnica / Força o movimento do WOD da categoria mais à frente (o mais
+ * técnico do dia). Decisão do coach, 06/10/2026.
+ */
+export const CATEGORIAS_FOCO = ['olimpico', 'barra', 'kettlebell', 'ginastica'] as const;
+export type CategoriaFoco = (typeof CATEGORIAS_FOCO)[number];
+
+/** O que o bloco trabalha: técnica (EMOM leve), força (séries pesadas) ou skill (ginástica estrita). */
+export const TIPOS_TECNICA = ['tecnica', 'forca', 'skill'] as const;
+export type TipoTecnica = (typeof TIPOS_TECNICA)[number];
+export const NOME_TIPO_TECNICA: Readonly<Record<TipoTecnica, string>> = { tecnica: 'Técnica', forca: 'Força', skill: 'Skill' };
+
+/** Duração do bloco, em minutos (10–12 pelo coach; a faixa aceita é um pouco maior). */
+export const MINUTOS_TECNICA = { min: 5, max: 20 } as const;
+
+/**
+ * Na Técnica / Força a turma trabalha em DUPLAS revezando o equipamento entre
+ * as séries: cada movimento precisa de turma ÷ 2 (para cima) unidades. Com 6
+ * alunos, 3 barras. Decisão do coach, 06/10/2026.
+ */
+export const ALUNOS_POR_EQUIPAMENTO_TECNICA = 2;
+
+/**
+ * O bloco de Técnica / Força de um movimento — só nos que podem ser o foco da
+ * aula (cardio nunca é). A dinâmica é FIXA por movimento (decisão do coach).
+ */
+export interface DadosTecnica {
+  categoria: CategoriaFoco;
+  tipo: TipoTecnica;
+  /** 'EMOM 10 min: 3 power cleans por minuto, subindo a carga de leve a moderada.' */
+  dinamica: string;
+  minutos: number;
+  /** 'Recepção rápida da barra e extensão completa de quadril.' */
+  objetivo: string;
+  /** Texto da carga sugerida, quando tem. */
+  carga?: string;
+}
+
 /** Como um exercício entra no WOD do Cross. */
 export interface DadosCross {
   padrao: PadraoCross;
@@ -376,6 +424,20 @@ export interface DadosCross {
   carga?: { rx: string; scaled: string };
   /** Unidades por ALUNO, quando não for 1 de cada recurso dos `equipamentos` (farmer = 2 kettlebells). */
   consumoPorAluno?: Partial<Record<RecursoCross, number>>;
+  /** Só nos movimentos que podem ser o foco da Técnica / Força. */
+  tecnica?: DadosTecnica;
+}
+
+/** O bloco de Técnica / Força como gravado. Tudo CALCULADO do catálogo, menos o id. */
+export interface TecnicaProgramada extends Omit<DadosTecnica, 'carga'> {
+  /** O movimento-foco — é um dos movimentos do WOD. */
+  exercicioId: string;
+  nome: string;
+  carga: string | null;
+  /** Para a reconferência do inventário (duplas revezando: turma ÷ 2 × isto). */
+  consumoPorAluno: Partial<Record<RecursoCross, number>>;
+  /** Os OUTROS movimentos do WOD que também podem ser o foco — a tela oferece a troca. */
+  alternativas: { exercicioId: string; nome: string; categoria: CategoriaFoco }[];
 }
 
 /** Um movimento do WOD, como gravado. Tudo CALCULADO do catálogo e do formato, menos o id. */
@@ -403,14 +465,25 @@ export interface WodProgramado {
   /** For Time: rodadas. EMOM: voltas na lista. AMRAP e Chipper: null. */
   rodadas: number | null;
   movimentos: MovimentoCross[];
+  /**
+   * O bloco ANTES do WOD, no movimento principal do dia. `null` = nenhum
+   * movimento do WOD serve de foco (a semana não publica). Ausente = WOD
+   * gravado antes do bloco existir.
+   */
+  tecnica?: TecnicaProgramada | null;
 }
 
-/** Equipamento do WOD acima do limite. `exercicios` são os movimentos que somam (ou o que sozinho passa, no EMOM). */
+/**
+ * Equipamento do Cross acima do limite. `exercicios` são os movimentos que
+ * somam (ou o que sozinho passa, no EMOM). `bloco: 'tecnica'` = na Técnica /
+ * Força (duplas revezando); ausente = no WOD.
+ */
 export interface AlertaCross {
   recurso: RecursoCross;
   usado: number;
   limite: number;
   exercicios: string[];
+  bloco?: 'tecnica';
 }
 export interface AlertaCrossDaSemana extends AlertaCross {
   dias: DiaSemana[];

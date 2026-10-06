@@ -146,19 +146,39 @@ kettlebell.
 
 Um WOD e um Hyrox por semana, nos dias da grade que os têm (terça e quinta). Regras do coach (06/10/2026):
 
+**Aula de Cross: 1 · Técnica / Força + 2 · WOD** (06/10/2026)
+
+A aula tem 60 min. Antes do WOD, um bloco de **Técnica / Força** (10–12 min) no movimento principal do
+dia, e o WOD fica em até `MINUTOS_MAX_WOD` = **15 min**.
+
+- **Foco obrigatório:** todo WOD tem ao menos um movimento com `cross.tecnica` no catálogo (15 hoje:
+  olímpicos, barra, kettlebell e ginástica; cardio nunca é foco). O foco é o da categoria mais à frente
+  em `CATEGORIAS_FOCO` — **olímpico > barra > kettlebell > ginástica** — que caiba no inventário
+  (`tecnicaDoWod`). O foco escolhido FICA enquanto estiver no WOD; só muda quando ele mesmo sai.
+- **Dinâmica fixa por movimento** (calibrada pela aula de 06/10: power clean em EMOM 10 min, 3 por
+  minuto subindo a carga): tipo (técnica, força, skill), dinâmica, minutos, objetivo e carga.
+- **Equipamento:** duplas revezando — turma ÷ 2 (para cima) unidades do foco (6 alunos = 3 barras). Não
+  soma com o WOD (é antes). Passou: alerta em `alertasCross` com `bloco: 'tecnica'`.
+- **Na semana:** `cross.tecnica` (`TecnicaProgramada`, com as `alternativas` de foco do WOD); `null` =
+  nenhum movimento serve (não publica); ausente = WOD gravado antes do bloco (não trava). O pedido de
+  salvar pode mandar `tecnica: { exercicioId }` para escolher o foco; o resto sai do catálogo.
+- **Troca no WOD:** bloqueia também "tira a técnica" (tirar o último movimento que serve de foco); o
+  movimento que entra no lugar do foco vira o foco (`viraFoco`, só informa).
+
 **WOD do Cross**
 
 - **Formato** sorteado entre AMRAP, EMOM, For Time e Chipper (`REGRA_FORMATO_CROSS`), nunca o da
-  semana anterior. Tempo: AMRAP 12–20 min; For Time 3–5 rodadas, time cap de 4 min por rodada; EMOM
-  movimentos × rodadas entre 12 e 20 min (cada minuto um movimento, a lista reinicia); Chipper 20 min.
+  semana anterior. Tempo (até 15 min, com a Técnica antes): AMRAP 12–15 min; For Time 3 ou 4 rodadas,
+  4 min por rodada até o cap de 15; EMOM movimentos × rodadas entre 12 e 15 min (cada minuto um
+  movimento, a lista reinicia); Chipper 15 min.
 - **Movimentos:** 3–4 (Chipper: 5), sem repetir **padrão** (`PADROES_CROSS`: cardio, agachar, quadril,
   empurrar, puxar, corpo_todo, olimpico, core) e com um **cardio** abrindo o WOD.
 - **Rodízio:** primeiro sem nenhum movimento do Cross da semana anterior; sem combinação nova, repete
-  o mínimo possível, com aviso. O H1 da terça não entra (é alternativa, de outra turma). Caso real: no
-  EMOM com turma de 6, a corrida é o único cardio que cabe — air bike, corda de pular e corda naval têm
-  2 de cada.
+  o mínimo possível, com aviso. O H1 da terça não entra (é alternativa, de outra turma). No EMOM com
+  turma de 6, air bike, corda de pular e corda naval (2 de cada) não cabem: os cardios sem equipamento
+  (corrida, shuttle run, polichinelo, high knees, mountain climber) dão a variedade.
 - **Prescrição** calculada pelo servidor (`movimentoCross`): RX = `cross.rx` do catálogo (uma rodada de
-  AMRAP) × fator do formato (EMOM 0,6; Chipper 2,5); **Scaled = RX × 0,7**; arredondados para a lousa
+  AMRAP) × fator do formato (EMOM 0,6; Chipper 2); **Scaled = RX × 0,7**; arredondados para a lousa
   (`arredondarPrescricao`). A carga RX/Scaled é texto do catálogo (`'40/30 kg'` = homem/mulher).
 - **Equipamento — regra mista** (`src/conta-cross.ts`):
   - **EMOM (estrito):** a turma inteira faz o mesmo movimento no mesmo minuto — cada movimento exige

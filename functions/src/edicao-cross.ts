@@ -12,6 +12,7 @@
  *  - já estar no WOD;
  *  - repetir o PADRÃO de outro movimento do WOD;
  *  - tirar o cardio do WOD (o único que ele tem);
+ *  - tirar o último movimento que serve de foco da Técnica / Força;
  *  - equipamento acima do limite, pela regra mista (`contarCross`).
  * Só o rodízio (estava no Cross da semana anterior) é aviso contornável.
  *
@@ -24,6 +25,7 @@
  * Cross, o Hyrox em todo dia que tem Hyrox.
  */
 import { cabeNoInventario, consumoCross, contarCross } from './conta-cross';
+import { tecnicaDoWod } from './semana-box';
 import { DADOS_ESTACAO_HYROX } from './catalogo-hyrox';
 import {
   DIAS_SEMANA, NIVEIS_HYROX, RECURSOS_BOX,
@@ -33,7 +35,7 @@ import {
 
 type Catalogo = ReadonlyMap<string, ItemCatalogo>;
 type MovimentoCru = { exercicioId: string; nome?: string; padrao?: PadraoCross; consumoPorAluno?: Partial<Record<RecursoCross, number>> };
-type WodCru = { formato: FormatoCross; movimentos: MovimentoCru[] };
+type WodCru = { formato: FormatoCross; movimentos: MovimentoCru[]; tecnica?: { exercicioId: string } | null };
 type EstacaoHyroxCrua = { estacao: EstacaoHyrox; nome?: string; substituta?: boolean };
 
 const diaDe = (dias: unknown, d: DiaSemana) => ((dias ?? {}) as Record<string, any>)[d] ?? null;
@@ -70,15 +72,19 @@ export interface ConflitosCross {
   padraoRepetido: string | null;
   /** A troca deixaria o WOD sem cardio. */
   tiraOCardio: boolean;
-  /** Recursos que passam do limite com a troca (pela regra mista). */
+  /** A troca deixaria o WOD sem movimento para a Técnica / Força (o foco é obrigatório). */
+  tiraATecnica: boolean;
+  /** Recursos que passam do limite com a troca (pela regra mista, e na Técnica / Força se ele vira o foco). */
   equipamento: RecursoCross[];
   /** Estava no Cross da semana anterior. O único que deixa "manter". */
   semanaAnterior: boolean;
+  /** Só informa: com a troca, ele passa a ser o foco da Técnica / Força. */
+  viraFoco: boolean;
 }
 
-/** Bloqueia a escolha: tudo menos o rodízio. */
+/** Bloqueia a escolha: tudo menos o rodízio (e o aviso de foco). */
 export function bloqueiaCross(c: ConflitosCross): boolean {
-  return c.noWod || !!c.padraoRepetido || c.tiraOCardio || c.equipamento.length > 0;
+  return c.noWod || !!c.padraoRepetido || c.tiraOCardio || c.tiraATecnica || c.equipamento.length > 0;
 }
 
 /**
@@ -100,13 +106,20 @@ export function conflitosDoCross(o: {
   const trocado = wod.movimentos.map((m, i) => (i === o.posicao - 1
     ? { exercicioId: o.exercicioId, consumoPorAluno: consumoCross(item) }
     : m));
-  const alertas = contarCross({ formato: wod.formato, movimentos: trocado }, o.limites, o.alunosPorAula).alertas;
+  // A Técnica / Força depois da troca: o foco de hoje fica se continuar no WOD;
+  // senão o servidor escolhe outro — a mesma regra de quando salva (`lerCross`).
+  const focoAtual = wod.tecnica?.exercicioId;
+  const tecnica = tecnicaDoWod(trocado.map((m) => m.exercicioId), o.catalogo, focoAtual);
+  const alertas = contarCross({ formato: wod.formato, movimentos: trocado, tecnica }, o.limites, o.alunosPorAula).alertas;
+  const tinhaFoco = wod.movimentos.some((m) => !!o.catalogo.get(m.exercicioId)?.cross?.tecnica);
   return {
     noWod: outros.some((m) => m.exercicioId === o.exercicioId),
     padraoRepetido: igual ? String(igual.nome ?? o.catalogo.get(igual.exercicioId)?.nome ?? igual.exercicioId) : null,
     tiraOCardio: tinhaCardio && item.cross.padrao !== 'cardio' && !outros.some((m) => padraoDe(m) === 'cardio'),
+    tiraATecnica: tinhaFoco && !tecnica,
     equipamento: [...new Set(alertas.filter((a) => a.exercicios.includes(o.exercicioId)).map((a) => a.recurso))],
     semanaAnterior: o.semanaPassada.has(o.exercicioId),
+    viraFoco: tecnica?.exercicioId === o.exercicioId && focoAtual !== o.exercicioId,
   };
 }
 

@@ -7,7 +7,8 @@
  */
 import {
   NOME_INSTANCIA, acoesDoConflito, acoesDoConflitoHiit, rotuloDias, rotuloSlots, selosDaOpcao, selosDaOpcaoHiit, textoConflitos,
-  NIVEIS_HYROX, NOME_PADRAO_CROSS, NOME_RECURSO, UNIDADE_HYROX, acoesDoConflitoCross, selosDaOpcaoCross, textoSegundos,
+  NIVEIS_HYROX, NOME_CATEGORIA_FOCO, NOME_PADRAO_CROSS, NOME_RECURSO, UNIDADE_HYROX, acoesDoConflitoCross, selosDaOpcaoCross,
+  textoSegundos,
 } from '../core/vista.js';
 import { esc } from './render.js';
 
@@ -149,6 +150,28 @@ export function renderAvisoCross(r, opcao) {
     acoes: acoesDoConflitoCross(opcao),
     fechar: 'Cancelar a troca',
   };
+}
+
+/**
+ * A troca do foco da Técnica / Força: os outros movimentos do WOD que servem
+ * de foco (`tecnica.alternativas`, gravados pelo servidor), na ordem de
+ * prioridade das categorias. A dinâmica do novo foco sai do catálogo ao salvar.
+ * @param {{nome: string, alternativas: {exercicioId: string, nome: string, categoria: string}[]}} t
+ */
+export function renderOpcoesFoco(t) {
+  const ordem = Object.keys(NOME_CATEGORIA_FOCO);
+  const itens = [...(t.alternativas ?? [])]
+    .sort((a, b) => ordem.indexOf(a.categoria) - ordem.indexOf(b.categoria))
+    .map((a) => `<li><button class="troca-opcao" type="button" data-acao="foco:${esc(a.exercicioId)}">
+      <span class="troca-nome">${esc(a.nome)}</span>
+      <span class="troca-inst">${esc(NOME_CATEGORIA_FOCO[a.categoria] ?? a.categoria)}</span>
+    </button></li>`).join('');
+  return `<p class="dlg-texto">
+      <b>Técnica / Força</b> — hoje o foco é <b>${esc(t.nome)}</b>.<br />
+      <span class="mut">Escolha outro movimento do WOD para a técnica. A dinâmica, o objetivo e a carga dele saem do catálogo;
+        o WOD não muda.</span>
+    </p>
+    <ul class="troca-lista">${itens || '<li class="mut">Nenhum outro movimento do WOD serve de foco.</li>'}</ul>`;
 }
 
 /* ───────────────────────────── troca no Hyrox ───────────────────────────── */

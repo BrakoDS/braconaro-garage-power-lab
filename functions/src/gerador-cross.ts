@@ -18,6 +18,11 @@
  *     movimentos somam.
  *  5. PRESCRIÇÃO: RX = RX-base do catálogo × fator do formato; Scaled = −30%
  *     (`movimentoCross` em `semana-box.ts`).
+ *  6. TÉCNICA / FORÇA antes do WOD: todo WOD tem ao menos um movimento que
+ *     serve de foco (`cross.tecnica` no catálogo), e o foco é o de categoria
+ *     mais à frente (olímpico > barra > kettlebell > ginástica) que CABE no
+ *     inventário com a turma em duplas revezando. Com o bloco antes, o WOD
+ *     fica em até `MINUTOS_MAX_WOD` (15 min) — a aula tem 60.
  *
  * ── Como monta ───────────────────────────────────────────────────────────────
  * Sorteia uma ORDEM de padrões (o cardio sempre na frente) e procura, em
@@ -30,25 +35,25 @@
  * Determinístico: mesma `semente`, mesmo catálogo e mesmo inventário → mesmo WOD.
  */
 import {
-  FORMATOS_CROSS, PADROES_CROSS, REGRA_FORMATO_CROSS,
+  CATEGORIAS_FOCO, FORMATOS_CROSS, MINUTOS_MAX_WOD, PADROES_CROSS, REGRA_FORMATO_CROSS,
   type AlertaCross, type DadosCross, type FormatoCross, type ItemCatalogo, type PadraoCross, type RecursoCross,
   type WodProgramado,
 } from './modelo-box';
 import { embaralhar, hashSeed, mulberry32 } from './sorteio';
-import { alunosPorMovimento, consumoCross, contarCross, demandaDoMovimento } from './conta-cross';
-import { movimentoCross } from './semana-box';
+import { alunosPorMovimento, consumoCross, contarCross, demandaDoMovimento, unidadesNaTecnica } from './conta-cross';
+import { movimentoCross, tecnicaDoWod } from './semana-box';
 
 /** Teto da busca. Com o catálogo real, um WOD gasta poucas dezenas de nós. */
 const MAX_NOS = 200_000;
 
-/** Duração do AMRAP, em minutos. */
-const MINUTOS_AMRAP = [12, 14, 16, 18, 20] as const;
-/** Rodadas do For Time; o time cap é 4 min por rodada. */
-const RODADAS_FOR_TIME = [3, 4, 5] as const;
+/** Duração do AMRAP, em minutos — até o teto do WOD. */
+const MINUTOS_AMRAP = [12, 13, 14, MINUTOS_MAX_WOD] as const;
+/** Rodadas do For Time; o time cap é 4 min por rodada, até o teto (4 rodadas = 15, como a aula de 06/10). */
+const RODADAS_FOR_TIME = [3, 4] as const;
 const MINUTOS_POR_RODADA_FOR_TIME = 4;
 /** O EMOM fica entre estes minutos (movimentos × rodadas). */
-const EMOM_MINUTOS = { min: 12, max: 20 } as const;
-const MINUTOS_CHIPPER = 20;
+const EMOM_MINUTOS = { min: 12, max: MINUTOS_MAX_WOD } as const;
+const MINUTOS_CHIPPER = MINUTOS_MAX_WOD;
 
 export interface ContextoCross {
   catalogo: ReadonlyMap<string, ItemCatalogo>;
@@ -63,7 +68,10 @@ export interface ContextoCross {
 export interface CrossGerado {
   wod: WodProgramado;
   /** O que o pedido de salvar mandaria: é o que a semana grava, depois de `lerDias`. */
-  cru: { formato: FormatoCross; minutos: number; rodadas: number | null; movimentos: { exercicioId: string }[] };
+  cru: {
+    formato: FormatoCross; minutos: number; rodadas: number | null; movimentos: { exercicioId: string }[];
+    tecnica: { exercicioId: string } | null;
+  };
   consumo: Partial<Record<RecursoCross, number>>;
   /** Vazio quando o WOD cabe no inventário. */
   alertas: AlertaCross[];
@@ -97,19 +105,34 @@ export function gerarCross(ctx: ContextoCross): CrossGerado {
     || Number(passada.ids.has(a)) - Number(passada.ids.has(b)));
 
   const avisos: string[] = [];
+  // O movimento serve de foco da Técnica / Força? Com equipamento, também
+  // tem de caber com a turma em duplas revezando.
+  const serveDeFoco = (id: string, comEquipamento: boolean): boolean => {
+    const item = itens.get(id)!;
+    if (!item.cross.tecnica) return false;
+    if (!comEquipamento) return true;
+    return (Object.entries(demandaDoMovimento(consumoCross(item), unidadesNaTecnica(ctx.alunosPorAula))) as [RecursoCross, number][])
+      .every(([r, n]) => n <= ctx.limites[r]);
+  };
   // Rodízio como REGRA: primeiro nenhum movimento da semana anterior, depois
-  // no máximo 1, 2… — o WOD repete o MÍNIMO que o inventário obriga (no EMOM
-  // com a turma toda, às vezes só a corrida cabe como cardio).
-  const procurar = (comEquipamento: boolean): string[] | null => {
+  // no máximo 1, 2… — o WOD repete o MÍNIMO que o inventário obriga. O foco
+  // da Técnica / Força vem antes do rodízio: é obrigatório (decisão do coach).
+  const procurar = (comEquipamento: boolean, exigirFoco: boolean): string[] | null => {
+    const foco = exigirFoco ? (id: string) => serveDeFoco(id, comEquipamento) : null;
     for (let repetidos = 0; repetidos <= quantos; repetidos++) {
-      const achou = buscar(fila, itens, formato, quantos, ctx, passada.ids, repetidos, comEquipamento);
+      const achou = buscar(fila, itens, formato, quantos, ctx, passada.ids, repetidos, comEquipamento, foco);
       if (achou) return achou;
     }
     return null;
   };
-  let ids = procurar(true);
+  let ids = procurar(true, true);
+  let semFoco = false;
   if (!ids) {
-    ids = procurar(false);
+    ids = procurar(true, false);
+    semFoco = !!ids;
+  }
+  if (!ids) {
+    ids = procurar(false, true) ?? procurar(false, false);
     if (ids) avisos.push('Não há combinação de movimentos que caiba no inventário: o WOD saiu com alerta de equipamento.');
   }
   if (!ids) {
@@ -127,7 +150,7 @@ export function gerarCross(ctx: ContextoCross): CrossGerado {
     minutos = MINUTOS_AMRAP[Math.floor(rng() * MINUTOS_AMRAP.length)];
   } else if (formato === 'For Time') {
     rodadas = RODADAS_FOR_TIME[Math.floor(rng() * RODADAS_FOR_TIME.length)];
-    minutos = rodadas * MINUTOS_POR_RODADA_FOR_TIME;
+    minutos = Math.min(MINUTOS_MAX_WOD, rodadas * MINUTOS_POR_RODADA_FOR_TIME);
   } else if (formato === 'EMOM') {
     const n = Math.max(1, ids.length);
     const opcoes: number[] = [];
@@ -138,11 +161,27 @@ export function gerarCross(ctx: ContextoCross): CrossGerado {
     minutos = MINUTOS_CHIPPER;
   }
 
+  // 4. O foco da Técnica / Força: a categoria mais à frente entre os que cabem
+  // em duplas; se nenhum cabe, a mais à frente mesmo (e o alerta aparece).
+  const rankFoco = (id: string) => CATEGORIAS_FOCO.indexOf(itens.get(id)!.cross.tecnica!.categoria);
+  const focos = ids.filter((id) => serveDeFoco(id, false)).sort((a, b) => rankFoco(a) - rankFoco(b));
+  const preferido = focos.find((id) => serveDeFoco(id, true)) ?? focos[0];
+  const tecnica = tecnicaDoWod(ids, ctx.catalogo, preferido);
+  if (!tecnica) {
+    avisos.push('O WOD saiu sem movimento para a Técnica / Força (olímpico, barra, kettlebell ou ginástica): troque um movimento antes de publicar.');
+  } else if (semFoco) {
+    avisos.push(`${tecnica.nome} é o foco da Técnica / Força, mas não cabe no inventário com a turma em duplas.`);
+  }
+
   const movimentos = ids.map((id) => movimentoCross(id, itens.get(id)!, formato));
-  const wod: WodProgramado = { formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos };
+  const wod: WodProgramado = { formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos, tecnica };
   const conta = contarCross(wod, ctx.limites, ctx.alunosPorAula);
   return {
-    wod, cru: { formato, minutos, rodadas, movimentos: ids.map((exercicioId) => ({ exercicioId })) },
+    wod,
+    cru: {
+      formato, minutos, rodadas, movimentos: ids.map((exercicioId) => ({ exercicioId })),
+      tecnica: tecnica ? { exercicioId: tecnica.exercicioId } : null,
+    },
     consumo: conta.consumo, alertas: conta.alertas, avisos,
   };
 }
@@ -162,7 +201,13 @@ function buscar(
   passada: ReadonlySet<string>,
   maxRepetidos: number,
   comEquipamento: boolean,
+  foco: ((id: string) => boolean) | null,
 ): string[] | null {
+  // Com `foco`, a combinação só fecha com um movimento que serve de foco da
+  // Técnica / Força. `focoDaqui[i]`: ainda há algum na fila a partir de i (poda).
+  const focoDaqui: boolean[] = Array(fila.length + 1).fill(false);
+  if (foco) for (let i = fila.length - 1; i >= 0; i--) focoDaqui[i] = focoDaqui[i + 1] || foco(fila[i]);
+  let temFoco = 0;
   const alunos = alunosPorMovimento(formato, ctx.alunosPorAula, quantos);
   const escalonado = REGRA_FORMATO_CROSS[formato].escalonado;
   const demanda = (id: string) => demandaDoMovimento(consumoCross(itens.get(id)!), alunos);
@@ -184,19 +229,23 @@ function buscar(
 
   const passo = (desde: number): boolean => {
     if (++nos > MAX_NOS) return false;
-    if (escolhidos.length === quantos) return true;
+    if (escolhidos.length === quantos) return !foco || temFoco > 0;
+    if (foco && !temFoco && !focoDaqui[desde]) return false;
     for (let i = desde; i < fila.length; i++) {
       const id = fila[i];
       const padrao = itens.get(id)!.cross.padrao;
       if (escolhidos.length === 0 && padrao !== 'cardio') return false; // o cardio abre o WOD
       const repete = passada.has(id) ? 1 : 0;
       if (padroes.has(padrao) || repetidos + repete > maxRepetidos || !cabe(id)) continue;
+      const ehFoco = foco && foco(id) ? 1 : 0;
       escolhidos.push(id);
       padroes.add(padrao);
       repetidos += repete;
+      temFoco += ehFoco;
       marcar(id, 1);
       if (passo(i + 1)) return true;
       marcar(id, -1);
+      temFoco -= ehFoco;
       repetidos -= repete;
       padroes.delete(padrao);
       escolhidos.pop();

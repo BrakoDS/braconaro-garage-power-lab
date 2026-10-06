@@ -7,6 +7,7 @@ import {
   diasComHyroxTrocado, estacoesEmAlerta, hyroxDaSemana, linhasDaCorrida, linhasDoInventario, movimentosEmAlerta, nomesDoWod,
   quantidadeCross, selosDaOpcaoCross, acoesDoConflitoCross, semanaAfetada, temSubstitutaHyrox, textoAlertaCross,
   textoAlertaHyrox, textoContaWod, textoSegundos, tituloHyrox, tituloWod, totalDeAlertas, wodDaSemana,
+  NOME_CATEGORIA_FOCO, NOME_TIPO_TECNICA, alertasDaTecnica, diasComFocoTrocado, tituloTecnica, unidadesNaTecnica,
 } from './vista.js';
 
 /** Saída real do gerador do servidor (W44, variação 21): Chipper e Hyrox compromised. */
@@ -49,7 +50,7 @@ test('WOD: cabeçalho por formato e quantidade por unidade', () => {
   assert.equal(tituloWod({ formato: 'AMRAP', minutos: 16, rodadas: null }), 'AMRAP · 16 min');
   assert.equal(tituloWod({ formato: 'For Time', minutos: 16, rodadas: 4 }), 'For Time · 4 rodadas · cap 16 min');
   assert.equal(tituloWod({ formato: 'EMOM', minutos: 15, rodadas: 5 }), 'EMOM · 15 min (5 voltas)');
-  assert.equal(tituloWod(W44.dias.terca.cross), 'Chipper · cap 20 min');
+  assert.equal(tituloWod(W44.dias.terca.cross), 'Chipper · cap 15 min');
   assert.equal(quantidadeCross({ unidade: 'reps' }, 15), '15');
   assert.equal(quantidadeCross({ unidade: 'metros' }, 200), '200 m');
   assert.equal(quantidadeCross({ unidade: 'calorias' }, 12), '12 cal');
@@ -77,7 +78,8 @@ test('WOD: alerta vira texto com os nomes e marca os movimentos', () => {
 test('WOD: a troca monta o pedido só com ids, em todo dia que tem o WOD', () => {
   const dias = diasComCrossTrocado(W44, 3, 'push_press');
   const c = dias.terca.cross;
-  assert.deepEqual(Object.keys(c), ['formato', 'minutos', 'rodadas', 'movimentos']);
+  assert.deepEqual(Object.keys(c), ['formato', 'minutos', 'rodadas', 'movimentos', 'tecnica']);
+  assert.deepEqual(c.tecnica, { exercicioId: 'power_clean' }, 'o foco fica: continua no WOD');
   assert.equal(c.formato, 'Chipper');
   assert.deepEqual(c.movimentos.map((m) => m.exercicioId), W44.dias.terca.cross.movimentos.map((m, i) => (i === 2 ? 'push_press' : m.exercicioId)));
   assert.ok(c.movimentos.every((m) => Object.keys(m).join() === 'exercicioId'), 'prescrição é do servidor');
@@ -150,4 +152,38 @@ test('inventário: barras e sled no grupo do Cross/Hyrox; semana afetada fala do
     'Limite de Barras olímpicas atingido no WOD (terça): 6 em uso, 3 ativos.',
     'No Hyrox (quinta), sled_push precisa de 1 Sled (trenó), e o box tem 0 ativos — troque pela substituta.',
   ]);
+});
+
+test('paridade: tipos e categorias da Técnica / Força são os do servidor', () => {
+  assert.deepEqual(Object.keys(NOME_CATEGORIA_FOCO), lista('CATEGORIAS_FOCO'), 'na ordem de prioridade');
+  assert.deepEqual(Object.keys(NOME_TIPO_TECNICA), lista('TIPOS_TECNICA'));
+  assert.deepEqual([2, 5, 6, 9].map(unidadesNaTecnica), [1, 3, 3, 5], 'duplas revezando: turma / 2, para cima (espelho do servidor)');
+});
+
+test('Técnica / Força: título, alerta próprio e o WOD sem pintar o foco por causa dela', () => {
+  const t = W44.dias.terca.cross.tecnica;
+  assert.equal(tituloTecnica(t), 'Power clean (barra) · Técnica · 10 min');
+  const a = { recurso: 'barraOlimpica', usado: 5, limite: 4, exercicios: ['power_clean'], dias: ['terca'], bloco: 'tecnica' };
+  const doc = { ...W44, alertasCross: [a] };
+  assert.equal(textoAlertaCross(a, nomesDoWod(doc)),
+    'Limite de Barras olímpicas atingido na Técnica / Força (terça): 5 em uso com a turma em duplas, 4 ativos — Power clean (barra).');
+  assert.deepEqual(alertasDaTecnica(doc), [a]);
+  assert.equal(movimentosEmAlerta(doc).size, 0, 'o alerta da técnica não marca o movimento no WOD');
+  assert.equal(totalDeAlertas(doc), 1, 'mas conta no total');
+});
+
+test('Técnica / Força: trocar o foco manda o WOD igual e o foco novo', () => {
+  const dias = diasComFocoTrocado(W44, 'flexao');
+  assert.deepEqual(dias.terca.cross.tecnica, { exercicioId: 'flexao' });
+  assert.deepEqual(dias.terca.cross.movimentos.map((m) => m.exercicioId), W44.dias.terca.cross.movimentos.map((m) => m.exercicioId));
+  assert.equal(dias.quinta.cross, undefined);
+});
+
+test('troca no WOD: tirar o foco deixa o servidor escolher outro; selos de técnica', () => {
+  const pos = W44.dias.terca.cross.movimentos.findIndex((m) => m.exercicioId === 'power_clean') + 1;
+  const dias = diasComCrossTrocado(W44, pos, 'kb_swing');
+  assert.equal(dias.terca.cross.tecnica, undefined, 'o foco saiu do WOD: o pedido não escolhe');
+  const sem = { noWod: false, padraoRepetido: null, tiraOCardio: false, equipamento: [], semanaAnterior: false };
+  assert.deepEqual(selosDaOpcaoCross({ conflitos: { ...sem, tiraATecnica: true } }).map((s) => s.rotulo), ['tira a Técnica / Força']);
+  assert.deepEqual(selosDaOpcaoCross({ conflitos: { ...sem, viraFoco: true } }).map((s) => [s.id, s.rotulo]), [['foco', '★ vira o foco da técnica']]);
 });

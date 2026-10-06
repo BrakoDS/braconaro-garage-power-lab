@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { linhasDoInventario } from '../core/vista.js';
 import { esc, renderSemana } from './render.js';
 import { renderInventario } from './render-inventario.js';
-import { renderAvisoCross, renderOpcoesCross, renderOpcoesHyrox } from './render-troca.js';
+import { renderAvisoCross, renderOpcoesCross, renderOpcoesFoco, renderOpcoesHyrox } from './render-troca.js';
 
 /** Saída real do gerador do servidor (W44, variação 21) — ver `core/fixtures/semana-cross-hyrox.json`. */
 const W44 = JSON.parse(readFileSync(new URL('../core/fixtures/semana-cross-hyrox.json', import.meta.url), 'utf8'));
@@ -19,7 +19,8 @@ const hyroxHtml = (doc, hoje) => fatia(renderSemana({ ...BASE, doc, hoje }), 'me
 test('WOD no cartão da terça: formato, movimentos com RX/Scaled, carga e por lado', () => {
   const w = W44.dias.terca.cross;
   const h = wodHtml(W44, '2026-10-20');
-  assert.ok(h.includes('Cross <span class="mut">· Chipper · cap 20 min</span>'));
+  assert.ok(h.includes('Cross <span class="mut">· Técnica / Força + WOD</span>'));
+  assert.ok(h.includes('<span class="cross-n">2</span> WOD <span class="mut">· Chipper · cap 15 min</span>'));
   assert.ok(h.includes(esc(w.descricao)));
   assert.equal((h.match(/class="wod-mov[ "]/g) || []).length, w.movimentos.length);
   for (const m of w.movimentos) assert.ok(h.includes(`<span class="ex-nome">${esc(m.nome)}</span>`), m.nome);
@@ -166,4 +167,55 @@ test('troca no Hyrox: a outra variante, com a prescrição de prova; sem equipam
   assert.ok(volta.includes('Voltar à estação da prova: Sled Push') && volta.includes('🔧 sem Sled (trenó) ativo'));
   assert.doesNotMatch(volta, /data-acao="original"/, 'sem sled ativo: desabilitada');
   assert.ok(renderOpcoesHyrox({ vaga: r.vaga, opcoes: [] }).includes('Esta estação não tem substituta.'));
+});
+
+/* ───────────── Técnica / Força ───────────── */
+
+const crossHtml = (doc, hoje) => fatia(renderSemana({ ...BASE, doc, hoje }), 'metabolico wod', '</ol>');
+
+test('a aula de Cross em dois blocos: 1 · Técnica / Força antes de 2 · WOD', () => {
+  const t = W44.dias.terca.cross.tecnica;
+  const h = crossHtml(W44, '2026-10-20');
+  const i1 = h.indexOf('<span class="cross-n">1</span> Técnica / Força');
+  const i2 = h.indexOf('<span class="cross-n">2</span> WOD');
+  assert.ok(i1 > 0 && i2 > i1, 'técnica antes do WOD');
+  assert.ok(h.includes('<p class="tecnica-foco">Power clean (barra) · Técnica · 10 min</p>'));
+  assert.ok(h.includes(`<p class="tecnica-dinamica">${esc(t.dinamica)}</p>`));
+  assert.ok(h.includes(`<b>Objetivo:</b> ${esc(t.objetivo)}`) && h.includes(`<b>Carga:</b> ${esc(t.carga)}`));
+  assert.ok(h.includes('Duplas revezando: até 3 ao mesmo tempo (turma de 6).'));
+  assert.ok(h.includes('data-trocar-foco'), 'tem alternativa (a flexão): "trocar foco"');
+  assert.equal((h.match(/★ foco da técnica/g) || []).length, 1, 'o selo de foco no power clean do WOD');
+  assert.ok(fatia(h, 'Power clean (barra)</span>', '</li>').length > 0);
+});
+
+test('Técnica / Força: alerta próprio, sem foco e WOD de antes do bloco', () => {
+  const alerta = { recurso: 'barraOlimpica', usado: 5, limite: 4, exercicios: ['power_clean'], dias: ['terca'], bloco: 'tecnica' };
+  const h = crossHtml({ ...W44, alertasCross: [alerta] }, '2026-10-20');
+  assert.ok(h.includes('class="cross-bloco tecnica em-alerta"') && h.includes('Equipamento da Técnica / Força acima do limite'));
+  assert.ok(!h.includes('Equipamento do WOD acima do limite'), 'o WOD não ganha a caixa da técnica');
+  assert.ok(!h.includes('class="wod-mov em-alerta"'));
+
+  const semFoco = { ...W44, dias: { ...W44.dias, terca: { ...W44.dias.terca, cross: { ...W44.dias.terca.cross, tecnica: null } } } };
+  assert.ok(crossHtml(semFoco, '2026-10-20').includes('Nenhum movimento do WOD serve de foco'));
+
+  const { tecnica: _t, ...semChave } = W44.dias.terca.cross;
+  const antigo = crossHtml({ ...W44, dias: { ...W44.dias, terca: { ...W44.dias.terca, cross: semChave } } }, '2026-10-20');
+  assert.ok(!antigo.includes('cross-n') && antigo.includes('Cross <span class="mut">· Chipper · cap 15 min</span>'), 'WOD de antes do bloco: como era');
+
+  const travado = crossHtml({ ...W44, status: 'publicado' }, '2026-10-28');
+  assert.ok(!travado.includes('data-trocar-foco'), 'terça passou: sem "trocar foco"');
+});
+
+test('trocar foco: as alternativas na ordem das categorias', () => {
+  const h = renderOpcoesFoco({
+    nome: 'Power clean (barra)',
+    alternativas: [
+      { exercicioId: 'flexao', nome: 'Flexão de braço', categoria: 'ginastica' },
+      { exercicioId: 'kb_swing', nome: 'Kettlebell swing', categoria: 'kettlebell' },
+    ],
+  });
+  assert.ok(h.includes('hoje o foco é <b>Power clean (barra)</b>'));
+  assert.ok(h.indexOf('foco:kb_swing') < h.indexOf('foco:flexao'), 'kettlebell antes de ginástica');
+  assert.ok(h.includes('<span class="troca-inst">Kettlebell</span>'));
+  assert.ok(renderOpcoesFoco({ nome: 'X', alternativas: [] }).includes('Nenhum outro movimento do WOD serve de foco.'));
 });

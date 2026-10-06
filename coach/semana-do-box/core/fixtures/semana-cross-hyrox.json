@@ -194,7 +194,7 @@
       "cross": {
         "formato": "Chipper",
         "descricao": "Uma lista longa, na ordem, cada movimento uma vez só — dentro do time cap.",
-        "minutos": 20,
+        "minutos": 15,
         "rodadas": null,
         "movimentos": [
           {
@@ -202,8 +202,8 @@
             "nome": "Polichinelo (jumping jacks)",
             "padrao": "cardio",
             "unidade": "reps",
-            "rx": 100,
-            "scaled": 70,
+            "rx": 80,
+            "scaled": 55,
             "porLado": false,
             "carga": null,
             "consumoPorAluno": {}
@@ -213,8 +213,8 @@
             "nome": "Abdominal Remador",
             "padrao": "core",
             "unidade": "reps",
-            "rx": 30,
-            "scaled": 20,
+            "rx": 25,
+            "scaled": 18,
             "porLado": false,
             "carga": null,
             "consumoPorAluno": {}
@@ -224,8 +224,8 @@
             "nome": "Flexão de braço",
             "padrao": "empurrar",
             "unidade": "reps",
-            "rx": 30,
-            "scaled": 20,
+            "rx": 25,
+            "scaled": 18,
             "porLado": false,
             "carga": null,
             "consumoPorAluno": {}
@@ -235,8 +235,8 @@
             "nome": "Remada unilateral com kettlebell",
             "padrao": "puxar",
             "unidade": "reps",
-            "rx": 25,
-            "scaled": 18,
+            "rx": 20,
+            "scaled": 14,
             "porLado": true,
             "carga": {
               "rx": "16/12 kg",
@@ -251,8 +251,8 @@
             "nome": "Power clean (barra)",
             "padrao": "olimpico",
             "unidade": "reps",
-            "rx": 20,
-            "scaled": 14,
+            "rx": 16,
+            "scaled": 11,
             "porLado": false,
             "carga": {
               "rx": "50/35 kg",
@@ -262,7 +262,27 @@
               "barraOlimpica": 1
             }
           }
-        ]
+        ],
+        "tecnica": {
+          "exercicioId": "power_clean",
+          "nome": "Power clean (barra)",
+          "categoria": "olimpico",
+          "tipo": "tecnica",
+          "minutos": 10,
+          "dinamica": "EMOM 10 min: 3 power cleans por minuto, subindo a carga de leve a moderada.",
+          "objetivo": "Recepção rápida da barra e extensão completa de quadril.",
+          "carga": "Leve a moderada, até a carga RX do WOD",
+          "consumoPorAluno": {
+            "barraOlimpica": 1
+          },
+          "alternativas": [
+            {
+              "exercicioId": "flexao",
+              "nome": "Flexão de braço",
+              "categoria": "ginastica"
+            }
+          ]
+        }
       },
       "hyrox": null
     },
