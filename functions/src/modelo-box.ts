@@ -374,13 +374,27 @@ export interface DiaProgramado {
   descansos: Descansos;
   /** CALCULADO no servidor: unidades de cada recurso que o bloco ocupa ao mesmo tempo. */
   consumoEquipamentos: Partial<Record<RecursoInventario, number>>;
+  /**
+   * As estações do HIIT, só em dia com HIIT na grade. O MESMO HIIT na sexta e
+   * no sábado, como o H3. `null` em semana gerada antes do gerador do HIIT: o
+   * dia só sinaliza o HIIT (`blocosMetabolicos`) e o coach passa na aula.
+   */
+  hiit: HiitProgramado | null;
 }
 
 /** Um slot de estação do HIIT. Unilateral aparece em dois slots seguidos, D e depois E. */
 export interface SlotHiit {
   exercicioId: string;
+  /** Cópia do catálogo, como no bloco H. */
   nome: string;
+  /** CALCULADO: 'D' e 'E' no unilateral (dois slots seguidos); null no bilateral. */
   lado: 'D' | 'E' | null;
+  /**
+   * CALCULADO (catálogo): unidades de cada recurso por ALUNO. Fica gravado para
+   * a reconferência do inventário (turma ou limite novo) não precisar reler o
+   * catálogo — como o `consumoEquipamentos` do bloco H.
+   */
+  consumoPorAluno: Partial<Record<RecursoHiit, number>>;
 }
 
 export interface EstacaoProgramada {
@@ -395,12 +409,8 @@ export interface EstacaoProgramada {
 
 /** O HIIT da semana: UM só, que aparece na sexta (alternativa) e no sábado (principal). */
 export interface HiitProgramado {
-  /** Na ordem sorteada — é a ordem em que a lousa e o app mostram. */
+  /** As 4 estações, na ordem sorteada — é a ordem em que a lousa e o app mostram. */
   estacoes: EstacaoProgramada[];
-  /** CALCULADO: alunos por aula ÷ 4, para cima. A conta de equipamento usa este número. */
-  alunosPorEstacao: number;
-  /** CALCULADO: o pico de cada recurso num mesmo round, somando as 4 estações. */
-  consumo: Partial<Record<RecursoHiit, number>>;
 }
 
 /**
@@ -416,6 +426,20 @@ export interface AlertaHiit {
   exercicios: string[];
 }
 
+/** Um alerta do HIIT na semana: o mesmo HIIT está na sexta e no sábado, e o alerta sai uma vez com os dois dias. */
+export interface AlertaHiitDaSemana extends AlertaHiit {
+  dias: DiaSemana[];
+}
+
+/** Um exercício que nem sozinho cabe no inventário (sandbag para 2 alunos) e ficou fora do sorteio. */
+export interface ForaPorEquipamento {
+  exercicioId: string;
+  nome: string;
+  recurso: RecursoHiit;
+  precisa: number;
+  limite: number;
+}
+
 export interface SemanaBox {
   status: StatusSemana;
   /** Segunda 00:00 e sábado 23:59:59.999 no fuso do box. */
@@ -426,6 +450,10 @@ export interface SemanaBox {
   dias: Record<DiaSemana, DiaProgramado>;
   /** CALCULADO: o que passa do inventário ativo. Semana com alerta não publica. */
   alertas: AlertaEquipamento[];
+  /** CALCULADO: equipamento do HIIT acima do limite. Também impede publicar. */
+  alertasHiit: AlertaHiitDaSemana[];
+  /** CALCULADO: a turma usada na conta do HIIT (`alunosPorAula` do inventário). */
+  alunosPorAula: number;
   /** CALCULADO: por que ainda não publica (vazio = pode). A tela mostra, quem decide é `publicarSemanaBox`. */
   problemasParaPublicar: string[];
   /** CALCULADO: os limites ativos do inventário usados na última conta ("Smith 2/2" na tela). */
@@ -441,7 +469,10 @@ export interface GeracaoSemana {
   variacao: number;
   semanaAnterior: string | null;
   trocas: TrocaEquipamento[];
+  /** Do bloco H e do HIIT (estes começam com 'HIIT:'). */
   avisos: string[];
+  /** Exercícios de HIIT que ficaram fora do sorteio por equipamento. */
+  hiitFora: ForaPorEquipamento[];
 }
 
 /* ───────────────────────── gerarMatrizSemanalBox ───────────────────────── */
@@ -482,6 +513,9 @@ export interface RespostaGerarMatriz {
   avisos: string[];
   problemasParaPublicar: string[];
   limitesUsados: Record<RecursoInventario, number>;
+  alertasHiit: AlertaHiitDaSemana[];
+  alunosPorAula: number;
+  hiitFora: ForaPorEquipamento[];
 }
 
 export interface AlertaEquipamento {

@@ -38,54 +38,20 @@
  * Determinístico: mesma `semente`, mesmo catálogo e mesmo inventário → mesmo HIIT.
  */
 import {
-  ESTACOES_HIIT, NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSO_HIIT_DO_EQUIPAMENTO, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
-  type AlertaHiit, type EstacaoHiit, type EstacaoProgramada, type ItemCatalogo, type RecursoHiit, type SlotHiit,
+  ESTACOES_HIIT, NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
+  type AlertaHiit, type EstacaoHiit, type EstacaoProgramada, type ForaPorEquipamento, type ItemCatalogo,
+  type RecursoHiit, type SlotHiit,
 } from './modelo-box';
-import { embaralhar, hashSeed, mulberry32 } from './gerador-box';
+import { embaralhar, hashSeed, mulberry32 } from './sorteio';
+import { alunosPorEstacao, consumoPorAluno, contarHiit, demandaNaEstacao, slotsDe } from './conta-hiit';
+
+// A conta mora em `conta-hiit.ts` (a validação da semana usa a mesma); quem
+// testa o gerador encontra tudo por aqui.
+export { alunosPorEstacao, consumoPorAluno, contarHiit, demandaNaEstacao, slotsDe };
+export type { ForaPorEquipamento };
 
 /** Teto da busca. Com o catálogo real, uma semana gasta algumas dezenas de nós. */
 const MAX_NOS = 200_000;
-
-/** Alunos que dividem uma estação: a turma se espalha pelas 4. */
-export function alunosPorEstacao(alunosPorAula: number): number {
-  return Math.max(1, Math.ceil(alunosPorAula / ESTACOES_HIIT.length));
-}
-
-/** Slots que um exercício ocupa numa estação. */
-export function slotsDe(item: Pick<ItemCatalogo, 'unilateral'>): 1 | 2 {
-  return item.unilateral ? 2 : 1;
-}
-
-/**
- * Unidades de cada recurso do HIIT que UM aluno usa: 1 de cada recurso que os
- * `equipamentos` tocam, a menos que `hiit.consumoPorAluno` diga outro número.
- */
-export function consumoPorAluno(item: ItemCatalogo): Partial<Record<RecursoHiit, number>> {
-  const consumo: Partial<Record<RecursoHiit, number>> = {};
-  for (const e of item.equipamentos) {
-    const r = RECURSO_HIIT_DO_EQUIPAMENTO[e];
-    if (r) consumo[r] = 1;
-  }
-  return { ...consumo, ...item.hiit?.consumoPorAluno };
-}
-
-/** O que um exercício exige numa estação: alunos da estação × consumo por aluno. */
-export function demandaNaEstacao(item: ItemCatalogo, alunosEstacao: number): Partial<Record<RecursoHiit, number>> {
-  const d: Partial<Record<RecursoHiit, number>> = {};
-  for (const [r, n] of Object.entries(consumoPorAluno(item)) as [RecursoHiit, number][]) {
-    if (n > 0) d[r] = n * alunosEstacao;
-  }
-  return d;
-}
-
-/** Um exercício que nem sozinho cabe no inventário (sandbag para 2 alunos). */
-export interface ForaPorEquipamento {
-  exercicioId: string;
-  nome: string;
-  recurso: RecursoHiit;
-  precisa: number;
-  limite: number;
-}
 
 export interface ContextoHiit {
   catalogo: ReadonlyMap<string, ItemCatalogo>;
@@ -128,7 +94,7 @@ export function gerarHiit(ctx: ContextoHiit): HiitGerado {
   const demanda = new Map<string, Partial<Record<RecursoHiit, number>>>();
   for (const [id, item] of [...ctx.catalogo.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     if (!item.hiit) continue;
-    const d = demandaNaEstacao(item, porEstacao);
+    const d = demandaNaEstacao(consumoPorAluno(item), porEstacao);
     const estoura = RECURSOS_HIIT.find((r) => (d[r] ?? 0) > ctx.limites[r]);
     if (estoura) {
       foraPorEquipamento.push({ exercicioId: id, nome: item.nome, recurso: estoura, precisa: d[estoura]!, limite: ctx.limites[estoura] });
@@ -148,7 +114,11 @@ export function gerarHiit(ctx: ContextoHiit): HiitGerado {
 
   const fora = new Set(foraPorEquipamento.map((f) => f.exercicioId));
   const avisos: string[] = [];
-  let grade = buscar(filas, demanda, ctx, (id) => !fora.has(id), true);
+  // Rodízio primeiro como REGRA, e não só como ordem da fila: a busca escolhe
+  // slot a slot, e "novo, novo, novo + repetido" sairia antes de "novo, novo,
+  // unilateral novo". Só sem combinação nova é que a semana anterior volta.
+  let grade = buscar(filas, demanda, ctx, (id) => !fora.has(id) && !passada.has(id), true)
+    ?? buscar(filas, demanda, ctx, (id) => !fora.has(id), true);
   if (!grade) {
     // Sem combinação dentro do inventário: monta pela regra dos slots e alerta.
     grade = buscar(filas, demanda, ctx, () => true, false);
@@ -168,7 +138,7 @@ export function gerarHiit(ctx: ContextoHiit): HiitGerado {
   for (const id of new Set(grade.flat())) {
     if (id && passada.has(id)) avisos.push(`${ctx.catalogo.get(id)!.nome} repete o HIIT da semana anterior: faltou opção na estação.`);
   }
-  const conta = contarHiit(estacoes, ctx.catalogo, ctx.limites, ctx.alunosPorAula);
+  const conta = contarHiit(estacoes, ctx.limites, ctx.alunosPorAula);
   return { estacoes, alunosPorEstacao: porEstacao, consumo: conta.consumo, alertas: conta.alertas, avisos, foraPorEquipamento };
 }
 
@@ -266,62 +236,13 @@ function estacaoProgramada(estacao: EstacaoHiit, linha: (string | null)[], catal
     const id = linha[s];
     if (!id) continue;
     const item = catalogo.get(id)!;
+    const base = { exercicioId: id, nome: item.nome, consumoPorAluno: consumoPorAluno(item) };
     if (item.unilateral) {
-      slots.push({ exercicioId: id, nome: item.nome, lado: 'D' }, { exercicioId: id, nome: item.nome, lado: 'E' });
+      slots.push({ ...base, lado: 'D' }, { ...base, lado: 'E' });
       s++;
     } else {
-      slots.push({ exercicioId: id, nome: item.nome, lado: null });
+      slots.push({ ...base, lado: null });
     }
   }
   return { estacao, nome: NOME_ESTACAO_HIIT[estacao], protocolo: PROTOCOLO_HIIT, slots };
-}
-
-/**
- * A conta de equipamento de um HIIT já montado — o gerado ou o que o coach
- * editou. Exportada para `salvarSemanaBox` e a reconferência do inventário
- * usarem a MESMA conta que o gerador.
- *
- *  - `consumo`: o pico de cada recurso num mesmo slot, somando as estações.
- *  - `alertas`: exercício que sozinho passa do limite (`slot: null`, uma vez
- *    só, mesmo unilateral) e slot em que DOIS OU MAIS exercícios juntos passam.
- *
- * Exercício que não está no catálogo não conta (quem recusa é a validação).
- */
-export function contarHiit(
-  estacoes: readonly { slots: readonly { exercicioId: string }[] }[],
-  catalogo: ReadonlyMap<string, ItemCatalogo>,
-  limites: Record<RecursoHiit, number>,
-  alunosPorAula: number,
-): { consumo: Partial<Record<RecursoHiit, number>>; alertas: AlertaHiit[] } {
-  const porEstacao = alunosPorEstacao(alunosPorAula);
-  const consumo: Partial<Record<RecursoHiit, number>> = {};
-  const alertas: AlertaHiit[] = [];
-  const sozinhos = new Set<string>();
-
-  for (let s = 0; s < SLOTS_POR_ESTACAO; s++) {
-    const uso: Partial<Record<RecursoHiit, { n: number; ids: string[] }>> = {};
-    for (const e of estacoes) {
-      const id = e.slots[s]?.exercicioId;
-      const item = id ? catalogo.get(id) : undefined;
-      if (!id || !item) continue;
-      for (const [r, n] of Object.entries(demandaNaEstacao(item, porEstacao)) as [RecursoHiit, number][]) {
-        const u = (uso[r] ??= { n: 0, ids: [] });
-        u.n += n;
-        u.ids.push(id);
-        if (n > limites[r] && !sozinhos.has(`${id}:${r}`)) {
-          sozinhos.add(`${id}:${r}`);
-          alertas.push({ recurso: r, usado: n, limite: limites[r], slot: null, exercicios: [id] });
-        }
-      }
-    }
-    for (const r of RECURSOS_HIIT) {
-      const u = uso[r];
-      if (!u) continue;
-      consumo[r] = Math.max(consumo[r] ?? 0, u.n);
-      if (u.n > limites[r] && u.ids.length > 1) {
-        alertas.push({ recurso: r, usado: u.n, limite: limites[r], slot: s + 1, exercicios: u.ids });
-      }
-    }
-  }
-  return { consumo, alertas };
 }

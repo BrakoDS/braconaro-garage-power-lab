@@ -23,12 +23,15 @@
  * e o mesmo inventário, sai igual. `variacao` muda o sorteio.
  */
 import {
-  DESCANSO_COMPOSTO_PESADO_SEG, DESCANSO_POR_INSTANCIA, DIAS_SEMANA, GRADE_SEMANAL, MATRIZ_H, PRESCRICAO_FORCA,
-  RECURSOS_INVENTARIO, SESSOES_H, VAGAS_COMPOSTO_PESADO,
-  type AlertaEquipamento, type DiaProgramado, type DiaSemana, type ExercicioCatalogo,
-  type Instancia, type RecursoInventario, type SessaoH, type TrocaEquipamento,
+  ALUNOS_POR_AULA_PADRAO, DESCANSO_COMPOSTO_PESADO_SEG, DESCANSO_POR_INSTANCIA, DIAS_SEMANA, GRADE_SEMANAL,
+  INVENTARIO_HIIT_PADRAO, MATRIZ_H, PRESCRICAO_FORCA, RECURSOS_INVENTARIO, SESSOES_H, VAGAS_COMPOSTO_PESADO,
+  type AlertaEquipamento, type AlertaHiitDaSemana, type DiaProgramado, type DiaSemana, type ExercicioCatalogo,
+  type ForaPorEquipamento, type Instancia, type ItemCatalogo, type RecursoHiit, type RecursoInventario, type SessaoH,
+  type TrocaEquipamento,
 } from './modelo-box';
-import { alertasDaSemana, consumoDoDia, lerDias } from './semana-box';
+import { alertasDaSemana, alertasHiitDaSemana, consumoDoDia, lerDias } from './semana-box';
+import { embaralhar, hashSeed, mulberry32 } from './sorteio';
+import { gerarHiit } from './gerador-hiit';
 
 /**
  * Descanso entre séries de uma vaga do bloco (`posicao` começa em 1).
@@ -46,35 +49,6 @@ export function descansoDaVaga(sessao: SessaoH, posicao: number, instancia: Inst
 /** Teto de trocas por bloco: 6 vagas × recursos já sobra; é freio contra laço, não regra. */
 const MAX_TROCAS_POR_BLOCO = 30;
 
-/** Mesmo mulberry32 do `gerador.js`: RNG pequeno e reproduzível. */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Mesmo FNV-1a do `gerador.js`. */
-export function hashSeed(texto: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < texto.length; i++) {
-    h ^= texto.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-export function embaralhar<T>(lista: readonly T[], rng: () => number): T[] {
-  const a = [...lista];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 /** Os ids de exercício usados nos blocos de uma semana gravada (formato tolerante). */
 export function idsDaSemana(dias: unknown): Set<string> {
@@ -86,6 +60,25 @@ export function idsDaSemana(dias: unknown): Set<string> {
     for (const x of bloco) {
       const id = (x as { exercicioId?: unknown } | null)?.exercicioId;
       if (typeof id === 'string' && id) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+/** Os ids de exercício do HIIT de uma semana gravada (formato tolerante) — o rodízio do HIIT. */
+export function idsDoHiit(dias: unknown): Set<string> {
+  const ids = new Set<string>();
+  const d = (dias ?? {}) as Record<string, { hiit?: { estacoes?: unknown } | null } | undefined>;
+  for (const dia of DIAS_SEMANA) {
+    const estacoes = d[dia]?.hiit?.estacoes;
+    if (!Array.isArray(estacoes)) continue;
+    for (const e of estacoes) {
+      const slots = (e as { slots?: unknown } | null)?.slots;
+      if (!Array.isArray(slots)) continue;
+      for (const x of slots) {
+        const id = (x as { exercicioId?: unknown } | null)?.exercicioId;
+        if (typeof id === 'string' && id) ids.add(id);
+      }
     }
   }
   return ids;
@@ -210,7 +203,10 @@ export interface ResultadoGerador {
   dias: Record<DiaSemana, DiaProgramado>;
   alertas: AlertaEquipamento[];
   trocas: TrocaEquipamento[];
+  /** Do bloco H (com a sessão na frente) e do HIIT ('HIIT: …'). */
   avisos: string[];
+  alertasHiit: AlertaHiitDaSemana[];
+  hiitFora: ForaPorEquipamento[];
 }
 
 /**
@@ -219,16 +215,27 @@ export interface ResultadoGerador {
  * segunda, o sábado repete o H3 da sexta. Mesmo bloco, mesma trava: o limite é
  * por dia, e o consumo de um bloco não muda de um dia para o outro.
  *
+ * Depois dos blocos H, o HIIT (`gerador-hiit.ts`): UM por semana, nos dias da
+ * grade que têm HIIT (sexta e sábado), sem repetir o bloco de força desses dias
+ * e com rodízio contra o HIIT da semana anterior.
+ *
  * O resultado passa por `lerDias`, a MESMA validação de `salvarSemanaBox`: o
  * gerador não tem um segundo formato de semana.
+ *
+ * `catalogo` é o catálogo inteiro (força e só HIIT); `limites` sem os recursos
+ * do HIIT usa os de fábrica, e `alunosPorAula` ausente é a turma padrão.
  */
 export function gerarSemana(entrada: {
   semanaId: string;
-  catalogo: ReadonlyMap<string, ExercicioCatalogo>;
-  limites: Record<RecursoInventario, number>;
+  catalogo: ReadonlyMap<string, ItemCatalogo>;
+  limites: Record<RecursoInventario, number> & Partial<Record<RecursoHiit, number>>;
   diasDaSemanaAnterior: unknown;
   variacao?: number;
+  alunosPorAula?: number;
 }): ResultadoGerador {
+  const forca = new Map(
+    [...entrada.catalogo].filter((par): par is [string, ExercicioCatalogo] => par[1].instancia !== null),
+  );
   const semanaPassada = idsDaSemana(entrada.diasDaSemanaAnterior);
   const usadosNaSemana = new Set<string>();
   const blocos = {} as Record<SessaoH, string[]>;
@@ -238,7 +245,7 @@ export function gerarSemana(entrada: {
   for (const sessao of SESSOES_H) {
     const rng = mulberry32(hashSeed(`${entrada.semanaId}:${sessao}:${entrada.variacao ?? 0}`));
     const b = montarBloco(MATRIZ_H[sessao].instancias, {
-      catalogo: entrada.catalogo, limites: entrada.limites, semanaPassada, usadosNaSemana, rng,
+      catalogo: forca, limites: entrada.limites, semanaPassada, usadosNaSemana, rng,
     });
     blocos[sessao] = b.ids;
     b.ids.forEach((id) => usadosNaSemana.add(id));
@@ -246,18 +253,35 @@ export function gerarSemana(entrada: {
     avisos.push(...b.avisos.map((a) => `${sessao}: ${a}`));
   }
 
+  // O HIIT da semana. Proibidos: o bloco de força dos dias que têm HIIT.
+  const sessaoDoDia = (dia: DiaSemana) => GRADE_SEMANAL[dia].find((t): t is SessaoH => (SESSOES_H as readonly string[]).includes(t));
+  const diasHiit = DIAS_SEMANA.filter((dia) => GRADE_SEMANAL[dia].includes('HIIT'));
+  const alunosPorAula = entrada.alunosPorAula ?? ALUNOS_POR_AULA_PADRAO;
+  const limitesHiit = { ...INVENTARIO_HIIT_PADRAO, ...entrada.limites } as Record<RecursoHiit, number>;
+  const hiit = diasHiit.length ? gerarHiit({
+    catalogo: entrada.catalogo, limites: limitesHiit, alunosPorAula,
+    proibidos: new Set(diasHiit.flatMap((dia) => { const h = sessaoDoDia(dia); return h ? blocos[h] : []; })),
+    semanaPassada: idsDoHiit(entrada.diasDaSemanaAnterior),
+    semente: `${entrada.semanaId}:HIIT:${entrada.variacao ?? 0}`,
+  }) : null;
+  if (hiit) avisos.push(...hiit.avisos.map((a) => `HIIT: ${a}`));
+  const hiitCru = hiit && {
+    estacoes: hiit.estacoes.map((e) => ({ estacao: e.estacao, slots: e.slots.map((x) => ({ exercicioId: x.exercicioId })) })),
+  };
+
   const crus: Record<string, unknown> = {};
   for (const dia of DIAS_SEMANA) {
     const treinos = GRADE_SEMANAL[dia];
-    const h = treinos.find((t): t is SessaoH => (SESSOES_H as readonly string[]).includes(t));
+    const h = sessaoDoDia(dia);
     crus[dia] = {
       treinos: [...treinos],
       blocoPrincipal: h ? blocos[h].map((exercicioId, i) => ({
         exercicioId, series: PRESCRICAO_FORCA.series, repeticoes: PRESCRICAO_FORCA.repeticoes,
-        descansoSeg: descansoDaVaga(h, i + 1, entrada.catalogo.get(exercicioId)!.instancia),
+        descansoSeg: descansoDaVaga(h, i + 1, forca.get(exercicioId)!.instancia),
       })) : [],
       cadencia: PRESCRICAO_FORCA.cadencia,
       descansos: { ...PRESCRICAO_FORCA.descansos },
+      hiit: treinos.includes('HIIT') ? hiitCru : null,
     };
   }
 
@@ -265,5 +289,9 @@ export function gerarSemana(entrada: {
   // Só acontece se a matriz ou a grade quebrarem a regra de `lerDias` — erro de
   // programação, não de entrada. Falhar alto é melhor que gravar semana torta.
   if ('erro' in lido) throw new Error(`Gerador montou uma semana inválida: ${lido.erro}`);
-  return { dias: lido.dias, alertas: alertasDaSemana(lido.dias, entrada.limites), trocas, avisos };
+  return {
+    dias: lido.dias, alertas: alertasDaSemana(lido.dias, entrada.limites), trocas, avisos,
+    alertasHiit: alertasHiitDaSemana(lido.dias, limitesHiit, alunosPorAula),
+    hiitFora: hiit?.foraPorEquipamento ?? [],
+  };
 }

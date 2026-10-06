@@ -12,11 +12,15 @@
 import { CATALOGO_BASE } from './catalogo-base';
 import { CATALOGO_HIIT } from './catalogo-hiit';
 import {
-  ESTACOES_HIIT, NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
+  DIAS_SEMANA, ESTACOES_HIIT, INVENTARIO_PADRAO, NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
   type EstacaoHiit, type EstacaoProgramada, type ExercicioSoHiit, type ItemCatalogo, type RecursoHiit,
 } from './modelo-box';
-import { aplicarInventario, lerExercicioCatalogo, lerInventario, lerItemCatalogo } from './semana-box';
-import { gerarSemana } from './gerador-box';
+import {
+  aplicarInventario, diasComHiitGravado, intervaloDaSemana, lerDias, lerExercicioCatalogo, lerInventario, lerItemCatalogo,
+  problemasParaPublicar, reconferirSemana,
+} from './semana-box';
+import { diasPassadosAlterados } from './edicao-box';
+import { gerarSemana, idsDoHiit } from './gerador-box';
 import {
   alunosPorEstacao, consumoPorAluno, contarHiit, gerarHiit, slotsDe, type ContextoHiit, type HiitGerado,
 } from './gerador-hiit';
@@ -233,7 +237,7 @@ console.log('\nEquipamento por exercício (alunos por estação × consumo)');
 console.log('\nEquipamento entre estações (mesmo slot, mesma hora)');
 {
   const todos = SEMENTES.map((semente) => gerarHiit(ctx({ semente })));
-  const estourou = todos.find((h) => contarHiit(h.estacoes, catalogo, LIMITES, 6).alertas.length);
+  const estourou = todos.find((h) => contarHiit(h.estacoes, LIMITES, 6).alertas.length);
   ok(!estourou, 'nos 200 sorteios, nenhum slot passa do limite somando as 4 estações');
   ok(todos.every((h) => RECURSOS_HIIT.every((r) => (h.consumo[r] ?? 0) <= LIMITES[r])), 'consumo de pico ≤ limite em todo recurso');
 
@@ -259,11 +263,12 @@ console.log('\nEquipamento entre estações (mesmo slot, mesma hora)');
     'e com um alerta por slot: 4 TRX, limite 3', JSON.stringify(impossivel.alertas));
   ok(impossivel.avisos.some((a) => a.includes('inventário')), 'e com o aviso de que não coube');
 
+  const slot = (id: string) => ({ exercicioId: id, consumoPorAluno: consumoPorAluno(catalogo.get(id)!) });
   const manual = [
-    { slots: [{ exercicioId: 'flexao_trx' }, { exercicioId: 'burpee' }] },
-    { slots: [{ exercicioId: 'remada_trx' }, { exercicioId: 'sandbag_clean' }] },
+    { slots: [slot('flexao_trx'), slot('burpee')] },
+    { slots: [slot('remada_trx'), slot('sandbag_clean')] },
   ];
-  const conta = contarHiit(manual, catalogo, LIMITES, 6);
+  const conta = contarHiit(manual, LIMITES, 6);
   ok(conta.alertas.some((a) => a.recurso === 'trx' && a.slot === 1 && a.usado === 4 && igual(a.exercicios, ['flexao_trx', 'remada_trx'])),
     'contarHiit: dois TRX no slot 1 = alerta do slot 1 (4 de 2)');
   ok(conta.alertas.filter((a) => a.recurso === 'sandbag').length === 1 && conta.alertas.find((a) => a.recurso === 'sandbag')!.slot === null,
@@ -293,12 +298,128 @@ console.log('\nRepetição no dia, rodízio e determinismo');
   ok(core.has('c4') && core.has('c5') && [...core].filter((id) => passada.has(id)).length === 2,
     'rodízio com pouca opção: usa as novas primeiro e repete só o que falta');
   ok(rod.avisos.filter((a) => a.includes('repete o HIIT da semana anterior')).length === 2, 'e cada repetição vira aviso');
+  // 3 bilaterais novos + 1 unilateral novo + 1 repetido: só "2 novos + unilateral"
+  // fecha sem repetir — e é o que tem de sair, em qualquer sorteio.
+  const comUni = catalogoForjado({
+    core: {
+      n1: forjado('N1', 'core'), n2: forjado('N2', 'core'), n3: forjado('N3', 'core'),
+      u: forjado('U', 'core', { uni: true }), r: forjado('R', 'core'),
+    },
+  });
+  const giros = SEMENTES.slice(0, 50).map((semente) => gerarHiit(ctx({ catalogo: comUni, semente, semanaPassada: new Set(['r']) })));
+  ok(giros.every((g) => !idsDe(g).includes('r') && idsDe(g).includes('u') && !g.avisos.length),
+    'rodízio vale para a estação inteira: prefere fechar com o unilateral novo a repetir a semana anterior');
 
   ok(igual(gerarHiit(ctx()), gerarHiit(ctx())), 'mesma semente, mesmo catálogo, mesmo inventário → mesmo HIIT');
   ok(new Set(SEMENTES.slice(0, 10).map((semente) => JSON.stringify(gerarHiit(ctx({ semente })).estacoes))).size > 1,
     'outra semente (variação) → outro HIIT');
   const ordemCatalogo = new Map([...catalogo.entries()].reverse());
   ok(igual(gerarHiit(ctx({ catalogo: ordemCatalogo })), gerarHiit(ctx())), 'a ordem em que o Firestore devolve o catálogo não muda o sorteio');
+}
+
+console.log('\nA semana com o HIIT (gerar, salvar, publicar, reconferir)');
+{
+  const LIM_H = { ...INVENTARIO_PADRAO };
+  const w41 = gerarSemana({ semanaId: '2026-W41', catalogo, limites: LIM_H, diasDaSemanaAnterior: null });
+  const w42 = gerarSemana({ semanaId: '2026-W42', catalogo, limites: LIM_H, diasDaSemanaAnterior: w41.dias });
+  ok(igual(DIAS_SEMANA.filter((d) => w42.dias[d].hiit), ['sexta', 'sabado']), 'só sexta e sábado (os dias de HIIT da grade) têm estações');
+  ok(igual(w42.dias.sexta.hiit, w42.dias.sabado.hiit), 'o MESMO HIIT nos dois dias');
+  const h = w42.dias.sabado.hiit!;
+  ok(h.estacoes.length === 4 && h.estacoes.every((e) => e.slots.length === 4 && e.protocolo === PROTOCOLO_HIIT),
+    '4 estações × 4 slots, com o protocolo');
+  ok(h.estacoes.every((e) => e.slots.every((x) => x.nome && x.consumoPorAluno)), 'cada slot gravado com nome e consumo por aluno');
+  const h3 = new Set(w42.dias.sexta.blocoPrincipal.map((e) => e.exercicioId));
+  ok(![...idsDoHiit(w42.dias)].some((id) => h3.has(id)), 'o HIIT não repete o H3 do dia');
+  ok(![...idsDoHiit(w42.dias)].some((id) => idsDoHiit(w41.dias).has(id)), 'rodízio: nada do HIIT da W41 volta na W42');
+  ok(!w42.alertasHiit.length && igual(w42.hiitFora.map((f) => f.exercicioId), ['sandbag_clean']),
+    'sem alerta; só o clean com sandbag fica fora (turma de 6)');
+  ok(!w42.avisos.some((a) => a.startsWith('HIIT:')), 'sem aviso do HIIT');
+  ok(problemasParaPublicar(w42.dias, w42.alertas, w42.alertasHiit).length === 0, 'a semana gerada publica direto');
+  ok(igual(gerarSemana({ semanaId: '2026-W42', catalogo, limites: LIM_H, diasDaSemanaAnterior: w41.dias }), w42), 'determinístico');
+  const outra = gerarSemana({ semanaId: '2026-W42', catalogo, limites: LIM_H, diasDaSemanaAnterior: w41.dias, variacao: 1 });
+  ok(!igual(outra.dias.sabado.hiit, h), '`variacao` sorteia outro HIIT');
+  const so4 = gerarSemana({ semanaId: '2026-W42', catalogo, limites: LIM_H, diasDaSemanaAnterior: null, alunosPorAula: 4 });
+  ok(!so4.hiitFora.length, 'turma de 4: nada fica fora por equipamento');
+
+  // Reconferência (inventário salvo): a mesma conta, sem catálogo, a partir do gravado.
+  const gravada = JSON.parse(JSON.stringify({ dias: w42.dias }));
+  const igualAntes = reconferirSemana(gravada, LIM_H, 6)!;
+  ok(!igualAntes.alertasHiit.length && !igualAntes.problemasParaPublicar.length, 'mesmo inventário e turma: nada muda');
+  const usados = RECURSOS_HIIT.filter((r) => h.estacoes.some((e) => e.slots.some((x) => x.consumoPorAluno[r])));
+  ok(usados.length > 0, `o HIIT de teste usa equipamento (${usados.join(', ')})`);
+  const zerado = reconferirSemana(gravada, { ...LIM_H, ...Object.fromEntries(RECURSOS_HIIT.map((r) => [r, 0])) }, 6)!;
+  ok(zerado.alertasHiit.length > 0 && zerado.alertasHiit.every((a) => igual(a.dias, ['sexta', 'sabado'])),
+    'equipamento do HIIT todo em manutenção: alerta, UMA vez, com sexta e sábado');
+  ok(zerado.problemasParaPublicar.some((p) => p.startsWith('sexta e sábado: ')), 'e vira motivo para não publicar');
+  const r0 = usados[0];
+  const turmaGrande = 4 * (LIMITES[r0] + 1);
+  const cresceu = reconferirSemana(gravada, LIM_H, turmaGrande)!;
+  ok(cresceu.alertasHiit.some((a) => a.recurso === r0), `turma de ${turmaGrande}: ${r0} passa do limite na reconferência`);
+  const semHiit = reconferirSemana({ dias: { ...gravada.dias, sexta: { ...gravada.dias.sexta, hiit: null }, sabado: { ...gravada.dias.sabado, hiit: undefined } } }, LIM_H, 6)!;
+  ok(!semHiit.alertasHiit.length && !semHiit.problemasParaPublicar.length, 'semana de antes do gerador (dia de HIIT sem estações) não trava');
+
+  // lerDias: o pedido manda só ids; lado, nome, protocolo e consumo saem do servidor.
+  const cru = (x: typeof h) => ({ estacoes: x.estacoes.map((e) => ({ estacao: e.estacao, slots: e.slots.map((y) => ({ exercicioId: y.exercicioId })) })) });
+  const ler = (hiit: unknown, treinos = ['HIIT'], cat: ReadonlyMap<string, ItemCatalogo> = catalogo) => lerDias({ sabado: { treinos, hiit } }, cat);
+  const relido = ler(cru(h));
+  ok('dias' in relido && igual(relido.dias.sabado.hiit, h), 'o HIIT relido só dos ids sai igual ao gerado');
+  const erro = (r: ReturnType<typeof ler>) => ('erro' in r ? r.erro : '');
+  ok(erro(ler(cru(h), ['Cross'])).includes('só dia com HIIT'), 'estações em dia sem HIIT: erro');
+  ok(erro(ler({ estacoes: cru(h).estacoes.slice(0, 3) })).includes('4 estações'), '3 estações: erro');
+  const dobrada = cru(h);
+  dobrada.estacoes[1] = { ...dobrada.estacoes[1], estacao: dobrada.estacoes[0].estacao };
+  ok(erro(ler(dobrada)).includes('duas vezes'), 'estação repetida: erro');
+  const pernas = (slots: string[]) => ({ estacoes: cru(h).estacoes.map((e) => (e.estacao === 'pernas' ? { estacao: 'pernas', slots: slots.map((exercicioId) => ({ exercicioId })) } : e)) });
+  ok(erro(ler(pernas(['burpee']))).includes('não é da estação Pernas'), 'exercício de outra estação: erro');
+  ok(erro(ler(pernas(['afundo_kb', 'agachamento_livre']))).includes('unilateral e ocupa 2 slots'), 'unilateral sem o segundo lado: erro');
+  ok(erro(ler(pernas(['agachamento_livre', 'afundo_kb']))).includes('unilateral'), 'unilateral no último slot ocupado sem par: erro');
+  ok(erro(ler(pernas(['supino_smith']))).includes('não é exercício de HIIT'), 'exercício de força sem hiit: erro');
+  const uni = ler(pernas(['afundo_kb', 'afundo_kb', 'agachamento_livre', 'goblet_squat']));
+  ok('dias' in uni && igual(uni.dias.sabado.hiit!.estacoes.find((e) => e.estacao === 'pernas')!.slots.map((x) => x.lado), ['D', 'E', null, null]),
+    'unilateral em 2 slots seguidos vira lado D e lado E');
+  const duasEstacoes = new Map(catalogo);
+  duasEstacoes.set('burpee', { ...CATALOGO_HIIT.burpee, hiit: { estacoes: ['pernas', 'cardio'] } });
+  const comBurpee = cru(h);
+  comBurpee.estacoes = comBurpee.estacoes.map((e) => (e.estacao === 'pernas' || e.estacao === 'cardio' ? { ...e, slots: [{ exercicioId: 'burpee' }] } : e));
+  ok(erro(ler(comBurpee, ['HIIT'], duasEstacoes)).includes('aparece duas vezes no HIIT'), 'o mesmo exercício em duas estações: erro');
+  ok(erro(lerDias({ segunda: { treinos: ['H1'], blocoPrincipal: [{ exercicioId: 'burpee', series: 3, repeticoes: '10' }] } }, catalogo)).includes('só de HIIT'),
+    'exercício só de HIIT no bloco de força: erro');
+
+  const incompleta = ler(pernas(['agachamento_livre', 'goblet_squat', 'kb_swing']));
+  ok('dias' in incompleta && problemasParaPublicar(incompleta.dias, []).some((p) => p.includes('Pernas do HIIT tem 3 de 4 slots')),
+    'rascunho aceita estação incompleta; publicar não');
+  // Repetição no dia: o agachamento no TRX no H3 E no HIIT da sexta.
+  const repete = lerDias({
+    sexta: {
+      treinos: ['H3', 'HIIT'],
+      blocoPrincipal: [{ exercicioId: 'agachamento_trx', series: 4, repeticoes: '8-12' }],
+      hiit: pernas(['agachamento_trx', 'goblet_squat', 'kb_swing', 'agachamento_livre']),
+    },
+  }, catalogo);
+  ok('dias' in repete && problemasParaPublicar(repete.dias, []).some((p) => p.includes('Agachamento no TRX está no bloco do H3 e no HIIT')),
+    'o mesmo exercício no H3 e no HIIT do dia: não publica');
+
+  // A troca manual do bloco H manda os dias SEM o hiit: o servidor preserva o gravado.
+  const pedido = JSON.parse(JSON.stringify(w42.dias));
+  for (const d of DIAS_SEMANA) delete pedido[d].hiit;
+  const preservado = diasComHiitGravado(pedido, w42.dias) as Record<string, { hiit?: unknown }>;
+  ok(igual(preservado.sabado.hiit, w42.dias.sabado.hiit) && igual(preservado.sexta.hiit, w42.dias.sexta.hiit),
+    'troca manual do H (pedido sem hiit) mantém o HIIT gravado');
+  const relidoPedido = lerDias(preservado, catalogo);
+  ok('dias' in relidoPedido && igual(relidoPedido.dias.sabado.hiit, h), 'e a semana salva continua com o mesmo HIIT');
+  const apagar = diasComHiitGravado({ ...pedido, sabado: { ...pedido.sabado, hiit: null } }, w42.dias) as Record<string, { hiit?: unknown }>;
+  ok(apagar.sabado.hiit === null, '`hiit: null` no pedido apaga de propósito');
+
+  // Trava de semana publicada: o HIIT de um dia que passou também não muda.
+  const datas = intervaloDaSemana('2026-W42')!.datas;
+  const depois = JSON.parse(JSON.stringify(w42.dias));
+  depois.sabado.hiit = outra.dias.sabado.hiit;
+  ok(igual(diasPassadosAlterados(w42.dias, depois, datas, '2026-10-19'), ['sabado']), 'mudar o HIIT de um dia que passou é pego pela trava');
+  const legado = JSON.parse(JSON.stringify(w42.dias));
+  for (const d of DIAS_SEMANA) delete legado[d].hiit;
+  const comNull = JSON.parse(JSON.stringify(legado));
+  for (const d of DIAS_SEMANA) comNull[d].hiit = null;
+  ok(!diasPassadosAlterados(legado, comNull, datas, '2026-10-19').length, 'hiit ausente e hiit null são o mesmo dia (semana antiga salva de novo)');
 }
 
 console.log(falhas ? `\n✗ ${falhas} verificação(ões) falharam.\n` : '\n✓ HIIT: tudo certo.\n');

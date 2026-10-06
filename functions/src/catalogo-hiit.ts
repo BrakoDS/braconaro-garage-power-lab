@@ -81,7 +81,7 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
   },
   prancha_lateral: {
-    ...SEM, nome: 'Prancha lateral',
+    ...SEM, nome: 'Prancha lateral', unilateral: true,
     musculoPrincipal: ['core'], musculosSecundarios: [],
     equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
   },

@@ -61,8 +61,9 @@ O que o servidor faz, nesta ordem:
    pelo coach sem `descansoSeg` herda o `descansos.entreSeriesSeg` do dia.
 
 Determinístico: mesma semana + mesma semana anterior + mesmo catálogo + mesmo inventário = mesma
-semana. Cross, Hyrox e HIIT saem sinalizados com formato e descrição; os movimentos deles ainda são
-do coach.
+semana. O HIIT sai montado (estações em `dias.sexta.hiit` e `dias.sabado.hiit`, o mesmo nos dois dias;
+ver "HIIT" abaixo); Cross e Hyrox saem só sinalizados com formato e descrição, e os movimentos
+deles ainda são do coach.
 
 ### Regras de conta
 
@@ -80,7 +81,7 @@ do coach.
 Deploy, sempre por função (ver o aviso das funções órfãs):
 
 ```bash
-firebase deploy --only functions:gerarMatrizSemanalBox,functions:salvarSemanaBox,functions:publicarSemanaBox,functions:salvarInventarioBox,functions:registrarSessaoAluno
+firebase deploy --only functions:gerarMatrizSemanalBox,functions:salvarSemanaBox,functions:publicarSemanaBox,functions:salvarInventarioBox,functions:registrarSessaoAluno,functions:opcoesTrocaBox
 ```
 
 A mudança do 0,5 no dashboard está em funções que JÁ existem — `parseWorkoutLousa` e
@@ -116,6 +117,19 @@ wall ball 4, caixote 4, corda naval 2, corda de pular 2, sandbag 1, air bike 2, 
 e `alunosPorAula`. Um inventário gravado antes disso é lido com os números de fábrica do HIIT. Os
 recursos do HIIT ficam fora de `RECURSOS_INVENTARIO`: o bloco H continua sem contar TRX nem
 kettlebell.
+
+**Nos callables:**
+
+- `gerarMatrizSemanalBox` monta o HIIT depois dos blocos H e grava `alertasHiit`, `alunosPorAula` e
+  `geracao.hiitFora`; os avisos do HIIT entram em `geracao.avisos` com `HIIT:` na frente.
+- `salvarSemanaBox` valida o `hiit` de cada dia (`lerHiit`: o pedido manda só os ids, o servidor
+  calcula lado D/E, nome, protocolo e `consumoPorAluno`). **Dia sem a chave `hiit` no pedido mantém o
+  HIIT gravado** (`diasComHiitGravado`): a troca manual do bloco H manda só o bloco. `hiit: null` apaga.
+- Não publica com: estação incompleta, `alertasHiit`, ou exercício no bloco H e no HIIT do mesmo dia.
+  Semana gerada antes do HIIT (dia de HIIT com `hiit` ausente) não trava.
+- `salvarInventarioBox` aceita `alunosPorAula` e os recursos do HIIT, e a reconferência das semanas
+  abertas refaz `alertasHiit` com a turma nova (pelo `consumoPorAluno` gravado, sem reler o catálogo).
+- A trava de semana publicada também olha o HIIT: dia que passou não muda de estação.
 
 ## Motor de conquistas (`calcularConquistasXP*`)
 
