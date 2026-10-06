@@ -239,6 +239,13 @@ function retrato(d: any): string {
     // Ausente (semana de antes do HIIT) e `null` têm o mesmo retrato: nada mudou.
     hiit: (Array.isArray(d?.hiit?.estacoes) ? d.hiit.estacoes : [])
       .map((e: any) => [e?.estacao, (Array.isArray(e?.slots) ? e.slots : []).map((x: any) => x?.exercicioId)]),
+    // Idem para o WOD e o Hyrox (semana de antes deles).
+    cross: Array.isArray(d?.cross?.movimentos)
+      ? [d.cross.formato, d.cross.minutos ?? null, d.cross.rodadas ?? null, d.cross.movimentos.map((m: any) => m?.exercicioId)]
+      : null,
+    hyrox: Array.isArray(d?.hyrox?.estacoes)
+      ? [d.hyrox.formato, d.hyrox.estacoes.map((e: any) => [e?.estacao, !!e?.substituta])]
+      : null,
   });
 }
 

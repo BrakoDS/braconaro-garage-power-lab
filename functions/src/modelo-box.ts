@@ -788,6 +788,8 @@ export interface RespostaGerarMatriz {
   alertasHiit: AlertaHiitDaSemana[];
   alunosPorAula: number;
   hiitFora: ForaPorEquipamento[];
+  alertasCross: AlertaCrossDaSemana[];
+  alertasHyrox: AlertaHyroxDaSemana[];
 }
 
 export interface AlertaEquipamento {

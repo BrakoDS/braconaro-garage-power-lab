@@ -836,6 +836,35 @@ export function problemasParaPublicar(
   return problemas;
 }
 
+/** Tudo o que a semana grava sobre equipamento e publicação. */
+export interface ContaDaSemana {
+  alertas: AlertaEquipamento[];
+  alertasHiit: AlertaHiitDaSemana[];
+  alertasCross: AlertaCrossDaSemana[];
+  alertasHyrox: AlertaHyroxDaSemana[];
+  problemasParaPublicar: string[];
+}
+
+/**
+ * A conta inteira de uma semana — bloco H, HIIT, WOD e Hyrox — e por que ela
+ * não publica. É o que gerar, salvar, publicar e a reconferência do
+ * inventário gravam: uma conta só, nos quatro lugares.
+ */
+export function contaDaSemana(
+  dias: Record<DiaSemana, DiaProgramado>,
+  limites: Record<RecursoInventario, number> & Partial<Record<RecursoBox, number>>,
+  alunosPorAula: number,
+): ContaDaSemana {
+  const alertas = alertasDaSemana(dias, limites);
+  const alertasHiit = alertasHiitDaSemana(dias, limites, alunosPorAula);
+  const alertasCross = alertasCrossDaSemana(dias, limites, alunosPorAula);
+  const alertasHyrox = alertasHyroxDaSemana(dias, limites);
+  return {
+    alertas, alertasHiit, alertasCross, alertasHyrox,
+    problemasParaPublicar: problemasParaPublicar(dias, alertas, alertasHiit, alunosPorAula, alertasCross, alertasHyrox),
+  };
+}
+
 /**
  * Uma semana JÁ GRAVADA conferida contra limites novos — o que `salvarInventarioBox`
  * faz com as semanas que ainda não terminaram quando um smith entra em manutenção.
@@ -851,10 +880,7 @@ export function reconferirSemana(
   doc: unknown,
   limites: Record<RecursoInventario, number> & Partial<Record<RecursoBox, number>>,
   alunosPorAula: number = ALUNOS_POR_AULA_PADRAO,
-): {
-  alertas: AlertaEquipamento[]; alertasHiit: AlertaHiitDaSemana[]; alertasCross: AlertaCrossDaSemana[];
-  alertasHyrox: AlertaHyroxDaSemana[]; problemasParaPublicar: string[];
-} | null {
+): ContaDaSemana | null {
   const brutos = (doc as { dias?: unknown } | null)?.dias;
   if (!brutos || typeof brutos !== 'object') return null;
   const dias = {} as Record<DiaSemana, DiaProgramado>;
@@ -873,14 +899,7 @@ export function reconferirSemana(
       hyrox: d.hyrox && Array.isArray(d.hyrox.estacoes) ? d.hyrox : null,
     };
   }
-  const alertas = alertasDaSemana(dias, limites);
-  const alertasHiit = alertasHiitDaSemana(dias, limites, alunosPorAula);
-  const alertasCross = alertasCrossDaSemana(dias, limites, alunosPorAula);
-  const alertasHyrox = alertasHyroxDaSemana(dias, limites);
-  return {
-    alertas, alertasHiit, alertasCross, alertasHyrox,
-    problemasParaPublicar: problemasParaPublicar(dias, alertas, alertasHiit, alunosPorAula, alertasCross, alertasHyrox),
-  };
+  return contaDaSemana(dias, limites, alunosPorAula);
 }
 
 /* ───────────────────────────── o aluno ───────────────────────────── */

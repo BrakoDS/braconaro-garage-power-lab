@@ -25,6 +25,15 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     equipamentos: ['peso_corporal'],
     cross: { padrao: 'cardio', unidade: 'metros', rx: 200 },
   },
+  // Cardio sem equipamento (06/10/2026): no EMOM a turma inteira faz o mesmo
+  // movimento no mesmo minuto, e air bike e cordas são 2 de cada — sem estes,
+  // a corrida era o único cardio do EMOM com 6 alunos.
+  shuttle_run: {
+    ...SEM, nome: 'Shuttle run (ir e vir, 10 m)',
+    musculoPrincipal: ['quadriceps', 'posterior_coxa'], musculosSecundarios: ['panturrilha', 'gluteo'],
+    equipamentos: ['peso_corporal'],
+    cross: { padrao: 'cardio', unidade: 'metros', rx: 100 },
+  },
 
   /* ───────────── barra olímpica (do chão) ───────────── */
   power_clean: {

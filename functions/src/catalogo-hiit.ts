@@ -180,17 +180,19 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     ...SEM, nome: 'Mountain climber (escalador)',
     musculoPrincipal: ['core'], musculosSecundarios: ['ombro', 'quadriceps'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
-    cross: { padrao: 'core', unidade: 'reps', rx: 20 },
+    cross: { padrao: 'cardio', unidade: 'reps', rx: 30 },
   },
   high_knees: {
     ...SEM, nome: 'High knees (joelho alto)',
     musculoPrincipal: ['quadriceps', 'core'], musculosSecundarios: ['panturrilha'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'cardio', unidade: 'reps', rx: 40 },
   },
   polichinelo: {
     ...SEM, nome: 'Polichinelo (jumping jacks)',
     musculoPrincipal: ['panturrilha', 'ombro'], musculosSecundarios: ['quadriceps', 'core'],
     equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+    cross: { padrao: 'cardio', unidade: 'reps', rx: 40 },
   },
   corrida_100m: {
     ...SEM, nome: 'Corrida 100 m (rua)',

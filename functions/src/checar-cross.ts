@@ -17,9 +17,12 @@ import {
   type DiaSemana, type FormatoCross, type ItemCatalogo, type RecursoBox, type RecursoCross,
 } from './modelo-box';
 import {
-  aplicarInventario, arredondarPrescricao, diasComConteudoGravado, lerCross, lerDias, lerExercicioCatalogo, lerHyrox,
-  lerInventario, lerItemCatalogo, montarHyrox, movimentoCross, problemasParaPublicar, reconferirSemana,
+  aplicarInventario, arredondarPrescricao, contaDaSemana, diasComConteudoGravado, intervaloDaSemana, lerCross, lerDias,
+  lerExercicioCatalogo, lerHyrox, lerInventario, lerItemCatalogo, montarHyrox, movimentoCross, problemasParaPublicar,
+  reconferirSemana,
 } from './semana-box';
+import { diasPassadosAlterados } from './edicao-box';
+import { bloqueiaCross, conflitosDoCross, conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
 import { alunosPorMovimento, consumoCross, contarCross } from './conta-cross';
 import { gerarCross, type ContextoCross } from './gerador-cross';
 import { gerarHyrox } from './gerador-hyrox';
@@ -167,39 +170,31 @@ console.log('\nGerador do WOD');
   ok(!igual(a.wod, gerarCross(ctx({ semente: 's2' })).wod), 'outra semente, outro WOD');
 
   // Rodízio: formato e movimentos da semana anterior.
-  // No EMOM com turma de 6, o ÚNICO cardio que cabe é a corrida (air bike,
-  // corda de pular e corda naval: 2 de cada). Então, depois de um WOD com
-  // corrida, o EMOM repete a corrida — com aviso — e SÓ ela.
   let semFormatoRepetido = true;
   const repeticoes: string[] = [];
-  let repeticaoSemAviso = false;
   for (const semente of SEMENTES.slice(0, 100)) {
     const antes = gerarCross(ctx({ semente: `${semente}:antes` }));
     const depois = gerarCross(ctx({ semente, semanaPassada: { formato: antes.wod.formato, ids: new Set(antes.cru.movimentos.map((m) => m.exercicioId)) } }));
     if (depois.wod.formato === antes.wod.formato) semFormatoRepetido = false;
     const rep = depois.cru.movimentos.filter((m) => antes.cru.movimentos.some((x) => x.exercicioId === m.exercicioId));
-    for (const m of rep) {
-      repeticoes.push(`${depois.wod.formato}:${m.exercicioId}`);
-      if (!depois.avisos.some((a) => a.includes('repete'))) repeticaoSemAviso = true;
-    }
+    repeticoes.push(...rep.map((m) => `${depois.wod.formato}:${m.exercicioId}`));
   }
   ok(semFormatoRepetido, 'rodízio: o formato nunca repete o da semana anterior (100 pares)');
-  ok(repeticoes.every((r) => r === 'EMOM:corrida'), 'rodízio: só repete a corrida no EMOM, o único cardio que cabe com 6 alunos (100 pares)',
-    repeticoes.join(', '));
-  ok(!repeticaoSemAviso, 'toda repetição sai com aviso');
-  // Repete o MÍNIMO: EMOM depois de um WOD com corrida E kettlebell swing. A
-  // corrida tem de voltar (único cardio), mas o swing não: há outros padrões.
-  // Sem a regra do mínimo, a busca pegaria o swing sempre que o padrão
-  // "quadril" saísse cedo no sorteio (o terra não cabe no EMOM com 6).
-  const sementesEmom = SEMENTES.filter((s) => gerarCross(ctx({ semente: s, semanaPassada: { formato: 'AMRAP', ids: new Set() } })).wod.formato === 'EMOM');
-  const minimo = sementesEmom.map((semente) =>
-    gerarCross(ctx({ semente, semanaPassada: { formato: 'AMRAP', ids: new Set(['corrida', 'kb_swing']) } })));
-  ok(minimo.length > 10 && minimo.every((g) => g.cru.movimentos.every((m) => m.exercicioId !== 'kb_swing')),
-    `EMOM depois de corrida + swing (${minimo.length} sorteios): repete só a corrida, nunca o swing`);
+  ok(!repeticoes.length, 'rodízio: nenhum movimento repete o WOD da semana anterior (100 pares)', repeticoes.join(', '));
+
+  // O EMOM exige equipamento para a turma INTEIRA no mesmo minuto: com 6
+  // alunos, air bike e cordas (2 de cada) não cabem. Os cardios sem
+  // equipamento (shuttle run, polichinelo, high knees, mountain climber,
+  // aprovados em 06/10/2026) é que dão variedade a ele.
+  const emoms = SEMENTES.map((semente) => gerarCross(ctx({ semente }))).filter((g) => g.wod.formato === 'EMOM');
+  const cardiosEmom = new Set(emoms.map((g) => g.wod.movimentos[0].exercicioId));
+  ok(emoms.length > 0 && !['air_bike_sprint', 'pular_corda', 'corda_naval'].some((id) => cardiosEmom.has(id)),
+    'EMOM com turma de 6: nunca air bike nem cordas (2 de cada)');
+  ok(cardiosEmom.size >= 4, `EMOM com turma de 6: o cardio varia (${[...cardiosEmom].join(', ')})`);
 
   // Rodízio é REGRA, não só ordem: com todos os cardios menos um na semana
   // anterior, o WOD usa o cardio novo, mesmo que ele seja o último da fila.
-  // (Fora do EMOM — que só aceita a corrida com 6 alunos: o formato da
+  // (Fora do EMOM, onde o cardio com equipamento não cabe: o formato da
   // semana anterior vai para o fim da fila, então passada = EMOM o tira.)
   const cardios = doCross.filter((id) => catalogo.get(id)!.cross!.padrao === 'cardio');
   for (const novo of cardios) {
@@ -207,17 +202,20 @@ console.log('\nGerador do WOD');
     const g = gerarCross(ctx({ semente: `cardio:${novo}`, semanaPassada: { formato: 'EMOM', ids: passada } }));
     ok(g.wod.movimentos[0].exercicioId === novo, `só ${novo} é cardio novo: é ele que abre o WOD`);
   }
-  const emomCorrida = SEMENTES.map((semente) => gerarCross(ctx({ semente }))).filter((g) => g.wod.formato === 'EMOM');
-  ok(emomCorrida.length > 0 && emomCorrida.every((g) => g.wod.movimentos[0].exercicioId === 'corrida'),
-    'EMOM com turma de 6: abre sempre com a corrida (o resto do cardio é 2 de cada)');
-  ok(SEMENTES.slice(0, 100).map((semente) => gerarCross(ctx({ semente, alunosPorAula: 2 })))
-    .filter((g) => g.wod.formato === 'EMOM').some((g) => g.wod.movimentos[0].exercicioId !== 'corrida'),
-    'EMOM com turma de 2: os outros cardios voltam');
-  // Sem opção nova, repete — com aviso.
+
+  // Sem opção nova, repete o MÍNIMO — com aviso. Catálogo com a corrida como
+  // único cardio, e a semana anterior com corrida E kettlebell swing: a
+  // corrida tem de voltar, o swing não (há outros padrões). Sem a regra do
+  // mínimo, a busca pegaria o swing sempre que o padrão "quadril" saísse
+  // cedo no sorteio (o terra não cabe no EMOM com 6).
   const soUmCardio = new Map([...catalogo].filter(([id, i]) => i.cross?.padrao !== 'cardio' || id === 'corrida'));
   const repetiu = gerarCross(ctx({ catalogo: soUmCardio, semanaPassada: { formato: null, ids: new Set(['corrida']) } }));
   ok(repetiu.wod.movimentos[0].exercicioId === 'corrida' && repetiu.avisos.some((x) => x.includes('repete')),
     'único cardio do catálogo estava na semana anterior: volta, com aviso');
+  const minimo = SEMENTES.map((semente) =>
+    gerarCross(ctx({ catalogo: soUmCardio, semente, semanaPassada: { formato: null, ids: new Set(['corrida', 'kb_swing']) } })));
+  ok(minimo.every((g) => g.cru.movimentos.every((m) => m.exercicioId !== 'kb_swing') && g.avisos.filter((a) => a.includes('repete')).length === 1),
+    `corrida + swing na semana anterior, só a corrida como cardio (${minimo.length} sorteios): repete só a corrida, nunca o swing`);
 
   // Inventário apertado.
   const semBarra = SEMENTES.slice(0, 100).map((semente) => gerarCross(ctx({ semente, limites: { ...LIM_CROSS, barraOlimpica: 0 } })));
@@ -424,15 +422,107 @@ console.log('\nA semana inteira (gerarSemana)');
     const antesC = crossDaSemana(anterior);
     const antesH = hyroxDaSemana(anterior);
     const c = r.dias.terca.cross!;
-    // A única repetição aceita: a corrida no EMOM (ver o gerador do WOD).
-    const repetiu = c.movimentos.filter((m) => antesC.ids.has(m.exercicioId) && !(c.formato === 'EMOM' && m.exercicioId === 'corrida'));
+    const repetiu = c.movimentos.filter((m) => antesC.ids.has(m.exercicioId));
     if (c.formato === antesC.formato) falhou = `${id}: formato do Cross repetiu`;
     else if (repetiu.length) falhou = `${id}: ${repetiu.map((m) => m.nome).join(', ')} repetiu no Cross`;
     else if (r.dias.quinta.hyrox!.formato === antesH.formato) falhou = `${id}: formato do Hyrox repetiu`;
     else if (r.alertasCross.length || r.alertasHyrox.length) falhou = `${id}: alerta com o inventário de fábrica`;
     anterior = r.dias;
   }
-  ok(!falhou, '30 semanas encadeadas: formato e movimentos não repetem a semana anterior (fora a corrida no EMOM), nenhum alerta', falhou);
+  ok(!falhou, '30 semanas encadeadas: formato e movimentos nunca repetem a semana anterior, nenhum alerta', falhou);
+}
+
+/* ───────────────────────────── edição manual ───────────────────────────── */
+
+console.log('\nTroca manual no WOD');
+{
+  const mov = (ids: string[]) => ids.map((exercicioId) => ({ exercicioId }));
+  const semana = (cross: unknown, hyrox: unknown = null) => {
+    const r = lerDias({ terca: { treinos: ['Cross', 'H1'], cross }, quinta: { treinos: ['Hyrox'], hyrox } }, catalogo);
+    if ('erro' in r) throw new Error(r.erro);
+    return r.dias;
+  };
+  // AMRAP: corrida (cardio) · power clean (olímpico) · flexão (empurrar) · KB swing (quadril).
+  const dias = semana({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'power_clean', 'flexao', 'kb_swing']) });
+  const base = { dias, catalogo, limites: LIM_CROSS, alunosPorAula: 6, semanaPassada: new Set(['burpee']) };
+  const c = (posicao: number, exercicioId: string) => conflitosDoCross({ ...base, posicao, exercicioId })!;
+
+  ok(c(3, 'kb_swing').noWod && bloqueiaCross(c(3, 'kb_swing')), 'movimento que já está no WOD: bloqueia');
+  ok(c(3, 'terra_barra_livre').padraoRepetido === 'Kettlebell swing' && bloqueiaCross(c(3, 'terra_barra_livre')),
+    'padrão de outro movimento (terra × swing, os dois quadril): bloqueia e diz qual');
+  ok(c(1, 'air_bike_sprint').padraoRepetido === null && !bloqueiaCross(c(1, 'air_bike_sprint')), 'cardio por cardio na posição do cardio: livre');
+  ok(c(1, 'goblet_squat').tiraOCardio && bloqueiaCross(c(1, 'goblet_squat')), 'tirar o único cardio: bloqueia');
+  ok(c(3, 'air_bike_sprint').padraoRepetido === 'Corrida (rua)', 'um segundo cardio no lugar da flexão: padrão repetido');
+  const duasBarras = c(3, 'push_press');
+  ok(!duasBarras.equipamento.length, 'flexão → push press: 2 + 2 = 4 barras com turma de 6, cabe');
+  const tresBarras = conflitosDoCross({ ...base, alunosPorAula: 9, posicao: 3, exercicioId: 'push_press' })!;
+  ok(igual(tresBarras.equipamento, ['barraOlimpica']) && bloqueiaCross(tresBarras), 'com turma de 9: 3 + 3 = 6 barras de 4, bloqueia por equipamento');
+  ok(c(3, 'burpee').semanaAnterior && !bloqueiaCross(c(3, 'burpee')), 'rodízio quebrado: aviso, não bloqueia');
+  ok(c(9, 'burpee') === null && c(1, 'supino_smith') === null, 'posição que não existe, ou exercício sem cross: null');
+
+  const op = opcoesDoCross({ ...base, posicao: 3 })!;
+  ok(op.vaga.posicao === 3 && op.vaga.atual.exercicioId === 'flexao' && igual(op.vaga.dias, ['terca']) && op.vaga.formato === 'AMRAP',
+    'a vaga: posição, movimento atual, formato e o dia');
+  ok(!op.opcoes.some((x) => x.exercicioId === 'flexao') && op.opcoes.length === doCross.length - 1, 'lista o pool do Cross, menos o movimento atual');
+  const grupo = (x: (typeof op.opcoes)[number]) => (x.bloqueada ? 2 : x.conflitos.semanaAnterior ? 1 : 0);
+  ok(op.opcoes.every((x, i, l) => i === 0 || grupo(l[i - 1]) <= grupo(x)), 'ordem: livres, rodízio, bloqueados');
+  ok(op.opcoes.find((x) => !x.bloqueada)?.padrao === 'empurrar', 'dentro dos livres, o mesmo padrão da vaga primeiro');
+  ok(opcoesDoCross({ ...base, dias: semana(null), posicao: 1 }) === null, 'semana sem WOD: null');
+
+  // A troca escolhida passa no salvar, com a prescrição recalculada.
+  const trocado = lerCross({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'power_clean', 'push_press', 'kb_swing']) }, catalogo, 'terca');
+  ok('cross' in trocado && trocado.cross.movimentos[2].rx === 10 && trocado.cross.movimentos[2].carga?.rx === '40/30 kg',
+    'a troca salva: push press com RX e carga do catálogo');
+}
+
+console.log('\nTroca manual no Hyrox');
+{
+  const estacoes = ESTACOES_HYROX.slice(0, 4).map((estacao) => ({ estacao, substituta: estacao === 'sled_pull' }));
+  const r = lerDias({ quinta: { treinos: ['Hyrox'], hyrox: { formato: 'metadeA', estacoes } } }, catalogo);
+  if ('erro' in r) throw new Error(r.erro);
+  const push = opcoesDoHyrox({ dias: r.dias, estacao: 'sled_push', limites: LIMITES })!;
+  ok(push.vaga.n === 2 && !push.vaga.atual.substituta && push.opcoes.length === 1 && push.opcoes[0].substituta
+    && push.opcoes[0].nome.startsWith('Plate push') && !push.opcoes[0].bloqueada,
+    'Sled Push (original): a opção é a substituta, livre');
+  const pull = opcoesDoHyrox({ dias: r.dias, estacao: 'sled_pull', limites: LIMITES })!;
+  ok(pull.vaga.atual.substituta && pull.vaga.atual.nome === 'Remada no TRX' && !pull.opcoes[0].substituta && pull.opcoes[0].nome.startsWith('Sled Pull'),
+    'Sled Pull na substituta: a opção é voltar à estação da prova');
+  const semSled = opcoesDoHyrox({ dias: r.dias, estacao: 'sled_pull', limites: { ...LIMITES, sled: 0 } })!;
+  ok(semSled.opcoes[0].bloqueada && igual(semSled.opcoes[0].equipamento, ['sled']), 'sled em manutenção: voltar ao Sled Pull bloqueia, e diz o recurso');
+  const burpee = opcoesDoHyrox({ dias: r.dias, estacao: 'burpee_broad_jump', limites: LIMITES })!;
+  ok(burpee.opcoes.length === 0, 'Burpee Broad Jump: sem substituta, sem opção');
+  ok(opcoesDoHyrox({ dias: r.dias, estacao: 'wall_ball', limites: LIMITES }) === null, 'estação fora do formato (wall ball na metade A): null');
+}
+
+console.log('\nTrava de semana publicada e conta única');
+{
+  const mov = (ids: string[]) => ids.map((exercicioId) => ({ exercicioId }));
+  const montar = (cross: unknown, hyrox: unknown) => {
+    const r = lerDias({ terca: { treinos: ['Cross', 'H1'], cross }, quinta: { treinos: ['Hyrox'], hyrox } }, catalogo);
+    if ('erro' in r) throw new Error(r.erro);
+    return r.dias;
+  };
+  const prova = { formato: 'prova', estacoes: ESTACOES_HYROX.map((estacao) => ({ estacao })) };
+  const antes = montar({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'kb_swing', 'flexao']) }, prova);
+  const outroWod = montar({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'kb_swing', 'flexao_pike']) }, prova);
+  const outroHyrox = montar({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'kb_swing', 'flexao']) },
+    { formato: 'prova', estacoes: ESTACOES_HYROX.map((estacao) => ({ estacao, substituta: estacao === 'remo' })) });
+  const datas = intervaloDaSemana('2026-W42')!.datas;
+  ok(igual(diasPassadosAlterados(antes, outroWod, datas, datas.quarta), ['terca']), 'trocar o WOD com a terça no passado: a terça trava');
+  ok(igual(diasPassadosAlterados(antes, outroHyrox, datas, datas.sexta), ['quinta']), 'trocar estação do Hyrox com a quinta no passado: a quinta trava');
+  ok(!diasPassadosAlterados(antes, outroHyrox, datas, datas.quarta).length, 'quinta ainda não passou: livre');
+  const legado = montar(null, null);
+  const { cross: _cross, hyrox: _hyrox, ...semChave } = legado.terca;
+  ok(!diasPassadosAlterados({ ...legado, terca: semChave }, legado, datas, datas.sabado).length,
+    'semana de antes do Cross (sem a chave) × cross: null — mesmo retrato, não trava');
+  ok(conteudoTravado(antes, 'cross', datas, datas.quarta) && !conteudoTravado(antes, 'hyrox', datas, datas.quarta),
+    'na quarta: o WOD (terça) travado, o Hyrox (quinta) não');
+
+  const conta = contaDaSemana(antes, { ...INV.limitesAtivos, sled: 0 }, 6);
+  ok(conta.alertasHyrox.length === 2 && conta.problemasParaPublicar.some((p) => p.includes('Sled Push')),
+    'contaDaSemana junta os alertas do Hyrox nos problemas para publicar');
+  const doc = { dias: antes };
+  ok(igual(reconferirSemana(doc, { ...INV.limitesAtivos, sled: 0 }, 6), conta), 'a reconferência do inventário dá a MESMA conta');
 }
 
 console.log(falhas ? `\n✗ Cross/Hyrox: ${falhas} falha(s).` : '\n✓ Cross/Hyrox: tudo certo.');

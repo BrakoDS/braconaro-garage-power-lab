@@ -83,7 +83,7 @@ ver "HIIT" abaixo), e também o WOD da terça (`dias.terca.cross`) e o Hyrox da 
 Deploy, sempre por função (ver o aviso das funções órfãs):
 
 ```bash
-firebase deploy --only functions:gerarMatrizSemanalBox,functions:salvarSemanaBox,functions:publicarSemanaBox,functions:salvarInventarioBox,functions:registrarSessaoAluno,functions:opcoesTrocaBox,functions:opcoesTrocaHiitBox
+firebase deploy --only functions:gerarMatrizSemanalBox,functions:salvarSemanaBox,functions:publicarSemanaBox,functions:salvarInventarioBox,functions:registrarSessaoAluno,functions:opcoesTrocaBox,functions:opcoesTrocaHiitBox,functions:opcoesTrocaCrossBox,functions:opcoesTrocaHyroxBox
 ```
 
 A mudança do 0,5 no dashboard está em funções que JÁ existem — `parseWorkoutLousa` e
@@ -195,6 +195,23 @@ semana gerada antes disso (não trava a publicação). O pedido de salvar manda 
 minutos/rodadas e os ids (`lerCross`), ou o formato e as estações com `substituta` (`lerHyrox`); o
 servidor calcula o resto. Não publica com: WOD com menos movimentos que o formato pede,
 `alertasCross` ou `alertasHyrox`. A reconferência do inventário refaz os dois pelo consumo gravado.
+
+**Nos callables** (06/10/2026):
+
+- Gerar, salvar, publicar e a reconferência do inventário gravam a MESMA conta (`contaDaSemana`):
+  `alertas`, `alertasHiit`, `alertasCross`, `alertasHyrox` e `problemasParaPublicar`; as
+  `semanasAfetadas` do inventário trazem os quatro alertas.
+- `salvarSemanaBox` preserva o `cross` e o `hyrox` gravados quando o pedido não traz a chave
+  (`diasComConteudoGravado`) — a tela de antes deles continua salvando sem apagar nada. A trava de
+  semana publicada também olha os dois: dia que passou não muda de WOD nem de estação.
+- **Troca manual** (regra em `src/edicao-cross.ts`):
+  - `opcoesTrocaCrossBox({ semanaId, posicao })`: o pool do Cross para um movimento do WOD.
+    Bloqueiam: já no WOD, padrão de outro movimento, tirar o único cardio, equipamento (regra mista
+    sobre o WOD trocado). Só o rodízio é aviso. Formato, tempo e posição ficam; a prescrição do
+    novo sai do catálogo.
+  - `opcoesTrocaHyroxBox({ semanaId, estacao })`: a outra variante da estação (a substituta, ou de
+    volta à da prova), bloqueada se o equipamento dela não está ativo.
+  - Os dois dizem `travada`, `temHoje` e `publicada`, como as trocas do H e do HIIT.
 
 ## Motor de conquistas (`calcularConquistasXP*`)
 
