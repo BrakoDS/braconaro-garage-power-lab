@@ -23,15 +23,21 @@
  * e o mesmo inventário, sai igual. `variacao` muda o sorteio.
  */
 import {
-  ALUNOS_POR_AULA_PADRAO, DESCANSO_COMPOSTO_PESADO_SEG, DESCANSO_POR_INSTANCIA, DIAS_SEMANA, GRADE_SEMANAL,
-  INVENTARIO_HIIT_PADRAO, MATRIZ_H, PRESCRICAO_FORCA, RECURSOS_INVENTARIO, SESSOES_H, VAGAS_COMPOSTO_PESADO,
-  type AlertaEquipamento, type AlertaHiitDaSemana, type DiaProgramado, type DiaSemana, type ExercicioCatalogo,
-  type ForaPorEquipamento, type Instancia, type ItemCatalogo, type RecursoHiit, type RecursoInventario, type SessaoH,
-  type TrocaEquipamento,
+  ALUNOS_POR_AULA_PADRAO, DESCANSO_COMPOSTO_PESADO_SEG, DESCANSO_POR_INSTANCIA, DIAS_SEMANA, ESTACOES_HYROX,
+  FORMATOS_CROSS, FORMATOS_HYROX, GRADE_SEMANAL, MATRIZ_H, PRESCRICAO_FORCA, RECURSOS_INVENTARIO, SESSOES_H,
+  VAGAS_COMPOSTO_PESADO,
+  type AlertaCrossDaSemana, type AlertaEquipamento, type AlertaHiitDaSemana, type AlertaHyroxDaSemana,
+  type DiaProgramado, type DiaSemana, type EstacaoHyrox, type ExercicioCatalogo, type ForaPorEquipamento,
+  type FormatoCross, type FormatoHyrox, type Instancia, type ItemCatalogo, type Modalidade, type RecursoBox,
+  type RecursoCross, type RecursoHiit, type RecursoInventario, type SessaoH, type TrocaEquipamento,
 } from './modelo-box';
-import { alertasDaSemana, alertasHiitDaSemana, consumoDoDia, lerDias } from './semana-box';
+import {
+  alertasCrossDaSemana, alertasDaSemana, alertasHiitDaSemana, alertasHyroxDaSemana, consumoDoDia, lerDias, PADRAO_BOX,
+} from './semana-box';
 import { embaralhar, hashSeed, mulberry32 } from './sorteio';
 import { gerarHiit } from './gerador-hiit';
+import { gerarCross } from './gerador-cross';
+import { gerarHyrox } from './gerador-hyrox';
 
 /**
  * Descanso entre séries de uma vaga do bloco (`posicao` começa em 1).
@@ -82,6 +88,40 @@ export function idsDoHiit(dias: unknown): Set<string> {
     }
   }
   return ids;
+}
+
+/** O primeiro conteúdo de uma modalidade numa semana gravada (formato tolerante). */
+function primeiroDaSemana(dias: unknown, chave: 'cross' | 'hyrox'): Record<string, unknown> | null {
+  const d = (dias ?? {}) as Record<string, Record<string, unknown> | undefined>;
+  for (const dia of DIAS_SEMANA) {
+    const c = d[dia]?.[chave];
+    if (c && typeof c === 'object') return c as Record<string, unknown>;
+  }
+  return null;
+}
+
+/** O formato e os movimentos do WOD de uma semana gravada — o rodízio do Cross. */
+export function crossDaSemana(dias: unknown): { formato: FormatoCross | null; ids: Set<string> } {
+  const c = primeiroDaSemana(dias, 'cross');
+  const formato = (FORMATOS_CROSS as readonly unknown[]).includes(c?.formato) ? c!.formato as FormatoCross : null;
+  const ids = new Set<string>();
+  for (const m of Array.isArray(c?.movimentos) ? c!.movimentos as unknown[] : []) {
+    const id = (m as { exercicioId?: unknown } | null)?.exercicioId;
+    if (typeof id === 'string' && id) ids.add(id);
+  }
+  return { formato, ids };
+}
+
+/** O formato e as estações do Hyrox de uma semana gravada — o rodízio do Hyrox. */
+export function hyroxDaSemana(dias: unknown): { formato: FormatoHyrox | null; estacoes: Set<EstacaoHyrox> } {
+  const h = primeiroDaSemana(dias, 'hyrox');
+  const formato = (FORMATOS_HYROX as readonly unknown[]).includes(h?.formato) ? h!.formato as FormatoHyrox : null;
+  const estacoes = new Set<EstacaoHyrox>();
+  for (const e of Array.isArray(h?.estacoes) ? h!.estacoes as unknown[] : []) {
+    const id = (e as { estacao?: unknown } | null)?.estacao;
+    if ((ESTACOES_HYROX as readonly unknown[]).includes(id)) estacoes.add(id as EstacaoHyrox);
+  }
+  return { formato, estacoes };
 }
 
 export interface ContextoBloco {
@@ -203,11 +243,16 @@ export interface ResultadoGerador {
   dias: Record<DiaSemana, DiaProgramado>;
   alertas: AlertaEquipamento[];
   trocas: TrocaEquipamento[];
-  /** Do bloco H (com a sessão na frente) e do HIIT ('HIIT: …'). */
+  /** Do bloco H (com a sessão na frente), do HIIT ('HIIT: …'), do Cross ('Cross: …') e do Hyrox ('Hyrox: …'). */
   avisos: string[];
   alertasHiit: AlertaHiitDaSemana[];
   hiitFora: ForaPorEquipamento[];
+  alertasCross: AlertaCrossDaSemana[];
+  alertasHyrox: AlertaHyroxDaSemana[];
 }
+
+/** Os dias da grade que têm a modalidade. */
+const diasCom = (m: Modalidade) => DIAS_SEMANA.filter((dia) => GRADE_SEMANAL[dia].includes(m));
 
 /**
  * A semana inteira: um bloco por sessão H (H1, H2, H3, nesta ordem), colocado
@@ -219,16 +264,21 @@ export interface ResultadoGerador {
  * grade que têm HIIT (sexta e sábado), sem repetir o bloco de força desses dias
  * e com rodízio contra o HIIT da semana anterior.
  *
+ * E o WOD do Cross (`gerador-cross.ts`, terça) e o Hyrox (`gerador-hyrox.ts`,
+ * quinta), um de cada por semana, com rodízio contra os da semana anterior. O
+ * WOD não olha o H1 da terça: é alternativa, de outra turma.
+ *
  * O resultado passa por `lerDias`, a MESMA validação de `salvarSemanaBox`: o
  * gerador não tem um segundo formato de semana.
  *
- * `catalogo` é o catálogo inteiro (força e só HIIT); `limites` sem os recursos
- * do HIIT usa os de fábrica, e `alunosPorAula` ausente é a turma padrão.
+ * `catalogo` é o catálogo inteiro (força, HIIT e Cross); `limites` sem os
+ * recursos do HIIT ou do Cross/Hyrox usa os de fábrica, e `alunosPorAula`
+ * ausente é a turma padrão.
  */
 export function gerarSemana(entrada: {
   semanaId: string;
   catalogo: ReadonlyMap<string, ItemCatalogo>;
-  limites: Record<RecursoInventario, number> & Partial<Record<RecursoHiit, number>>;
+  limites: Record<RecursoInventario, number> & Partial<Record<RecursoBox, number>>;
   diasDaSemanaAnterior: unknown;
   variacao?: number;
   alunosPorAula?: number;
@@ -255,9 +305,10 @@ export function gerarSemana(entrada: {
 
   // O HIIT da semana. Proibidos: o bloco de força dos dias que têm HIIT.
   const sessaoDoDia = (dia: DiaSemana) => GRADE_SEMANAL[dia].find((t): t is SessaoH => (SESSOES_H as readonly string[]).includes(t));
-  const diasHiit = DIAS_SEMANA.filter((dia) => GRADE_SEMANAL[dia].includes('HIIT'));
+  const diasHiit = diasCom('HIIT');
   const alunosPorAula = entrada.alunosPorAula ?? ALUNOS_POR_AULA_PADRAO;
-  const limitesHiit = { ...INVENTARIO_HIIT_PADRAO, ...entrada.limites } as Record<RecursoHiit, number>;
+  const limitesBox = { ...PADRAO_BOX, ...entrada.limites } as Record<RecursoBox, number>;
+  const limitesHiit = limitesBox as Record<RecursoHiit, number>;
   const hiit = diasHiit.length ? gerarHiit({
     catalogo: entrada.catalogo, limites: limitesHiit, alunosPorAula,
     proibidos: new Set(diasHiit.flatMap((dia) => { const h = sessaoDoDia(dia); return h ? blocos[h] : []; })),
@@ -268,6 +319,20 @@ export function gerarSemana(entrada: {
   const hiitCru = hiit && {
     estacoes: hiit.estacoes.map((e) => ({ estacao: e.estacao, slots: e.slots.map((x) => ({ exercicioId: x.exercicioId })) })),
   };
+
+  // O WOD do Cross e o Hyrox: um de cada por semana, nos dias da grade que os têm.
+  const cross = diasCom('Cross').length ? gerarCross({
+    catalogo: entrada.catalogo, limites: limitesBox as Record<RecursoCross, number>, alunosPorAula,
+    semanaPassada: crossDaSemana(entrada.diasDaSemanaAnterior),
+    semente: `${entrada.semanaId}:Cross:${entrada.variacao ?? 0}`,
+  }) : null;
+  if (cross) avisos.push(...cross.avisos.map((a) => `Cross: ${a}`));
+  const hyrox = diasCom('Hyrox').length ? gerarHyrox({
+    limites: limitesBox,
+    semanaPassada: hyroxDaSemana(entrada.diasDaSemanaAnterior),
+    semente: `${entrada.semanaId}:Hyrox:${entrada.variacao ?? 0}`,
+  }) : null;
+  if (hyrox) avisos.push(...hyrox.avisos.map((a) => `Hyrox: ${a}`));
 
   const crus: Record<string, unknown> = {};
   for (const dia of DIAS_SEMANA) {
@@ -282,6 +347,8 @@ export function gerarSemana(entrada: {
       cadencia: PRESCRICAO_FORCA.cadencia,
       descansos: { ...PRESCRICAO_FORCA.descansos },
       hiit: treinos.includes('HIIT') ? hiitCru : null,
+      cross: treinos.includes('Cross') ? cross?.cru ?? null : null,
+      hyrox: treinos.includes('Hyrox') ? hyrox?.cru ?? null : null,
     };
   }
 
@@ -293,5 +360,7 @@ export function gerarSemana(entrada: {
     dias: lido.dias, alertas: alertasDaSemana(lido.dias, entrada.limites), trocas, avisos,
     alertasHiit: alertasHiitDaSemana(lido.dias, limitesHiit, alunosPorAula),
     hiitFora: hiit?.foraPorEquipamento ?? [],
+    alertasCross: alertasCrossDaSemana(lido.dias, limitesBox, alunosPorAula),
+    alertasHyrox: alertasHyroxDaSemana(lido.dias, limitesBox),
   };
 }

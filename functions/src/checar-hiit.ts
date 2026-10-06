@@ -16,7 +16,7 @@ import {
   type DiaSemana, type EstacaoHiit, type EstacaoProgramada, type ExercicioCatalogo, type ExercicioSoHiit, type ItemCatalogo, type RecursoHiit,
 } from './modelo-box';
 import {
-  aplicarInventario, diasComHiitGravado, intervaloDaSemana, lerDias, lerExercicioCatalogo, lerInventario, lerItemCatalogo,
+  aplicarInventario, diasComConteudoGravado, intervaloDaSemana, lerDias, lerExercicioCatalogo, lerInventario, lerItemCatalogo,
   lerHiit, problemasParaPublicar, reconferirSemana,
 } from './semana-box';
 import { conflitosDaTroca, diasPassadosAlterados } from './edicao-box';
@@ -457,12 +457,12 @@ console.log('\nA semana com o HIIT (gerar, salvar, publicar, reconferir)');
   // A troca manual do bloco H manda os dias SEM o hiit: o servidor preserva o gravado.
   const pedido = JSON.parse(JSON.stringify(w42.dias));
   for (const d of DIAS_SEMANA) delete pedido[d].hiit;
-  const preservado = diasComHiitGravado(pedido, w42.dias) as Record<string, { hiit?: unknown }>;
+  const preservado = diasComConteudoGravado(pedido, w42.dias) as Record<string, { hiit?: unknown }>;
   ok(igual(preservado.sabado.hiit, w42.dias.sabado.hiit) && igual(preservado.sexta.hiit, w42.dias.sexta.hiit),
     'troca manual do H (pedido sem hiit) mantém o HIIT gravado');
   const relidoPedido = lerDias(preservado, catalogo);
   ok('dias' in relidoPedido && igual(relidoPedido.dias.sabado.hiit, h), 'e a semana salva continua com o mesmo HIIT');
-  const apagar = diasComHiitGravado({ ...pedido, sabado: { ...pedido.sabado, hiit: null } }, w42.dias) as Record<string, { hiit?: unknown }>;
+  const apagar = diasComConteudoGravado({ ...pedido, sabado: { ...pedido.sabado, hiit: null } }, w42.dias) as Record<string, { hiit?: unknown }>;
   ok(apagar.sabado.hiit === null, '`hiit: null` no pedido apaga de propósito');
 
   // Trava de semana publicada: o HIIT de um dia que passou também não muda.

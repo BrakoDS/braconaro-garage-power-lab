@@ -56,19 +56,20 @@ import { alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
-  DIAS_SEMANA, ESTACOES_HIIT, EXERCICIOS_POR_BLOCO, MODALIDADES, SESSOES_H, SLOTS_POR_ESTACAO,
-  type AlertaEquipamento, type AlertaHiitDaSemana, type DiaProgramado, type DiaSemana, type ExercicioCatalogo,
+  DIAS_SEMANA, ESTACOES_HIIT, ESTACOES_HYROX, EXERCICIOS_POR_BLOCO, MODALIDADES, SESSOES_H, SLOTS_POR_ESTACAO,
+  type DiaProgramado, type DiaSemana, type ExercicioCatalogo,
   type FeedbackExercicio, type ItemCatalogo as ItemCatalogoBox, type Modalidade, type PedidoGerarMatriz, type PresencaAluno,
-  type RespostaGerarMatriz, type SessaoH,
+  type RecursoCross, type RespostaGerarMatriz, type SessaoH,
 } from './modelo-box';
 import {
-  alertasDaSemana, alertasHiitDaSemana, aplicarInventario, historicoComSessao, intervaloDaSemana, lerDias,
-  diasComHiitGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior,
-  semanaDoPedido, volumeDaSessao,
+  aplicarInventario, contaDaSemana, historicoComSessao, intervaloDaSemana, lerDias,
+  diasComConteudoGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, reconferirSemana, semanaAnterior,
+  semanaDoPedido, volumeDaSessao, type ContaDaSemana,
 } from './semana-box';
-import { gerarSemana, idsDaSemana, idsDoHiit } from './gerador-box';
+import { crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit } from './gerador-box';
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
 import { hiitTravado, opcoesDoHiit } from './edicao-hiit';
+import { conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
 
 initializeApp();
 
@@ -1936,9 +1937,11 @@ export const calcularConquistasXPDesafios = gatilhoDeConquistas('desafios');
 
 const EH_ID_CATALOGO = /^[a-z0-9_-]{1,100}$/;
 
-/** Os ids de exercício que aparecem nos `dias` crus — no máximo 6 por bloco e 16 por HIIT. */
+/** Os ids de exercício que aparecem nos `dias` crus — no máximo 6 por bloco, 16 por HIIT e 6 por WOD. */
 function idsDosDias(dias: unknown): string[] {
-  const d = (dias ?? {}) as Record<string, { blocoPrincipal?: unknown; hiit?: { estacoes?: unknown } | null } | undefined>;
+  const d = (dias ?? {}) as Record<string, {
+    blocoPrincipal?: unknown; hiit?: { estacoes?: unknown } | null; cross?: { movimentos?: unknown } | null;
+  } | undefined>;
   const ids: string[] = [];
   const juntar = (lista: unknown, max: number) => {
     if (!Array.isArray(lista)) return;
@@ -1953,13 +1956,15 @@ function idsDosDias(dias: unknown): string[] {
     if (Array.isArray(estacoes)) {
       for (const e of estacoes.slice(0, ESTACOES_HIIT.length)) juntar((e as { slots?: unknown } | null)?.slots, SLOTS_POR_ESTACAO);
     }
+    juntar(d[dia]?.cross?.movimentos, 6);
   }
   return ids;
 }
 
 /**
- * Os itens do catálogo com esses ids — de força e só de HIIT. Item torto fica
- * de fora (ver `lerItemCatalogo`); quem recusa só-HIIT no bloco de força é `lerDias`.
+ * Os itens do catálogo com esses ids — de força, só de HIIT e só de Cross. Item
+ * torto fica de fora (ver `lerItemCatalogo`); quem recusa item sem força no bloco
+ * de força é `lerDias`.
  */
 async function carregarCatalogo(db: Firestore, ids: string[]): Promise<Map<string, ItemCatalogoBox>> {
   const unicos = [...new Set(ids)];
@@ -1977,6 +1982,12 @@ async function carregarCatalogo(db: Firestore, ids: string[]): Promise<Map<strin
 function soForca(catalogo: ReadonlyMap<string, ItemCatalogoBox>): Map<string, ExercicioCatalogo> {
   return new Map([...catalogo].filter((par): par is [string, ExercicioCatalogo] => par[1].instancia !== null));
 }
+
+/** Os campos da conta da semana, como o documento os grava. */
+const camposDaConta = (c: ContaDaSemana) => ({
+  alertas: c.alertas, alertasHiit: c.alertasHiit, alertasCross: c.alertasCross, alertasHyrox: c.alertasHyrox,
+  problemasParaPublicar: c.problemasParaPublicar,
+});
 
 const refSemana = (db: Firestore, uid: string, semanaId: string) => db.doc(`coaches/${uid}/semanas/${semanaId}`);
 const refInventario = (db: Firestore, uid: string) => db.doc(`coaches/${uid}/inventario/atual`);
@@ -2011,19 +2022,18 @@ export const salvarSemanaBox = onCall(
       refInventario(db, uid).get(),
       anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
     ]);
-    const diasPedido = diasComHiitGravado(dados.dias, gravada.data()?.dias);
+    const diasPedido = diasComConteudoGravado(dados.dias, gravada.data()?.dias);
     const catalogo = await carregarCatalogo(db, idsDosDias(diasPedido));
     const lido = lerDias(diasPedido, catalogo);
     if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
     const { limitesAtivos: limitesUsados, alunosPorAula } = lerInventario(inv.data());
-    const alertas = alertasDaSemana(lido.dias, limitesUsados);
-    const alertasHiit = alertasHiitDaSemana(lido.dias, limitesUsados, alunosPorAula);
-    const problemas = problemasParaPublicar(lido.dias, alertas, alertasHiit, alunosPorAula);
+    const conta = contaDaSemana(lido.dias, limitesUsados, alunosPorAula);
+    const problemas = conta.problemasParaPublicar;
     const avisosEdicao = avisosDeEdicao(lido.dias, idsDaSemana(anterior?.data()?.dias));
 
     const status = await db.runTransaction(async (tx) => {
       const atual = (await tx.get(ref)).data();
-      // O HIIT preservado veio da leitura de fora da transação: se a semana mudou
+      // O HIIT, o WOD e o Hyrox preservados vieram da leitura de fora da transação: se a semana mudou
       // nesse meio-tempo (outra aba gerou de novo), o coach recarrega e refaz.
       if (JSON.stringify(atual?.dias ?? null) !== JSON.stringify(gravada.data()?.dias ?? null)) {
         throw new HttpsError('aborted', 'A semana mudou enquanto você editava. Recarregue e tente de novo.');
@@ -2049,10 +2059,8 @@ export const salvarSemanaBox = onCall(
         dataFim: Timestamp.fromMillis(intervalo.fimMs),
         anoMes: intervalo.anoMes,
         dias: lido.dias,
-        alertas,
-        alertasHiit,
+        ...camposDaConta(conta),
         alunosPorAula,
-        problemasParaPublicar: problemas,
         limitesUsados,
         avisosEdicao,
         atualizadoEm: FieldValue.serverTimestamp(),
@@ -2060,7 +2068,7 @@ export const salvarSemanaBox = onCall(
       });
       return publicada ? 'publicado' : 'rascunho';
     });
-    return { semanaId, status, dias: lido.dias, alertas, alertasHiit, problemasParaPublicar: problemas, avisosEdicao };
+    return { semanaId, status, dias: lido.dias, ...camposDaConta(conta), avisosEdicao };
   },
 );
 
@@ -2176,6 +2184,92 @@ export const opcoesTrocaHiitBox = onCall(
 );
 
 /**
+ * As opções para trocar UM movimento do WOD do Cross (`posicao` 1…n) — o pool
+ * do Cross, cada um com os conflitos calculados pela regra mista sobre o WOD
+ * já trocado (`edicao-cross.ts`). Só leitura: quem grava é `salvarSemanaBox`
+ * (`lerCross` recalcula a prescrição). Diz também se o WOD está TRAVADO
+ * (semana já publicada com o dia dele no passado) e se o dia é HOJE.
+ */
+export const opcoesTrocaCrossBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; posicao?: unknown };
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    const semanaId = dados.semanaId as string;
+    const posicao = Number(dados.posicao);
+    if (!Number.isInteger(posicao) || posicao < 1 || posicao > 6) throw new HttpsError('invalid-argument', 'Posição do movimento de 1 a 6.');
+
+    const db = getFirestore();
+    const anteriorId = semanaAnterior(semanaId);
+    const [semana, catalogo, inv, anterior] = await Promise.all([
+      refSemana(db, uid, semanaId).get(),
+      carregarCatalogoInteiro(db),
+      refInventario(db, uid).get(),
+      anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
+    ]);
+    const doc = semana.data();
+    if (!doc) throw new HttpsError('not-found', 'Gere a semana antes de editar.');
+
+    const { limitesAtivos, alunosPorAula } = lerInventario(inv.data());
+    const resultado = opcoesDoCross({
+      dias: doc.dias, posicao, catalogo, limites: limitesAtivos as Record<RecursoCross, number>, alunosPorAula,
+      semanaPassada: crossDaSemana(anterior?.data()?.dias).ids,
+    });
+    if (!resultado) throw new HttpsError('not-found', `Esta semana não tem o movimento ${posicao} no WOD.`);
+
+    const hoje = diaSaoPaulo();
+    const jaPublicada = doc.status === 'publicado' || !!doc.publicadoEm;
+    return {
+      semanaId,
+      ...resultado,
+      travada: jaPublicada && conteudoTravado(doc.dias, 'cross', intervalo.datas, hoje),
+      temHoje: resultado.vaga.dias.some((d) => intervalo.datas[d] === hoje),
+      publicada: doc.status === 'publicado',
+    };
+  },
+);
+
+/**
+ * A troca de UMA estação do Hyrox entre ela e a substituta dela, com o
+ * equipamento conferido (`edicao-cross.ts`). Só leitura: quem grava é
+ * `salvarSemanaBox` (`lerHyrox` recalcula a prescrição com o formato). Diz
+ * também se o Hyrox está TRAVADO e se o dia dele é HOJE.
+ */
+export const opcoesTrocaHyroxBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; estacao?: unknown };
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    const semanaId = dados.semanaId as string;
+    if (!(ESTACOES_HYROX as readonly unknown[]).includes(dados.estacao)) {
+      throw new HttpsError('invalid-argument', `Estação: ${ESTACOES_HYROX.join(', ')}.`);
+    }
+
+    const db = getFirestore();
+    const [semana, inv] = await Promise.all([refSemana(db, uid, semanaId).get(), refInventario(db, uid).get()]);
+    const doc = semana.data();
+    if (!doc) throw new HttpsError('not-found', 'Gere a semana antes de editar.');
+
+    const resultado = opcoesDoHyrox({ dias: doc.dias, estacao: dados.estacao as string, limites: lerInventario(inv.data()).limitesAtivos });
+    if (!resultado) throw new HttpsError('not-found', `O Hyrox desta semana não tem a estação ${dados.estacao}.`);
+
+    const hoje = diaSaoPaulo();
+    const jaPublicada = doc.status === 'publicado' || !!doc.publicadoEm;
+    return {
+      semanaId,
+      ...resultado,
+      travada: jaPublicada && conteudoTravado(doc.dias, 'hyrox', intervalo.datas, hoje),
+      temHoje: resultado.vaga.dias.some((d) => intervalo.datas[d] === hoje),
+      publicada: doc.status === 'publicado',
+    };
+  },
+);
+
+/**
  * Publica (ou volta para rascunho) uma semana salva.
  *
  * Publicar RECALCULA tudo com o catálogo e o inventário de AGORA: se um smith
@@ -2205,29 +2299,27 @@ export const publicarSemanaBox = onCall(
     const lido = lerDias(gravado, catalogo);
     if ('erro' in lido) throw new HttpsError('failed-precondition', `A semana salva não fecha mais com o catálogo: ${lido.erro}`);
     const { limitesAtivos: limitesUsados, alunosPorAula } = lerInventario(inv.data());
-    const alertas = alertasDaSemana(lido.dias, limitesUsados);
-    const alertasHiit = alertasHiitDaSemana(lido.dias, limitesUsados, alunosPorAula);
-    const problemas = problemasParaPublicar(lido.dias, alertas, alertasHiit, alunosPorAula);
-    if (problemas.length) {
+    const conta = contaDaSemana(lido.dias, limitesUsados, alunosPorAula);
+    if (conta.problemasParaPublicar.length) {
       // Grava a conta nova ANTES de recusar: se o inventário mudou desde o
       // rascunho (um smith entrou em manutenção), a tela tem de mostrar o
       // alerta de agora, e não o de quando a semana foi gerada.
       await ref.update({
-        alertas, alertasHiit, alunosPorAula, problemasParaPublicar: problemas, limitesUsados,
+        ...camposDaConta(conta), alunosPorAula, limitesUsados,
         atualizadoEm: FieldValue.serverTimestamp(),
       });
-      throw new HttpsError('failed-precondition', problemas.join(' '));
+      throw new HttpsError('failed-precondition', conta.problemasParaPublicar.join(' '));
     }
 
     await ref.update({
-      status: 'publicado', dias: lido.dias, alertas, alertasHiit, alunosPorAula, problemasParaPublicar: [], limitesUsados,
+      status: 'publicado', dias: lido.dias, ...camposDaConta(conta), alunosPorAula, limitesUsados,
       publicadoEm: FieldValue.serverTimestamp(), atualizadoEm: FieldValue.serverTimestamp(),
     });
     return { semanaId, status: 'publicado' as const };
   },
 );
 
-/** O catálogo inteiro (~70 documentos, força e só HIIT). Item torto fica de fora. */
+/** O catálogo inteiro (~80 documentos: força, só HIIT e só Cross). Item torto fica de fora. */
 async function carregarCatalogoInteiro(db: Firestore): Promise<Map<string, ItemCatalogoBox>> {
   const snap = await db.collection('catalogoExercicios').get();
   const mapa = new Map<string, ItemCatalogoBox>();
@@ -2278,7 +2370,7 @@ export const gerarMatrizSemanalBox = onCall(
       semanaId, catalogo, limites: limitesUsados, alunosPorAula,
       diasDaSemanaAnterior: anterior?.data()?.dias, variacao,
     });
-    const problemas = problemasParaPublicar(gerado.dias, gerado.alertas, gerado.alertasHiit, alunosPorAula);
+    const conta = contaDaSemana(gerado.dias, limitesUsados, alunosPorAula);
     const semanaAnteriorUsada = anterior?.exists ? anteriorId : null;
 
     const ref = refSemana(db, uid, semanaId);
@@ -2296,10 +2388,8 @@ export const gerarMatrizSemanalBox = onCall(
         dataFim: Timestamp.fromMillis(intervalo.fimMs),
         anoMes: intervalo.anoMes,
         dias: gerado.dias,
-        alertas: gerado.alertas,
-        alertasHiit: gerado.alertasHiit,
+        ...camposDaConta(conta),
         alunosPorAula,
-        problemasParaPublicar: problemas,
         limitesUsados,
         // O que o sorteio decidiu fica NA semana: a tela que reabre o rascunho
         // amanhã precisa mostrar as trocas que a trava de equipamento fez.
@@ -2314,20 +2404,21 @@ export const gerarMatrizSemanalBox = onCall(
       });
     });
     logger.info('Semana do box gerada.', {
-      uid, semanaId, anteriorId, trocas: gerado.trocas.length, alertas: gerado.alertas.length, alertasHiit: gerado.alertasHiit.length,
+      uid, semanaId, anteriorId, trocas: gerado.trocas.length, alertas: conta.alertas.length, alertasHiit: conta.alertasHiit.length,
+      alertasCross: conta.alertasCross.length, alertasHyrox: conta.alertasHyrox.length,
     });
     return {
       semanaId, status: 'rascunho', semanaAnterior: semanaAnteriorUsada,
-      dias: gerado.dias, alertas: gerado.alertas, trocas: gerado.trocas, avisos: gerado.avisos,
-      problemasParaPublicar: problemas, limitesUsados,
-      alertasHiit: gerado.alertasHiit, alunosPorAula, hiitFora: gerado.hiitFora,
+      dias: gerado.dias, ...camposDaConta(conta), trocas: gerado.trocas, avisos: gerado.avisos,
+      limitesUsados, alunosPorAula, hiitFora: gerado.hiitFora,
     };
   },
 );
 
 /**
  * Atualiza total / em manutenção / observação dos recursos que limitam a semana
- * (os do bloco H e os do HIIT) e o tamanho da turma (`alunosPorAula`, só HIIT).
+ * (os do bloco H, os do HIIT e os do Cross/Hyrox) e o tamanho da turma
+ * (`alunosPorAula`: HIIT e WOD do Cross).
  */
 export const salvarInventarioBox = onCall(
   { timeoutSeconds: 30, memory: '256MiB' },
@@ -2349,7 +2440,7 @@ export const salvarInventarioBox = onCall(
     // gerada — inclusive na PUBLICADA, que NÃO é despublicada aqui (decisão do
     // coach). Fora da transação de propósito: o inventário salvo é o que importa;
     // se a reconferência falhar, a tela avisa e a publicação ainda reconfere.
-    let semanasAfetadas: { semanaId: string; status: string; alertas: AlertaEquipamento[]; alertasHiit: AlertaHiitDaSemana[] }[] | null = [];
+    let semanasAfetadas: ({ semanaId: string; status: string } & Omit<ContaDaSemana, 'problemasParaPublicar'>)[] | null = [];
     let reconferidas = 0;
     try {
       const abertas = await db.collection(`coaches/${uid}/semanas`).where('dataFim', '>=', Timestamp.now()).get();
@@ -2359,12 +2450,14 @@ export const salvarInventarioBox = onCall(
         if (!r) continue;
         reconferidas++;
         lote.update(s.ref, {
-          alertas: r.alertas, alertasHiit: r.alertasHiit, alunosPorAula: inventario.alunosPorAula,
-          problemasParaPublicar: r.problemasParaPublicar,
+          ...camposDaConta(r), alunosPorAula: inventario.alunosPorAula,
           limitesUsados: inventario.limitesAtivos, atualizadoEm: FieldValue.serverTimestamp(),
         });
-        if (r.alertas.length || r.alertasHiit.length) {
-          semanasAfetadas.push({ semanaId: s.id, status: String(s.data().status ?? ''), alertas: r.alertas, alertasHiit: r.alertasHiit });
+        if (r.alertas.length || r.alertasHiit.length || r.alertasCross.length || r.alertasHyrox.length) {
+          semanasAfetadas.push({
+            semanaId: s.id, status: String(s.data().status ?? ''),
+            alertas: r.alertas, alertasHiit: r.alertasHiit, alertasCross: r.alertasCross, alertasHyrox: r.alertasHyrox,
+          });
         }
       }
       if (reconferidas) await lote.commit();

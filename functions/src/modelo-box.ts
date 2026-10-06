@@ -20,8 +20,8 @@
  *    igual para todo coach, com instância de movimento e adaptações.
  *  - `academia/{uid}.inventario`: o inventário completo que a tela da Academia
  *    edita (37 itens, com cargas). O daqui guarda só os recursos que
- *    LIMITAM a montagem da semana (os 5 do bloco H e os 9 do HIIT) e o tamanho
- *    da turma.
+ *    LIMITAM a montagem da semana (os 5 do bloco H, os 9 do HIIT e os 2 só do
+ *    Cross/Hyrox) e o tamanho da turma.
  *
  * Os tipos usam o `Timestamp` do Admin SDK. Os clientes têm o Timestamp do SDK
  * web, que tem a mesma forma de leitura (`toDate()`, `seconds`).
@@ -102,9 +102,31 @@ export const RECURSOS_HIIT = [
 ] as const;
 export type RecursoHiit = (typeof RECURSOS_HIIT)[number];
 
-/** Tudo o que o inventário guarda: os recursos do bloco H e os do HIIT. */
-export const RECURSOS_BOX = [...RECURSOS_INVENTARIO, ...RECURSOS_HIIT] as const;
-export type RecursoBox = RecursoInventario | RecursoHiit;
+/**
+ * Os recursos que SÓ o Cross e o Hyrox usam (06/10/2026). O resto do que eles
+ * pegam (kettlebell, wall ball, sandbag, monocross…) é o MESMO equipamento do
+ * HIIT e do bloco H, contado nas mesmas linhas do inventário: um kettlebell é
+ * um kettlebell, em qualquer aula.
+ *  - `barraOlimpica`: barra com anilhas, um aluno por barra. Sem rack no box —
+ *    todo movimento de barra sai do chão.
+ *  - `sled`: o trenó do Hyrox, no turf.
+ */
+export const RECURSOS_CROSS_HYROX = ['barraOlimpica', 'sled'] as const;
+export type RecursoCrossHyrox = (typeof RECURSOS_CROSS_HYROX)[number];
+
+/** Tudo o que o inventário guarda: os recursos do bloco H, os do HIIT e os do Cross/Hyrox. */
+export const RECURSOS_BOX = [...RECURSOS_INVENTARIO, ...RECURSOS_HIIT, ...RECURSOS_CROSS_HYROX] as const;
+export type RecursoBox = RecursoInventario | RecursoHiit | RecursoCrossHyrox;
+
+/** Unidades de fábrica dos recursos só do Cross/Hyrox (cadastro antigo: 4 barras, 1 trenó). */
+export const INVENTARIO_CROSS_HYROX_PADRAO: Readonly<Record<RecursoCrossHyrox, number>> = {
+  barraOlimpica: 4,
+  sled: 1,
+};
+
+/** O que limita o WOD do Cross: os recursos do HIIT e as barras. */
+export type RecursoCross = RecursoHiit | 'barraOlimpica';
+export const RECURSOS_CROSS: readonly RecursoCross[] = [...RECURSOS_HIIT, 'barraOlimpica'];
 
 /**
  * Recursos do HIIT FIXOS NO ESPAÇO: as unidades ficam ancoradas juntas (os 2
@@ -142,6 +164,8 @@ export const OBSERVACAO_PADRAO: Readonly<Partial<Record<RecursoBox, string>>> = 
   sandbag: '20 kg',
   trx: 'instalados',
   halteres: 'pares, torres de 1 a 10 kg',
+  barraOlimpica: '2× 2,0 m · 2× 1,5 m, com anilhas',
+  sled: 'no turf de 5 m',
 };
 
 /** Que recurso do HIIT cada equipamento consome. Equipamento fora daqui não limita o HIIT. */
@@ -155,6 +179,12 @@ export const RECURSO_HIIT_DO_EQUIPAMENTO: Readonly<Partial<Record<Equipamento, R
   air_bike: 'airbike',
   trx: 'trx',
   halteres: 'halteres',
+};
+
+/** Que recurso do Cross cada equipamento consome: os do HIIT e a barra. */
+export const RECURSO_CROSS_DO_EQUIPAMENTO: Readonly<Partial<Record<Equipamento, RecursoCross>>> = {
+  ...RECURSO_HIIT_DO_EQUIPAMENTO,
+  barra: 'barraOlimpica',
 };
 
 /**
@@ -250,13 +280,13 @@ export const VAGAS_COMPOSTO_PESADO: Readonly<Record<SessaoH, readonly number[]>>
 export const DESCANSO_POR_INSTANCIA: Readonly<Partial<Record<Instancia, number>>> = { estabilizar_tronco: 45 };
 
 /**
- * Como cada sessão metabólica aparece no dia. O CONTEÚDO (movimentos) ainda é
- * do coach: os templates de Hyrox/HIIT/WOD do montador antigo não foram portados.
+ * Como cada sessão metabólica aparece no dia (o cabeçalho). O conteúdo mora em
+ * `DiaProgramado.hiit`, `.cross` e `.hyrox`, montado pelo gerador.
  * Textos de `compartilhado/config/modalidades.js` e `config/wod-formatos.js`.
  */
 export const FORMATO_METABOLICO: Readonly<Record<SessaoMetabolica, { formato: string; descricao: string }>> = {
-  Cross: { formato: 'WOD', descricao: 'AMRAP, EMOM, For Time ou Chipper — movimentos a definir pelo coach.' },
-  Hyrox: { formato: 'For Time', descricao: 'Formato da competição: corrida intercalada com estações funcionais.' },
+  Cross: { formato: 'WOD', descricao: 'AMRAP, EMOM, For Time ou Chipper, com RX e Scaled.' },
+  Hyrox: { formato: 'For Time', descricao: 'Formato da competição: corrida intercalada com estações funcionais, em 4 níveis.' },
   HIIT: { formato: 'TABATA', descricao: '4 estações TABATA (Pernas · Core · Superiores · Cardio), 16 rounds cada.' },
 };
 
@@ -283,6 +313,212 @@ export const SLOTS_POR_ESTACAO = 4;
 /** O texto que o app e a lousa mostram em cada estação. Ditado pelo coach. */
 export const PROTOCOLO_HIIT = '2 Músicas de Tabata (16 rounds no total). 4x cada exercício.';
 
+/* ───────────────────────── CROSS (decisão do coach, 06/10/2026) ───────────────────────── */
+
+export const FORMATOS_CROSS = ['AMRAP', 'EMOM', 'For Time', 'Chipper'] as const;
+export type FormatoCross = (typeof FORMATOS_CROSS)[number];
+
+/**
+ * Padrão dominante de um movimento do WOD. Um WOD não repete padrão (dois
+ * hinges seguidos acabam com a lombar) e tem ao menos um `cardio` (o
+ * monoestrutural: corrida, air bike, corda).
+ */
+export const PADROES_CROSS = ['cardio', 'agachar', 'quadril', 'empurrar', 'puxar', 'corpo_todo', 'olimpico', 'core'] as const;
+export type PadraoCross = (typeof PADROES_CROSS)[number];
+
+export const UNIDADES_CROSS = ['reps', 'metros', 'calorias', 'segundos'] as const;
+export type UnidadeCross = (typeof UNIDADES_CROSS)[number];
+
+/**
+ * Cada formato do WOD:
+ *  - `movimentos`: quantos o gerador sorteia ([mín, máx]); abaixo do mínimo a semana não publica;
+ *  - `fator`: multiplica o RX-base do catálogo (a quantidade de UMA rodada de AMRAP);
+ *  - `escalonado`: a turma se ESPALHA pelos movimentos (AMRAP, For Time,
+ *    Chipper: cada aluno está num ponto do WOD) ou faz TODA o mesmo movimento
+ *    no mesmo minuto (EMOM). Muda a conta de equipamento — ver `conta-cross.ts`.
+ */
+export const REGRA_FORMATO_CROSS: Readonly<Record<FormatoCross, {
+  movimentos: readonly [number, number]; fator: number; escalonado: boolean; descricao: string;
+}>> = {
+  AMRAP: {
+    movimentos: [3, 4], fator: 1, escalonado: true,
+    descricao: 'Máximo de rodadas possíveis no tempo — o cronômetro corre até o fim.',
+  },
+  EMOM: {
+    movimentos: [3, 4], fator: 0.6, escalonado: false,
+    descricao: 'A cada minuto, um movimento na ordem; a lista reinicia até fechar o tempo. Descanse o que sobrar do minuto.',
+  },
+  'For Time': {
+    movimentos: [3, 4], fator: 1, escalonado: true,
+    descricao: 'Complete as rodadas o mais rápido possível, dentro do time cap.',
+  },
+  Chipper: {
+    movimentos: [5, 5], fator: 2.5, escalonado: true,
+    descricao: 'Uma lista longa, na ordem, cada movimento uma vez só — dentro do time cap.',
+  },
+};
+
+/** Scaled = RX × este fator (−30%), arredondado como o RX. Decisão do coach, 06/10/2026. */
+export const FATOR_SCALED = 0.7;
+
+/** Duração do WOD (AMRAP, EMOM) ou time cap (For Time, Chipper), em minutos. */
+export const MINUTOS_CROSS = { min: 5, max: 60 } as const;
+/** Rodadas do For Time e voltas na lista do EMOM. */
+export const RODADAS_CROSS = { min: 1, max: 10 } as const;
+
+/** Como um exercício entra no WOD do Cross. */
+export interface DadosCross {
+  padrao: PadraoCross;
+  unidade: UnidadeCross;
+  /** RX de UMA rodada de AMRAP. Os outros formatos multiplicam por `REGRA_FORMATO_CROSS[f].fator`. */
+  rx: number;
+  /** Texto da carga, quando o movimento tem carga ('40/30 kg' = homem/mulher). */
+  carga?: { rx: string; scaled: string };
+  /** Unidades por ALUNO, quando não for 1 de cada recurso dos `equipamentos` (farmer = 2 kettlebells). */
+  consumoPorAluno?: Partial<Record<RecursoCross, number>>;
+}
+
+/** Um movimento do WOD, como gravado. Tudo CALCULADO do catálogo e do formato, menos o id. */
+export interface MovimentoCross {
+  exercicioId: string;
+  nome: string;
+  padrao: PadraoCross;
+  unidade: UnidadeCross;
+  rx: number;
+  scaled: number;
+  /** Unilateral: a quantidade é POR LADO. */
+  porLado: boolean;
+  carga: { rx: string; scaled: string } | null;
+  /** Para a reconferência do inventário não reler o catálogo, como no HIIT. */
+  consumoPorAluno: Partial<Record<RecursoCross, number>>;
+}
+
+/** O WOD do Cross da semana. */
+export interface WodProgramado {
+  formato: FormatoCross;
+  /** `REGRA_FORMATO_CROSS[formato].descricao`. */
+  descricao: string;
+  /** AMRAP/EMOM: duração. For Time/Chipper: time cap. No EMOM é movimentos × rodadas. */
+  minutos: number;
+  /** For Time: rodadas. EMOM: voltas na lista. AMRAP e Chipper: null. */
+  rodadas: number | null;
+  movimentos: MovimentoCross[];
+}
+
+/** Equipamento do WOD acima do limite. `exercicios` são os movimentos que somam (ou o que sozinho passa, no EMOM). */
+export interface AlertaCross {
+  recurso: RecursoCross;
+  usado: number;
+  limite: number;
+  exercicios: string[];
+}
+export interface AlertaCrossDaSemana extends AlertaCross {
+  dias: DiaSemana[];
+}
+
+/* ───────────────────────── HYROX (decisão do coach, 06/10/2026) ───────────────────────── */
+
+/** Os 4 níveis do Hyrox. 'competicao' é a prescrição de prova (1 km por corrida). */
+export const NIVEIS_HYROX = ['iniciante', 'intermediario', 'avancado', 'competicao'] as const;
+export type NivelHyrox = (typeof NIVEIS_HYROX)[number];
+export const NOME_NIVEL_HYROX: Readonly<Record<NivelHyrox, string>> = {
+  iniciante: 'Iniciante', intermediario: 'Intermediário', avancado: 'Avançado', competicao: 'Competição',
+};
+
+/** As 8 estações da prova, NA ORDEM da prova. Os dados de cada uma estão em `catalogo-hyrox.ts`. */
+export const ESTACOES_HYROX = [
+  'skierg', 'sled_push', 'sled_pull', 'burpee_broad_jump', 'remo', 'farmers_carry', 'sandbag_lunges', 'wall_ball',
+] as const;
+export type EstacaoHyrox = (typeof ESTACOES_HYROX)[number];
+
+export const TIPOS_HYROX = ['reps', 'metros', 'calorias', 'segundos'] as const;
+export type TipoHyrox = (typeof TIPOS_HYROX)[number];
+
+export const FORMATOS_HYROX = ['prova', 'metadeA', 'metadeB', 'compromised'] as const;
+export type FormatoHyrox = (typeof FORMATOS_HYROX)[number];
+
+/**
+ * Os formatos do Hyrox, em rodízio semana a semana:
+ *  - `estacoes`: as estações FIXAS do formato, ou um número = quantas o gerador sorteia das 8;
+ *  - `rodadas`: quantas vezes a lista de estações se repete;
+ *  - `fatorCorrida` / `fatorEstacao`: multiplicam a prescrição do nível.
+ */
+export const REGRA_FORMATO_HYROX: Readonly<Record<FormatoHyrox, {
+  nome: string; descricao: string; estacoes: readonly EstacaoHyrox[] | number;
+  rodadas: number; fatorCorrida: number; fatorEstacao: number;
+}>> = {
+  prova: {
+    nome: 'Prova completa',
+    descricao: 'As 8 estações na ordem da prova, com uma corrida antes de cada uma. For time.',
+    estacoes: ESTACOES_HYROX, rodadas: 1, fatorCorrida: 1, fatorEstacao: 1,
+  },
+  metadeA: {
+    nome: 'Metade A',
+    descricao: 'Estações 1 a 4 da prova, com a corrida dobrada antes de cada uma. For time.',
+    estacoes: ESTACOES_HYROX.slice(0, 4), rodadas: 1, fatorCorrida: 2, fatorEstacao: 1,
+  },
+  metadeB: {
+    nome: 'Metade B',
+    descricao: 'Estações 5 a 8 da prova, com a corrida dobrada antes de cada uma. For time.',
+    estacoes: ESTACOES_HYROX.slice(4), rodadas: 1, fatorCorrida: 2, fatorEstacao: 1,
+  },
+  compromised: {
+    nome: 'Compromised running',
+    descricao: '4 estações sorteadas, 2 rodadas: corrida + metade da estação, sem pausa. Treina correr cansado.',
+    estacoes: 4, rodadas: 2, fatorCorrida: 1, fatorEstacao: 0.5,
+  },
+};
+
+/** A corrida de UMA rodada num nível, com a alternativa na air bike (mesmo esforço, sem impacto). */
+export interface CorridaHyrox {
+  metros: number;
+  bikeSeg: number;
+}
+
+/** Uma estação do Hyrox como gravada. Tudo CALCULADO de `catalogo-hyrox.ts` e do formato, menos `estacao` e `substituta`. */
+export interface EstacaoHyroxProgramada {
+  estacao: EstacaoHyrox;
+  /** Posição na prova, 1 a 8. */
+  n: number;
+  /** O da estação ou, com `substituta`, o da substituta. */
+  nome: string;
+  /** A estação da competição ('Sled Push'). */
+  base: string;
+  tipo: TipoHyrox;
+  prescricao: Record<NivelHyrox, number>;
+  carga: string;
+  nota: string;
+  /** A estação foi trocada pela substituta (equipamento em manutenção, ou escolha do coach). */
+  substituta: boolean;
+  /** Unidades de cada recurso que a estação precisa ativas. */
+  recursos: Partial<Record<RecursoBox, number>>;
+}
+
+/** O Hyrox da semana. */
+export interface HyroxProgramado {
+  formato: FormatoHyrox;
+  nome: string;
+  descricao: string;
+  rodadas: number;
+  /** Corrida antes de cada estação, por nível (já com o `fatorCorrida`). */
+  corrida: Record<NivelHyrox, CorridaHyrox>;
+  /** Na ordem da prova. */
+  estacoes: EstacaoHyroxProgramada[];
+}
+
+/** Estação do Hyrox sem o equipamento que precisa (sled em manutenção). */
+export interface AlertaHyrox {
+  estacao: EstacaoHyrox;
+  recurso: RecursoBox;
+  precisa: number;
+  limite: number;
+  /** A estação tem substituta (e ela não está em uso) — a tela oferece a troca. */
+  temSubstituta: boolean;
+}
+export interface AlertaHyroxDaSemana extends AlertaHyrox {
+  dias: DiaSemana[];
+}
+
 /* ───────────────────────── catalogoExercicios/{id} ───────────────────────── */
 
 export interface ExercicioCatalogo {
@@ -299,6 +535,8 @@ export interface ExercicioCatalogo {
   unilateral?: boolean;
   /** Só nos exercícios que servem ao HIIT. */
   hiit?: DadosHiit;
+  /** Só nos exercícios que servem ao WOD do Cross. */
+  cross?: DadosCross;
 }
 
 /**
@@ -316,17 +554,27 @@ export interface DadosHiit {
 }
 
 /**
- * Exercício que só existe no HIIT (burpee, air bike): não ocupa vaga de força,
- * então não tem instância. O bloco H nunca o vê — `lerExercicioCatalogo` o
- * descarta, e só `lerItemCatalogo` o lê.
+ * Exercício que não ocupa vaga de força (burpee, air bike, power clean), então
+ * não tem instância: serve ao HIIT, ao Cross ou aos dois — e tem `hiit` ou
+ * `cross`. O bloco H nunca o vê — `lerExercicioCatalogo` o descarta, e só
+ * `lerItemCatalogo` o lê.
  */
-export interface ExercicioSoHiit extends Omit<ExercicioCatalogo, 'instancia' | 'hiit'> {
+export interface ExercicioSemForca extends Omit<ExercicioCatalogo, 'instancia'> {
   instancia: null;
+}
+
+/** Exercício sem força que serve ao HIIT (`catalogo-hiit.ts`). */
+export interface ExercicioSoHiit extends ExercicioSemForca {
   hiit: DadosHiit;
 }
 
-/** Um documento de `catalogoExercicios/`: de força (com instância) ou só de HIIT. */
-export type ItemCatalogo = ExercicioCatalogo | ExercicioSoHiit;
+/** Exercício sem força que só serve ao Cross (`catalogo-cross.ts`). */
+export interface ExercicioSoCross extends ExercicioSemForca {
+  cross: DadosCross;
+}
+
+/** Um documento de `catalogoExercicios/`: de força (com instância) ou sem força (HIIT e/ou Cross). */
+export type ItemCatalogo = ExercicioCatalogo | ExercicioSemForca;
 
 /* ───────────────────── coaches/{uid}/semanas/{AAAA-Www} ───────────────────── */
 
@@ -390,6 +638,10 @@ export interface DiaProgramado {
    * dia só sinaliza o HIIT (`blocosMetabolicos`) e o coach passa na aula.
    */
   hiit: HiitProgramado | null;
+  /** O WOD, só em dia com Cross na grade. `null` em semana de antes do gerador do Cross. */
+  cross: WodProgramado | null;
+  /** O Hyrox, só em dia com Hyrox na grade. `null` em semana de antes do gerador do Hyrox. */
+  hyrox: HyroxProgramado | null;
 }
 
 /** Um slot de estação do HIIT. Unilateral aparece em dois slots seguidos, D e depois E. */
@@ -468,7 +720,11 @@ export interface SemanaBox {
   alertas: AlertaEquipamento[];
   /** CALCULADO: equipamento do HIIT acima do limite. Também impede publicar. */
   alertasHiit: AlertaHiitDaSemana[];
-  /** CALCULADO: a turma usada na conta do HIIT (`alunosPorAula` do inventário). */
+  /** CALCULADO: equipamento do WOD acima do limite. Também impede publicar. */
+  alertasCross: AlertaCrossDaSemana[];
+  /** CALCULADO: estação do Hyrox sem o equipamento. Também impede publicar. */
+  alertasHyrox: AlertaHyroxDaSemana[];
+  /** CALCULADO: a turma usada na conta do HIIT e do Cross (`alunosPorAula` do inventário). */
   alunosPorAula: number;
   /** CALCULADO: por que ainda não publica (vazio = pode). A tela mostra, quem decide é `publicarSemanaBox`. */
   problemasParaPublicar: string[];
@@ -532,6 +788,8 @@ export interface RespostaGerarMatriz {
   alertasHiit: AlertaHiitDaSemana[];
   alunosPorAula: number;
   hiitFora: ForaPorEquipamento[];
+  alertasCross: AlertaCrossDaSemana[];
+  alertasHyrox: AlertaHyroxDaSemana[];
 }
 
 export interface AlertaEquipamento {
