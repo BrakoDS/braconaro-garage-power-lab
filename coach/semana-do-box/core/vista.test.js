@@ -232,7 +232,7 @@ test('HIIT: a faixa da semana vem das estações gravadas na sexta e no sábado'
 });
 
 test('HIIT: textos dos alertas, com e sem o nome dos exercícios', () => {
-  const nomes = nomesDoHiit(HIIT);
+  const nomes = new Map([['flexao_trx', 'Flexão no TRX'], ['fallout_trx', 'Fallout no TRX']]);
   const slot = { recurso: 'trx', usado: 4, limite: 2, slot: 2, exercicios: ['flexao_trx', 'fallout_trx'], dias: ['sexta', 'sabado'] };
   assert.equal(textoAlertaHiit(slot, nomes),
     'Limite de TRX atingido no slot 2 do HIIT (sexta e sábado): 4 em uso, 2 ativos — Flexão no TRX + Fallout no TRX.');
@@ -243,23 +243,38 @@ test('HIIT: textos dos alertas, com e sem o nome dos exercícios', () => {
     'Clean com sandbag no HIIT (sexta e sábado) precisa sozinho de 2 Sandbags: 1 ativo.');
   assert.equal(textoAlertaHiit(sozinho), 'Um exercício no HIIT (sexta e sábado) precisa sozinho de 2 Sandbags: 1 ativo.');
   assert.equal(textoForaDoHiit(HIIT.geracao.hiitFora[0]), 'Clean com sandbag: precisa de 2 Sandbags, o box tem 1 ativo.');
+  const espacial = {
+    recurso: 'trx', usado: 2, limite: 1, slot: null, exercicios: ['flexao_trx', 'fallout_trx'],
+    estacoes: ['superiores', 'core'], dias: ['sexta', 'sabado'],
+  };
+  assert.equal(textoAlertaHiit(espacial, nomes),
+    'TRX fica fixo numa estação só, mas o HIIT (sexta e sábado) o usa em 2 estações: Superiores e Core — Flexão no TRX + Fallout no TRX.');
+  assert.equal(textoAlertaHiit(espacial), 'TRX fica fixo numa estação só, mas o HIIT (sexta e sábado) o usa em 2 estações: Superiores e Core.',
+    'no aviso do inventário, sem os nomes');
+});
+
+test('HIIT: o fixture (gerador real) põe o TRX numa estação só', () => {
+  const comTrx = HIIT.dias.sabado.hiit.estacoes.filter((e) => e.slots.some((x) => x.consumoPorAluno.trx));
+  assert.equal(comTrx.length, 1);
 });
 
 test('HIIT: slots em alerta e o total de alertas da semana', () => {
   assert.equal(slotsEmAlertaHiit(HIIT).size, 0, 'semana gerada sem alerta: nada marcado');
-  const superiores = HIIT.dias.sabado.hiit.estacoes.find((e) => e.estacao === 'superiores');
-  const iTrx = superiores.slots.findIndex((x) => x.exercicioId === 'flexao_trx');
+  // A estação e o slot do exercício com TRX no fixture (o gerador decide qual).
+  const comTrx = HIIT.dias.sabado.hiit.estacoes.find((e) => e.slots.some((x) => x.consumoPorAluno.trx));
+  const iTrx = comTrx.slots.findIndex((x) => x.consumoPorAluno.trx);
+  const idTrx = comTrx.slots[iTrx].exercicioId;
   const pernas = HIIT.dias.sabado.hiit.estacoes.find((e) => e.estacao === 'pernas');
   const uni = pernas.slots.find((x) => x.lado === 'D').exercicioId;
   const doc = {
     ...HIIT,
     alertasHiit: [
-      { recurso: 'trx', usado: 4, limite: 2, slot: iTrx + 1, exercicios: ['flexao_trx'], dias: ['sexta', 'sabado'] },
+      { recurso: 'trx', usado: 4, limite: 2, slot: iTrx + 1, exercicios: [idTrx], dias: ['sexta', 'sabado'] },
       { recurso: 'caixote', usado: 2, limite: 1, slot: null, exercicios: [uni], dias: ['sexta', 'sabado'] },
     ],
   };
   const m = slotsEmAlertaHiit(doc);
-  assert.ok(m.has(`superiores:${iTrx}`), 'alerta de slot marca o exercício daquele slot');
+  assert.ok(m.has(`${comTrx.estacao}:${iTrx}`), 'alerta de slot marca o exercício daquele slot');
   const lados = pernas.slots.map((x, i) => (x.exercicioId === uni ? i : -1)).filter((i) => i >= 0);
   assert.equal(lados.length, 2);
   assert.ok(lados.every((i) => m.has(`pernas:${i}`)), 'alerta de exercício sozinho marca os dois lados do unilateral');

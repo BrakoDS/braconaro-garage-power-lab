@@ -436,14 +436,6 @@
                 "lado": null
               },
               {
-                "exercicioId": "flexao_trx",
-                "nome": "Flexão no TRX",
-                "consumoPorAluno": {
-                  "trx": 1
-                },
-                "lado": null
-              },
-              {
                 "exercicioId": "thruster_wallball",
                 "nome": "Thruster com wall ball",
                 "consumoPorAluno": {
@@ -454,6 +446,12 @@
               {
                 "exercicioId": "flexao",
                 "nome": "Flexão de braço",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "flexao_pike",
+                "nome": "Flexão pike",
                 "consumoPorAluno": {},
                 "lado": null
               }
@@ -664,14 +662,6 @@
                 "lado": null
               },
               {
-                "exercicioId": "flexao_trx",
-                "nome": "Flexão no TRX",
-                "consumoPorAluno": {
-                  "trx": 1
-                },
-                "lado": null
-              },
-              {
                 "exercicioId": "thruster_wallball",
                 "nome": "Thruster com wall ball",
                 "consumoPorAluno": {
@@ -682,6 +672,12 @@
               {
                 "exercicioId": "flexao",
                 "nome": "Flexão de braço",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "flexao_pike",
+                "nome": "Flexão pike",
                 "consumoPorAluno": {},
                 "lado": null
               }

@@ -104,7 +104,10 @@ Módulo separado da matriz H. Regras do coach (05/10/2026):
     `equipamentos` tocam, ou `hiit.consumoPorAluno`). Se nem sozinho cabe (clean com sandbag para 2
     alunos, com 1 sandbag), sai do sorteio e fica em `foraPorEquipamento`;
   - no round N toda estação está no slot N: o slot N das 4 estações somado também respeita o limite
-    (TRX em Pernas e em Superiores nunca no mesmo slot com 2 TRX no box).
+    (wall ball em Pernas e em Superiores nunca no mesmo slot se o box tiver só 2 bolas);
+  - recurso **fixo no espaço** (`RECURSOS_FIXOS_HIIT`: o TRX, 2 unidades ancoradas lado a lado) serve a
+    UMA estação por HIIT, em qualquer slot: duas estações no TRX juntariam os alunos no mesmo canto.
+    Violação (só por edição à mão) vira alerta com `estacoes` e impede publicar.
   - sem combinação dentro do inventário, sai completo assim mesmo, com `alertas` (como o bloco H).
 
 **Catálogo:** `hiit: { estacoes: [...] }` (lista fechada `ESTACOES_HIIT`) marca o exercício para o

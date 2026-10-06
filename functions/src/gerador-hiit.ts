@@ -19,8 +19,11 @@
  *         cada recurso (sandbag para 2 alunos = 2 sandbags; o box tem 1 →
  *         o exercício fica fora);
  *       - no round N toda estação está no MESMO slot, então o slot N das 4
- *         estações somado também não pode passar do limite (agachamento no TRX
- *         em Pernas e remada no TRX em Superiores no mesmo slot = 4 TRX).
+ *         estações somado também não pode passar do limite (wall ball shot em
+ *         Pernas e thruster com wall ball em Superiores no mesmo slot = 4 bolas);
+ *       - recurso FIXO no espaço (`RECURSOS_FIXOS_HIIT`: os TRX, ancorados lado
+ *         a lado) serve a UMA estação só, em qualquer slot: duas estações no
+ *         TRX juntariam os alunos delas no mesmo canto do box.
  *
  * ── Como monta ───────────────────────────────────────────────────────────────
  * Busca em profundidade, estação por estação e slot por slot, com os
@@ -38,7 +41,7 @@
  * Determinístico: mesma `semente`, mesmo catálogo e mesmo inventário → mesmo HIIT.
  */
 import {
-  ESTACOES_HIIT, NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
+  ESTACOES_HIIT, NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_FIXOS_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
   type AlertaHiit, type EstacaoHiit, type EstacaoProgramada, type ForaPorEquipamento, type ItemCatalogo,
   type RecursoHiit, type SlotHiit,
 } from './modelo-box';
@@ -159,15 +162,27 @@ function buscar(
   const usados = new Set<string>();
   let nos = 0;
 
-  const cabe = (id: string, slots: number[]): boolean => {
+  // Recurso fixo no espaço (o TRX): a estação que o pegou primeiro e quantos
+  // exercícios dela o usam — o contador é o que permite desfazer no backtrack.
+  const dono: Partial<Record<RecursoHiit, { estacao: number; n: number }>> = {};
+  const fixos = (id: string) => RECURSOS_FIXOS_HIIT.filter((r) => (demanda.get(id)![r] ?? 0) > 0);
+
+  const cabe = (id: string, slots: number[], e: number): boolean => {
     if (!comEquipamento) return true;
     const d = demanda.get(id)!;
+    if (fixos(id).some((r) => dono[r] && dono[r]!.estacao !== e)) return false;
     return slots.every((s) => (Object.entries(d) as [RecursoHiit, number][])
       .every(([r, n]) => (uso[s][r] ?? 0) + n <= ctx.limites[r]));
   };
-  const marcar = (id: string, slots: number[], sinal: 1 | -1): void => {
+  const marcar = (id: string, slots: number[], sinal: 1 | -1, e: number): void => {
     for (const s of slots) {
       for (const [r, n] of Object.entries(demanda.get(id)!) as [RecursoHiit, number][]) uso[s][r] = (uso[s][r] ?? 0) + sinal * n;
+    }
+    for (const r of fixos(id)) {
+      const atual = dono[r] ?? { estacao: e, n: 0 };
+      atual.n += sinal;
+      if (atual.n > 0) dono[r] = atual;
+      else delete dono[r];
     }
   };
 
@@ -180,13 +195,13 @@ function buscar(
       const n = slotsDe(ctx.catalogo.get(id)!);
       if (s + n > SLOTS_POR_ESTACAO) continue; // unilateral não cabe no último slot
       const slots = n === 2 ? [s, s + 1] : [s];
-      if (!cabe(id, slots)) continue;
+      if (!cabe(id, slots, e)) continue;
       usados.add(id);
-      marcar(id, slots, 1);
+      marcar(id, slots, 1, e);
       for (const x of slots) grade[e][x] = id;
       const fechou = encher(e, s + n, aoFechar);
       for (const x of slots) grade[e][x] = null;
-      marcar(id, slots, -1);
+      marcar(id, slots, -1, e);
       usados.delete(id);
       if (fechou) return true;
     }

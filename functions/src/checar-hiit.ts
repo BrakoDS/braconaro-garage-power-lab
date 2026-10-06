@@ -12,7 +12,7 @@
 import { CATALOGO_BASE } from './catalogo-base';
 import { CATALOGO_HIIT } from './catalogo-hiit';
 import {
-  DIAS_SEMANA, ESTACOES_HIIT, INVENTARIO_PADRAO, NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
+  DIAS_SEMANA, ESTACOES_HIIT, INVENTARIO_PADRAO, NOME_ESTACAO_HIIT, RECURSOS_FIXOS_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
   type EstacaoHiit, type EstacaoProgramada, type ExercicioSoHiit, type ItemCatalogo, type RecursoHiit,
 } from './modelo-box';
 import {
@@ -74,6 +74,12 @@ function catalogoForjado(por: Partial<Record<EstacaoHiit, Record<string, Exercic
   }
   return m;
 }
+
+/** Catálogo forjado: a estação com um exercício do equipamento dado e n de peso corporal. */
+const com = (estacao: EstacaoHiit, equip: 'wall_ball' | 'trx', n = 3) => Object.fromEntries([
+  [`${estacao}_${equip}`, forjado(`${equip} ${estacao}`, estacao, { equip })],
+  ...Array.from({ length: n }, (_, i) => [`${estacao}_${i + 1}`, forjado(`${estacao} ${i + 1}`, estacao)]),
+]) as Record<string, ExercicioSoHiit>;
 
 console.log('\nCatálogo do HIIT');
 {
@@ -241,28 +247,62 @@ console.log('\nEquipamento entre estações (mesmo slot, mesma hora)');
   ok(!estourou, 'nos 200 sorteios, nenhum slot passa do limite somando as 4 estações');
   ok(todos.every((h) => RECURSOS_HIIT.every((r) => (h.consumo[r] ?? 0) <= LIMITES[r])), 'consumo de pico ≤ limite em todo recurso');
 
-  // Pernas e Superiores OBRIGADAS a usar um TRX cada (só 4 opções, uma de TRX):
-  // 2 alunos × 2 estações = 4 TRX se caírem no mesmo slot; o box tem 2.
-  const trx = (estacao: EstacaoHiit) => Object.fromEntries([
-    [`${estacao}_trx`, forjado(`TRX ${estacao}`, estacao, { equip: 'trx' })],
-    ...[1, 2, 3].map((i) => [`${estacao}_${i}`, forjado(`${estacao} ${i}`, estacao)]),
-  ]) as Record<string, ExercicioSoHiit>;
-  const cat = catalogoForjado({ pernas: trx('pernas'), superiores: trx('superiores') });
-  const resultados = SEMENTES.slice(0, 50).map((semente) => gerarHiit(ctx({ catalogo: cat, semente })));
-  ok(resultados.every((h) => slotDe(h, 'pernas_trx') && slotDe(h, 'superiores_trx') && slotDe(h, 'pernas_trx') !== slotDe(h, 'superiores_trx')),
-    'dois exercícios de TRX em estações diferentes nunca caem no mesmo slot');
-  ok(resultados.every((h) => !h.alertas.length && h.consumo.trx === 2), 'e o pico de TRX fica em 2');
+  // Soma por slot, com um recurso que NÃO é fixo (wall ball, 2 no box): Pernas
+  // e Superiores obrigadas a usar uma wall ball cada (só 4 opções, uma com ela).
+  // 2 alunos × 2 estações = 4 bolas se caírem no mesmo slot.
+  const duasBolas = catalogoForjado({ pernas: com('pernas', 'wall_ball'), superiores: com('superiores', 'wall_ball') });
+  const resultados = SEMENTES.slice(0, 50).map((semente) => gerarHiit(ctx({ catalogo: duasBolas, semente, limites: { ...LIMITES, wallBall: 2 } })));
+  ok(resultados.every((h) => slotDe(h, 'pernas_wall_ball') && slotDe(h, 'superiores_wall_ball')
+    && slotDe(h, 'pernas_wall_ball') !== slotDe(h, 'superiores_wall_ball')),
+    'soma por slot: duas estações com wall ball (2 no box) nunca no mesmo slot');
+  ok(resultados.every((h) => !h.alertas.length && h.consumo.wallBall === 2), 'e o pico de wall ball fica em 2');
 
-  // Impossível: 4 TRX obrigatórios em Pernas E em Superiores, com 3 TRX no box.
-  const soTrx = (estacao: EstacaoHiit) => Object.fromEntries([1, 2, 3, 4].map((i) => [`${estacao}_trx${i}`, forjado(`TRX ${i}`, estacao, { equip: 'trx' })]));
+  // Impossível pela soma: 4 wall balls obrigatórias em Pernas E em Superiores, com 3 no box.
+  const soBola = (estacao: EstacaoHiit) => Object.fromEntries([1, 2, 3, 4].map((i) => [`${estacao}_bola${i}`, forjado(`Bola ${i}`, estacao, { equip: 'wall_ball' })]));
   const impossivel = gerarHiit(ctx({
-    catalogo: catalogoForjado({ pernas: soTrx('pernas'), superiores: soTrx('superiores') }), limites: { ...LIMITES, trx: 3 },
+    catalogo: catalogoForjado({ pernas: soBola('pernas'), superiores: soBola('superiores') }), limites: { ...LIMITES, wallBall: 3 },
   }));
   ok(impossivel.estacoes.every((e) => e.slots.length === 4), 'sem combinação possível, o HIIT sai completo mesmo assim (o rascunho existe)');
-  ok(impossivel.alertas.length === 4 && impossivel.alertas.every((a) => a.recurso === 'trx' && a.usado === 4 && a.limite === 3 && a.slot !== null),
-    'e com um alerta por slot: 4 TRX, limite 3', JSON.stringify(impossivel.alertas));
+  ok(impossivel.alertas.length === 4 && impossivel.alertas.every((a) => a.recurso === 'wallBall' && a.usado === 4 && a.limite === 3 && a.slot !== null),
+    'e com um alerta por slot: 4 wall balls, limite 3', JSON.stringify(impossivel.alertas));
   ok(impossivel.avisos.some((a) => a.includes('inventário')), 'e com o aviso de que não coube');
+}
 
+console.log('\nTRX fixo no espaço: uma estação por HIIT');
+{
+  const usamTrx = (h: HiitGerado) => h.estacoes.filter((e) => e.slots.some((x) => x.consumoPorAluno.trx)).map((e) => e.estacao);
+  const todos = SEMENTES.map((semente) => gerarHiit(ctx({ semente })));
+  ok(igual(RECURSOS_FIXOS_HIIT, ['trx']), 'o TRX é o recurso fixo (decisão do coach)');
+  ok(todos.every((h) => usamTrx(h).length <= 1), 'catálogo real, 200 sorteios: o TRX nunca aparece em duas estações',
+    todos.map(usamTrx).filter((x) => x.length > 1).map((x) => x.join('+')).slice(0, 3).join(' | '));
+  ok(todos.some((h) => usamTrx(h).length === 1), 'e o TRX continua entrando no HIIT (a regra não o expulsa)');
+  ok(todos.every((h) => !h.alertas.length), 'sem alerta');
+
+  // Pernas e Superiores com um exercício de TRX cada, mas com alternativa: só uma fica com o TRX.
+  const comAlternativa = catalogoForjado({ pernas: com('pernas', 'trx', 4), superiores: com('superiores', 'trx', 4) });
+  const alt = SEMENTES.slice(0, 50).map((semente) => gerarHiit(ctx({ catalogo: comAlternativa, semente })));
+  ok(alt.every((h) => usamTrx(h).length <= 1 && !h.alertas.length), 'duas estações querendo o TRX, com alternativa: só uma fica com ele');
+  ok(alt.some((h) => slotDe(h, 'pernas_trx')) && alt.some((h) => slotDe(h, 'superiores_trx')),
+    'e qual estação fica com o TRX varia com o sorteio');
+
+  // A MESMA estação pode ter dois exercícios de TRX (em slots diferentes: 2 alunos cada, 2 TRX).
+  const doisNaMesma = catalogoForjado({
+    pernas: { a: forjado('TRX A', 'pernas', { equip: 'trx' }), b: forjado('TRX B', 'pernas', { equip: 'trx' }), c: forjado('C', 'pernas'), d: forjado('D', 'pernas') },
+  });
+  const mesma = gerarHiit(ctx({ catalogo: doisNaMesma }));
+  ok(!!slotDe(mesma, 'a') && !!slotDe(mesma, 'b') && !mesma.alertas.length, 'dois exercícios de TRX na MESMA estação podem (o espaço é um só)');
+
+  // Impossível: Pernas e Superiores só têm exercícios com TRX.
+  const soTrx = (estacao: EstacaoHiit) => Object.fromEntries([1, 2, 3, 4].map((i) => [`${estacao}_trx${i}`, forjado(`TRX ${i}`, estacao, { equip: 'trx' })]));
+  const preso = gerarHiit(ctx({ catalogo: catalogoForjado({ pernas: soTrx('pernas'), superiores: soTrx('superiores') }), limites: { ...LIMITES, trx: 8 } }));
+  const espacial = preso.alertas.filter((a) => a.estacoes);
+  ok(espacial.length === 1 && espacial[0].recurso === 'trx' && espacial[0].usado === 2 && espacial[0].limite === 1
+    && igual([...espacial[0].estacoes!].sort(), ['pernas', 'superiores']),
+    'sem saída: o HIIT sai com UM alerta espacial (TRX em Pernas e Superiores)', JSON.stringify(preso.alertas));
+  ok(preso.avisos.some((a) => a.includes('inventário')), 'e com o aviso de que não coube');
+}
+
+{
   const slot = (id: string) => ({ exercicioId: id, consumoPorAluno: consumoPorAluno(catalogo.get(id)!) });
   const manual = [
     { slots: [slot('flexao_trx'), slot('burpee')] },
@@ -274,6 +314,13 @@ console.log('\nEquipamento entre estações (mesmo slot, mesma hora)');
   ok(conta.alertas.filter((a) => a.recurso === 'sandbag').length === 1 && conta.alertas.find((a) => a.recurso === 'sandbag')!.slot === null,
     'contarHiit: sandbag sozinho estoura = um alerta sem slot');
   ok(conta.consumo.trx === 4 && conta.consumo.sandbag === 2, 'contarHiit: consumo de pico por recurso');
+  const separados = contarHiit([
+    { estacao: 'superiores', slots: [slot('flexao_trx'), slot('burpee')] },
+    { estacao: 'core', slots: [slot('prancha'), slot('fallout_trx')] },
+  ], LIMITES, 6);
+  ok(separados.alertas.length === 1 && igual(separados.alertas[0].estacoes, ['superiores', 'core'])
+    && igual(separados.alertas[0].exercicios, ['flexao_trx', 'fallout_trx']) && separados.alertas[0].slot === null,
+    'contarHiit: TRX em Superiores (slot 1) e Core (slot 2) — slots diferentes, mas alerta espacial', JSON.stringify(separados.alertas));
 }
 
 console.log('\nRepetição no dia, rodízio e determinismo');

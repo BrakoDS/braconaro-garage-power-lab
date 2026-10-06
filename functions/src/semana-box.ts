@@ -514,6 +514,10 @@ export function problemasParaPublicar(
   const porEstacao = alunosPorEstacao(alunosPorAula);
   for (const a of alertasHiit) {
     const quem = a.exercicios.map((id) => nomes.get(id) ?? id).join(' + ');
+    if (a.estacoes?.length) {
+      problemas.push(`${rotuloDias(a.dias)}: no HIIT, o ${a.recurso} fica fixo e serve a UMA estação, mas está em ${a.estacoes.map((e) => NOME_ESTACAO_HIIT[e]).join(' e ')} (${quem}).`);
+      continue;
+    }
     problemas.push(a.slot === null
       ? `${rotuloDias(a.dias)}: no HIIT, ${quem} precisa de ${a.usado} ${a.recurso} (${porEstacao} alunos por estação), e o box tem ${a.limite} ativo(s).`
       : `${rotuloDias(a.dias)}: no slot ${a.slot} do HIIT, ${quem} usam ${a.usado} ${a.recurso} ao mesmo tempo, e o box tem ${a.limite} ativo(s).`);

@@ -6,8 +6,8 @@
  * há ciclo de import. Regras em `gerador-hiit.ts` (topo) e no README.
  */
 import {
-  ESTACOES_HIIT, RECURSO_HIIT_DO_EQUIPAMENTO, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
-  type AlertaHiit, type ItemCatalogo, type RecursoHiit,
+  ESTACOES_HIIT, RECURSO_HIIT_DO_EQUIPAMENTO, RECURSOS_FIXOS_HIIT, RECURSOS_HIIT, SLOTS_POR_ESTACAO,
+  type AlertaHiit, type EstacaoHiit, type ItemCatalogo, type RecursoHiit,
 } from './modelo-box';
 
 /** Alunos que dividem uma estação: a turma se espalha pelas 4. */
@@ -52,10 +52,15 @@ export function demandaNaEstacao(
  *
  *  - `consumo`: o pico de cada recurso num mesmo slot, somando as estações.
  *  - `alertas`: exercício que sozinho passa do limite (`slot: null`, uma vez
- *    só, mesmo unilateral) e slot em que DOIS OU MAIS exercícios juntos passam.
+ *    só, mesmo unilateral), slot em que DOIS OU MAIS exercícios juntos passam,
+ *    e recurso FIXO no espaço (`RECURSOS_FIXOS_HIIT`: o TRX) usado por mais de
+ *    uma estação (`estacoes` preenchido) — mesmo em slots diferentes.
  */
 export function contarHiit(
-  estacoes: readonly { slots: readonly { exercicioId: string; consumoPorAluno?: Partial<Record<RecursoHiit, number>> }[] }[],
+  estacoes: readonly {
+    estacao?: EstacaoHiit;
+    slots: readonly { exercicioId: string; consumoPorAluno?: Partial<Record<RecursoHiit, number>> }[];
+  }[],
   limites: Record<RecursoHiit, number>,
   alunosPorAula: number,
 ): { consumo: Partial<Record<RecursoHiit, number>>; alertas: AlertaHiit[] } {
@@ -87,6 +92,17 @@ export function contarHiit(
         alertas.push({ recurso: r, usado: u.n, limite: limites[r], slot: s + 1, exercicios: u.ids });
       }
     }
+  }
+
+  // Restrição espacial: recurso ancorado serve a UMA estação.
+  for (const r of RECURSOS_FIXOS_HIIT) {
+    const usam = estacoes.filter((e) => e.slots.some((x) => (x.consumoPorAluno?.[r] ?? 0) > 0));
+    if (usam.length <= 1) continue;
+    const ids = [...new Set(usam.flatMap((e) => e.slots.filter((x) => (x.consumoPorAluno?.[r] ?? 0) > 0).map((x) => x.exercicioId)))];
+    alertas.push({
+      recurso: r, usado: usam.length, limite: 1, slot: null, exercicios: ids,
+      estacoes: usam.map((e) => e.estacao ?? ESTACOES_HIIT[estacoes.indexOf(e)]),
+    });
   }
   return { consumo, alertas };
 }

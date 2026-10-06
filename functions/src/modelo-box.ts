@@ -107,6 +107,16 @@ export const RECURSOS_BOX = [...RECURSOS_INVENTARIO, ...RECURSOS_HIIT] as const;
 export type RecursoBox = RecursoInventario | RecursoHiit;
 
 /**
+ * Recursos do HIIT FIXOS NO ESPAÇO: as unidades ficam ancoradas juntas (os 2
+ * TRX lado a lado, na mesma estrutura) e não mudam de lugar. Se duas estações
+ * usassem o recurso, os alunos delas se juntariam no mesmo canto do box e a
+ * divisão em 4 estações quebraria. Então ele serve a UMA estação por HIIT —
+ * além do limite de unidades por slot, que continua valendo. Decisão do coach,
+ * 05/10/2026. Outro recurso ancorado entra só aqui.
+ */
+export const RECURSOS_FIXOS_HIIT: readonly RecursoHiit[] = ['trx'];
+
+/**
  * Inventário do HIIT ditado pelo coach em 05/10/2026. Os halteres são os do
  * cadastro antigo (`compartilhado/dados/equipamentos.js`: torres de 1–10 kg,
  * 4 pares ao mesmo tempo). Kettlebell e wall ball contam UNIDADES, de qualquer
@@ -424,6 +434,12 @@ export interface AlertaHiit {
   limite: number;
   slot: number | null;
   exercicios: string[];
+  /**
+   * Só no alerta ESPACIAL (recurso de `RECURSOS_FIXOS_HIIT` em mais de uma
+   * estação): as estações que o usam. Aí `usado` é o número de estações,
+   * `limite` é 1 e `slot` é null. Ausente = alerta de unidades.
+   */
+  estacoes?: EstacaoHiit[];
 }
 
 /** Um alerta do HIIT na semana: o mesmo HIIT está na sexta e no sábado, e o alerta sai uma vez com os dois dias. */

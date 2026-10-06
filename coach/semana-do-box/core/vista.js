@@ -444,6 +444,9 @@ export function tituloForca(diaProgramado) {
 
 /* ───────────────────────────── HIIT ───────────────────────────── */
 
+/** Nome de cada estação do HIIT, como o servidor (`NOME_ESTACAO_HIIT`). @type {Record<string, string>} */
+export const NOME_ESTACAO_HIIT = { pernas: 'Pernas', core: 'Core', superiores: 'Superiores', cardio: 'Cardio' };
+
 /** Total de alertas da semana (bloco H + HIIT) — o "⚠ n alertas" da lista. @param {any} doc */
 export function totalDeAlertas(doc) {
   return (doc?.alertas ?? []).length + (doc?.alertasHiit ?? []).length;
@@ -496,6 +499,12 @@ export function textoAlertaHiit(a, nomes) {
   const ativos = a.limite === 1 ? '1 ativo' : `${a.limite} ativos`;
   const onde = a.dias?.length ? ` (${rotuloDias(a.dias)})` : '';
   const quem = nomes ? (a.exercicios ?? []).map((id) => nomes.get(id) ?? id).join(' + ') : '';
+  // Recurso fixo no espaço (o TRX) em mais de uma estação.
+  if (a.estacoes?.length) {
+    const estacoes = a.estacoes.map((e) => NOME_ESTACAO_HIIT[e] ?? e);
+    const lista = estacoes.length > 1 ? `${estacoes.slice(0, -1).join(', ')} e ${estacoes[estacoes.length - 1]}` : estacoes[0];
+    return `${r.um} fica fixo numa estação só, mas o HIIT${onde} o usa em ${a.usado} estações: ${lista}${quem ? ` — ${quem}` : ''}.`;
+  }
   if (a.slot === null || a.slot === undefined) {
     return `${quem || 'Um exercício'} no HIIT${onde} precisa sozinho de ${a.usado} ${a.usado === 1 ? r.um : r.varios}: ${ativos}.`;
   }

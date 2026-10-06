@@ -137,16 +137,17 @@ test('HIIT: sexta e sábado chamam a faixa; os outros dias não', () => {
 });
 
 test('HIIT: alertas do servidor viram texto com nomes e slots marcados', () => {
-  const sup = HIIT.dias.sabado.hiit.estacoes.find((e) => e.estacao === 'superiores');
-  const i = sup.slots.findIndex((x) => x.exercicioId === 'flexao_trx');
+  // O exercício com TRX do fixture (o gerador decide a estação), num alerta de slot.
+  const est = HIIT.dias.sabado.hiit.estacoes.find((e) => e.slots.some((x) => x.consumoPorAluno.trx));
+  const i = est.slots.findIndex((x) => x.consumoPorAluno.trx);
   const doc = {
     ...HIIT,
-    alertasHiit: [{ recurso: 'trx', usado: 4, limite: 2, slot: i + 1, exercicios: ['flexao_trx', 'fallout_trx'], dias: ['sexta', 'sabado'] }],
+    alertasHiit: [{ recurso: 'trx', usado: 4, limite: 2, slot: i + 1, exercicios: [est.slots[i].exercicioId], dias: ['sexta', 'sabado'] }],
   };
   const h = renderSemana({ ...BASE_HIIT, doc });
   assert.match(h, /class="card hiit-semana hiit-estourado"/);
-  assert.ok(h.includes(`Limite de TRX atingido no slot ${i + 1} do HIIT (sexta e sábado): 4 em uso, 2 ativos — Flexão no TRX + Fallout no TRX.`));
-  assert.ok(fatia(h, '<h4>Superiores</h4>', '</ol>').includes(`<li class="hiit-slot em-alerta"><span class="hiit-n">${i + 1}</span>`));
+  assert.ok(h.includes(`Limite de TRX atingido no slot ${i + 1} do HIIT (sexta e sábado): 4 em uso, 2 ativos — ${esc(est.slots[i].nome)}.`));
+  assert.ok(fatia(h, `<h4>${est.nome}</h4>`, '</ol>').includes(`<li class="hiit-slot em-alerta"><span class="hiit-n">${i + 1}</span>`));
   assert.equal((h.match(/ver estações ↓ · ⚠ 1 alerta/g) || []).length, 2, 'o botão de sexta e sábado avisa');
   assert.ok(renderLista([{ chave: '2026-W43', rotulo: '19/10' }], { '2026-W43': doc }, '').includes('⚠ 1 alerta'), 'a lista conta o alerta do HIIT');
 });
