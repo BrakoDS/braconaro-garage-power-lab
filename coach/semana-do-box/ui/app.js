@@ -22,6 +22,7 @@ import { gerarMatriz, publicar, lerSemanas } from '../cloud/semana.js';
 import * as inventario from './inventario.js';
 import { trocarExercicio } from './troca.js';
 import { trocarExercicioHiit } from './troca-hiit.js';
+import { trocarEstacaoHyrox, trocarMovimentoCross } from './troca-cross.js';
 import { esc, renderLista, renderSemana } from './render.js';
 
 const $ = (s) => /** @type {any} */ (document.querySelector(s));
@@ -107,7 +108,8 @@ async function executar(chave, ocupando, pedido, sucesso) {
 }
 
 async function aoClicar(ev) {
-  const alvo = /** @type {HTMLElement} */ (ev.target).closest('[data-semana], [data-acao], [data-trocar], [data-trocar-hiit]');
+  const alvo = /** @type {HTMLElement} */ (ev.target)
+    .closest('[data-semana], [data-acao], [data-trocar], [data-trocar-hiit], [data-trocar-cross], [data-trocar-hyrox]');
   if (!alvo || estado.ocupado) return;
 
   const semana = alvo.getAttribute('data-semana');
@@ -135,15 +137,30 @@ async function aoClicar(ev) {
     return;
   }
 
+  // O contexto das trocas: reler a semana e travar a tela enquanto o modal grava.
+  const ctxTroca = {
+    semanaId: s.chave, status,
+    lerDoc: async () => { await reler(s.chave); desenhar(); return estado.docs[s.chave]; },
+    ocupar: (/** @type {boolean} */ sim) => { estado.ocupado = sim; desenhar(); },
+  };
+
   // "trocar" num exercício do HIIT: mesmo molde, fluxo no troca-hiit.js.
   const vagaHiit = alvo.getAttribute('data-trocar-hiit');
   if (vagaHiit) {
     const [estacao, slot] = vagaHiit.split(':');
-    await trocarExercicioHiit({
-      semanaId: s.chave, estacao, slot: Number(slot), status,
-      lerDoc: async () => { await reler(s.chave); desenhar(); return estado.docs[s.chave]; },
-      ocupar: (sim) => { estado.ocupado = sim; desenhar(); },
-    });
+    await trocarExercicioHiit({ ...ctxTroca, estacao, slot: Number(slot) });
+    return;
+  }
+
+  // "trocar" no WOD (terça) e no Hyrox (quinta): fluxos no troca-cross.js.
+  const movimento = alvo.getAttribute('data-trocar-cross');
+  if (movimento) {
+    await trocarMovimentoCross({ ...ctxTroca, posicao: Number(movimento) });
+    return;
+  }
+  const estacaoHyrox = alvo.getAttribute('data-trocar-hyrox');
+  if (estacaoHyrox) {
+    await trocarEstacaoHyrox({ ...ctxTroca, estacao: estacaoHyrox });
     return;
   }
 

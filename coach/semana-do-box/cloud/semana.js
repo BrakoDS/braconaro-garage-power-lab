@@ -15,7 +15,7 @@ import { firebaseConfig } from '../../../compartilhado/firebase/config.js';
 
 const V = '10.12.2';
 const REGIAO = 'southamerica-east1';
-/** As três funções têm `timeoutSeconds: 30`. */
+/** Todas as funções da semana têm `timeoutSeconds: 30`. */
 const TIMEOUT = 40000;
 
 /** Erros de TRANSPORTE; erro lançado pela função já vem escrito para o coach. */
@@ -103,6 +103,24 @@ export function opcoesTroca(semanaId, sessao, posicao) {
  */
 export function opcoesTrocaHiit(semanaId, estacao, slot) {
   return chamar('opcoesTrocaHiitBox', { semanaId, estacao, slot });
+}
+
+/**
+ * As opções para trocar o movimento `posicao` (1…n) do WOD do Cross — o pool do
+ * Cross com os conflitos já calculados pelo servidor, e se o WOD está travado.
+ * @param {string} semanaId @param {number} posicao
+ */
+export function opcoesTrocaCross(semanaId, posicao) {
+  return chamar('opcoesTrocaCrossBox', { semanaId, posicao });
+}
+
+/**
+ * A troca de uma estação do Hyrox entre ela e a substituta — a outra variante,
+ * com o equipamento conferido pelo servidor, e se o Hyrox está travado.
+ * @param {string} semanaId @param {string} estacao
+ */
+export function opcoesTrocaHyrox(semanaId, estacao) {
+  return chamar('opcoesTrocaHyroxBox', { semanaId, estacao });
 }
 
 /**

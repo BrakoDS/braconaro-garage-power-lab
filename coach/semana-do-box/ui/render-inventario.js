@@ -56,8 +56,9 @@ function cartaoRecurso(e, o, ocupado) {
 }
 
 /**
- * O cartão da turma (`alunosPorAula`): só o HIIT usa. Mostra quantos alunos
- * dividem cada estação — é esse número que multiplica o equipamento.
+ * O cartão da turma (`alunosPorAula`): o HIIT e o WOD do Cross usam. Mostra
+ * quantos alunos dividem cada estação do HIIT — é esse número que multiplica o
+ * equipamento lá; a conta do WOD está na nota.
  * @param {number} turma @param {number|null} gravada @param {boolean} ocupado
  */
 function cartaoTurma(turma, gravada, ocupado) {
@@ -73,7 +74,8 @@ function cartaoTurma(turma, gravada, ocupado) {
         <p class="inv-por-estacao"><b>→ até ${esc(porEstacao)} aluno${porEstacao > 1 ? 's' : ''} por estação</b></p>
       </div>
       <p class="mut inv-nota">A turma se divide entre as 4 estações, que rodam ao mesmo tempo: cada exercício precisa
-        de uma unidade por aluno da estação. Mudar a turma reconfere as semanas em aberto. Não muda a conta do bloco H.</p>
+        de uma unidade por aluno da estação. No WOD do Cross, o EMOM conta a turma inteira e os outros formatos a
+        dividem pelos movimentos. Mudar a turma reconfere as semanas em aberto. Não muda a conta do bloco H.</p>
     </article>`;
 }
 
@@ -113,7 +115,8 @@ function resultado(r) {
 }
 
 /**
- * A seção inteira: os recursos do bloco H e, separados, os do HIIT com a turma.
+ * A seção inteira: os recursos do bloco H e, separados, os do HIIT com a turma
+ * e os só do Cross/Hyrox.
  * @param {{
  *   original: ReturnType<typeof import('../core/vista.js').linhasDoInventario>,
  *   editado: ReturnType<typeof import('../core/vista.js').linhasDoInventario>,
@@ -142,6 +145,11 @@ export function renderInventario({ original, editado, turmaOriginal = null, turm
     <p class="mut inv-secao-nota">Contados por aluno: as 4 estações rodam na mesma música, e o mesmo slot de todas acontece
       ao mesmo tempo.</p>
     <div class="inv-grade">${turma === null ? '' : cartaoTurma(turma, turmaOriginal, ocupado)}${cartoes('hiit')}</div>
+    <h3 class="inv-secao">Cross / Hyrox</h3>
+    <p class="mut inv-secao-nota">O que só o Cross e o Hyrox usam. O resto (kettlebell, wall ball, sandbag, air bike…)
+      são as linhas do HIIT acima, e o Hyrox também usa o monocross. No Hyrox basta UMA unidade ativa por estação;
+      sem ela, a estação vai para a substituta.</p>
+    <div class="inv-grade">${cartoes('crossHyrox')}</div>
     <div class="acoes inv-acoes">
       <button class="btn btn-ouro" type="button" data-inv-salvar${mudou && !ocupado ? '' : ' disabled'}>Salvar inventário</button>
       <button class="btn ghost" type="button" data-inv-descartar${mudou && !ocupado ? '' : ' disabled'}>Descartar alterações</button>

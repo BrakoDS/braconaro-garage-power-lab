@@ -27,6 +27,12 @@ export const RECURSOS = ['smith', 'banco', 'monocross', 'maquinaLegs', 'cavalinh
 /** Os recursos que limitam o HIIT, na ordem do servidor (`RECURSOS_HIIT`). */
 export const RECURSOS_HIIT = ['kettlebell', 'wallBall', 'caixote', 'cordaNaval', 'cordaPular', 'sandbag', 'airbike', 'trx', 'halteres'];
 
+/**
+ * Os recursos SÓ do Cross e do Hyrox, na ordem do servidor (`RECURSOS_CROSS_HYROX`).
+ * O resto do que eles usam são as linhas do HIIT e o monocross.
+ */
+export const RECURSOS_CROSS_HYROX = ['barraOlimpica', 'sled'];
+
 /** @type {Record<string, {um: string, varios: string}>} */
 export const NOME_RECURSO = {
   smith: { um: 'Smith', varios: 'Smiths' },
@@ -43,6 +49,8 @@ export const NOME_RECURSO = {
   airbike: { um: 'Air bike', varios: 'Air bikes' },
   trx: { um: 'TRX', varios: 'TRX' },
   halteres: { um: 'Par de halteres', varios: 'Pares de halteres' },
+  barraOlimpica: { um: 'Barra olímpica', varios: 'Barras olímpicas' },
+  sled: { um: 'Sled (trenó)', varios: 'Sleds' },
 };
 
 /** @type {Record<string, string>} */
@@ -320,14 +328,15 @@ export const MAX_UNIDADES = 50;
  * As linhas da tela a partir de `coaches/{uid}/inventario/atual` (ou da resposta
  * de `salvarInventarioBox`, que tem a mesma forma). `ativos` é o `limitesAtivos`
  * que o SERVIDOR calculou — a tela não refaz a conta. Documento ausente = `[]`.
- * `grupo` separa o bloco H ('forca') do HIIT ('hiit'), na ordem do servidor.
+ * `grupo` separa o bloco H ('forca'), o HIIT ('hiit') e o que é só do Cross e do
+ * Hyrox ('crossHyrox'), na ordem do servidor.
  * @param {any} doc
- * @returns {{recurso: string, grupo: 'forca'|'hiit', nome: string, total: number, emManutencao: number, observacao: string, ativos: number|null}[]}
+ * @returns {{recurso: string, grupo: 'forca'|'hiit'|'crossHyrox', nome: string, total: number, emManutencao: number, observacao: string, ativos: number|null}[]}
  */
 export function linhasDoInventario(doc) {
   const eq = doc?.equipamentos;
   if (!eq || typeof eq !== 'object') return [];
-  const grupos = /** @type {const} */ ([['forca', RECURSOS], ['hiit', RECURSOS_HIIT]]);
+  const grupos = /** @type {const} */ ([['forca', RECURSOS], ['hiit', RECURSOS_HIIT], ['crossHyrox', RECURSOS_CROSS_HYROX]]);
   return grupos.flatMap(([grupo, lista]) => lista.map((r) => {
     const x = eq[r] ?? {};
     const ativos = doc.limitesAtivos?.[r];
@@ -357,15 +366,16 @@ export function turmaDoInventario(doc) {
 }
 
 /**
- * O documento já tem a forma de depois do HIIT (os recursos do HIIT e a turma)?
- * Inventário gravado antes disso é NORMALIZADO pelo servidor (`salvarInventario({})`):
- * é ele quem sabe os números de fábrica, e a tela não os repete.
+ * O documento já tem a forma de agora (os recursos do H, do HIIT e do
+ * Cross/Hyrox, e a turma)? Inventário gravado antes disso é NORMALIZADO pelo
+ * servidor (`salvarInventario({})`): é ele quem sabe os números de fábrica, e a
+ * tela não os repete.
  * @param {any} doc
  */
 export function inventarioCompleto(doc) {
   const eq = doc?.equipamentos;
   return !!eq && typeof eq === 'object' && turmaDoInventario(doc) !== null
-    && [...RECURSOS, ...RECURSOS_HIIT].every((r) => eq[r] && Number.isInteger(eq[r].total));
+    && [...RECURSOS, ...RECURSOS_HIIT, ...RECURSOS_CROSS_HYROX].every((r) => eq[r] && Number.isInteger(eq[r].total));
 }
 
 /**
@@ -406,14 +416,20 @@ export function alteracoesDoInventario(original, editado) {
  * ou nos dois. Semana publicada NÃO é despublicada pelo servidor — a ação
  * sugerida diz isso ao coach. O alerta do HIIT aqui sai sem o nome dos
  * exercícios: a resposta do inventário não traz a semana, só os alertas.
- * @param {{semanaId: string, status: string, alertas?: any[], alertasHiit?: any[]}} s
+ * O mesmo vale para o WOD e o Hyrox.
+ * @param {{semanaId: string, status: string, alertas?: any[], alertasHiit?: any[], alertasCross?: any[], alertasHyrox?: any[]}} s
  */
 export function semanaAfetada(s) {
   const publicada = s.status === 'publicado';
   return {
     semanaId: s.semanaId,
     titulo: `Semana ${s.semanaId} · ${publicada ? 'publicada' : 'rascunho'}`,
-    alertas: [...(s.alertas ?? []).map(textoAlerta), ...(s.alertasHiit ?? []).map((a) => textoAlertaHiit(a))],
+    alertas: [
+      ...(s.alertas ?? []).map(textoAlerta),
+      ...(s.alertasHiit ?? []).map((a) => textoAlertaHiit(a)),
+      ...(s.alertasCross ?? []).map((a) => textoAlertaCross(a)),
+      ...(s.alertasHyrox ?? []).map((a) => textoAlertaHyrox(a)),
+    ],
     acao: publicada
       ? 'Os alunos já veem esta semana. Volte para rascunho e sorteie de novo, ou devolva o equipamento ao inventário.'
       : 'Sorteie de novo para o gerador trocar os exercícios, ou devolva o equipamento ao inventário.',
@@ -449,9 +465,9 @@ export function tituloForca(diaProgramado) {
 /** Nome de cada estação do HIIT, como o servidor (`NOME_ESTACAO_HIIT`). @type {Record<string, string>} */
 export const NOME_ESTACAO_HIIT = { pernas: 'Pernas', core: 'Core', superiores: 'Superiores', cardio: 'Cardio' };
 
-/** Total de alertas da semana (bloco H + HIIT) — o "⚠ n alertas" da lista. @param {any} doc */
+/** Total de alertas da semana (bloco H, HIIT, WOD e Hyrox) — o "⚠ n alertas" da lista. @param {any} doc */
 export function totalDeAlertas(doc) {
-  return (doc?.alertas ?? []).length + (doc?.alertasHiit ?? []).length;
+  return ['alertas', 'alertasHiit', 'alertasCross', 'alertasHyrox'].reduce((n, k) => n + (doc?.[k] ?? []).length, 0);
 }
 
 /**
@@ -628,4 +644,264 @@ export function acoesDoConflitoHiit(opcao) {
 /** 'slot 1' / 'slots 3 e 4' — onde a vaga fica na estação. @param {number[]} slots */
 export function rotuloSlots(slots) {
   return slots.length > 1 ? `slots ${slots.slice(0, -1).join(', ')} e ${slots[slots.length - 1]}` : `slot ${slots[0]}`;
+}
+
+
+/* ───────────────────────────── Cross e Hyrox (comum) ───────────────────────────── */
+
+/**
+ * Os dias que têm o conteúdo (`cross`: o WOD da terça; `hyrox`: a quinta), com o
+ * papel de cada um. `[]` em semana gerada antes dos geradores do Cross e do Hyrox.
+ * @param {any} doc @param {'cross'|'hyrox'} chave
+ * @returns {{id: string, nome: string, papel: string}[]}
+ */
+function diasDoConteudo(doc, chave) {
+  const lista = chave === 'cross' ? 'movimentos' : 'estacoes';
+  const modalidade = chave === 'cross' ? 'Cross' : 'Hyrox';
+  return DIAS.filter((d) => Array.isArray(doc?.dias?.[d.id]?.[chave]?.[lista])).map((d) => {
+    const b = (doc.dias[d.id].blocosMetabolicos ?? []).find((x) => x?.modalidade === modalidade);
+    return { id: d.id, nome: d.nome, papel: b?.papel === 'principal' ? 'principal' : 'alternativa' };
+  });
+}
+
+/**
+ * Dá para trocar no WOD / no Hyrox? ESPELHA a trava do servidor
+ * (`conteudoTravado` em `edicao-cross.ts`) só para decidir se a tela mostra o
+ * botão: semana que já foi publicada não muda num dia que já passou.
+ * @param {any} doc @param {'cross'|'hyrox'} chave @param {string} hojeIso
+ */
+export function conteudoEditavel(doc, chave, hojeIso) {
+  const dias = diasDoConteudo(doc, chave);
+  if (!dias.length) return false;
+  if (doc.status !== 'publicado' && !doc.publicadoEm) return true;
+  const datas = datasIsoDosDias(doc.dataInicio);
+  return !dias.some((d) => datas[d.id] && datas[d.id] < hojeIso);
+}
+
+/** "50 s", "1 min", "2 min 30 s". @param {number} seg */
+export function textoSegundos(seg) {
+  if (seg < 60) return `${seg} s`;
+  const min = Math.floor(seg / 60);
+  const resto = seg % 60;
+  return resto ? `${min} min ${resto} s` : `${min} min`;
+}
+
+/** A unidade curta depois do número, por unidade do servidor. @type {Record<string, string>} */
+const UNIDADE_CURTA = { reps: '', metros: ' m', calorias: ' cal', segundos: ' s' };
+
+/* ───────────────────────────── WOD do Cross ───────────────────────────── */
+
+/** Nome de cada padrão do WOD (`PADROES_CROSS` do servidor). @type {Record<string, string>} */
+export const NOME_PADRAO_CROSS = {
+  cardio: 'Cardio', agachar: 'Agachar', quadril: 'Quadril', empurrar: 'Empurrar',
+  puxar: 'Puxar', corpo_todo: 'Corpo todo', olimpico: 'Olímpico', core: 'Core',
+};
+
+/**
+ * O WOD da semana (gravado em todo dia com Cross; hoje, só a terça) e os dias
+ * dele. `null` em semana gerada antes do gerador do Cross — o dia fica como era.
+ * @param {any} doc
+ * @returns {{wod: any, dias: {id: string, nome: string, papel: string}[]}|null}
+ */
+export function wodDaSemana(doc) {
+  const dias = diasDoConteudo(doc, 'cross');
+  return dias.length ? { wod: doc.dias[dias[0].id].cross, dias } : null;
+}
+
+/**
+ * O cabeçalho do WOD: 'AMRAP · 16 min', 'For Time · 4 rodadas · cap 16 min',
+ * 'EMOM · 15 min (5 voltas)', 'Chipper · cap 20 min'.
+ * @param {{formato: string, minutos: number, rodadas: number|null}} w
+ */
+export function tituloWod(w) {
+  if (w.formato === 'AMRAP') return `AMRAP · ${w.minutos} min`;
+  if (w.formato === 'EMOM') return `EMOM · ${w.minutos} min${w.rodadas ? ` (${w.rodadas} ${w.rodadas === 1 ? 'volta' : 'voltas'})` : ''}`;
+  if (w.formato === 'For Time') return `For Time · ${w.rodadas} ${w.rodadas === 1 ? 'rodada' : 'rodadas'} · cap ${w.minutos} min`;
+  return `${w.formato} · cap ${w.minutos} min`;
+}
+
+/**
+ * A quantidade de um movimento: '15', '200 m', '12 cal', '30 s', '10 por lado'.
+ * @param {{unidade: string, porLado?: boolean}} m @param {number} n
+ */
+export function quantidadeCross(m, n) {
+  return `${n}${UNIDADE_CURTA[m.unidade] ?? ''}${m.porLado ? ' por lado' : ''}`;
+}
+
+/**
+ * Alunos fazendo CADA movimento ao mesmo tempo. ESPELHA `alunosPorMovimento`
+ * do servidor (`conta-cross.ts`) só para a tela explicar o número.
+ * @param {string} formato @param {number} turma @param {number} movimentos
+ */
+export function alunosPorMovimento(formato, turma, movimentos) {
+  if (formato === 'EMOM') return Math.max(1, turma);
+  return Math.max(1, Math.ceil(turma / Math.max(1, movimentos)));
+}
+
+/**
+ * Como o equipamento do WOD foi contado (a regra mista), para o rodapé do cartão.
+ * @param {{formato: string, movimentos: any[]}} w @param {number} [turma]
+ */
+export function textoContaWod(w, turma) {
+  if (!Number.isInteger(turma)) return '';
+  if (w.formato === 'EMOM') {
+    return `No EMOM a turma inteira (${turma}) faz o mesmo movimento no mesmo minuto: cada movimento precisa de equipamento para todos.`;
+  }
+  const n = alunosPorMovimento(w.formato, /** @type {number} */ (turma), w.movimentos.length);
+  return `No ${w.formato} a turma de ${turma} se espalha pelo WOD: até ${n} aluno${n > 1 ? 's' : ''} por movimento, e os movimentos somam.`;
+}
+
+/** id → nome dos movimentos do WOD gravado. @param {any} doc */
+export function nomesDoWod(doc) {
+  return new Map((wodDaSemana(doc)?.wod.movimentos ?? []).map((m) => [m.exercicioId, m.nome]));
+}
+
+/**
+ * Um alerta de equipamento do WOD em texto. `nomes` (de `nomesDoWod`) põe os
+ * movimentos; sem ele (a resposta do inventário), sai sem nome.
+ * @param {{recurso: string, usado: number, limite: number, exercicios?: string[], dias?: string[]}} a
+ * @param {Map<string, string>} [nomes]
+ */
+export function textoAlertaCross(a, nomes) {
+  const r = nomeRecurso(a.recurso);
+  const ativos = a.limite === 1 ? '1 ativo' : `${a.limite} ativos`;
+  const onde = a.dias?.length ? ` (${rotuloDias(a.dias)})` : '';
+  const quem = nomes ? (a.exercicios ?? []).map((id) => nomes.get(id) ?? id).join(' + ') : '';
+  return `Limite de ${r.varios} atingido no WOD${onde}: ${a.usado} em uso, ${ativos}${quem ? ` — ${quem}` : ''}.`;
+}
+
+/** Os movimentos do WOD que a tela pinta de vermelho (ids). @param {any} doc */
+export function movimentosEmAlerta(doc) {
+  return new Set((doc?.alertasCross ?? []).flatMap((a) => a.exercicios ?? []));
+}
+
+/**
+ * Os `dias` para `salvarSemanaBox` com UM movimento do WOD trocado, em todo dia
+ * que tem o WOD. Formato, tempo e a posição ficam; o servidor recalcula a
+ * prescrição (`lerCross`). O HIIT e o Hyrox não vão: o servidor mantém os gravados.
+ * @param {any} doc @param {number} posicao 1…n @param {string} exercicioId
+ */
+export function diasComCrossTrocado(doc, posicao, exercicioId) {
+  const dias = diasParaSalvar(doc);
+  for (const d of DIAS) {
+    const w = doc?.dias?.[d.id]?.cross;
+    if (!Array.isArray(w?.movimentos)) continue;
+    dias[d.id].cross = {
+      formato: w.formato, minutos: w.minutos, rodadas: w.rodadas,
+      movimentos: w.movimentos.map((m, i) => ({ exercicioId: i === posicao - 1 ? exercicioId : m.exercicioId })),
+    };
+  }
+  return dias;
+}
+
+/**
+ * Os selos de uma opção da troca no WOD. Os de bloqueio dizem POR QUE a opção
+ * está desabilitada; o do rodízio só avisa.
+ * @param {{conflitos: any}} opcao
+ */
+export function selosDaOpcaoCross(opcao) {
+  const c = opcao.conflitos;
+  const selos = [];
+  if (c.noWod) selos.push({ id: 'bloco', rotulo: 'já no WOD' });
+  if (c.padraoRepetido) selos.push({ id: 'bloco', rotulo: `mesmo padrão de ${c.padraoRepetido}` });
+  if (c.tiraOCardio) selos.push({ id: 'bloco', rotulo: 'tira o cardio' });
+  for (const r of c.equipamento ?? []) selos.push({ id: 'equipamento', rotulo: `🔧 ${nomeRecurso(r).varios}` });
+  if (c.semanaAnterior) selos.push({ id: 'rodizio', rotulo: '↺ semana passada' });
+  return selos;
+}
+
+/** Como seguir depois de escolher uma opção do WOD: a MESMA regra do HIIT (só o rodízio pergunta). */
+export const acoesDoConflitoCross = acoesDoConflitoHiit;
+
+/* ───────────────────────────── Hyrox ───────────────────────────── */
+
+/** Os 4 níveis, na ordem do servidor (`NIVEIS_HYROX`), com o nome e a coluna curta da tabela. */
+export const NIVEIS_HYROX = [
+  { id: 'iniciante', nome: 'Iniciante', curto: 'Ini' },
+  { id: 'intermediario', nome: 'Intermediário', curto: 'Int' },
+  { id: 'avancado', nome: 'Avançado', curto: 'Av' },
+  { id: 'competicao', nome: 'Competição', curto: 'Comp' },
+];
+
+/**
+ * As estações sem substituta (`substituta: null` em `functions/src/catalogo-hyrox.ts`):
+ * nelas a tela não mostra "trocar". O teste de paridade confere a lista.
+ */
+export const ESTACOES_HYROX_SEM_SUBSTITUTA = ['burpee_broad_jump'];
+
+/** A unidade de uma estação, para a tabela. @type {Record<string, string>} */
+export const UNIDADE_HYROX = { reps: 'reps', metros: 'm', calorias: 'cal', segundos: 's' };
+
+/**
+ * O Hyrox da semana (gravado em todo dia com Hyrox; hoje, só a quinta) e os dias
+ * dele. `null` em semana gerada antes do gerador do Hyrox.
+ * @param {any} doc
+ * @returns {{hyrox: any, dias: {id: string, nome: string, papel: string}[]}|null}
+ */
+export function hyroxDaSemana(doc) {
+  const dias = diasDoConteudo(doc, 'hyrox');
+  return dias.length ? { hyrox: doc.dias[dias[0].id].hyrox, dias } : null;
+}
+
+/** 'Compromised running · 2 rodadas'. @param {{nome: string, rodadas: number}} h */
+export function tituloHyrox(h) {
+  return `${h.nome}${h.rodadas > 1 ? ` · ${h.rodadas} rodadas` : ''}`;
+}
+
+/**
+ * As duas linhas da corrida na tabela (por nível): os metros e, como
+ * alternativa, a air bike.
+ * @param {{corrida: Record<string, {metros: number, bikeSeg: number}>}} h
+ */
+export function linhasDaCorrida(h) {
+  return [
+    { rotulo: 'Corrida', unidade: 'm', valores: NIVEIS_HYROX.map((n) => String(h.corrida?.[n.id]?.metros ?? '—')) },
+    {
+      rotulo: 'ou air bike', unidade: '',
+      valores: NIVEIS_HYROX.map((n) => (Number.isFinite(h.corrida?.[n.id]?.bikeSeg) ? textoSegundos(h.corrida[n.id].bikeSeg) : '—')),
+    },
+  ];
+}
+
+/** A estação tem substituta (e a tela mostra "trocar")? @param {string} estacao */
+export function temSubstitutaHyrox(estacao) {
+  return !ESTACOES_HYROX_SEM_SUBSTITUTA.includes(estacao);
+}
+
+/**
+ * Um alerta do Hyrox em texto: a estação sem o equipamento que pede. `nome` é
+ * o nome gravado da estação; sem ele (a resposta do inventário), sai o id.
+ * @param {{estacao: string, recurso: string, precisa: number, limite: number, temSubstituta?: boolean, dias?: string[]}} a
+ * @param {string} [nome]
+ */
+export function textoAlertaHyrox(a, nome) {
+  const r = nomeRecurso(a.recurso);
+  const onde = a.dias?.length ? ` (${rotuloDias(a.dias)})` : '';
+  const ativos = a.limite === 1 ? '1 ativo' : `${a.limite} ativos`;
+  return `No Hyrox${onde}, ${nome || a.estacao} precisa de ${a.precisa} ${a.precisa === 1 ? r.um : r.varios}, e o box tem ${ativos}`
+    + `${a.temSubstituta ? ' — troque pela substituta.' : '.'}`;
+}
+
+/** As estações do Hyrox que a tela pinta de vermelho (ids). @param {any} doc */
+export function estacoesEmAlerta(doc) {
+  return new Set((doc?.alertasHyrox ?? []).map((a) => a.estacao));
+}
+
+/**
+ * Os `dias` para `salvarSemanaBox` com UMA estação do Hyrox trocada (para a
+ * substituta, ou de volta à da prova), em todo dia que tem o Hyrox. O servidor
+ * recalcula a prescrição com o formato (`lerHyrox`).
+ * @param {any} doc @param {string} estacao @param {boolean} substituta
+ */
+export function diasComHyroxTrocado(doc, estacao, substituta) {
+  const dias = diasParaSalvar(doc);
+  for (const d of DIAS) {
+    const h = doc?.dias?.[d.id]?.hyrox;
+    if (!Array.isArray(h?.estacoes)) continue;
+    dias[d.id].hyrox = {
+      formato: h.formato,
+      estacoes: h.estacoes.map((e) => ({ estacao: e.estacao, substituta: e.estacao === estacao ? substituta : !!e.substituta })),
+    };
+  }
+  return dias;
 }

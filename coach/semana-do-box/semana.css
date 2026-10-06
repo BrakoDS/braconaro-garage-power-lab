@@ -166,3 +166,40 @@
 /* O slot é uma linha flex (não a grade do exercício do H): o botão vai no fim da linha. */
 .hiit-trocar { grid-column: auto; margin: 0 0 0 auto; padding: 1px 8px; flex: none; }
 .hiit-slot .hiit-lado + .hiit-trocar { margin-left: 0; }
+
+/* ---------- Cross e Hyrox (no cartão do dia) ---------- */
+.metab-alerta { margin: 6px 0; padding: 8px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--bad) 55%, transparent);
+  background: color-mix(in srgb, var(--bad) 8%, transparent); }
+.metab-alerta h4 { margin: 0 0 4px; color: var(--bad); font-size: 13px; }
+.metab-alerta ul { margin: 4px 0; padding-left: 18px; font-weight: 600; font-size: 13px; }
+.metab-alerta p { margin: 4px 0 0; font-size: 12px; }
+
+/* O WOD: a mesma linha do exercício do H (padrão em cima, nome, prescrição). */
+.wod-movs { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; counter-reset: mov; }
+.wod-mov { display: grid; grid-template-columns: 1.6em 1fr; column-gap: 6px; padding: 6px 8px; border-radius: 8px;
+  background: var(--card2); border: 1px solid transparent; counter-increment: mov; }
+.wod-mov::before { content: counter(mov); grid-row: span 4; color: var(--mut2); font-weight: 700; font-size: 13px; }
+.wod-mov > span { grid-column: 2; }
+.wod-presc { font-size: 13px; }
+.wod-carga { font-size: 12px; }
+.wod-mov.em-alerta { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--card2)); }
+.wod-mov.em-alerta .ex-nome::after { content: ' ⚠'; color: var(--bad); }
+
+/* O Hyrox: tabela estação × nível. A coluna da estação quebra linha; os números não. */
+.hy-tabela { width: 100%; border-collapse: separate; border-spacing: 0 3px; margin-top: 6px; font-size: 13px; }
+.hy-tabela thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--mut); font-weight: 700; padding: 0 4px; }
+.hy-tabela th[scope="row"] { text-align: left; font-weight: 500; padding: 5px 6px; border-radius: 8px 0 0 8px; }
+.hy-tabela td { text-align: right; padding: 5px 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hy-tabela td:last-child { border-radius: 0 8px 8px 0; }
+.hy-corrida th, .hy-corrida td { color: var(--mut); }
+.hy-estacao th, .hy-estacao td { background: var(--card2); }
+.hy-n { color: var(--mut2); font-weight: 700; }
+.hy-nome { font-weight: 600; }
+.hy-unid { font-size: 11px; }
+.hy-sub { display: block; font-size: 11px; font-weight: 600; color: var(--warn); }
+.hy-estacao.em-alerta th, .hy-estacao.em-alerta td { background: color-mix(in srgb, var(--bad) 12%, var(--card2)); }
+.hy-estacao.em-alerta .hy-nome::after { content: ' ⚠'; color: var(--bad); }
+.hy-trocar { display: block; margin: 4px 0 0; }
+.troca-presc { font-size: 12px; color: var(--mut); font-variant-numeric: tabular-nums; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
