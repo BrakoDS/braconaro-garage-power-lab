@@ -42,6 +42,7 @@ import {
 import { embaralhar, hashSeed, mulberry32 } from './sorteio';
 import { alunosPorMovimento, consumoCross, contarCross, demandaDoMovimento, unidadesNaTecnica } from './conta-cross';
 import { movimentoCross, tecnicaDoWod } from './semana-box';
+import { estrategiaDoWod } from './estrategia-cross';
 
 /** Teto da busca. Com o catálogo real, um WOD gasta poucas dezenas de nós. */
 const MAX_NOS = 200_000;
@@ -174,7 +175,10 @@ export function gerarCross(ctx: ContextoCross): CrossGerado {
   }
 
   const movimentos = ids.map((id) => movimentoCross(id, itens.get(id)!, formato));
-  const wod: WodProgramado = { formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos, tecnica };
+  const wod: WodProgramado = {
+    formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos, tecnica,
+    estrategia: estrategiaDoWod({ formato, movimentos, tecnica }, ctx.catalogo),
+  };
   const conta = contarCross(wod, ctx.limites, ctx.alunosPorAula);
   return {
     wod,

@@ -238,8 +238,22 @@ function blocoTecnica(doc, w, podeTrocar) {
 }
 
 /**
+ * A Estratégia do Coach: o parágrafo do servidor que liga a Técnica / Força
+ * ao WOD, entre os dois blocos. WOD sem ela (sem foco, ou gravado antes) não
+ * desenha nada.
+ * @param {any} w o `cross` do dia
+ */
+function blocoEstrategia(w) {
+  if (typeof w.estrategia !== 'string' || !w.estrategia) return '';
+  return `<aside class="estrategia" aria-label="Estratégia do Coach">
+        <p class="estrategia-titulo"><span aria-hidden="true">💡</span> Estratégia do Coach</p>
+        <p>${esc(w.estrategia)}</p>
+      </aside>`;
+}
+
+/**
  * A aula de Cross no cartão do dia, em dois blocos: 1 · Técnica / Força (o
- * movimento-foco) e 2 · WOD (formato e tempo, os movimentos com RX e Scaled,
+ * movimento-foco), a Estratégia do Coach entre eles, e 2 · WOD (formato e tempo, os movimentos com RX e Scaled,
  * a carga e o rodapé com a conta da turma). Movimento em alerta fica
  * vermelho; o foco leva o selo; com `hoje`, cada movimento ganha "trocar".
  * @param {any} doc @param {any} dia @param {{modalidade: string, papel: string}} b @param {string} [hoje]
@@ -266,6 +280,7 @@ function blocoWod(doc, dia, b, hoje) {
     <div class="metabolico wod${b.papel === 'principal' ? ' principal' : ''}">
       <h4>Cross <span class="mut">· ${comTecnica ? 'Técnica / Força + WOD' : esc(tituloWod(w))}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
       ${blocoTecnica(doc, w, podeTrocar)}
+      ${blocoEstrategia(w)}
       <section class="cross-bloco">
         ${comTecnica ? `<h5><span class="cross-n">2</span> WOD <span class="mut">· ${esc(tituloWod(w))}</span></h5>` : ''}
         <p class="mut">${esc(w.descricao)}</p>

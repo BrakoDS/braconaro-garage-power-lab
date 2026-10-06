@@ -28,6 +28,7 @@ import { alunosPorMovimento, consumoCross, contarCross } from './conta-cross';
 import { gerarCross, type ContextoCross } from './gerador-cross';
 import { gerarHyrox } from './gerador-hyrox';
 import { crossDaSemana, gerarSemana, hyroxDaSemana } from './gerador-box';
+import { MAX_CARACTERES_ESTRATEGIA, nomeCurto, quebrarSeries } from './estrategia-cross';
 
 let falhas = 0;
 function ok(condicao: boolean, descricao: string, detalhe = ''): void {
@@ -510,6 +511,75 @@ console.log('\nTécnica / Força (o bloco antes do WOD)');
   const legado = lerDias({ terca: { treinos: ['Cross'], cross: { formato: 'AMRAP', minutos: 14, movimentos: mov(['corrida', 'flexao', 'kb_swing']) } } }, catalogo);
   if ('dias' in legado) delete legado.dias.terca.cross!.tecnica;
   ok('dias' in legado && !problemasParaPublicar(legado.dias, []).some((p) => p.includes('Técnica')), 'WOD gravado antes do bloco (sem a chave): não trava');
+}
+
+/* ───────────────────────────── Estratégia do Coach ───────────────────────────── */
+
+console.log('\nEstratégia do Coach (a ponte entre a Técnica / Força e o WOD)');
+{
+  const focos = doCross.filter((id) => catalogo.get(id)!.cross!.tecnica);
+  ok(focos.every((id) => /^[a-zà-ú]/.test(catalogo.get(id)!.cross!.tecnica!.chave ?? '') && !/[.;]$/.test(catalogo.get(id)!.cross!.tecnica!.chave!)),
+    `os ${focos.length} focos têm chave, em minúscula e sem ponto final (entra no meio da frase)`);
+  const base = { nome: 'X', musculoPrincipal: ['core'], musculosSecundarios: [], equipamentos: ['peso_corporal'], adaptacoes: {}, instancia: null };
+  const t = { categoria: 'ginastica', tipo: 'skill', minutos: 10, dinamica: 'EMOM 10', objetivo: 'Prancha.' };
+  const comT = (tecnica: object) => lerItemCatalogo({ ...base, cross: { padrao: 'core', unidade: 'reps', rx: 10, tecnica } });
+  ok(comT({ ...t, chave: 'mantenha a prancha' })?.cross?.tecnica?.chave === 'mantenha a prancha' && comT({ ...t, chave: '' }) === null,
+    'catálogo: chave lida; chave vazia é inválida');
+
+  const estr = (formato: string, ids: string[], extra: object = {}) => {
+    const r = lerCross({ formato, minutos: 15, rodadas: 4, movimentos: ids.map((exercicioId) => ({ exercicioId })), ...extra }, catalogo, 'terca');
+    return 'cross' in r ? r.cross.estrategia ?? null : null;
+  };
+  const textoBom = (s: string | null) => !!s && s.length <= MAX_CARACTERES_ESTRATEGIA && s.endsWith('.')
+    && !/undefined|null|\$\{|\s{2}|\s[,.]/.test(s) && s.split(/[.!?](\s|$)/).filter((x) => x && x.trim()).length >= 3;
+  const ruins: string[] = [];
+  for (const id of focos) for (const formato of FORMATOS_CROSS) {
+    const s = estr(formato, ['corrida', id, 'abdominal_supra'], { tecnica: { exercicioId: id } });
+    if (!textoBom(s) || !s!.includes(catalogo.get(id)!.cross!.tecnica!.chave!)) ruins.push(`${id}/${formato}: ${s}`);
+  }
+  ok(!ruins.length, `${focos.length} focos × 4 formatos: 3 frases, até ${MAX_CARACTERES_ESTRATEGIA} caracteres, com a chave do foco`, ruins[0]);
+
+  // O exemplo do coach: força de thruster, AMRAP com squat jump e corda naval.
+  const thruster = estr('AMRAP', ['corda_naval', 'agachamento_salto', 'thruster_barra']) ?? '';
+  ok(thruster.includes('nas pernas e nos ombros') && thruster.includes('battle ropes') && thruster.includes('agachamento com salto')
+    && thruster.includes('deixe o quadril lançar a barra'), 'thruster + squat jump + corda naval: alerta pernas e ombros e manda usar o quadril', thruster);
+  const alivio = estr('AMRAP', ['air_bike_sprint', 'flexao', 'remada_unilateral_kb']) ?? '';
+  ok(/O resto do WOD puxa mais|Os outros movimentos pegam mais/.test(alivio) && !alivio.includes('dos ombros'),
+    'foco de ombro com o resto em pernas e costas: frase de alívio, sem citar o ombro', alivio);
+  ok(quebrarSeries(12) === '5-4-3' && quebrarSeries(16) === '7-5-4' && quebrarSeries(10) === '5-3-2', 'quebra das séries: 12 → 5-4-3');
+  ok((estr('Chipper', ['corrida', 'power_clean', 'box_jump', 'flexao_pike', 'farmer_carry_kb']) ?? '').includes('16 reps em 7-5-4'),
+    'Chipper com 16 power cleans: sugere 7-5-4');
+  ok(!/reps em/.test(estr('For Time', ['corrida', 'desenvolvimento_unilateral_kb', 'goblet_squat']) ?? 'reps em'),
+    'foco unilateral ou com menos de 10 reps: sem sugestão de quebra');
+  ok(nomeCurto('Remada no TRX') === 'remada no TRX' && nomeCurto('Battle ropes (corda naval)') === 'battle ropes', 'nome curto: sem parênteses, sigla mantida');
+
+  // Acompanha as trocas e não aceita texto do pedido.
+  const ids = ['corrida', 'flexao', 'power_clean'];
+  const a = estr('AMRAP', ids);
+  ok(a === estr('AMRAP', ids), 'mesmo WOD, mesmo texto (salvar de novo não muda)');
+  ok(a !== estr('AMRAP', ids, { tecnica: { exercicioId: 'flexao' } }) && (estr('AMRAP', ids, { tecnica: { exercicioId: 'flexao' } }) ?? '').includes('prancha'),
+    'trocar o foco reescreve a estratégia');
+  ok(a !== estr('AMRAP', ['corrida', 'kb_swing', 'power_clean']), 'trocar um movimento reescreve a estratégia');
+  ok(estr('AMRAP', ids, { estrategia: 'texto do cliente' }) === a, 'a estratégia do pedido é ignorada: sempre do servidor');
+  ok(estr('AMRAP', ['corrida', 'abdominal_supra', 'burpee']) === null, 'WOD sem foco: estratégia null');
+  const semChave = new Map([...catalogo].map(([id, i]) => [id, i.cross?.tecnica
+    ? { ...i, cross: { ...i.cross, tecnica: { ...i.cross.tecnica, chave: undefined } } } : i] as [string, ItemCatalogo]));
+  const r = lerCross({ formato: 'AMRAP', minutos: 15, movimentos: ids.map((exercicioId) => ({ exercicioId })) }, semChave, 'terca');
+  ok('cross' in r && textoBom(r.cross.estrategia ?? null) && r.cross.estrategia!.includes('recepção rápida da barra'),
+    'foco sem chave no catálogo (seed antigo): usa o objetivo');
+
+  // O gerador.
+  const todos = SEMENTES.map((semente) => gerarCross(ctx({ semente })));
+  ok(todos.every((g) => textoBom(g.wod.estrategia ?? null) && g.wod.estrategia!.toLowerCase().includes(nomeCurto(g.wod.tecnica!.nome).toLowerCase())),
+    `${SEMENTES.length} sorteios: todo WOD tem estratégia que cita o foco`);
+  ok(todos.every((g) => {
+    const r2 = lerCross(g.cru, catalogo, 'terca');
+    return 'cross' in r2 && r2.cross.estrategia === g.wod.estrategia;
+  }), 'gerar e salvar dão o MESMO texto');
+  const textos = new Set(todos.map((g) => g.wod.estrategia));
+  ok(textos.size >= SEMENTES.length * 0.5, `variedade: ${textos.size} textos diferentes em ${SEMENTES.length} sorteios`);
+  ok(todos.some((g) => g.wod.estrategia!.includes('O cansaço vai aparecer')) && todos.some((g) => g.wod.estrategia!.includes('Atenção '))
+    && todos.some((g) => /puxa mais|pegam mais/.test(g.wod.estrategia!)), 'as versões de fadiga e de alívio aparecem');
 }
 
 /* ───────────────────────────── edição manual ───────────────────────────── */

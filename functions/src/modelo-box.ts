@@ -412,6 +412,12 @@ export interface DadosTecnica {
   objetivo: string;
   /** Texto da carga sugerida, quando tem. */
   carga?: string;
+  /**
+   * O detalhe técnico que salva o WOD, no imperativo e em minúscula — entra
+   * no fim da Estratégia do Coach ('deixe o quadril lançar a barra — é ele
+   * que poupa o ombro'). Ausente: a estratégia usa o `objetivo`.
+   */
+  chave?: string;
 }
 
 /** Como um exercício entra no WOD do Cross. */
@@ -471,6 +477,12 @@ export interface WodProgramado {
    * gravado antes do bloco existir.
    */
   tecnica?: TecnicaProgramada | null;
+  /**
+   * A Estratégia do Coach: o parágrafo que liga a Técnica / Força ao WOD
+   * (`estrategia-cross.ts`). CALCULADA pelo servidor a cada gravação.
+   * `null` = WOD sem foco. Ausente = WOD gravado antes de existir.
+   */
+  estrategia?: string | null;
 }
 
 /**

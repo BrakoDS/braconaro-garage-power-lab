@@ -27,6 +27,7 @@ import {
 import { alunosPorEstacao, consumoPorAluno, contarHiit } from './conta-hiit';
 import { alunosPorMovimento, cabeNoInventario, consumoCross, contarCross, contarHyrox } from './conta-cross';
 import { CORRIDA_HYROX, DADOS_ESTACAO_HYROX } from './catalogo-hyrox';
+import { estrategiaDoWod } from './estrategia-cross';
 
 /** O box fica em São Paulo, que não tem horário de verão desde 2019. */
 const OFFSET_BOX_MS = -3 * 3600_000;
@@ -277,6 +278,11 @@ function lerDadosTecnica(v: unknown): DadosTecnica | null {
     const carga = texto(t.carga, 120);
     if (!carga) return null;
     dados.carga = carga;
+  }
+  if (t.chave !== undefined) {
+    const chave = texto(t.chave, 160);
+    if (!chave) return null;
+    dados.chave = chave;
   }
   return dados;
 }
@@ -553,7 +559,9 @@ export function lerCross(
     if (!item?.cross?.tecnica) return { erro: `${dia}: ${item?.nome ?? escolhido} não tem bloco de Técnica / Força no catálogo.` };
   }
   const tecnica = tecnicaDoWod(movimentos.map((m) => m.exercicioId), catalogo, escolhido || undefined);
-  return { cross: { formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos, tecnica } };
+  // A Estratégia do Coach é sempre do servidor: a que vier no pedido é ignorada.
+  const estrategia = estrategiaDoWod({ formato, movimentos, tecnica }, catalogo);
+  return { cross: { formato, descricao: REGRA_FORMATO_CROSS[formato].descricao, minutos, rodadas, movimentos, tecnica, estrategia } };
 }
 
 /**

@@ -218,6 +218,10 @@
 .tecnica-dinamica { font-weight: 600; }
 .tecnica-falta { color: var(--bad); font-weight: 600; }
 .tecnica-trocar { display: inline-block; margin-top: 4px; }
+.estrategia { margin: 8px 0; padding: 8px 10px 8px 12px; border-left: 3px solid var(--acc); border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--acc) 8%, var(--card2)); }
+.estrategia p { margin: 0; font-size: 13px; line-height: 1.45; }
+.estrategia .estrategia-titulo { margin-bottom: 4px; font-size: 12px; font-weight: 700; letter-spacing: .02em; color: var(--acc); }
 .wod-foco { display: inline-block; margin-left: 4px; font-size: 10px; font-weight: 700; letter-spacing: .3px; color: var(--acc); }
 .troca-selo.selo-foco { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 50%, transparent); }
 
