@@ -1,5 +1,6 @@
 /**
- * SEED DO CATÁLOGO BASE — grava `CATALOGO_BASE` em `catalogoExercicios/{id}`.
+ * SEED DO CATÁLOGO — grava `CATALOGO_BASE` (força) e `CATALOGO_HIIT` (só HIIT)
+ * em `catalogoExercicios/{id}`.
  *
  *     npm run seed:catalogo                     # simulação: lista o que mudaria, não grava
  *     npm run seed:catalogo -- --gravar         # grava no projeto do .firebaserc
@@ -17,7 +18,13 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { CATALOGO_BASE } from './catalogo-base';
-import { lerExercicioCatalogo } from './semana-box';
+import { CATALOGO_HIIT } from './catalogo-hiit';
+import { lerItemCatalogo } from './semana-box';
+
+/** Os dois catálogos num só. Um id nos dois é erro: um apagaria o outro. */
+const repetidos = Object.keys(CATALOGO_HIIT).filter((id) => id in CATALOGO_BASE);
+if (repetidos.length) throw new Error(`Id nos dois catálogos: ${repetidos.join(', ')}.`);
+const CATALOGO: Readonly<Record<string, object>> = { ...CATALOGO_BASE, ...CATALOGO_HIIT };
 
 const PROJETO = process.env.GCLOUD_PROJECT || 'projeto-garage-f0a2f';
 const GRAVAR = process.argv.includes('--gravar');
@@ -34,8 +41,8 @@ function estavel(v: unknown): string {
 async function main(): Promise<void> {
   // Defesa contra um item torto no código: o servidor o trataria como
   // inexistente, então gravá-lo só criaria um exercício que nenhuma semana aceita.
-  const tortos = Object.entries(CATALOGO_BASE).filter(([, item]) => !lerExercicioCatalogo(item)).map(([id]) => id);
-  if (tortos.length) throw new Error(`Itens inválidos no CATALOGO_BASE: ${tortos.join(', ')}. Rode npm run checar:box.`);
+  const tortos = Object.entries(CATALOGO).filter(([, item]) => !lerItemCatalogo(item)).map(([id]) => id);
+  if (tortos.length) throw new Error(`Itens inválidos no catálogo: ${tortos.join(', ')}. Rode npm run checar:box.`);
 
   initializeApp({ projectId: PROJETO });
   const db = getFirestore();
@@ -48,18 +55,18 @@ async function main(): Promise<void> {
   const lote = db.batch();
   let novos = 0;
   let alterados = 0;
-  for (const [id, item] of Object.entries(CATALOGO_BASE)) {
+  for (const [id, item] of Object.entries(CATALOGO)) {
     const atual = atuais.get(id);
     if (atual && estavel(atual) === estavel(item)) continue;
     console.log(`  ${atual ? '~ altera' : '+ cria  '} ${id}`);
     if (atual) alterados++; else novos++;
     lote.set(db.doc(`catalogoExercicios/${id}`), item);
   }
-  const sobrando = [...atuais.keys()].filter((id) => !(id in CATALOGO_BASE));
+  const sobrando = [...atuais.keys()].filter((id) => !(id in CATALOGO));
   for (const id of sobrando) console.log(`  ? só no Firestore (mantido): ${id}`);
 
   if (GRAVAR && novos + alterados) await lote.commit();
-  console.log(`\n${novos} novo(s), ${alterados} alterado(s), ${Object.keys(CATALOGO_BASE).length - novos - alterados} igual(is)`
+  console.log(`\n${novos} novo(s), ${alterados} alterado(s), ${Object.keys(CATALOGO).length - novos - alterados} igual(is)`
     + `${sobrando.length ? `, ${sobrando.length} só no Firestore` : ''}.`
     + `${!GRAVAR && novos + alterados ? ' Nada foi gravado.' : ''}\n`);
 }

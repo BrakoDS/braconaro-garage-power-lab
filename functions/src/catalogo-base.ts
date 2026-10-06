@@ -12,6 +12,10 @@
  * `padrao` (empurrar/puxar, sem horizontal × vertical). As adaptações apontam
  * para OUTRO id desta lista, e o `checar-box.ts` confere que todos existem.
  * São um ponto de partida para o coach revisar, não prescrição clínica.
+ *
+ * `unilateral` e `hiit` (05/10/2026): os exercícios de força que também servem
+ * ao HIIT levam a estação aqui; os que SÓ servem ao HIIT (burpee, air bike)
+ * estão em `catalogo-hiit.ts`, porque não têm instância de força.
  */
 import type { ExercicioCatalogo } from './modelo-box';
 
@@ -39,6 +43,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Flexão no TRX', instancia: 'empurrar_horizontal',
     musculoPrincipal: ['peito'], musculosSecundarios: ['triceps', 'ombro', 'core'],
     equipamentos: ['trx'],
+    hiit: { estacoes: ['superiores'] },
     adaptacoes: {},
   },
   crucifixo_crossover_medial: {
@@ -97,6 +102,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Remada unilateral com halter', instancia: 'puxar_horizontal',
     musculoPrincipal: ['costas'], musculosSecundarios: ['biceps', 'core'],
     equipamentos: ['halteres', 'banco'],
+    unilateral: true,
     adaptacoes: {},
   },
   remada_curvada_barra: {
@@ -109,6 +115,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Remada no TRX', instancia: 'puxar_horizontal',
     musculoPrincipal: ['costas'], musculosSecundarios: ['biceps', 'core'],
     equipamentos: ['trx'],
+    hiit: { estacoes: ['superiores'] },
     adaptacoes: {},
   },
   face_pull_monocross: {
@@ -164,6 +171,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Agachamento búlgaro no caixote', instancia: 'agachar',
     musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: [],
     equipamentos: ['caixote', 'halteres'],
+    unilateral: true,
     adaptacoes: { joelho: 'elevacao_pelvica', mobilidade: 'afundo_trx' },
   },
   leg_press_vertical_smith: {
@@ -182,24 +190,29 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Afundo com halteres', instancia: 'agachar',
     musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: ['posterior_coxa'],
     equipamentos: ['halteres'],
+    unilateral: true,
     adaptacoes: { joelho: 'elevacao_pelvica', mobilidade: 'afundo_trx' },
   },
   box_step_up: {
     nome: 'Step-up no caixote', instancia: 'agachar',
     musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha'],
     equipamentos: ['caixote'],
+    unilateral: true,
+    hiit: { estacoes: ['pernas'] },
     adaptacoes: { joelho: 'ponte_gluteo' },
   },
   agachamento_trx: {
     nome: 'Agachamento no TRX', instancia: 'agachar',
     musculoPrincipal: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
     equipamentos: ['trx'],
+    hiit: { estacoes: ['pernas'] },
     adaptacoes: { joelho: 'ponte_gluteo' },
   },
   afundo_trx: {
     nome: 'Afundo no TRX', instancia: 'agachar',
     musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: [],
     equipamentos: ['trx'],
+    unilateral: true,
     adaptacoes: { joelho: 'ponte_gluteo' },
   },
 
@@ -244,6 +257,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Ponte de glúteo no chão', instancia: 'estender_quadril',
     musculoPrincipal: ['gluteo'], musculosSecundarios: ['posterior_coxa', 'core'],
     equipamentos: ['colchonete'],
+    hiit: { estacoes: ['pernas'] },
     adaptacoes: {},
   },
   coice_gluteo_monocross: {
@@ -264,6 +278,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Fallout no TRX', instancia: 'estabilizar_tronco',
     musculoPrincipal: ['core'], musculosSecundarios: ['ombro'],
     equipamentos: ['trx'],
+    hiit: { estacoes: ['core'] },
     adaptacoes: { lombar: 'pallof_press', ombro: 'pallof_press' },
   },
   abdominal_monocross: {
@@ -276,12 +291,14 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Abdominal Infra (Elevação de pernas)', instancia: 'estabilizar_tronco',
     musculoPrincipal: ['core'], musculosSecundarios: [],
     equipamentos: ['colchonete'],
+    hiit: { estacoes: ['core'] },
     adaptacoes: { lombar: 'pallof_press' },
   },
   russian_twist: {
     nome: 'Russian twist', instancia: 'estabilizar_tronco',
     musculoPrincipal: ['core'], musculosSecundarios: [],
     equipamentos: ['anilhas', 'colchonete'],
+    hiit: { estacoes: ['core'] },
     adaptacoes: { lombar: 'pallof_press' },
   },
 };

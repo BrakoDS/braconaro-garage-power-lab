@@ -19,8 +19,9 @@
  *    LEITURA DE LOUSA aprende, por coach. Este catálogo da raiz é o de FÁBRICA,
  *    igual para todo coach, com instância de movimento e adaptações.
  *  - `academia/{uid}.inventario`: o inventário completo que a tela da Academia
- *    edita (37 itens, com cargas). O daqui guarda só os cinco recursos que
- *    LIMITAM a montagem da semana.
+ *    edita (37 itens, com cargas). O daqui guarda só os recursos que
+ *    LIMITAM a montagem da semana (os 5 do bloco H e os 9 do HIIT) e o tamanho
+ *    da turma.
  *
  * Os tipos usam o `Timestamp` do Admin SDK. Os clientes têm o Timestamp do SDK
  * web, que tem a mesma forma de leitura (`toDate()`, `seconds`).
@@ -56,6 +57,8 @@ export const EQUIPAMENTOS = [
   'smith', 'banco', 'monocross', 'flexora', 'extensora', 'cavalinho',
   'halteres', 'barra', 'anilhas', 'kettlebell', 'caixote', 'step', 'trx',
   'banco_scott', 'colchonete', 'peso_corporal',
+  // HIIT (05/10/2026): o que as estações de TABATA usam além do que já existia.
+  'wall_ball', 'corda_naval', 'corda_pular', 'sandbag', 'air_bike',
 ] as const;
 export type Equipamento = (typeof EQUIPAMENTOS)[number];
 
@@ -87,6 +90,80 @@ export const RECURSO_DO_EQUIPAMENTO: Readonly<Partial<Record<Equipamento, Recurs
   extensora: 'maquinaLegs',
   cavalinho: 'cavalinho',
 };
+
+/**
+ * Os recursos que limitam o HIIT. Ficam FORA de `RECURSOS_INVENTARIO` de
+ * propósito: o bloco H conta estação por exercício (um aparelho por estação),
+ * o HIIT conta unidade por aluno — e o TRX de uma flexão no H1 não disputa com
+ * nada. Misturar as listas faria o bloco H passar a contar TRX e kettlebell.
+ */
+export const RECURSOS_HIIT = [
+  'kettlebell', 'wallBall', 'caixote', 'cordaNaval', 'cordaPular', 'sandbag', 'airbike', 'trx', 'halteres',
+] as const;
+export type RecursoHiit = (typeof RECURSOS_HIIT)[number];
+
+/** Tudo o que o inventário guarda: os recursos do bloco H e os do HIIT. */
+export const RECURSOS_BOX = [...RECURSOS_INVENTARIO, ...RECURSOS_HIIT] as const;
+export type RecursoBox = RecursoInventario | RecursoHiit;
+
+/**
+ * Recursos do HIIT FIXOS NO ESPAÇO: as unidades ficam ancoradas juntas (os 2
+ * TRX lado a lado, na mesma estrutura) e não mudam de lugar. Se duas estações
+ * usassem o recurso, os alunos delas se juntariam no mesmo canto do box e a
+ * divisão em 4 estações quebraria. Então ele serve a UMA estação por HIIT —
+ * além do limite de unidades por slot, que continua valendo. Decisão do coach,
+ * 05/10/2026. Outro recurso ancorado entra só aqui.
+ */
+export const RECURSOS_FIXOS_HIIT: readonly RecursoHiit[] = ['trx'];
+
+/**
+ * Inventário do HIIT ditado pelo coach em 05/10/2026. Os halteres são os do
+ * cadastro antigo (`compartilhado/dados/equipamentos.js`: torres de 1–10 kg,
+ * 4 pares ao mesmo tempo). Kettlebell e wall ball contam UNIDADES, de qualquer
+ * peso: os pesos ficam na observação, para o coach ver na aba Inventário.
+ */
+export const INVENTARIO_HIIT_PADRAO: Readonly<Record<RecursoHiit, number>> = {
+  kettlebell: 10,
+  wallBall: 4,
+  caixote: 4,
+  cordaNaval: 2,
+  cordaPular: 2,
+  sandbag: 1,
+  airbike: 2,
+  trx: 2,
+  halteres: 4,
+};
+
+/** Observação de fábrica de um recurso (quando o coach ainda não escreveu a dele). */
+export const OBSERVACAO_PADRAO: Readonly<Partial<Record<RecursoBox, string>>> = {
+  kettlebell: '8 kg · 2× 10 kg · 2× 12 kg · 2× 16 kg · 18 kg · 20 kg · 22 kg',
+  wallBall: '2× 10 lb · 2× 14 lb',
+  cordaNaval: '4 m',
+  sandbag: '20 kg',
+  trx: 'instalados',
+  halteres: 'pares, torres de 1 a 10 kg',
+};
+
+/** Que recurso do HIIT cada equipamento consome. Equipamento fora daqui não limita o HIIT. */
+export const RECURSO_HIIT_DO_EQUIPAMENTO: Readonly<Partial<Record<Equipamento, RecursoHiit>>> = {
+  kettlebell: 'kettlebell',
+  wall_ball: 'wallBall',
+  caixote: 'caixote',
+  corda_naval: 'cordaNaval',
+  corda_pular: 'cordaPular',
+  sandbag: 'sandbag',
+  air_bike: 'airbike',
+  trx: 'trx',
+  halteres: 'halteres',
+};
+
+/**
+ * Tamanho da turma quando o coach ainda não gravou o dele (decisão de
+ * 05/10/2026: 6). É o número que o HIIT usa para saber quantos alunos dividem
+ * uma estação — ver `alunosPorEstacao` em `gerador-hiit.ts`.
+ */
+export const ALUNOS_POR_AULA_PADRAO = 6;
+export const ALUNOS_POR_AULA_MAX = 40;
 
 /** As restrições para as quais o catálogo sugere troca. */
 export const ADAPTACOES = ['joelho', 'lombar', 'ombro', 'mobilidade'] as const;
@@ -180,8 +257,31 @@ export const DESCANSO_POR_INSTANCIA: Readonly<Partial<Record<Instancia, number>>
 export const FORMATO_METABOLICO: Readonly<Record<SessaoMetabolica, { formato: string; descricao: string }>> = {
   Cross: { formato: 'WOD', descricao: 'AMRAP, EMOM, For Time ou Chipper — movimentos a definir pelo coach.' },
   Hyrox: { formato: 'For Time', descricao: 'Formato da competição: corrida intercalada com estações funcionais.' },
-  HIIT: { formato: 'TABATA', descricao: '4 estações TABATA (Inferiores · Core · Superiores · Cardio), 16 rounds cada.' },
+  HIIT: { formato: 'TABATA', descricao: '4 estações TABATA (Pernas · Core · Superiores · Cardio), 16 rounds cada.' },
 };
+
+/* ───────────────────────── HIIT (decisão do coach, 05/10/2026) ───────────────────────── */
+
+/**
+ * As 4 estações do HIIT. A turma se divide entre elas e todas rodam AO MESMO
+ * TEMPO, na mesma música: no round N, toda estação está no mesmo slot. É isso
+ * que faz o equipamento ser conferido também ENTRE estações, slot a slot.
+ */
+export const ESTACOES_HIIT = ['pernas', 'core', 'superiores', 'cardio'] as const;
+export type EstacaoHiit = (typeof ESTACOES_HIIT)[number];
+
+export const NOME_ESTACAO_HIIT: Readonly<Record<EstacaoHiit, string>> = {
+  pernas: 'Pernas',
+  core: 'Core',
+  superiores: 'Superiores',
+  cardio: 'Cardio',
+};
+
+/** Slots por estação. Exercício unilateral ocupa dois (lado direito, depois esquerdo). */
+export const SLOTS_POR_ESTACAO = 4;
+
+/** O texto que o app e a lousa mostram em cada estação. Ditado pelo coach. */
+export const PROTOCOLO_HIIT = '2 Músicas de Tabata (16 rounds no total). 4x cada exercício.';
 
 /* ───────────────────────── catalogoExercicios/{id} ───────────────────────── */
 
@@ -195,7 +295,38 @@ export interface ExercicioCatalogo {
   equipamentos: Equipamento[];
   /** Restrição → id de outro exercício DESTE catálogo para trocar. */
   adaptacoes: Partial<Record<Adaptacao, string>>;
+  /** Um lado por vez. No HIIT ocupa 2 slots (D e E). Ausente = bilateral. */
+  unilateral?: boolean;
+  /** Só nos exercícios que servem ao HIIT. */
+  hiit?: DadosHiit;
 }
+
+/**
+ * Como um exercício entra no HIIT. `estacoes` é a "tag" (hiit_pernas, hiit_core…)
+ * em forma de lista fechada: o servidor recusa estação desconhecida em vez de
+ * deixar um erro de digitação tirar o exercício do sorteio sem ninguém ver.
+ */
+export interface DadosHiit {
+  estacoes: EstacaoHiit[];
+  /**
+   * Unidades por ALUNO, quando não for 1 de cada recurso que os `equipamentos`
+   * usam (ex.: `{ kettlebell: 2 }` num exercício com dois kettlebells).
+   */
+  consumoPorAluno?: Partial<Record<RecursoHiit, number>>;
+}
+
+/**
+ * Exercício que só existe no HIIT (burpee, air bike): não ocupa vaga de força,
+ * então não tem instância. O bloco H nunca o vê — `lerExercicioCatalogo` o
+ * descarta, e só `lerItemCatalogo` o lê.
+ */
+export interface ExercicioSoHiit extends Omit<ExercicioCatalogo, 'instancia' | 'hiit'> {
+  instancia: null;
+  hiit: DadosHiit;
+}
+
+/** Um documento de `catalogoExercicios/`: de força (com instância) ou só de HIIT. */
+export type ItemCatalogo = ExercicioCatalogo | ExercicioSoHiit;
 
 /* ───────────────────── coaches/{uid}/semanas/{AAAA-Www} ───────────────────── */
 
@@ -253,6 +384,76 @@ export interface DiaProgramado {
   descansos: Descansos;
   /** CALCULADO no servidor: unidades de cada recurso que o bloco ocupa ao mesmo tempo. */
   consumoEquipamentos: Partial<Record<RecursoInventario, number>>;
+  /**
+   * As estações do HIIT, só em dia com HIIT na grade. O MESMO HIIT na sexta e
+   * no sábado, como o H3. `null` em semana gerada antes do gerador do HIIT: o
+   * dia só sinaliza o HIIT (`blocosMetabolicos`) e o coach passa na aula.
+   */
+  hiit: HiitProgramado | null;
+}
+
+/** Um slot de estação do HIIT. Unilateral aparece em dois slots seguidos, D e depois E. */
+export interface SlotHiit {
+  exercicioId: string;
+  /** Cópia do catálogo, como no bloco H. */
+  nome: string;
+  /** CALCULADO: 'D' e 'E' no unilateral (dois slots seguidos); null no bilateral. */
+  lado: 'D' | 'E' | null;
+  /**
+   * CALCULADO (catálogo): unidades de cada recurso por ALUNO. Fica gravado para
+   * a reconferência do inventário (turma ou limite novo) não precisar reler o
+   * catálogo — como o `consumoEquipamentos` do bloco H.
+   */
+  consumoPorAluno: Partial<Record<RecursoHiit, number>>;
+}
+
+export interface EstacaoProgramada {
+  estacao: EstacaoHiit;
+  /** `NOME_ESTACAO_HIIT` — 'Pernas'. */
+  nome: string;
+  /** `PROTOCOLO_HIIT`. */
+  protocolo: string;
+  /** Exatamente `SLOTS_POR_ESTACAO` quando completa. */
+  slots: SlotHiit[];
+}
+
+/** O HIIT da semana: UM só, que aparece na sexta (alternativa) e no sábado (principal). */
+export interface HiitProgramado {
+  /** As 4 estações, na ordem sorteada — é a ordem em que a lousa e o app mostram. */
+  estacoes: EstacaoProgramada[];
+}
+
+/**
+ * Equipamento do HIIT acima do limite. `slot` é o slot (1–4) em que as estações
+ * juntas passam do limite; `null` quando um exercício SOZINHO já passa (sandbag
+ * para 2 alunos, com 1 sandbag no box).
+ */
+export interface AlertaHiit {
+  recurso: RecursoHiit;
+  usado: number;
+  limite: number;
+  slot: number | null;
+  exercicios: string[];
+  /**
+   * Só no alerta ESPACIAL (recurso de `RECURSOS_FIXOS_HIIT` em mais de uma
+   * estação): as estações que o usam. Aí `usado` é o número de estações,
+   * `limite` é 1 e `slot` é null. Ausente = alerta de unidades.
+   */
+  estacoes?: EstacaoHiit[];
+}
+
+/** Um alerta do HIIT na semana: o mesmo HIIT está na sexta e no sábado, e o alerta sai uma vez com os dois dias. */
+export interface AlertaHiitDaSemana extends AlertaHiit {
+  dias: DiaSemana[];
+}
+
+/** Um exercício que nem sozinho cabe no inventário (sandbag para 2 alunos) e ficou fora do sorteio. */
+export interface ForaPorEquipamento {
+  exercicioId: string;
+  nome: string;
+  recurso: RecursoHiit;
+  precisa: number;
+  limite: number;
 }
 
 export interface SemanaBox {
@@ -265,6 +466,10 @@ export interface SemanaBox {
   dias: Record<DiaSemana, DiaProgramado>;
   /** CALCULADO: o que passa do inventário ativo. Semana com alerta não publica. */
   alertas: AlertaEquipamento[];
+  /** CALCULADO: equipamento do HIIT acima do limite. Também impede publicar. */
+  alertasHiit: AlertaHiitDaSemana[];
+  /** CALCULADO: a turma usada na conta do HIIT (`alunosPorAula` do inventário). */
+  alunosPorAula: number;
   /** CALCULADO: por que ainda não publica (vazio = pode). A tela mostra, quem decide é `publicarSemanaBox`. */
   problemasParaPublicar: string[];
   /** CALCULADO: os limites ativos do inventário usados na última conta ("Smith 2/2" na tela). */
@@ -280,7 +485,10 @@ export interface GeracaoSemana {
   variacao: number;
   semanaAnterior: string | null;
   trocas: TrocaEquipamento[];
+  /** Do bloco H e do HIIT (estes começam com 'HIIT:'). */
   avisos: string[];
+  /** Exercícios de HIIT que ficaram fora do sorteio por equipamento. */
+  hiitFora: ForaPorEquipamento[];
 }
 
 /* ───────────────────────── gerarMatrizSemanalBox ───────────────────────── */
@@ -321,6 +529,9 @@ export interface RespostaGerarMatriz {
   avisos: string[];
   problemasParaPublicar: string[];
   limitesUsados: Record<RecursoInventario, number>;
+  alertasHiit: AlertaHiitDaSemana[];
+  alunosPorAula: number;
+  hiitFora: ForaPorEquipamento[];
 }
 
 export interface AlertaEquipamento {
@@ -341,9 +552,12 @@ export interface StatusRecurso {
 }
 
 export interface InventarioBox {
-  equipamentos: Record<RecursoInventario, StatusRecurso>;
+  /** Os recursos do bloco H e os do HIIT (`RECURSOS_BOX`). */
+  equipamentos: Record<RecursoBox, StatusRecurso>;
   /** CALCULADO: `total - emManutencao`. É o limite que a semana respeita. */
-  limitesAtivos: Record<RecursoInventario, number>;
+  limitesAtivos: Record<RecursoBox, number>;
+  /** Tamanho máximo da turma. Sem valor gravado, `ALUNOS_POR_AULA_PADRAO` (6). */
+  alunosPorAula: number;
   atualizadoEm: Timestamp;
 }
 

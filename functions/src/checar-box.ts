@@ -8,10 +8,11 @@
  * que o seed grava.
  */
 import { CATALOGO_BASE } from './catalogo-base';
+import { CATALOGO_HIIT } from './catalogo-hiit';
 import { chaveSemana } from './volume-agregado';
 import {
   DIAS_SEMANA, INSTANCIAS, INVENTARIO_PADRAO, MATRIZ_H, RECURSOS_INVENTARIO,
-  type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type Instancia, type RecursoInventario,
+  type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type Instancia, type ItemCatalogo, type RecursoInventario,
 } from './modelo-box';
 import {
   alertasDaSemana, aplicarInventario, consumoDoDia, historicoComSessao, intervaloDaSemana, lerDias,
@@ -34,6 +35,8 @@ function ok(condicao: boolean, descricao: string, detalhe = ''): void {
 const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 const catalogo = new Map<string, ExercicioCatalogo>(Object.entries(CATALOGO_BASE));
+/** Força e só HIIT: o que o gerador da semana lê do Firestore. */
+const catalogoInteiro = new Map<string, ItemCatalogo>([...Object.entries(CATALOGO_BASE), ...Object.entries(CATALOGO_HIIT)]);
 
 /** O bloco passa de algum limite? */
 function excedeAlgum(ids: string[], cat: ReadonlyMap<string, ExercicioCatalogo>, limites: Record<RecursoInventario, number>): boolean {
@@ -81,7 +84,8 @@ console.log('\nDatas da semana');
 console.log('\nInventário');
 {
   const padrao = lerInventario(undefined);
-  ok(igual(padrao.limitesAtivos, INVENTARIO_PADRAO), 'sem documento = padrão (smith 2, banco 2, monocross 3, maquinaLegs 1, cavalinho 2)');
+  ok(igual(RECURSOS_INVENTARIO.map((r) => padrao.limitesAtivos[r]), RECURSOS_INVENTARIO.map((r) => INVENTARIO_PADRAO[r])),
+    'sem documento = padrão (smith 2, banco 2, monocross 3, maquinaLegs 1, cavalinho 2)');
   const quebrado = lerInventario({ equipamentos: { smith: { total: 2, emManutencao: 1 }, banco: { total: -1 } } });
   ok(quebrado.limitesAtivos.smith === 1, 'smith com 1 em manutenção = 1 ativo');
   ok(quebrado.limitesAtivos.banco === 2, 'valor torto gravado volta ao padrão');
@@ -209,7 +213,7 @@ console.log('\nSemana e semana anterior a partir do pedido');
 
 console.log('\nGerador: matriz, grade e rodízio (catálogo base, inventário padrão)');
 {
-  const w41 = gerarSemana({ semanaId: '2026-W41', catalogo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null });
+  const w41 = gerarSemana({ semanaId: '2026-W41', catalogo: catalogoInteiro, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null });
   const instanciasDe = (dia: DiaSemana) => w41.dias[dia].blocoPrincipal.map((e) => catalogo.get(e.exercicioId)!.instancia);
   ok(igual(instanciasDe('segunda'), MATRIZ_H.H1.instancias), 'segunda = H1, vagas na ordem da matriz', instanciasDe('segunda').join(','));
   ok(igual(instanciasDe('quarta'), MATRIZ_H.H2.instancias), 'quarta = H2, com estabilizar_tronco');
@@ -242,15 +246,15 @@ console.log('\nGerador: matriz, grade e rodízio (catálogo base, inventário pa
   const tri = recursosDe('flexao_trx');
   ok('dias' in tri && tri.dias.segunda.blocoPrincipal[0].recursos.length === 0, 'TRX não ocupa recurso limitado');
   ok(!w41.alertas.length && problemasParaPublicar(w41.dias, w41.alertas).length === 0, 'semana gerada pode publicar direto');
-  ok(igual(gerarSemana({ semanaId: '2026-W41', catalogo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null }), w41),
+  ok(igual(gerarSemana({ semanaId: '2026-W41', catalogo: catalogoInteiro, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null }), w41),
     'mesma entrada, mesma semana (determinístico)');
   const variacoes = [1, 2, 3, 4].map((variacao) => gerarSemana({
-    semanaId: '2026-W41', catalogo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null, variacao,
+    semanaId: '2026-W41', catalogo: catalogoInteiro, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null, variacao,
   }));
   ok(variacoes.some((v) => !igual(v.dias, w41.dias)), '`variacao` muda o sorteio');
 
   // O rodízio: W42 gerada lendo W41. Nenhum exercício da W41 volta.
-  const w42 = gerarSemana({ semanaId: '2026-W42', catalogo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: w41.dias });
+  const w42 = gerarSemana({ semanaId: '2026-W42', catalogo: catalogoInteiro, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: w41.dias });
   const usados41 = idsDaSemana(w41.dias);
   const repetidos = [...idsDaSemana(w42.dias)].filter((id) => usados41.has(id));
   ok(repetidos.length === 0, 'W42 não repete nenhuma variação exata da W41', repetidos.join(', '));
@@ -323,7 +327,7 @@ console.log('\nGerador: trava de equipamento (catálogo forjado)');
 
   // Ponta a ponta: semana inteira com 1 smith ativo no catálogo base.
   const apertada = gerarSemana({
-    semanaId: '2026-W42', catalogo, limites: { ...INVENTARIO_PADRAO, smith: 1, monocross: 1 }, diasDaSemanaAnterior: null,
+    semanaId: '2026-W42', catalogo: catalogoInteiro, limites: { ...INVENTARIO_PADRAO, smith: 1, monocross: 1 }, diasDaSemanaAnterior: null,
   });
   ok(!apertada.alertas.length, 'catálogo base com 1 smith e 1 monocross: a semana fecha sem alerta', JSON.stringify(apertada.alertas));
   ok(DIAS_SEMANA.every((d) => (apertada.dias[d].consumoEquipamentos.smith ?? 0) <= 1), 'nenhum dia passa de 1 smith');
@@ -333,7 +337,7 @@ console.log('\nReconferir semana gravada quando o inventário muda');
 {
   // Semana gravada como o servidor grava, com o inventário padrão (smith 2).
   const gravada = JSON.parse(JSON.stringify(gerarSemana({
-    semanaId: '2026-W42', catalogo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null,
+    semanaId: '2026-W42', catalogo: catalogoInteiro, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null,
   })));
   const comSmith = DIAS_SEMANA.filter((d) => (gravada.dias[d].consumoEquipamentos.smith ?? 0) > 0);
   ok(comSmith.length > 0, 'a semana de teste usa smith em algum dia', comSmith.join(','));

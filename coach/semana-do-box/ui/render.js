@@ -9,6 +9,8 @@
 import {
   DIAS, NOME_INSTANCIA, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
   consumoVisivel, publicacao, datasDosDias, tituloForca, sessaoEditavel, textoAvisoEdicao,
+  alunosPorEstacao, hiitDaSemana, nomesDoHiit, rotuloDiasHiit, slotsEmAlertaHiit, textoAlertaHiit, textoForaDoHiit,
+  totalDeAlertas,
 } from '../core/vista.js';
 
 /** @param {unknown} s */
@@ -27,7 +29,7 @@ export function renderLista(semanas, docs, selecionada) {
   if (!semanas.length) return '<p class="vazio">Mês inválido.</p>';
   return semanas.map((s) => {
     const doc = docs[s.chave] ?? null;
-    const n = (doc?.alertas ?? []).length;
+    const n = totalDeAlertas(doc);
     return `<button class="semana-card${s.chave === selecionada ? ' ativa' : ''}" data-semana="${esc(s.chave)}" type="button"
       aria-pressed="${s.chave === selecionada}">
       <span class="semana-rotulo">${esc(s.rotulo)}</span>
@@ -97,6 +99,7 @@ function notasDoGerador(doc) {
   if (!g) return '';
   const trocas = g.trocas ?? [];
   const avisos = g.avisos ?? [];
+  const fora = g.hiitFora ?? [];
   const origem = g.semanaAnterior
     ? `Rodízio contra a semana ${esc(g.semanaAnterior)}: nenhuma variação dela foi repetida sem aviso.`
     : 'Sem semana anterior gravada: não houve rodízio para fazer.';
@@ -106,6 +109,8 @@ function notasDoGerador(doc) {
     ${trocas.length ? `<h4>Trocas pela trava de equipamento</h4>
       <ul>${trocas.map((t) => `<li>${esc(textoTroca(t))}</li>`).join('')}</ul>` : ''}
     ${avisos.length ? `<h4>Avisos</h4><ul>${avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
+    ${fora.length ? `<h4>Fora do sorteio do HIIT (equipamento)</h4>
+      <ul>${fora.map((f) => `<li>${esc(textoForaDoHiit(f))}</li>`).join('')}</ul>` : ''}
   </section>`;
 }
 
@@ -154,10 +159,15 @@ function cartaoDia(doc, d, data, hoje) {
       <p class="mut dia-rodape">Cadência ${esc(dia.cadencia)} · troca de estação ${esc(dia.descansos?.entreExerciciosSeg)} s</p>
     </div>` : '';
 
+  // HIIT com estações: o cartão só chama a faixa da semana (o mesmo HIIT está
+  // na sexta e no sábado, e as 16 linhas não cabem bem num cartão estreito).
+  const comHiit = (b) => b.modalidade === 'HIIT' && Array.isArray(dia.hiit?.estacoes);
+  const nHiit = (doc.alertasHiit ?? []).length;
   const metabolicos = (dia.blocosMetabolicos ?? []).map((b) => `
     <div class="metabolico${b.papel === 'principal' ? ' principal' : ''}">
       <h4>${esc(b.modalidade)} <span class="mut">· ${esc(b.formato)}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
       <p class="mut">${esc(b.descricao)}</p>
+      ${comHiit(b) ? `<button class="ver-hiit${nHiit ? ' com-alerta' : ''}" type="button" data-ver-hiit>ver estações ↓${nHiit ? ` · ⚠ ${nHiit} alerta${nHiit > 1 ? 's' : ''}` : ''}</button>` : ''}
     </div>`).join('');
 
   const consumo = consumoVisivel(dia, doc.limitesUsados);
@@ -169,6 +179,56 @@ function cartaoDia(doc, d, data, hoje) {
     <header class="dia-h"><h3>${esc(d.nome)} <span class="mut">${esc(data)}</span></h3><div class="treinos">${chips}</div></header>
     ${forca}${metabolicos}${vazio}${equip}
   </article>`;
+}
+
+/**
+ * Uma estação do HIIT: os 4 slots, com D e E no unilateral (dois slots seguidos,
+ * ligados) e o slot em alerta em vermelho.
+ * @param {any} e @param {Set<string>} emAlerta
+ */
+function cartaoEstacao(e, emAlerta) {
+  const slots = e.slots ?? [];
+  const linhas = slots.map((x, i) => {
+    const classes = ['hiit-slot', x.lado ? `uni uni-${x.lado === 'D' ? 'd' : 'e'}` : '', emAlerta.has(`${e.estacao}:${i}`) ? 'em-alerta' : '']
+      .filter(Boolean).join(' ');
+    const lado = x.lado
+      ? `<span class="hiit-lado" title="${x.lado === 'D' ? 'Lado direito' : 'Lado esquerdo'}">${esc(x.lado)}</span>` : '';
+    return `<li class="${classes}"><span class="hiit-n">${i + 1}</span><span class="hiit-nome">${esc(x.nome)}</span>${lado}</li>`;
+  });
+  // Estação incompleta (só por edição à mão): o slot vazio aparece, e publicar avisa.
+  for (let i = slots.length; i < 4; i++) linhas.push(`<li class="hiit-slot vazio"><span class="hiit-n">${i + 1}</span><span class="hiit-nome mut">vazio</span></li>`);
+  return `<article class="hiit-estacao">
+    <h4>${esc(e.nome)}</h4>
+    <ol class="hiit-slots">${linhas.join('')}</ol>
+  </article>`;
+}
+
+/**
+ * A faixa do HIIT da semana, abaixo da grade: UMA vez, porque o mesmo HIIT está
+ * na sexta e no sábado. Semana gerada antes do gerador do HIIT não tem faixa.
+ * @param {any} doc
+ */
+function faixaHiit(doc) {
+  const h = hiitDaSemana(doc);
+  if (!h) return '';
+  const lista = doc.alertasHiit ?? [];
+  const nomes = nomesDoHiit(doc);
+  const emAlerta = slotsEmAlertaHiit(doc);
+  const turma = Number.isInteger(doc.alunosPorAula)
+    ? ` · turma de ${doc.alunosPorAula}, até ${alunosPorEstacao(doc.alunosPorAula)} por estação` : '';
+  const alerta = lista.length ? `<div class="hiit-alerta" role="alert">
+      <h4>⚠ Equipamento do HIIT acima do limite</h4>
+      <ul>${lista.map((a) => `<li>${esc(textoAlertaHiit(a, nomes))}</li>`).join('')}</ul>
+      <p class="mut">Os slots envolvidos estão marcados. Sorteie de novo ou ajuste o inventário.</p>
+    </div>` : '';
+  return `<section class="card hiit-semana${lista.length ? ' hiit-estourado' : ''}" id="hiit-da-semana">
+    <header class="hiit-h"><h3>HIIT da semana <span class="mut">· ${esc(rotuloDiasHiit(h.dias))}</span></h3></header>
+    <p class="hiit-protocolo"><b>Cada estação:</b> ${esc(h.protocolo)}<span class="mut">${esc(turma)}</span></p>
+    ${alerta}
+    <div class="hiit-estacoes">${h.estacoes.map((e) => cartaoEstacao(e, emAlerta)).join('')}</div>
+    <p class="mut hiit-rodape">As 4 estações rodam ao mesmo tempo, na mesma música: o slot 1 de todas acontece junto.
+      <span class="hiit-lado">D</span> <span class="hiit-lado">E</span> = exercício unilateral, um lado em cada slot.</p>
+  </section>`;
 }
 
 /**
@@ -186,5 +246,6 @@ export function renderSemana({ chave, rotulo, inicio, doc, ocupado = false, hoje
     ${alertas(doc)}
     ${avisosEdicao(doc)}
     ${notasDoGerador(doc)}
-    <div class="grade-dias">${DIAS.map((d) => cartaoDia(doc, d, datas[d.id], ocupado ? undefined : hoje)).join('')}</div>`;
+    <div class="grade-dias">${DIAS.map((d) => cartaoDia(doc, d, datas[d.id], ocupado ? undefined : hoje)).join('')}</div>
+    ${faixaHiit(doc)}`;
 }

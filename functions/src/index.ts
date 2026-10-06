@@ -56,13 +56,15 @@ import { alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
-  DIAS_SEMANA, EXERCICIOS_POR_BLOCO, MODALIDADES, SESSOES_H,
-  type AlertaEquipamento, type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type FeedbackExercicio,
-  type Modalidade, type PedidoGerarMatriz, type PresencaAluno, type RespostaGerarMatriz, type SessaoH,
+  DIAS_SEMANA, ESTACOES_HIIT, EXERCICIOS_POR_BLOCO, MODALIDADES, SESSOES_H, SLOTS_POR_ESTACAO,
+  type AlertaEquipamento, type AlertaHiitDaSemana, type DiaProgramado, type DiaSemana, type ExercicioCatalogo,
+  type FeedbackExercicio, type ItemCatalogo as ItemCatalogoBox, type Modalidade, type PedidoGerarMatriz, type PresencaAluno,
+  type RespostaGerarMatriz, type SessaoH,
 } from './modelo-box';
 import {
-  alertasDaSemana, aplicarInventario, historicoComSessao, intervaloDaSemana, lerDias, lerExercicioCatalogo,
-  lerInventario, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior, semanaDoPedido, volumeDaSessao,
+  alertasDaSemana, alertasHiitDaSemana, aplicarInventario, historicoComSessao, intervaloDaSemana, lerDias,
+  diasComHiitGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior,
+  semanaDoPedido, volumeDaSessao,
 } from './semana-box';
 import { gerarSemana, idsDaSemana } from './gerador-box';
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
@@ -1933,32 +1935,46 @@ export const calcularConquistasXPDesafios = gatilhoDeConquistas('desafios');
 
 const EH_ID_CATALOGO = /^[a-z0-9_-]{1,100}$/;
 
-/** Os ids de exercício que aparecem nos `dias` crus — no máximo 6 por dia. */
+/** Os ids de exercício que aparecem nos `dias` crus — no máximo 6 por bloco e 16 por HIIT. */
 function idsDosDias(dias: unknown): string[] {
-  const d = (dias ?? {}) as Record<string, { blocoPrincipal?: unknown } | undefined>;
+  const d = (dias ?? {}) as Record<string, { blocoPrincipal?: unknown; hiit?: { estacoes?: unknown } | null } | undefined>;
   const ids: string[] = [];
-  for (const dia of DIAS_SEMANA) {
-    const bloco = d[dia]?.blocoPrincipal;
-    if (!Array.isArray(bloco)) continue;
-    for (const x of bloco.slice(0, EXERCICIOS_POR_BLOCO)) {
+  const juntar = (lista: unknown, max: number) => {
+    if (!Array.isArray(lista)) return;
+    for (const x of lista.slice(0, max)) {
       const id = (x as { exercicioId?: unknown } | null)?.exercicioId;
       if (typeof id === 'string' && EH_ID_CATALOGO.test(id)) ids.push(id);
+    }
+  };
+  for (const dia of DIAS_SEMANA) {
+    juntar(d[dia]?.blocoPrincipal, EXERCICIOS_POR_BLOCO);
+    const estacoes = d[dia]?.hiit?.estacoes;
+    if (Array.isArray(estacoes)) {
+      for (const e of estacoes.slice(0, ESTACOES_HIIT.length)) juntar((e as { slots?: unknown } | null)?.slots, SLOTS_POR_ESTACAO);
     }
   }
   return ids;
 }
 
-/** Os itens do catálogo base com esses ids. Item torto fica de fora (ver `lerExercicioCatalogo`). */
-async function carregarCatalogo(db: Firestore, ids: string[]): Promise<Map<string, ExercicioCatalogo>> {
+/**
+ * Os itens do catálogo com esses ids — de força e só de HIIT. Item torto fica
+ * de fora (ver `lerItemCatalogo`); quem recusa só-HIIT no bloco de força é `lerDias`.
+ */
+async function carregarCatalogo(db: Firestore, ids: string[]): Promise<Map<string, ItemCatalogoBox>> {
   const unicos = [...new Set(ids)];
-  const mapa = new Map<string, ExercicioCatalogo>();
+  const mapa = new Map<string, ItemCatalogoBox>();
   if (!unicos.length) return mapa;
   const docs = await db.getAll(...unicos.map((id) => db.doc(`catalogoExercicios/${id}`)));
   for (const d of docs) {
-    const item = lerExercicioCatalogo(d.data());
+    const item = lerItemCatalogo(d.data());
     if (item) mapa.set(d.id, item);
   }
   return mapa;
+}
+
+/** Só os de força (com instância): o que o bloco H e a troca manual enxergam. */
+function soForca(catalogo: ReadonlyMap<string, ItemCatalogoBox>): Map<string, ExercicioCatalogo> {
+  return new Map([...catalogo].filter((par): par is [string, ExercicioCatalogo] => par[1].instancia !== null));
 }
 
 const refSemana = (db: Firestore, uid: string, semanaId: string) => db.doc(`coaches/${uid}/semanas/${semanaId}`);
@@ -1987,22 +2003,30 @@ export const salvarSemanaBox = onCall(
     const semanaId = dados.semanaId as string;
 
     const db = getFirestore();
+    const ref = refSemana(db, uid, semanaId);
     const anteriorId = semanaAnterior(semanaId);
-    const [catalogo, inv, anterior] = await Promise.all([
-      carregarCatalogo(db, idsDosDias(dados.dias)),
+    const [gravada, inv, anterior] = await Promise.all([
+      ref.get(),
       refInventario(db, uid).get(),
       anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
     ]);
-    const lido = lerDias(dados.dias, catalogo);
+    const diasPedido = diasComHiitGravado(dados.dias, gravada.data()?.dias);
+    const catalogo = await carregarCatalogo(db, idsDosDias(diasPedido));
+    const lido = lerDias(diasPedido, catalogo);
     if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
-    const limitesUsados = lerInventario(inv.data()).limitesAtivos;
+    const { limitesAtivos: limitesUsados, alunosPorAula } = lerInventario(inv.data());
     const alertas = alertasDaSemana(lido.dias, limitesUsados);
-    const problemas = problemasParaPublicar(lido.dias, alertas);
+    const alertasHiit = alertasHiitDaSemana(lido.dias, limitesUsados, alunosPorAula);
+    const problemas = problemasParaPublicar(lido.dias, alertas, alertasHiit, alunosPorAula);
     const avisosEdicao = avisosDeEdicao(lido.dias, idsDaSemana(anterior?.data()?.dias));
 
-    const ref = refSemana(db, uid, semanaId);
     const status = await db.runTransaction(async (tx) => {
       const atual = (await tx.get(ref)).data();
+      // O HIIT preservado veio da leitura de fora da transação: se a semana mudou
+      // nesse meio-tempo (outra aba gerou de novo), o coach recarrega e refaz.
+      if (JSON.stringify(atual?.dias ?? null) !== JSON.stringify(gravada.data()?.dias ?? null)) {
+        throw new HttpsError('aborted', 'A semana mudou enquanto você editava. Recarregue e tente de novo.');
+      }
       const publicada = atual?.status === 'publicado';
       if (publicada || atual?.publicadoEm) {
         const passados = diasPassadosAlterados(atual?.dias, lido.dias, intervalo.datas, diaSaoPaulo());
@@ -2025,6 +2049,8 @@ export const salvarSemanaBox = onCall(
         anoMes: intervalo.anoMes,
         dias: lido.dias,
         alertas,
+        alertasHiit,
+        alunosPorAula,
         problemasParaPublicar: problemas,
         limitesUsados,
         avisosEdicao,
@@ -2033,7 +2059,7 @@ export const salvarSemanaBox = onCall(
       });
       return publicada ? 'publicado' : 'rascunho';
     });
-    return { semanaId, status, dias: lido.dias, alertas, problemasParaPublicar: problemas, avisosEdicao };
+    return { semanaId, status, dias: lido.dias, alertas, alertasHiit, problemasParaPublicar: problemas, avisosEdicao };
   },
 );
 
@@ -2065,7 +2091,7 @@ export const opcoesTrocaBox = onCall(
     const anteriorId = semanaAnterior(semanaId);
     const [semana, catalogo, inv, anterior] = await Promise.all([
       refSemana(db, uid, semanaId).get(),
-      carregarCatalogoInteiro(db),
+      carregarCatalogoInteiro(db).then(soForca),
       refInventario(db, uid).get(),
       anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
     ]);
@@ -2121,31 +2147,35 @@ export const publicarSemanaBox = onCall(
     const [catalogo, inv] = await Promise.all([carregarCatalogo(db, idsDosDias(gravado)), refInventario(db, uid).get()]);
     const lido = lerDias(gravado, catalogo);
     if ('erro' in lido) throw new HttpsError('failed-precondition', `A semana salva não fecha mais com o catálogo: ${lido.erro}`);
-    const limitesUsados = lerInventario(inv.data()).limitesAtivos;
+    const { limitesAtivos: limitesUsados, alunosPorAula } = lerInventario(inv.data());
     const alertas = alertasDaSemana(lido.dias, limitesUsados);
-    const problemas = problemasParaPublicar(lido.dias, alertas);
+    const alertasHiit = alertasHiitDaSemana(lido.dias, limitesUsados, alunosPorAula);
+    const problemas = problemasParaPublicar(lido.dias, alertas, alertasHiit, alunosPorAula);
     if (problemas.length) {
       // Grava a conta nova ANTES de recusar: se o inventário mudou desde o
       // rascunho (um smith entrou em manutenção), a tela tem de mostrar o
       // alerta de agora, e não o de quando a semana foi gerada.
-      await ref.update({ alertas, problemasParaPublicar: problemas, limitesUsados, atualizadoEm: FieldValue.serverTimestamp() });
+      await ref.update({
+        alertas, alertasHiit, alunosPorAula, problemasParaPublicar: problemas, limitesUsados,
+        atualizadoEm: FieldValue.serverTimestamp(),
+      });
       throw new HttpsError('failed-precondition', problemas.join(' '));
     }
 
     await ref.update({
-      status: 'publicado', dias: lido.dias, alertas, problemasParaPublicar: [], limitesUsados,
+      status: 'publicado', dias: lido.dias, alertas, alertasHiit, alunosPorAula, problemasParaPublicar: [], limitesUsados,
       publicadoEm: FieldValue.serverTimestamp(), atualizadoEm: FieldValue.serverTimestamp(),
     });
     return { semanaId, status: 'publicado' as const };
   },
 );
 
-/** O catálogo base inteiro (~40 documentos). Item torto fica de fora. */
-async function carregarCatalogoInteiro(db: Firestore): Promise<Map<string, ExercicioCatalogo>> {
+/** O catálogo inteiro (~70 documentos, força e só HIIT). Item torto fica de fora. */
+async function carregarCatalogoInteiro(db: Firestore): Promise<Map<string, ItemCatalogoBox>> {
   const snap = await db.collection('catalogoExercicios').get();
-  const mapa = new Map<string, ExercicioCatalogo>();
+  const mapa = new Map<string, ItemCatalogoBox>();
   for (const d of snap.docs) {
-    const item = lerExercicioCatalogo(d.data());
+    const item = lerItemCatalogo(d.data());
     if (item) mapa.set(d.id, item);
   }
   return mapa;
@@ -2186,12 +2216,12 @@ export const gerarMatrizSemanalBox = onCall(
     ]);
     if (!catalogo.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
 
-    const limitesUsados = lerInventario(inv.data()).limitesAtivos;
+    const { limitesAtivos: limitesUsados, alunosPorAula } = lerInventario(inv.data());
     const gerado = gerarSemana({
-      semanaId, catalogo, limites: limitesUsados,
+      semanaId, catalogo, limites: limitesUsados, alunosPorAula,
       diasDaSemanaAnterior: anterior?.data()?.dias, variacao,
     });
-    const problemas = problemasParaPublicar(gerado.dias, gerado.alertas);
+    const problemas = problemasParaPublicar(gerado.dias, gerado.alertas, gerado.alertasHiit, alunosPorAula);
     const semanaAnteriorUsada = anterior?.exists ? anteriorId : null;
 
     const ref = refSemana(db, uid, semanaId);
@@ -2210,11 +2240,15 @@ export const gerarMatrizSemanalBox = onCall(
         anoMes: intervalo.anoMes,
         dias: gerado.dias,
         alertas: gerado.alertas,
+        alertasHiit: gerado.alertasHiit,
+        alunosPorAula,
         problemasParaPublicar: problemas,
         limitesUsados,
         // O que o sorteio decidiu fica NA semana: a tela que reabre o rascunho
         // amanhã precisa mostrar as trocas que a trava de equipamento fez.
-        geracao: { variacao, semanaAnterior: semanaAnteriorUsada, trocas: gerado.trocas, avisos: gerado.avisos },
+        geracao: {
+          variacao, semanaAnterior: semanaAnteriorUsada, trocas: gerado.trocas, avisos: gerado.avisos, hiitFora: gerado.hiitFora,
+        },
         // Mesmo campo que a edição manual grava: repetição que o gerador não
         // conseguiu evitar aparece igual à escolhida pelo coach.
         avisosEdicao: avisosDeEdicao(gerado.dias, idsDaSemana(anterior?.data()?.dias)),
@@ -2223,17 +2257,21 @@ export const gerarMatrizSemanalBox = onCall(
       });
     });
     logger.info('Semana do box gerada.', {
-      uid, semanaId, anteriorId, trocas: gerado.trocas.length, alertas: gerado.alertas.length,
+      uid, semanaId, anteriorId, trocas: gerado.trocas.length, alertas: gerado.alertas.length, alertasHiit: gerado.alertasHiit.length,
     });
     return {
       semanaId, status: 'rascunho', semanaAnterior: semanaAnteriorUsada,
       dias: gerado.dias, alertas: gerado.alertas, trocas: gerado.trocas, avisos: gerado.avisos,
       problemasParaPublicar: problemas, limitesUsados,
+      alertasHiit: gerado.alertasHiit, alunosPorAula, hiitFora: gerado.hiitFora,
     };
   },
 );
 
-/** Atualiza total / em manutenção / observação dos recursos que limitam a semana. */
+/**
+ * Atualiza total / em manutenção / observação dos recursos que limitam a semana
+ * (os do bloco H e os do HIIT) e o tamanho da turma (`alunosPorAula`, só HIIT).
+ */
 export const salvarInventarioBox = onCall(
   { timeoutSeconds: 30, memory: '256MiB' },
   async (req) => {
@@ -2242,7 +2280,8 @@ export const salvarInventarioBox = onCall(
     const ref = refInventario(db, uid);
     const inventario = await db.runTransaction(async (tx) => {
       const atual = lerInventario((await tx.get(ref)).data());
-      const r = aplicarInventario(atual, (req.data as { equipamentos?: unknown } | null)?.equipamentos);
+      const pedido = (req.data ?? {}) as { equipamentos?: unknown; alunosPorAula?: unknown };
+      const r = aplicarInventario(atual, pedido.equipamentos, pedido.alunosPorAula);
       if ('erro' in r) throw new HttpsError('invalid-argument', r.erro);
       tx.set(ref, { ...r.inventario, atualizadoEm: FieldValue.serverTimestamp() });
       return r.inventario;
@@ -2253,20 +2292,23 @@ export const salvarInventarioBox = onCall(
     // gerada — inclusive na PUBLICADA, que NÃO é despublicada aqui (decisão do
     // coach). Fora da transação de propósito: o inventário salvo é o que importa;
     // se a reconferência falhar, a tela avisa e a publicação ainda reconfere.
-    let semanasAfetadas: { semanaId: string; status: string; alertas: AlertaEquipamento[] }[] | null = [];
+    let semanasAfetadas: { semanaId: string; status: string; alertas: AlertaEquipamento[]; alertasHiit: AlertaHiitDaSemana[] }[] | null = [];
     let reconferidas = 0;
     try {
       const abertas = await db.collection(`coaches/${uid}/semanas`).where('dataFim', '>=', Timestamp.now()).get();
       const lote = db.batch();
       for (const s of abertas.docs) {
-        const r = reconferirSemana(s.data(), inventario.limitesAtivos);
+        const r = reconferirSemana(s.data(), inventario.limitesAtivos, inventario.alunosPorAula);
         if (!r) continue;
         reconferidas++;
         lote.update(s.ref, {
-          alertas: r.alertas, problemasParaPublicar: r.problemasParaPublicar,
+          alertas: r.alertas, alertasHiit: r.alertasHiit, alunosPorAula: inventario.alunosPorAula,
+          problemasParaPublicar: r.problemasParaPublicar,
           limitesUsados: inventario.limitesAtivos, atualizadoEm: FieldValue.serverTimestamp(),
         });
-        if (r.alertas.length) semanasAfetadas.push({ semanaId: s.id, status: String(s.data().status ?? ''), alertas: r.alertas });
+        if (r.alertas.length || r.alertasHiit.length) {
+          semanasAfetadas.push({ semanaId: s.id, status: String(s.data().status ?? ''), alertas: r.alertas, alertasHiit: r.alertasHiit });
+        }
       }
       if (reconferidas) await lote.commit();
     } catch (e) {

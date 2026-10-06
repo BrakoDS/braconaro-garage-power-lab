@@ -21,8 +21,11 @@ export const DIAS = [
   { id: 'sabado', nome: 'Sábado', prep: 'no' },
 ];
 
-/** Os recursos que o inventário limita, na ordem do servidor (`RECURSOS_INVENTARIO`). */
+/** Os recursos que o inventário limita no bloco H, na ordem do servidor (`RECURSOS_INVENTARIO`). */
 export const RECURSOS = ['smith', 'banco', 'monocross', 'maquinaLegs', 'cavalinho'];
+
+/** Os recursos que limitam o HIIT, na ordem do servidor (`RECURSOS_HIIT`). */
+export const RECURSOS_HIIT = ['kettlebell', 'wallBall', 'caixote', 'cordaNaval', 'cordaPular', 'sandbag', 'airbike', 'trx', 'halteres'];
 
 /** @type {Record<string, {um: string, varios: string}>} */
 export const NOME_RECURSO = {
@@ -31,6 +34,15 @@ export const NOME_RECURSO = {
   monocross: { um: 'Monocross', varios: 'Monocross' },
   maquinaLegs: { um: 'Máquina de pernas', varios: 'Máquinas de pernas (extensora/flexora)' },
   cavalinho: { um: 'Cavalinho', varios: 'Cavalinhos' },
+  kettlebell: { um: 'Kettlebell', varios: 'Kettlebells' },
+  wallBall: { um: 'Wall ball', varios: 'Wall balls' },
+  caixote: { um: 'Caixote', varios: 'Caixotes' },
+  cordaNaval: { um: 'Corda naval', varios: 'Cordas navais' },
+  cordaPular: { um: 'Corda de pular', varios: 'Cordas de pular' },
+  sandbag: { um: 'Sandbag', varios: 'Sandbags' },
+  airbike: { um: 'Air bike', varios: 'Air bikes' },
+  trx: { um: 'TRX', varios: 'TRX' },
+  halteres: { um: 'Par de halteres', varios: 'Pares de halteres' },
 };
 
 /** @type {Record<string, string>} */
@@ -306,24 +318,62 @@ export const MAX_UNIDADES = 50;
  * As linhas da tela a partir de `coaches/{uid}/inventario/atual` (ou da resposta
  * de `salvarInventarioBox`, que tem a mesma forma). `ativos` é o `limitesAtivos`
  * que o SERVIDOR calculou — a tela não refaz a conta. Documento ausente = `[]`.
+ * `grupo` separa o bloco H ('forca') do HIIT ('hiit'), na ordem do servidor.
  * @param {any} doc
- * @returns {{recurso: string, nome: string, total: number, emManutencao: number, observacao: string, ativos: number|null}[]}
+ * @returns {{recurso: string, grupo: 'forca'|'hiit', nome: string, total: number, emManutencao: number, observacao: string, ativos: number|null}[]}
  */
 export function linhasDoInventario(doc) {
   const eq = doc?.equipamentos;
   if (!eq || typeof eq !== 'object') return [];
-  return RECURSOS.map((r) => {
+  const grupos = /** @type {const} */ ([['forca', RECURSOS], ['hiit', RECURSOS_HIIT]]);
+  return grupos.flatMap(([grupo, lista]) => lista.map((r) => {
     const x = eq[r] ?? {};
     const ativos = doc.limitesAtivos?.[r];
     return {
       recurso: r,
+      grupo,
       nome: nomeRecurso(r).um,
       total: Number.isInteger(x.total) ? x.total : 0,
       emManutencao: Number.isInteger(x.emManutencao) ? x.emManutencao : 0,
       observacao: typeof x.observacao === 'string' ? x.observacao : '',
       ativos: Number.isInteger(ativos) ? ativos : null,
     };
-  });
+  }));
+}
+
+/** Faixa do seletor da turma — a mesma que `aplicarInventario` aceita no servidor (1 a 40). */
+export const TURMA_MIN = 1;
+export const TURMA_MAX = 40;
+
+/**
+ * A turma gravada (`alunosPorAula`), ou `null` em inventário gravado antes do HIIT.
+ * @param {any} doc
+ */
+export function turmaDoInventario(doc) {
+  const n = doc?.alunosPorAula;
+  return Number.isInteger(n) && n >= TURMA_MIN && n <= TURMA_MAX ? n : null;
+}
+
+/**
+ * O documento já tem a forma de depois do HIIT (os recursos do HIIT e a turma)?
+ * Inventário gravado antes disso é NORMALIZADO pelo servidor (`salvarInventario({})`):
+ * é ele quem sabe os números de fábrica, e a tela não os repete.
+ * @param {any} doc
+ */
+export function inventarioCompleto(doc) {
+  const eq = doc?.equipamentos;
+  return !!eq && typeof eq === 'object' && turmaDoInventario(doc) !== null
+    && [...RECURSOS, ...RECURSOS_HIIT].every((r) => eq[r] && Number.isInteger(eq[r].total));
+}
+
+/**
+ * Alunos que dividem uma estação do HIIT: a turma se espalha pelas 4. ESPELHA
+ * `alunosPorEstacao` do servidor (`conta-hiit.ts`) só para a tela explicar o
+ * número; quem conta de verdade é o servidor.
+ * @param {number} turma
+ */
+export function alunosPorEstacao(turma) {
+  return Math.max(1, Math.ceil(turma / 4));
 }
 
 /**
@@ -350,16 +400,18 @@ export function alteracoesDoInventario(original, editado) {
 }
 
 /**
- * Uma semana que o novo inventário deixou acima do limite. Semana publicada NÃO
- * é despublicada pelo servidor — a ação sugerida diz isso ao coach.
- * @param {{semanaId: string, status: string, alertas: any[]}} s
+ * Uma semana que o novo inventário deixou acima do limite — no bloco H, no HIIT
+ * ou nos dois. Semana publicada NÃO é despublicada pelo servidor — a ação
+ * sugerida diz isso ao coach. O alerta do HIIT aqui sai sem o nome dos
+ * exercícios: a resposta do inventário não traz a semana, só os alertas.
+ * @param {{semanaId: string, status: string, alertas?: any[], alertasHiit?: any[]}} s
  */
 export function semanaAfetada(s) {
   const publicada = s.status === 'publicado';
   return {
     semanaId: s.semanaId,
     titulo: `Semana ${s.semanaId} · ${publicada ? 'publicada' : 'rascunho'}`,
-    alertas: (s.alertas ?? []).map(textoAlerta),
+    alertas: [...(s.alertas ?? []).map(textoAlerta), ...(s.alertasHiit ?? []).map((a) => textoAlertaHiit(a))],
     acao: publicada
       ? 'Os alunos já veem esta semana. Volte para rascunho e sorteie de novo, ou devolva o equipamento ao inventário.'
       : 'Sorteie de novo para o gerador trocar os exercícios, ou devolva o equipamento ao inventário.',
@@ -388,4 +440,104 @@ export function tituloForca(diaProgramado) {
   const s = diaProgramado?.sessaoForca;
   if (!s) return '';
   return `${s.sessao} · ${s.nome}${s.papel === 'alternativa' ? ' (catch-up)' : ''}`;
+}
+
+/* ───────────────────────────── HIIT ───────────────────────────── */
+
+/** Nome de cada estação do HIIT, como o servidor (`NOME_ESTACAO_HIIT`). @type {Record<string, string>} */
+export const NOME_ESTACAO_HIIT = { pernas: 'Pernas', core: 'Core', superiores: 'Superiores', cardio: 'Cardio' };
+
+/** Total de alertas da semana (bloco H + HIIT) — o "⚠ n alertas" da lista. @param {any} doc */
+export function totalDeAlertas(doc) {
+  return (doc?.alertas ?? []).length + (doc?.alertasHiit ?? []).length;
+}
+
+/**
+ * O HIIT da semana, para a faixa abaixo da grade: as estações (gravadas iguais
+ * na sexta e no sábado) e os dias em que ele aparece, com o papel de cada um.
+ * `null` em semana gerada antes do gerador do HIIT — a tela fica como era.
+ * @param {any} doc
+ * @returns {{estacoes: any[], protocolo: string, dias: {id: string, nome: string, papel: string}[]}|null}
+ */
+export function hiitDaSemana(doc) {
+  const dias = DIAS.filter((d) => Array.isArray(doc?.dias?.[d.id]?.hiit?.estacoes));
+  if (!dias.length) return null;
+  const estacoes = doc.dias[dias[0].id].hiit.estacoes;
+  return {
+    estacoes,
+    protocolo: estacoes.find((e) => e?.protocolo)?.protocolo ?? '',
+    dias: dias.map((d) => {
+      const b = (doc.dias[d.id].blocosMetabolicos ?? []).find((x) => x?.modalidade === 'HIIT');
+      return { id: d.id, nome: d.nome, papel: b?.papel === 'principal' ? 'principal' : 'alternativa' };
+    }),
+  };
+}
+
+/** 'sexta (alternativa) e sábado (principal)'. @param {{nome: string, papel: string}[]} dias */
+export function rotuloDiasHiit(dias) {
+  const partes = dias.map((d) => `${d.nome.toLowerCase()} (${d.papel})`);
+  return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}` : (partes[0] ?? '');
+}
+
+/** id → nome dos exercícios do HIIT gravado (para o texto dos alertas). @param {any} doc */
+export function nomesDoHiit(doc) {
+  const nomes = new Map();
+  for (const e of hiitDaSemana(doc)?.estacoes ?? []) for (const x of e.slots ?? []) nomes.set(x.exercicioId, x.nome);
+  return nomes;
+}
+
+/**
+ * Um alerta de equipamento do HIIT, em texto. Dois tipos, como o servidor grava:
+ *  - `slot: null`: um exercício SOZINHO passa do limite (sandbag para 2 alunos);
+ *  - `slot: n`: no slot n as estações juntas passam (rodam na mesma música).
+ * `nomes` (de `nomesDoHiit`) põe o nome dos exercícios; sem ele, sai sem nome.
+ * @param {{recurso: string, usado: number, limite: number, slot: number|null, exercicios?: string[], dias?: string[]}} a
+ * @param {Map<string, string>} [nomes]
+ */
+export function textoAlertaHiit(a, nomes) {
+  const r = nomeRecurso(a.recurso);
+  const ativos = a.limite === 1 ? '1 ativo' : `${a.limite} ativos`;
+  const onde = a.dias?.length ? ` (${rotuloDias(a.dias)})` : '';
+  const quem = nomes ? (a.exercicios ?? []).map((id) => nomes.get(id) ?? id).join(' + ') : '';
+  // Recurso fixo no espaço (o TRX) em mais de uma estação.
+  if (a.estacoes?.length) {
+    const estacoes = a.estacoes.map((e) => NOME_ESTACAO_HIIT[e] ?? e);
+    const lista = estacoes.length > 1 ? `${estacoes.slice(0, -1).join(', ')} e ${estacoes[estacoes.length - 1]}` : estacoes[0];
+    return `${r.um} fica fixo numa estação só, mas o HIIT${onde} o usa em ${a.usado} estações: ${lista}${quem ? ` — ${quem}` : ''}.`;
+  }
+  if (a.slot === null || a.slot === undefined) {
+    return `${quem || 'Um exercício'} no HIIT${onde} precisa sozinho de ${a.usado} ${a.usado === 1 ? r.um : r.varios}: ${ativos}.`;
+  }
+  return `Limite de ${r.varios} atingido no slot ${a.slot} do HIIT${onde}: ${a.usado} em uso, ${ativos}${quem ? ` — ${quem}` : ''}.`;
+}
+
+/**
+ * Os slots do HIIT que a tela pinta de vermelho, como 'estacao:indice' (índice
+ * a partir de 0). Alerta de slot marca os exercícios daquele slot; alerta de
+ * exercício sozinho marca todo slot dele (os dois lados, no unilateral).
+ * @param {any} doc @returns {Set<string>}
+ */
+export function slotsEmAlertaHiit(doc) {
+  const marcados = new Set();
+  const h = hiitDaSemana(doc);
+  if (!h) return marcados;
+  for (const a of doc.alertasHiit ?? []) {
+    const ids = new Set(a.exercicios ?? []);
+    for (const e of h.estacoes) {
+      (e.slots ?? []).forEach((x, i) => {
+        const noSlot = a.slot === null || a.slot === undefined || a.slot === i + 1;
+        if (noSlot && ids.has(x.exercicioId)) marcados.add(`${e.estacao}:${i}`);
+      });
+    }
+  }
+  return marcados;
+}
+
+/**
+ * "Clean com sandbag: precisa de 2 Sandbags, o box tem 1 ativo." — exercício que
+ * o gerador deixou fora do sorteio (`geracao.hiitFora`).
+ * @param {{nome: string, recurso: string, precisa: number, limite: number}} f
+ */
+export function textoForaDoHiit(f) {
+  return `${f.nome}: precisa de ${f.precisa} ${f.precisa === 1 ? nomeRecurso(f.recurso).um : nomeRecurso(f.recurso).varios}, o box tem ${f.limite} ${f.limite === 1 ? 'ativo' : 'ativos'}.`;
 }

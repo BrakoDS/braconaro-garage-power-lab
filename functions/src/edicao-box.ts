@@ -229,6 +229,9 @@ function retrato(d: any): string {
       .map((e: any) => [e?.exercicioId, e?.series, e?.repeticoes, e?.descansoSeg]),
     cadencia: d?.cadencia ?? '',
     descansos: [d?.descansos?.entreSeriesSeg ?? null, d?.descansos?.entreExerciciosSeg ?? null],
+    // Ausente (semana de antes do HIIT) e `null` têm o mesmo retrato: nada mudou.
+    hiit: (Array.isArray(d?.hiit?.estacoes) ? d.hiit.estacoes : [])
+      .map((e: any) => [e?.estacao, (Array.isArray(e?.slots) ? e.slots : []).map((x: any) => x?.exercicioId)]),
   });
 }
 

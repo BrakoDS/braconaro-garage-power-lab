@@ -1,0 +1,177 @@
+/**
+ * CATÁLOGO SÓ DE HIIT — exercícios que não ocupam vaga de força (sem `instancia`)
+ * e que o `seed-catalogo.ts` grava em `catalogoExercicios/` junto com o
+ * `CATALOGO_BASE`.
+ *
+ * Origem (05/10/2026):
+ *  - MIGRADOS: os exercícios com categoria 'hiit' do Montador antigo
+ *    (`compartilhado/dados/exercicios.js`), com a estação que o
+ *    `grupoTabata` de `hiitTabata.js` dava a cada um. Os que já existiam no
+ *    catálogo de força (TRX, ponte, step-up, abdominais) ganharam `hiit` lá, em
+ *    `catalogo-base.ts`, e não se repetem aqui.
+ *  - NOVOS: para o equipamento que o coach listou e o Montador não usava (corda
+ *    de pular, sandbag, kettlebell unilateral, halteres). Ponto de partida para
+ *    o coach revisar, como as adaptações do catálogo de força.
+ *
+ * Equipamento traduzido como no `catalogo-base.ts`: `corporal` e `corrida` →
+ * `peso_corporal`. O músculo `estabilizadores` do catálogo antigo não soma
+ * volume e ficou de fora.
+ */
+import type { ExercicioSoHiit } from './modelo-box';
+
+const SEM = { adaptacoes: {}, instancia: null } as const;
+
+export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
+  /* ───────────── pernas ───────────── */
+  agachamento_livre: {
+    ...SEM, nome: 'Agachamento livre (peso corporal)',
+    musculoPrincipal: ['quadriceps'], musculosSecundarios: ['gluteo'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['pernas'] },
+  },
+  goblet_squat: {
+    ...SEM, nome: 'Agachamento goblet com kettlebell',
+    musculoPrincipal: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
+    equipamentos: ['kettlebell'], hiit: { estacoes: ['pernas'] },
+  },
+  kb_swing: {
+    ...SEM, nome: 'Kettlebell swing',
+    musculoPrincipal: ['gluteo', 'posterior_coxa'], musculosSecundarios: ['core', 'ombro'],
+    equipamentos: ['kettlebell'], hiit: { estacoes: ['pernas'] },
+  },
+  wall_ball_shot: {
+    ...SEM, nome: 'Wall ball shot',
+    musculoPrincipal: ['quadriceps', 'ombro'], musculosSecundarios: ['gluteo'],
+    equipamentos: ['wall_ball'], hiit: { estacoes: ['pernas'] },
+  },
+  sandbag_clean: {
+    ...SEM, nome: 'Clean com sandbag',
+    musculoPrincipal: ['gluteo', 'posterior_coxa'], musculosSecundarios: ['quadriceps', 'costas', 'trapezio'],
+    equipamentos: ['sandbag'], hiit: { estacoes: ['pernas'] },
+  },
+  afundo_kb: {
+    ...SEM, nome: 'Afundo com kettlebell', unilateral: true,
+    musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: ['core'],
+    equipamentos: ['kettlebell'], hiit: { estacoes: ['pernas'] },
+  },
+  afundo_reverso: {
+    ...SEM, nome: 'Afundo reverso (peso corporal)', unilateral: true,
+    musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: [],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['pernas'] },
+  },
+
+  /* ───────────── core ───────────── */
+  abdominal_supra: {
+    ...SEM, nome: 'Abdominal Supra (Crunch)',
+    musculoPrincipal: ['core'], musculosSecundarios: [],
+    equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
+  },
+  abdominal_remador: {
+    ...SEM, nome: 'Abdominal Remador',
+    musculoPrincipal: ['core'], musculosSecundarios: ['quadriceps'],
+    equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
+  },
+  abdominal_bicicleta: {
+    ...SEM, nome: 'Abdominal bicicleta',
+    musculoPrincipal: ['core'], musculosSecundarios: [],
+    equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
+  },
+  prancha: {
+    ...SEM, nome: 'Prancha isométrica',
+    musculoPrincipal: ['core'], musculosSecundarios: ['ombro'],
+    equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
+  },
+  prancha_lateral: {
+    ...SEM, nome: 'Prancha lateral', unilateral: true,
+    musculoPrincipal: ['core'], musculosSecundarios: [],
+    equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
+  },
+
+  /* ───────────── superiores ───────────── */
+  flexao: {
+    ...SEM, nome: 'Flexão de braço',
+    musculoPrincipal: ['peito'], musculosSecundarios: ['triceps', 'ombro', 'core'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['superiores'] },
+  },
+  flexao_pike: {
+    ...SEM, nome: 'Flexão pike',
+    musculoPrincipal: ['ombro'], musculosSecundarios: ['triceps'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['superiores'] },
+  },
+  thruster_wallball: {
+    ...SEM, nome: 'Thruster com wall ball',
+    musculoPrincipal: ['ombro', 'quadriceps'], musculosSecundarios: ['gluteo', 'triceps'],
+    equipamentos: ['wall_ball'], hiit: { estacoes: ['superiores'] },
+  },
+  thruster_halteres: {
+    ...SEM, nome: 'Thruster com halteres',
+    musculoPrincipal: ['ombro', 'quadriceps'], musculosSecundarios: ['gluteo', 'triceps'],
+    equipamentos: ['halteres'], hiit: { estacoes: ['superiores'] },
+  },
+  remada_unilateral_kb: {
+    ...SEM, nome: 'Remada unilateral com kettlebell', unilateral: true,
+    musculoPrincipal: ['costas'], musculosSecundarios: ['biceps', 'core'],
+    equipamentos: ['kettlebell'], hiit: { estacoes: ['superiores'] },
+  },
+  desenvolvimento_unilateral_kb: {
+    ...SEM, nome: 'Desenvolvimento unilateral com kettlebell', unilateral: true,
+    musculoPrincipal: ['ombro'], musculosSecundarios: ['triceps', 'core'],
+    equipamentos: ['kettlebell'], hiit: { estacoes: ['superiores'] },
+  },
+
+  /* ───────────── cardio ───────────── */
+  burpee: {
+    ...SEM, nome: 'Burpee',
+    musculoPrincipal: ['quadriceps', 'peito'], musculosSecundarios: ['core', 'ombro', 'triceps'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+  },
+  pular_corda: {
+    ...SEM, nome: 'Pular corda (speed rope)',
+    musculoPrincipal: ['panturrilha'], musculosSecundarios: ['ombro'],
+    equipamentos: ['corda_pular'], hiit: { estacoes: ['cardio'] },
+  },
+  air_bike_sprint: {
+    ...SEM, nome: 'Air bike (sprint/cals)',
+    musculoPrincipal: ['quadriceps', 'core'], musculosSecundarios: ['ombro', 'costas'],
+    equipamentos: ['air_bike'], hiit: { estacoes: ['cardio'] },
+  },
+  corda_naval: {
+    ...SEM, nome: 'Battle ropes (corda naval)',
+    musculoPrincipal: ['ombro', 'core'], musculosSecundarios: ['antebraco'],
+    equipamentos: ['corda_naval'], hiit: { estacoes: ['cardio'] },
+  },
+  box_jump: {
+    ...SEM, nome: 'Box jump',
+    musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha', 'posterior_coxa'],
+    equipamentos: ['caixote'], hiit: { estacoes: ['cardio'] },
+  },
+  agachamento_salto: {
+    ...SEM, nome: 'Agachamento com salto (squat jump)',
+    musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: ['panturrilha'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+  },
+  skater: {
+    ...SEM, nome: 'Skater (saltos laterais)',
+    musculoPrincipal: ['gluteo', 'quadriceps'], musculosSecundarios: ['panturrilha'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+  },
+  mountain_climber: {
+    ...SEM, nome: 'Mountain climber (escalador)',
+    musculoPrincipal: ['core'], musculosSecundarios: ['ombro', 'quadriceps'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+  },
+  high_knees: {
+    ...SEM, nome: 'High knees (joelho alto)',
+    musculoPrincipal: ['quadriceps', 'core'], musculosSecundarios: ['panturrilha'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+  },
+  polichinelo: {
+    ...SEM, nome: 'Polichinelo (jumping jacks)',
+    musculoPrincipal: ['panturrilha', 'ombro'], musculosSecundarios: ['quadriceps', 'core'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+  },
+  corrida_100m: {
+    ...SEM, nome: 'Corrida 100 m (rua)',
+    musculoPrincipal: ['quadriceps', 'posterior_coxa'], musculosSecundarios: ['panturrilha', 'gluteo'],
+    equipamentos: ['peso_corporal'], hiit: { estacoes: ['cardio'] },
+  },
+};

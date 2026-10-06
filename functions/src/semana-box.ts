@@ -8,13 +8,16 @@
  */
 import { chaveSemana } from './volume-agregado';
 import {
-  ADAPTACOES, CADENCIA_PADRAO, DIAS_SEMANA, EQUIPAMENTOS, EXERCICIOS_POR_BLOCO, FORMATO_METABOLICO, INSTANCIAS,
-  INVENTARIO_PADRAO, MATRIZ_H, MODALIDADES, MUSCULOS, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA,
-  RECURSO_DO_EQUIPAMENTO, RECURSOS_INVENTARIO, SESSOES_H, SESSOES_METABOLICAS,
-  type AlertaEquipamento, type DiaProgramado, type DiaSemana, type ExercicioCatalogo,
-  type ExercicioProgramado, type FeedbackExercicio, type Modalidade, type Musculo, type PapelSessao,
-  type RecursoInventario, type SessaoH, type SessaoMetabolica, type StatusRecurso,
+  ADAPTACOES, ALUNOS_POR_AULA_MAX, ALUNOS_POR_AULA_PADRAO, CADENCIA_PADRAO, DIAS_SEMANA, EQUIPAMENTOS, ESTACOES_HIIT,
+  EXERCICIOS_POR_BLOCO, FORMATO_METABOLICO, INSTANCIAS, INVENTARIO_HIIT_PADRAO, INVENTARIO_PADRAO, MATRIZ_H, MODALIDADES,
+  MUSCULOS, OBSERVACAO_PADRAO, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA, RECURSO_DO_EQUIPAMENTO, RECURSOS_BOX,
+  NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, RECURSOS_INVENTARIO, SESSOES_H, SESSOES_METABOLICAS, SLOTS_POR_ESTACAO,
+  type AlertaEquipamento, type AlertaHiitDaSemana, type DadosHiit, type DiaProgramado, type DiaSemana,
+  type EstacaoHiit, type EstacaoProgramada, type ExercicioCatalogo, type HiitProgramado, type SlotHiit,
+  type ExercicioProgramado, type FeedbackExercicio, type ItemCatalogo, type Modalidade, type Musculo, type PapelSessao,
+  type RecursoBox, type RecursoHiit, type RecursoInventario, type SessaoH, type SessaoMetabolica, type StatusRecurso,
 } from './modelo-box';
+import { alunosPorEstacao, consumoPorAluno, contarHiit } from './conta-hiit';
 
 /** O box fica em São Paulo, que não tem horário de verão desde 2019. */
 const OFFSET_BOX_MS = -3 * 3600_000;
@@ -100,26 +103,39 @@ export function semanaAnterior(semanaId: string): string | null {
 /* ───────────────────────────── inventário ───────────────────────────── */
 
 export interface InventarioLido {
-  equipamentos: Record<RecursoInventario, StatusRecurso>;
-  limitesAtivos: Record<RecursoInventario, number>;
+  equipamentos: Record<RecursoBox, StatusRecurso>;
+  limitesAtivos: Record<RecursoBox, number>;
+  alunosPorAula: number;
 }
 
+/** Unidades de fábrica de qualquer recurso do inventário (bloco H ou HIIT). */
+const PADRAO_BOX: Readonly<Record<RecursoBox, number>> = { ...INVENTARIO_PADRAO, ...INVENTARIO_HIIT_PADRAO };
+
 /**
- * O inventário gravado, completado com `INVENTARIO_PADRAO` no que faltar.
- * Documento inexistente ou torto vira o padrão — a semana nunca fica sem limite.
+ * O inventário gravado, completado com `INVENTARIO_PADRAO` / `INVENTARIO_HIIT_PADRAO`
+ * no que faltar. Documento inexistente ou torto vira o padrão — a semana nunca
+ * fica sem limite. Um inventário gravado ANTES do HIIT (só os 5 recursos do H)
+ * ganha os recursos do HIIT com os números de fábrica.
  */
 export function lerInventario(doc: unknown): InventarioLido {
-  const gravado = ((doc as { equipamentos?: unknown } | null)?.equipamentos ?? {}) as Record<string, unknown>;
-  const equipamentos = {} as Record<RecursoInventario, StatusRecurso>;
-  const limitesAtivos = {} as Record<RecursoInventario, number>;
-  for (const r of RECURSOS_INVENTARIO) {
+  const d = (doc ?? {}) as { equipamentos?: unknown; alunosPorAula?: unknown };
+  const gravado = (d.equipamentos ?? {}) as Record<string, unknown>;
+  const equipamentos = {} as Record<RecursoBox, StatusRecurso>;
+  for (const r of RECURSOS_BOX) {
     const g = (gravado[r] ?? {}) as Record<string, unknown>;
-    const total = inteiro(g.total, 0, 50) ?? INVENTARIO_PADRAO[r];
+    const total = inteiro(g.total, 0, 50) ?? PADRAO_BOX[r];
     const emManutencao = Math.min(inteiro(g.emManutencao, 0, 50) ?? 0, total);
-    equipamentos[r] = { total, emManutencao, observacao: texto(g.observacao, 200) };
-    limitesAtivos[r] = total - emManutencao;
+    const observacao = g.observacao === undefined ? OBSERVACAO_PADRAO[r] ?? '' : texto(g.observacao, 200);
+    equipamentos[r] = { total, emManutencao, observacao };
   }
-  return { equipamentos, limitesAtivos };
+  const alunosPorAula = inteiro(d.alunosPorAula, 1, ALUNOS_POR_AULA_MAX) ?? ALUNOS_POR_AULA_PADRAO;
+  return { equipamentos, limitesAtivos: limitesDe(equipamentos), alunosPorAula };
+}
+
+function limitesDe(equipamentos: Record<RecursoBox, StatusRecurso>): Record<RecursoBox, number> {
+  const limites = {} as Record<RecursoBox, number>;
+  for (const r of RECURSOS_BOX) limites[r] = equipamentos[r].total - equipamentos[r].emManutencao;
+  return limites;
 }
 
 /**
@@ -131,11 +147,12 @@ export function lerInventario(doc: unknown): InventarioLido {
 export function aplicarInventario(
   atual: InventarioLido,
   entrada: unknown,
+  alunosPorAulaPedido?: unknown,
 ): { inventario: InventarioLido } | { erro: string } {
   const e = (entrada ?? {}) as Record<string, unknown>;
   const equipamentos = { ...atual.equipamentos };
   for (const [chave, valor] of Object.entries(e)) {
-    if (!em(RECURSOS_INVENTARIO, chave)) return { erro: `Equipamento desconhecido no inventário: ${chave}.` };
+    if (!em(RECURSOS_BOX, chave)) return { erro: `Equipamento desconhecido no inventário: ${chave}.` };
     const v = (valor ?? {}) as Record<string, unknown>;
     const total = v.total === undefined ? equipamentos[chave].total : inteiro(v.total, 0, 50);
     const emManutencao = v.emManutencao === undefined ? equipamentos[chave].emManutencao : inteiro(v.emManutencao, 0, 50);
@@ -145,9 +162,10 @@ export function aplicarInventario(
     const observacao = v.observacao === undefined ? equipamentos[chave].observacao : texto(v.observacao, 200);
     equipamentos[chave] = { total, emManutencao, observacao };
   }
-  const limitesAtivos = {} as Record<RecursoInventario, number>;
-  for (const r of RECURSOS_INVENTARIO) limitesAtivos[r] = equipamentos[r].total - equipamentos[r].emManutencao;
-  return { inventario: { equipamentos, limitesAtivos } };
+  const alunosPorAula = alunosPorAulaPedido === undefined
+    ? atual.alunosPorAula : inteiro(alunosPorAulaPedido, 1, ALUNOS_POR_AULA_MAX);
+  if (alunosPorAula === null) return { erro: `Alunos por aula precisa ser um inteiro de 1 a ${ALUNOS_POR_AULA_MAX}.` };
+  return { inventario: { equipamentos, limitesAtivos: limitesDe(equipamentos), alunosPorAula } };
 }
 
 /* ───────────────────────────── catálogo ───────────────────────────── */
@@ -158,21 +176,59 @@ export function aplicarInventario(
  * em vez de entrar com equipamento ou músculo inventado.
  */
 export function lerExercicioCatalogo(doc: unknown): ExercicioCatalogo | null {
+  const item = lerItemCatalogo(doc);
+  return item && item.instancia !== null ? item : null;
+}
+
+const lista = <T extends string>(v: unknown, fechada: readonly T[]): T[] | null =>
+  Array.isArray(v) && v.every((x) => em(fechada, x)) ? [...new Set(v as T[])] : null;
+
+/**
+ * Qualquer documento do catálogo: de força (com `instancia`) ou só de HIIT
+ * (`instancia: null` e `hiit`). Quem monta o bloco H usa `lerExercicioCatalogo`,
+ * que descarta os só-HIIT; o gerador do HIIT usa este.
+ *
+ * `hiit` torto (estação desconhecida, consumo que não é inteiro) torna o item
+ * INTEIRO torto, como no resto da leitura.
+ */
+export function lerItemCatalogo(doc: unknown): ItemCatalogo | null {
   const d = (doc ?? null) as Record<string, unknown> | null;
   if (!d) return null;
   const nome = texto(d.nome, 100);
-  const lista = <T extends string>(v: unknown, fechada: readonly T[]): T[] | null =>
-    Array.isArray(v) && v.every((x) => em(fechada, x)) ? [...new Set(v as T[])] : null;
   const musculoPrincipal = lista(d.musculoPrincipal, MUSCULOS);
   const musculosSecundarios = lista(d.musculosSecundarios, MUSCULOS);
   const equipamentos = lista(d.equipamentos, EQUIPAMENTOS);
-  if (!nome || !em(INSTANCIAS, d.instancia) || !musculoPrincipal?.length || !musculosSecundarios || !equipamentos?.length) {
-    return null;
-  }
+  if (!nome || !musculoPrincipal?.length || !musculosSecundarios || !equipamentos?.length) return null;
+  if (d.unilateral !== undefined && typeof d.unilateral !== 'boolean') return null;
+  const hiit = d.hiit === undefined ? undefined : lerDadosHiit(d.hiit);
+  if (hiit === null) return null;
+
   const adaptacoes: ExercicioCatalogo['adaptacoes'] = {};
   const a = (d.adaptacoes ?? {}) as Record<string, unknown>;
   for (const k of ADAPTACOES) if (typeof a[k] === 'string' && a[k]) adaptacoes[k] = a[k] as string;
-  return { nome, instancia: d.instancia, musculoPrincipal, musculosSecundarios, equipamentos, adaptacoes };
+  const base = {
+    nome, musculoPrincipal, musculosSecundarios, equipamentos, adaptacoes,
+    ...(d.unilateral ? { unilateral: true } : {}),
+  };
+  if (em(INSTANCIAS, d.instancia)) return { ...base, instancia: d.instancia, ...(hiit ? { hiit } : {}) };
+  // Sem instância só vale se for de HIIT: senão o exercício não serve a nada.
+  return (d.instancia === null || d.instancia === undefined) && hiit ? { ...base, instancia: null, hiit } : null;
+}
+
+function lerDadosHiit(v: unknown): DadosHiit | null {
+  const h = (v ?? null) as Record<string, unknown> | null;
+  const estacoes = lista(h?.estacoes, ESTACOES_HIIT);
+  if (!estacoes?.length) return null;
+  if (h!.consumoPorAluno === undefined) return { estacoes };
+  const c = h!.consumoPorAluno as Record<string, unknown> | null;
+  if (!c || typeof c !== 'object') return null;
+  const consumoPorAluno: Partial<Record<RecursoHiit, number>> = {};
+  for (const [r, n] of Object.entries(c)) {
+    const q = inteiro(n, 0, 10);
+    if (!em(RECURSOS_HIIT, r) || q === null) return null;
+    consumoPorAluno[r] = q;
+  }
+  return { estacoes, consumoPorAluno };
 }
 
 /* ───────────────────────────── a semana ───────────────────────────── */
@@ -180,7 +236,7 @@ export function lerExercicioCatalogo(doc: unknown): ExercicioCatalogo | null {
 /** Unidades de cada recurso que o bloco ocupa: cada exercício é uma estação. */
 export function consumoDoDia(
   bloco: readonly { exercicioId: string }[],
-  catalogo: ReadonlyMap<string, ExercicioCatalogo>,
+  catalogo: ReadonlyMap<string, Pick<ItemCatalogo, 'equipamentos'>>,
 ): Partial<Record<RecursoInventario, number>> {
   const consumo: Partial<Record<RecursoInventario, number>> = {};
   for (const ex of bloco) {
@@ -195,7 +251,7 @@ export function consumoDoDia(
  * Os recursos limitados que um exercício ocupa, sem repetir: um exercício que
  * use flexora E extensora ainda ocupa UMA `maquinaLegs`.
  */
-export function recursosDo(item: ExercicioCatalogo): RecursoInventario[] {
+export function recursosDo(item: Pick<ItemCatalogo, 'equipamentos'>): RecursoInventario[] {
   const recursos = new Set<RecursoInventario>();
   for (const e of item.equipamentos) {
     const r = RECURSO_DO_EQUIPAMENTO[e];
@@ -226,10 +282,13 @@ export function alertasDaSemana(
  *
  * O rascunho aceita bloco incompleto (o coach monta aos poucos); quem exige os
  * seis exercícios é `problemasParaPublicar`.
+ *
+ * `catalogo` pode trazer os exercícios só de HIIT: o bloco de força os recusa,
+ * o `hiit` do dia os usa. Dia sem `hiit` (ou `null`) fica sem estações.
  */
 export function lerDias(
   entrada: unknown,
-  catalogo: ReadonlyMap<string, ExercicioCatalogo>,
+  catalogo: ReadonlyMap<string, ItemCatalogo>,
 ): { dias: Record<DiaSemana, DiaProgramado> } | { erro: string } {
   if (!entrada || typeof entrada !== 'object') return { erro: 'Mande os dias da semana.' };
   const e = entrada as Record<string, unknown>;
@@ -275,6 +334,7 @@ export function lerDias(
       const id = texto(x.exercicioId, 100);
       const item = catalogo.get(id);
       if (!item) return { erro: `${dia}, exercício ${i + 1}: "${id || '(vazio)'}" não está no catálogo.` };
+      if (item.instancia === null) return { erro: `${dia}: ${item.nome} é só de HIIT e não entra no bloco de força.` };
       if (bloco.some((b) => b.exercicioId === id)) return { erro: `${dia}: ${item.nome} aparece duas vezes no bloco.` };
       const series = inteiro(x.series, 1, 10);
       if (series === null) return { erro: `${dia}, ${item.nome}: séries precisa ser um inteiro de 1 a 10.` };
@@ -291,6 +351,14 @@ export function lerDias(
     const cadencia = d.cadencia === undefined ? CADENCIA_PADRAO : texto(d.cadencia, 4).toUpperCase();
     if (!EH_CADENCIA.test(cadencia)) return { erro: `${dia}: cadência são 4 dígitos (ex.: 3010).` };
 
+    let hiit: HiitProgramado | null = null;
+    if (d.hiit !== undefined && d.hiit !== null) {
+      if (!treinos.includes('HIIT')) return { erro: `${dia}: só dia com HIIT na grade tem estações de HIIT.` };
+      const h = lerHiit(d.hiit, catalogo, dia);
+      if ('erro' in h) return h;
+      hiit = h.hiit;
+    }
+
     dias[dia] = {
       treinos,
       blocoPrincipal: bloco,
@@ -299,25 +367,160 @@ export function lerDias(
       cadencia,
       descansos: { entreSeriesSeg, entreExerciciosSeg },
       consumoEquipamentos: consumoDoDia(bloco, catalogo),
+      hiit,
     };
   }
   return { dias };
+}
+
+/**
+ * As estações de HIIT de um dia, validadas, com o que o servidor calcula (nome,
+ * protocolo, lado, consumo por aluno). O pedido manda só
+ * `{ estacoes: [{ estacao, slots: [{ exercicioId }] }] }`.
+ *
+ * Unilateral vem em DOIS slots seguidos com o mesmo id; o servidor marca D e E.
+ * As 4 estações são obrigatórias; slots incompletos passam no rascunho (quem
+ * exige os 4 é `problemasParaPublicar`).
+ */
+export function lerHiit(
+  entrada: unknown,
+  catalogo: ReadonlyMap<string, ItemCatalogo>,
+  dia: string,
+): { hiit: HiitProgramado } | { erro: string } {
+  const h = (entrada ?? null) as { estacoes?: unknown } | null;
+  if (!h || typeof h !== 'object' || !Array.isArray(h.estacoes)) return { erro: `${dia}: o HIIT precisa da lista de estações.` };
+  if (h.estacoes.length !== ESTACOES_HIIT.length) {
+    return { erro: `${dia}: o HIIT tem ${ESTACOES_HIIT.length} estações (${ESTACOES_HIIT.map((e) => NOME_ESTACAO_HIIT[e]).join(', ')}).` };
+  }
+  const vistas = new Set<EstacaoHiit>();
+  const noHiit = new Set<string>();
+  const estacoes: EstacaoProgramada[] = [];
+  for (const cru of h.estacoes) {
+    const x = (cru ?? {}) as Record<string, unknown>;
+    if (!em(ESTACOES_HIIT, x.estacao)) return { erro: `${dia}: estação de HIIT desconhecida: ${String(x.estacao)}.` };
+    const estacao = x.estacao;
+    const nomeEstacao = NOME_ESTACAO_HIIT[estacao];
+    if (vistas.has(estacao)) return { erro: `${dia}: a estação ${nomeEstacao} aparece duas vezes no HIIT.` };
+    vistas.add(estacao);
+    const slotsCru = x.slots ?? [];
+    if (!Array.isArray(slotsCru) || slotsCru.length > SLOTS_POR_ESTACAO) {
+      return { erro: `${dia}, ${nomeEstacao}: a estação tem até ${SLOTS_POR_ESTACAO} slots.` };
+    }
+    const ids = slotsCru.map((y) => texto((y as { exercicioId?: unknown } | null)?.exercicioId, 100));
+    const slots: SlotHiit[] = [];
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      const item = catalogo.get(id);
+      if (!item?.hiit) return { erro: `${dia}, ${nomeEstacao}: "${id || '(vazio)'}" não é exercício de HIIT do catálogo.` };
+      if (!item.hiit.estacoes.includes(estacao)) return { erro: `${dia}: ${item.nome} não é da estação ${nomeEstacao}.` };
+      if (noHiit.has(id)) return { erro: `${dia}: ${item.nome} aparece duas vezes no HIIT.` };
+      noHiit.add(id);
+      const base = { exercicioId: id, nome: item.nome, consumoPorAluno: consumoPorAluno(item) };
+      if (item.unilateral) {
+        if (ids[i + 1] !== id) {
+          return { erro: `${dia}, ${nomeEstacao}: ${item.nome} é unilateral e ocupa 2 slots seguidos (lado D e lado E).` };
+        }
+        slots.push({ ...base, lado: 'D' }, { ...base, lado: 'E' });
+        i++;
+      } else {
+        slots.push({ ...base, lado: null });
+      }
+    }
+    estacoes.push({ estacao, nome: nomeEstacao, protocolo: PROTOCOLO_HIIT, slots });
+  }
+  return { hiit: { estacoes } };
+}
+
+/**
+ * Dias de um pedido de `salvarSemanaBox` com o HIIT GRAVADO onde o pedido não
+ * fala dele (`hiit` ausente). A troca manual do bloco H manda só o bloco: sem
+ * isso, trocar um exercício do H3 apagaria as estações do HIIT da sexta e do
+ * sábado. `hiit: null` no pedido apaga de propósito.
+ */
+export function diasComHiitGravado(pedido: unknown, gravados: unknown): unknown {
+  if (!pedido || typeof pedido !== 'object') return pedido;
+  const g = (gravados ?? {}) as Record<string, { hiit?: unknown } | undefined>;
+  const dias: Record<string, unknown> = {};
+  for (const [dia, d] of Object.entries(pedido as Record<string, unknown>)) {
+    dias[dia] = d && typeof d === 'object' && !('hiit' in d) && g[dia]?.hiit ? { ...d, hiit: g[dia]!.hiit } : d;
+  }
+  return dias;
+}
+
+/**
+ * Equipamento do HIIT acima do limite, na semana. O MESMO HIIT na sexta e no
+ * sábado sai UMA vez, com os dois dias — a conta é a mesma.
+ *
+ * `limites` sem os recursos do HIIT usa os de fábrica (semana conferida contra
+ * um inventário de antes do HIIT).
+ */
+export function alertasHiitDaSemana(
+  dias: Record<DiaSemana, DiaProgramado>,
+  limites: Partial<Record<RecursoBox, number>>,
+  alunosPorAula: number,
+): AlertaHiitDaSemana[] {
+  const lim = { ...INVENTARIO_HIIT_PADRAO, ...limites } as Record<RecursoHiit, number>;
+  const grupos = new Map<string, { hiit: HiitProgramado; dias: DiaSemana[] }>();
+  for (const dia of DIAS_SEMANA) {
+    const h = dias[dia].hiit;
+    if (!h) continue;
+    const chave = JSON.stringify(h.estacoes.map((e) => e.slots.map((x) => [x.exercicioId, x.consumoPorAluno])));
+    const g = grupos.get(chave);
+    if (g) g.dias.push(dia);
+    else grupos.set(chave, { hiit: h, dias: [dia] });
+  }
+  return [...grupos.values()].flatMap((g) => contarHiit(g.hiit.estacoes, lim, alunosPorAula).alertas.map((a) => ({ ...a, dias: g.dias })));
+}
+
+/** 'sexta e sábado' */
+function rotuloDias(dias: readonly DiaSemana[]): string {
+  const nome = (d: DiaSemana) => ({ terca: 'terça', sabado: 'sábado' } as Partial<Record<DiaSemana, string>>)[d] ?? d;
+  return dias.length > 1 ? `${dias.slice(0, -1).map(nome).join(', ')} e ${nome(dias[dias.length - 1])}` : nome(dias[0]);
 }
 
 /** Por que a semana NÃO pode ser publicada. Lista vazia = pode. */
 export function problemasParaPublicar(
   dias: Record<DiaSemana, DiaProgramado>,
   alertas: AlertaEquipamento[],
+  alertasHiit: AlertaHiitDaSemana[] = [],
+  alunosPorAula: number = ALUNOS_POR_AULA_PADRAO,
 ): string[] {
   const problemas: string[] = [];
+  const nomes = new Map<string, string>();
   for (const dia of DIAS_SEMANA) {
     const d = dias[dia];
     if (d.sessaoForca && d.blocoPrincipal.length !== EXERCICIOS_POR_BLOCO) {
       problemas.push(`${dia}: o bloco do ${d.sessaoForca.sessao} tem ${d.blocoPrincipal.length} de ${EXERCICIOS_POR_BLOCO} exercícios.`);
     }
+    // Dia de HIIT SEM estações (semana de antes do gerador) não trava: o dia
+    // só sinaliza o HIIT, como sempre foi. Estação começada e não fechada trava.
+    for (const e of d.hiit?.estacoes ?? []) {
+      e.slots.forEach((x) => nomes.set(x.exercicioId, x.nome));
+      if (e.slots.length !== SLOTS_POR_ESTACAO) {
+        problemas.push(`${dia}: a estação ${e.nome} do HIIT tem ${e.slots.length} de ${SLOTS_POR_ESTACAO} slots.`);
+      }
+    }
+    const doBloco = new Set(d.blocoPrincipal.map((b) => b.exercicioId));
+    const repetidos = new Set<string>();
+    for (const x of (d.hiit?.estacoes ?? []).flatMap((e) => e.slots)) {
+      if (!doBloco.has(x.exercicioId) || repetidos.has(x.exercicioId)) continue;
+      repetidos.add(x.exercicioId);
+      problemas.push(`${dia}: ${x.nome} está no bloco do ${d.sessaoForca?.sessao ?? 'dia'} e no HIIT — o dia não repete exercício.`);
+    }
   }
   for (const a of alertas) {
     problemas.push(`${a.dia}: ${a.usado} estações de ${a.recurso}, e o box tem ${a.limite} ativa(s).`);
+  }
+  const porEstacao = alunosPorEstacao(alunosPorAula);
+  for (const a of alertasHiit) {
+    const quem = a.exercicios.map((id) => nomes.get(id) ?? id).join(' + ');
+    if (a.estacoes?.length) {
+      problemas.push(`${rotuloDias(a.dias)}: no HIIT, o ${a.recurso} fica fixo e serve a UMA estação, mas está em ${a.estacoes.map((e) => NOME_ESTACAO_HIIT[e]).join(' e ')} (${quem}).`);
+      continue;
+    }
+    problemas.push(a.slot === null
+      ? `${rotuloDias(a.dias)}: no HIIT, ${quem} precisa de ${a.usado} ${a.recurso} (${porEstacao} alunos por estação), e o box tem ${a.limite} ativo(s).`
+      : `${rotuloDias(a.dias)}: no slot ${a.slot} do HIIT, ${quem} usam ${a.usado} ${a.recurso} ao mesmo tempo, e o box tem ${a.limite} ativo(s).`);
   }
   if (DIAS_SEMANA.every((dia) => !dias[dia].treinos.length)) problemas.push('A semana não tem nenhum treino.');
   return problemas;
@@ -327,16 +530,17 @@ export function problemasParaPublicar(
  * Uma semana JÁ GRAVADA conferida contra limites novos — o que `salvarInventarioBox`
  * faz com as semanas que ainda não terminaram quando um smith entra em manutenção.
  *
- * Usa o `consumoEquipamentos` que cada dia já guarda: o consumo de um bloco não
- * muda com o inventário, só o limite. Não relê o catálogo nem refaz o bloco, e
+ * Usa o `consumoEquipamentos` que cada dia já guarda (e o `consumoPorAluno` de
+ * cada slot do HIIT): o consumo não muda com o inventário, só o limite e a turma. Não relê o catálogo nem refaz o bloco, e
  * NÃO decide status — semana publicada continua publicada; quem resolve é o coach.
  *
  * `null` quando o documento não tem a forma de uma semana (não há o que conferir).
  */
 export function reconferirSemana(
   doc: unknown,
-  limites: Record<RecursoInventario, number>,
-): { alertas: AlertaEquipamento[]; problemasParaPublicar: string[] } | null {
+  limites: Record<RecursoInventario, number> & Partial<Record<RecursoHiit, number>>,
+  alunosPorAula: number = ALUNOS_POR_AULA_PADRAO,
+): { alertas: AlertaEquipamento[]; alertasHiit: AlertaHiitDaSemana[]; problemasParaPublicar: string[] } | null {
   const brutos = (doc as { dias?: unknown } | null)?.dias;
   if (!brutos || typeof brutos !== 'object') return null;
   const dias = {} as Record<DiaSemana, DiaProgramado>;
@@ -350,10 +554,12 @@ export function reconferirSemana(
       cadencia: typeof d.cadencia === 'string' ? d.cadencia : CADENCIA_PADRAO,
       descansos: d.descansos ?? { entreSeriesSeg: 0, entreExerciciosSeg: 0 },
       consumoEquipamentos: d.consumoEquipamentos && typeof d.consumoEquipamentos === 'object' ? d.consumoEquipamentos : {},
+      hiit: d.hiit && Array.isArray(d.hiit.estacoes) ? d.hiit : null,
     };
   }
   const alertas = alertasDaSemana(dias, limites);
-  return { alertas, problemasParaPublicar: problemasParaPublicar(dias, alertas) };
+  const alertasHiit = alertasHiitDaSemana(dias, limites, alunosPorAula);
+  return { alertas, alertasHiit, problemasParaPublicar: problemasParaPublicar(dias, alertas, alertasHiit, alunosPorAula) };
 }
 
 /* ───────────────────────────── o aluno ───────────────────────────── */
@@ -369,7 +575,7 @@ export function reconferirSemana(
  */
 export function volumeDaSessao(
   series: Record<string, number>,
-  catalogo: ReadonlyMap<string, ExercicioCatalogo>,
+  catalogo: ReadonlyMap<string, Pick<ItemCatalogo, 'musculoPrincipal' | 'musculosSecundarios'>>,
 ): Partial<Record<Musculo, number>> {
   const volume: Partial<Record<Musculo, number>> = {};
   const somar = (m: Musculo, v: number) => { volume[m] = (volume[m] ?? 0) + v; };

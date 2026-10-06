@@ -185,6 +185,12 @@ $('#mes-hoje').addEventListener('click', () => {
   carregarMes();
 });
 $('#view-semanas').addEventListener('click', (ev) => { aoClicar(ev).catch((e) => console.error(e)); });
+// "ver estações ↓" (sexta e sábado): rola até a faixa do HIIT. Botão, e não link
+// com #hash — o hash é o que escolhe a seção (Semanas | Inventário).
+$('#view-semanas').addEventListener('click', (ev) => {
+  if (!(/** @type {HTMLElement} */ (ev.target).closest('[data-ver-hiit]'))) return;
+  document.getElementById('hiit-da-semana')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 /* ---------- seções (Semanas | Inventário) ---------- */
 

@@ -111,11 +111,15 @@ export function salvarSemana(semanaId, dias) {
  * do limite novo; `null` se a reconferência falhou).
  *
  * Com `{}` não muda nada: só grava os padrões do servidor quando o documento
- * ainda não existe — é assim que a tela abre sem copiar esses padrões.
+ * ainda não existe, ou completa um inventário de antes do HIIT — é assim que a
+ * tela abre sem copiar esses padrões.
+ *
+ * `alunosPorAula` (a turma, só para o HIIT) vai só quando o coach mudou.
  * @param {Record<string, {total?: number, emManutencao?: number, observacao?: string}>} equipamentos
+ * @param {number} [alunosPorAula]
  */
-export function salvarInventario(equipamentos) {
-  return chamar('salvarInventarioBox', { equipamentos });
+export function salvarInventario(equipamentos, alunosPorAula) {
+  return chamar('salvarInventarioBox', alunosPorAula === undefined ? { equipamentos } : { equipamentos, alunosPorAula });
 }
 
 /**

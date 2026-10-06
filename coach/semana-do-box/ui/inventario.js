@@ -4,14 +4,17 @@
  * pela `salvarInventarioBox` (as regras não deixam o navegador gravar ali).
  *
  * Carrega na primeira vez que a aba aparece, não no boot: quem abre a ferramenta
- * para gerar a semana não paga a leitura. Documento que ainda não existe é
- * criado com `salvarInventario({})` — o servidor grava os PADRÕES dele e os
- * devolve, e a tela não precisa conhecer "smith 2, banco 2…".
+ * para gerar a semana não paga a leitura. Documento que ainda não existe — ou
+ * gravado antes do HIIT, sem os recursos dele e sem a turma — passa por
+ * `salvarInventario({})`: o servidor grava os PADRÕES dele e os devolve, e a
+ * tela não precisa conhecer "smith 2, banco 2, kettlebell 10…".
  *
  * Depois de salvar, avisa a tela das semanas (`semana:recarregar`): o servidor
  * reconferiu as semanas em aberto e pode ter gravado alertas novos nelas.
  */
-import { MAX_UNIDADES, alteracoesDoInventario, linhasDoInventario } from '../core/vista.js';
+import {
+  MAX_UNIDADES, TURMA_MAX, TURMA_MIN, alteracoesDoInventario, inventarioCompleto, linhasDoInventario, turmaDoInventario,
+} from '../core/vista.js';
 import { lerInventario, salvarInventario } from '../cloud/semana.js';
 import { renderInventario } from './render-inventario.js';
 
@@ -28,12 +31,28 @@ export function montar(ctx) {
     original: [],
     /** @type {ReturnType<typeof linhasDoInventario>} */
     editado: [],
+    /** A turma gravada e a da tela (`alunosPorAula`, só o HIIT usa). @type {number|null} */
+    turmaOriginal: null,
+    /** @type {number|null} */
+    turma: null,
     ocupado: false,
     /** @type {{semanasAfetadas: any[]|null, reconferidas: number}|null} */
     ultimo: null,
   };
 
   const copia = (linhas) => linhas.map((l) => ({ ...l }));
+
+  /** O documento salvo vira o estado da tela (gravado e editado iguais). @param {any} doc */
+  function aplicar(doc) {
+    estado.original = linhasDoInventario(doc);
+    estado.editado = copia(estado.original);
+    estado.turmaOriginal = turmaDoInventario(doc);
+    estado.turma = estado.turmaOriginal;
+  }
+
+  /** Alguma coisa para salvar? */
+  const temMudanca = () => estado.turma !== estado.turmaOriginal
+    || Object.keys(alteracoesDoInventario(estado.original, estado.editado)).length > 0;
 
   function desenhar() {
     alvo.innerHTML = renderInventario(estado);
@@ -44,10 +63,10 @@ export function montar(ctx) {
     desenhar();
     try {
       let doc = await lerInventario(ctx.uid());
-      // Primeira vez: o servidor grava os padrões dele e devolve.
-      if (!doc) doc = await salvarInventario({});
-      estado.original = linhasDoInventario(doc);
-      estado.editado = copia(estado.original);
+      // Primeira vez, ou inventário de antes do HIIT: o servidor grava os
+      // padrões dele (e mantém o que já estava gravado) e devolve.
+      if (!inventarioCompleto(doc)) doc = await salvarInventario({});
+      aplicar(doc);
       ctx.status('');
     } catch (e) {
       console.error(e);
@@ -57,8 +76,15 @@ export function montar(ctx) {
     desenhar();
   }
 
-  /** @param {string} recurso @param {'total'|'emManutencao'} campo @param {number} passo */
+  /** @param {string} recurso @param {'total'|'emManutencao'|'turma'} campo @param {number} passo */
   function passo(recurso, campo, passo) {
+    if (campo === 'turma') {
+      if (estado.turma === null) return;
+      estado.turma = Math.max(TURMA_MIN, Math.min(TURMA_MAX, estado.turma + passo));
+      estado.ultimo = null;
+      desenhar();
+      return;
+    }
     const l = estado.editado.find((x) => x.recurso === recurso);
     if (!l) return;
     if (campo === 'total') {
@@ -74,14 +100,14 @@ export function montar(ctx) {
 
   async function salvar() {
     const mudancas = alteracoesDoInventario(estado.original, estado.editado);
-    if (!Object.keys(mudancas).length) return;
+    if (!temMudanca()) return;
+    const turma = estado.turma !== estado.turmaOriginal && estado.turma !== null ? estado.turma : undefined;
     estado.ocupado = true;
     desenhar();
     ctx.status('Salvando o inventário e reconferindo as semanas…');
     try {
-      const r = await salvarInventario(mudancas);
-      estado.original = linhasDoInventario(r);
-      estado.editado = copia(estado.original);
+      const r = await salvarInventario(mudancas, turma);
+      aplicar(r);
       estado.ultimo = { semanasAfetadas: r.semanasAfetadas ?? null, reconferidas: Number(r.reconferidas) || 0 };
       ctx.status('Inventário salvo.', 'ok');
       document.dispatchEvent(new CustomEvent('semana:recarregar'));
@@ -99,6 +125,7 @@ export function montar(ctx) {
     if (el.hasAttribute('data-inv-salvar')) { salvar(); return; }
     if (el.hasAttribute('data-inv-descartar')) {
       estado.editado = copia(estado.original);
+      estado.turma = estado.turmaOriginal;
       estado.ultimo = null;
       desenhar();
       return;
@@ -109,7 +136,7 @@ export function montar(ctx) {
       return;
     }
     const campo = el.getAttribute('data-inv');
-    if (campo === 'total' || campo === 'emManutencao') {
+    if (campo === 'total' || campo === 'emManutencao' || campo === 'turma') {
       passo(el.getAttribute('data-recurso') || '', campo, Number(el.getAttribute('data-passo')) || 0);
     }
   });
@@ -124,7 +151,7 @@ export function montar(ctx) {
     if (!l) return;
     l.observacao = el.value;
     estado.ultimo = null;
-    const mudou = Object.keys(alteracoesDoInventario(estado.original, estado.editado)).length > 0;
+    const mudou = temMudanca();
     for (const b of alvo.querySelectorAll('[data-inv-salvar], [data-inv-descartar]')) b.disabled = !mudou;
     const o = estado.original.find((x) => x.recurso === recurso);
     const linhaAlterada = !!o && (o.total !== l.total || o.emManutencao !== l.emManutencao || o.observacao !== l.observacao.trim());
