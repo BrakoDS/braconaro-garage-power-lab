@@ -54,7 +54,7 @@ import {
 import { preParse, montarComoIA } from './pre-parser';
 import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatalogo } from './catalogo';
 import { getAuth } from 'firebase-admin/auth';
-import { alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
+import { COACH_UIDS, alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
@@ -66,7 +66,7 @@ import {
 import {
   aplicarInventario, contaDaSemana, historicoComSessao, intervaloDaSemana, lerDias,
   diasComConteudoGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, reconferirSemana, semanaAnterior,
-  semanaDoPedido, volumeDaSessao, lerAviso, type ContaDaSemana, type IntervaloSemana,
+  semanaDoPedido, semanaEmBrancoNosDias, volumeDaSessao, lerAviso, type ContaDaSemana, type IntervaloSemana,
 } from './semana-box';
 import { crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit, programarDia, semanaEmBranco } from './gerador-box';
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
@@ -1878,9 +1878,10 @@ async function recalcularConquistas(emailDoEvento: string, origem: string): Prom
   }
 
   const db = getFirestore();
-  const [portal, gastoTreinos, desafios, rotinas, gravado] = await Promise.all(
-    ['portal', 'gastoTreinos', 'desafios', 'rotinas', 'conquistas_aluno'].map((colecao) => db.doc(`${colecao}/${email}`).get()),
-  );
+  const [portal, gastoTreinos, desafios, rotinas, gravado, semanasPausadas] = await Promise.all([
+    ...['portal', 'gastoTreinos', 'desafios', 'rotinas', 'conquistas_aluno'].map((colecao) => db.doc(`${colecao}/${email}`).get()),
+    lerSemanasPausadas(db),
+  ]) as [DocumentSnapshot, DocumentSnapshot, DocumentSnapshot, DocumentSnapshot, DocumentSnapshot, string[]];
   const atual = gravado.data();
 
   // Síncrono de propósito: ver `noFusoDoBox`.
@@ -1890,6 +1891,7 @@ async function recalcularConquistas(emailDoEvento: string, origem: string): Prom
       gastoTreinos: gastoTreinos.data(),
       desafios: desafios.data(),
       rotinas: rotinas.data(),
+      semanasPausadas,
     }),
     atual,
   ));
@@ -1903,6 +1905,23 @@ async function recalcularConquistas(emailDoEvento: string, origem: string): Prom
   logger.info('Conquistas atualizadas.', {
     email, origem, xpAtual: resultado.xpAtual, medalhas: resultado.conquistasDesbloqueadas.length,
   });
+}
+
+/**
+ * As segundas-feiras ('AAAA-MM-DD') das semanas do box PUBLICADAS e em branco
+ * (os 6 dias sem aula): elas pausam a sequência (`streakSemanas`). Uma consulta
+ * pelo campo `emBranco` que a semana grava — não lê as outras semanas. Falha na
+ * leitura não derruba as medalhas: sem a lista, a regra de sempre.
+ */
+async function lerSemanasPausadas(db: Firestore): Promise<string[]> {
+  try {
+    const lidas = await Promise.all(COACH_UIDS.map((uid) => db.collection(`coaches/${uid}/semanas`)
+      .where('status', '==', 'publicado').where('emBranco', '==', true).get()));
+    return lidas.flatMap((q) => q.docs.map((d) => intervaloDaSemana(d.id)?.datas.segunda).filter((s): s is string => !!s));
+  } catch (e) {
+    logger.warn('Semanas em branco indisponíveis: a sequência segue sem pausa.', { erro: String(e) });
+    return [];
+  }
 }
 
 /**
@@ -2083,6 +2102,8 @@ async function gravarDiasEditados(o: {
         dataFim: Timestamp.fromMillis(intervalo.fimMs),
         anoMes: intervalo.anoMes,
         dias: lido.dias,
+        // Recalculado a cada edição: programar um dia tira a semana do "em branco" (a sequência volta a valer).
+        emBranco: semanaEmBrancoNosDias(lido.dias),
         ...camposDaConta(conta),
         alunosPorAula,
         limitesUsados,
@@ -2466,6 +2487,8 @@ export const gerarMatrizSemanalBox = onCall(
         dataFim: Timestamp.fromMillis(intervalo.fimMs),
         anoMes: intervalo.anoMes,
         dias: gerado.dias,
+        // A semana toda sem aula pausa a sequência dos alunos (`streakSemanas`).
+        emBranco: semanaEmBrancoNosDias(gerado.dias),
         ...camposDaConta(conta),
         alunosPorAula,
         limitesUsados,

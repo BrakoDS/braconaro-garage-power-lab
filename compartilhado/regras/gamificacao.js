@@ -24,16 +24,28 @@ export function diasTreino(presencas, gastos) {
   return [...set].sort();
 }
 
-/** Streak: semanas consecutivas com ≥ meta treinos. Não quebra se a semana atual ainda está em curso. */
-export function streakSemanas(dias, meta = 1) {
+/**
+ * Streak: semanas consecutivas com ≥ meta treinos. Não quebra se a semana atual ainda está em curso.
+ *
+ * `pausadas`: as segundas-feiras (ISO) das semanas em que o box FECHOU — a Semana do Box
+ * publicada com os 6 dias sem aula (feriado, recesso, evento; `emBranco` no documento).
+ * Semana pausada sem treino é pulada: não soma e não quebra. Com treino, conta como
+ * qualquer outra. Sem a lista, a regra de sempre. Decisão do coach, 06/10/2026.
+ */
+export function streakSemanas(dias, meta = 1, pausadas = []) {
   if (!dias.length) return 0;
   const porSemana = new Map();
   dias.forEach((d) => { const s = segundaDe(d); porSemana.set(s, (porSemana.get(s) || 0) + 1); });
+  const pausa = new Set(pausadas);
   let cursor = segundaDe(isoLocal(new Date()));
   let streak = 0;
   if ((porSemana.get(cursor) || 0) >= meta) streak++;      // semana atual conta se já bateu a meta
   cursor = semanaAnterior(cursor);                          // ...e seguimos para trás sem penalizar semana em curso
-  while ((porSemana.get(cursor) || 0) >= meta) { streak++; cursor = semanaAnterior(cursor); }
+  for (;;) {
+    if ((porSemana.get(cursor) || 0) >= meta) streak++;
+    else if (!pausa.has(cursor)) break;                     // semana sem treino quebra — menos a do box fechado
+    cursor = semanaAnterior(cursor);
+  }
   return streak;
 }
 

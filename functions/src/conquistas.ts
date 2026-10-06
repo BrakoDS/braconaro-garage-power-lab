@@ -61,6 +61,11 @@ export interface DocsDoAluno {
   desafios?: Doc;
   /** `rotinas/{email}`: `primeiroAcessoApp` (medalha exclusiva do app). */
   rotinas?: Doc;
+  /**
+   * As segundas-feiras das semanas do box publicadas em BRANCO (recesso,
+   * feriado, evento): pausam a sequência. Ausente = nenhuma pausa.
+   */
+  semanasPausadas?: readonly string[];
 }
 
 const lista = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
@@ -150,7 +155,9 @@ export function contextoDoAluno(docs: DocsDoAluno): ContextoMedalhas {
     total: c.total,
     mes: c.mes,
     semana: c.semana,
-    streak: streakSemanas(dias),
+    // Semana do box em branco (recesso) não quebra a sequência: `streakSemanas` a pula. Sem o
+    // recorte do marco zero aqui: os DIAS já vêm recortados, e a W40 (28/09–03/10) é semana válida.
+    streak: streakSemanas(dias, 1, docs.semanasPausadas ?? []),
     // Exceção da 1ª avaliação: qualquer histórico vale 1; as demais só a partir do corte.
     nAvaliacoes: Math.max(avaliacoesNovas, avaliacoes.length > 0 ? 1 : 0),
     desafios: concluidos.length,

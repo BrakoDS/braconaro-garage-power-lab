@@ -177,3 +177,14 @@ test('semana do box: semana, inventario, catalogo base e historico do aluno so a
     'allow write: if false;',
   ]);
 });
+
+test('o coach da Semana do Box (semanas-pausadas.js) está na lista de ehCoach', () => {
+  const modulo = ler('compartilhado/firebase/semanas-pausadas.js');
+  const uid = /COACH_UID_BOX = '([^']+)'/.exec(modulo)?.[1];
+  assert.ok(uid && uidsDoCoach(firestore).includes(uid), 'coach trocado nas regras e esquecido aqui deixaria a sequência sem pausa');
+});
+
+test('semanas em branco publicadas: o aluno logado lê (a consulta filtra por status)', () => {
+  const c = codigo(firestore);
+  assert.match(c, /match \/semanas\/\{semanaId\} \{\s*allow read: if ehCoachDono\(uid\) \|\| \(request\.auth != null && resource\.data\.status == 'publicado'\);/);
+});

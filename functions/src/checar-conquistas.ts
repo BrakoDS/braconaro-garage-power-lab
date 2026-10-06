@@ -97,6 +97,17 @@ async function paridadeComOSite(): Promise<void> {
   const diasMeu = jogo.diasTreino(presencas, gastos);
   ok(JSON.stringify(diasMeu) === JSON.stringify(site.diasTreino(presencas, gastos)), 'dias de treino idênticos');
   ok(jogo.streakSemanas(diasMeu) === site.streakSemanas(diasMeu), 'streak idêntico', String(jogo.streakSemanas(diasMeu)));
+  // Semana do box em branco (recesso): pausa a sequência. Treinos nas semanas 1, 2 e 4; a 3 foi recesso.
+  const segundaHa = (n: number) => {
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()) - 7 * n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const comRecesso = [segundaHa(1), segundaHa(2), segundaHa(4)];
+  const pausadas = [segundaHa(3)];
+  ok(jogo.streakSemanas(comRecesso, 1, pausadas) === 3 && site.streakSemanas(comRecesso, 1, pausadas) === 3
+    && jogo.streakSemanas(comRecesso) === 2 && site.streakSemanas(comRecesso) === 2,
+  'semana em branco pausa o streak igual no site e aqui (3 com a pausa, 2 sem)');
   ok(JSON.stringify(jogo.contadores(diasMeu)) === JSON.stringify(site.contadores(diasMeu)), 'contadores idênticos');
   ok(jogo.maxCaloriasTreino(gastos) === site.maxCaloriasTreino(gastos), 'maior treino em kcal idêntico');
   ok(jogo.maxCaloriasSemana(gastos) === site.maxCaloriasSemana(gastos), 'maior semana em kcal idêntica');
@@ -212,6 +223,30 @@ function logicaDoMotor(): void {
   ok(JSON.stringify(medsAntigo.conquistasDesbloqueadas) === JSON.stringify(['aval1']),
     'do passado sobra só a medalha da 1ª avaliação', JSON.stringify(medsAntigo.conquistasDesbloqueadas));
   ok(medsAntigo.xpAtual === XP_POR_MEDALHA.aval1, 'XP do aluno antigo = só a 1ª avaliação', String(medsAntigo.xpAtual));
+
+  console.log('\nSemana do box em branco pausa a sequência');
+  {
+    // "Hoje" fixo em 18/11/2026 (quarta da W47): o marco zero é recente demais
+    // para montar uma sequência de semanas com a data de verdade.
+    const DataReal = Date;
+    const HOJE_FIXO = DataReal.parse('2026-11-18T12:00:00-03:00');
+    globalThis.Date = class extends DataReal {
+      constructor(...a: ConstructorParameters<DateConstructor>) { super(...((a.length ? a : [HOJE_FIXO]) as [number])); }
+      static now() { return HOJE_FIXO; }
+    } as DateConstructor;
+    try {
+      // Treinos na W43 (20/10), W44 (27/10) e W46 (10/11); a W45 (02/11) foi recesso.
+      const docs = { portal: { presencas: ['2026-10-20', '2026-10-27', '2026-11-10'] } };
+      const semPausa = contextoDoAluno(docs);
+      const comPausa = contextoDoAluno({ ...docs, semanasPausadas: ['2026-11-02'] });
+      ok(semPausa.streak === 1, 'sem a pausa: a W45 sem treino quebra (sequência 1)', String(semPausa.streak));
+      ok(comPausa.streak === 3, 'W45 em branco: pulada, a sequência segue (3)', String(comPausa.streak));
+      ok(contextoDoAluno({ ...docs, semanasPausadas: ['2026-10-13'] }).streak === 1,
+        'pausa fora do buraco não muda nada');
+    } finally {
+      globalThis.Date = DataReal;
+    }
+  }
 
   console.log('\nExceções mantidas');
   const tresAntigas = contextoDoAluno({

@@ -8,6 +8,7 @@ import { cloudAtivo, sessaoAtual, login, resetarSenha, sair } from '../../compar
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
 import * as db from './db.js';
+import { carregarSemanasPausadas } from '../../compartilhado/firebase/semanas-pausadas.js';
 // `confirmar`/`avisar` do próprio site em vez do confirm()/alert() nativos: o
 // Chrome deixa o usuario SUPRIMIR diálogos nativos, e a partir daí eles respondem
 // sozinhos sem mostrar nada -- foi assim que a exclusão parou de funcionar.
@@ -436,6 +437,8 @@ function medalChip(a) {
 async function atualizarMedalhasLista(mapaGastos) {
   try {
     const conclMap = await carregarTodasConclusoes(); // Map(email → concluidos[])
+    // Semanas do box em branco (recesso): pausam a sequência, como no app e no Portal.
+    const pausadas = await carregarSemanasPausadas();
     const mm = new Map();
     db.listar().forEach((a) => {
       const email = (a.email || '').trim().toLowerCase();
@@ -444,7 +447,7 @@ async function atualizarMedalhasLista(mapaGastos) {
       const dias = game.diasTreino(a.presencas, gastos);
       const c = game.contadores(dias);
       const meds = game.medalhas({
-        total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias),
+        total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias, 1, pausadas),
         nAvaliacoes: (a.avaliacoes || []).filter((x) => x.dataRealizada).length,
         desafios: concl.length,
         desAgua: concl.filter((x) => x.categoria === 'agua').length,
@@ -2569,11 +2572,13 @@ async function carregarMedalhasAluno(a) {
     try { const g = await carregarGastoTreino(email); gastos = (g && g.gastos) || []; } catch (e) { console.warn('Medalhas:', e?.code || e); }
     try { concl = await carregarConclusoesDesafios(email); } catch (e) { console.warn('Medalhas:', e?.code || e); }
   }
+  const pausadas = await carregarSemanasPausadas();
+  // Depois de TODAS as leituras: o coach pode ter trocado de aluno enquanto elas voltavam.
   if (!$('#prog-medalhas') || alunoAtual?.id !== alvoId) return;
   const dias = game.diasTreino(a.presencas, gastos);
   const c = game.contadores(dias);
   const meds = game.medalhas({
-    total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias),
+    total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias, 1, pausadas),
     nAvaliacoes: (a.avaliacoes || []).filter((x) => x.dataRealizada).length,
     desafios: concl.length,
     desAgua: concl.filter((x) => x.categoria === 'agua').length,

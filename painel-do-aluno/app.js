@@ -43,6 +43,7 @@ const _salvarProgressoDesafios = soLeitura(salvarProgressoDesafios, 'desafios');
 const _salvarCargas = soLeitura(salvarCargas, 'cargas');
 const _registrarAceite = soLeitura(registrarAceite, 'aceite LGPD');
 import * as game from '../compartilhado/regras/gamificacao.js';
+import { carregarSemanasPausadas } from '../compartilhado/firebase/semanas-pausadas.js';
 import * as calc from '../compartilhado/regras/calc.js?v=5';
 
 /* ---------- Helpers ---------- */
@@ -1173,6 +1174,8 @@ $('#nut-voltar')?.addEventListener('click', fecharNutricao);
    Conquistas (gamificação)
    ============================================================ */
 let CONQ_RANKING = null;
+/** As segundas-feiras das semanas do box em branco (pausam a sequência). `null` = ainda não lidas. */
+let SEMANAS_PAUSADAS = null;
 /** @type {any} */ let DES_LISTA = null; // desafios ativos (coach)
 /** @type {any} */ let DES_PROG = null;  // progresso do aluno { checks, concluidos }
 
@@ -1184,6 +1187,8 @@ async function abrirConquistas() {
     catch (e) { console.warn('Nutrição:', e?.code || e); NUT = { nivelAtividade: '1.55', gastos: [], creatina: { checks: [] } }; }
   }
   if (CONQ_RANKING == null) CONQ_RANKING = (await carregarRanking()) || { mes: '', itens: [] };
+  // Semanas do box em branco (recesso): pausam a sequência, como no app e no Portal novo.
+  if (SEMANAS_PAUSADAS == null) SEMANAS_PAUSADAS = await carregarSemanasPausadas();
   if (DES_LISTA == null) { try { DES_LISTA = await carregarDesafios(); } catch { DES_LISTA = []; } }
   if (DES_PROG == null) { try { DES_PROG = await carregarProgressoDesafios(emailAluno()); } catch { DES_PROG = { checks: {}, concluidos: [] }; } }
   desenharConquistas();
@@ -1194,7 +1199,7 @@ function fecharConquistas() {
 
 function desenharConquistas() {
   const dias = game.diasTreino(PORTAL?.presencas, NUT?.gastos);
-  const streak = game.streakSemanas(dias);
+  const streak = game.streakSemanas(dias, 1, SEMANAS_PAUSADAS || []);
   const c = game.contadores(dias);
   const nAval = avaliacoesOrdenadas().length;
   const concl = DES_PROG?.concluidos || [];
