@@ -33,3 +33,7 @@ treinos-box/
 /*.JPEG
 /*.heic
 /*.HEIC
+
+# Backups da Gestão (botão "Baixar backup"): nomes, e-mails e dados de saúde
+# dos alunos. Este repositório é PÚBLICO e a Hostinger publica a raiz dele.
+/backup_*.json
