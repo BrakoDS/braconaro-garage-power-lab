@@ -284,6 +284,11 @@ function lerDadosTecnica(v: unknown): DadosTecnica | null {
     if (!chave) return null;
     dados.chave = chave;
   }
+  if (t.seriesEquivalentes !== undefined) {
+    const n = inteiro(t.seriesEquivalentes, 1, 10);
+    if (n === null) return null;
+    dados.seriesEquivalentes = n;
+  }
   return dados;
 }
 

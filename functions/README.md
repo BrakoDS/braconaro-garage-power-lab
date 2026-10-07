@@ -279,6 +279,29 @@ status da semana continua `rascunho`/`publicado` — a regra do Firestore libera
   passa em `contextoDoAluno({ semanasPausadas })`; as telas (app, Portal, Gestão de Alunos, Portal antigo)
   fazem a mesma consulta (`compartilhado/firebase/semanas-pausadas.js` no site).
 
+### Volume do Cross e do Hyrox (`src/volume-cross-hyrox.ts`, 06/10/2026)
+
+O Cross e o Hyrox viram **séries equivalentes** por exercício e entram na MESMA conta da força
+(`volumeDaSessao`: 1,0 por músculo principal, 0,5 por secundário). Decisões do coach:
+
+| O quê | Vale |
+|---|---|
+| Técnica / Força | `cross.tecnica.seriesEquivalentes` do catálogo (força 5, técnica e skill 3) × 1,0 |
+| Bloco de movimento do WOD | 0,5 (cardio — padrão `cardio` — 0,25) |
+| Estação do Hyrox | 1,0 × `fatorEstacao` do formato (metade no compromised) |
+| Corrida do Hyrox (ou air bike) | 0,25 × `fatorCorrida` |
+
+- **Blocos:** For Time e EMOM = rodadas/voltas completas até o prescrito; AMRAP = rodadas completas até
+  minutos ÷ 2 ("como prescrito" = minutos ÷ 3); Chipper = 2 por movimento feito.
+- **RX e Scaled contam igual.** Conta o que o aluno FEZ: a substituta do Hyrox (gravada na semana), a air
+  bike no lugar da corrida e a adaptação do CATÁLOGO do movimento (`adaptacoes`, só as do coach).
+- **Registro:** `registrarSessaoAluno` com `cross` / `hyrox`: `{ comoPrescrito: true }` (um toque) ou o
+  detalhe (`tecnicaSeries`, `rodadas`, `chipperAte`, `adaptacoes`; `estacoesFeitas`, `corridaNaBike`).
+  Sem eles (o app de antes, e o HIIT), só a presença. A presença guarda o `registro` lido.
+- **Músculos do Hyrox:** `MUSCULOS_HYROX` e `MUSCULOS_CORRIDA_HYROX` em `catalogo-hyrox.ts` (primeira versão
+  para o coach revisar); as substitutas que já são exercício do catálogo usam os músculos de lá
+  (`checar-cross` trava a igualdade).
+
 ## Motor de conquistas (`calcularConquistasXP*`)
 
 Grava `conquistas_aluno/{email}`: `{ xpAtual, conquistasDesbloqueadas, ultimaAtualizacao }`.

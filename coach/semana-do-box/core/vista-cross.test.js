@@ -27,8 +27,10 @@ const lista = (nome) => {
 test('paridade: padrões, níveis e estações sem substituta são os do servidor', () => {
   assert.deepEqual(Object.keys(NOME_PADRAO_CROSS), lista('PADROES_CROSS'));
   assert.deepEqual(NIVEIS_HYROX.map((n) => n.id), lista('NIVEIS_HYROX'));
-  // Um pedaço por estação de `DADOS_ESTACAO_HYROX` (cada uma começa em `  id: {`).
-  const dados = catalogoHyrox.slice(catalogoHyrox.indexOf('export const DADOS_ESTACAO_HYROX'));
+  // Um pedaço por estação de `DADOS_ESTACAO_HYROX` (cada uma começa em `  id: {`), só até o fim
+  // dele: a tabela de músculos (`MUSCULOS_HYROX`), logo abaixo, também tem `substituta: null`.
+  const inicio = catalogoHyrox.indexOf('export const DADOS_ESTACAO_HYROX');
+  const dados = catalogoHyrox.slice(inicio, catalogoHyrox.indexOf('\n};', inicio));
   const semSub = dados.split(/^ {2}(?=[a-z_]+: \{)/m).slice(1)
     .filter((bloco) => bloco.includes('substituta: null')).map((bloco) => bloco.slice(0, bloco.indexOf(':')));
   assert.deepEqual(ESTACOES_HYROX_SEM_SUBSTITUTA, semSub, 'substituta: null em catalogo-hyrox.ts');

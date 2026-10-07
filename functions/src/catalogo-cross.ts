@@ -43,7 +43,7 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     cross: {
       padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '50/35 kg', scaled: '30/20 kg' },
       tecnica: {
-        categoria: 'olimpico', tipo: 'tecnica', minutos: 10,
+        categoria: 'olimpico', tipo: 'tecnica', minutos: 10, seriesEquivalentes: 3,
         dinamica: 'EMOM 10 min: 3 power cleans por minuto, subindo a carga de leve a moderada.',
         objetivo: 'Recepção rápida da barra e extensão completa de quadril.',
         chave: 'mantenha a barra perto do corpo e estenda o quadril antes de puxar com os braços',
@@ -58,7 +58,7 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     cross: {
       padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '50/35 kg', scaled: '30/20 kg' },
       tecnica: {
-        categoria: 'olimpico', tipo: 'tecnica', minutos: 10,
+        categoria: 'olimpico', tipo: 'tecnica', minutos: 10, seriesEquivalentes: 3,
         dinamica: 'EMOM 10 min: 3 hang power cleans por minuto, subindo a carga de leve a moderada.',
         objetivo: 'Extensão explosiva de quadril a partir do hang e cotovelos rápidos na recepção.',
         chave: 'deixe o quadril ser o motor e gire os cotovelos rápido para receber a barra',
@@ -73,7 +73,7 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     cross: {
       padrao: 'olimpico', unidade: 'reps', rx: 8, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
       tecnica: {
-        categoria: 'olimpico', tipo: 'tecnica', minutos: 10,
+        categoria: 'olimpico', tipo: 'tecnica', minutos: 10, seriesEquivalentes: 3,
         dinamica: 'EMOM 10 min: 2 ground to overhead por minuto, subindo a carga de leve a moderada.',
         objetivo: 'Chão → ombro → acima da cabeça com a barra perto do corpo e o tronco firme.',
         chave: 'mantenha a barra perto do corpo do chão até em cima e o tronco firme na hora de travar',
@@ -88,7 +88,7 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     cross: {
       padrao: 'empurrar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
       tecnica: {
-        categoria: 'barra', tipo: 'forca', minutos: 12,
+        categoria: 'barra', tipo: 'forca', minutos: 12, seriesEquivalentes: 5,
         dinamica: '5 × 5 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.',
         objetivo: 'Dip and drive: a força da perna passando para a barra acima da cabeça.',
         chave: 'faça o dip curto e o drive forte — a perna empurra, o ombro só termina',
@@ -103,7 +103,7 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     cross: {
       padrao: 'corpo_todo', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
       tecnica: {
-        categoria: 'barra', tipo: 'forca', minutos: 12,
+        categoria: 'barra', tipo: 'forca', minutos: 12, seriesEquivalentes: 5,
         dinamica: '5 × 3 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.',
         objetivo: 'Agachamento frontal ligado ao empurrar, sem pausa no fundo.',
         chave: 'deixe o quadril lançar a barra — é ele que poupa o ombro',
@@ -118,7 +118,7 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     cross: {
       padrao: 'puxar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
       tecnica: {
-        categoria: 'barra', tipo: 'tecnica', minutos: 10,
+        categoria: 'barra', tipo: 'tecnica', minutos: 10, seriesEquivalentes: 3,
         dinamica: '4 × 6 com carga moderada, 1 min de descanso — duplas revezando a barra.',
         objetivo: 'Sequência pernas → quadril → braços, com os cotovelos acima das mãos.',
         chave: 'use pernas, quadril e só então braços, com os cotovelos acima das mãos',
@@ -135,7 +135,7 @@ export const CATALOGO_CROSS: Readonly<Record<string, ExercicioSoCross>> = {
     cross: {
       padrao: 'puxar', unidade: 'reps', rx: 12, carga: { rx: '16/12 kg', scaled: '12/8 kg' },
       tecnica: {
-        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10,
+        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10, seriesEquivalentes: 3,
         dinamica: '4 × 8 com carga moderada, 1 min de descanso.',
         objetivo: 'Sequência pernas → quadril → braços, com o kettlebell perto do corpo.',
         chave: 'use pernas, quadril e só então braços, com o kettlebell perto do corpo',
