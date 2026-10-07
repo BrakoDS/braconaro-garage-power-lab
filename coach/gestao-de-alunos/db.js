@@ -1,36 +1,52 @@
 // @ts-check
 /**
- * Camada de dados da Gestão de Alunos.
+ * Camada de dados da Gestão de Alunos — a fachada.
  *
- * Persistência local (localStorage) + sincronização opcional na nuvem
- * (Firestore, documento gestao/{uid}). O app continua usando a API síncrona
- * normalmente; cada escrita também é enviada à nuvem (debounced) e, no login,
- * os dados da nuvem são carregados. Last-write-wins (igual ao montador).
+ * A API é a MESMA de sempre (listar, obter, criar, atualizar, remover,
+ * avaliações, produtos, feriados, iniciarSync, aoGravar, enviarAgora): o app da
+ * Gestão, os montadores, o painel do coach, Mensagens e Recordes importam este
+ * arquivo e não sabem o que tem atrás.
+ *
+ * Atrás, desde a v2 (docs/superpowers/specs/2026-10-06-refatoracao-gestao-design.md):
+ *  - `db-cache.js`  o `localStorage`, normalizado por documento, e a fila do que falta subir;
+ *  - `db-sync.js`   login, migração do blob v1, carga da nuvem, envio da fila;
+ *  - `db-firestore.js` a única parte que fala com o Firestore (carregada só com login).
+ *
+ * Continua local-first: toda função aqui é síncrona e responde do cache; a
+ * nuvem vem atrás.
  */
-const KEY = 'braconaro_gestao_alunos_v1';
+import { criarCache } from './db-cache.js';
+import { criarSync } from './db-sync.js';
 
-function setLocal(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
-function ler() {
+const cache = criarCache();
+
+/**
+ * Um id por aparelho, para a trava da migração saber quem é quem (duas abas do
+ * mesmo navegador são o mesmo aparelho, e podem retomar a trava uma da outra).
+ */
+function idDoAparelho() {
   try {
-    const d = JSON.parse(localStorage.getItem(KEY) || '');
-    if (d && typeof d === 'object' && Array.isArray(d.alunos)) return d;
-  } catch {}
-  return { seq: 0, alunos: [] };
+    const k = 'braconaro_aparelho';
+    let id = localStorage.getItem(k);
+    if (!id) { id = `ap-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; localStorage.setItem(k, id); }
+    return id;
+  } catch { return 'sem-storage'; }
 }
 
-/* ---------- Sincronização na nuvem ---------- */
-let _uid = null, _push = null, _timer = null;
+const sync = criarSync({
+  cache,
+  aparelho: idDoAparelho(),
+  abrirPorta: async (uid) => (await import('./db-firestore.js')).portaFirestore(uid),
+});
+
 let _aoGravar = null;
 /** Registra um callback chamado a cada gravação local (ex.: publicar o Portal do Aluno). */
 export function aoGravar(cb) { _aoGravar = cb; }
 
-function agendarEnvio() {
-  if (!_uid || !_push) return;
-  clearTimeout(_timer);
-  _timer = setTimeout(() => {
-    Promise.resolve(_push(_uid, ler()))
-      .catch((e) => console.warn('Falha ao salvar alunos na nuvem:', e?.code || e));
-  }, 800);
+/** Depois de toda gravação: agenda a nuvem e avisa quem ouve. */
+function gravou() {
+  sync.agendarEnvio();
+  if (_aoGravar) { try { _aoGravar(cache.comoBlobV1()); } catch {} }
 }
 
 /**
@@ -39,51 +55,44 @@ function agendarEnvio() {
  * está numa ficha, e a ficha acabou de ser salva.
  */
 export async function enviarAgora() {
-  if (!_uid || !_push) return;
-  clearTimeout(_timer);
-  await _push(_uid, ler());
+  await sync.enviarAgora();
 }
-
-/** Grava local e (se conectado) agenda envio à nuvem. */
-function gravar(d) { setLocal(d); agendarEnvio(); if (_aoGravar) { try { _aoGravar(d); } catch {} } }
 
 /**
  * Liga a sincronização na nuvem — chamar após o login, com o uid do coach.
- *  - nuvem com dados        → adota a nuvem (sobrescreve o local);
- *  - nuvem vazia + local cheio → semeia a nuvem com o local;
- *  - falha (regra não publicada / offline) → segue só no local, sem quebrar.
+ * Resolve com o modo em que ficou: 'v2' (sincronizando), 'local' (a nuvem ainda
+ * está no formato antigo e a migração não terminou: os dados ficam aqui e sobem
+ * depois) ou undefined (sem nuvem). Falha de rede/regra não quebra: segue local.
  * @param {string} uid
  * @param {() => void} [aoAtualizar] chamado quando os dados da nuvem chegam
+ * @returns {Promise<'v2'|'local'|'desligado'|undefined>}
  */
 export async function iniciarSync(uid, aoAtualizar) {
   try {
-    const cloud = await import('./cloud-alunos.js');
-    if (!cloud.cloudAtivo() || !uid) return;
-    _uid = uid;
-    _push = cloud.salvar;
-    const remoto = await cloud.carregar(uid);
-    const temRemoto = remoto && Array.isArray(remoto.alunos) && remoto.alunos.length;
-    if (temRemoto) {
-      setLocal(remoto);                       // adota a nuvem
-      if (aoAtualizar) aoAtualizar();
-    } else {
-      const local = ler();
-      if (local.alunos.length) await cloud.salvar(uid, local); // semeia a nuvem
-    }
+    const fs = await import('./db-firestore.js');
+    if (!fs.cloudAtivo() || !uid) return undefined;
+    return await sync.iniciar(uid, aoAtualizar);
   } catch (e) {
     console.warn('Sincronização na nuvem indisponível — usando dados locais.', e?.code || e);
+    return sync.modo();
   }
 }
+
+/** O modo da sincronização agora ('desligado' | 'local' | 'v2'). */
+export function modoSync() { return sync.modo(); }
+
+/** Tudo, no formato do blob antigo (`{ seq, produtos, feriados, alunos[] }`) — para backup. */
+export function comoBlob() { return cache.comoBlobV1(); }
 
 /* ---------- API ---------- */
 
 /**
  * Catálogo de consumíveis do box (energético, dose de pré-treino, o que vier).
  *
- * Mora no mesmo documento dos alunos, e não num arquivo de configuração: é o
- * coach que acrescenta produto, e mexer em código para cadastrar um energético
- * novo não é opção. Vai junto na sincronização, então o celular e o computador
- * mostram a mesma lista.
+ * Mora no meta do coach, e não num arquivo de configuração: é o coach que
+ * acrescenta produto, e mexer em código para cadastrar um energético novo não é
+ * opção. Vai junto na sincronização, então o celular e o computador mostram a
+ * mesma lista.
  */
 const PRODUTOS_PADRAO = [
   { id: 'energetico', nome: 'Energético', preco: 10 },
@@ -93,88 +102,88 @@ const PRODUTOS_PADRAO = [
 
 /** @returns {{id:string, nome:string, preco:number}[]} */
 export function listarProdutos() {
-  const d = ler();
+  const m = cache.meta();
   // Lista vazia é uma escolha do coach (ele apagou tudo) e precisa ser
   // respeitada; ausente é banco novo, e aí entram os três que o box já vende.
-  return Array.isArray(d.produtos) ? d.produtos : PRODUTOS_PADRAO.slice();
+  return Array.isArray(m.produtos) ? m.produtos : PRODUTOS_PADRAO.slice();
 }
 
 /** @param {{id:string, nome:string, preco:number}[]} lista */
 export function salvarProdutos(lista) {
-  const d = ler();
-  d.produtos = lista;
-  gravar(d);
+  cache.gravarMeta({ produtos: lista });
+  gravou();
 }
 
 /** @returns {any[]} todos os alunos (mais recentes primeiro) */
 export function listar() {
-  return ler().alunos.slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+  return cache.todos().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
 }
 
 /** @param {string} id */
 export function obter(id) {
-  return ler().alunos.find((a) => a.id === id) || null;
+  return cache.obter(id);
 }
 
 /** Cria um aluno e retorna o registro (com ID gerado). @param {any} dados */
 export function criar(dados) {
-  const d = ler();
   let id = (dados.id || '').toString().trim();
   if (id) {
-    if (d.alunos.some((a) => a.id === id)) return null; // ID já existe
+    if (cache.obter(id)) return null; // ID já existe
   } else {
-    d.seq += 1;
-    id = String(d.seq).padStart(3, '0');
+    // Pula número já usado por um ID digitado à mão ("004"): no v1 isso criava
+    // dois alunos com o mesmo ID; aqui sobrescreveria a ficha do outro.
+    let seq = Number(cache.meta().seq) || 0;
+    do { seq += 1; id = String(seq).padStart(3, '0'); } while (cache.obter(id));
+    cache.gravarMeta({ seq });
   }
   const aluno = { status: 'ativo', avaliacoes: [], criadoEm: Date.now(), ...dados, id };
-  d.alunos.push(aluno);
-  gravar(d);
-  return aluno;
+  cache.gravarAluno(aluno);
+  gravou();
+  return cache.obter(id);
 }
 
 /** Atualiza campos de um aluno. @param {string} id @param {any} dados */
 export function atualizar(id, dados) {
-  const d = ler();
-  const a = d.alunos.find((x) => x.id === id);
+  const a = cache.obter(id);
   if (!a) return null;
   Object.assign(a, dados);
-  gravar(d);
-  return a;
+  cache.gravarAluno(a);
+  gravou();
+  return cache.obter(id);
 }
 
 /** Remove um aluno. @param {string} id */
 export function remover(id) {
-  const d = ler();
-  d.alunos = d.alunos.filter((a) => a.id !== id);
+  cache.removerAluno(id);
   // Quem tinha a conta acertada por ele volta a pagar a própria: um vínculo
   // apontando para uma ficha que não existe mais some do painel do coach — o
   // dependente aparece devendo zero e nunca mais entra numa cobrança.
-  for (const a of d.alunos) {
-    if (a.pagoPor && a.pagoPor.id === id) a.pagoPor = null;
+  for (const a of cache.todos()) {
+    if (a.pagoPor && a.pagoPor.id === id) cache.gravarAluno({ ...a, pagoPor: null });
   }
-  gravar(d);
+  gravou();
 }
 
 /** Adiciona uma avaliação (numeração automática). @param {string} id @param {any} av */
 export function addAvaliacao(id, av) {
-  const d = ler();
-  const a = d.alunos.find((x) => x.id === id);
+  const a = cache.obter(id);
   if (!a) return null;
   a.avaliacoes = a.avaliacoes || [];
   const num = (a.avaliacoes.reduce((m, x) => Math.max(m, x.num || 0), 0) || 0) + 1;
   const aval = { num, criadoEm: Date.now(), ...av };
   a.avaliacoes.push(aval);
-  gravar(d);
+  cache.gravarAluno(a);
+  gravou();
   return aval;
 }
 
 /** Remove uma avaliação pelo número. @param {string} id @param {number} num */
 export function removerAvaliacao(id, num) {
-  const d = ler();
-  const a = d.alunos.find((x) => x.id === id);
+  const a = cache.obter(id);
   if (!a || !a.avaliacoes) return;
   a.avaliacoes = a.avaliacoes.filter((x) => x.num !== num);
-  gravar(d);
+  cache.gravarAluno(a);
+  gravou();
 }
 
 /* ---------- Feriados: o box abriu ou não? ---------- */
@@ -190,8 +199,8 @@ export function removerAvaliacao(id, num) {
  * @returns {Record<string, boolean>}
  */
 export function feriadosDoBox() {
-  const d = ler();
-  return (d.feriados && typeof d.feriados === 'object') ? d.feriados : {};
+  const m = cache.meta();
+  return (m.feriados && typeof m.feriados === 'object') ? m.feriados : {};
 }
 
 /** Os dias em que o box NÃO abriu — é o que `semanaDoAluno` recebe em `fechados`. */
@@ -204,9 +213,9 @@ export function diasFechados() {
  * @param {string} iso @param {boolean|null} abriu
  */
 export function marcarFeriado(iso, abriu) {
-  const d = ler();
-  d.feriados = d.feriados && typeof d.feriados === 'object' ? d.feriados : {};
-  if (abriu === null) delete d.feriados[iso];
-  else d.feriados[iso] = !!abriu;
-  gravar(d);
+  const feriados = { ...feriadosDoBox() };
+  if (abriu === null) delete feriados[iso];
+  else feriados[iso] = !!abriu;
+  cache.gravarMeta({ feriados });
+  gravou();
 }

@@ -84,11 +84,19 @@ service cloud.firestore {
     //       gestao/{uid}/alunos/{alunoId}/avaliacoes/{n}  uma avaliação
     //       gestao/{uid}/alunos/{alunoId}/feedbacks/{id}  um feedback
     //       gestao/{uid}/backup/{nome}                    o blob v1 congelado
-    // O campo `alunos` AINDA pode ser gravado aqui: o cliente v1 continua
-    // regravando o blob inteiro até a migração terminar. A trava que barra esse
-    // campo é o Passo 3 do plano, e só entra depois da migração em produção.
+    // Enquanto o documento é v1, qualquer escrita do coach passa: o cliente v1
+    // regrava o blob inteiro, e a migração trava/vira por update. Depois da
+    // virada (`schema: 2`), a porta fecha para o formato antigo: toda escrita
+    // tem de manter `schema: 2` e não pode trazer `alunos` de volta. É o que
+    // impede uma aba aberta com o código antigo (db.js em cache) de regravar o
+    // blob por cima da migração. Apagar o documento depois da virada também é
+    // barrado: sem `request.resource`, a condição falha — e o meta não pode sumir.
     match /gestao/{uid} {
-      allow read, write: if ehCoachDono(uid);
+      allow read: if ehCoachDono(uid);
+      allow write: if ehCoachDono(uid)
+        && (resource == null
+          || resource.data.get('schema', 0) != 2
+          || (request.resource.data.get('schema', 0) == 2 && !('alunos' in request.resource.data)));
 
       // Tudo que mora embaixo: as subcoleções da v2 e o log da tela Registros
       // (eventos.js). O log é subcoleção, e não campo do doc acima, pelo mesmo

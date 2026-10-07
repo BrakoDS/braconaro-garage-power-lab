@@ -195,8 +195,17 @@ test('gestao v2: as subcoleções (fichas, avaliações, backup, eventos) são s
   const c = codigo(firestore);
   const bloco = c.split('match /gestao/{uid} {')[1]?.split(/\n    match \//)[0] || '';
   assert.match(bloco, /match \/\{sub=\*\*\} \{\s*allow read, write: if ehCoachDono\(uid\);\s*\}/);
-  assert.deepEqual(bloco.match(/allow [^;]+;/g), [
-    'allow read, write: if ehCoachDono(uid);',
-    'allow read, write: if ehCoachDono(uid);',
-  ], 'nenhuma outra porta dentro de gestao/{uid}');
+  const allows = (bloco.match(/allow [^;]+;/g) || []).map((a) => a.replace(/\s+/g, ' '));
+  assert.equal(allows.length, 3, 'nenhuma outra porta dentro de gestao/{uid}');
+  assert.equal(allows[0], 'allow read: if ehCoachDono(uid);');
+  assert.equal(allows[2], 'allow read, write: if ehCoachDono(uid);');
+});
+
+test('gestao v2: depois da virada, ninguém regrava o blob nem tira o schema', () => {
+  // A escrita no documento raiz só passa se ele ainda não é v2, ou se continua
+  // v2 e sem `alunos`. Sem isso, uma aba com o db.js antigo em cache regravaria
+  // o blob inteiro por cima da migração.
+  const c = codigo(firestore).replace(/\s+/g, ' ');
+  assert.ok(c.includes("allow write: if ehCoachDono(uid) && (resource == null || resource.data.get('schema', 0) != 2 "
+    + "|| (request.resource.data.get('schema', 0) == 2 && !('alunos' in request.resource.data)));"), 'trava do schema 2 no gestao/{uid}');
 });

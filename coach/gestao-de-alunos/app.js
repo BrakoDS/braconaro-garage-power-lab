@@ -2846,35 +2846,38 @@ const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-err
 const gReset = $('#gate-reset');
 
 /* ============================================================
-   Medidor e backup do banco (Passo 0 da refatoração)
+   Medidor e backup do banco
    ============================================================
-   Antes de desmembrar `gestao/{uid}`, precisamos saber a que distância ele
-   está do teto de 1 MiB do Firestore e ter uma cópia fora da nuvem. O cache
-   local é o espelho do documento (o `db.js` adota a nuvem no login), então
-   medi-lo depois do sync mede o documento. Ver
-   docs/superpowers/specs/2026-10-06-refatoracao-gestao-design.md, §3.
-   A chave é a mesma de `db.js`. Ela fica repetida aqui, e não importada,
-   porque o `db.js` é carregado sem `?v=`: um `db.js` antigo em cache sem o
-   export derrubaria o app inteiro. */
-const CHAVE_BANCO = 'braconaro_gestao_alunos_v1';
+   Desde a v2 os alunos moram um por documento (gestao/{uid}/alunos/{id}), e o
+   teto de 1 MiB do Firestore passou a valer por ALUNO. O medidor mostra o
+   total (o tamanho que o blob antigo teria) e a maior ficha — é ela que mede a
+   distância do teto agora. Ver docs/superpowers/specs/2026-10-06-refatoracao-gestao-design.md.
+   `db.comoBlob` pode faltar se o navegador ainda tiver o db.js antigo em cache
+   (ele é carregado sem `?v=`): aí lê a chave antiga direto. */
+const CHAVE_BANCO_V1 = 'braconaro_gestao_alunos_v1';
 const TETO_FIRESTORE = 1024 * 1024;
+
+function blobDoBanco() {
+  if (typeof db.comoBlob === 'function') return db.comoBlob();
+  try { return JSON.parse(localStorage.getItem(CHAVE_BANCO_V1) || ''); } catch { return null; }
+}
 
 function medirTamanhoBanco(momento = 'boot') {
   try {
-    const bruto = localStorage.getItem(CHAVE_BANCO) || '';
+    const d = blobDoBanco() || { alunos: [] };
     // Bytes em UTF-8 (acentos ocupam 2), que é como o Firestore conta — `.length` contaria caracteres.
-    const bytes = new Blob([bruto]).size;
-    let alunos = 0, avaliacoes = 0;
-    try {
-      const d = JSON.parse(bruto);
-      alunos = (d.alunos || []).length;
-      avaliacoes = (d.alunos || []).reduce((n, a) => n + ((a && a.avaliacoes) || []).length, 0);
-    } catch {}
-    const pct = (bytes / TETO_FIRESTORE) * 100;
+    const bytes = (v) => new Blob([JSON.stringify(v)]).size;
+    const alunos = Array.isArray(d.alunos) ? d.alunos : [];
+    const total = bytes(d);
+    const avaliacoes = alunos.reduce((n, a) => n + ((a && a.avaliacoes) || []).length, 0);
+    // A maior ficha SEM avaliações e feedbacks: é o documento gestao/{uid}/alunos/{id}.
+    const maior = alunos.reduce((m, a) => { const { avaliacoes: _a, feedbacks: _f, ...f } = a || {}; return Math.max(m, bytes(f)); }, 0);
+    const pct = (maior / TETO_FIRESTORE) * 100;
     const sinal = pct >= 80 ? '🔴' : pct >= 50 ? '🟡' : '🟢';
-    console.log(`${sinal} [Gestão · ${momento}] Banco local: ${(bytes / 1024).toFixed(1)} KB `
-      + `(${pct.toFixed(1)}% do teto de 1 MB do Firestore) · ${alunos} alunos · ${avaliacoes} avaliações`);
-    return bytes;
+    const modo = typeof db.modoSync === 'function' ? db.modoSync() : 'v1';
+    console.log(`${sinal} [Gestão · ${momento} · sync ${modo}] ${alunos.length} alunos · ${avaliacoes} avaliações · `
+      + `total ${(total / 1024).toFixed(1)} KB · maior ficha ${(maior / 1024).toFixed(1)} KB (${pct.toFixed(2)}% do teto de 1 MB por documento)`);
+    return total;
   } catch (e) {
     console.warn('Não foi possível medir o banco local:', e);
     return null;
@@ -2882,11 +2885,11 @@ function medirTamanhoBanco(momento = 'boot') {
 }
 
 function baixarBackupGestao() {
-  const bruto = localStorage.getItem(CHAVE_BANCO);
-  if (!bruto) { avisar({ titulo: 'Nada para salvar', texto: 'O banco local está vazio neste aparelho.' }); return; }
-  let conteudo = bruto;
-  try { conteudo = JSON.stringify(JSON.parse(bruto), null, 2); } catch {} // ilegível: salva cru mesmo, nada se perde
-  const url = URL.createObjectURL(new Blob([conteudo], { type: 'application/json' }));
+  const d = blobDoBanco();
+  if (!d || !Array.isArray(d.alunos) || !d.alunos.length) { avisar({ titulo: 'Nada para salvar', texto: 'O banco local está vazio neste aparelho.' }); return; }
+  // Mesmo formato do backup antigo ({ seq, produtos, feriados, alunos[] }): o
+  // simulador da migração e qualquer restauração leem os dois iguais.
+  const url = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
   link.download = `backup_garage_power_lab_${hoje()}.json`;
@@ -2914,11 +2917,16 @@ async function entrar(user) {
         const a = db.obter(alunoAtual.id);
         if (a) { alunoAtual = a; renderAvaliacoes(); if ($('#tab-registros').classList.contains('active')) desenharRegistros(); }
       }
-    }).then(async () => {
-      // 0) agora o cache local é o espelho da nuvem: esta é a medida do documento gestao/{uid}
+    }).then(async (modo) => {
+      // 0) agora o cache local é o espelho da nuvem
       medirTamanhoBanco('após sync');
+      // Nuvem ainda no formato antigo e a migração não terminou (outro aparelho
+      // migrando, rede): o merge APAGA a caixa do aluno depois de aplicar, e a
+      // ficha daqui ainda não sobe — o feedback ficaria só neste aparelho. A
+      // caixa espera a próxima abertura; o Portal também.
+      const nuvemEmDia = modo !== 'local';
       // 1) puxa o que os alunos enviaram (foto/feedback/presença/diário) e mescla no coach
-      const n = await mergarInboxes(db.listar(), (id, patch) => db.atualizar(id, patch), eventos.registrar);
+      const n = !nuvemEmDia ? 0 : await mergarInboxes(db.listar(), (id, patch) => db.atualizar(id, patch), eventos.registrar);
       if (n) {
         renderLista();
         if ($('#tela-perfil').classList.contains('active') && alunoAtual) {
@@ -2932,7 +2940,7 @@ async function entrar(user) {
         }
       }
       // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
-      publicarPortal(db.listar());
+      if (nuvemEmDia) publicarPortal(db.listar());
       // 3) puxa o mural de avisos + desafios da nuvem (para editar no mesmo estado em qualquer aparelho)
       sincronizarAvisos();
       sincronizarDesafios();
