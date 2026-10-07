@@ -13,6 +13,9 @@ import { join } from 'node:path';
 import * as ts from 'typescript';
 import { COACH_UIDS, alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
 import {
+  acharAlunoDaGestao, fichasDaGestao, ehGestaoV2, ehIdDeDoc, CAMPO_EMAIL_NORM, SCHEMA_GESTAO_V2, type FonteGestao,
+} from './gestao-leitura';
+import {
   extrairAnalise, limparTexto, num, INSTRUCOES, INSTRUCOES_TEXTO, MAX_TEXTO,
 } from './analise';
 import { extrairPreco, decidirRodada, ehLinkMercadoLivre, type ItemFeed } from './precos';
@@ -1618,6 +1621,92 @@ ok(limparParaGravar(null) === null && limparParaGravar(undefined) === undefined,
     'Gestão vazia ou sem lista não quebra');
 }
 
+/* ---------- Gestão v1 × v2 (gestao-leitura.ts) ---------- */
+// Assíncrono: a fonte é uma promessa. O resumo do fim espera por `pendentes`.
+const pendentes: Promise<void>[] = [];
+pendentes.push((async () => {
+  /** Fonte falsa: o meta e as fichas da subcoleção, contando quem foi consultado. */
+  const fonte = (meta: Record<string, unknown> | null, fichas: Record<string, Record<string, unknown>> = {}) => {
+    const consultas = { porEmail: 0, porId: 0 };
+    const f: FonteGestao = {
+      meta: async () => meta,
+      fichaPorEmail: async (email) => {
+        consultas.porEmail++;
+        const hit = Object.entries(fichas).find(([, d]) => d[CAMPO_EMAIL_NORM] === email);
+        return hit ? { id: hit[0], dados: hit[1] } : null;
+      },
+      fichasPorId: async (ids) => {
+        consultas.porId++;
+        return new Map(ids.filter((id) => fichas[id]).map((id): [string, Record<string, unknown>] => [id, fichas[id]]));
+      },
+    };
+    return { f, consultas };
+  };
+  const matriz = (nivel: string) => ({ [CAMPO_MATRIZ]: { nivel } });
+
+  ok(ehGestaoV2({ schema: SCHEMA_GESTAO_V2 }) && !ehGestaoV2({ schema: '2' }) && !ehGestaoV2(null) && !ehGestaoV2({ alunos: [] }),
+    'v2 só com schema === 2 numérico');
+  ok(ehIdDeDoc('001') && !ehIdDeDoc('001/avaliacoes/3') && !ehIdDeDoc('..') && !ehIdDeDoc('__id__') && !ehIdDeDoc(''),
+    'id com barra ou reservado não vira caminho de documento');
+
+  const blobV1 = { seq: 3, alunos: [
+    { id: '001', nome: ' Ana Lima ', email: 'Ana@Box.com', ...matriz('v1-ana') },
+    { id: '002', nome: 'Bia', email: 'bia@box.com', ...matriz('v1-bia-velha') },
+    { id: '002', nome: 'Bia', email: 'bia@box.com', ...matriz('v1-bia') },
+  ] };
+
+  // ---- v1: tudo vem do array, e a subcoleção nem é consultada
+  {
+    const { f, consultas } = fonte(blobV1, { '001': { nome: 'Fantasma', [CAMPO_EMAIL_NORM]: 'ana@box.com' } });
+    const ana = await acharAlunoDaGestao(f, ' ANA@box.com ');
+    ok(ana?.id === '001' && ana?.nome === 'Ana Lima', 'v1: acha pelo e-mail no array, sem diferenciar maiúscula');
+    const fichas = await fichasDaGestao(f, ['001', '002', '999']);
+    ok((fichas.get('001') as Record<string, { nivel: string }>)?.[CAMPO_MATRIZ]?.nivel === 'v1-ana', 'v1: matriz lida do array');
+    ok((fichas.get('002') as Record<string, { nivel: string }>)?.[CAMPO_MATRIZ]?.nivel === 'v1-bia',
+      'v1: aluno repetido fica com a última ocorrência, como antes');
+    ok(!fichas.has('999'), 'v1: aluno fora da Gestão fica de fora (a distribuição avisa)');
+    ok(consultas.porEmail === 0 && consultas.porId === 0,
+      'v1: a subcoleção meio copiada durante a migração NÃO é consultada', JSON.stringify(consultas));
+  }
+
+  // ---- v2: subcoleção primeiro
+  {
+    const { f, consultas } = fonte({ schema: 2, seq: 3 }, {
+      '001': { nome: ' Ana Lima ', email: 'Ana@Box.com', [CAMPO_EMAIL_NORM]: 'ana@box.com', ...matriz('v2-ana') },
+    });
+    const ana = await acharAlunoDaGestao(f, 'ana@box.com');
+    ok(ana?.id === '001' && ana?.nome === 'Ana Lima', 'v2: acha pelo emailNorm na subcoleção');
+    ok(await acharAlunoDaGestao(f, 'intruso@x.com') === null, 'v2: e-mail fora da Gestão continua sem conta');
+    ok(await acharAlunoDaGestao(f, '') === null && await acharAlunoDaGestao(f, 'lixo') === null, 'v2: e-mail inválido nem consulta');
+    const fichas = await fichasDaGestao(f, ['001', '002', '001/avaliacoes/1']);
+    const ana2 = fichas.get('001');
+    ok((ana2?.[CAMPO_MATRIZ] as { nivel?: string } | undefined)?.nivel === 'v2-ana' && ana2?.id === '001',
+      'v2: matriz lida da ficha, com o id do documento');
+    ok(!fichas.has('002') && !fichas.has('001/avaliacoes/1'), 'v2: só o que existe e foi pedido');
+    ok(consultas.porId === 1, 'v2: todas as fichas numa leitura só (getAll)', JSON.stringify(consultas));
+  }
+
+  // ---- v2 com o array ainda no meta: a subcoleção vence, o array cobre o que faltar
+  {
+    const { f } = fonte({ schema: 2, alunos: blobV1.alunos }, {
+      '001': { nome: 'Ana Nova', [CAMPO_EMAIL_NORM]: 'ana@box.com', ...matriz('v2-ana') },
+    });
+    ok((await acharAlunoDaGestao(f, 'ana@box.com'))?.nome === 'Ana Nova', 'v2 + array: a ficha da subcoleção vence');
+    ok((await acharAlunoDaGestao(f, 'bia@box.com'))?.id === '002', 'v2 + array: quem não está na subcoleção cai no array');
+    const fichas = await fichasDaGestao(f, ['001', '002']);
+    ok((fichas.get('001') as Record<string, { nivel: string }>)?.[CAMPO_MATRIZ]?.nivel === 'v2-ana'
+      && (fichas.get('002') as Record<string, { nivel: string }>)?.[CAMPO_MATRIZ]?.nivel === 'v1-bia',
+    'v2 + array: matriz da subcoleção quando há, do array quando não');
+  }
+
+  // ---- Gestão inexistente
+  {
+    const { f } = fonte(null);
+    ok(await acharAlunoDaGestao(f, 'ana@box.com') === null && (await fichasDaGestao(f, ['001'])).size === 0,
+      'sem documento da Gestão: ninguém, e sem quebrar');
+  }
+})().catch((e) => { ok(false, 'Gestão v1 × v2 rodou sem exceção', String(e)); }));
+
 /* ---------- push do chat (notificarRespostaDoCoach) ---------- */
 {
   console.log('\nPush do chat');
@@ -1697,9 +1786,11 @@ console.log('\nDASHBOARD: SECUNDÁRIO PESA 0,5 (decisão de 05/10/2026)\n');
   ok(daTaxonomia('Wall Ball')?.grupamentosSecundarios?.join() === 'Ombro', 'item de fábrica da taxonomia traz os secundários');
 }
 
-console.log(
-  falhas === 0
-    ? '\n✓ A leitura da IA, a de preço e o Montador Híbrido aguentam entrada torta.\n'
-    : `\n✗ ${falhas} verificação(ões) falharam.\n`,
-);
-process.exitCode = falhas === 0 ? 0 : 1;
+void Promise.all(pendentes).then(() => {
+  console.log(
+    falhas === 0
+      ? '\n✓ A leitura da IA, a de preço e o Montador Híbrido aguentam entrada torta.\n'
+      : `\n✗ ${falhas} verificação(ões) falharam.\n`,
+  );
+  process.exitCode = falhas === 0 ? 0 : 1;
+});

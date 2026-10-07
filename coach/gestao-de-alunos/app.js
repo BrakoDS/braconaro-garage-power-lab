@@ -2845,6 +2845,60 @@ const gate = $('#gate'), gform = $('#gate-form');
 const gEmail = $('#gate-email'), gSenha = $('#gate-senha'), gErro = $('#gate-erro');
 const gReset = $('#gate-reset');
 
+/* ============================================================
+   Medidor e backup do banco (Passo 0 da refatoração)
+   ============================================================
+   Antes de desmembrar `gestao/{uid}`, precisamos saber a que distância ele
+   está do teto de 1 MiB do Firestore e ter uma cópia fora da nuvem. O cache
+   local é o espelho do documento (o `db.js` adota a nuvem no login), então
+   medi-lo depois do sync mede o documento. Ver
+   docs/superpowers/specs/2026-10-06-refatoracao-gestao-design.md, §3.
+   A chave é a mesma de `db.js`. Ela fica repetida aqui, e não importada,
+   porque o `db.js` é carregado sem `?v=`: um `db.js` antigo em cache sem o
+   export derrubaria o app inteiro. */
+const CHAVE_BANCO = 'braconaro_gestao_alunos_v1';
+const TETO_FIRESTORE = 1024 * 1024;
+
+function medirTamanhoBanco(momento = 'boot') {
+  try {
+    const bruto = localStorage.getItem(CHAVE_BANCO) || '';
+    // Bytes em UTF-8 (acentos ocupam 2), que é como o Firestore conta — `.length` contaria caracteres.
+    const bytes = new Blob([bruto]).size;
+    let alunos = 0, avaliacoes = 0;
+    try {
+      const d = JSON.parse(bruto);
+      alunos = (d.alunos || []).length;
+      avaliacoes = (d.alunos || []).reduce((n, a) => n + ((a && a.avaliacoes) || []).length, 0);
+    } catch {}
+    const pct = (bytes / TETO_FIRESTORE) * 100;
+    const sinal = pct >= 80 ? '🔴' : pct >= 50 ? '🟡' : '🟢';
+    console.log(`${sinal} [Gestão · ${momento}] Banco local: ${(bytes / 1024).toFixed(1)} KB `
+      + `(${pct.toFixed(1)}% do teto de 1 MB do Firestore) · ${alunos} alunos · ${avaliacoes} avaliações`);
+    return bytes;
+  } catch (e) {
+    console.warn('Não foi possível medir o banco local:', e);
+    return null;
+  }
+}
+
+function baixarBackupGestao() {
+  const bruto = localStorage.getItem(CHAVE_BANCO);
+  if (!bruto) { avisar({ titulo: 'Nada para salvar', texto: 'O banco local está vazio neste aparelho.' }); return; }
+  let conteudo = bruto;
+  try { conteudo = JSON.stringify(JSON.parse(bruto), null, 2); } catch {} // ilegível: salva cru mesmo, nada se perde
+  const url = URL.createObjectURL(new Blob([conteudo], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `backup_garage_power_lab_${hoje()}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+$('#btn-backup').addEventListener('click', baixarBackupGestao);
+
+medirTamanhoBanco();
+
 async function entrar(user) {
   if (user && cloudAtivo() && await bloquearSeNaoCoach(user)) return; // barra contas de aluno
   UID = user?.uid || null;
@@ -2861,6 +2915,8 @@ async function entrar(user) {
         if (a) { alunoAtual = a; renderAvaliacoes(); if ($('#tab-registros').classList.contains('active')) desenharRegistros(); }
       }
     }).then(async () => {
+      // 0) agora o cache local é o espelho da nuvem: esta é a medida do documento gestao/{uid}
+      medirTamanhoBanco('após sync');
       // 1) puxa o que os alunos enviaram (foto/feedback/presença/diário) e mescla no coach
       const n = await mergarInboxes(db.listar(), (id, patch) => db.atualizar(id, patch), eventos.registrar);
       if (n) {

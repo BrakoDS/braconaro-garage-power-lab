@@ -188,3 +188,15 @@ test('semanas em branco publicadas: o aluno logado lê (a consulta filtra por st
   const c = codigo(firestore);
   assert.match(c, /match \/semanas\/\{semanaId\} \{\s*allow read: if ehCoachDono\(uid\) \|\| \(request\.auth != null && resource\.data\.status == 'publicado'\);/);
 });
+
+test('gestao v2: as subcoleções (fichas, avaliações, backup, eventos) são só do coach dono', () => {
+  // Passo 1 da migração: o blob alunos[] vira gestao/{uid}/alunos/{id}/…, e a
+  // regra precisa cobrir qualquer profundidade — sem abrir nada para aluno.
+  const c = codigo(firestore);
+  const bloco = c.split('match /gestao/{uid} {')[1]?.split(/\n    match \//)[0] || '';
+  assert.match(bloco, /match \/\{sub=\*\*\} \{\s*allow read, write: if ehCoachDono\(uid\);\s*\}/);
+  assert.deepEqual(bloco.match(/allow [^;]+;/g), [
+    'allow read, write: if ehCoachDono(uid);',
+    'allow read, write: if ehCoachDono(uid);',
+  ], 'nenhuma outra porta dentro de gestao/{uid}');
+});

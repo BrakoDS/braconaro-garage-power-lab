@@ -54,7 +54,8 @@ import {
 import { preParse, montarComoIA } from './pre-parser';
 import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatalogo } from './catalogo';
 import { getAuth } from 'firebase-admin/auth';
-import { COACH_UIDS, alunoDaGestao, ehCoachPorUid, normalizarEmail } from './acesso';
+import { COACH_UIDS, ehCoachPorUid, normalizarEmail } from './acesso';
+import { acharAlunoDaGestao, fichasDaGestao, fonteFirestore } from './gestao-leitura';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
@@ -901,7 +902,8 @@ export const pesquisarItem = onCall(
 
      coaches/{uid}/lousas/{workoutId}                  o treino da lousa
      coaches/{uid}/lousas/{workoutId}/fichas/{alunoId} a ficha de cada aluno
-     gestao/{uid} → alunos[].matrizIndividualizacao    a matriz (a Gestão é a dona)
+     gestao/{uid}/alunos/{id}.matrizIndividualizacao   a matriz (a Gestão é a dona;
+       ou gestao/{uid} → alunos[] no formato v1)       ver gestao-leitura.ts)
      coaches/{uid}/volumeAgregado/{chave}              semana e mês consolidados
      treinoAluno/{email}                               a fatia que o Portal lê
 
@@ -1423,23 +1425,18 @@ export const distributeWorkoutToStudents = onCall(
     }
     const dateId = typeof doc.dateId === 'string' && EH_DATA.test(doc.dateId) ? doc.dateId : diaSaoPaulo();
 
-    // UMA leitura só, do documento da Gestão.
+    // As fichas da Gestão, de onde sai a matriz.
     //
-    // A matriz de individualização NÃO mora numa coleção por aluno: ela é o
-    // campo `matrizIndividualizacao` dentro da ficha, no mesmo documento
-    // `gestao/{uid}` que o coach já edita na tela de Gestão de Alunos (ver
+    // A matriz de individualização NÃO mora numa coleção própria: ela é o
+    // campo `matrizIndividualizacao` dentro da FICHA do aluno, a mesma que o
+    // coach edita na tela de Gestão de Alunos (ver
     // `compartilhado/regras/matriz-individualizacao.js`). Ler de lá é o que
     // garante que o número usado na aula é o mesmo que ele acabou de digitar —
     // uma cópia em outra coleção seria uma segunda verdade sobre o mesmo aluno,
     // e a cópia venceria por acidente no dia em que alguém esquecesse de
-    // sincronizar.
-    const gestaoSnap = await db.doc(`gestao/${uid}`).get();
-    const alunos = (gestaoSnap.data()?.alunos ?? []) as { id?: unknown }[];
-    const porId = new Map(
-      (Array.isArray(alunos) ? alunos : [])
-        .filter((a) => a && typeof a === 'object' && a.id != null)
-        .map((a) => [String(a.id), a]),
-    );
+    // sincronizar. A ficha está mudando de endereço (blob `gestao/{uid}` →
+    // `gestao/{uid}/alunos/{id}`); `fichasDaGestao` lê os dois.
+    const porId = await fichasDaGestao(fonteFirestore(db, uid), todos);
 
     const semMatriz: string[] = [];
     const matrizes: MatrizAluno[] = todos.map((id) => {
@@ -1778,8 +1775,7 @@ export const criarAcessoAluno = onCall(
     const email = normalizarEmail((req.data as { email?: unknown } | null)?.email);
     if (!email) throw new HttpsError('invalid-argument', 'E-mail do aluno inválido.');
 
-    const gestao = await getFirestore().doc(`gestao/${uid}`).get();
-    const aluno = alunoDaGestao(gestao.data() ?? null, email);
+    const aluno = await acharAlunoDaGestao(fonteFirestore(getFirestore(), uid), email);
     if (!aluno) {
       throw new HttpsError('not-found',
         'Este e-mail não está em nenhuma ficha da sua Gestão. Salve a ficha com o e-mail e tente de novo.');
@@ -2608,8 +2604,11 @@ export const registrarSessaoAluno = onCall(
     if (data > diaSaoPaulo()) throw new HttpsError('failed-precondition', 'Essa aula ainda não aconteceu.');
 
     const db = getFirestore();
-    const [gestao, semana] = await Promise.all([db.doc(`gestao/${coachUid}`).get(), refSemana(db, coachUid, semanaId).get()]);
-    if (!alunoDaGestao(gestao.data(), email)) throw new HttpsError('permission-denied', 'Você não está na lista de alunos desse coach.');
+    const [aluno, semana] = await Promise.all([
+      acharAlunoDaGestao(fonteFirestore(db, coachUid), email),
+      refSemana(db, coachUid, semanaId).get(),
+    ]);
+    if (!aluno) throw new HttpsError('permission-denied', 'Você não está na lista de alunos desse coach.');
     if (semana.data()?.status !== 'publicado') throw new HttpsError('failed-precondition', 'Essa semana não está publicada.');
     const doDia = (semana.data()?.dias ?? {})[dia] as DiaProgramado | undefined;
     if (doDia?.aviso && !doDia.treinos?.length) {
