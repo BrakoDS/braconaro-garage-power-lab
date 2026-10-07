@@ -418,7 +418,44 @@ export interface DadosTecnica {
    * que poupa o ombro'). Ausente: a estratégia usa o `objetivo`.
    */
   chave?: string;
+  /**
+   * Quantas SÉRIES EQUIVALENTES de força o bloco vale no volume do aluno (o
+   * 5 × 5 de força vale 5; a técnica leve, 3). Número fixo por movimento,
+   * decidido pelo coach — não é contado pelo tempo do EMOM. Ausente: o padrão
+   * do tipo (`SERIES_TECNICA_PADRAO`).
+   */
+  seriesEquivalentes?: number;
 }
+
+/* ─────────────── Volume do Cross e do Hyrox (decisão do coach, 06/10/2026) ───────────────
+ * O Cross e o Hyrox viram "séries equivalentes" e entram na MESMA conta da
+ * força (`volumeDaSessao`: 1,0 por músculo principal, 0,5 por secundário).
+ * Um BLOCO é uma execução de um movimento na aula (uma rodada do For Time, uma
+ * volta do EMOM, uma estação do Hyrox); o fator diz quanto ele vale perto de
+ * uma série de força. RX e Scaled contam igual. Conta o que o aluno FEZ: a
+ * substituta do Hyrox, a air bike no lugar da corrida, a adaptação do catálogo.
+ */
+export const FATOR_VOLUME = {
+  /** Série de força, e cada série equivalente da Técnica / Força. */
+  forca: 1,
+  /** Bloco de um movimento do WOD que não é cardio. */
+  wod: 0.5,
+  /** Bloco de cardio do WOD (padrão `cardio`) e cada corrida (ou air bike) do Hyrox. */
+  cardio: 0.25,
+  /** Estação do Hyrox completa (× `fatorEstacao` do formato: metade no compromised). */
+  estacaoHyrox: 1,
+} as const;
+
+/** Séries equivalentes da Técnica / Força quando o catálogo não diz (`seriesEquivalentes`). */
+export const SERIES_TECNICA_PADRAO: Readonly<Record<TipoTecnica, number>> = { forca: 5, tecnica: 3, skill: 3 };
+
+/**
+ * AMRAP: "fiz como prescrito" conta uma rodada a cada tantos minutos (o AMRAP
+ * não tem número de rodadas prescrito). O aluno que fez outro número informa.
+ */
+export const MINUTOS_POR_RODADA_AMRAP = 3;
+/** AMRAP: o teto de rodadas que contam é minutos ÷ isto (ninguém lança 30). */
+export const MINUTOS_MINIMOS_POR_RODADA_AMRAP = 2;
 
 /** Como um exercício entra no WOD do Cross. */
 export interface DadosCross {
@@ -951,6 +988,34 @@ export interface PresencaAluno {
   /** Volume desta sessão por músculo — `volumeAcumulado` é a soma destes. */
   volume: Partial<Record<Musculo, number>>;
   registradoEm: Timestamp;
+  /**
+   * Cross e Hyrox: o que o aluno disse ter feito, como LIDO pelo servidor (para
+   * o coach entender o volume). Ausente: força, ou registro só de presença.
+   */
+  registro?: RegistroCrossLido | RegistroHyroxLido;
+}
+
+/**
+ * O registro do Cross lido: `comoPrescrito` (um toque) ou o detalhe. `blocos`
+ * = rodadas (For Time, AMRAP) ou voltas (EMOM) que contaram; Chipper conta
+ * `chipperAte` movimentos, 2 blocos cada.
+ */
+export interface RegistroCrossLido {
+  tipo: 'cross';
+  comoPrescrito: boolean;
+  tecnicaSeries: number;
+  blocos: number;
+  chipperAte: number | null;
+  /** Movimento do WOD → exercício da adaptação (só as do catálogo do movimento). */
+  adaptacoes: Record<string, string>;
+}
+
+/** O registro do Hyrox lido: estações feitas, na ordem, e se a corrida foi na air bike. */
+export interface RegistroHyroxLido {
+  tipo: 'hyrox';
+  comoPrescrito: boolean;
+  estacoesFeitas: number;
+  corridaNaBike: boolean;
 }
 
 export interface FeedbackExercicio {

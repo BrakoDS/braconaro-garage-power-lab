@@ -18,7 +18,7 @@
  * 1–10 kg que o inventário conta: a estação não pede recurso, e a substituta
  * com kettlebells fica para quando o coach quiser.
  */
-import type { CorridaHyrox, EstacaoHyrox, NivelHyrox, RecursoBox, TipoHyrox } from './modelo-box';
+import type { CorridaHyrox, EstacaoHyrox, Musculo, NivelHyrox, RecursoBox, TipoHyrox } from './modelo-box';
 
 export interface VarianteHyrox {
   nome: string;
@@ -133,4 +133,57 @@ export const DADOS_ESTACAO_HYROX: Readonly<Record<EstacaoHyrox, DadosEstacaoHyro
       recursos: { halteres: 1 },
     },
   },
+};
+
+/* ─────────────── Os músculos de cada estação (volume do aluno, 06/10/2026) ───────────────
+ * O volume do Hyrox entra na MESMA conta da força (`volumeDaSessao`: 1,0 por
+ * músculo principal, 0,5 por secundário). Primeira versão para o coach revisar.
+ *
+ * Substituta que JÁ é exercício do catálogo (corda naval, remada no TRX, air
+ * bike, farmer com kettlebells, afundo com kettlebell, thruster com halteres)
+ * usa exatamente os músculos de lá — `checar-cross` trava a igualdade. A
+ * corrida e a air bike da corrida também: são `corrida` e `air_bike_sprint`.
+ */
+export interface MusculosHyrox {
+  musculoPrincipal: Musculo[];
+  musculosSecundarios: Musculo[];
+}
+
+const mus = (musculoPrincipal: Musculo[], musculosSecundarios: Musculo[]): MusculosHyrox => ({ musculoPrincipal, musculosSecundarios });
+
+export const MUSCULOS_HYROX: Readonly<Record<EstacaoHyrox, { estacao: MusculosHyrox; substituta: MusculosHyrox | null }>> = {
+  // Puxada de tronco (grande dorsal) e o core que dobra; os tríceps empurram o fim do movimento.
+  skierg: { estacao: mus(['costas', 'core'], ['triceps', 'ombro', 'gluteo']), substituta: mus(['ombro', 'core'], ['antebraco']) },
+  // Empurrar o trenó: perna e glúteo; braço e core travam o corpo.
+  sled_push: {
+    estacao: mus(['quadriceps', 'gluteo'], ['panturrilha', 'ombro', 'triceps', 'core']),
+    substituta: mus(['quadriceps', 'gluteo'], ['panturrilha', 'ombro', 'triceps', 'core']),
+  },
+  // Puxar a corda mão sobre mão: costas e bíceps; a pegada e a base de perna seguram.
+  sled_pull: {
+    estacao: mus(['costas', 'biceps'], ['antebraco', 'posterior_coxa', 'gluteo', 'core']),
+    substituta: mus(['costas'], ['biceps', 'core']),
+  },
+  // Agachar, saltar à frente e descer ao chão: perna, glúteo e peito.
+  burpee_broad_jump: { estacao: mus(['quadriceps', 'gluteo', 'peito'], ['ombro', 'triceps', 'core', 'panturrilha']), substituta: null },
+  // A remada do simulador: perna empurra, costas puxam.
+  remo: {
+    estacao: mus(['costas', 'quadriceps'], ['posterior_coxa', 'gluteo', 'biceps', 'core']),
+    substituta: mus(['quadriceps', 'core'], ['ombro', 'costas']),
+  },
+  // Carregar peso: pegada e trapézio; o core segura o tronco.
+  farmers_carry: { estacao: mus(['antebraco', 'trapezio'], ['core']), substituta: mus(['antebraco', 'trapezio'], ['core']) },
+  // Avanço com o saco nas costas: perna e glúteo; posterior, core e trapézio seguram.
+  sandbag_lunges: {
+    estacao: mus(['quadriceps', 'gluteo'], ['posterior_coxa', 'core', 'trapezio']),
+    substituta: mus(['quadriceps', 'gluteo'], ['core']),
+  },
+  // Agachar e arremessar a bola: perna e ombro.
+  wall_ball: { estacao: mus(['quadriceps', 'ombro'], ['gluteo']), substituta: mus(['ombro', 'quadriceps'], ['gluteo', 'triceps']) },
+};
+
+/** A corrida antes de cada estação (`corrida` do catálogo) e a air bike no lugar dela (`air_bike_sprint`). */
+export const MUSCULOS_CORRIDA_HYROX: Readonly<{ corrida: MusculosHyrox; bike: MusculosHyrox }> = {
+  corrida: mus(['quadriceps', 'posterior_coxa'], ['panturrilha', 'gluteo']),
+  bike: mus(['quadriceps', 'core'], ['ombro', 'costas']),
 };

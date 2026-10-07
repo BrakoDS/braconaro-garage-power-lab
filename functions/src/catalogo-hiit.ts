@@ -38,7 +38,7 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     cross: {
       padrao: 'agachar', unidade: 'reps', rx: 12, carga: { rx: '16/12 kg', scaled: '12/8 kg' },
       tecnica: {
-        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10,
+        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10, seriesEquivalentes: 3,
         dinamica: '4 × 8 com 2 s de pausa embaixo, 1 min de descanso.',
         objetivo: 'Profundidade com o tronco ereto e os joelhos na linha dos pés.',
         chave: 'desça com o tronco ereto e suba empurrando o chão, sem pressa no fundo',
@@ -53,7 +53,7 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     cross: {
       padrao: 'quadril', unidade: 'reps', rx: 15, carga: { rx: '16/12 kg', scaled: '12/8 kg' },
       tecnica: {
-        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10,
+        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10, seriesEquivalentes: 3,
         dinamica: '4 × 10 com carga moderada, 1 min de descanso.',
         objetivo: 'Dobradiça de quadril (não é agachamento) e lombar neutra no topo.',
         chave: 'suba o kettlebell com o quadril, não com o braço, e feche o glúteo no topo',
@@ -123,7 +123,7 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     cross: {
       padrao: 'empurrar', unidade: 'reps', rx: 12,
       tecnica: {
-        categoria: 'ginastica', tipo: 'skill', minutos: 10,
+        categoria: 'ginastica', tipo: 'skill', minutos: 10, seriesEquivalentes: 3,
         dinamica: 'EMOM 10 min: 5–8 flexões estritas (escala: joelho no chão ou mãos no caixote).',
         objetivo: 'Corpo em prancha, peito no chão e cotovelos a 45°.',
         chave: 'mantenha o corpo em prancha e, quando cansar, escale antes de deixar o quadril cair',
@@ -137,7 +137,7 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     cross: {
       padrao: 'empurrar', unidade: 'reps', rx: 10,
       tecnica: {
-        categoria: 'ginastica', tipo: 'skill', minutos: 10,
+        categoria: 'ginastica', tipo: 'skill', minutos: 10, seriesEquivalentes: 3,
         dinamica: 'EMOM 10 min: 5–8 flexões pike estritas (escala: pés no chão, menos inclinação).',
         objetivo: 'Força de ombro na posição invertida, cabeça passando à frente das mãos.',
         chave: 'mantenha o quadril alto e a cabeça passando à frente das mãos — pare a série antes da falha',
@@ -168,7 +168,7 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     cross: {
       padrao: 'empurrar', unidade: 'reps', rx: 8, carga: { rx: '12/8 kg', scaled: '8/6 kg' },
       tecnica: {
-        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10,
+        categoria: 'kettlebell', tipo: 'tecnica', minutos: 10, seriesEquivalentes: 3,
         dinamica: '4 × 6 por lado com carga moderada, 1 min de descanso.',
         objetivo: 'Ombro estável e core firme no empurrar de um braço só.',
         chave: 'firme o core e feche a costela, para o ombro empurrar sem a lombar compensar',

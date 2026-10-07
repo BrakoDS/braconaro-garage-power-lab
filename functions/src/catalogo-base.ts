@@ -124,7 +124,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     cross: {
       padrao: 'puxar', unidade: 'reps', rx: 12,
       tecnica: {
-        categoria: 'ginastica', tipo: 'skill', minutos: 10,
+        categoria: 'ginastica', tipo: 'skill', minutos: 10, seriesEquivalentes: 3,
         dinamica: 'EMOM 10 min: 8–10 remadas estritas, ajustando o ângulo do corpo.',
         objetivo: 'Retração das escápulas e corpo em prancha do começo ao fim.',
         chave: 'mantenha o corpo em prancha e puxe com as escápulas, não com os braços',
@@ -182,7 +182,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     cross: {
       padrao: 'agachar', unidade: 'reps', rx: 10, carga: { rx: '40/30 kg', scaled: '25/15 kg' },
       tecnica: {
-        categoria: 'barra', tipo: 'forca', minutos: 12,
+        categoria: 'barra', tipo: 'forca', minutos: 12, seriesEquivalentes: 5,
         dinamica: '5 × 5 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.',
         objetivo: 'Força de perna com o tronco ereto e os cotovelos altos no rack.',
         chave: 'segure os cotovelos altos — é o que mantém a barra no lugar quando a perna cansa',
@@ -249,7 +249,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     cross: {
       padrao: 'quadril', unidade: 'reps', rx: 10, carga: { rx: '60/40 kg', scaled: '40/25 kg' },
       tecnica: {
-        categoria: 'barra', tipo: 'forca', minutos: 12,
+        categoria: 'barra', tipo: 'forca', minutos: 12, seriesEquivalentes: 5,
         dinamica: '5 × 5 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.',
         objetivo: 'Força de puxada do chão com a coluna neutra e a barra colada no corpo.',
         chave: 'mantenha a barra colada na perna e a coluna neutra, mesmo quando a respiração apertar',

@@ -11,7 +11,8 @@
  */
 import { CATALOGO_COMPLETO } from './catalogo-completo';
 import { CATALOGO_CROSS } from './catalogo-cross';
-import { CORRIDA_HYROX, DADOS_ESTACAO_HYROX } from './catalogo-hyrox';
+import { CORRIDA_HYROX, DADOS_ESTACAO_HYROX, MUSCULOS_CORRIDA_HYROX, MUSCULOS_HYROX } from './catalogo-hyrox';
+import { blocosDoWod, catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox, seriesDaTecnica } from './volume-cross-hyrox';
 import {
   CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, REGRA_FORMATO_CROSS,
   REGRA_FORMATO_HYROX,
@@ -20,7 +21,7 @@ import {
 import {
   aplicarInventario, arredondarPrescricao, contaDaSemana, diasComConteudoGravado, intervaloDaSemana, lerCross, lerDias,
   lerExercicioCatalogo, lerHyrox, lerInventario, lerItemCatalogo, montarHyrox, movimentoCross, problemasParaPublicar,
-  reconferirSemana, tecnicaDoWod,
+  reconferirSemana, tecnicaDoWod, volumeDaSessao,
 } from './semana-box';
 import { diasPassadosAlterados } from './edicao-box';
 import { bloqueiaCross, conflitosDoCross, conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
@@ -691,6 +692,106 @@ console.log('\nTrava de semana publicada e conta única');
     'contaDaSemana junta os alertas do Hyrox nos problemas para publicar');
   const doc = { dias: antes };
   ok(igual(reconferirSemana(doc, { ...INV.limitesAtivos, sled: 0 }, 6), conta), 'a reconferência do inventário dá a MESMA conta');
+}
+
+/* ───────────────────────────── volume do Cross e do Hyrox ───────────────────────────── */
+
+console.log('\nVolume do Cross e do Hyrox (séries equivalentes)');
+{
+  const mov = (ids: string[]) => ids.map((exercicioId) => ({ exercicioId }));
+  const wodDe = (cru: object) => {
+    const r = lerCross(cru, catalogo, 'terca');
+    if ('erro' in r) throw new Error(r.erro);
+    return r.cross;
+  };
+  const series = (r: ReturnType<typeof lerRegistroCross>) => ('erro' in r ? {} : r.series);
+  const vol = (s: Record<string, number>) => volumeDaSessao(s, catalogo);
+
+  // O catálogo: o número fixo da técnica (decisão do coach).
+  const focos = doCross.filter((id) => catalogo.get(id)!.cross!.tecnica);
+  ok(focos.every((id) => {
+    const t = catalogo.get(id)!.cross!.tecnica!;
+    return t.seriesEquivalentes === (t.tipo === 'forca' ? 5 : 3);
+  }), `os ${focos.length} focos têm séries equivalentes: força 5, técnica e skill 3`);
+  const base = { nome: 'X', musculoPrincipal: ['core'], musculosSecundarios: [], equipamentos: ['peso_corporal'], adaptacoes: {}, instancia: null };
+  const t0 = { categoria: 'ginastica', tipo: 'skill', minutos: 10, dinamica: 'EMOM 10', objetivo: 'Prancha.' };
+  const comT = (tecnica: object) => lerItemCatalogo({ ...base, cross: { padrao: 'core', unidade: 'reps', rx: 10, tecnica } });
+  ok(comT({ ...t0, seriesEquivalentes: 4 })?.cross?.tecnica?.seriesEquivalentes === 4 && comT({ ...t0, seriesEquivalentes: 0 }) === null,
+    'catálogo: séries equivalentes lidas (1 a 10)');
+
+  // A aula de calibração: técnica de power clean + For Time 4 rodadas (corrida, power clean, swing, burpee).
+  const calibracao = wodDe({ formato: 'For Time', minutos: 15, rodadas: 4, movimentos: mov(['corrida', 'power_clean', 'kb_swing', 'burpee']) });
+  const prescrito = lerRegistroCross({ comoPrescrito: true }, calibracao, catalogo);
+  ok(igual(series(prescrito), { power_clean: 5, corrida: 1, kb_swing: 2, burpee: 2 }),
+    'fiz como prescrito: técnica 3 + power clean 4 × 0,5; corrida 4 × 0,25 (cardio); swing e burpee 4 × 0,5', JSON.stringify(series(prescrito)));
+  const v = vol(series(prescrito));
+  ok(v.posterior_coxa === 8 && v.quadriceps === 8 && v.gluteo === 7.5,
+    'volume da aula: posterior 8, quadríceps 8, glúteo 7,5 (a conta da proposta)', JSON.stringify(v));
+  ok(igual(series(lerRegistroCross({}, calibracao, catalogo)), { power_clean: 5, corrida: 1, kb_swing: 2, burpee: 2 }),
+    'sem detalhe: o prescrito (RX e Scaled contam igual)');
+  ok(igual(series(lerRegistroCross({ rodadas: 2, tecnicaSeries: 1 }, calibracao, catalogo)), { power_clean: 2, corrida: 0.5, kb_swing: 1, burpee: 1 }),
+    'parou na 2ª rodada e fez 1 série da técnica');
+  ok(igual(series(lerRegistroCross({ rodadas: 9, tecnicaSeries: 9 }, calibracao, catalogo)), series(prescrito)),
+    'acima do prescrito é cortado, como as séries da força');
+  const comoPrescritoIgnoraDetalhe = lerRegistroCross({ comoPrescrito: true, rodadas: 1 }, calibracao, catalogo);
+  ok(!('erro' in comoPrescritoIgnoraDetalhe) && comoPrescritoIgnoraDetalhe.registro.comoPrescrito && comoPrescritoIgnoraDetalhe.registro.blocos === 4,
+    '"fiz como prescrito" vence o detalhe');
+
+  // Formatos.
+  const amrap = wodDe({ formato: 'AMRAP', minutos: 15, movimentos: mov(['corrida', 'power_clean', 'kb_swing']) });
+  ok(igual(blocosDoWod(amrap), { prescrito: 5, maximo: 7 }), 'AMRAP 15 min: como prescrito = 5 rodadas (minutos ÷ 3), teto 7 (minutos ÷ 2)');
+  ok(series(lerRegistroCross({ rodadas: 30 }, amrap, catalogo)).kb_swing === 3.5, 'AMRAP: 30 rodadas lançadas viram o teto (7 × 0,5)');
+  const emom = wodDe({ formato: 'EMOM', rodadas: 3, movimentos: mov(['corrida', 'power_clean', 'kb_swing', 'flexao']) });
+  ok(series(lerRegistroCross({ comoPrescrito: true }, emom, catalogo)).kb_swing === 1.5, 'EMOM 3 voltas: 3 blocos × 0,5');
+  const chipper = wodDe({ formato: 'Chipper', minutos: 15, movimentos: mov(['corrida', 'power_clean', 'kb_swing', 'flexao', 'agachamento_livre']) });
+  ok(igual(series(lerRegistroCross({ comoPrescrito: true }, chipper, catalogo)), { power_clean: 4, corrida: 0.5, kb_swing: 1, flexao: 1, agachamento_livre: 1 }),
+    'Chipper: 2 blocos por movimento (o fator 2 das repetições)');
+  ok(igual(series(lerRegistroCross({ chipperAte: 2 }, chipper, catalogo)), { power_clean: 4, corrida: 0.5 }), 'Chipper: parou no 2º movimento');
+
+  // Adaptações: só as do catálogo; o volume vai para o que o aluno FEZ.
+  const comTerra = wodDe({ formato: 'For Time', minutos: 15, rodadas: 4, movimentos: mov(['corrida', 'terra_barra_livre', 'flexao']) });
+  const adaptado = lerRegistroCross({ adaptacoes: { terra_barra_livre: 'elevacao_pelvica' } }, comTerra, catalogo);
+  ok(series(adaptado).elevacao_pelvica === 2, 'lombar: a elevação pélvica (adaptação do catálogo) recebe os blocos do WOD do terra (4 × 0,5)');
+  ok(series(adaptado).terra_barra_livre === 5, 'o terra fica só com a técnica (5): os blocos do WOD foram para a adaptação');
+  ok('erro' in lerRegistroCross({ adaptacoes: { terra_barra_livre: 'supino_smith' } }, comTerra, catalogo), 'adaptação fora do catálogo: erro');
+  ok('erro' in lerRegistroCross({ adaptacoes: { kb_swing: 'ponte_gluteo' } }, comTerra, catalogo), 'movimento fora do WOD: erro');
+  ok('erro' in lerRegistroCross({ rodadas: 1.5 }, comTerra, catalogo) && 'erro' in lerRegistroCross(null, comTerra, catalogo), 'rodadas quebradas ou sem registro: erro');
+  ok(seriesDaTecnica({ tecnica: { ...comTerra.tecnica!, exercicioId: 'nao_existe' } }, catalogo) === 5, 'foco sem número no catálogo: o padrão do tipo');
+
+  // Hyrox.
+  const hy = (formato: Parameters<typeof montarHyrox>[0], estacoes: string[], sub: string[] = []) =>
+    montarHyrox(formato, estacoes.map((estacao) => ({ estacao, substituta: sub.includes(estacao) })) as Parameters<typeof montarHyrox>[1]);
+  const hseries = (r: ReturnType<typeof lerRegistroHyrox>) => ('erro' in r ? {} : r.series);
+  const prova = hy('prova', [...ESTACOES_HYROX]);
+  const sp = hseries(lerRegistroHyrox({ comoPrescrito: true }, prova));
+  ok(ESTACOES_HYROX.every((e) => sp[`hyrox:${e}`] === 1) && sp['hyrox:corrida'] === 2, 'prova: 8 estações × 1,0 e 8 corridas × 0,25');
+  const comp = hy('compromised', ['skierg', 'remo', 'wall_ball', 'sled_push']);
+  const sc = hseries(lerRegistroHyrox({ comoPrescrito: true }, comp));
+  ok(sc['hyrox:skierg'] === 1 && sc['hyrox:corrida'] === 2, 'compromised: 2 rodadas × metade da estação = 1; 8 corridas');
+  const metA = hy('metadeA', ['skierg', 'sled_push', 'sled_pull', 'burpee_broad_jump']);
+  ok(hseries(lerRegistroHyrox({ comoPrescrito: true }, metA))['hyrox:corrida'] === 2, 'metade A: corrida dobrada conta dobrado (4 × 0,25 × 2)');
+  const comSub = hy('prova', [...ESTACOES_HYROX], ['sled_pull', 'remo']);
+  const ss = hseries(lerRegistroHyrox({ estacoesFeitas: 5, corridaNaBike: true }, comSub));
+  ok(ss['hyrox:sled_pull:substituta'] === 1 && ss['hyrox:remo:substituta'] === 1 && !ss['hyrox:wall_ball'] && ss['hyrox:air_bike'] === 1.25,
+    'substitutas e air bike: o volume vai para o que foi feito; parou na 5ª estação', JSON.stringify(ss));
+  const vh = volumeDaSessao(ss, catalogoDoHyrox());
+  // Costas: SkiErg (principal 1) + remada no TRX (principal 1) + air bike no lugar do remo (secundário 0,5) + a bike das corridas (0,5 × 1,25).
+  // Bíceps: só a remada no TRX (secundário 0,5) — o sled pull da prova não foi feito.
+  ok(vh.costas === 3.125 && vh.biceps === 0.5, 'músculos das substitutas: remada no TRX e air bike', JSON.stringify(vh));
+  ok('erro' in lerRegistroHyrox({ corridaNaBike: 'sim' }, prova), 'bike: sim ou não');
+
+  // As substitutas que já são exercício do catálogo têm os MESMOS músculos de lá.
+  const igualAo = (m: { musculoPrincipal: string[]; musculosSecundarios: string[] }, id: string) =>
+    igual(m.musculoPrincipal, catalogo.get(id)!.musculoPrincipal) && igual(m.musculosSecundarios, catalogo.get(id)!.musculosSecundarios);
+  ok(igualAo(MUSCULOS_HYROX.skierg.substituta!, 'corda_naval') && igualAo(MUSCULOS_HYROX.sled_pull.substituta!, 'remada_trx')
+    && igualAo(MUSCULOS_HYROX.remo.substituta!, 'air_bike_sprint') && igualAo(MUSCULOS_HYROX.farmers_carry.substituta!, 'farmer_carry_kb')
+    && igualAo(MUSCULOS_HYROX.sandbag_lunges.substituta!, 'afundo_kb') && igualAo(MUSCULOS_HYROX.wall_ball.substituta!, 'thruster_halteres')
+    && igualAo(MUSCULOS_HYROX.wall_ball.estacao, 'wall_ball_shot')
+    && igualAo(MUSCULOS_CORRIDA_HYROX.corrida, 'corrida') && igualAo(MUSCULOS_CORRIDA_HYROX.bike, 'air_bike_sprint'),
+  'Hyrox: substitutas, wall ball, corrida e air bike com os músculos do catálogo');
+  ok(ESTACOES_HYROX.every((e) => MUSCULOS_HYROX[e].estacao.musculoPrincipal.length > 0)
+    && ESTACOES_HYROX.every((e) => !!MUSCULOS_HYROX[e].substituta === !!DADOS_ESTACAO_HYROX[e].substituta),
+  'toda estação tem músculo principal; toda substituta do catálogo do Hyrox tem os seus');
 }
 
 console.log(falhas ? `\n✗ Cross/Hyrox: ${falhas} falha(s).` : '\n✓ Cross/Hyrox: tudo certo.');

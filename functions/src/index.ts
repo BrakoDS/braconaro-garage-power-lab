@@ -66,9 +66,10 @@ import {
 import {
   aplicarInventario, contaDaSemana, historicoComSessao, intervaloDaSemana, lerDias,
   diasComConteudoGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, reconferirSemana, semanaAnterior,
-  semanaDoPedido, semanaEmBrancoNosDias, volumeDaSessao, lerAviso, type ContaDaSemana, type IntervaloSemana,
+  semanaDoPedido, semanaEmBrancoNosDias, volumeDaSessao, lerAviso, type ContaDaSemana, type IntervaloSemana, type SessaoLida,
 } from './semana-box';
 import { crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit, programarDia, semanaEmBranco } from './gerador-box';
+import { catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox } from './volume-cross-hyrox';
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
 import { hiitTravado, opcoesDoHiit } from './edicao-hiit';
 import { conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
@@ -2587,6 +2588,10 @@ export const registrarSessaoAluno = onCall(
 
     const dados = (req.data ?? {}) as {
       coachUid?: unknown; semanaId?: unknown; dia?: unknown; modalidade?: unknown; exercicios?: unknown;
+      /** Cross: `{ comoPrescrito: true }` ou o detalhe (`volume-cross-hyrox.ts`). */
+      cross?: unknown;
+      /** Hyrox: `{ comoPrescrito: true }` ou `{ estacoesFeitas, corridaNaBike }`. */
+      hyrox?: unknown;
     };
     if (!ehCoachPorUid(dados.coachUid)) throw new HttpsError('invalid-argument', 'Coach desconhecido.');
     const coachUid = dados.coachUid as string;
@@ -2615,13 +2620,37 @@ export const registrarSessaoAluno = onCall(
       throw new HttpsError('failed-precondition', `Não teve ${modalidade} na ${dia} dessa semana.`);
     }
 
-    // O bloco principal do dia é da sessão H. Cross/Hyrox/HIIT registram só a
-    // presença: o conteúdo deles ainda não é estruturado, então não há série
-    // para somar volume — e somar as do bloco H seria creditar o que ele não fez.
+    // A sessão H soma as séries do bloco principal. O Cross e o Hyrox viram
+    // "séries equivalentes" (`volume-cross-hyrox.ts`) quando o app manda o
+    // registro (`cross` / `hyrox`: "fiz como prescrito" ou o detalhe); sem ele
+    // — o app de antes, e o HIIT —, só a presença: somar o bloco H seria
+    // creditar o que o aluno não fez.
     const ehForca = (SESSOES_H as readonly string[]).includes(modalidade);
-    const sessao = ehForca ? lerSessaoAluno(dados, doDia) : { series: {}, feedbacks: [] };
-    if ('erro' in sessao) throw new HttpsError('invalid-argument', sessao.erro);
-    const catalogo = await carregarCatalogo(db, Object.keys(sessao.series));
+    let sessao: SessaoLida = { series: {}, feedbacks: [] };
+    let registro: PresencaAluno['registro'];
+    let catalogo: ReadonlyMap<string, Pick<ItemCatalogoBox, 'musculoPrincipal' | 'musculosSecundarios'>> = new Map();
+    if (ehForca) {
+      const lida = lerSessaoAluno(dados, doDia);
+      if ('erro' in lida) throw new HttpsError('invalid-argument', lida.erro);
+      sessao = lida;
+      catalogo = await carregarCatalogo(db, Object.keys(sessao.series));
+    } else if (modalidade === 'Cross' && dados.cross !== undefined && doDia.cross) {
+      const pedidas = Object.values(((dados.cross ?? {}) as { adaptacoes?: unknown }).adaptacoes ?? {})
+        .filter((id): id is string => typeof id === 'string' && EH_ID_CATALOGO.test(id));
+      const doWod = [...doDia.cross.movimentos.map((m) => m.exercicioId), ...(doDia.cross.tecnica ? [doDia.cross.tecnica.exercicioId] : [])];
+      const cat = await carregarCatalogo(db, [...doWod, ...pedidas]);
+      const lido = lerRegistroCross(dados.cross, doDia.cross, cat);
+      if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
+      sessao = { series: lido.series, feedbacks: [] };
+      registro = lido.registro;
+      catalogo = cat;
+    } else if (modalidade === 'Hyrox' && dados.hyrox !== undefined && doDia.hyrox) {
+      const lido = lerRegistroHyrox(dados.hyrox, doDia.hyrox);
+      if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
+      sessao = { series: lido.series, feedbacks: [] };
+      registro = lido.registro;
+      catalogo = catalogoDoHyrox();
+    }
     const volume = volumeDaSessao(sessao.series, catalogo);
 
     const sessaoId = `${data}_${modalidade}`;
@@ -2629,6 +2658,7 @@ export const registrarSessaoAluno = onCall(
     // sentinela dentro de array.
     const presenca: PresencaAluno = {
       sessaoId, data, semanaId, dia, modalidade, coachUid, series: sessao.series, volume, registradoEm: Timestamp.now(),
+      ...(registro ? { registro } : {}),
     };
     const feedbacks: FeedbackExercicio[] = sessao.feedbacks.map((f) => ({ ...f, sessaoId, data }));
 
