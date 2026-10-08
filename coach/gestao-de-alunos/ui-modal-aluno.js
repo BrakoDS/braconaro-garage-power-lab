@@ -7,12 +7,12 @@
  * publica o Portal e avisa a lista), registra na aba Registros e pede o perfil
  * do aluno novo pelo barramento ('abrir-perfil'), como o clique num card.
  */
-import * as db from './db.js';
-import { formDadosHTML, wireForm, lerForm } from './ui-tab-dados.js';
-import { $, abrirModal, fecharModal } from './util/dom.js';
-import { emit, EVENTOS } from './estado.js';
-import { reg } from './registro.js';
-import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js';
+import * as db from './db.js?v=11';
+import { formDadosHTML, wireForm, lerForm } from './ui-tab-dados.js?v=11';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=11';
+import { emit, EVENTOS } from './estado.js?v=11';
+import { reg } from './registro.js?v=11';
+import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=11';
 
 /** @type {{ avisar: (o: any) => any }} */
 let deps = { avisar: avisarReal };

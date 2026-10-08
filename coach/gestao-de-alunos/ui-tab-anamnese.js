@@ -10,12 +10,12 @@
  * digitou e ainda não salvou continua no formulário. (Antes, cada volta à aba
  * redesenhava a partir da ficha salva e apagava o rascunho.)
  */
-import * as db from './db.js';
-import { esc, opt } from './util/formato.js';
-import { $ } from './util/dom.js';
-import { estado, on, EVENTOS } from './estado.js';
-import { regAnamnese } from './registro.js';
-import { ANAMNESE_SECOES } from './saude.js';
+import * as db from './db.js?v=11';
+import { esc, opt } from './util/formato.js?v=11';
+import { $ } from './util/dom.js?v=11';
+import { estado, on, EVENTOS } from './estado.js?v=11';
+import { regAnamnese } from './registro.js?v=11';
+import { ANAMNESE_SECOES } from './saude.js?v=11';
 
 /** @param {string[]} arr @param {string} [atual] */
 function optsSelect(arr, atual) { return `<option value="">—</option>` + arr.map((s) => opt(s, atual)).join(''); }

@@ -36,14 +36,14 @@ globalThis.document = /** @type {any} */ ({ querySelector: (s) => (tela[s] ||= e
 // O FormData lê os campos "digitados" no elemento do formulário.
 globalThis.FormData = /** @type {any} */ (class { constructor(f) { this.m = f.campos; } entries() { return Object.entries(this.m); } get(k) { return this.m[k] ?? null; } });
 
-const saude = await import('./saude.js');
+const saude = await import('./saude.js?v=11');
 const { ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq, parqRaso, resumoAnamnese, resumoParq } = saude;
-const { regAnamnese, regParq } = await import('./registro.js');
-const eventos = await import('./eventos.js');
-const db = await import('./db.js');
-const { estado, emit, EVENTOS } = await import('./estado.js');
-const { iniciarTabAnamnese, htmlAnamnese } = await import('./ui-tab-anamnese.js');
-const { iniciarTabParq, htmlParq, bannerParq } = await import('./ui-tab-par-q.js');
+const { regAnamnese, regParq } = await import('./registro.js?v=11');
+const eventos = await import('./eventos.js?v=11');
+const db = await import('./db.js?v=11');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=11');
+const { iniciarTabAnamnese, htmlAnamnese } = await import('./ui-tab-anamnese.js?v=11');
+const { iniciarTabParq, htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=11');
 iniciarTabAnamnese();
 iniciarTabParq();
 
@@ -189,6 +189,6 @@ test('fatiamento: Anamnese e PAR-Q moram nos módulos delas, ligadas no main.js'
   }
   // Uma lista só de perguntas: o PDF lê a mesma do formulário.
   const pdf = ler('./pdf.js');
-  assert.match(pdf, /import \{ PARQ_PERGUNTAS as PARQ_Q, ANAMNESE_LABELS \} from '\.\/saude\.js';/);
+  assert.match(pdf, /import \{ PARQ_PERGUNTAS as PARQ_Q, ANAMNESE_LABELS \} from '\.\/saude\.js(\?v=\d+)?';/);
   assert.ok(!pdf.includes('Você sente dor no peito'), 'pdf.js não tem cópia própria das perguntas');
 });

@@ -31,11 +31,11 @@ globalThis.document = /** @type {any} */ ({
 const mem = new Map();
 globalThis.localStorage = /** @type {any} */ ({ getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) });
 
-const { emit, EVENTOS } = await import('./estado.js');
-const { iniciarTelaAvisos } = await import('./ui-tela-avisos.js');
-const { iniciarTelaMural } = await import('./ui-tela-mural.js');
-const { iniciarTelaDesafios } = await import('./ui-tela-desafios.js');
-const { iniciarTelaLeads, carregarBadgeLeads } = await import('./ui-tela-leads.js');
+const { emit, EVENTOS } = await import('./estado.js?v=11');
+const { iniciarTelaAvisos } = await import('./ui-tela-avisos.js?v=11');
+const { iniciarTelaMural } = await import('./ui-tela-mural.js?v=11');
+const { iniciarTelaDesafios } = await import('./ui-tela-desafios.js?v=11');
+const { iniciarTelaLeads, carregarBadgeLeads } = await import('./ui-tela-leads.js?v=11');
 
 /* ---------- o que vem de fora, em memória ---------- */
 const DIA = 86400000, AGORA = Date.UTC(2026, 9, 8, 12);
@@ -195,7 +195,7 @@ test('fatiamento: as quatro telas moram nos módulos delas; o app.js só carrega
     '#aviso-', '#mural-', '#des-', '#leads-', 'avisos_listar', 'des_salvar', 'atualizarStatusLead', 'excluirLead']) {
     assert.ok(!app.includes(resto), `app.js ainda tem ${resto}`);
   }
-  assert.match(app, /import \{ carregarBadgeLeads \} from '\.\/ui-tela-leads\.js';/);
+  assert.match(app, /import \{ carregarBadgeLeads \} from '\.\/ui-tela-leads\.js(\?v=\d+)?';/);
   const main = ler('./telas.js');
   for (const f of ['iniciarTelaAvisos(', 'iniciarTelaMural();', 'iniciarTelaDesafios();', 'iniciarTelaLeads();']) {
     assert.ok(main.indexOf(f) > main.indexOf('iniciarNavegacao();') && main.indexOf(f) < main.length, f);

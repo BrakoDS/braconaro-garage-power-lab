@@ -7,15 +7,15 @@
  * total (o tamanho que o blob antigo teria) e a maior ficha — é ela que mede a
  * distância do teto agora. Ver docs/superpowers/specs/2026-10-06-refatoracao-gestao-design.md.
  * `db.comoBlob` pode faltar se o navegador ainda tiver o db.js antigo em cache
- * (ele é carregado sem `?v=`): aí lê a chave antiga direto.
+ * (ele era carregado sem `?v=` até a versão 11): aí lê a chave antiga direto.
  *
  * Saiu do `app.js` no fatiamento. A conta é pura (`medidaDoBanco`); o resto só
  * lê o banco, escreve no console e baixa o arquivo.
  */
-import * as db from './db.js';
-import { hoje } from './util/formato.js';
-import { $ } from './util/dom.js';
-import { avisar } from '../../compartilhado/ui/dialogo.js';
+import * as db from './db.js?v=11';
+import { hoje } from './util/formato.js?v=11';
+import { $ } from './util/dom.js?v=11';
+import { avisar } from '../../compartilhado/ui/dialogo.js?v=11';
 
 const CHAVE_BANCO_V1 = 'braconaro_gestao_alunos_v1';
 /** O teto de um documento do Firestore. */

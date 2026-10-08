@@ -20,18 +20,18 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js';
-import * as eventos from './eventos.js';
-import { publicarPortal } from './portal-sync.js';
-import { mergarInboxes } from './portal-merge.js';
-import { sincronizarAvisos } from './avisos.js';
-import { sincronizarDesafios } from './desafios.js';
-import { estado, emit, EVENTOS } from './estado.js';
-import { $ } from './util/dom.js';
-import { renderLista } from './ui-lista.js';
-import { atualizarSelosDaLista } from './selos-lista.js';
-import { carregarBadgeLeads } from './ui-tela-leads.js';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js';
+import * as db from './db.js?v=11';
+import * as eventos from './eventos.js?v=11';
+import { publicarPortal } from './portal-sync.js?v=11';
+import { mergarInboxes } from './portal-merge.js?v=11';
+import { sincronizarAvisos } from './avisos.js?v=11';
+import { sincronizarDesafios } from './desafios.js?v=11';
+import { estado, emit, EVENTOS } from './estado.js?v=11';
+import { $ } from './util/dom.js?v=11';
+import { renderLista } from './ui-lista.js?v=11';
+import { atualizarSelosDaLista } from './selos-lista.js?v=11';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=11';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=11';
 
 /* ============================================================
    A gravação publica o Portal

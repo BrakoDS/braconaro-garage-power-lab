@@ -53,12 +53,12 @@ const ouvintesJanela = /** @type {Function[]} */ ([]);
 globalThis.window = /** @type {any} */ ({ addEventListener: (t, f) => { if (t === 'message') ouvintesJanela.push(f); } });
 globalThis.location = /** @type {any} */ ({ origin: 'http://gestao.test' });
 
-const db = await import('./db.js');
-const { estado, emit, EVENTOS } = await import('./estado.js');
-const { iniciarPerfil } = await import('./ui-perfil.js');
-const { iniciarTabProgresso } = await import('./ui-tab-progresso.js');
-const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js');
-const { semanaSegSab, waMsg } = await import('./util/formato.js');
+const db = await import('./db.js?v=11');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=11');
+const { iniciarPerfil } = await import('./ui-perfil.js?v=11');
+const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=11');
+const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=11');
+const { semanaSegSab, waMsg } = await import('./util/formato.js?v=11');
 
 iniciarPerfil({ obter: db.obter });
 iniciarTabProgresso();
@@ -219,7 +219,7 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
   // Abrir o perfil: o aluno no estado, o cabeçalho, 'perfil-aberto', a aba Dados e a tela — nessa ordem.
   db.criar({ id: 'Abre01', nome: 'Abel' });
   const vistos = [];
-  const { on } = await import('./estado.js');
+  const { on } = await import('./estado.js?v=11');
   const parar = [EVENTOS.PERFIL_ABERTO, EVENTOS.ABRIR_ABA, EVENTOS.ABRIR_TELA].map((ev) => on(ev, (x) => vistos.push([ev, x, estado.alunoAtual?.id])));
   emit(EVENTOS.ABRIR_PERFIL, 'Abre01');
   parar.forEach((p) => p());
@@ -244,6 +244,6 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
 });
 
 test('perfil: as abas da barra são as nove com módulo', async () => {
-  const { ABAS } = await import('./ui-perfil.js');
+  const { ABAS } = await import('./ui-perfil.js?v=11');
   assert.deepEqual(ABAS.map((a) => a.id), ['dados', 'anamnese', 'parq', 'avaliacoes', 'progresso', 'matriz', 'financeiro', 'portal', 'registros']);
 });

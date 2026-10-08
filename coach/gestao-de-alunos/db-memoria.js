@@ -7,7 +7,7 @@
  * lê não altera o que está guardado), o lote é atômico (falhou no meio, nada
  * entra) e a virada compara o blob atual antes de mexer.
  */
-import { canonico, decidirTrava } from './db-migracao.js';
+import { canonico, decidirTrava } from './db-migracao.js?v=11';
 
 const copia = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
 

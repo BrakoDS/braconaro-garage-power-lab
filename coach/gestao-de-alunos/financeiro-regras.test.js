@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   darBaixa, desfazerBaixa, lancarConsumo, removerConsumo, mesDoBox, cobrancasDoMes, diasAteVencimento, msgCobranca, PIX,
-} from './financeiro-regras.js';
+} from './financeiro-regras.js?v=11';
 
 const OUT = '2026-10', SET = '2026-09', NOV = '2026-11';
 const HOJE = '2026-10-07';

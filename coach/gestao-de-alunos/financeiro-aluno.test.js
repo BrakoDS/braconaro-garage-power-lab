@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   brl, numMoney, rotuloMesFin, addMesFin, statusFin, novoConsumo, comPagamento,
   contaDoMes, mesesDoHistorico, faturaDoAluno, historicoFinanceiro, resumoDoPlano,
-} from './financeiro-aluno.js';
+} from './financeiro-aluno.js?v=11';
 
 const HOJE = '2026-10-07'; // vencimento dia 10: outubro ainda não venceu
 const ana = {

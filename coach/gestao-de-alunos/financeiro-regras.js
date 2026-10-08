@@ -24,11 +24,11 @@
  * @typedef {{ patch: Record<string, any>, log: EventoFinanceiro | null }} Mudanca
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=11';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, contaDoMes,
   eventoPagamento, eventoPagamentoDesfeito, eventoLancamento,
-} from './financeiro-aluno.js';
+} from './financeiro-aluno.js?v=11';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 
