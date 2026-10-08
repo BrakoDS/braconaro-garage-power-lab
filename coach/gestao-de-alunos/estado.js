@@ -33,8 +33,15 @@ export const EVENTOS = Object.freeze({
   PERFIL_ABERTO: 'perfil-aberto',
   /** Pedido para abrir uma aba do perfil. Dado: o id da aba ('dados', 'matriz'…). */
   ABRIR_ABA: 'abrir-aba',
-  /** Pedido para sair do perfil e voltar à lista. */
+  /** Pedido para sair do perfil e voltar à lista (o roteador traduz para abrir-tela 'lista'). */
   VOLTAR_LISTA: 'voltar-lista',
+  /**
+   * Pedido para mostrar uma tela ('lista', 'perfil', 'checkin', 'agenda',
+   * 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads').
+   * O roteador (navegacao.js) mostra a tela; cada tela ouve o próprio nome
+   * para se desenhar. Dado: o nome.
+   */
+  ABRIR_TELA: 'abrir-tela',
   /** Pedido para exportar a ficha do aluno aberto em PDF. */
   EXPORTAR_FICHA: 'exportar-ficha',
   /** Pedido para trocar a foto do aluno aberto. */

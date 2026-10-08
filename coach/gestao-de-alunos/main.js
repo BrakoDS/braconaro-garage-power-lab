@@ -12,6 +12,7 @@
  * o login e a sequência pós-login vêm para cá também.
  */
 import * as db from './db.js';
+import { iniciarNavegacao } from './navegacao.js';
 import { iniciarLista } from './ui-lista.js';
 import { iniciarPerfil } from './ui-perfil.js';
 import { iniciarFotoDoPerfil } from './ui-fotos.js';
@@ -24,7 +25,9 @@ import { iniciarTabFinanceiro } from './ui-tab-financeiro.js';
 import { iniciarTabMatriz } from './ui-tab-matriz.js';
 import { iniciarTabPortal } from './ui-tab-portal.js';
 import { iniciarTabRegistros } from './ui-tab-registros.js';
+import { iniciarTelaCheckin } from './ui-tela-checkin.js';
 
+iniciarNavegacao();
 iniciarLista({ listar: db.listar });
 iniciarPerfil({ obter: db.obter });
 iniciarFotoDoPerfil();
@@ -37,5 +40,6 @@ iniciarTabFinanceiro();
 iniciarTabMatriz();
 iniciarTabPortal();
 iniciarTabRegistros();
+iniciarTelaCheckin();
 
 await import('./app.js');

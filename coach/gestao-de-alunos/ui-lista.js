@@ -160,4 +160,6 @@ export function iniciarLista(d) {
   });
   $('#busca')?.addEventListener('input', (e) => { busca = /** @type {HTMLInputElement} */ (e.target).value; renderLista(); });
   on(EVENTOS.ALUNOS_MUDARAM, renderLista);
+  // Voltar para a lista redesenha: a semana de cada aluno pode ter virado.
+  on(EVENTOS.ABRIR_TELA, (t) => { if (t === 'lista') renderLista(); });
 }

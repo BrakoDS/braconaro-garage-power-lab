@@ -169,19 +169,7 @@ async function carregarMedalhasAluno(a) {
   const pausadas = await carregarSemanasPausadas();
   // Depois de TODAS as leituras: o coach pode ter trocado de aluno enquanto elas voltavam.
   if (!$('#prog-medalhas') || estado.alunoAtual?.id !== alvoId) return;
-  const dias = game.diasTreino(a.presencas, gastos);
-  const c = game.contadores(dias);
-  const meds = game.medalhas({
-    total: c.total, mes: c.mes, semana: c.semana, streak: game.streakSemanas(dias, 1, pausadas),
-    nAvaliacoes: (a.avaliacoes || []).filter((x) => x.dataRealizada).length,
-    desafios: concl.length,
-    desAgua: concl.filter((x) => x.categoria === 'agua').length,
-    desAcucar: concl.filter((x) => x.categoria === 'acucar').length,
-    meses: Object.values(a.pagamentos || {}).filter(Boolean).length,
-    calMaxTreino: game.maxCaloriasTreino(gastos),
-    calMaxSemana: game.maxCaloriasSemana(gastos),
-    feedbacks: Array.isArray(a.feedbacks) ? a.feedbacks.length : 0,
-  });
+  const meds = game.medalhasDaFicha(a, { gastos, conclusoes: concl, pausadas });
   const ok = meds.filter((m) => m.ok);
   const prox = meds.find((m) => !m.ok);
   const nome1 = (a.nome || '').trim().split(/\s+/)[0] || 'o aluno';

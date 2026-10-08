@@ -50,14 +50,14 @@
         <div class="lista-head">
           <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
             <span class="eyebrow">Banco de dados de alunos</span>
-            <button class="btn ghost btn-sm" id="btn-checkin" type="button">Check-in</button>
-            <button class="btn ghost btn-sm" id="btn-agenda" type="button">Agenda</button>
-            <button class="btn ghost btn-sm" id="btn-financeiro" type="button">Financeiro</button>
-            <button class="btn ghost btn-sm" id="btn-cobrancas" type="button">Cobranças</button>
-            <button class="btn ghost btn-sm" id="btn-aviso" type="button">Avisar (WhatsApp)</button>
-            <button class="btn ghost btn-sm" id="btn-mural" type="button">Avisos do Portal</button>
-            <button class="btn ghost btn-sm" id="btn-desafios" type="button">Desafios</button>
-            <button class="btn ghost btn-sm" id="btn-leads" type="button">Leads</button>
+            <button class="btn ghost btn-sm" id="btn-checkin" data-tela="checkin" type="button">Check-in</button>
+            <button class="btn ghost btn-sm" id="btn-agenda" data-tela="agenda" type="button">Agenda</button>
+            <button class="btn ghost btn-sm" id="btn-financeiro" data-tela="financeiro" type="button">Financeiro</button>
+            <button class="btn ghost btn-sm" id="btn-cobrancas" data-tela="cobrancas" type="button">Cobranças</button>
+            <button class="btn ghost btn-sm" id="btn-aviso" data-tela="aviso" type="button">Avisar (WhatsApp)</button>
+            <button class="btn ghost btn-sm" id="btn-mural" data-tela="mural" type="button">Avisos do Portal</button>
+            <button class="btn ghost btn-sm" id="btn-desafios" data-tela="desafios" type="button">Desafios</button>
+            <button class="btn ghost btn-sm" id="btn-leads" data-tela="leads" type="button">Leads</button>
           </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -73,7 +73,7 @@
     <!-- ----------- TELA: FINANCEIRO ----------- -->
     <section id="tela-financeiro" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="fin-voltar" type="button">← Voltar para a listagem</button></div>
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="fin-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
         <div class="fin-head">
           <span class="eyebrow">Financeiro</span>
           <button class="btn ghost btn-sm" id="fin-produtos" type="button">Produtos</button>
@@ -91,7 +91,7 @@
     <!-- ----------- TELA: COBRANÇAS ----------- -->
     <section id="tela-cobrancas" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="cob-voltar" type="button">← Voltar para a listagem</button></div>
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="cob-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
         <div class="fin-head"><span class="eyebrow">Cobranças · <span id="cob-mes-lbl">—</span></span></div>
         <p class="hint" style="margin:6px 0 14px">Quem ainda não pagou este mês, do mais urgente ao menos. Toque em <b>WhatsApp</b> para enviar o lembrete já com o Pix.</p>
         <div class="fin-tot" id="cob-tot"></div>
@@ -102,7 +102,7 @@
     <!-- ----------- TELA: AGENDA ----------- -->
     <section id="tela-agenda" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="ag-voltar" type="button">← Voltar para a listagem</button></div>
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="ag-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
         <div class="fin-head">
           <span class="eyebrow">Agenda</span>
           <div class="fin-mes">
@@ -122,7 +122,7 @@
     <!-- ----------- TELA: CHECK-IN ----------- -->
     <section id="tela-checkin" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="chk-voltar" type="button">← Voltar para a listagem</button></div>
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="chk-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
         <div class="fin-head">
           <span class="eyebrow">Check-in / frequência</span>
           <div class="fin-mes">
@@ -140,7 +140,7 @@
     <!-- ----------- TELA: AVISO (WhatsApp) ----------- -->
     <section id="tela-aviso" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="aviso-voltar" type="button">← Voltar para a listagem</button></div>
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="aviso-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
         <span class="eyebrow">Aviso em massa · WhatsApp</span>
         <div class="aviso-tpls" id="aviso-tpls"></div>
         <textarea id="aviso-msg" placeholder="Escreva a mensagem… (ex.: Amanhã não tem aula!)"></textarea>
@@ -156,7 +156,7 @@
     <!-- ----------- TELA: MURAL DE AVISOS DO PORTAL ----------- -->
     <section id="tela-mural" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="mural-voltar" type="button">← Voltar para a listagem</button></div>
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="mural-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
         <span class="eyebrow">Avisos da Academia · Portal do Aluno</span>
         <p class="hint" style="margin:6px 0 16px">Publique recados que aparecem no Portal do Aluno para todos os alunos. Desative para esconder sem apagar.</p>
         <form id="mural-form" class="mural-form">
@@ -181,7 +181,7 @@
     <!-- ----------- TELA: DESAFIOS DA SEMANA ----------- -->
     <section id="tela-desafios" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="des-voltar" type="button">← Voltar para a listagem</button></div>
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="des-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
         <span class="eyebrow">Desafios da Semana · Portal do Aluno</span>
         <p class="hint" style="margin:6px 0 16px">Lance desafios (ex.: beber 3L de água, sem açúcar). No Portal, o aluno marca os dias que cumpriu e ganha medalha ao concluir. Desative para esconder sem apagar.</p>
         <form id="des-form" class="mural-form">
@@ -208,7 +208,7 @@
     <!-- ----------- TELA: LEADS (aula experimental) ----------- -->
     <section id="tela-leads" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="leads-voltar" type="button">← Voltar para a listagem</button></div>
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="leads-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
         <span class="eyebrow">Leads · Formulário de aula experimental</span>
         <p class="hint" style="margin:6px 0 16px">Toda vez que alguém preenche o formulário de aula grátis no site, o interessado cai aqui — mesmo que desista de mandar a mensagem no WhatsApp.</p>
         <div class="fin-tot" id="leads-tot"></div>
@@ -380,6 +380,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=6"></script>
+  <script type="module" src="./main.js?v=7"></script>
 </body>
 </html>

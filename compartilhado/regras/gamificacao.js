@@ -146,3 +146,33 @@ export function medalhas(ctx) {
     { id: 'fb10', ic: '🗣️', nome: 'Voz ativa', desc: '10 feedbacks enviados', ok: g(ctx.feedbacks) >= 10 },
   ];
 }
+
+/**
+ * As medalhas de um aluno a partir da FICHA da Gestão (presenças, avaliações,
+ * pagamentos e feedbacks completos) e do que vem do app/Portal.
+ *
+ * A Gestão monta isto em dois lugares — o selo da lista e o card da aba
+ * Progresso —, e as duas contas precisam bater: eram cópias idênticas, prontas
+ * para divergir na próxima medalha. O Portal tem a sua montagem, porque lê a
+ * fatia publicada (só a contagem dos feedbacks, por exemplo), não a ficha.
+ *
+ * @param {any} a a ficha do aluno
+ * @param {{ gastos?: any[], conclusoes?: any[], pausadas?: string[] }} [fora]
+ *   gastos: os treinos registrados no app/Portal; conclusoes: os desafios
+ *   concluídos; pausadas: as segundas das semanas em que o box fechou.
+ */
+export function medalhasDaFicha(a, { gastos = [], conclusoes = [], pausadas = [] } = {}) {
+  const dias = diasTreino(a.presencas, gastos);
+  const c = contadores(dias);
+  return medalhas({
+    total: c.total, mes: c.mes, semana: c.semana, streak: streakSemanas(dias, 1, pausadas),
+    nAvaliacoes: (a.avaliacoes || []).filter((x) => x.dataRealizada).length,
+    desafios: conclusoes.length,
+    desAgua: conclusoes.filter((x) => x.categoria === 'agua').length,
+    desAcucar: conclusoes.filter((x) => x.categoria === 'acucar').length,
+    meses: Object.values(a.pagamentos || {}).filter(Boolean).length,
+    calMaxTreino: maxCaloriasTreino(gastos),
+    calMaxSemana: maxCaloriasSemana(gastos),
+    feedbacks: Array.isArray(a.feedbacks) ? a.feedbacks.length : 0,
+  });
+}
