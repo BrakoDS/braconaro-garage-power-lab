@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css?v=2" />
+  <link rel="stylesheet" href="./alunos.css?v=5" />
   <link rel="stylesheet" href="./matriz.css?v=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
@@ -219,40 +219,21 @@
     <!-- ----------- TELA 2: PERFIL ----------- -->
     <section id="tela-perfil" class="screen">
       <div class="wrap">
-        <div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn ghost btn-sm" id="btn-voltar" type="button">← Voltar para a listagem</button>
-          <button class="btn ghost btn-sm" id="btn-ficha-pdf" type="button">Exportar ficha (PDF)</button>
-        </div>
-        <div class="perfil-top">
-          <button id="p-avatar" class="avatar" type="button" aria-label="Foto do aluno"></button>
-          <span class="pid" id="p-id">#000</span>
-          <h2 class="pnome" id="p-nome">Nome do aluno</h2>
-          <span class="spacer"></span>
-          <span class="status ativo" id="p-status">Ativo</span>
-        </div>
-
-        <nav class="tabs" role="tablist">
-          <button class="tab active" data-tab="dados" type="button">Dados</button>
-          <button class="tab" data-tab="anamnese" type="button">Anamnese</button>
-          <button class="tab" data-tab="parq" type="button">PAR-Q</button>
-          <button class="tab" data-tab="avaliacoes" type="button">Avaliações</button>
-          <button class="tab" data-tab="progresso" type="button">Progresso</button>
-          <button class="tab" data-tab="matriz" type="button">Matriz</button>
-          <button class="tab" data-tab="portal" type="button">Portal</button>
-          <button class="tab" data-tab="registros" type="button">Registros</button>
-        </nav>
+        <!-- Cabeçalho e abas: desenhados por ui-perfil.js (as abas vêm de ABAS). -->
+        <header class="perfil-cab" id="perfil-cab"></header>
+        <nav class="perfil-abas" id="perfil-abas" role="tablist" aria-label="Seções da ficha"></nav>
 
         <!-- ABA 1: DADOS -->
-        <div class="tab-panel active" id="tab-dados"><!-- form injetado por JS --></div>
+        <div class="tab-panel active" id="tab-dados" role="tabpanel" aria-labelledby="aba-dados"><!-- form injetado por JS --></div>
 
         <!-- ABA: ANAMNESE -->
-        <div class="tab-panel" id="tab-anamnese"><!-- form injetado por JS --></div>
+        <div class="tab-panel" id="tab-anamnese" role="tabpanel" aria-labelledby="aba-anamnese"><!-- form injetado por JS --></div>
 
         <!-- ABA: PAR-Q -->
-        <div class="tab-panel" id="tab-parq"><!-- form injetado por JS --></div>
+        <div class="tab-panel" id="tab-parq" role="tabpanel" aria-labelledby="aba-parq"><!-- form injetado por JS --></div>
 
         <!-- ABA 2: AVALIAÇÕES -->
-        <div class="tab-panel" id="tab-avaliacoes">
+        <div class="tab-panel" id="tab-avaliacoes" role="tabpanel" aria-labelledby="aba-avaliacoes">
           <div class="aval-head">
             <span class="eyebrow" style="font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.2em;font-size:.74rem;color:var(--accent)">Histórico de avaliações</span>
             <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -264,10 +245,13 @@
         </div>
 
         <!-- ABA: MATRIZ — a individualização que o Montador lê (form injetado por JS) -->
-        <div class="tab-panel" id="tab-matriz"></div>
+        <div class="tab-panel" id="tab-matriz" role="tabpanel" aria-labelledby="aba-matriz"></div>
+
+        <!-- ABA: FINANCEIRO (esqueleto — ui-tab-financeiro.js) -->
+        <div class="tab-panel" id="tab-financeiro" role="tabpanel" aria-labelledby="aba-financeiro"></div>
 
         <!-- ABA: PORTAL — o Portal do Aluno deste aluno, em prévia -->
-        <div class="tab-panel" id="tab-portal">
+        <div class="tab-panel" id="tab-portal" role="tabpanel" aria-labelledby="aba-portal">
           <div class="prv-barra">
             <button class="btn btn-sm" id="prv-prev" type="button">← semana</button>
             <span class="prv-lbl" id="prv-lbl"></span>
@@ -279,7 +263,7 @@
         </div>
 
         <!-- ABA: REGISTROS — a linha do tempo deste aluno, do mais novo ao mais antigo -->
-        <div class="tab-panel" id="tab-registros">
+        <div class="tab-panel" id="tab-registros" role="tabpanel" aria-labelledby="aba-registros">
           <p class="hint" style="margin:0 0 14px">Check-ins, fotos, feedbacks e edições de ficha deste aluno — feitos por ele no app ou no Portal, ou por você aqui na Gestão.</p>
           <div class="reg-filtros"><div id="reg-filtros"></div></div>
           <div id="reg-lista"></div>
@@ -287,7 +271,7 @@
         </div>
 
         <!-- ABA 3: PROGRESSO -->
-        <div class="tab-panel" id="tab-progresso">
+        <div class="tab-panel" id="tab-progresso" role="tabpanel" aria-labelledby="aba-progresso">
           <div class="prog-grid">
             <div class="prog-card full">
               <h4>Evolução do peso corporal</h4>
@@ -368,6 +352,23 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: Financeiro do aluno — novo lançamento / registrar pagamento (ui-tab-financeiro.js) ============ -->
+  <div class="modal-bg" id="modal-fin">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-fin-titulo">
+      <form id="form-fin">
+        <div class="modal-hd">
+          <h3 id="modal-fin-titulo">Financeiro</h3>
+          <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-bd" id="modal-fin-body"></div>
+        <div class="modal-ft">
+          <button class="btn ghost" data-close type="button">Cancelar</button>
+          <button class="btn" id="modal-fin-ok" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ============ MODAL: foto do Diário de Evolução, em tela cheia ============ -->
   <div class="modal-bg modal-foto" id="modal-foto">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-foto-titulo">
@@ -379,6 +380,6 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=24"></script>
+  <script type="module" src="./main.js?v=6"></script>
 </body>
 </html>

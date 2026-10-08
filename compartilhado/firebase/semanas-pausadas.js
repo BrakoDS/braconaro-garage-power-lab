@@ -36,6 +36,9 @@ let _lido = null;
 /** As segundas-feiras ('AAAA-MM-DD') das semanas em branco publicadas. Lê uma vez por página. */
 export function carregarSemanasPausadas() {
   if (_lido) return _lido;
+  // Sem configuração de nuvem (vitrine, teste local), nem carrega o Firebase:
+  // a sequência segue sem pausa, como na falha de rede.
+  if (!firebaseConfig || !firebaseConfig.apiKey) return (_lido = Promise.resolve([]));
   _lido = (async () => {
     try {
       const appMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);

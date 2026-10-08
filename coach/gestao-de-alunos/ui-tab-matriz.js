@@ -3,6 +3,9 @@
  * ABA "MATRIZ" DA FICHA DO ALUNO — onde o coach preenche o que faz o treino
  * coletivo virar a prescrição daquele aluno.
  *
+ * (Era `matriz-ui.js`; virou `ui-tab-matriz.js` no fatiamento do app.js e
+ * ganhou `iniciarTabMatriz`, que a liga ao barramento como as outras abas.)
+ *
  * É a tela que faltava: `compartilhado/regras/matriz-individualizacao.js`
  * definia a matriz e o Montador Híbrido já a lia, mas ela só existia se alguém
  * criasse o documento na mão no console do Firestore. Sem esta aba, a
@@ -27,6 +30,8 @@
  * segunda-feira seguinte. A leitura passa por aqui intacta, como veio.
  */
 import * as db from './db.js';
+import { estado, on, EVENTOS } from './estado.js';
+import { regFicha } from './registro.js';
 import {
   CAMPO, matrizDe, separarParaGravar, e1rm, cargaDe1RM, resumoDeAdaptacoes, rotulo,
   OPCOES_NIVEL, FASES, LEVANTAMENTOS, ZONAS_RIR, REGIOES_LESAO, GRAVIDADES,
@@ -245,8 +250,8 @@ function lerForm(form, original) {
  * Monta a aba na ficha do aluno.
  *
  * @param {any} aluno a ficha vinda de `db.obter`
- * @param {{aoSalvar?: (aluno: any) => void}} [opcoes] avisa a tela-mãe (ela
- *        republica o Portal e atualiza o cabeçalho do perfil)
+ * @param {{aoSalvar?: (salvo: any, antes: any) => void}} [opcoes] avisa quem
+ *        montou, com a ficha salva e a de antes da gravação (para o log)
  */
 export function montar(aluno, { aoSalvar } = {}) {
   const alvo = $('#tab-matriz');
@@ -332,6 +337,10 @@ export function montar(aluno, { aoSalvar } = {}) {
     ev.preventDefault();
     const editada = lerForm(form, original);
     const { topo, matriz } = separarParaGravar(editada);
+    // A ficha como estava, lida do banco AGORA — não a que esta tela recebeu ao
+    // abrir: outra aba (Financeiro, Dados) pode ter gravado depois, e o log da
+    // edição contaria como "editado na Matriz" o que mudou lá.
+    const antes = db.obter(aluno.id);
     // Os dois destinos num `atualizar` só: `db.atualizar` faz `Object.assign` no
     // documento do aluno, então topo e matriz caem cada um no seu lugar, e a
     // gravação na nuvem acontece uma vez.
@@ -342,10 +351,33 @@ export function montar(aluno, { aoSalvar } = {}) {
     const flag = $('[data-saved]', form);
     flag.classList.add('show');
     setTimeout(() => flag.classList.remove('show'), 1600);
-    if (aoSalvar) aoSalvar(salvo);
+    if (aoSalvar) aoSalvar(salvo, antes);
   });
 
   atualizarSaidas();
   atualizarResumo(original);
   conferirFoco();
+}
+
+/**
+ * Liga a aba ao barramento. Chamar uma vez, antes do resto do app.
+ *
+ * Desenha na primeira vez que a aba abre depois de 'perfil-aberto'; trocar de
+ * aba e voltar não redesenha — o que o coach digitou e não salvou fica. Ao
+ * salvar, a gravação já publica o Portal e emite 'alunos-mudaram'
+ * (app.js → db.aoGravar); aqui só o log da edição e o estado.
+ */
+export function iniciarTabMatriz() {
+  let desenhada = false;
+  on(EVENTOS.PERFIL_ABERTO, () => { desenhada = false; });
+  on(EVENTOS.ABRIR_ABA, (nome) => {
+    if (nome !== 'matriz' || desenhada || !estado.alunoAtual) return;
+    montar(estado.alunoAtual, {
+      aoSalvar: (salvo, antes) => {
+        if (antes) regFicha(antes, salvo);
+        estado.alunoAtual = salvo;
+      },
+    });
+    desenhada = true;
+  });
 }

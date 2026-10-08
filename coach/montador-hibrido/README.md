@@ -232,7 +232,7 @@ A matriz **não é deste app**: ela é o campo `matrizIndividualizacao` dentro d
 ficha do aluno na Gestão, definido por
 `compartilhado/regras/matriz-individualizacao.js`. O Híbrido só **lê**. Quem
 edita é a aba **Matriz** da ficha do aluno
-(`coach/gestao-de-alunos/matriz-ui.js`), e é de lá que vem a verdade.
+(`coach/gestao-de-alunos/ui-tab-matriz.js`), e é de lá que vem a verdade.
 
 O que a distribuição usa dela:
 

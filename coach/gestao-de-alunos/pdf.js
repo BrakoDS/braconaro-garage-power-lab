@@ -8,6 +8,8 @@ import * as calc from '../../compartilhado/regras/calc.js?v=5';
 import * as mtz from '../../compartilhado/regras/matriz-individualizacao.js';
 // Aviso pelo diálogo do site, não pelo alert() nativo, que o Chrome pode suprimir.
 import { avisar } from '../../compartilhado/ui/dialogo.js';
+// As perguntas do PAR-Q e os nomes da anamnese são os mesmos do formulário (saude.js).
+import { PARQ_PERGUNTAS as PARQ_Q, ANAMNESE_LABELS } from './saude.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (v, d = 1) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -35,22 +37,6 @@ function gradeSemanal(aluno) {
     return `${DIA_FICHA[d] || d}${h ? ' ' + h : ''}`;
   }).join(' · ');
 }
-
-const PARQ_Q = [
-  'Algum médico já disse que você possui um problema cardíaco e que só deveria praticar atividade física sob supervisão médica?',
-  'Você sente dor no peito quando pratica atividade física?',
-  'No último mês, você sentiu dor no peito sem estar praticando atividade física?',
-  'Você perde o equilíbrio por tontura ou já perdeu a consciência?',
-  'Você tem algum problema ósseo ou articular que poderia piorar com a mudança na atividade física?',
-  'Você toma atualmente algum medicamento para pressão arterial ou problema cardíaco?',
-  'Você sabe de alguma outra razão pela qual não deveria praticar atividade física?',
-];
-const ANAMNESE_LABELS = [
-  ['experiencia', 'Experiência'], ['historicoTreino', 'Histórico de treino'], ['rotina', 'Profissão / rotina'],
-  ['sono', 'Sono (h/noite)'], ['estresse', 'Estresse'], ['refeicoes', 'Refeições/dia'], ['hidratacao', 'Hidratação (L/dia)'],
-  ['tabagismo', 'Tabagismo'], ['alcool', 'Álcool'], ['doencas', 'Doenças / cirurgias'], ['medicamentos', 'Medicamentos'],
-  ['histFamiliar', 'Histórico familiar'], ['doresLesoes', 'Dores / lesões atuais'], ['objetivoDetalhe', 'Objetivo detalhado'],
-];
 
 const STYLE = `
   *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}

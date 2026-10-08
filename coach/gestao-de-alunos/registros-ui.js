@@ -26,10 +26,15 @@ export const TIPOS = {
   'ficha-editada': { icone: '✏️', categoria: 'ficha' },
   'avaliacao': { icone: '📏', categoria: 'ficha' },
   'aluno-criado': { icone: '🆕', categoria: 'ficha' },
+  // Trilha do dinheiro (financeiro-aluno.js monta o texto): quem deu baixa em
+  // qual mês, quem desfez, o que foi lançado fora do catálogo.
+  'pagamento': { icone: '💰', categoria: 'financeiro' },
+  'pagamento-desfeito': { icone: '↩️', categoria: 'financeiro' },
+  'lancamento': { icone: '🧾', categoria: 'financeiro' },
 };
 
 export const CATEGORIAS = [
-  ['todos', 'Tudo'], ['presenca', 'Presença'], ['foto', 'Foto'], ['feedback', 'Feedback'], ['ficha', 'Ficha'],
+  ['todos', 'Tudo'], ['presenca', 'Presença'], ['foto', 'Foto'], ['feedback', 'Feedback'], ['ficha', 'Ficha'], ['financeiro', 'Financeiro'],
 ];
 
 export const ORIGEM_ROTULO = { app: 'App', portal: 'Portal do aluno', gestao: 'Gestão', aluno: 'Aluno' };
@@ -44,7 +49,7 @@ const ROTULO_CAMPO = {
   status: 'Status', obs: 'Observações', diasTreino: 'Dias de treino', horarios: 'Horários',
   freqVezes: 'Frequência', foco: 'Foco', mensalidade: 'Mensalidade', vencimento: 'Vencimento',
   pagoPor: 'Pago por', parceria: 'Parceria', appLiberado: 'Acesso ao app', modoLite: 'Modo Lite', id: 'ID',
-  anamnese: 'Anamnese', parq: 'PAR-Q', matriz: 'Matriz',
+  anamnese: 'Anamnese', parq: 'PAR-Q', matriz: 'Matriz', matrizIndividualizacao: 'Matriz',
 };
 
 /** "Ficha editada · Telefone, Plano" @param {string[]} campos */

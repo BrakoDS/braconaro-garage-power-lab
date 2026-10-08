@@ -239,7 +239,7 @@ export async function lerConsolidado(uid, chave) {
  * coleção que eu inventei antes de a matriz de verdade existir no projeto. A
  * matriz real é o campo `matrizIndividualizacao` DENTRO da ficha do aluno, em
  * `gestao/{uid}`, e quem a edita é a aba "Matriz" da Gestão de Alunos
- * (`coach/gestao-de-alunos/matriz-ui.js`), gravando pelo `db.js` de lá.
+ * (`coach/gestao-de-alunos/ui-tab-matriz.js`), gravando pelo `db.js` de lá.
  *
  * Mantê-las aqui seria deixar no código um caminho pronto para gravar num lugar
  * que ninguém lê: a próxima tela que as importasse salvaria a matriz com
