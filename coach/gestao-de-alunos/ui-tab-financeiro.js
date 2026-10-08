@@ -26,8 +26,8 @@ import { $, abrirModal, fecharModal } from './util/dom.js';
 import { estado, on, EVENTOS } from './estado.js';
 import { confirmar } from '../../compartilhado/ui/dialogo.js';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, historicoFinanceiro, resumoDoPlano, novoConsumo, comPagamento,
-  eventoPagamento, eventoPagamentoDesfeito, eventoLancamento } from './financeiro-aluno.js';
+import { brl, numMoney, rotuloMesFin, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js';
+import { darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js';
 import { regFinanceiro } from './registro.js';
 
 /** Rótulo e cor de cada situação. */
@@ -178,7 +178,7 @@ export function htmlFormPagamento(f) {
 /** O aluno aberto, relido do banco. */
 const alunoAberto = () => (estado.alunoAtual ? db.obter(estado.alunoAtual.id) : null);
 
-/** O que o modal está fazendo agora. @type {{ modo: 'lancamento'|'pagamento', mesId?: string, total?: number } | null} */
+/** O que o modal está fazendo agora. @type {{ modo: 'lancamento'|'pagamento', mesId?: string } | null} */
 let modal = null;
 
 /** Desenha a aba do aluno aberto. */
@@ -213,11 +213,22 @@ function abrirPagamento(mesId) {
   const a = alunoAberto(); if (!a) return;
   const f = historicoFinanceiro(a, db.listar(), hoje(), 120).faturas.find((x) => x.mesId === mesId);
   if (!f) return;
-  modal = { modo: 'pagamento', mesId, total: f.total };
+  modal = { modo: 'pagamento', mesId };
   $('#modal-fin-titulo').textContent = 'Registrar pagamento';
   $('#modal-fin-ok').textContent = 'Confirmar pagamento';
   $('#modal-fin-body').innerHTML = htmlFormPagamento(f);
   abrirModal('modal-fin');
+}
+
+/**
+ * Grava o resultado de uma regra de financeiro-regras.js e registra (se a ação
+ * deixa trilha). A gravação emite 'alunos-mudaram', que redesenha a aba.
+ * @param {any} a @param {import('./financeiro-regras.js').Mudanca | null} r
+ */
+function aplicar(a, r) {
+  if (!r) return;
+  db.atualizar(a.id, r.patch);
+  if (r.log) regFinanceiro(a, r.log);
 }
 
 /** @param {SubmitEvent} e */
@@ -225,8 +236,9 @@ function salvarModal(e) {
   e.preventDefault();
   const a = alunoAberto(); if (!a || !modal) return;
   if (modal.modo === 'pagamento' && modal.mesId) {
-    db.atualizar(a.id, { pagamentos: comPagamento(a.pagamentos, modal.mesId, true) });
-    regFinanceiro(a, eventoPagamento(modal.mesId, modal.total || 0));
+    // A mesma baixa da tela Financeiro e das Cobranças: o valor registrado é o
+    // da fatura agora, não o de quando o modal abriu.
+    aplicar(a, darBaixa(a, modal.mesId, db.listar()));
   } else {
     const form = /** @type {any} */ (e.target);
     const erro = $('#fa-erro');
@@ -244,10 +256,8 @@ function salvarModal(e) {
       }
       item = { nome, preco };
     }
-    const c = novoConsumo(a, item, data);
-    db.atualizar(a.id, { consumos: [...(a.consumos || []), c] });
-    // Do catálogo, o produto e o preço já dizem tudo; o avulso é o que precisa de trilha.
-    if (!item.produtoId) regFinanceiro(a, eventoLancamento(c));
+    // Do catálogo, o produto e o preço já dizem tudo; o avulso é o que deixa trilha.
+    aplicar(a, lancarConsumo(a, item, data));
   }
   modal = null;
   fecharModal('modal-fin');
@@ -262,13 +272,12 @@ export function iniciarTabFinanceiro() {
     else if (b.dataset.fin === 'pagar') abrirPagamento(b.dataset.mes);
     else if (b.dataset.fin === 'desfazer') {
       if (await confirmar({ titulo: 'Desfazer pagamento?', texto: `A fatura de <b>${esc(rotuloMesFin(b.dataset.mes))}</b> volta a ficar em aberto, também no Portal do aluno.`, ok: 'Desfazer', perigo: true })) {
-        db.atualizar(a.id, { pagamentos: comPagamento(a.pagamentos, b.dataset.mes, false) });
-        regFinanceiro(a, eventoPagamentoDesfeito(b.dataset.mes));
+        aplicar(a, desfazerBaixa(a, b.dataset.mes));
       }
     } else if (b.dataset.fin === 'remover') {
       const c = (a.consumos || []).find((x) => x.id === b.dataset.consumo); if (!c) return;
       if (await confirmar({ titulo: 'Remover lançamento?', texto: `Tirar <b>${esc(c.nome)}</b> (${brl(c.preco)}) da fatura de ${esc(rotuloMesFin(c.mesId))}?`, ok: 'Remover', perigo: true })) {
-        db.atualizar(a.id, { consumos: (a.consumos || []).filter((x) => x.id !== c.id) });
+        aplicar(a, removerConsumo(a, c.id));
       }
     }
   });

@@ -26,6 +26,8 @@ import { iniciarTabMatriz } from './ui-tab-matriz.js';
 import { iniciarTabPortal } from './ui-tab-portal.js';
 import { iniciarTabRegistros } from './ui-tab-registros.js';
 import { iniciarTelaCheckin } from './ui-tela-checkin.js';
+import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js';
+import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js';
 
 iniciarNavegacao();
 iniciarLista({ listar: db.listar });
@@ -41,5 +43,7 @@ iniciarTabMatriz();
 iniciarTabPortal();
 iniciarTabRegistros();
 iniciarTelaCheckin();
+iniciarTelaFinanceiro();
+iniciarTelaCobrancas();
 
 await import('./app.js');

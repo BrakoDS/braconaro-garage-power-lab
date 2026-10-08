@@ -71,15 +71,22 @@ test('auditoria: categoria "Financeiro" nos filtros, com ícone por tipo', () =>
 
 /* ---------- as três telas que dão baixa registram ---------- */
 
-test('auditoria: toda tela que dá baixa ou lança avulso deixa a trilha', () => {
+test('auditoria: as três telas que dão baixa usam a MESMA regra, e a trilha sai dela', () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-  const tab = ler('./ui-tab-financeiro.js');
-  assert.match(tab, /regFinanceiro\(a, eventoPagamento\(/, 'aba do aluno: pagamento');
-  assert.match(tab, /regFinanceiro\(a, eventoPagamentoDesfeito\(/, 'aba do aluno: desfazer');
-  assert.match(tab, /if \(!item\.produtoId\) regFinanceiro\(a, eventoLancamento\(c\)\)/, 'aba do aluno: só o avulso');
-  const app = ler('./app.js');
-  assert.match(app, /function toggleFin[\s\S]*?regFinanceiro\(a, pago \? eventoPagamento\(finMes, total\) : eventoPagamentoDesfeito\(finMes\)\)/, 'tela Financeiro do box');
-  assert.match(app, /const pg = e\.target\.closest\('\.cob-pago'\);[\s\S]*?regFinanceiro\(a, eventoPagamento\(mes, total\)\)/, 'Cobranças');
+  const telas = { 'aba do aluno': ler('./ui-tab-financeiro.js'), 'Financeiro do box': ler('./ui-tela-financeiro.js'), 'Cobranças': ler('./ui-tela-cobrancas.js') };
+  for (const [nome, fonte] of Object.entries(telas)) {
+    assert.match(fonte, /darBaixa\(a, /, `${nome}: dá baixa pela regra`);
+    // Ninguém mais monta a gravação nem o texto do log à mão: a regra devolve os dois.
+    assert.ok(!/pagamentos:\s*comPagamento|consumos:\s*\[/.test(fonte), `${nome}: não grava pagamentos/consumos à mão`);
+    assert.ok(!/eventoPagamento|eventoLancamento/.test(fonte), `${nome}: não monta o evento do log`);
+    assert.match(fonte, /if \(r\.log\) regFinanceiro\(a, r\.log\)/, `${nome}: registra o log que a regra devolveu`);
+  }
+  for (const nome of ['aba do aluno', 'Financeiro do box']) {
+    assert.match(telas[nome], /desfazerBaixa\(a, /, `${nome}: desfaz pela regra`);
+    assert.match(telas[nome], /lancarConsumo\(a, /, `${nome}: lança pela regra`);
+    assert.match(telas[nome], /removerConsumo\(a, /, `${nome}: remove pela regra`);
+  }
+  assert.ok(!/darBaixa|comPagamento|regFinanceiro/.test(ler('./app.js')), 'o app.js não mexe mais em dinheiro');
 });
 
 /* ---------- fatiamento de Registros e Matriz ---------- */
