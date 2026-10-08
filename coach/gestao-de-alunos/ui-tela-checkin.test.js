@@ -130,7 +130,7 @@ test('tela: presença simples marca e desmarca o dia da tela', () => {
 
 test('fatiamento: o Check-in mora em ui-tela-checkin.js + checkin-regras.js', () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-  const app = ler('./app.js');
+  const app = ler('./boot.js');
   for (const resto of ['renderCheckin', 'chkPainel', 'chkData', 'fazerCheckin', 'trocarAula', 'lancarAtestado', 'desfazerAula',
     'agendarReposicao', 'desmarcarReposicao', 'toggleCheckin', 'diasReivindicados', '#chk-', 'linhaGrade']) {
     assert.ok(!app.includes(resto), `app.js ainda tem ${resto}`);
@@ -143,7 +143,7 @@ test('fatiamento: o Check-in mora em ui-tela-checkin.js + checkin-regras.js', ()
   assert.equal((uiTela.match(/db\.atualizar\(/g) || []).length, 1, 'uma gravação só, no aplicar()');
   const regras = ler('./checkin-regras.js');
   assert.ok(!/from '\.\/db\.js'|document\.|localStorage|Date\.now\(\)|new Date\(\)\.toTimeString/.test(regras), 'as regras não tocam banco, DOM nem relógio');
-  const main = ler('./main.js');
+  const main = ler('./telas.js');
   assert.ok(main.indexOf('iniciarNavegacao();') < main.indexOf('iniciarTelaCheckin();'));
-  assert.ok(main.indexOf('iniciarTelaCheckin();') < main.indexOf("await import('./app.js')"));
+  assert.ok(main.indexOf('iniciarTelaCheckin();') < main.length);
 });

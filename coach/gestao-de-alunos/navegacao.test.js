@@ -91,13 +91,14 @@ test('roteador: toda tela tem a sua <section>, botão de entrar e "voltar" com d
   assert.equal((html.match(/-voltar" data-tela="lista"/g) || []).length, 8, 'os oito "← Voltar para a listagem"');
 });
 
-test('roteador: o app.js não navega mais na mão', () => {
-  const app = ler('./app.js');
-  assert.ok(!app.includes('mostrarTela'), 'mostrarTela saiu');
-  assert.ok(!/\$\('#[\w]+-voltar'\)/.test(app), 'nenhum botão de voltar ligado no app.js');
+test('roteador: ninguém navega na mão — nenhuma tela liga o próprio botão de entrar ou voltar', () => {
+  const fontes = ['./boot.js', './telas.js', './main.js', './ui-tela-checkin.js', './ui-tela-agenda.js', './ui-tela-financeiro.js', './ui-tela-cobrancas.js',
+    './ui-tela-avisos.js', './ui-tela-mural.js', './ui-tela-desafios.js', './ui-tela-leads.js', './ui-modal-aluno.js'].map(ler).join('\n');
+  assert.ok(!fontes.includes('mostrarTela'), 'mostrarTela saiu');
+  assert.ok(!/\$\('#[\w]+-voltar'\)/.test(fontes), 'nenhum botão de voltar ligado à mão');
   // (o $('#btn-leads') que sobra é o contador de leads desenhado no botão, não navegação)
-  assert.ok(!/\$\('#btn-(checkin|agenda|financeiro|cobrancas|aviso|mural|desafios|leads)'\)\.addEventListener/.test(app), 'nenhum botão de entrar ligado no app.js');
-  assert.match(app, /emit\(EVENTOS\.ABRIR_TELA, 'perfil'\)/, 'abrir o perfil pede a tela ao roteador');
-  const main = ler('./main.js');
-  assert.ok(main.indexOf('iniciarNavegacao();') < main.indexOf('iniciarLista('), 'o roteador liga antes das telas');
+  assert.ok(!/\$\('#btn-(checkin|agenda|financeiro|cobrancas|aviso|mural|desafios|leads)'\)\??\.addEventListener/.test(fontes), 'nenhum botão de entrar ligado à mão');
+  assert.match(ler('./ui-perfil.js'), /emit\(EVENTOS\.ABRIR_TELA, 'perfil'\)/, 'abrir o perfil pede a tela ao roteador');
+  const telas = ler('./telas.js');
+  assert.ok(telas.indexOf('iniciarNavegacao();') < telas.indexOf('iniciarLista('), 'o roteador liga antes das telas');
 });

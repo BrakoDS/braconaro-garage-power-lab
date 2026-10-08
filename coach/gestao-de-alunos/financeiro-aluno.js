@@ -2,7 +2,7 @@
 /**
  * O financeiro de UM aluno — puro, sem DOM e sem banco.
  *
- * Usado pela tela Financeiro do box (app.js, um mês, todos os alunos) e pela
+ * Usado pela tela Financeiro do box (ui-tela-financeiro.js, um mês, todos os alunos) e pela
  * aba Financeiro do perfil (ui-tab-financeiro.js, um aluno, vários meses). As
  * regras de dinheiro de verdade continuam onde sempre estiveram, compartilhadas
  * com o Portal e o app mobile:

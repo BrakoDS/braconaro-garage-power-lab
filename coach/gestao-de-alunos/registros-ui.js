@@ -257,7 +257,7 @@ const AVISO_FOTO = {
 /**
  * Uma linha do feed. Sem nome nem foto do aluno: a aba fica dentro da ficha,
  * então seriam os mesmos em toda linha. A foto do diário, quando há, entra como
- * miniatura clicável (`data-foto`), que o app.js abre em tela cheia.
+ * miniatura clicável (`data-foto`), que a aba (ui-tab-registros.js) abre em tela cheia.
  * @param {any} ev
  */
 export function linhaHTML(ev) {

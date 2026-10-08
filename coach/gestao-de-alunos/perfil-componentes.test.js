@@ -206,28 +206,35 @@ test('formato: semana Seg–Sáb e link do WhatsApp com mensagem', () => {
   assert.equal(waMsg('', 'x'), '');
 });
 
-/* ---------- o app.js sem aba nenhuma ---------- */
+/* ---------- nenhuma lógica de aba fora dos módulos ---------- */
 
-test('fatiamento: o app.js só abre o perfil — nenhuma lógica de aba', () => {
+test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nenhuma', async () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-  const app = ler('./app.js');
+  const boot = ler('./boot.js');
   for (const resto of ['renderProgresso', 'renderPortalPrevia', 'prvSemana', 'prvEnviar', 'chartSVG', 'renderMetasCoach',
     'carregarMedalhasAluno', 'feedbacksHTML', 'ativarAba', "'.tab-panel'", 'marcarAba', '#prv-', '#tab-',
-    'TROCAR_FOTO', 'uploadFoto', 'function semanaSegSab', 'function waMsg']) {
-    assert.ok(!app.includes(resto), `app.js ainda tem ${resto}`);
+    'TROCAR_FOTO', 'uploadFoto', 'function semanaSegSab', 'function waMsg', 'ABRIR_ABA', 'abrirPerfil']) {
+    assert.ok(!boot.includes(resto), `boot.js tem ${resto}`);
   }
-  // O que sobra do perfil é o roteador: aluno no estado, cabeçalho, e os dois avisos.
-  const perfil = app.slice(app.indexOf('function abrirPerfil'), app.indexOf('function abrirPerfil') + 700);
-  assert.match(perfil, /emit\(EVENTOS\.PERFIL_ABERTO, a\.id\);\s*emit\(EVENTOS\.ABRIR_ABA, 'dados'\);/);
-  assert.equal((app.match(/EVENTOS\.ABRIR_ABA/g) || []).length, 1, 'o app só emite abrir-aba ao abrir o perfil; não ouve');
+  // Abrir o perfil: o aluno no estado, o cabeçalho, 'perfil-aberto', a aba Dados e a tela — nessa ordem.
+  db.criar({ id: 'Abre01', nome: 'Abel' });
+  const vistos = [];
+  const { on } = await import('./estado.js');
+  const parar = [EVENTOS.PERFIL_ABERTO, EVENTOS.ABRIR_ABA, EVENTOS.ABRIR_TELA].map((ev) => on(ev, (x) => vistos.push([ev, x, estado.alunoAtual?.id])));
+  emit(EVENTOS.ABRIR_PERFIL, 'Abre01');
+  parar.forEach((p) => p());
+  assert.deepEqual(vistos, [['perfil-aberto', 'Abre01', 'Abre01'], ['abrir-aba', 'dados', 'Abre01'], ['abrir-tela', 'perfil', 'Abre01']]);
+  assert.match(el('#perfil-cab').innerHTML, /Abel/, 'o cabeçalho já desenhado');
+  emit(EVENTOS.ABRIR_PERFIL, 'nao-existe');
+  assert.equal(estado.alunoAtual.id, 'Abre01', 'id que não existe não troca a ficha aberta');
 
-  const main = ler('./main.js');
-  const ordem = ['iniciarPerfil(', 'iniciarFotoDoPerfil();', 'iniciarTabDados();', 'iniciarTabAvaliacoes();', 'iniciarTabProgresso();',
-    'iniciarTabAnamnese();', 'iniciarTabParq();', 'iniciarTabFinanceiro();', 'iniciarTabMatriz();', 'iniciarTabPortal();',
-    'iniciarTabRegistros();', "await import('./app.js')"];
-  const pos = ordem.map((f) => main.indexOf(f));
-  assert.ok(pos.every((p) => p >= 0), `main.js liga tudo: ${ordem.filter((_, i) => pos[i] < 0)}`);
-  assert.deepEqual([...pos].sort((x, y) => x - y), pos, 'o perfil liga antes das abas, e as abas antes do app');
+  const telas = ler('./telas.js');
+  const ordem = ['iniciarNavegacao();', 'iniciarPerfil(', 'iniciarFotoDoPerfil();', 'iniciarTabDados();', 'iniciarTabAvaliacoes();', 'iniciarTabProgresso();',
+    'iniciarTabAnamnese();', 'iniciarTabParq();', 'iniciarTabFinanceiro();', 'iniciarTabMatriz();', 'iniciarTabPortal(',
+    'iniciarTabRegistros();'];
+  const pos = ordem.map((f) => telas.indexOf(f));
+  assert.ok(pos.every((p) => p >= 0), `telas.js liga tudo: ${ordem.filter((_, i) => pos[i] < 0)}`);
+  assert.deepEqual([...pos].sort((x, y) => x - y), pos, 'o roteador e o perfil ligam antes das abas');
 
   // Cada aba da barra tem um módulo que a desenha.
   const { ABAS } = { ABAS: ['dados', 'anamnese', 'parq', 'avaliacoes', 'progresso', 'matriz', 'financeiro', 'portal', 'registros'] };

@@ -6,7 +6,7 @@
  * Saiu do `app.js` no fatiamento. O follow-up, as contagens e a ordem moram
  * em comunicacao-regras.js (`followUpLead`, `painelDeLeads`); os leads vêm da
  * nuvem (leads-read.js). O selo no botão "Leads" da lista é carregado no login
- * (`carregarBadgeLeads`, chamado pelo app.js) e refeito a cada desenho.
+ * (`carregarBadgeLeads`, chamado pelo boot.js) e refeito a cada desenho.
  *
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'leads'), que recarrega da
  * nuvem, e depois de cada mudança de status ou exclusão.

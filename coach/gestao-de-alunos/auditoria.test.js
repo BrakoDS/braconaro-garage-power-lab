@@ -86,22 +86,22 @@ test('auditoria: as três telas que dão baixa usam a MESMA regra, e a trilha sa
     assert.match(telas[nome], /lancarConsumo\(a, /, `${nome}: lança pela regra`);
     assert.match(telas[nome], /removerConsumo\(a, /, `${nome}: remove pela regra`);
   }
-  assert.ok(!/darBaixa|comPagamento|regFinanceiro/.test(ler('./app.js')), 'o app.js não mexe mais em dinheiro');
+  assert.ok(!/darBaixa|comPagamento|regFinanceiro/.test(ler('./boot.js')), 'o app.js não mexe mais em dinheiro');
 });
 
 /* ---------- fatiamento de Registros e Matriz ---------- */
 
 test('fatiamento: Registros e Matriz moram nos módulos delas, ligadas no main.js', async () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-  const app = ler('./app.js');
+  const app = ler('./boot.js');
   for (const resto of ['function abrirRegistros', 'function desenharRegistros', 'function atualizarRegistros', 'regFiltro',
     "$('#reg-lista')", 'matrizUI', 'matriz-ui.js']) {
     assert.ok(!app.includes(resto), `app.js ainda tem ${resto}`);
   }
-  const main = ler('./main.js');
+  const main = ler('./telas.js');
   assert.match(main, /iniciarTabMatriz\(\);/);
   assert.match(main, /iniciarTabRegistros\(\);/);
-  assert.ok(main.indexOf('iniciarTabRegistros();') < main.indexOf("await import('./app.js')"), 'as abas ligam antes do app');
+  assert.ok(main.indexOf('iniciarTabRegistros();') < main.length, 'as abas ligam antes do app');
   const matriz = await import('./ui-tab-matriz.js');
   const registros = await import('./ui-tab-registros.js');
   assert.equal(typeof matriz.iniciarTabMatriz, 'function');

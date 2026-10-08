@@ -365,7 +365,7 @@ export function montar(aluno, { aoSalvar } = {}) {
  * Desenha na primeira vez que a aba abre depois de 'perfil-aberto'; trocar de
  * aba e voltar não redesenha — o que o coach digitou e não salvou fica. Ao
  * salvar, a gravação já publica o Portal e emite 'alunos-mudaram'
- * (app.js → db.aoGravar); aqui só o log da edição e o estado.
+ * (boot.js → db.aoGravar); aqui só o log da edição e o estado.
  */
 export function iniciarTabMatriz() {
   let desenhada = false;

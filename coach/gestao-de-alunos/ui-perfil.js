@@ -2,14 +2,17 @@
 /**
  * Tela — Perfil do aluno: o cabeçalho e a barra de abas.
  *
- * Segunda tela tirada do `app.js`. Este módulo desenha o topo da ficha (foto
- * grande, nome, número, situação, Voltar e PDF) e a barra de abas; o CONTEÚDO
- * de cada aba ainda mora no `app.js` e sai aba por aba nos próximos cortes.
+ * Segunda tela tirada do `app.js` no fatiamento. Este módulo ABRE o perfil
+ * ('abrir-perfil' → o aluno no estado, o cabeçalho, 'perfil-aberto', a aba
+ * Dados e a tela), desenha o topo da ficha (foto grande, nome, número,
+ * situação, Voltar e PDF) e a barra de abas, e troca o painel visível. O
+ * CONTEÚDO de cada aba é do módulo dela (ui-tab-*.js).
  *
- * Não chama ninguém: cada clique vira um evento ('voltar-lista',
- * 'exportar-ficha', 'trocar-foto', 'abrir-aba') e o `app.js` escuta. E escuta
- * 'alunos-mudaram' para o cabeçalho nunca ficar velho — salvar uma avaliação
- * muda o anel da foto, salvar a matriz muda o objetivo.
+ * Cada clique vira um evento ('voltar-lista', 'exportar-ficha', 'trocar-foto',
+ * 'abrir-aba'). O PDF chega por parâmetro (`exportar`), para este módulo não
+ * carregar o gerador de PDF. E escuta 'alunos-mudaram' para o cabeçalho nunca
+ * ficar velho — salvar uma avaliação muda o anel da foto, salvar a matriz muda
+ * o objetivo.
  *
  * As abas vêm de `ABAS`: uma aba nova (Financeiro, por exemplo) é uma linha a
  * mais aqui e um painel `#tab-<id>` no index.html. A barra rola de lado no
@@ -87,7 +90,7 @@ export function htmlAbas(ativa, abas = ABAS) {
    DOM
    ============================================================ */
 
-/** @type {{ obter: (id: string) => any } | null} */
+/** @type {{ obter: (id: string) => any, exportar?: (a: any) => any } | null} */
 let deps = null;
 const $ = (/** @type {string} */ s) => /** @type {HTMLElement|null} */ (document.querySelector(s));
 
@@ -114,10 +117,25 @@ export function marcarAba(nome) {
 
 /**
  * Liga o perfil à página. Chamar uma vez, antes do resto do app.
- * @param {{ obter: (id: string) => any }} d
+ * @param {{ obter: (id: string) => any, exportar?: (a: any) => any }} d
+ *   obter: a ficha pelo id (db.obter); exportar: gera o PDF da ficha
  */
 export function iniciarPerfil(d) {
   deps = d;
+
+  // Abrir o perfil: a ficha vai para o estado, o cabeçalho é desenhado, as abas
+  // se preparam para o aluno novo ('perfil-aberto'), a aba Dados abre e a tela
+  // aparece. Vem do clique num card da lista ou do cadastro de aluno novo.
+  on(EVENTOS.ABRIR_PERFIL, (id) => {
+    const a = deps?.obter(id);
+    if (!a) return;
+    estado.alunoAtual = a;
+    renderCabecalho(a);
+    emit(EVENTOS.PERFIL_ABERTO, a.id);
+    emit(EVENTOS.ABRIR_ABA, 'dados');
+    emit(EVENTOS.ABRIR_TELA, 'perfil');
+  });
+  on(EVENTOS.EXPORTAR_FICHA, () => { if (estado.alunoAtual) deps?.exportar?.(estado.alunoAtual); });
   const abas = $('#perfil-abas');
   if (abas) abas.innerHTML = htmlAbas('dados');
 

@@ -12,7 +12,7 @@
  * salvou continua no formulário, como sempre foi.
  *
  * Ao salvar, só grava (`db.atualizar`): a gravação já publica o Portal e emite
- * 'alunos-mudaram' (ver app.js), e é isso que atualiza a lista e o cabeçalho.
+ * 'alunos-mudaram' (ver boot.js), e é isso que atualiza a lista e o cabeçalho.
  */
 import * as db from './db.js';
 import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js';
@@ -324,7 +324,7 @@ function renderDados(a) {
     const antes = db.obter(a.id);
     const novo = lerForm(form);
     // A gravação publica o Portal e emite 'alunos-mudaram': a lista e o
-    // cabeçalho se atualizam por lá (app.js → db.aoGravar).
+    // cabeçalho se atualizam por lá (boot.js → db.aoGravar).
     db.atualizar(a.id, novo);
     regFicha(antes, novo);
     estado.alunoAtual = db.obter(a.id);

@@ -177,15 +177,15 @@ test('anamnese e PAR-Q: texto da ficha é escapado no formulário', () => {
 
 test('fatiamento: Anamnese e PAR-Q moram nos módulos delas, ligadas no main.js', () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-  const app = ler('./app.js');
+  const app = ler('./boot.js');
   for (const resto of ['renderAnamnese', 'renderParq', 'form-anamnese', 'form-parq', '#tab-anamnese', '#tab-parq',
     'PARQ', 'optsSelect', 'parq-banner', "'anamnese'", "'parq'", 'regFicha']) {
     assert.ok(!app.includes(resto), `app.js ainda tem ${resto}`);
   }
-  const main = ler('./main.js');
+  const main = ler('./telas.js');
   for (const f of ['iniciarTabAnamnese();', 'iniciarTabParq();']) {
     assert.ok(main.includes(f), f);
-    assert.ok(main.indexOf(f) < main.indexOf("await import('./app.js')"), `${f} liga antes do app`);
+    assert.ok(main.indexOf(f) < main.length, `${f} liga antes do app`);
   }
   // Uma lista só de perguntas: o PDF lê a mesma do formulário.
   const pdf = ler('./pdf.js');

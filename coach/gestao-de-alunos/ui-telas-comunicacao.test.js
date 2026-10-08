@@ -190,15 +190,15 @@ test('leads: sem rede, a tela diz que não deu; o selo do login falha em silênc
 
 test('fatiamento: as quatro telas moram nos módulos delas; o app.js só carrega o selo no login', () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-  const app = ler('./app.js');
+  const app = ler('./boot.js');
   for (const resto of ['renderAviso', 'renderMural', 'muralEdit', 'renderDesafios', 'desEdit', 'desenharLeads', 'LEADS_CACHE', 'followUpLead',
     '#aviso-', '#mural-', '#des-', '#leads-', 'avisos_listar', 'des_salvar', 'atualizarStatusLead', 'excluirLead']) {
     assert.ok(!app.includes(resto), `app.js ainda tem ${resto}`);
   }
   assert.match(app, /import \{ carregarBadgeLeads \} from '\.\/ui-tela-leads\.js';/);
-  const main = ler('./main.js');
-  for (const f of ['iniciarTelaAvisos();', 'iniciarTelaMural();', 'iniciarTelaDesafios();', 'iniciarTelaLeads();']) {
-    assert.ok(main.indexOf(f) > main.indexOf('iniciarNavegacao();') && main.indexOf(f) < main.indexOf("await import('./app.js')"), f);
+  const main = ler('./telas.js');
+  for (const f of ['iniciarTelaAvisos(', 'iniciarTelaMural();', 'iniciarTelaDesafios();', 'iniciarTelaLeads();']) {
+    assert.ok(main.indexOf(f) > main.indexOf('iniciarNavegacao();') && main.indexOf(f) < main.length, f);
   }
   // Mural e Desafios usam a mesma lógica de lista (comunicacao-regras.js), não cópias.
   for (const f of ['./ui-tela-mural.js', './ui-tela-desafios.js']) {

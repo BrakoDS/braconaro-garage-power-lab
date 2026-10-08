@@ -11,7 +11,7 @@
  * Varre em vez de procurar caixa por caixa a partir da ficha: era isso que fazia
  * uma caixa sem ficha correspondente ficar invisível para sempre.
  *
- * Quem chama (app.js) republica o Portal logo depois, então o que entra aqui
+ * Quem chama (boot.js) republica o Portal logo depois, então o que entra aqui
  * volta para o aluno na mesma rodada.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
@@ -112,7 +112,7 @@ export function casarCaixasComFichas(idsDasCaixas, alunos) {
 /**
  * Junta as presenças que o Garage App avisou às que a ficha já tem.
  *
- * Mesma estrutura do check-in manual (`toggleCheckin`/`fazerCheckin` do app.js):
+ * Mesma estrutura do check-in manual (`checkin`/`alternarPresenca` de checkin-regras.js):
  * lista de 'YYYY-MM-DD' única e ordenada. A HORA não entra — o `presencaHoras` só
  * é preenchido quando o coach confirma a aula no próprio dia, e a hora em que o
  * aluno lançou as calorias não diz quando ele chegou ao box. Sem hora, o Portal
@@ -189,8 +189,8 @@ export async function mergarInboxes(alunos, aplicar, registrar) {
       // é registro do coach. Então ele manda a data pela caixa e quem aplica na
       // ficha é aqui.
       //
-      // Mesma estrutura do check-in manual (`toggleCheckin`/`fazerCheckin` do
-      // app.js): lista de 'YYYY-MM-DD' única e ordenada. A HORA não entra — o
+      // Mesma estrutura do check-in manual (`checkin`/`alternarPresenca` de
+      // checkin-regras.js): lista de 'YYYY-MM-DD' única e ordenada. A HORA não entra — o
       // `presencaHoras` só é preenchido quando o coach confirma a aula no dia, e
       // a hora em que o aluno lançou as calorias não diz quando ele chegou. Sem
       // hora, o Portal cai no horário fixo da grade dele, que é o certo.
