@@ -28,6 +28,10 @@ import { iniciarTabRegistros } from './ui-tab-registros.js';
 import { iniciarTelaCheckin } from './ui-tela-checkin.js';
 import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js';
 import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js';
+import { iniciarTelaAvisos } from './ui-tela-avisos.js';
+import { iniciarTelaMural } from './ui-tela-mural.js';
+import { iniciarTelaDesafios } from './ui-tela-desafios.js';
+import { iniciarTelaLeads } from './ui-tela-leads.js';
 
 iniciarNavegacao();
 iniciarLista({ listar: db.listar });
@@ -45,5 +49,9 @@ iniciarTabRegistros();
 iniciarTelaCheckin();
 iniciarTelaFinanceiro();
 iniciarTelaCobrancas();
+iniciarTelaAvisos();
+iniciarTelaMural();
+iniciarTelaDesafios();
+iniciarTelaLeads();
 
 await import('./app.js');

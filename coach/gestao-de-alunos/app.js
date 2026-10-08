@@ -9,29 +9,29 @@ import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.j
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
 import * as db from './db.js';
 import { carregarSemanasPausadas } from '../../compartilhado/firebase/semanas-pausadas.js';
-// `confirmar`/`avisar` do próprio site em vez do confirm()/alert() nativos: o
+// `avisar`/`painel` do próprio site em vez do alert() nativo: o
 // Chrome deixa o usuario SUPRIMIR diálogos nativos, e a partir daí eles respondem
 // sozinhos sem mostrar nada -- foi assim que a exclusão parou de funcionar.
-import { confirmar, avisar, painel } from '../../compartilhado/ui/dialogo.js';
+import { avisar, painel } from '../../compartilhado/ui/dialogo.js';
 import { feriadosDoMes, feriadoEm } from '../../compartilhado/regras/feriados.js';
 import { exportarFicha } from './pdf.js?v=3';
 import { publicarPortal } from './portal-sync.js';
 import { mergarInboxes } from './portal-merge.js';
 import * as eventos from './eventos.js';
-import { listarAvisos as avisos_listar, salvarAvisos as avisos_salvar, sincronizarAvisos } from './avisos.js';
-import { listarDesafios as des_listar, salvarDesafios as des_salvar, sincronizarDesafios } from './desafios.js';
+import { sincronizarAvisos } from './avisos.js';
+import { sincronizarDesafios } from './desafios.js';
 import { carregarTodosGastos } from './nutricao-read.js';
 import { publicarRanking } from './ranking-sync.js';
 import { carregarTodasConclusoes } from './desafios-read.js';
-import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js';
 import * as game from '../../compartilhado/regras/gamificacao.js';
 import { estado, on, emit, EVENTOS } from './estado.js';
-import { esc, isoLocal, hoje, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js';
+import { esc, isoLocal, hoje, fmtDataCurta, semanaSegSab } from './util/formato.js';
 import { abrirModal, fecharModal } from './util/dom.js';
 import { reg } from './registro.js';
 import { formDadosHTML, wireForm, lerForm } from './ui-tab-dados.js';
 import { mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js';
 import { renderLista, definirKcalDaSemana, definirMedalhas } from './ui-lista.js';
+import { carregarBadgeLeads } from './ui-tela-leads.js';
 import { renderCabecalho } from './ui-perfil.js';
 
 /* Publica o Portal do Aluno (debounced) a cada alteração + no login. */
@@ -109,292 +109,9 @@ on(EVENTOS.EXPORTAR_FICHA, () => { if (estado.alunoAtual) exportarFicha(estado.a
    as regras de dinheiro (baixa, consumo, o mês do box, a lista de cobranças):
    financeiro-regras.js — as mesmas da aba Financeiro do aluno. */
 
-/* ============================================================
-   TELA — Aviso em massa (WhatsApp)
-   ============================================================ */
-const AVISO_TPLS = [
-  'Amanhã não tem aula! ⚠️',
-  'Bom treino a todos! 💪',
-  'Lembrete: sua mensalidade vence esta semana. 🙏',
-  'Atenção: novo horário a partir de segunda-feira.',
-];
-const avisoEnviados = new Set();
-
-function avisoDestinatarios() {
-  return db.listar().filter((a) => (a.status || 'ativo') !== 'inativo' && String(a.telefone || '').replace(/\D/g, '').length >= 10);
-}
-function renderAviso() {
-  $('#aviso-tpls').innerHTML = AVISO_TPLS.map((t) => `<button class="aviso-tpl" type="button" data-t="${esc(t)}">${esc(t)}</button>`).join('');
-  const alunos = avisoDestinatarios();
-  $('#aviso-count').textContent = `${avisoEnviados.size} de ${alunos.length} enviados`;
-  $('#aviso-list').innerHTML = alunos.length ? alunos.map((a) => {
-    const env = avisoEnviados.has(a.id);
-    return `<div class="aviso-row${env ? ' enviado' : ''}">
-      <div class="aviso-info"><div class="fin-nome">${esc(a.nome)}</div><div class="fin-sub">${esc(a.telefone)}</div></div>
-      ${env ? '<span class="aviso-ok">Enviado ✓</span>' : ''}
-      <button class="btn ${env ? 'ghost ' : ''}btn-sm aviso-send" data-id="${esc(a.id)}" data-tel="${esc(a.telefone)}" type="button">${env ? 'Reenviar' : 'Enviar'}</button>
-    </div>`;
-  }).join('') : `<div class="empty"><b>Nenhum destinatário</b>Cadastre alunos ativos com telefone/WhatsApp para avisar aqui.</div>`;
-}
-
-on(EVENTOS.ABRIR_TELA, (t) => { if (t === 'aviso') { renderAviso(); } });
-$('#aviso-tpls').addEventListener('click', (e) => { const c = e.target.closest('.aviso-tpl'); if (c) { $('#aviso-msg').value = c.dataset.t; $('#aviso-msg').focus(); } });
-$('#aviso-copiar').addEventListener('click', async () => {
-  const m = $('#aviso-msg').value.trim(); if (!m) return;
-  try { await navigator.clipboard.writeText(m); const b = $('#aviso-copiar'), t = b.textContent; b.textContent = 'Copiado ✓'; setTimeout(() => (b.textContent = t), 1500); } catch {}
-});
-$('#aviso-list').addEventListener('click', (e) => {
-  const b = e.target.closest('.aviso-send'); if (!b) return;
-  const msg = $('#aviso-msg').value.trim();
-  if (!msg) { avisar({ texto: 'Escreva a mensagem primeiro.' }); $('#aviso-msg').focus(); return; }
-  const link = waMsg(b.dataset.tel, msg);
-  if (link) window.open(link, '_blank');
-  avisoEnviados.add(b.dataset.id);
-  renderAviso();
-});
-
-/* ============================================================
-   TELA — Mural de Avisos do Portal do Aluno
-   ============================================================ */
-const MURAL_TIPO = { info: 'Informativo', importante: 'Importante', evento: 'Evento' };
-let muralEdit = null; // id em edição, ou null
-
-function renderMural() {
-  const avisos = avisos_listar().slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
-  const list = $('#mural-list');
-  if (!avisos.length) {
-    list.innerHTML = `<div class="empty"><b>Nenhum aviso</b>Publique o primeiro recado — ele aparece no Portal do Aluno.</div>`;
-    return;
-  }
-  list.innerHTML = avisos.map((av) => {
-    const d = av.criadoEm ? new Date(av.criadoEm).toLocaleDateString('pt-BR') : '';
-    return `<div class="mural-item tipo-${esc(av.tipo || 'info')}${av.ativo === false ? ' off' : ''}">
-      <div class="mural-item-head">
-        <span class="mural-tag">${esc(MURAL_TIPO[av.tipo] || 'Informativo')}</span>
-        <span class="mural-data">${d}</span>
-        <span class="mural-estado">${av.ativo === false ? 'Oculto' : 'No ar'}</span>
-      </div>
-      <h4>${esc(av.titulo || '')}</h4>
-      <p>${esc(av.texto || '')}</p>
-      <div class="mural-item-actions">
-        <button class="btn ghost btn-sm mural-toggle" data-id="${esc(av.id)}" type="button">${av.ativo === false ? 'Reativar' : 'Ocultar'}</button>
-        <button class="btn ghost btn-sm mural-editar" data-id="${esc(av.id)}" type="button">Editar</button>
-        <button class="btn ghost btn-sm mural-excluir" data-id="${esc(av.id)}" type="button">Excluir</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function muralReset() {
-  muralEdit = null;
-  $('#mural-titulo').value = ''; $('#mural-texto').value = ''; $('#mural-tipo').value = 'info';
-  $('#mural-add').textContent = 'Publicar aviso';
-  $('#mural-cancelar').hidden = true;
-}
-
-on(EVENTOS.ABRIR_TELA, (t) => { if (t === 'mural') { muralReset(); renderMural(); } });
-$('#mural-cancelar').addEventListener('click', muralReset);
-
-$('#mural-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const titulo = $('#mural-titulo').value.trim(), texto = $('#mural-texto').value.trim();
-  if (!titulo || !texto) return;
-  const tipo = $('#mural-tipo').value;
-  const arr = avisos_listar();
-  if (muralEdit) {
-    const av = arr.find((x) => x.id === muralEdit);
-    if (av) { av.titulo = titulo; av.texto = texto; av.tipo = tipo; }
-  } else {
-    arr.push({ id: 'av' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), titulo, texto, tipo, ativo: true, criadoEm: Date.now() });
-  }
-  await avisos_salvar(arr);
-  muralReset(); renderMural();
-});
-
-$('#mural-list').addEventListener('click', async (e) => {
-  const id = e.target.closest('[data-id]')?.dataset.id; if (!id) return;
-  const arr = avisos_listar();
-  if (e.target.closest('.mural-toggle')) {
-    const av = arr.find((x) => x.id === id); if (av) av.ativo = av.ativo === false;
-    await avisos_salvar(arr); renderMural();
-  } else if (e.target.closest('.mural-editar')) {
-    const av = arr.find((x) => x.id === id); if (!av) return;
-    muralEdit = id; $('#mural-titulo').value = av.titulo || ''; $('#mural-texto').value = av.texto || ''; $('#mural-tipo').value = av.tipo || 'info';
-    $('#mural-add').textContent = 'Salvar alteração'; $('#mural-cancelar').hidden = false; $('#mural-titulo').focus();
-  } else if (e.target.closest('.mural-excluir')) {
-    if (!(await confirmar({ titulo: 'Excluir aviso?', texto: 'Ele sai do Portal do Aluno.', ok: 'Excluir', perigo: true }))) return;
-    await avisos_salvar(arr.filter((x) => x.id !== id));
-    if (muralEdit === id) muralReset();
-    renderMural();
-  }
-});
-
-/* ============================================================
-   TELA — Desafios da Semana
-   ============================================================ */
-const DES_EMOJIS = ['💧', '🚫🍬', '🥗', '😴', '🏃', '🔥', '🧘', '⭐', '🥦', '🚭'];
-let desEmoji = '💧', desEdit = null;
-
-function renderDesEmojis() {
-  $('#des-emojis').innerHTML = DES_EMOJIS.map((e) => `<button type="button" class="des-emoji${e === desEmoji ? ' on' : ''}" data-e="${e}">${e}</button>`).join('');
-}
-function renderDesafios() {
-  const arr = des_listar().slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
-  const list = $('#des-list');
-  if (!arr.length) { list.innerHTML = `<div class="empty"><b>Nenhum desafio</b>Lance o primeiro — ele aparece nas Conquistas do aluno.</div>`; return; }
-  list.innerHTML = arr.map((d) => `
-    <div class="mural-item${d.ativo === false ? ' off' : ''}">
-      <div class="mural-item-head"><span class="mural-tag">${esc(d.icone || '⭐')} ${esc(d.titulo || '')}</span><span class="mural-estado">${d.ativo === false ? 'Oculto' : 'No ar'} · meta ${esc(String(d.metaDias || 5))} dias</span></div>
-      <p>${esc(d.descricao || '')}</p>
-      <div class="mural-item-actions">
-        <button class="btn ghost btn-sm des-toggle" data-id="${esc(d.id)}" type="button">${d.ativo === false ? 'Reativar' : 'Ocultar'}</button>
-        <button class="btn ghost btn-sm des-editar" data-id="${esc(d.id)}" type="button">Editar</button>
-        <button class="btn ghost btn-sm des-excluir" data-id="${esc(d.id)}" type="button">Excluir</button>
-      </div>
-    </div>`).join('');
-}
-function desReset() {
-  desEdit = null; desEmoji = '💧';
-  $('#des-titulo').value = ''; $('#des-texto').value = ''; $('#des-meta').value = '5'; $('#des-categoria').value = 'geral';
-  $('#des-add').textContent = 'Publicar desafio'; $('#des-cancelar').hidden = true;
-  renderDesEmojis();
-}
-
-on(EVENTOS.ABRIR_TELA, (t) => { if (t === 'desafios') { desReset(); renderDesafios(); } });
-$('#des-cancelar').addEventListener('click', desReset);
-$('#des-emojis').addEventListener('click', (e) => { const b = e.target.closest('.des-emoji'); if (b) { desEmoji = b.dataset.e; renderDesEmojis(); } });
-
-$('#des-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const titulo = $('#des-titulo').value.trim(), descricao = $('#des-texto').value.trim();
-  const metaDias = Math.min(7, Math.max(1, parseInt($('#des-meta').value, 10) || 5));
-  const categoria = $('#des-categoria').value || 'geral';
-  if (!titulo || !descricao) return;
-  const arr = des_listar();
-  if (desEdit) {
-    const d = arr.find((x) => x.id === desEdit);
-    if (d) { d.titulo = titulo; d.descricao = descricao; d.icone = desEmoji; d.metaDias = metaDias; d.categoria = categoria; }
-  } else {
-    arr.push({ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), icone: desEmoji, titulo, descricao, metaDias, categoria, ativo: true, criadoEm: Date.now() });
-  }
-  await des_salvar(arr);
-  desReset(); renderDesafios();
-});
-$('#des-list').addEventListener('click', async (e) => {
-  const id = e.target.closest('[data-id]')?.dataset.id; if (!id) return;
-  const arr = des_listar();
-  if (e.target.closest('.des-toggle')) {
-    const d = arr.find((x) => x.id === id); if (d) d.ativo = d.ativo === false;
-    await des_salvar(arr); renderDesafios();
-  } else if (e.target.closest('.des-editar')) {
-    const d = arr.find((x) => x.id === id); if (!d) return;
-    desEdit = id; desEmoji = d.icone || '💧';
-    $('#des-titulo').value = d.titulo || ''; $('#des-texto').value = d.descricao || ''; $('#des-meta').value = String(d.metaDias || 5); $('#des-categoria').value = d.categoria || 'geral';
-    $('#des-add').textContent = 'Salvar alteração'; $('#des-cancelar').hidden = false; renderDesEmojis(); $('#des-titulo').focus();
-  } else if (e.target.closest('.des-excluir')) {
-    if (!(await confirmar({ titulo: 'Excluir desafio?', texto: 'Ele sai do Portal do Aluno.', ok: 'Excluir', perigo: true }))) return;
-    await des_salvar(arr.filter((x) => x.id !== id));
-    if (desEdit === id) desReset();
-    renderDesafios();
-  }
-});
-
-/* ============================================================
-   TELA — Leads (formulário de aula experimental)
-   ============================================================ */
-const LEAD_STATUS_LABEL = { novo: 'Novo', contatado: 'Contatado', convertido: 'Convertido', descartado: 'Descartado' };
-let LEADS_CACHE = [];
-
-// Follow-up: lead "novo" há ≥2 dias (nunca contatado) ou "contatado" há ≥4 dias
-// (sem retorno). Objetivo: não deixar lead esfriar sem ação.
-const LEAD_DIA = 86400000;
-const LEAD_LIMIAR_NOVO = 2, LEAD_LIMIAR_CONTATADO = 4;
-function leadDiasDesde(ts) { return ts ? Math.floor((Date.now() - ts) / LEAD_DIA) : null; }
-/** @returns {{precisa:boolean, dias:number, motivo:string}} */
-function followUpLead(l) {
-  const st = l.status || 'novo';
-  if (st === 'novo') { const d = leadDiasDesde(l.criadoEm); if (d != null && d >= LEAD_LIMIAR_NOVO) return { precisa: true, dias: d, motivo: 'sem contato' }; }
-  else if (st === 'contatado') { const d = leadDiasDesde(l.statusEm || l.criadoEm); if (d != null && d >= LEAD_LIMIAR_CONTATADO) return { precisa: true, dias: d, motivo: 'sem retorno' }; }
-  return { precisa: false, dias: 0, motivo: '' };
-}
-
-/** Atualiza o selo de follow-up no botão "Leads" da listagem (lembrete sem abrir a tela). */
-function atualizarBadgeLeads() {
-  const btn = $('#btn-leads'); if (!btn) return;
-  const n = LEADS_CACHE.filter((l) => l.status !== 'descartado' && followUpLead(l).precisa).length;
-  let badge = btn.querySelector('.btn-badge');
-  if (!n) { if (badge) badge.remove(); return; }
-  if (!badge) { badge = document.createElement('span'); badge.className = 'btn-badge'; btn.appendChild(badge); }
-  badge.textContent = String(n);
-  badge.title = `${n} lead(s) precisam de follow-up`;
-}
-
-/** Carrega os leads em cache (para o selo do botão) — silencioso. */
-async function carregarBadgeLeads() {
-  try { LEADS_CACHE = await carregarLeads(); atualizarBadgeLeads(); } catch (e) { console.warn('Leads badge:', e?.code || e); }
-}
-
-async function renderLeads() {
-  $('#leads-list').innerHTML = `<div class="prog-ph">Carregando…</div>`;
-  try { LEADS_CACHE = await carregarLeads(); }
-  catch (e) { console.warn('Leads:', e?.code || e); $('#leads-list').innerHTML = `<div class="prog-ph">Não foi possível carregar agora.</div>`; return; }
-  desenharLeads();
-}
-
-function desenharLeads() {
-  const ativos = LEADS_CACHE.filter((l) => l.status !== 'descartado');
-  const novos = ativos.filter((l) => l.status === 'novo' || !l.status);
-  const contatados = ativos.filter((l) => l.status === 'contatado');
-  const convertidos = ativos.filter((l) => l.status === 'convertido');
-  const precisam = ativos.filter((l) => followUpLead(l).precisa).length;
-  $('#leads-tot').innerHTML = `
-    <div class="fin-card"><span class="fin-card-l">Novos</span><span class="fin-card-v${novos.length ? ' bad' : ''}">${novos.length}</span></div>
-    <div class="fin-card"><span class="fin-card-l">Contatados</span><span class="fin-card-v">${contatados.length}</span></div>
-    <div class="fin-card"><span class="fin-card-l">Convertidos em aluno</span><span class="fin-card-v ok">${convertidos.length}</span></div>
-    <div class="fin-card"><span class="fin-card-l">⏰ Follow-up</span><span class="fin-card-v${precisam ? ' bad' : ' ok'}">${precisam}</span></div>`;
-
-  if (!ativos.length) { $('#leads-list').innerHTML = `<div class="empty"><b>Nenhum lead ainda</b>Assim que alguém preencher o formulário de aula grátis no site, aparece aqui.</div>`; return; }
-
-  const row = (l) => {
-    const d = l.criadoEm ? new Date(l.criadoEm).toLocaleDateString('pt-BR') : '—';
-    const st = l.status || 'novo';
-    const fu = followUpLead(l);
-    const sub = [l.objetivo, l.horario ? 'prefere ' + l.horario : '', l.indicadoPor ? 'indicado por ' + l.indicadoPor : ''].filter(Boolean).join(' · ');
-    const alerta = fu.precisa ? `<span class="lead-followup">⏰ ${fu.motivo} há ${fu.dias}d</span>` : '';
-    return `<div class="cob-row${fu.precisa ? ' lead-parado' : ''}">
-      <div class="cob-info"><div class="fin-nome">${esc(l.nome || 'Sem nome')} <span class="lead-badge ${st}">${LEAD_STATUS_LABEL[st] || st}</span>${alerta}</div><div class="fin-sub">${d}${sub ? ' · ' + esc(sub) : ''}</div></div>
-      <a class="btn btn-sm cob-wa" href="${waMsg(l.whatsapp, 'Olá, ' + (l.nome || '').split(' ')[0] + '! Vi seu interesse na aula experimental do Garage Power Lab. Vamos agendar? 💪')}" target="_blank" rel="noopener">WhatsApp</a>
-      <select class="lead-status" data-id="${esc(l.id)}">
-        ${Object.entries(LEAD_STATUS_LABEL).map(([v, l2]) => `<option value="${v}"${v === st ? ' selected' : ''}>${l2}</option>`).join('')}
-      </select>
-      <button class="btn ghost btn-sm lead-excluir" data-id="${esc(l.id)}" type="button">Excluir</button>
-    </div>`;
-  };
-  // quem precisa de follow-up primeiro (mais atrasado no topo), depois o resto por recência
-  const ordenados = ativos.slice().sort((a, b) => {
-    const fa = followUpLead(a), fb = followUpLead(b);
-    if (fa.precisa !== fb.precisa) return fa.precisa ? -1 : 1;
-    if (fa.precisa && fb.precisa) return fb.dias - fa.dias;
-    return (b.criadoEm || 0) - (a.criadoEm || 0);
-  });
-  $('#leads-list').innerHTML = ordenados.map(row).join('');
-  atualizarBadgeLeads();
-}
-
-on(EVENTOS.ABRIR_TELA, (t) => { if (t === 'leads') { renderLeads(); } });
-$('#leads-list').addEventListener('change', async (e) => {
-  const sel = e.target.closest('.lead-status'); if (!sel) return;
-  try { await atualizarStatusLead(sel.dataset.id, sel.value); } catch (err) { console.warn('Leads:', err?.code || err); }
-  const l = LEADS_CACHE.find((x) => x.id === sel.dataset.id); if (l) l.status = sel.value;
-  desenharLeads();
-});
-$('#leads-list').addEventListener('click', async (e) => {
-  const btn = e.target.closest('.lead-excluir'); if (!btn) return;
-  if (!(await confirmar({ titulo: 'Excluir lead?', texto: 'O contato sai da lista de interessados.', ok: 'Excluir', perigo: true }))) return;
-  try { await excluirLead(btn.dataset.id); } catch (err) { console.warn('Leads:', err?.code || err); }
-  LEADS_CACHE = LEADS_CACHE.filter((x) => x.id !== btn.dataset.id);
-  desenharLeads();
-});
+/* Comunicação: Aviso em massa, Mural, Desafios e Leads — ui-tela-avisos.js,
+   ui-tela-mural.js, ui-tela-desafios.js e ui-tela-leads.js; as regras que eles
+   usam (lista publicada, follow-up de lead): comunicacao-regras.js. */
 
 /* Check-in / frequência (a grade da semana): ui-tela-checkin.js; as regras de
    presença, troca de dia, atestado e reposição: checkin-regras.js. */
