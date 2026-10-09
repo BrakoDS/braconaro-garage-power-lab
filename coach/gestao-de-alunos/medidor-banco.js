@@ -12,10 +12,10 @@
  * Saiu do `app.js` no fatiamento. A conta é pura (`medidaDoBanco`); o resto só
  * lê o banco, escreve no console e baixa o arquivo.
  */
-import * as db from './db.js?v=12';
-import { hoje } from './util/formato.js?v=12';
-import { $ } from './util/dom.js?v=12';
-import { avisar } from '../../compartilhado/ui/dialogo.js?v=12';
+import * as db from './db.js?v=13';
+import { hoje } from './util/formato.js?v=13';
+import { $ } from './util/dom.js?v=13';
+import { avisar } from '../../compartilhado/ui/dialogo.js?v=13';
 
 const CHAVE_BANCO_V1 = 'braconaro_gestao_alunos_v1';
 /** O teto de um documento do Firestore. */

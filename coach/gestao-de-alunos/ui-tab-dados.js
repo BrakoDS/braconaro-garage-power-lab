@@ -14,19 +14,19 @@
  * Ao salvar, só grava (`db.atualizar`): a gravação já publica o Portal e emite
  * 'alunos-mudaram' (ver boot.js), e é isso que atualiza a lista e o cabeçalho.
  */
-import * as db from './db.js?v=12';
-import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=12';
-import { $, $$ } from './util/dom.js?v=12';
-import { estado, on, emit, EVENTOS } from './estado.js?v=12';
-import { regFicha } from './registro.js?v=12';
-import { apagarFotosDoAluno } from './ui-fotos.js?v=12';
-import * as eventos from './eventos.js?v=12';
-import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=12';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=12';
+import * as db from './db.js?v=13';
+import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=13';
+import { $, $$ } from './util/dom.js?v=13';
+import { estado, on, emit, EVENTOS } from './estado.js?v=13';
+import { regFicha } from './registro.js?v=13';
+import { apagarFotosDoAluno } from './ui-fotos.js?v=13';
+import * as eventos from './eventos.js?v=13';
+import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=13';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=13';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
-import { criarAcesso, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=12';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=12';
+import { criarAcesso, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=13';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=13';
 
 /* ============================================================
    O formulário (o mesmo do cadastro)

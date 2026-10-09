@@ -255,7 +255,8 @@ function wireFoto() {
 function renderIndique() {
   const nome1 = primeiroNome(PORTAL?.nome);
   const msg = `Oi! Eu treino no Garage Power Lab e recomendo muito. 💪 Eles têm uma aula experimental grátis — dá uma olhada: https://garagepowerlab.com.br/#experimental (fala que foi indicação de ${nome1})`;
-  const waLink = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  // api.whatsapp.com, e não wa.me: o redirecionamento do wa.me troca o 💪 por "".
+  const waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
   const wa = $('#indique-wa'); if (wa) wa.href = waLink;
   const btnCopiar = $('#indique-copiar');
   if (btnCopiar) btnCopiar.onclick = () => copiarTexto(btnCopiar, msg, 'Copiar mensagem');

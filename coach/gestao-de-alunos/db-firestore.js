@@ -6,7 +6,7 @@
  * só a tradução. Substitui o antigo `cloud-alunos.js` (blob inteiro em setDoc).
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { canonico, decidirTrava } from './db-migracao.js?v=12';
+import { canonico, decidirTrava } from './db-migracao.js?v=13';
 
 const V = '10.12.2';
 /** @type {any} */ let _db = null;

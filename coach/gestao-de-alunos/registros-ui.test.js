@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   agruparPorDia, anexarFotosDoDiario, filtrarEventos, fotosDoDiarioPorDia, historicoDasFichas, juntarEventos,
   linhaDoTempoDoAluno, linhaHTML, rotuloDia,
-} from './registros-ui.js?v=12';
+} from './registros-ui.js?v=13';
 
 /** ms de um horário LOCAL — é assim que a tela lê as datas. */
 const local = (iso, hh = 0, mm = 0) => {

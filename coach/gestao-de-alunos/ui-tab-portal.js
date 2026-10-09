@@ -20,11 +20,11 @@
  * Não há o que digitar, então não há rascunho a guardar. Com a aba aberta, uma
  * gravação ('alunos-mudaram') reenvia a fatia — a prévia acompanha a ficha.
  */
-import * as db from './db.js?v=12';
-import { fatia } from './portal-sync.js?v=12';
-import { isoLocal } from './util/formato.js?v=12';
-import { $ } from './util/dom.js?v=12';
-import { estado, on, EVENTOS } from './estado.js?v=12';
+import * as db from './db.js?v=13';
+import { fatia } from './portal-sync.js?v=13';
+import { isoLocal } from './util/formato.js?v=13';
+import { $ } from './util/dom.js?v=13';
+import { estado, on, EVENTOS } from './estado.js?v=13';
 
 /** A página da prévia, relativa à Gestão. `?previa=1` liga o modo no Portal. */
 export const URL_PREVIA = '../../painel-do-aluno/previa.html';
