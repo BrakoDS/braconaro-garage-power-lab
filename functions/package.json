@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "checar": "tsc && node lib/checar.js && node lib/checar-conquistas.js && node lib/checar-box.js && node lib/checar-hiit.js && node lib/checar-cross.js",
+    "checar": "tsc && node lib/checar.js && node lib/checar-conquistas.js && node lib/checar-box.js && node lib/checar-hiit.js && node lib/checar-cross.js && node lib/checar-pix.js && node lib/checar-pix-http.js",
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
     "checar:emulador": "firebase emulators:exec --only firestore --project fake \"node testes-emulador.cjs\"",
@@ -18,6 +18,7 @@
     "checar:box": "tsc && node lib/checar-box.js",
     "checar:hiit": "tsc && node lib/checar-hiit.js",
     "checar:cross": "tsc && node lib/checar-cross.js",
+    "checar:pix": "tsc && node lib/checar-pix.js && node lib/checar-pix-http.js",
     "seed:catalogo": "tsc && node lib/seed-catalogo.js"
   },
   "dependencies": {

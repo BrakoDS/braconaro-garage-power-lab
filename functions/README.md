@@ -8,6 +8,7 @@ npm run checar                     # lógica pura (IA, preços, Montador, conqui
 npm run checar:box                 # só a semana do box
 npm run checar:hiit                # só o gerador do HIIT
 npm run checar:cross               # só os geradores do Cross e do Hyrox
+npm run checar:pix                 # Pix dinâmico: conta × Gestão, assinatura, gerar, webhook (sem rede)
 npm run checar:emulador            # exclusão de treino contra o emulador do Firestore
 npm run checar:emulador:conquistas # motor de conquistas de ponta a ponta (Firestore + Functions)
 npm run seed:catalogo              # simula o seed do catálogo (força, HIIT e Cross); `-- --gravar` grava
@@ -355,6 +356,89 @@ o `checar-conquistas` confere que as duas datas são iguais.
 **Pendência:** sem data por feedback, um aluno com 10 feedbacks antigos ganha "Deu retorno" e
 "Voz ativa" já no lançamento. Para recortar, é preciso registrar a data de cada feedback (ou uma
 linha de base `feedbacksAntesDoCorte` gravada uma vez) na Gestão.
+
+## Pix dinâmico — Mercado Pago (`gerarPixCobranca`, `webhookMercadoPago`)
+
+Regra em `src/pix.ts` (conta do mês, pedido, assinatura, decisão), orquestração em
+`src/pix-servico.ts`, Firestore e cliente do Mercado Pago em `src/pix-firestore.ts`, a borda HTTP
+em `src/pix-http.ts`. `npm run checar:pix` roda os dois testes, sem rede:
+
+- `checar-pix`: a regra (conta × código da Gestão em milhares de boxes, assinatura, gerar, webhook);
+- `checar-pix-http`: a fiação, com um Express de verdade recebendo POSTs reais (assinatura válida,
+  inválida, ausente), o cliente real falando HTTP com um Mercado Pago falso local e o adaptador real
+  sobre um Firestore em memória com transação. O emulador do Firestore (precisa de Java) ainda não
+  roda este fluxo.
+
+| Caminho | Quem grava | Quem lê |
+| --- | --- | --- |
+| `gestao/{uid}/cobrancasPix/{paymentId}` | as duas funções (cria, aprova); a Gestão desliga `avisarGestao` | o coach |
+| `portal/{email}.pagamentos[mês]` | o webhook, ao aprovar | o aluno |
+
+**O webhook NÃO grava na ficha** (`gestao/{uid}/alunos/{id}`). A Gestão é local-first e regrava
+a ficha inteira a cada edição: uma baixa escrita pelo servidor seria apagada pela próxima edição
+num aparelho aberto antes do Pix. O webhook anota o Pix aprovado no livro-caixa com
+`avisarGestao: true`; a Gestão (`coach/gestao-de-alunos/pix-baixa.js`) aplica a baixa com o
+mesmo `darBaixa` da baixa manual ao abrir, de 2 em 2 minutos e antes de publicar o Portal. Até lá
+o aluno já vê "pago" no Portal, e um segundo Pix do mesmo mês é recusado.
+
+**O valor nunca vem do cliente.** `gerarPixCobranca` calcula a conta do mês a partir da ficha:
+porte de `contaDoMes` (Gestão), conferido lado a lado com o original em milhares de boxes
+sorteados. Divergência conhecida, que já existia antes do Pix: em dois casos de borda a fatia do
+Portal soma diferente da Gestão (responsável inativo ou apagado; dependente inativo). O Pix cobra
+a conta da Gestão, a mesma das Cobranças e da baixa.
+
+### Configurar (uma vez)
+
+1. **Credenciais**: no painel do Mercado Pago, *Suas integrações → (sua aplicação) →
+   Credenciais de produção → Access Token*. Para testar antes, use as credenciais de **teste**.
+2. **Webhook**: *Suas integrações → (sua aplicação) → Webhooks → Configurar notificações*:
+   - URL de produção: `https://southamerica-east1-projeto-garage-f0a2f.cloudfunctions.net/webhookMercadoPago`
+   - Evento: **Pagamentos**
+   - Salve e copie a **assinatura secreta** gerada ali.
+
+   A URL vai no painel, e não no pedido de pagamento: só as notificações da URL cadastrada no
+   painel vêm com a assinatura `x-signature`, e o webhook recusa (401) o que vier sem ela.
+3. **Segredos** (da pasta `teste-hibrido/`, a única que publica; o valor é pedido sem eco):
+
+   ```bash
+   firebase functions:secrets:set MERCADOPAGO_ACCESS_TOKEN
+   firebase functions:secrets:set MERCADOPAGO_WEBHOOK_SECRET
+   ```
+4. **Publicar só as duas funções**:
+
+   ```bash
+   firebase deploy --only functions:gerarPixCobranca,functions:webhookMercadoPago
+   ```
+
+Emulador: os segredos falsos vão em `functions/.secret.local` (já ignorado pelo Git), uma linha
+por segredo, ex.: `MERCADOPAGO_ACCESS_TOKEN=TEST-...`.
+
+### Chamar do Portal
+
+```js
+const pix = httpsCallable(getFunctions(app, 'southamerica-east1'), 'gerarPixCobranca');
+const { data } = await pix({});                  // o mês que o Portal mostra; ou { mesId: '2026-09' }
+// data: { paymentId, mesId, valor, qrCode, qrCodeBase64, ticketUrl, expiraEm, reutilizado }
+// <img src={`data:image/png;base64,${data.qrCodeBase64}`}> e o "copia e cola" = data.qrCode
+```
+
+Erros com mensagem pronta para o aluno: conta já paga (na ficha ou por Pix), conta acertada por
+um responsável, nada a pagar, matrícula inativa, ficha sem e-mail, Mercado Pago fora (`unavailable`).
+
+### Idempotência
+
+- **Webhook repetido** (o Mercado Pago reenvia até receber 200): a aprovação é uma transação que só
+  muda a cobrança ainda não aprovada; a segunda notificação devolve 200 "sem mudança".
+- **Dois toques no "Gerar Pix"**: o QR ainda válido (10+ min) volta igual; ao mesmo tempo, a
+  chave `X-Idempotency-Key` (por aluno, mês, valor e janela de 30 min) faz o Mercado Pago devolver
+  o mesmo pagamento.
+- **A conta mudou** (consumo novo): QR novo, e o antigo é cancelado no Mercado Pago. Se mesmo assim
+  os dois forem pagos, a Gestão registra a baixa uma vez e um aviso ⚠️ para devolver o outro.
+- **A baixa na Gestão** é `darBaixa` (não paga duas vezes), com evento de id fixo `pix-{paymentId}`
+  e o rastro `pixPagos[mês]` na ficha.
+
+Pix com valor divergente ou estornado depois de aprovado não mexe na ficha: vira aviso ⚠️ na aba
+Registros do aluno para o coach decidir.
 
 ## Código compartilhado
 

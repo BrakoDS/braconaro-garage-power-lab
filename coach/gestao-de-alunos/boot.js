@@ -17,6 +17,12 @@
  *   4) os selos da lista (kcal e medalhas) e o ranking do box;
  *   5) o selo de follow-up dos leads;
  *   6) a Fila de mensagens mescla o que outro aparelho já enviou ou descartou.
+ *
+ * O PIX DO MERCADO PAGO (pix-baixa.js): o webhook não grava na ficha — anota no
+ * livro-caixa `cobrancasPix`, e a baixa é feita pelo pix-baixa.js (a mesma regra da baixa manual). Roda
+ * depois da caixa dos alunos e ANTES de publicar o Portal (passo 1b), de 2 em 2
+ * minutos e ao voltar para a aba, e antes de cada publicação do Portal — senão
+ * uma Gestão aberta desde antes do Pix republicaria o Portal sem ele.
  */
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
@@ -35,14 +41,59 @@ import { carregarBadgeLeads } from './ui-tela-leads.js?v=13';
 import { sincronizarAutomacao } from './automacao.js?v=13';
 import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=13';
 import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=13';
+import { aplicarPixPendentes } from './pix-baixa.js?v=13';
+import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=13';
+import { reg } from './registro.js?v=13';
 
 /* ============================================================
    A gravação publica o Portal
    ============================================================ */
 
 let _portalTimer = /** @type {any} */ (null);
-/** Publica o Portal do Aluno daqui a pouco — várias gravações seguidas viram uma publicação. */
-function agendarPublicarPortal() { clearTimeout(_portalTimer); _portalTimer = setTimeout(() => publicarPortal(db.listar(), db.diasFechados()), 1500); }
+/**
+ * Publica o Portal do Aluno daqui a pouco — várias gravações seguidas viram uma
+ * publicação. Antes, aplica os Pix já aprovados: o Portal não pode voltar a
+ * mostrar "a pagar" para quem já pagou.
+ */
+function agendarPublicarPortal() {
+  clearTimeout(_portalTimer);
+  _portalTimer = setTimeout(async () => { await tratarPix(); publicarPortal(db.listar(), db.diasFechados()); }, 1500);
+}
+
+/* ============================================================
+   O Pix do Mercado Pago
+   ============================================================ */
+
+const PIX_INTERVALO_MS = 2 * 60_000;
+let _pixRodando = /** @type {Promise<void>|null} */ (null);
+
+/**
+ * Aplica os Pix aprovados (e registra os avisos) — uma rodada por vez. Só com
+ * a nuvem em dia (v2): no modo local a baixa não subiria.
+ */
+function tratarPix() {
+  const uid = estado.uid;
+  if (!uid || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
+  if (_pixRodando) return _pixRodando;
+  _pixRodando = aplicarPixPendentes({
+    listar: () => listarPixParaTratar(uid),
+    marcarTratado: (id, em) => marcarPixTratado(uid, id, em),
+    obter: db.obter, todos: db.listar, atualizar: db.atualizar, registrar: reg, agora: Date.now,
+  })
+    .then((r) => { if (r.baixas || r.avisos) console.info(`[Gestão] Pix: ${r.baixas} baixa(s), ${r.avisos} aviso(s).`); })
+    .catch((e) => console.warn('[Gestão] Pix: não deu para conferir agora.', e?.code || e))
+    .finally(() => { _pixRodando = null; });
+  return _pixRodando;
+}
+
+let _pixLigado = false;
+/** De tempos em tempos, e ao voltar para a aba. */
+function ligarPixPeriodico() {
+  if (_pixLigado) return;
+  _pixLigado = true;
+  setInterval(tratarPix, PIX_INTERVALO_MS);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tratarPix(); });
+}
 
 /* ============================================================
    Entrar
@@ -89,6 +140,8 @@ async function entrar(user) {
       // a aba Registros e a Progresso, se abertas, mostram já.
       if (a) emit(EVENTOS.REGISTROS_MUDARAM, a.id);
     }
+    // 1b) os Pix aprovados no Mercado Pago viram baixa — antes de publicar o Portal
+    if (nuvemEmDia) { await tratarPix(); recarregarFichaAberta(); ligarPixPeriodico(); }
     // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
     if (nuvemEmDia) publicarPortal(db.listar());
     // 3) puxa o mural de avisos + desafios da nuvem (para editar no mesmo estado em qualquer aparelho)

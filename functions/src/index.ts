@@ -14,7 +14,7 @@
  * provedor de IA sem republicar o app na loja.
  */
 import { setGlobalOptions } from 'firebase-functions/v2';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
@@ -56,6 +56,8 @@ import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatal
 import { getAuth } from 'firebase-admin/auth';
 import { COACH_UIDS, ehCoachPorUid, normalizarEmail } from './acesso';
 import { acharAlunoDaGestao, fichasDaGestao, fonteFirestore } from './gestao-leitura';
+import { executarGerarPix, responderWebhook } from './pix-http';
+import { clienteMercadoPago, repoFirestore } from './pix-firestore';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
@@ -2670,4 +2672,53 @@ export const registrarSessaoAluno = onCall(
     });
     return { anoMes, sessaoId, volumeSessao: volume, volumeAcumulado };
   },
+);
+
+/* ================================================================== *
+ * Pix dinâmico (Mercado Pago)
+ * ================================================================== */
+
+/**
+ * O Access Token de PRODUÇÃO do Mercado Pago (Suas integrações → Credenciais)
+ * e a chave secreta do webhook (Suas integrações → Webhooks → Configurar
+ * notificações). Os dois moram no Secret Manager — ver functions/README.md.
+ */
+const MP_ACCESS_TOKEN = defineSecret('MERCADOPAGO_ACCESS_TOKEN');
+const MP_WEBHOOK_SECRET = defineSecret('MERCADOPAGO_WEBHOOK_SECRET');
+
+/**
+ * Gera (ou devolve, se ainda vale) o Pix da conta do mês, com o valor
+ * calculado AQUI a partir da ficha — o cliente nunca diz quanto. Chamada pelo
+ * Portal do Aluno (o aluno paga a própria conta) ou pelo coach (`alunoId`).
+ * A regra está em `pix-servico.ts`.
+ *
+ *     const pix = httpsCallable(getFunctions(app, 'southamerica-east1'), 'gerarPixCobranca');
+ *     const { data } = await pix({});            // ou { mesId: '2026-10' }
+ *     // data: { paymentId, mesId, valor, qrCode, qrCodeBase64, ticketUrl, expiraEm, reutilizado }
+ */
+export const gerarPixCobranca = onCall(
+  { secrets: [MP_ACCESS_TOKEN], timeoutSeconds: 30, memory: '256MiB', maxInstances: 3 },
+  (req) => executarGerarPix(req, () => ({
+    repo: repoFirestore(getFirestore()), mp: clienteMercadoPago(MP_ACCESS_TOKEN.value()), agora: Date.now(), ehCoach: ehCoachPorUid, log: logger,
+  })),
+);
+
+/**
+ * O webhook do Mercado Pago. PÚBLICO (o Mercado Pago não tem conta no
+ * Firebase), por isso: exige a assinatura `x-signature`, e mesmo assinada a
+ * notificação só serve de aviso — o pagamento é relido na API com o nosso
+ * token. Aprovado, vira registro no livro-caixa `gestao/{uid}/cobrancasPix` e
+ * "pago" no Portal; a Gestão aplica a baixa (`darBaixa`) ao abrir.
+ *
+ * Cadastrar a URL desta função em Suas integrações → Webhooks, evento
+ * "Pagamentos" (ver functions/README.md).
+ */
+export const webhookMercadoPago = onRequest(
+  { secrets: [MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET], invoker: 'public', timeoutSeconds: 20, memory: '256MiB', maxInstances: 3 },
+  (req, res) => responderWebhook(
+    { method: req.method, headers: req.headers as Record<string, unknown>, query: req.query as Record<string, unknown>, body: req.body },
+    res,
+    () => ({ repo: repoFirestore(getFirestore()), mp: clienteMercadoPago(MP_ACCESS_TOKEN.value()), segredo: MP_WEBHOOK_SECRET.value(),
+      agora: Date.now(), ehCoach: ehCoachPorUid, log: logger }),
+  ),
 );

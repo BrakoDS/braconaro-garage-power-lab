@@ -87,6 +87,10 @@ test('auditoria: as três telas que dão baixa usam a MESMA regra, e a trilha sa
     assert.match(telas[nome], /removerConsumo\(a, /, `${nome}: remove pela regra`);
   }
   assert.ok(!/darBaixa|comPagamento|regFinanceiro/.test(ler('./boot.js')), 'o app.js não mexe mais em dinheiro');
+  // O Pix do Mercado Pago é a quarta porta da baixa: a mesma regra, nunca o mapa à mão.
+  const pix = ler('./pix-baixa.js');
+  assert.match(pix, /darBaixa\(a, /, 'Pix: dá baixa pela regra');
+  assert.ok(!/comPagamento|pagamentos:\s*\{/.test(pix), 'Pix: não grava pagamentos à mão');
 });
 
 /* ---------- fatiamento de Registros e Matriz ---------- */

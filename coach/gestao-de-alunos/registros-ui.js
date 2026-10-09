@@ -31,6 +31,9 @@ export const TIPOS = {
   'pagamento': { icone: '💰', categoria: 'financeiro' },
   'pagamento-desfeito': { icone: '↩️', categoria: 'financeiro' },
   'lancamento': { icone: '🧾', categoria: 'financeiro' },
+  // Pix do Mercado Pago que precisa do olho do coach (pix-baixa.js): mês já
+  // pago, valor divergente, devolução.
+  'pix-alerta': { icone: '⚠️', categoria: 'financeiro' },
   // O WhatsApp que o coach abriu pela Fila de mensagens (automacao.js).
   'mensagem-enviada': { icone: '📤', categoria: 'mensagem' },
 };
