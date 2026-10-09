@@ -21,20 +21,20 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js?v=11';
-import * as eventos from './eventos.js?v=11';
-import { publicarPortal } from './portal-sync.js?v=11';
-import { mergarInboxes } from './portal-merge.js?v=11';
-import { sincronizarAvisos } from './avisos.js?v=11';
-import { sincronizarDesafios } from './desafios.js?v=11';
-import { estado, emit, EVENTOS } from './estado.js?v=11';
-import { $ } from './util/dom.js?v=11';
-import { renderLista } from './ui-lista.js?v=11';
-import { atualizarSelosDaLista } from './selos-lista.js?v=11';
-import { carregarBadgeLeads } from './ui-tela-leads.js?v=11';
-import { sincronizarAutomacao } from './automacao.js?v=11';
-import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=11';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=11';
+import * as db from './db.js?v=12';
+import * as eventos from './eventos.js?v=12';
+import { publicarPortal } from './portal-sync.js?v=12';
+import { mergarInboxes } from './portal-merge.js?v=12';
+import { sincronizarAvisos } from './avisos.js?v=12';
+import { sincronizarDesafios } from './desafios.js?v=12';
+import { estado, emit, EVENTOS } from './estado.js?v=12';
+import { $ } from './util/dom.js?v=12';
+import { renderLista } from './ui-lista.js?v=12';
+import { atualizarSelosDaLista } from './selos-lista.js?v=12';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=12';
+import { sincronizarAutomacao } from './automacao.js?v=12';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=12';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=12';
 
 /* ============================================================
    A gravação publica o Portal

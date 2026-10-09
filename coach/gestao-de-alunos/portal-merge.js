@@ -15,7 +15,7 @@
  * volta para o aluno na mesma rodada.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { eventosDaCaixa, eventosDoDiario } from './eventos.js?v=11';
+import { eventosDaCaixa, eventosDoDiario } from './eventos.js?v=12';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

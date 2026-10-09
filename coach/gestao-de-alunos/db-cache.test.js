@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { criarCache, mesclar, estadoDeBlobV1, CHAVE, CHAVE_V1, CHAVE_FILA } from './db-cache.js?v=11';
+import { criarCache, mesclar, estadoDeBlobV1, CHAVE, CHAVE_V1, CHAVE_FILA } from './db-cache.js?v=12';
 
 function armazenamento(inicial = {}) {
   const m = new Map(Object.entries(inicial));

@@ -12,19 +12,19 @@
  * acabou de registrar no app. O único campo digitável é o da nova meta: esse
  * rascunho é levado de um desenho para o outro (ver `rascunhoDaMeta`).
  */
-import * as db from './db.js?v=11';
-import * as calc from '../../compartilhado/regras/calc.js?v=11';
-import * as game from '../../compartilhado/regras/gamificacao.js?v=11';
+import * as db from './db.js?v=12';
+import * as calc from '../../compartilhado/regras/calc.js?v=12';
+import * as game from '../../compartilhado/regras/gamificacao.js?v=12';
 import { carregarSemanasPausadas } from '../../compartilhado/firebase/semanas-pausadas.js';
 import { resumoDeAdesao } from '../../compartilhado/regras/adesao.js';
-import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js?v=11';
-import { carregarGastoTreino } from './nutricao-read.js?v=11';
-import { carregarCargasAluno } from './cargas-read.js?v=11';
-import { carregarConclusoesDesafios } from './desafios-read.js?v=11';
-import { carregarRotinaAluno } from './rotina-read.js?v=11';
-import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=11';
-import { $, $$ } from './util/dom.js?v=11';
-import { estado, on, EVENTOS } from './estado.js?v=11';
+import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js?v=12';
+import { carregarGastoTreino } from './nutricao-read.js?v=12';
+import { carregarCargasAluno } from './cargas-read.js?v=12';
+import { carregarConclusoesDesafios } from './desafios-read.js?v=12';
+import { carregarRotinaAluno } from './rotina-read.js?v=12';
+import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=12';
+import { $, $$ } from './util/dom.js?v=12';
+import { estado, on, EVENTOS } from './estado.js?v=12';
 
 function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
   const W = 600, H = 180, pad = { l: 46, r: 14, t: 16, b: 28 };

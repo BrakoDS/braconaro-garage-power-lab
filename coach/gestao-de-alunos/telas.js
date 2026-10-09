@@ -11,32 +11,32 @@
  * das abas. Os ouvintes de um evento rodam na ordem em que foram ligados, então
  * a tela (ou o painel da aba) já está visível quando o módulo dela desenha.
  */
-import * as db from './db.js?v=11';
-import { iniciarModais } from './util/dom.js?v=11';
-import { iniciarNavegacao } from './navegacao.js?v=11';
-import { iniciarLista } from './ui-lista.js?v=11';
-import { iniciarPerfil } from './ui-perfil.js?v=11';
-import { iniciarFotoDoPerfil } from './ui-fotos.js?v=11';
-import { iniciarModalAluno } from './ui-modal-aluno.js?v=11';
-import { iniciarTabDados } from './ui-tab-dados.js?v=11';
-import { iniciarTabAvaliacoes } from './ui-tab-avaliacoes.js?v=11';
-import { iniciarTabProgresso } from './ui-tab-progresso.js?v=11';
-import { iniciarTabAnamnese } from './ui-tab-anamnese.js?v=11';
-import { iniciarTabParq } from './ui-tab-par-q.js?v=11';
-import { iniciarTabFinanceiro } from './ui-tab-financeiro.js?v=11';
-import { iniciarTabMatriz } from './ui-tab-matriz.js?v=11';
-import { iniciarTabPortal } from './ui-tab-portal.js?v=11';
-import { iniciarTabRegistros } from './ui-tab-registros.js?v=11';
-import { iniciarTelaCheckin } from './ui-tela-checkin.js?v=11';
-import { iniciarTelaAgenda } from './ui-tela-agenda.js?v=11';
-import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js?v=11';
-import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js?v=11';
-import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=11';
-import { iniciarTelaMural } from './ui-tela-mural.js?v=11';
-import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=11';
-import { iniciarTelaLeads } from './ui-tela-leads.js?v=11';
-import { iniciarAutomacao } from './automacao.js?v=11';
-import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=11';
+import * as db from './db.js?v=12';
+import { iniciarModais } from './util/dom.js?v=12';
+import { iniciarNavegacao } from './navegacao.js?v=12';
+import { iniciarLista } from './ui-lista.js?v=12';
+import { iniciarPerfil } from './ui-perfil.js?v=12';
+import { iniciarFotoDoPerfil } from './ui-fotos.js?v=12';
+import { iniciarModalAluno } from './ui-modal-aluno.js?v=12';
+import { iniciarTabDados } from './ui-tab-dados.js?v=12';
+import { iniciarTabAvaliacoes } from './ui-tab-avaliacoes.js?v=12';
+import { iniciarTabProgresso } from './ui-tab-progresso.js?v=12';
+import { iniciarTabAnamnese } from './ui-tab-anamnese.js?v=12';
+import { iniciarTabParq } from './ui-tab-par-q.js?v=12';
+import { iniciarTabFinanceiro } from './ui-tab-financeiro.js?v=12';
+import { iniciarTabMatriz } from './ui-tab-matriz.js?v=12';
+import { iniciarTabPortal } from './ui-tab-portal.js?v=12';
+import { iniciarTabRegistros } from './ui-tab-registros.js?v=12';
+import { iniciarTelaCheckin } from './ui-tela-checkin.js?v=12';
+import { iniciarTelaAgenda } from './ui-tela-agenda.js?v=12';
+import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js?v=12';
+import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js?v=12';
+import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=12';
+import { iniciarTelaMural } from './ui-tela-mural.js?v=12';
+import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=12';
+import { iniciarTelaLeads } from './ui-tela-leads.js?v=12';
+import { iniciarAutomacao } from './automacao.js?v=12';
+import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=12';
 
 /**
  * @param {{

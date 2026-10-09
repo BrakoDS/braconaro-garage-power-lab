@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {
   recentes, publicarItem, alternarAtivo, removerItem, metaDiasValida, destinatariosDoAviso,
   followUpLead, painelDeLeads, comStatus, LIMIAR_FOLLOWUP,
-} from './comunicacao-regras.js?v=11';
+} from './comunicacao-regras.js?v=12';
 
 const DIA = 86400000;
 const AGORA = Date.UTC(2026, 9, 8, 15, 0);

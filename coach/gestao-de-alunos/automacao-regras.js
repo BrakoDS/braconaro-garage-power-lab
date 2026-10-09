@@ -27,8 +27,8 @@
  * nome, o telefone e o texto saem da ficha NA HORA de mostrar (`visiveis`) —
  * telefone trocado vale na hora, e a fila não vira uma cópia do cadastro.
  */
-import { cobrancasDoMes, msgCobranca, itensDaConta, itensFecham, linhasDosItens } from './financeiro-regras.js?v=11';
-import { MESES_FIN, brl } from './financeiro-aluno.js?v=11';
+import { cobrancasDoMes, msgCobranca, itensDaConta, itensFecham, linhasDosItens } from './financeiro-regras.js?v=12';
+import { MESES_FIN, brl } from './financeiro-aluno.js?v=12';
 
 /**
  * @typedef {'cobranca-vencida'|'recibo'} Gatilho
