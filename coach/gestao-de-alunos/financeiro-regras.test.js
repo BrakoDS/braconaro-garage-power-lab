@@ -205,7 +205,7 @@ test('cobranças: os limites dos grupos — vence hoje e em 5 dias é "em breve"
 
 test('lembrete: primeiro nome, mês, valor, prazo e a chave Pix', () => {
   const t = NB(msgCobranca({ nome: 'Ana Lima', vencimento: '10' }, OUT, 150, 3));
-  assert.match(t, /^Olá, Ana! 😊 Passando pra lembrar da mensalidade de Outubro \(R\$ 150,00\), que vence dia 10\./);
+  assert.match(t, /^Olá, Ana! 😊 Passando pra lembrar da sua mensalidade de Outubro \(R\$ 150,00\), que vence dia 10\./);
   assert.ok(t.includes(PIX.chave));
   assert.match(NB(msgCobranca({ nome: 'Edu', vencimento: '5' }, OUT, 100, -2)), /que venceu dia 5\./);
   assert.match(NB(msgCobranca({ nome: 'X', vencimento: '7' }, OUT, 1, 0)), /que vence hoje\./);
@@ -213,8 +213,8 @@ test('lembrete: primeiro nome, mês, valor, prazo e a chave Pix', () => {
   const itens = [{ rotulo: 'Mensalidade', valor: 150 }, { rotulo: '2x Água', valor: 10 }];
   assert.match(NB(msgCobranca({ nome: 'Ana', vencimento: '10' }, OUT, 160, 3, false, itens)),
     /^Olá, Ana! 😊 Passando pra lembrar da sua conta de Outubro \(R\$ 160,00\), que vence dia 10:\n- Mensalidade: R\$ 150,00\n- 2x Água: R\$ 10,00\nPra facilitar, o Pix/);
-  assert.match(NB(msgCobranca({ nome: 'Ana', vencimento: '10' }, OUT, 170, 3, false, itens)), /lembrar da conta de Outubro \(R\$ 170,00\), que vence dia 10\. Pra facilitar/, 'não fecha: texto curto');
-  assert.match(NB(msgCobranca({ nome: 'Ana', vencimento: '10' }, OUT, 283, 3, false)), /lembrar da conta de Outubro \(R\$ 283,00\)/,
+  assert.match(NB(msgCobranca({ nome: 'Ana', vencimento: '10' }, OUT, 170, 3, false, itens)), /lembrar da sua conta de Outubro \(R\$ 170,00\), que vence dia 10\. Pra facilitar/, 'não fecha: texto curto');
+  assert.match(NB(msgCobranca({ nome: 'Ana', vencimento: '10' }, OUT, 283, 3, false)), /lembrar da sua conta de Outubro \(R\$ 283,00\)/,
     'com consumo ou dependente junto, é a "conta", não a mensalidade');
 });
 

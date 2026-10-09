@@ -14,6 +14,7 @@
  * acha o e-mail de redefinição.
  */
 import { firebaseConfig } from '../../compartilhado/firebase/config.js';
+import { WHATSAPP_ENVIAR } from './util/formato.js?v=12';
 
 const V = '10.12.2';
 const REGIAO = 'southamerica-east1';
@@ -58,7 +59,8 @@ export function linkWhatsApp(telefone, texto) {
   const d = String(telefone || '').replace(/\D/g, '');
   if (d.length < 10) return '';
   const cheio = d.startsWith('55') && d.length >= 12 ? d : '55' + d;
-  return `https://wa.me/${cheio}?text=${encodeURIComponent(texto)}`;
+  // api.whatsapp.com, e não wa.me: o redirecionamento do wa.me quebra os emojis (ver WHATSAPP_ENVIAR).
+  return `${WHATSAPP_ENVIAR}?phone=${cheio}&text=${encodeURIComponent(texto)}`;
 }
 
 let _chamar = null;

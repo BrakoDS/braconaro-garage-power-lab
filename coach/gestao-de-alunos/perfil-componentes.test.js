@@ -202,7 +202,14 @@ test('formato: semana Seg–Sáb e link do WhatsApp com mensagem', () => {
   assert.equal(s.length, 6);
   assert.equal(s[0].getDay(), 1);
   assert.equal(s[5].getDay(), 6);
-  assert.equal(waMsg('(14) 99999-0000', 'Oi & tchau'), 'https://wa.me/5514999990000?text=Oi%20%26%20tchau');
+  assert.equal(waMsg('(14) 99999-0000', 'Oi & tchau'), 'https://api.whatsapp.com/send?phone=5514999990000&text=Oi%20%26%20tchau');
+  // Os emojis vão em UTF-8 e voltam inteiros — o wa.me os trocava por "" no redirecionamento.
+  const emoji = waMsg('14999990000', 'Olá! ✅ 😊 💪 🏅');
+  assert.ok(!emoji.includes('wa.me'), 'nada de wa.me');
+  assert.ok(emoji.includes('%E2%9C%85') && emoji.includes('%F0%9F%92%AA'), '✅ e 💪 codificados em UTF-8');
+  assert.equal(new URL(emoji).searchParams.get('text'), 'Olá! ✅ 😊 💪 🏅');
+  assert.equal(new URL(emoji).searchParams.get('phone'), '5514999990000');
+  assert.equal(waMsg('14999990000'), 'https://api.whatsapp.com/send?phone=5514999990000', 'sem texto: só a conversa');
   assert.equal(waMsg('', 'x'), '');
 });
 

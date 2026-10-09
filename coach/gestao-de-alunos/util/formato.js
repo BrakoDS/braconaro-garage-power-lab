@@ -76,6 +76,14 @@ export function horaLegivel(hhmm) {
 }
 
 /**
+ * O endereço que abre a conversa no WhatsApp. É o `api.whatsapp.com/send`, e
+ * NÃO o `wa.me`: o `wa.me` só redireciona para cá, e no redirecionamento troca
+ * todo emoji por "" (U+FFFD) — o ✅ e o 💪 chegavam quebrados no aluno, com o
+ * texto já certo em UTF-8 no nosso link. Este endereço guarda o texto intacto.
+ */
+export const WHATSAPP_ENVIAR = 'https://api.whatsapp.com/send';
+
+/**
  * Link do WhatsApp com a mensagem já escrita ('' sem número). Saiu do app.js
  * quando a aba Progresso (parabenizar pelas medalhas) foi para módulo próprio.
  * @param {string} [tel] @param {string} [msg]
@@ -84,7 +92,7 @@ export function waMsg(tel, msg) {
   const d = String(tel || '').replace(/\D/g, '');
   if (!d) return '';
   const full = d.startsWith('55') ? d : '55' + d;
-  return `https://wa.me/${full}${msg ? '?text=' + encodeURIComponent(msg) : ''}`;
+  return `${WHATSAPP_ENVIAR}?phone=${full}${msg ? '&text=' + encodeURIComponent(msg) : ''}`;
 }
 
 /**

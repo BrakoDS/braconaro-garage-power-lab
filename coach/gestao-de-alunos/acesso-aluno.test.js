@@ -29,15 +29,15 @@ test('sem nome na ficha, a saudacao nao fica pela metade', () => {
 });
 
 test('WhatsApp: DDI do Brasil quando falta, e nada sem telefone utilizavel', () => {
-  assert.match(linkWhatsApp('(14) 99866-0352', 'oi'), /^https:\/\/wa\.me\/5514998660352\?text=oi$/);
-  assert.match(linkWhatsApp('+55 14 99866-0352', 'oi'), /^https:\/\/wa\.me\/5514998660352\?/);
+  assert.equal(linkWhatsApp('(14) 99866-0352', 'oi'), 'https://api.whatsapp.com/send?phone=5514998660352&text=oi');
+  assert.match(linkWhatsApp('+55 14 99866-0352', 'oi'), /^https:\/\/api\.whatsapp\.com\/send\?phone=5514998660352&/);
   assert.equal(linkWhatsApp('', 'oi'), '');
   assert.equal(linkWhatsApp('1234', 'oi'), '');
 });
 
 test('o texto vai codificado: o & do link nao corta a mensagem no WhatsApp', () => {
   const url = linkWhatsApp('14998660352', mensagemConvite('Ana', 'a@b.com', LINK, true));
-  const texto = decodeURIComponent(url.split('?text=')[1]);
+  const texto = new URL(url).searchParams.get('text') || '';
   assert.ok(texto.includes(LINK));
-  assert.ok(!url.split('?text=')[1].includes('&'), 'nenhum & cru na query');
+  assert.ok(!url.split('&text=')[1].includes('&'), 'nenhum & cru no texto');
 });

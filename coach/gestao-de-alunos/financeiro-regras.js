@@ -231,7 +231,7 @@ export function msgCobranca(a, mesId, valor, dias, soMensalidade = true, itens =
   if (itens && itens.length && itensFecham(itens, valor)) {
     return `Olá, ${nome}! 😊 Passando pra lembrar da sua conta de ${mesNome} (${brl(valor)}), que ${quando}:\n${linhasDosItens(itens)}\n${pix}`;
   }
-  return `Olá, ${nome}! 😊 Passando pra lembrar da ${soMensalidade ? 'mensalidade' : 'conta'} de ${mesNome} (${brl(valor)}), que ${quando}. ${pix}`;
+  return `Olá, ${nome}! 😊 Passando pra lembrar da sua ${soMensalidade ? 'mensalidade' : 'conta'} de ${mesNome} (${brl(valor)}), que ${quando}. ${pix}`;
 }
 
 /**

@@ -85,19 +85,31 @@ db.criar({ id: 'Duda04', nome: 'Duda Reis', telefone: '14966665555', mensalidade
 
 /* ---------- a) a cobrança vencida entra sozinha ---------- */
 
-test('a) cobrança vencida: entra na fila sem ninguém pedir, com o selo, o texto pronto e o "sem telefone"', () => {
+test('a) cobrança vencida e lembrete: entram na fila sem ninguém pedir, com o selo, o texto pronto e o "sem telefone"', () => {
   emit(EVENTOS.ABRIR_TELA, 'lista');
-  assert.equal(selo(), '2', 'selo no botão da lista, sem abrir a tela');
+  assert.equal(selo(), '3', 'selo no botão da lista, sem abrir a tela');
   emit(EVENTOS.ABRIR_TELA, 'automacao');
-  assert.deepEqual(cartoes(), ['cobranca-vencida:Gil02:2026-10', 'cobranca-vencida:Ana01:2026-10'], 'a mais atrasada primeiro');
+  assert.deepEqual(cartoes(), ['cobranca-vencida:Gil02:2026-10', 'cobranca-vencida:Ana01:2026-10', 'cobranca-a-vencer:Edu03:2026-10'],
+    'as vencidas (a mais atrasada primeiro), depois os lembretes');
   const html = el('#auto-list').innerHTML;
-  assert.match(html, /Cobranças vencidas/);
+  assert.match(html, /Cobranças vencidas[\s\S]*Lembretes do mês \(a vencer\)/);
   assert.match(html, /Ana Lima[\s\S]*R\$\s150,00 · venceu há 4 dias/);
-  assert.match(html, /Olá, Ana! 😊 Passando pra lembrar da mensalidade de Outubro/);
+  assert.match(html, /Olá, Ana! 😊 Passando pra lembrar da sua mensalidade de Outubro/);
   assert.match(html, /auto-enviar" data-chave="cobranca-vencida:Ana01:2026-10"/);
   assert.ok(!/auto-enviar" data-chave="cobranca-vencida:Gil02/.test(html), 'Gil sem telefone: sem botão de enviar');
   assert.match(html, /sem telefone na ficha/);
-  assert.ok(!/Edu|Duda/.test(html), 'a vencer e cortesia ficam de fora');
+  assert.ok(!/Duda/.test(html), 'cortesia fica de fora');
+});
+
+test('lembrete: a conta a vencer aparece com "vence em N dias" e o texto "vence dia X"; descartado, não volta', () => {
+  const html = el('#auto-list').innerHTML;
+  assert.match(html, /auto-row auto-cobranca-a-vencer[\s\S]*Edu Prado[\s\S]*R\$\s200,00 · vence em 11 dias[\s\S]*Lembrete de vencimento/);
+  assert.match(html, /Olá, Edu! 😊 Passando pra lembrar da sua mensalidade de Outubro \(R\$\s200,00\), que vence dia 20\. Pra facilitar/);
+  const antes = logs().length;
+  clicar('auto-descartar', 'cobranca-a-vencer:Edu03:2026-10');
+  assert.equal(logs().length, antes);
+  assert.deepEqual(cartoes(), ['cobranca-vencida:Gil02:2026-10', 'cobranca-vencida:Ana01:2026-10']);
+  assert.equal(selo(), '2');
 });
 
 test('a) a fila acompanha a ficha: telefone novo no Gil vale na hora, e o botão aparece', () => {
@@ -116,8 +128,9 @@ test('b) Enviar: abre o WhatsApp com o texto, registra "mensagem-enviada" na fic
   parar();
   assert.equal(abertos.length, 1, 'um WhatsApp só');
   const url = new URL(abertos[0]);
-  assert.equal(url.origin + url.pathname, 'https://wa.me/5514999990000');
-  assert.match(url.searchParams.get('text') || '', /^Olá, Ana! 😊 Passando pra lembrar da mensalidade de Outubro \(R\$\s150,00\), que venceu dia 5/);
+  assert.equal(url.origin + url.pathname, 'https://api.whatsapp.com/send');
+  assert.equal(url.searchParams.get('phone'), '5514999990000');
+  assert.match(url.searchParams.get('text') || '', /^Olá, Ana! 😊 Passando pra lembrar da sua mensalidade de Outubro \(R\$\s150,00\), que venceu dia 5/);
   const novos = logs().slice(antes);
   assert.equal(novos.length, 1, 'um registro só');
   assert.deepEqual([novos[0].tipo, novos[0].alunoId, novos[0].alunoNome, novos[0].origem, novos[0].chave],
@@ -187,7 +200,7 @@ test('d) selo: acompanha a fila em qualquer tela — sobe com a ação, some com
   clicar('auto-enviar', 'recibo:Edu03:2026-10');
   assert.equal(selo(), null);
   assert.equal(abertos.length, 2);
-  assert.match(decodeURIComponent(abertos[1]), /^https:\/\/wa\.me\/5514955554444\?text=Olá, Edu! ✅ Recebi o pagamento/);
+  assert.match(decodeURIComponent(abertos[1]), /^https:\/\/api\.whatsapp\.com\/send\?phone=5514955554444&text=Olá, Edu! ✅ Recebi o pagamento/);
 });
 
 /* ---------- guardado neste aparelho ---------- */
@@ -275,10 +288,15 @@ test('Enviar num cartão velho sem telefone (o botão nem existe, mas o clique c
 test('d) selo: a virada do dia conta sem nenhum dado mudar — voltar para a lista refaz o selo', () => {
   db.criar({ id: 'Val11', nome: 'Val Dias', telefone: '14900002222', mensalidade: '90', vencimento: '9' });
   emit(EVENTOS.ABRIR_TELA, 'lista');
-  assert.equal(selo(), null, 'vence hoje: ainda não é cobrança vencida');
+  assert.deepEqual(mensagens().map((m) => [m.chave, m.dados.dias]), [['cobranca-a-vencer:Val11:2026-10', 0]], 'vence hoje: é lembrete');
+  emit(EVENTOS.ABRIR_TELA, 'automacao');
+  clicar('auto-descartar', 'cobranca-a-vencer:Val11:2026-10'); // o coach dispensa o lembrete
+  emit(EVENTOS.ABRIR_TELA, 'lista');
+  assert.equal(selo(), null);
   HOJE = '2026-10-10';
   emit(EVENTOS.ABRIR_TELA, 'lista');
-  assert.equal(selo(), '1', 'meia-noite passou: venceu ontem');
+  assert.equal(selo(), '1', 'meia-noite passou: venceu ontem — a cobrança vencida é outra mensagem');
+  assert.deepEqual(mensagens().map((m) => m.chave), ['cobranca-vencida:Val11:2026-10']);
 });
 
 test('consistência: o botão WhatsApp da tela Cobranças abre o MESMO texto da Fila (com o extrato dos consumos)', async () => {
@@ -292,7 +310,7 @@ test('consistência: o botão WhatsApp da tela Cobranças abre o MESMO texto da 
   db.criar({ id: 'Xan12', nome: 'Xande Lopes', telefone: '14912345678', mensalidade: '150', vencimento: venc,
     consumos: [{ id: 'x1', nome: 'Energético', preco: 10, data: `${mes}-01`, mesId: mes }, { id: 'x2', nome: 'Energético', preco: 10, data: `${mes}-01`, mesId: mes }] });
   emit(EVENTOS.ABRIR_TELA, 'cobrancas');
-  const href = (new RegExp('href="(https://wa\.me/[^"]+)"[^>]*data-id="Xan12"').exec(el('#cob-list').innerHTML) || [])[1];
+  const href = (new RegExp('href="(https://api\\.whatsapp\\.com/send[^"]+)"[^>]*data-id="Xan12"').exec(el('#cob-list').innerHTML) || [])[1];
   assert.ok(href, 'o botão da Cobranças existe');
   const daFila = mensagens().find((m) => m.alunoId === 'Xan12');
   if (Number(venc) < new Date().getDate()) {

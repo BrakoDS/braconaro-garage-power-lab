@@ -1,9 +1,10 @@
 // @ts-check
 /**
  * Tela Fila de mensagens — o que o motor de automação sugere mandar no
- * WhatsApp, com o texto pronto, e o selo de contagem no botão da lista.
+ * WhatsApp, com o texto pronto, e o selo de contagem no botão da lista: as
+ * cobranças vencidas, os lembretes do mês (a vencer) e os recibos.
  *
- * Nada sai sozinho. "Enviar" abre a conversa (wa.me) com o texto, marca a
+ * Nada sai sozinho. "Enviar" abre a conversa do WhatsApp com o texto, marca a
  * mensagem como enviada e deixa a linha "WhatsApp · …" na aba Registros do
  * aluno; "Descartar" só tira da fila. Nos dois casos a mensagem não volta
  * (o anti-spam é das regras: automacao-regras.js).
@@ -30,6 +31,7 @@ let deps = { abrir: (url) => { window.open(url, '_blank', 'noopener'); } };
 function detalhe(m) {
   const d = m.dados;
   if (m.gatilho === 'cobranca-vencida') return `${brl(d.valor)} · venceu há ${Math.abs(d.dias)} dia${Math.abs(d.dias) === 1 ? '' : 's'}`;
+  if (m.gatilho === 'cobranca-a-vencer') return `${brl(d.valor)} · ${d.dias === 0 ? 'vence hoje' : d.dias === 1 ? 'vence amanhã' : `vence em ${d.dias} dias`}`;
   return `${brl(d.valor)} · ${rotuloMesFin(d.mesId)}`;
 }
 
@@ -67,7 +69,7 @@ export function atualizarFilaDeMensagens() {
     return doGrupo.length ? `<h4 class="cob-grupo">${esc(info.grupo)}</h4>${doGrupo.map(linha).join('')}` : '';
   }).join('');
   $('#auto-list').innerHTML = grupos
-    || `<div class="empty"><b>Nenhuma mensagem na fila</b>Quando uma mensalidade vencer ou um pagamento entrar, a mensagem aparece aqui pronta para enviar.</div>`;
+    || `<div class="empty"><b>Nenhuma mensagem na fila</b>Quando houver conta do mês em aberto ou um pagamento entrar, a mensagem aparece aqui pronta para enviar.</div>`;
 }
 
 /** Enviar: abre o WhatsApp, marca e registra — uma vez só, mesmo com dois toques. @param {string} chave */

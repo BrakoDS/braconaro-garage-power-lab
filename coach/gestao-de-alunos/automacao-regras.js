@@ -3,7 +3,7 @@
  * O motor de automação de mensagens — as regras, puras.
  *
  * O motor SUGERE mensagens de WhatsApp; quem envia é o coach, num clique
- * (wa.me). Nada aqui grava, envia ou desenha: cada função recebe o estado e
+ * (api.whatsapp.com). Nada aqui grava, envia ou desenha: cada função recebe o estado e
  * devolve o resultado, sem alterar o que recebeu.
  *
  * As sugestões nascem de duas fontes:
@@ -12,13 +12,15 @@
  *   'acao-registrada'). Um pagamento vira um RECIBO. A sugestão entra na fila
  *   (`pendentes`) e espera o coach, porque o momento da ação não se repete.
  *
- *   CONDIÇÃO — um fato que passa a valer com a data. A mensalidade vencida não
- *   tem clique nenhum que a dispare: ela é VARRIDA do estado do box a cada
- *   desenho (`sugestoesDaVarredura`) e nunca fica guardada. Por isso a baixa
- *   tira a cobrança da fila sozinha: a varredura seguinte já não a encontra.
+ *   CONDIÇÃO — um fato que passa a valer com a data. A conta do mês em aberto
+ *   não tem clique nenhum que a dispare: ela é VARRIDA do estado do box a cada
+ *   desenho (`sugestoesDaVarredura`) e nunca fica guardada. Antes do
+ *   vencimento (ou no dia) vira LEMBRETE; depois, COBRANÇA VENCIDA — duas
+ *   chaves, então o aluno recebe no máximo um de cada. A baixa tira os dois da
+ *   fila sozinha: a varredura seguinte já não encontra a conta.
  *
- * O ANTI-SPAM é a chave de cada sugestão, `gatilho:aluno:período` (uma
- * cobrança por aluno por mês, um recibo por aluno por mês pago). Enviada ou
+ * O ANTI-SPAM é a chave de cada sugestão, `gatilho:aluno:período` (um
+ * lembrete e uma cobrança por aluno por mês, um recibo por aluno por mês pago). Enviada ou
  * descartada, a chave vai para `feitas` e a sugestão não aparece de novo —
  * nem vinda de outra varredura, nem de uma segunda baixa do mesmo mês, nem de
  * outro aparelho (as `feitas` sobem para a nuvem e se mesclam: `planoDeSync`).
@@ -31,7 +33,7 @@ import { cobrancasDoMes, msgCobranca, itensDaConta, itensFecham, linhasDosItens 
 import { MESES_FIN, brl } from './financeiro-aluno.js?v=12';
 
 /**
- * @typedef {'cobranca-vencida'|'recibo'} Gatilho
+ * @typedef {'cobranca-vencida'|'cobranca-a-vencer'|'recibo'} Gatilho
  * @typedef {{ chave: string, gatilho: Gatilho, alunoId: string, criadaEm: number, dados: Record<string, any> }} Sugestao
  *   criadaEm: quando a ação aconteceu (0 nas de condição — elas valem enquanto a condição vale)
  * @typedef {{ status: 'enviada'|'descartada', em: number }} Feita
@@ -45,6 +47,7 @@ const DIA = 86400000;
 /** Os gatilhos que existem, na ordem em que a fila os mostra. */
 export const GATILHOS = Object.freeze({
   'cobranca-vencida': Object.freeze({ rotulo: 'Cobrança vencida', fonte: 'condicao', grupo: 'Cobranças vencidas' }),
+  'cobranca-a-vencer': Object.freeze({ rotulo: 'Lembrete de vencimento', fonte: 'condicao', grupo: 'Lembretes do mês (a vencer)' }),
   'recibo': Object.freeze({ rotulo: 'Recibo de pagamento', fonte: 'acao', grupo: 'Recibos de pagamento' }),
 });
 const ORDEM = /** @type {Gatilho[]} */ (Object.keys(GATILHOS));
@@ -72,20 +75,27 @@ export const foiFeita = (fila, chave) => Object.prototype.hasOwnProperty.call(fi
    ============================================================ */
 
 /**
- * CONDIÇÃO — as mensalidades vencidas do mês de hoje, uma sugestão por conta
- * (a mesma lista e o mesmo valor da tela Cobranças: `cobrancasDoMes`).
+ * CONDIÇÃO — as contas em aberto do mês de hoje, uma sugestão por conta (a
+ * mesma lista e o mesmo valor da tela Cobranças: `cobrancasDoMes`):
+ *   - vencida (venceu ontem ou antes) → 'cobranca-vencida';
+ *   - vence hoje ou mais adiante no mês → 'cobranca-a-vencer' (o lembrete).
+ * Paga, cortesia (R$ 0), dependente com a conta no responsável e inativo
+ * ficam de fora — é a regra das Cobranças.
  * @param {any[]} todos @param {string} hojeIso
  * @returns {Sugestao[]}
  */
 export function sugestoesDaVarredura(todos, hojeIso) {
   const mesId = hojeIso.slice(0, 7);
-  return cobrancasDoMes(todos, mesId, hojeIso).vencidas.map(({ a, dias, valor, soMensalidade }) => ({
-    chave: chaveDe('cobranca-vencida', String(a.id), mesId),
-    gatilho: /** @type {Gatilho} */ ('cobranca-vencida'),
+  const { vencidas, emBreve, aVencer } = cobrancasDoMes(todos, mesId, hojeIso);
+  /** @param {Gatilho} gatilho @returns {(c: import('./financeiro-regras.js').Cobranca) => Sugestao} */
+  const sugestao = (gatilho) => ({ a, dias, valor, soMensalidade }) => ({
+    chave: chaveDe(gatilho, String(a.id), mesId),
+    gatilho,
     alunoId: String(a.id),
     criadaEm: 0,
     dados: { mesId, valor, dias, soMensalidade },
-  }));
+  });
+  return [...vencidas.map(sugestao('cobranca-vencida')), ...[...emBreve, ...aVencer].map(sugestao('cobranca-a-vencer'))];
 }
 
 /**
@@ -219,7 +229,7 @@ export function msgReciboDetalhado(a, mesId, valor, itens) {
 export function textoDa(s, a, todos = [a]) {
   const d = s.dados;
   const itens = itensDaConta(a, d.mesId, todos);
-  if (s.gatilho === 'cobranca-vencida') return msgCobranca(a, d.mesId, d.valor, d.dias, d.soMensalidade, itens);
+  if (s.gatilho === 'cobranca-vencida' || s.gatilho === 'cobranca-a-vencer') return msgCobranca(a, d.mesId, d.valor, d.dias, d.soMensalidade, itens);
   return itens && itensFecham(itens, d.valor) ? msgReciboDetalhado(a, d.mesId, d.valor, itens) : msgRecibo(a, d.mesId, d.valor, d.soMensalidade);
 }
 
@@ -227,7 +237,8 @@ export function textoDa(s, a, todos = [a]) {
  * O que a fila mostra: as condições varridas agora e as ações esperando, sem
  * nada enviado ou descartado, sem chave repetida e sem aluno que não existe
  * mais — já com nome, telefone e texto tirados da ficha atual. Em ordem: os
- * gatilhos na ordem de `GATILHOS`; a cobrança mais atrasada primeiro; o
+ * gatilhos na ordem de `GATILHOS`; a cobrança mais atrasada e o lembrete que
+ * vence antes primeiro; o
  * recibo mais novo primeiro.
  * @param {Fila} fila @param {Sugestao[]} varredura @param {any[]} todos
  * @returns {Mensagem[]}
@@ -246,7 +257,7 @@ export function visiveis(fila, varredura, todos) {
     saida.push({ ...s, nome: a.nome || 'Sem nome', telefone, temTelefone: telefone.length >= 10, texto: textoDa(s, a, todos), rotulo: GATILHOS[s.gatilho].rotulo });
   }
   return saida.sort((x, y) => ORDEM.indexOf(x.gatilho) - ORDEM.indexOf(y.gatilho)
-    || (x.gatilho === 'cobranca-vencida' ? x.dados.dias - y.dados.dias : y.criadaEm - x.criadaEm)
+    || (GATILHOS[x.gatilho].fonte === 'condicao' ? x.dados.dias - y.dados.dias : y.criadaEm - x.criadaEm)
     || (x.chave < y.chave ? -1 : x.chave > y.chave ? 1 : 0));
 }
 

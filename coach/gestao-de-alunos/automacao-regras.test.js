@@ -48,28 +48,34 @@ const desfez = (aluno, mesId) => ({ tipo: 'pagamento-desfeito', aluno, dados: { 
 /** Congela fundo: uma função que altere o que recebe lança. */
 const gelo = (x) => { if (x && typeof x === 'object') { Object.values(x).forEach(gelo); Object.freeze(x); } return x; };
 
-/* ---------- condição: a cobrança vencida ---------- */
+/* ---------- condição: a conta do mês em aberto (vencida ou a vencer) ---------- */
 
-test('varredura: só a conta VENCIDA do mês — a mesma de Cobranças (conta real, sem cortesia, dependente, inativo, pago ou a vencer)', () => {
+test('varredura: toda conta do mês em aberto — vencida vira cobrança, a vencer vira lembrete; a mesma lista das Cobranças (sem cortesia, dependente, inativo ou pago)', () => {
   const s = sugestoesDaVarredura(todos(box()), HOJE);
-  assert.deepEqual(s.map((x) => [x.chave, x.alunoId, x.dados.valor, x.dados.dias, x.dados.soMensalidade]), [
-    ['cobranca-vencida:Gil:2026-10', 'Gil', 100, -7, true],
-    ['cobranca-vencida:Ana:2026-10', 'Ana', 270, -3, false],
+  assert.deepEqual(s.map((x) => [x.chave, x.gatilho, x.alunoId, x.dados.valor, x.dados.dias, x.dados.soMensalidade]), [
+    ['cobranca-vencida:Gil:2026-10', 'cobranca-vencida', 'Gil', 100, -7, true],
+    ['cobranca-vencida:Ana:2026-10', 'cobranca-vencida', 'Ana', 270, -3, false],
+    ['cobranca-a-vencer:Edu:2026-10', 'cobranca-a-vencer', 'Edu', 200, 12, true],
   ]);
-  assert.ok(s.every((x) => x.gatilho === 'cobranca-vencida' && x.criadaEm === 0 && x.dados.mesId === OUT));
+  assert.ok(s.every((x) => x.criadaEm === 0 && x.dados.mesId === OUT));
 });
 
-test('varredura: no dia do vencimento ainda não é "vencida"; no dia seguinte, é', () => {
+test('varredura: até o dia do vencimento é LEMBRETE; no dia seguinte vira COBRANÇA VENCIDA (outra chave)', () => {
   const b = { ana: { id: 'Ana', nome: 'Ana', mensalidade: '150', vencimento: '8' } };
-  assert.equal(sugestoesDaVarredura(todos(b), '2026-10-08').length, 0);
-  assert.equal(sugestoesDaVarredura(todos(b), '2026-10-09').length, 1);
+  const no = (dia) => sugestoesDaVarredura(todos(b), dia).map((x) => [x.chave, x.dados.dias]);
+  assert.deepEqual(no('2026-10-01'), [['cobranca-a-vencer:Ana:2026-10', 7]], 'no começo do mês já é lembrete');
+  assert.deepEqual(no('2026-10-07'), [['cobranca-a-vencer:Ana:2026-10', 1]]);
+  assert.deepEqual(no('2026-10-08'), [['cobranca-a-vencer:Ana:2026-10', 0]], 'no dia: "vence hoje"');
+  assert.deepEqual(no('2026-10-09'), [['cobranca-vencida:Ana:2026-10', -1]]);
 });
 
-test('varredura: a baixa tira a cobrança da fila — a condição deixou de valer', () => {
+test('varredura: a baixa tira a cobrança E o lembrete da fila — a condição deixou de valer', () => {
   const b = box();
-  const r = darBaixa(b.ana, OUT, todos(b));
-  assert.ok(r);
-  b.ana = { ...b.ana, ...r.patch };
+  for (const k of ['ana', 'edu']) {
+    const r = darBaixa(b[k], OUT, todos(b));
+    assert.ok(r);
+    b[k] = { ...b[k], ...r.patch };
+  }
   assert.deepEqual(sugestoesDaVarredura(todos(b), HOJE).map((x) => x.alunoId), ['Gil']);
 });
 
@@ -177,6 +183,41 @@ test('detalhe: a fila (visiveis) usa o box inteiro — o dependente aparece no t
   assert.match(NB(m.texto), /\(R\$ 278,00\)[^\n]*:\n- Mensalidade: R\$ 150,00\n- Mensalidade \(Bia\): R\$ 120,00\n- 1x Barra \(Bia\): R\$ 8,00\n/);
 });
 
+/* ---------- o lembrete (a vencer) ---------- */
+
+test('lembrete: o texto é o lembrete "vence dia X" das Cobranças — com o extrato quando há consumo', () => {
+  const b = box();
+  const edu = sugestoesDaVarredura(todos(b), HOJE).find((x) => x.alunoId === 'Edu');
+  assert.ok(edu);
+  assert.equal(NB(textoDa(edu, b.edu, todos(b))), `Olá, Edu! 😊 Passando pra lembrar da sua mensalidade de Outubro (R$ 200,00), que vence dia 20. ${PIX_TXT}`);
+  const rui = { id: 'Rui', nome: 'Rui', telefone: '14999990000', mensalidade: '150', vencimento: '15',
+    consumos: [cons('c1', 'Energético', 10), cons('c2', 'Energético', 10)] };
+  const s = sugestoesDaVarredura([rui], HOJE)[0];
+  assert.equal(s.gatilho, 'cobranca-a-vencer');
+  assert.equal(NB(textoDa(s, rui, [rui])), `Olá, Rui! 😊 Passando pra lembrar da sua conta de Outubro (R$ 170,00), que vence dia 15:\n- Mensalidade: R$ 150,00\n- 2x Energético: R$ 20,00\n${PIX_TXT}`);
+  const noDia = { ...rui, vencimento: '8' };
+  assert.match(NB(textoDa(sugestoesDaVarredura([noDia], HOJE)[0], noDia, [noDia])), /, que vence hoje:\n/);
+});
+
+test('anti-spam: o lembrete vai UMA vez no mês — enviado, não volta nos dias seguintes; a cobrança vencida, se vier, é outra mensagem', () => {
+  const b = { ana: { id: 'Ana', nome: 'Ana', telefone: '14999990000', mensalidade: '150', vencimento: '20' } };
+  let f = filaVazia();
+  const ver = (dia) => visiveis(f, sugestoesDaVarredura(todos(b), dia), todos(b)).map((m) => m.chave);
+  assert.deepEqual(ver('2026-10-01'), ['cobranca-a-vencer:Ana:2026-10']);
+  f = marcar(f, 'cobranca-a-vencer:Ana:2026-10', 'enviada', T0);
+  for (const dia of ['2026-10-02', '2026-10-15', '2026-10-19', '2026-10-20']) assert.deepEqual(ver(dia), [], dia);
+  assert.deepEqual(ver('2026-10-21'), ['cobranca-vencida:Ana:2026-10'], 'venceu sem pagar: a cobrança é outra chave');
+  f = marcar(f, 'cobranca-vencida:Ana:2026-10', 'enviada', T0);
+  assert.deepEqual(ver('2026-10-31'), []);
+  assert.deepEqual(ver('2026-11-01'), ['cobranca-a-vencer:Ana:2026-11'], 'mês novo, lembrete novo');
+});
+
+test('anti-spam: lembrete DESCARTADO também não volta no mês', () => {
+  const b = { ana: { id: 'Ana', nome: 'Ana', telefone: '14999990000', mensalidade: '150', vencimento: '20' } };
+  const f = marcar(filaVazia(), 'cobranca-a-vencer:Ana:2026-10', 'descartada', T0);
+  assert.deepEqual(visiveis(f, sugestoesDaVarredura(todos(b), '2026-10-12'), todos(b)), []);
+});
+
 /* ---------- a fila ---------- */
 
 test('fila: o mesmo pagamento duas vezes é UM recibo — e o segundo troca o valor do primeiro', () => {
@@ -209,7 +250,7 @@ test('anti-spam: DESCARTADA também não volta, nem pela varredura seguinte', ()
   const b = box();
   const f = marcar(filaVazia(), 'cobranca-vencida:Gil:2026-10', 'descartada', T0);
   const vis = visiveis(f, sugestoesDaVarredura(todos(b), HOJE), todos(b));
-  assert.deepEqual(vis.map((m) => m.chave), ['cobranca-vencida:Ana:2026-10']);
+  assert.deepEqual(vis.map((m) => m.chave), ['cobranca-vencida:Ana:2026-10', 'cobranca-a-vencer:Edu:2026-10']);
   // Uma semana depois, o Gil continua devendo — e continua fora.
   assert.ok(!visiveis(f, sugestoesDaVarredura(todos(b), '2026-10-15'), todos(b)).some((m) => m.alunoId === 'Gil'));
 });
@@ -239,6 +280,7 @@ test('visíveis: varredura + ações, sem repetir chave, sem aluno apagado, com 
   const vis = visiveis(gelo(f), gelo([...varr, ...varr]), gelo(todos(b)));
   assert.deepEqual(vis.map((m) => m.chave), [
     'cobranca-vencida:Gil:2026-10', 'cobranca-vencida:Ana:2026-10', // a mais atrasada primeiro
+    'cobranca-a-vencer:Edu:2026-10', // depois os lembretes, o que vence antes primeiro
     'recibo:Fab:2026-10', 'recibo:Edu:2026-10', // o recibo mais novo primeiro
   ]);
   const ana = vis[1];
@@ -405,24 +447,29 @@ test('aleatório: o lembrete da Fila é IDÊNTICO ao do botão da tela Cobrança
   const r = mulberry32(99);
   const pick = (/** @type {any[]} */ l) => l[Math.floor(r() * l.length)];
   const produtos = [['Energético', 10], ['Água', 5], ['Gel', 9.99], ['Camiseta', 60], ['Barra', 8.5]];
-  let comExtrato = 0, curtos = 0;
+  let comExtrato = 0, curtos = 0, aVencer = 0;
   for (let i = 0; i < 400; i++) {
     const n = 1 + Math.floor(r() * 6);
     const box = Array.from({ length: n }, (_, k) => {
-      const a = /** @type {any} */ ({ id: 'A' + k, nome: 'Aluno ' + k, telefone: '1499999000' + k, mensalidade: String(pick([0, 90, 120, 150.5])), vencimento: String(1 + Math.floor(r() * 7)) });
+      const a = /** @type {any} */ ({ id: 'A' + k, nome: 'Aluno ' + k, telefone: '1499999000' + k, mensalidade: String(pick([0, 90, 120, 150.5])), vencimento: String(1 + Math.floor(r() * 28)) });
       if (r() < 0.3) a.parceria = { nome: 'P', percentual: pick([10, 25, 50, 100]) };
       a.consumos = Array.from({ length: Math.floor(r() * 4) }, (_, j) => { const [nome, preco] = pick(produtos); return cons(`c${j}`, nome, preco, r() < 0.85 ? OUT : '2026-11'); });
       if (r() < 0.2) a.status = 'inativo';
       return a;
     });
     for (const a of box) if (r() < 0.3 && box.length > 1) { const resp = pick(box); if (resp !== a && !resp.pagoPor) a.pagoPor = { id: resp.id, escopo: pick(['tudo', 'plano']) }; }
-    const naTela = cobrancasDoMes(box, OUT, HOJE).vencidas;
+    const tela = cobrancasDoMes(box, OUT, HOJE);
+    // A Fila mostra as vencidas e depois as a vencer, cada grupo do vencimento mais cedo ao mais tarde.
+    const porDias = (/** @type {any[]} */ l) => l.slice().sort((x, y) => x.dias - y.dias || (String(x.a.id) < String(y.a.id) ? -1 : 1));
+    const naTela = [...porDias(tela.vencidas), ...porDias([...tela.emBreve, ...tela.aVencer])];
     const naFila = visiveis(filaVazia(), sugestoesDaVarredura(box, HOJE), box);
     assert.deepEqual(naFila.map((m) => m.alunoId), naTela.map((c) => String(c.a.id)));
     naTela.forEach((c, k) => {
       assert.equal(naFila[k].texto, msgCobranca(c.a, OUT, c.valor, c.dias, c.soMensalidade, c.itens));
+      assert.equal(naFila[k].gatilho, c.dias < 0 ? 'cobranca-vencida' : 'cobranca-a-vencer');
+      if (c.dias >= 0) aVencer++;
       if (c.itens) { comExtrato++; assert.ok(itensFecham(c.itens, c.valor), 'o extrato soma o total'); } else curtos++;
     });
   }
-  assert.ok(comExtrato > 100 && curtos > 50, `cobertura: ${comExtrato} com extrato, ${curtos} curtos`);
+  assert.ok(comExtrato > 100 && curtos > 50 && aVencer > 100, `cobertura: ${comExtrato} com extrato, ${curtos} curtos, ${aVencer} a vencer`);
 });

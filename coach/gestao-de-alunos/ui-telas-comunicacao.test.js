@@ -145,7 +145,7 @@ test('aviso: sem mensagem, avisa e não abre nada; com mensagem, abre o WhatsApp
   assert.deepEqual(fora.chamadas, [['avisar', 'Escreva a mensagem primeiro.']]);
   el('#aviso-tpls').ouvintes.click({ target: { closest: () => ({ dataset: { t: 'Bom treino a todos! 💪' } }) } });
   el('#aviso-list').ouvintes.click({ target: { closest: () => ({ dataset: { id: 'a', tel: '(14) 99999-0000' } }) } });
-  assert.deepEqual(fora.chamadas[1], ['abrir', 'https://wa.me/5514999990000?text=Bom%20treino%20a%20todos!%20%F0%9F%92%AA']);
+  assert.deepEqual(fora.chamadas[1], ['abrir', 'https://api.whatsapp.com/send?phone=5514999990000&text=Bom%20treino%20a%20todos!%20%F0%9F%92%AA']);
   assert.equal(el('#aviso-count').textContent, '1 de 1 enviados');
   assert.match(el('#aviso-list').innerHTML, /Enviado ✓[^]*Reenviar/);
 });
