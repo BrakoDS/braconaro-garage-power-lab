@@ -24,11 +24,11 @@
  * @typedef {{ patch: Record<string, any>, log: EventoFinanceiro | null }} Mudanca
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=13';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=14';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, contaDoMes,
   eventoPagamento, eventoPagamentoDesfeito, eventoLancamento,
-} from './financeiro-aluno.js?v=13';
+} from './financeiro-aluno.js?v=14';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 /** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */

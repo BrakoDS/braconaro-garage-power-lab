@@ -36,14 +36,14 @@ globalThis.document = /** @type {any} */ ({ querySelector: (s) => (tela[s] ||= e
 // O FormData lê os campos "digitados" no elemento do formulário.
 globalThis.FormData = /** @type {any} */ (class { constructor(f) { this.m = f.campos; } entries() { return Object.entries(this.m); } get(k) { return this.m[k] ?? null; } });
 
-const saude = await import('./saude.js?v=13');
+const saude = await import('./saude.js?v=14');
 const { ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq, parqRaso, resumoAnamnese, resumoParq } = saude;
-const { regAnamnese, regParq } = await import('./registro.js?v=13');
-const eventos = await import('./eventos.js?v=13');
-const db = await import('./db.js?v=13');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=13');
-const { iniciarTabAnamnese, htmlAnamnese } = await import('./ui-tab-anamnese.js?v=13');
-const { iniciarTabParq, htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=13');
+const { regAnamnese, regParq } = await import('./registro.js?v=14');
+const eventos = await import('./eventos.js?v=14');
+const db = await import('./db.js?v=14');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=14');
+const { iniciarTabAnamnese, htmlAnamnese } = await import('./ui-tab-anamnese.js?v=14');
+const { iniciarTabParq, htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=14');
 iniciarTabAnamnese();
 iniciarTabParq();
 

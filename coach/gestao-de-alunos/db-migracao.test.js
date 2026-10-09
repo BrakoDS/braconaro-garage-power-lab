@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import {
   planejarMigracao, operacoes, emLotes, verificar, remontar, migrarNuvem, decidirTrava,
   normalizarEmail, ehIdDeDoc, canonico, idDoBackup, CAMPO_EMAIL_NORM, SCHEMA_V2, TRAVA_EXPIRA_MS,
-} from './db-migracao.js?v=13';
+} from './db-migracao.js?v=14';
 import { portaEmMemoria } from './db-memoria.js';
 
 const AGORA = new Date(2026, 9, 7, 14, 30).getTime(); // 07/10/2026, hora local

@@ -29,15 +29,15 @@
  * num formulário de cadastro convida o coach a digitar um número que vence na
  * segunda-feira seguinte. A leitura passa por aqui intacta, como veio.
  */
-import * as db from './db.js?v=13';
-import { estado, on, EVENTOS } from './estado.js?v=13';
-import { regFicha } from './registro.js?v=13';
+import * as db from './db.js?v=14';
+import { estado, on, EVENTOS } from './estado.js?v=14';
+import { regFicha } from './registro.js?v=14';
 import {
   CAMPO, matrizDe, separarParaGravar, e1rm, cargaDe1RM, resumoDeAdaptacoes, rotulo,
   OPCOES_NIVEL, FASES, LEVANTAMENTOS, ZONAS_RIR, REGIOES_LESAO, GRAVIDADES,
   REGRAS_IMPACTO, REGRAS_TRACAO, RESTRICOES_MOBILIDADE, GRUPOS_COM_ROTULO,
-} from '../../compartilhado/regras/matriz-individualizacao.js?v=13';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=13';
+} from '../../compartilhado/regras/matriz-individualizacao.js?v=14';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=14';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const $ = (s, r = document) => /** @type {any} */ (r.querySelector(s));

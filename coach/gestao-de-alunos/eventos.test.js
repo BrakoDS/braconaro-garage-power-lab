@@ -8,7 +8,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { camposAlterados, eventosDaCaixa, eventosDoDiario, novoEvento, origemDaCaixa } from './eventos.js?v=13';
+import { camposAlterados, eventosDaCaixa, eventosDoDiario, novoEvento, origemDaCaixa } from './eventos.js?v=14';
 
 const aluno = { id: '012', nome: 'Fulano de Tal', presencas: ['2026-09-20'], feedbacks: [{ id: 'fb-velho', criadoEm: 1 }] };
 

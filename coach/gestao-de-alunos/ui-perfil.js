@@ -21,9 +21,9 @@
  * O anel em volta da foto é o MESMO da lista (`util/reavaliacao.js`): o sinal
  * que fez o coach abrir a ficha continua visível quando ela abre.
  */
-import { esc, iniciais, hoje, STATUS_LABEL } from './util/formato.js?v=13';
-import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=13';
-import { estado, on, emit, EVENTOS } from './estado.js?v=13';
+import { esc, iniciais, hoje, STATUS_LABEL } from './util/formato.js?v=14';
+import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=14';
+import { estado, on, emit, EVENTOS } from './estado.js?v=14';
 
 /** As abas da ficha, na ordem da barra. `id` casa com o painel `#tab-<id>`. */
 export const ABAS = Object.freeze([

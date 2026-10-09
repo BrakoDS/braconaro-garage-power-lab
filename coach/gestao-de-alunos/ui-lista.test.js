@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { statusAvaliacao, reavaliacaoNaLista, ehInativo, filtrarOrdenar, htmlAluno, htmlLista, htmlResumo, seloReavaliacao } from './ui-lista.js?v=13';
+import { statusAvaliacao, reavaliacaoNaLista, ehInativo, filtrarOrdenar, htmlAluno, htmlLista, htmlResumo, seloReavaliacao } from './ui-lista.js?v=14';
 
 const HOJE = '2026-10-07';
 const aval = (realizada, proxima) => ({ num: 1, dataRealizada: realizada, dataProxima: proxima });

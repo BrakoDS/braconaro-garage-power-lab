@@ -8,12 +8,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formDadosHTML, htmlAcesso, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=13';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=13';
-import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=13';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=13';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=13';
-import { EVENTOS } from './estado.js?v=13';
+import { formDadosHTML, htmlAcesso, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=14';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=14';
+import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=14';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=14';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=14';
+import { EVENTOS } from './estado.js?v=14';
 
 /* ---------- util/formato.js ---------- */
 

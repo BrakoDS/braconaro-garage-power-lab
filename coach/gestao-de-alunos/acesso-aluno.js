@@ -14,7 +14,7 @@
  * acha o e-mail de redefinição.
  */
 import { firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { WHATSAPP_ENVIAR } from './util/formato.js?v=13';
+import { WHATSAPP_ENVIAR } from './util/formato.js?v=14';
 
 const V = '10.12.2';
 const REGIAO = 'southamerica-east1';
