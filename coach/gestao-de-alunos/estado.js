@@ -37,7 +37,7 @@ export const EVENTOS = Object.freeze({
   VOLTAR_LISTA: 'voltar-lista',
   /**
    * Pedido para mostrar uma tela ('lista', 'perfil', 'checkin', 'agenda',
-   * 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads').
+   * 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao').
    * O roteador (navegacao.js) mostra a tela; cada tela ouve o próprio nome
    * para se desenhar. Dado: o nome.
    */
@@ -48,6 +48,15 @@ export const EVENTOS = Object.freeze({
   TROCAR_FOTO: 'trocar-foto',
   /** Entrou evento novo no log da aba Registros (uma ação do coach, a caixa do aluno). Dado: o id do aluno, se houver. */
   REGISTROS_MUDARAM: 'registros-mudaram',
+  /**
+   * O coach acabou de fazer algo que ficou no log (registro.js). Dado:
+   * `{ tipo, aluno, evento, dados }` — o tipo do log ('pagamento', 'atestado'…),
+   * a ficha, o evento gravado e o fato em campos (`dados`, quando houver).
+   * A automação ouve para sugerir mensagens (automacao.js).
+   */
+  ACAO_REGISTRADA: 'acao-registrada',
+  /** A Fila de mensagens mudou (sugestão nova, enviada, descartada, sincronizada). */
+  AUTOMACAO_MUDOU: 'automacao-mudou',
 });
 
 /** @type {Map<string, Set<(dados?: any) => void>>} */

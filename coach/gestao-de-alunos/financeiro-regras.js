@@ -31,6 +31,8 @@ import {
 } from './financeiro-aluno.js?v=11';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
+/** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */
+const soMensalidadeDa = (conta) => !conta.dependentes.length && !(conta.propria.extras > 0);
 
 /* ============================================================
    As ações
@@ -45,8 +47,8 @@ const ativo = (a) => (a.status || 'ativo') !== 'inativo';
  */
 export function darBaixa(a, mesId, todos) {
   if (a.pagamentos && a.pagamentos[mesId]) return null;
-  const total = contaDoMes(a, mesId, todos).conta.total;
-  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, true) }, log: eventoPagamento(mesId, total) };
+  const { conta } = contaDoMes(a, mesId, todos);
+  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, true) }, log: eventoPagamento(mesId, conta.total, soMensalidadeDa(conta)) };
 }
 
 /**
@@ -162,23 +164,80 @@ export function diasAteVencimento(a, mesId, hojeIso) {
 /** A chave Pix e o nome que vão no lembrete. */
 export const PIX = Object.freeze({ chave: '66.567.011/0001-66', nome: 'Guilherme Braconaro' });
 
+/** @typedef {{ rotulo: string, valor: number }} ItemDaConta */
+
+const centavos = (v) => Math.round(v * 100);
+const primeiroNome = (n) => String(n || '').trim().split(/\s+/)[0] || '';
+
 /**
- * O lembrete de WhatsApp de uma conta do mês. Quando a conta é só a
- * mensalidade, o texto fala "mensalidade"; com consumo ou dependente junto, fala
- * "conta" — o valor é o total, o mesmo que o Portal mostra para pagar.
+ * O extrato de uma conta do mês (a `conta` de `contaDoMes`), na ordem em que
+ * se lê: a mensalidade, os consumos (o mesmo produto agrupado: "2x
+ * Energético"), e depois o que é de cada dependente, com o nome dele:
+ * "Mensalidade (Bia)". null quando a conta NÃO tem consumo — aí o lembrete
+ * curto de sempre basta.
+ *
+ * Sai da mesma conta que dá o total: a soma dos itens é o valor cobrado.
+ * @param {any} conta @returns {ItemDaConta[] | null}
+ */
+export function itensDaFatura(conta) {
+  const partes = [conta.propria, ...conta.dependentes];
+  if (!partes.some((p) => (p.consumos || []).some((c) => Number(c.preco) > 0))) return null;
+  /** @type {ItemDaConta[]} */
+  const itens = [];
+  /** @param {any} parte @param {string} [de] o nome do dependente */
+  const somar = (parte, de) => {
+    const sufixo = de ? ` (${de})` : '';
+    if (parte.mensalidade > 0) itens.push({ rotulo: `Mensalidade${sufixo}`, valor: parte.mensalidade });
+    /** @type {Map<string, { n: number, c: number }>} */
+    const porNome = new Map();
+    for (const c of parte.consumos || []) {
+      const preco = Number(c.preco) || 0;
+      if (preco <= 0) continue;
+      const nome = String(c.nome || '').trim() || 'Consumo';
+      const g = porNome.get(nome) || { n: 0, c: 0 };
+      porNome.set(nome, { n: g.n + 1, c: g.c + centavos(preco) });
+    }
+    for (const [nome, g] of porNome) itens.push({ rotulo: `${g.n}x ${nome}${sufixo}`, valor: g.c / 100 });
+  };
+  somar(conta.propria);
+  for (const d of conta.dependentes) somar(d, primeiroNome(d.nome));
+  return itens;
+}
+
+/** O extrato da conta de um aluno num mês. @param {any} a @param {string} mesId @param {any[]} todos */
+export const itensDaConta = (a, mesId, todos) => itensDaFatura(contaDoMes(a, mesId, todos).conta);
+
+/** Os itens somam exatamente `valor` (ao centavo)? @param {ItemDaConta[] | null} itens @param {number} valor */
+export const itensFecham = (itens, valor) => !!itens && itens.reduce((t, i) => t + centavos(i.valor), 0) === centavos(Number(valor) || 0);
+
+/** As linhas "- Item: R$ x" do extrato. @param {ItemDaConta[]} itens */
+export const linhasDosItens = (itens) => itens.map((i) => `- ${i.rotulo}: ${brl(i.valor)}`).join('\n');
+
+/**
+ * O lembrete de WhatsApp de uma conta do mês — o MESMO texto no botão da tela
+ * Cobranças e na Fila de mensagens. Quando a conta é só a mensalidade, o texto
+ * fala "mensalidade"; com consumo ou dependente junto, fala "conta" — o valor é
+ * o total, o mesmo que o Portal mostra para pagar. Com consumo (`itens`), o
+ * texto traz o extrato antes do Pix.
  * @param {any} a @param {string} mesId @param {number} valor @param {number} dias diasAteVencimento
  * @param {boolean} [soMensalidade] a conta é só a mensalidade (padrão: sim)
+ * @param {ItemDaConta[] | null} [itens] o extrato (`itensDaFatura`); só entra se fechar com `valor`
  */
-export function msgCobranca(a, mesId, valor, dias, soMensalidade = true) {
-  const nome = (a.nome || '').trim().split(/\s+/)[0] || '';
+export function msgCobranca(a, mesId, valor, dias, soMensalidade = true, itens = null) {
+  const nome = primeiroNome(a.nome);
   const mesNome = MESES_FIN[Number(mesId.split('-')[1]) - 1];
   const quando = dias < 0 ? `venceu dia ${a.vencimento}` : dias === 0 ? 'vence hoje' : `vence dia ${a.vencimento}`;
-  return `Olá, ${nome}! 😊 Passando pra lembrar da ${soMensalidade ? 'mensalidade' : 'conta'} de ${mesNome} (${brl(valor)}), que ${quando}. Pra facilitar, o Pix é a chave CNPJ ${PIX.chave} (${PIX.nome}) — dá pra pagar direto pelo Portal do Aluno também. Qualquer dúvida é só chamar! 💪`;
+  const pix = `Pra facilitar, o Pix é a chave CNPJ ${PIX.chave} (${PIX.nome}) — dá pra pagar direto pelo Portal do Aluno também. Qualquer dúvida é só chamar! 💪`;
+  if (itens && itens.length && itensFecham(itens, valor)) {
+    return `Olá, ${nome}! 😊 Passando pra lembrar da sua conta de ${mesNome} (${brl(valor)}), que ${quando}:\n${linhasDosItens(itens)}\n${pix}`;
+  }
+  return `Olá, ${nome}! 😊 Passando pra lembrar da ${soMensalidade ? 'mensalidade' : 'conta'} de ${mesNome} (${brl(valor)}), que ${quando}. ${pix}`;
 }
 
 /**
- * @typedef {{ a: any, dias: number, valor: number, soMensalidade: boolean }} Cobranca
+ * @typedef {{ a: any, dias: number, valor: number, soMensalidade: boolean, itens: ItemDaConta[] | null }} Cobranca
  *   valor: a FATURA do mês (mensalidade com parceria, consumos e dependentes)
+ *   itens: o extrato da fatura quando há consumo (`itensDaFatura`), senão null
  */
 
 /**
@@ -198,8 +257,7 @@ export function cobrancasDoMes(todos, mesId, hojeIso) {
     .filter((a) => ativo(a) && statusFin(a, mesId, hojeIso) !== 'pago')
     .map((a) => {
       const { conta } = contaDoMes(a, mesId, todos);
-      const soMensalidade = !conta.dependentes.length && !(conta.propria.extras > 0);
-      return { a, dias: diasAteVencimento(a, mesId, hojeIso), valor: conta.total, soMensalidade };
+      return { a, dias: diasAteVencimento(a, mesId, hojeIso), valor: conta.total, soMensalidade: soMensalidadeDa(conta), itens: itensDaFatura(conta) };
     })
     .filter((x) => x.valor > 0)
     .sort((x, y) => x.dias - y.dias);

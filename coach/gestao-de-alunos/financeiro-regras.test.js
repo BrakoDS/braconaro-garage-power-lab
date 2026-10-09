@@ -38,7 +38,7 @@ test('baixa: marca o mês e registra o valor da fatura NA HORA — com consumo e
   assert.ok(r);
   assert.deepEqual(r.patch, { pagamentos: { [SET]: true, [OUT]: true } });
   // 150 da Ana + 5 de água + a conta da Bia (120 + 8 de barra).
-  assert.deepEqual({ ...r.log, resumo: NB(r.log?.resumo || '') }, { tipo: 'pagamento', resumo: 'Pagamento registrado · Outubro / 2026 · R$ 283,00' });
+  assert.deepEqual({ ...r.log, resumo: NB(r.log?.resumo || '') }, { tipo: 'pagamento', resumo: 'Pagamento registrado · Outubro / 2026 · R$ 283,00', dados: { mesId: OUT, valor: 283, soMensalidade: false } });
 });
 
 test('baixa: um segundo clique no mês já pago não registra outro pagamento', () => {
@@ -55,7 +55,7 @@ test('baixa: parceria entra no valor; responsável que saiu devolve a conta ao a
 test('desfazer baixa: o mês volta a ficar em aberto; sem baixa, nada a desfazer', () => {
   const b = box();
   const r = desfazerBaixa(b.ana, SET);
-  assert.deepEqual(r, { patch: { pagamentos: {} }, log: { tipo: 'pagamento-desfeito', resumo: 'Pagamento desfeito · Setembro / 2026' } });
+  assert.deepEqual(r, { patch: { pagamentos: {} }, log: { tipo: 'pagamento-desfeito', resumo: 'Pagamento desfeito · Setembro / 2026', dados: { mesId: SET } } });
   assert.equal(desfazerBaixa(b.ana, OUT), null);
 });
 
@@ -209,6 +209,11 @@ test('lembrete: primeiro nome, mês, valor, prazo e a chave Pix', () => {
   assert.ok(t.includes(PIX.chave));
   assert.match(NB(msgCobranca({ nome: 'Edu', vencimento: '5' }, OUT, 100, -2)), /que venceu dia 5\./);
   assert.match(NB(msgCobranca({ nome: 'X', vencimento: '7' }, OUT, 1, 0)), /que vence hoje\./);
+  // Com o extrato: só entra se fechar com o valor (um extrato errado confundiria o aluno).
+  const itens = [{ rotulo: 'Mensalidade', valor: 150 }, { rotulo: '2x Água', valor: 10 }];
+  assert.match(NB(msgCobranca({ nome: 'Ana', vencimento: '10' }, OUT, 160, 3, false, itens)),
+    /^Olá, Ana! 😊 Passando pra lembrar da sua conta de Outubro \(R\$ 160,00\), que vence dia 10:\n- Mensalidade: R\$ 150,00\n- 2x Água: R\$ 10,00\nPra facilitar, o Pix/);
+  assert.match(NB(msgCobranca({ nome: 'Ana', vencimento: '10' }, OUT, 170, 3, false, itens)), /lembrar da conta de Outubro \(R\$ 170,00\), que vence dia 10\. Pra facilitar/, 'não fecha: texto curto');
   assert.match(NB(msgCobranca({ nome: 'Ana', vencimento: '10' }, OUT, 283, 3, false)), /lembrar da conta de Outubro \(R\$ 283,00\)/,
     'com consumo ou dependente junto, é a "conta", não a mensalidade');
 });

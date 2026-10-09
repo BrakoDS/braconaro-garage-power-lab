@@ -23,14 +23,14 @@ import { regFinanceiro } from './registro.js?v=11';
 const cobLembrados = new Set();
 
 /** Uma linha da lista. @param {string} mesId @returns {(c: import('./financeiro-regras.js').Cobranca) => string} */
-const linha = (mesId) => ({ a, dias: d, valor, soMensalidade }) => {
+const linha = (mesId) => ({ a, dias: d, valor, soMensalidade, itens }) => {
   const tel = String(a.telefone || '').replace(/\D/g, '');
   const urg = d < 0 ? `<span class="cob-badge vencido">Atrasada ${Math.abs(d)}d</span>`
     : d === 0 ? `<span class="cob-badge hoje">Vence hoje</span>`
       : `<span class="cob-badge breve">Em ${d}d</span>`;
   const feito = cobLembrados.has(a.id);
   const wa = tel.length >= 10
-    ? `<a class="btn btn-sm cob-wa" href="${waMsg(a.telefone, msgCobranca(a, mesId, valor, d, soMensalidade))}" target="_blank" rel="noopener" data-id="${esc(a.id)}">${feito ? 'Reenviar' : 'WhatsApp'}</a>`
+    ? `<a class="btn btn-sm cob-wa" href="${waMsg(a.telefone, msgCobranca(a, mesId, valor, d, soMensalidade, itens))}" target="_blank" rel="noopener" data-id="${esc(a.id)}">${feito ? 'Reenviar' : 'WhatsApp'}</a>`
     : `<span class="cob-semtel">sem telefone</span>`;
   return `<div class="cob-row${feito ? ' lembrado' : ''}">
       <div class="cob-info"><div class="fin-nome">${esc(a.nome)}${feito ? ' <span class="cob-ok">avisado ✓</span>' : ''}</div><div class="fin-sub">${brl(valor)} · vence dia ${esc(a.vencimento || '—')}</div></div>

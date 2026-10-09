@@ -15,7 +15,8 @@
  *   2) o Portal é publicado, já com o que a caixa trouxe;
  *   3) o mural e os desafios vêm da nuvem;
  *   4) os selos da lista (kcal e medalhas) e o ranking do box;
- *   5) o selo de follow-up dos leads.
+ *   5) o selo de follow-up dos leads;
+ *   6) a Fila de mensagens mescla o que outro aparelho já enviou ou descartou.
  */
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
@@ -31,6 +32,8 @@ import { $ } from './util/dom.js?v=11';
 import { renderLista } from './ui-lista.js?v=11';
 import { atualizarSelosDaLista } from './selos-lista.js?v=11';
 import { carregarBadgeLeads } from './ui-tela-leads.js?v=11';
+import { sincronizarAutomacao } from './automacao.js?v=11';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=11';
 import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=11';
 
 /* ============================================================
@@ -60,6 +63,7 @@ async function entrar(user) {
   $('#gate').style.display = 'none';
   $('#app').removeAttribute('hidden');
   renderLista();
+  atualizarFilaDeMensagens(); // o selo da Fila de mensagens, já com o que está neste aparelho
   // Sincroniza com a nuvem (se houver usuário logado). Não bloqueia a UI.
   if (!(user && user.uid)) return;
   eventos.configurarEventos(user.uid); // sobe o que ficou na fila da última sessão
@@ -94,6 +98,8 @@ async function entrar(user) {
     atualizarSelosDaLista();
     // 5) leads que precisam de follow-up (selo no botão "Leads")
     carregarBadgeLeads();
+    // 6) a Fila de mensagens: o que outro aparelho já enviou ou descartou sai daqui
+    sincronizarAutomacao(user.uid);
   });
 }
 

@@ -35,15 +35,19 @@ import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=11';
 import { iniciarTelaMural } from './ui-tela-mural.js?v=11';
 import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=11';
 import { iniciarTelaLeads } from './ui-tela-leads.js?v=11';
+import { iniciarAutomacao } from './automacao.js?v=11';
+import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=11';
 
 /**
  * @param {{
  *   exportarFicha?: (a: any) => any,
  *   urlPrevia?: string,
  *   avisos?: Parameters<typeof iniciarTelaAvisos>[0],
+ *   automacao?: Parameters<typeof iniciarTelaAutomacao>[0],
  * }} [o]
  *   exportarFicha: gera o PDF da ficha (o app passa o pdf.js); urlPrevia: a
- *   página da prévia do Portal; avisos: o que a tela de aviso usa de fora
+ *   página da prévia do Portal; avisos e automacao: o que a tela de aviso e a
+ *   Fila de mensagens usam de fora (abrir o WhatsApp)
  */
 export function iniciarTelas(o = {}) {
   // Primeiro quem mostra: o roteador de telas e o perfil (que troca o painel da aba).
@@ -72,4 +76,7 @@ export function iniciarTelas(o = {}) {
   iniciarTelaMural();
   iniciarTelaDesafios();
   iniciarTelaLeads();
+  // O motor de automação (ouve as ações do log) e a Fila de mensagens.
+  iniciarAutomacao();
+  iniciarTelaAutomacao(o.automacao);
 }

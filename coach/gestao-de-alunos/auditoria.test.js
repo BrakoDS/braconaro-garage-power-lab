@@ -29,8 +29,8 @@ const ana = { id: 'Ana', nome: 'Ana Lima', vencimento: '10', pagamentos: {} };
 
 test('auditoria: o texto de cada evento diz mês e valor', () => {
   assert.deepEqual({ ...eventoPagamento('2026-09', 280), resumo: NB(eventoPagamento('2026-09', 280).resumo) },
-    { tipo: 'pagamento', resumo: 'Pagamento registrado · Setembro / 2026 · R$ 280,00' });
-  assert.deepEqual(eventoPagamentoDesfeito('2026-09'), { tipo: 'pagamento-desfeito', resumo: 'Pagamento desfeito · Setembro / 2026' });
+    { tipo: 'pagamento', resumo: 'Pagamento registrado · Setembro / 2026 · R$ 280,00', dados: { mesId: '2026-09', valor: 280, soMensalidade: true } });
+  assert.deepEqual(eventoPagamentoDesfeito('2026-09'), { tipo: 'pagamento-desfeito', resumo: 'Pagamento desfeito · Setembro / 2026', dados: { mesId: '2026-09' } });
   const c = novoConsumo(ana, { nome: 'Camiseta', preco: 60 }, '2026-10-25', 'x');
   assert.equal(NB(eventoLancamento(c).resumo), 'Lançamento avulso · Camiseta · R$ 60,00 · fatura de Novembro / 2026',
     'a fatura vai junto: lançado depois do vencimento, cai na seguinte');

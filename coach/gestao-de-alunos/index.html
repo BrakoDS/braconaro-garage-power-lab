@@ -58,6 +58,7 @@
             <button class="btn ghost btn-sm" id="btn-mural" data-tela="mural" type="button">Avisos do Portal</button>
             <button class="btn ghost btn-sm" id="btn-desafios" data-tela="desafios" type="button">Desafios</button>
             <button class="btn ghost btn-sm" id="btn-leads" data-tela="leads" type="button">Leads</button>
+            <button class="btn ghost btn-sm" id="btn-automacao" data-tela="automacao" type="button">Fila de mensagens</button>
           </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -96,6 +97,16 @@
         <p class="hint" style="margin:6px 0 14px">Quem ainda não pagou este mês, do mais urgente ao menos. Toque em <b>WhatsApp</b> para enviar o lembrete já com o Pix.</p>
         <div class="fin-tot" id="cob-tot"></div>
         <div id="cob-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: FILA DE MENSAGENS (automação) ----------- -->
+    <section id="tela-automacao" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="auto-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head"><span class="eyebrow">Fila de mensagens</span></div>
+        <p class="hint" style="margin:6px 0 14px">Mensagens prontas para o WhatsApp, montadas a partir do que acontece no box. Nada sai sozinho: <b>Enviar</b> abre a conversa com o texto, <b>Descartar</b> tira da fila. Enviada ou descartada, a mensagem não volta.</p>
+        <div id="auto-list"></div>
       </div>
     </section>
 

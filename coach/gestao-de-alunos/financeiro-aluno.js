@@ -200,19 +200,26 @@ export function resumoDoPlano(a, todos, hojeIso) {
    testemunha da ação, não condição. Aqui só o texto, para ser o mesmo venha a
    baixa da aba do aluno, da tela Financeiro do box ou das Cobranças. */
 
-/** @typedef {{ tipo: 'pagamento'|'pagamento-desfeito'|'lancamento', resumo: string }} EventoFinanceiro */
+/**
+ * @typedef {{ tipo: 'pagamento'|'pagamento-desfeito'|'lancamento', resumo: string,
+ *   dados?: { mesId: string, valor?: number, soMensalidade?: boolean } }} EventoFinanceiro
+ *   dados: o fato em campos (o mês, o valor) para quem ouve o barramento — a
+ *   automação monta o recibo com eles. Não vai para o log: lá fica o resumo.
+ */
 
 /**
  * Baixa de uma fatura, com o valor que ela tinha na hora.
- * @param {string} mesId @param {number} total @returns {EventoFinanceiro}
+ * @param {string} mesId @param {number} total
+ * @param {boolean} [soMensalidade] a fatura é só a mensalidade (sem consumo nem dependente)
+ * @returns {EventoFinanceiro}
  */
-export function eventoPagamento(mesId, total) {
-  return { tipo: 'pagamento', resumo: `Pagamento registrado · ${rotuloMesFin(mesId)} · ${brl(total)}` };
+export function eventoPagamento(mesId, total, soMensalidade = true) {
+  return { tipo: 'pagamento', resumo: `Pagamento registrado · ${rotuloMesFin(mesId)} · ${brl(total)}`, dados: { mesId, valor: total, soMensalidade } };
 }
 
 /** Baixa desfeita. @param {string} mesId @returns {EventoFinanceiro} */
 export function eventoPagamentoDesfeito(mesId) {
-  return { tipo: 'pagamento-desfeito', resumo: `Pagamento desfeito · ${rotuloMesFin(mesId)}` };
+  return { tipo: 'pagamento-desfeito', resumo: `Pagamento desfeito · ${rotuloMesFin(mesId)}`, dados: { mesId } };
 }
 
 /**

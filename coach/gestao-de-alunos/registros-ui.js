@@ -31,10 +31,12 @@ export const TIPOS = {
   'pagamento': { icone: '💰', categoria: 'financeiro' },
   'pagamento-desfeito': { icone: '↩️', categoria: 'financeiro' },
   'lancamento': { icone: '🧾', categoria: 'financeiro' },
+  // O WhatsApp que o coach abriu pela Fila de mensagens (automacao.js).
+  'mensagem-enviada': { icone: '📤', categoria: 'mensagem' },
 };
 
 export const CATEGORIAS = [
-  ['todos', 'Tudo'], ['presenca', 'Presença'], ['foto', 'Foto'], ['feedback', 'Feedback'], ['ficha', 'Ficha'], ['financeiro', 'Financeiro'],
+  ['todos', 'Tudo'], ['presenca', 'Presença'], ['foto', 'Foto'], ['feedback', 'Feedback'], ['ficha', 'Ficha'], ['financeiro', 'Financeiro'], ['mensagem', 'Mensagens'],
 ];
 
 export const ORIGEM_ROTULO = { app: 'App', portal: 'Portal do aluno', gestao: 'Gestão', aluno: 'Aluno' };

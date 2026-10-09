@@ -377,10 +377,20 @@ button{font-family:inherit}
 .cob-row.lead-parado{border-left:3px solid var(--bad)}
 .lead-status{background:var(--bg-2);border:1px solid var(--line-2);color:var(--txt);padding:7px 10px;font:inherit;font-size:.85rem}
 /* selo de contagem no botão "Leads" da listagem (lembrete de follow-up) */
-#btn-leads{position:relative}
+#btn-leads,#btn-automacao{position:relative}
 .btn-badge{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;
   background:var(--bad);color:#fff;font-size:.7rem;font-weight:700;line-height:18px;text-align:center;
   box-shadow:0 0 0 2px var(--bg)}
+/* Fila de mensagens (automação) */
+.auto-row{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--line-2);padding:12px 14px;margin-bottom:10px}
+.auto-row.auto-cobranca-vencida{border-left-color:var(--bad)}
+.auto-row.auto-recibo{border-left-color:#3fb950}
+.auto-cab{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.auto-tag{font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--bg-3);color:var(--mut)}
+.auto-cobranca-vencida .auto-tag{background:#ff5b5022;color:#ff5b50}
+.auto-recibo .auto-tag{background:#3fb95022;color:#3fb950}
+.auto-texto{margin:10px 0;padding:10px 12px;background:var(--bg);border:1px solid var(--line);color:var(--txt);font-size:.88rem;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.auto-acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 /* Medalhas do aluno (coach) */
 .med-resumo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .med-cont{font-family:var(--font-cond);font-weight:700;font-size:2rem;line-height:1;color:var(--accent)}

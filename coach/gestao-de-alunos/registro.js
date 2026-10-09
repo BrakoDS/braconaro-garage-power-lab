@@ -12,23 +12,30 @@ import { emit, EVENTOS } from './estado.js?v=11';
 import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=11';
 
 /**
- * Registra o que o coach acabou de fazer.
+ * Registra o que o coach acabou de fazer — e avisa o barramento.
+ *
+ * 'acao-registrada' leva a ação inteira (`{ tipo, aluno, evento, dados }`): é
+ * por ela que a automação sabe que um pagamento acabou de entrar. `dados` é o
+ * fato em campos (o mês e o valor de um pagamento) e não vai para o log.
  * @param {string} tipo @param {any} a a ficha @param {string} resumo @param {any} [extra]
+ * @param {Record<string, any>} [dados]
  */
-export function reg(tipo, a, resumo, extra = {}) {
+export function reg(tipo, a, resumo, extra = {}, dados) {
   if (!a) return;
-  eventos.registrar(eventos.novoEvento({ tipo, origem: 'gestao', aluno: a, em: Date.now(), resumo, ...extra }));
+  const ev = eventos.novoEvento({ tipo, origem: 'gestao', aluno: a, em: Date.now(), resumo, ...extra });
+  eventos.registrar(ev);
   // A aba Registros aberta mostra a linha na hora, sem reabrir.
   emit(EVENTOS.REGISTROS_MUDARAM, String(a.id));
+  emit(EVENTOS.ACAO_REGISTRADA, { tipo, aluno: a, evento: ev, dados });
 }
 
 /**
  * Registra um evento financeiro já montado (financeiro-aluno.js: eventoPagamento,
  * eventoPagamentoDesfeito, eventoLancamento).
- * @param {any} a @param {{ tipo: string, resumo: string }} ev
+ * @param {any} a @param {import('./financeiro-aluno.js').EventoFinanceiro} ev
  */
 export function regFinanceiro(a, ev) {
-  reg(ev.tipo, a, ev.resumo);
+  reg(ev.tipo, a, ev.resumo, {}, ev.dados);
 }
 
 /** "Ficha editada · Telefone, Plano" — só quando algo mudou de verdade. @param {any} antes @param {any} depois */

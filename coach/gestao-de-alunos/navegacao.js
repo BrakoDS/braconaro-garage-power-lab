@@ -17,7 +17,7 @@
 import { on, emit, EVENTOS } from './estado.js?v=11';
 
 /** As telas que existem, na ordem da barra. */
-export const TELAS = Object.freeze(['lista', 'perfil', 'checkin', 'agenda', 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads']);
+export const TELAS = Object.freeze(['lista', 'perfil', 'checkin', 'agenda', 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao']);
 
 /** A tela à mostra agora. */
 let atual = 'lista';
