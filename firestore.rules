@@ -496,8 +496,10 @@ service cloud.firestore {
     // no dia: `lousa/{AAAA-MM-DD}/alunos/{email}`. O tablet do box (logado como
     // coach) e o celular do aluno mexem no MESMO documento:
     //  - o ALUNO lê e grava só o dele; o COACH lê e grava todos;
-    //  - só quatro campos: `aulaSelecionada` (a modalidade DESTE aluno — a Ana
-    //    no Cross e o Bruno no H1 no mesmo horário), `feitos` (lista de ids
+    //  - só cinco campos: `horarioAula` (a turma em que o aluno se conectou à
+    //    lousa, 'HH:MM', ou null ao sair — é o que o põe no tablet; o check-in
+    //    da Gestão não entra), `aulaSelecionada` (a modalidade DESTE aluno — a
+    //    Ana no Cross e o Bruno no H1 no mesmo horário), `feitos` (lista de ids
     //    ticados), `timer` e `atualizadoEm`;
     //  - o descanso guarda só o início e a duração, nunca o tempo que falta — e o
     //    início tem de ser a hora do servidor (`serverTimestamp()`) quando muda:
@@ -513,7 +515,9 @@ service cloud.firestore {
     }
     function lousaValida() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['aulaSelecionada', 'feitos', 'timer', 'atualizadoEm'])
+      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'feitos', 'timer', 'atualizadoEm'])
+        && (d.get('horarioAula', null) == null
+          || (d.horarioAula is string && d.horarioAula.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))
         && (!('aulaSelecionada' in d)
           || (d.aulaSelecionada is string && d.aulaSelecionada.size() >= 1 && d.aulaSelecionada.size() <= 40))
         && d.get('feitos', []) is list && d.get('feitos', []).size() <= 200
