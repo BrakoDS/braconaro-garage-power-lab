@@ -491,5 +491,39 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.token.email.lower() == email.lower();
       allow read, write: if ehCoach();
     }
+
+    // Lousa Digital (portal-aluno-web, /lousa) — o treino ao vivo de cada aluno
+    // no dia: `lousa/{AAAA-MM-DD}/alunos/{email}`. O tablet do box (logado como
+    // coach) e o celular do aluno mexem no MESMO documento:
+    //  - o ALUNO lê e grava só o dele; o COACH lê e grava todos;
+    //  - só quatro campos: `aulaSelecionada` (a modalidade DESTE aluno — a Ana
+    //    no Cross e o Bruno no H1 no mesmo horário), `feitos` (lista de ids
+    //    ticados), `timer` e `atualizadoEm`;
+    //  - o descanso guarda só o início e a duração, nunca o tempo que falta — e o
+    //    início tem de ser a hora do servidor (`serverTimestamp()`) quando muda:
+    //    um relógio de aparelho errado não entra no documento que o outro lê.
+    function timerDaLousaValido(t) {
+      return t == null
+        || (t is map
+          && t.keys().hasOnly(['timerStartedAt', 'durationSeconds'])
+          && t.durationSeconds is int && t.durationSeconds >= 5 && t.durationSeconds <= 3600
+          && t.timerStartedAt is timestamp
+          && (t.timerStartedAt == request.time
+            || (resource != null && resource.data.get('timer', null) == t)));
+    }
+    function lousaValida() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['aulaSelecionada', 'feitos', 'timer', 'atualizadoEm'])
+        && (!('aulaSelecionada' in d)
+          || (d.aulaSelecionada is string && d.aulaSelecionada.size() >= 1 && d.aulaSelecionada.size() <= 40))
+        && d.get('feitos', []) is list && d.get('feitos', []).size() <= 200
+        && timerDaLousaValido(d.get('timer', null))
+        && d.atualizadoEm == request.time;
+    }
+    match /lousa/{dia}/alunos/{email} {
+      allow read: if ehAlunoDono(email) || ehCoach();
+      allow create, update: if (ehAlunoDono(email) || ehCoach()) && lousaValida();
+      allow delete: if ehCoach();
+    }
   }
 }
