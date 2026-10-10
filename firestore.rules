@@ -493,10 +493,12 @@ service cloud.firestore {
     }
 
     // Lousa Digital (portal-aluno-web, /lousa) — o treino ao vivo de cada aluno
-    // numa aula: `lousa/{AAAA-MM-DD_Modalidade}/alunos/{email}`. O tablet do box
-    // (logado como coach) e o celular do aluno mexem no MESMO documento:
+    // no dia: `lousa/{AAAA-MM-DD}/alunos/{email}`. O tablet do box (logado como
+    // coach) e o celular do aluno mexem no MESMO documento:
     //  - o ALUNO lê e grava só o dele; o COACH lê e grava todos;
-    //  - só três campos: `feitos` (lista de ids ticados), `timer` e `atualizadoEm`;
+    //  - só quatro campos: `aulaSelecionada` (a modalidade DESTE aluno — a Ana
+    //    no Cross e o Bruno no H1 no mesmo horário), `feitos` (lista de ids
+    //    ticados), `timer` e `atualizadoEm`;
     //  - o descanso guarda só o início e a duração, nunca o tempo que falta — e o
     //    início tem de ser a hora do servidor (`serverTimestamp()`) quando muda:
     //    um relógio de aparelho errado não entra no documento que o outro lê.
@@ -511,12 +513,14 @@ service cloud.firestore {
     }
     function lousaValida() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['feitos', 'timer', 'atualizadoEm'])
+      return d.keys().hasOnly(['aulaSelecionada', 'feitos', 'timer', 'atualizadoEm'])
+        && (!('aulaSelecionada' in d)
+          || (d.aulaSelecionada is string && d.aulaSelecionada.size() >= 1 && d.aulaSelecionada.size() <= 40))
         && d.get('feitos', []) is list && d.get('feitos', []).size() <= 200
         && timerDaLousaValido(d.get('timer', null))
         && d.atualizadoEm == request.time;
     }
-    match /lousa/{sessaoId}/alunos/{email} {
+    match /lousa/{dia}/alunos/{email} {
       allow read: if ehAlunoDono(email) || ehCoach();
       allow create, update: if (ehAlunoDono(email) || ehCoach()) && lousaValida();
       allow delete: if ehCoach();
