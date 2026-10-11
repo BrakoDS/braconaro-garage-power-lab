@@ -10,12 +10,12 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'desafios'), que limpa o
  * formulário, e depois de cada gravação.
  */
-import { listarDesafios, salvarDesafios } from './desafios.js?v=15';
-import { recentes, publicarItem, alternarAtivo, removerItem, metaDiasValida } from './comunicacao-regras.js?v=15';
-import { esc } from './util/formato.js?v=15';
-import { $ } from './util/dom.js?v=15';
-import { on, EVENTOS } from './estado.js?v=15';
-import { confirmar as confirmarReal } from '../../compartilhado/ui/dialogo.js?v=15';
+import { listarDesafios, salvarDesafios } from './desafios.js?v=16';
+import { recentes, publicarItem, alternarAtivo, removerItem, metaDiasValida } from './comunicacao-regras.js?v=16';
+import { esc } from './util/formato.js?v=16';
+import { $ } from './util/dom.js?v=16';
+import { on, EVENTOS } from './estado.js?v=16';
+import { confirmar as confirmarReal } from '../../compartilhado/ui/dialogo.js?v=16';
 
 const DES_EMOJIS = ['💧', '🚫🍬', '🥗', '😴', '🏃', '🔥', '🧘', '⭐', '🥦', '🚭'];
 let desEmoji = '💧';

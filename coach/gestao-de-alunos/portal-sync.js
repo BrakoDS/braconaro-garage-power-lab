@@ -8,7 +8,7 @@
  * de leitura para o aluno. Reaproveita o app Firebase já inicializado.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=15';
+import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=16';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

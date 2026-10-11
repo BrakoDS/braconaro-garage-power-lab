@@ -1035,3 +1035,27 @@ button{font-family:inherit}
 .fa-pg-total{display:flex;justify-content:space-between;margin:10px 0 6px;padding-top:10px;border-top:1px solid var(--line-2)}
 .fa-pg-total b{font-family:var(--font-cond);font-size:1.25rem}
 @media (max-width:560px){ .fa-aberto{align-items:flex-start;text-align:left} }
+
+/* ---------- Salvar global (ui-salvar-global.js) ----------
+   A barra aparece no rodapé quando há alteração não salva na ficha (e por um
+   instante depois de salvar). Fica fixa, por cima do conteúdo; o fim da página
+   ganha folga para o último campo não ficar escondido atrás dela. Nas abas com
+   pendência, um ponto âmbar ao lado do nome. */
+.barra-salvar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:30;
+  width:min(720px,calc(100% - 24px));display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 12px 10px 16px;background:var(--bg-2);border:1px solid rgba(255,158,27,.55);
+  box-shadow:0 18px 40px -14px rgba(0,0,0,.9),0 0 0 1px rgba(0,0,0,.4)}
+.barra-salvar[hidden]{display:none}
+.barra-salvar.ok{border-color:rgba(63,185,80,.5);justify-content:center}
+.bs-texto{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.bs-texto b{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.86rem;color:#ffc477}
+.bs-texto span{color:var(--mut);font-size:.82rem}
+.bs-texto .bs-ok{color:var(--ok)}
+.bs-acoes{display:flex;gap:8px;flex:0 0 auto}
+.na-ficha #tela-perfil .wrap{padding-bottom:calc(150px + var(--pc-folga,0px))}
+.perfil-aba.pendente::before{content:"";position:absolute;top:9px;right:6px;width:7px;height:7px;border-radius:50%;
+  background:var(--warn);box-shadow:0 0 0 2px var(--bg)}
+@media (max-width:640px){
+  .barra-salvar{bottom:0;width:100%;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-width:1px 0 0}
+  .bs-acoes .btn{min-height:42px}
+}

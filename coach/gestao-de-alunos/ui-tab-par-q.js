@@ -6,16 +6,15 @@
  * Saiu do `app.js` no fatiamento. As perguntas e a regra da triagem moram em
  * `saude.js`, as mesmas que o PDF da ficha usa.
  *
- * Quando desenha: na primeira vez que a aba abre depois de 'perfil-aberto',
- * como Dados, Matriz e Anamnese. Trocar de aba e voltar NÃO redesenha — as
- * respostas marcadas e ainda não salvas continuam marcadas.
+ * Quem desenha e grava é o salvar global (ui-salvar-global.js): a aba se
+ * desenha toda vez que abre, a partir da ficha com o rascunho por cima — as
+ * respostas marcadas e ainda não salvas continuam marcadas —, e o que mudou
+ * vai para a gravação única da ficha, com o log "PAR-Q editado · …".
  */
-import * as db from './db.js?v=15';
-import { esc } from './util/formato.js?v=15';
-import { $ } from './util/dom.js?v=15';
-import { estado, on, EVENTOS } from './estado.js?v=15';
-import { regParq } from './registro.js?v=15';
-import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=15';
+import { esc } from './util/formato.js?v=16';
+import { $ } from './util/dom.js?v=16';
+import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=16';
+import { registrarFormulario } from './ui-salvar-global.js?v=16';
 
 /** O aviso de cada resultado da triagem ('' quando nada foi respondido). */
 const BANNER = {
@@ -47,7 +46,6 @@ export function htmlParq(a) {
         <div class="field"><label>Data da triagem</label><input name="data" type="date" value="${esc(p.data || '')}" /></div>
         <div class="field full"><label>Observações</label><textarea name="obs">${esc(p.obs)}</textarea></div>
       </div></div>
-      <div class="form-actions"><button class="btn" type="submit">Salvar PAR-Q</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
     </form>`;
 }
 
@@ -65,31 +63,30 @@ export function lerParq(form) {
   return { respostas: respostasDoForm(form), data: String(fd.get('data') || ''), obs: String(fd.get('obs') || '').trim() };
 }
 
-/** Desenha a aba do aluno e liga a triagem e o salvar. @param {any} a */
+/**
+ * O PAR-Q por caminho de campo, para o salvar global: cada resposta no seu
+ * caminho ('parq.respostas.q3'), a data e as observações.
+ * @param {{ respostas: Record<string, string>, data: string, obs: string }} p
+ */
+export function caminhosDoParq(p) {
+  /** @type {Record<string, any>} */ const r = { 'parq.data': p.data, 'parq.obs': p.obs };
+  for (let i = 0; i < PARQ_PERGUNTAS.length; i++) r[`parq.respostas.q${i}`] = p.respostas['q' + i];
+  return r;
+}
+
+/** Desenha a aba com a ficha recebida e liga o aviso da triagem. @param {any} a */
 function renderParq(a) {
   const painel = $('#tab-parq'); if (!painel) return;
   painel.innerHTML = htmlParq(a);
   const form = $('#form-parq');
   form.addEventListener('change', () => { $('#parq-result').innerHTML = bannerParq(respostasDoForm(form)); });
-  form.addEventListener('submit', (/** @type {Event} */ e) => {
-    e.preventDefault();
-    const parq = lerParq(form);
-    // O "antes" é a ficha do banco na hora de salvar (ver ui-tab-anamnese.js).
-    const antes = db.obter(a.id);
-    db.atualizar(a.id, { parq });
-    regParq(antes, parq);
-    estado.alunoAtual = db.obter(a.id);
-    const fl = $('[data-saved]', form); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
-  });
 }
 
-/** Liga a aba ao barramento. Chamar uma vez, antes do resto do app. */
+/** Liga a aba ao salvar global. Chamar uma vez, antes do resto do app (depois de `iniciarSalvarGlobal`). */
 export function iniciarTabParq() {
-  let desenhada = false;
-  on(EVENTOS.PERFIL_ABERTO, () => { desenhada = false; });
-  on(EVENTOS.ABRIR_ABA, (nome) => {
-    if (nome !== 'parq' || desenhada || !estado.alunoAtual) return;
-    renderParq(estado.alunoAtual);
-    desenhada = true;
+  registrarFormulario({
+    aba: 'parq',
+    desenhar: renderParq,
+    ler: () => { const form = $('#form-parq'); return form ? caminhosDoParq(lerParq(form)) : null; },
   });
 }

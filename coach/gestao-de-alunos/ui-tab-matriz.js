@@ -12,7 +12,7 @@
  * individualização era um recurso que ninguém conseguia usar.
  *
  * ── Onde a matriz é gravada, e por que aqui ──────────────────────────────────
- * No PRÓPRIO documento do aluno, via `db.atualizar` — o mesmo `gestao/{uid}`
+ * No PRÓPRIO documento do aluno, pelo salvar global (`db.atualizar`) — o mesmo `gestao/{uid}`
  * que o resto desta tela já escreve. Não numa coleção separada. Dois motivos:
  *
  *   1. `separarParaGravar()` devolve DOIS destinos: `topo` (nível, objetivo,
@@ -29,15 +29,13 @@
  * num formulário de cadastro convida o coach a digitar um número que vence na
  * segunda-feira seguinte. A leitura passa por aqui intacta, como veio.
  */
-import * as db from './db.js?v=15';
-import { estado, on, EVENTOS } from './estado.js?v=15';
-import { regFicha } from './registro.js?v=15';
+import { registrarFormulario } from './ui-salvar-global.js?v=16';
 import {
   CAMPO, matrizDe, separarParaGravar, e1rm, cargaDe1RM, resumoDeAdaptacoes, rotulo,
   OPCOES_NIVEL, FASES, LEVANTAMENTOS, ZONAS_RIR, REGIOES_LESAO, GRAVIDADES,
   REGRAS_IMPACTO, REGRAS_TRACAO, RESTRICOES_MOBILIDADE, GRUPOS_COM_ROTULO,
-} from '../../compartilhado/regras/matriz-individualizacao.js?v=15';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=15';
+} from '../../compartilhado/regras/matriz-individualizacao.js?v=16';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=16';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const $ = (s, r = document) => /** @type {any} */ (r.querySelector(s));
@@ -180,10 +178,6 @@ function formHTML(m) {
         <input type="text" name="adaptacoesObs" value="${esc(m.adaptacoes.obs)}" placeholder="ex.: evitar carga axial alta" /></label>
     </section>
 
-    <div class="form-actions">
-      <button class="btn" type="submit">Salvar matriz</button>
-      <span class="saved-flag" data-saved>Salvo ✓</span>
-    </div>
   </form>`;
 }
 
@@ -246,18 +240,39 @@ function lerForm(form, original) {
  * Montagem
  * ------------------------------------------------------------------ */
 
+/** A matriz com que o formulário aberto foi desenhado (o `historico` e a versão voltam dela). */
+let originalAtual = /** @type {any} */ (null);
+
+/**
+ * O formulário aberto, por caminho de campo — o que o salvar global
+ * (ui-salvar-global.js) põe no rascunho. Passa pela MESMA limpeza da gravação
+ * (`separarParaGravar`): o topo (nível, objetivo, frequência, foco) vai para os
+ * campos de sempre da ficha, e a matriz em três blocos — perfil, cargas e
+ * adaptações. `historico`, versão e hora da edição não são do formulário.
+ * @returns {Record<string, any> | null}
+ */
+export function lerCaminhosMatriz() {
+  const form = $('#form-matriz');
+  if (!form || !originalAtual) return null;
+  const { topo, matriz } = separarParaGravar(lerForm(form, originalAtual));
+  return {
+    nivel: topo.nivel, objetivo: topo.objetivo, freqVezes: topo.freqVezes, foco: topo.foco,
+    [`${CAMPO}.perfil`]: matriz.perfil, [`${CAMPO}.cargas`]: matriz.cargas, [`${CAMPO}.adaptacoes`]: matriz.adaptacoes,
+  };
+}
+
 /**
  * Monta a aba na ficha do aluno.
  *
- * @param {any} aluno a ficha vinda de `db.obter`
- * @param {{aoSalvar?: (salvo: any, antes: any) => void}} [opcoes] avisa quem
- *        montou, com a ficha salva e a de antes da gravação (para o log)
+ * @param {any} aluno a ficha a mostrar — no app, a ficha com o rascunho do
+ *        salvar global por cima (quem grava é ele, não esta aba)
  */
-export function montar(aluno, { aoSalvar } = {}) {
+export function montar(aluno) {
   const alvo = $('#tab-matriz');
   if (!alvo || !aluno) return;
 
   const original = matrizDe(aluno);
+  originalAtual = original;
   alvo.innerHTML = formHTML(original);
   const form = $('#form-matriz', alvo);
 
@@ -311,6 +326,12 @@ export function montar(aluno, { aoSalvar } = {}) {
       : '<span class="mtz-resumo-tag mudo">Sem individualização</span> este aluno recebe o treino da turma como está.';
   }
 
+  /** O resumo com o que está no formulário agora — o coach vê o efeito antes de salvar. */
+  function resumoAoVivo() {
+    const { topo, matriz } = separarParaGravar(lerForm(form, original));
+    atualizarResumo(matrizDe({ ...topo, [CAMPO]: matriz }));
+  }
+
   /** Os dois focos no mesmo grupo é erro de clique, e o coach precisa ver antes de salvar. */
   function conferirFoco() {
     const p = $('[name=focoPrimario]', form).value;
@@ -318,8 +339,11 @@ export function montar(aluno, { aoSalvar } = {}) {
     $('[data-erro-foco]', form).hidden = !(p && p === s);
   }
 
-  form.addEventListener('input', () => { atualizarSaidas(); conferirFoco(); });
-  form.addEventListener('change', () => { atualizarSaidas(); conferirFoco(); });
+  form.addEventListener('input', () => { atualizarSaidas(); conferirFoco(); resumoAoVivo(); });
+  form.addEventListener('change', () => { atualizarSaidas(); conferirFoco(); resumoAoVivo(); });
+
+  /** Mexer nas linhas de lesão não dispara `input`: avisa o salvar global como se fosse. */
+  const avisarMudanca = () => form.dispatchEvent(new Event('input', { bubbles: true }));
 
   $('#mtz-add-lesao', form).addEventListener('click', () => {
     $('[data-lista-lesoes]', form).insertAdjacentHTML('beforeend', linhaLesao());
@@ -331,27 +355,7 @@ export function montar(aluno, { aoSalvar } = {}) {
     if (!b) return;
     b.closest('[data-lesao]')?.remove();
     $('[data-lesoes-vazio]', form).hidden = $$('[data-lesao]', form).length > 0;
-  });
-
-  form.addEventListener('submit', (ev) => {
-    ev.preventDefault();
-    const editada = lerForm(form, original);
-    const { topo, matriz } = separarParaGravar(editada);
-    // A ficha como estava, lida do banco AGORA — não a que esta tela recebeu ao
-    // abrir: outra aba (Financeiro, Dados) pode ter gravado depois, e o log da
-    // edição contaria como "editado na Matriz" o que mudou lá.
-    const antes = db.obter(aluno.id);
-    // Os dois destinos num `atualizar` só: `db.atualizar` faz `Object.assign` no
-    // documento do aluno, então topo e matriz caem cada um no seu lugar, e a
-    // gravação na nuvem acontece uma vez.
-    db.atualizar(aluno.id, { ...topo, [CAMPO]: matriz });
-
-    const salvo = db.obter(aluno.id);
-    atualizarResumo(matrizDe(salvo));
-    const flag = $('[data-saved]', form);
-    flag.classList.add('show');
-    setTimeout(() => flag.classList.remove('show'), 1600);
-    if (aoSalvar) aoSalvar(salvo, antes);
+    avisarMudanca();
   });
 
   atualizarSaidas();
@@ -360,24 +364,14 @@ export function montar(aluno, { aoSalvar } = {}) {
 }
 
 /**
- * Liga a aba ao barramento. Chamar uma vez, antes do resto do app.
+ * Liga a aba ao salvar global. Chamar uma vez, antes do resto do app (depois
+ * de `iniciarSalvarGlobal`).
  *
- * Desenha na primeira vez que a aba abre depois de 'perfil-aberto'; trocar de
- * aba e voltar não redesenha — o que o coach digitou e não salvou fica. Ao
- * salvar, a gravação já publica o Portal e emite 'alunos-mudaram'
- * (boot.js → db.aoGravar); aqui só o log da edição e o estado.
+ * Desenha toda vez que a aba abre, a partir da ficha com o rascunho por cima:
+ * o que o coach digitou e não salvou continua lá, e o nível mudado na aba
+ * Dados aparece aqui. Quem grava (e deixa o log "Ficha editada · Matriz") é o
+ * salvar global.
  */
 export function iniciarTabMatriz() {
-  let desenhada = false;
-  on(EVENTOS.PERFIL_ABERTO, () => { desenhada = false; });
-  on(EVENTOS.ABRIR_ABA, (nome) => {
-    if (nome !== 'matriz' || desenhada || !estado.alunoAtual) return;
-    montar(estado.alunoAtual, {
-      aoSalvar: (salvo, antes) => {
-        if (antes) regFicha(antes, salvo);
-        estado.alunoAtual = salvo;
-      },
-    });
-    desenhada = true;
-  });
+  registrarFormulario({ aba: 'matriz', desenhar: montar, ler: lerCaminhosMatriz });
 }

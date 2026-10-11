@@ -8,12 +8,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formDadosHTML, htmlAcesso, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=15';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=15';
-import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=15';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=15';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=15';
-import { EVENTOS } from './estado.js?v=15';
+import { formDadosHTML, htmlAcesso, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=16';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=16';
+import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=16';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=16';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=16';
+import { EVENTOS } from './estado.js?v=16';
 
 /* ---------- util/formato.js ---------- */
 
@@ -85,10 +85,10 @@ test('dados: o bloco de acesso explica o próximo passo', () => {
   assert.match(htmlAcesso({ email: 'a@b.com', appLiberado: true }), /Acesso ao Portal e ao app/);
 });
 
-test('dados: a aba tem LGPD, acesso, formulário e salvar — excluir mudou para o menu ⋯ do cabeçalho', () => {
+test('dados: a aba tem LGPD, acesso e formulário — salvar é a barra do rodapé, excluir é o menu ⋯', () => {
   const h = htmlAbaDados(ana, { todos: [ana] });
   for (const id of ['lgpd-tag', 'acesso-aluno', 'form-dados']) assert.match(h, new RegExp(`id="${id}"`));
-  assert.match(h, /type="submit">Salvar alterações</);
+  assert.doesNotMatch(h, /type="submit"|Salvar alterações/, 'sem Salvar por aba: o salvar global grava a ficha inteira');
   assert.doesNotMatch(h, /btn-excluir-aluno|Excluir aluno/, 'excluir colado no Salvar era um toque errado de distância');
 });
 

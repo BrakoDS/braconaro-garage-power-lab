@@ -5,17 +5,15 @@
  * Saiu do `app.js` no fatiamento. Os campos (nome, rótulo, opções) moram em
  * `saude.js`, que o PDF da ficha e a linha da aba Registros também leem.
  *
- * Quando desenha: na primeira vez que a aba abre depois de 'perfil-aberto',
- * como Dados e Matriz. Trocar de aba e voltar NÃO redesenha — o que o coach
- * digitou e ainda não salvou continua no formulário. (Antes, cada volta à aba
- * redesenhava a partir da ficha salva e apagava o rascunho.)
+ * Quem desenha e grava é o salvar global (ui-salvar-global.js): a aba se
+ * desenha toda vez que abre, a partir da ficha com o rascunho por cima — o que
+ * o coach digitou e ainda não salvou continua lá —, e o que mudou vai para a
+ * gravação única da ficha, com o log "Anamnese editada · …".
  */
-import * as db from './db.js?v=15';
-import { esc, opt } from './util/formato.js?v=15';
-import { $ } from './util/dom.js?v=15';
-import { estado, on, EVENTOS } from './estado.js?v=15';
-import { regAnamnese } from './registro.js?v=15';
-import { ANAMNESE_SECOES } from './saude.js?v=15';
+import { esc, opt } from './util/formato.js?v=16';
+import { $ } from './util/dom.js?v=16';
+import { ANAMNESE_SECOES } from './saude.js?v=16';
+import { registrarFormulario, comPrefixo } from './ui-salvar-global.js?v=16';
 
 /** @param {string[]} arr @param {string} [atual] */
 function optsSelect(arr, atual) { return `<option value="">—</option>` + arr.map((s) => opt(s, atual)).join(''); }
@@ -38,7 +36,6 @@ export function htmlAnamnese(a) {
       </div></div>`).join('');
   return `
     <form id="form-anamnese">${secoes}
-      <div class="form-actions"><button class="btn" type="submit">Salvar anamnese</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
     </form>`;
 }
 
@@ -49,31 +46,17 @@ export function lerAnamnese(form) {
   return o;
 }
 
-/** Desenha a aba do aluno e liga o salvar. @param {any} a */
+/** Desenha a aba com a ficha recebida (no app, a ficha com o rascunho por cima). @param {any} a */
 function renderAnamnese(a) {
   const painel = $('#tab-anamnese'); if (!painel) return;
   painel.innerHTML = htmlAnamnese(a);
-  const form = $('#form-anamnese');
-  form.addEventListener('submit', (/** @type {Event} */ e) => {
-    e.preventDefault();
-    const nova = lerAnamnese(form);
-    // O "antes" é a ficha do banco na hora de salvar, não a do momento em que
-    // a aba foi desenhada — outra aba pode ter gravado no meio.
-    const antes = db.obter(a.id);
-    db.atualizar(a.id, { anamnese: nova });
-    regAnamnese(antes, nova);
-    estado.alunoAtual = db.obter(a.id);
-    const fl = $('[data-saved]', form); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
-  });
 }
 
-/** Liga a aba ao barramento. Chamar uma vez, antes do resto do app. */
+/** Liga a aba ao salvar global. Chamar uma vez, antes do resto do app (depois de `iniciarSalvarGlobal`). */
 export function iniciarTabAnamnese() {
-  let desenhada = false;
-  on(EVENTOS.PERFIL_ABERTO, () => { desenhada = false; });
-  on(EVENTOS.ABRIR_ABA, (nome) => {
-    if (nome !== 'anamnese' || desenhada || !estado.alunoAtual) return;
-    renderAnamnese(estado.alunoAtual);
-    desenhada = true;
+  registrarFormulario({
+    aba: 'anamnese',
+    desenhar: renderAnamnese,
+    ler: () => { const form = $('#form-anamnese'); return form ? comPrefixo('anamnese', lerAnamnese(form)) : null; },
   });
 }

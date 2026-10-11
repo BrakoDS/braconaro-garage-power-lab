@@ -87,3 +87,29 @@ export function emit(evento, dados) {
     try { fn(dados); } catch (e) { console.error(`[Gestão] ouvinte de "${evento}" falhou:`, e); }
   }
 }
+
+/* ---------- Guarda de saída (alterações não salvas na ficha) ---------- */
+
+/** @type {(() => boolean | Promise<boolean>) | null} */
+let guarda = null;
+
+/**
+ * Registra quem decide se dá para sair da ficha agora (o salvar global,
+ * ui-salvar-global.js). Devolve `true` para sair já, ou uma promessa — com
+ * alterações não salvas, ela pergunta ao coach antes.
+ * @param {(() => boolean | Promise<boolean>) | null} fn
+ */
+export function definirGuardaDeSaida(fn) { guarda = fn; }
+
+/**
+ * Roda `acao` (sair da ficha) se a guarda deixar. Sem nada pendente, roda NA
+ * HORA, no mesmo tique: quem emite eventos de navegação continua síncrono
+ * quando não há o que perguntar.
+ * @param {() => void} acao
+ */
+export function sairComCuidado(acao) {
+  let r = true;
+  try { r = guarda ? guarda() : true; } catch (e) { console.error('[Gestão] guarda de saída falhou:', e); }
+  if (r === true) { acao(); return; }
+  Promise.resolve(r).then((ok) => { if (ok) acao(); }, (e) => console.error('[Gestão] guarda de saída falhou:', e));
+}
