@@ -10,12 +10,12 @@
  * como Dados, Matriz e Anamnese. Trocar de aba e voltar NÃO redesenha — as
  * respostas marcadas e ainda não salvas continuam marcadas.
  */
-import * as db from './db.js?v=14';
-import { esc } from './util/formato.js?v=14';
-import { $ } from './util/dom.js?v=14';
-import { estado, on, EVENTOS } from './estado.js?v=14';
-import { regParq } from './registro.js?v=14';
-import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=14';
+import * as db from './db.js?v=15';
+import { esc } from './util/formato.js?v=15';
+import { $ } from './util/dom.js?v=15';
+import { estado, on, EVENTOS } from './estado.js?v=15';
+import { regParq } from './registro.js?v=15';
+import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=15';
 
 /** O aviso de cada resultado da triagem ('' quando nada foi respondido). */
 const BANNER = {

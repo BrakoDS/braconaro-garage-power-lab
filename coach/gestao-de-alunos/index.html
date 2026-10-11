@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css?v=5" />
+  <link rel="stylesheet" href="./alunos.css?v=6" />
   <link rel="stylesheet" href="./matriz.css?v=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
@@ -230,9 +230,12 @@
     <!-- ----------- TELA 2: PERFIL ----------- -->
     <section id="tela-perfil" class="screen">
       <div class="wrap">
-        <!-- Cabeçalho e abas: desenhados por ui-perfil.js (as abas vêm de ABAS). -->
-        <header class="perfil-cab" id="perfil-cab"></header>
-        <nav class="perfil-abas" id="perfil-abas" role="tablist" aria-label="Seções da ficha"></nav>
+        <!-- Cabeçalho e abas: desenhados por ui-perfil.js (as abas vêm de ABAS).
+             Os dois ficam presos no topo juntos e encolhem ao rolar (.compacto). -->
+        <div class="perfil-topo" id="perfil-topo">
+          <header class="perfil-cab" id="perfil-cab"></header>
+          <nav class="perfil-abas" id="perfil-abas" role="tablist" aria-label="Seções da ficha"></nav>
+        </div>
 
         <!-- ABA 1: DADOS -->
         <div class="tab-panel active" id="tab-dados" role="tabpanel" aria-labelledby="aba-dados"><!-- form injetado por JS --></div>
@@ -380,6 +383,35 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: acesso ao Portal (menu ⋯ da ficha — ui-acoes-aluno.js) ============ -->
+  <div class="modal-bg" id="modal-acesso">
+    <div class="modal modal-estreito" role="dialog" aria-modal="true" aria-labelledby="modal-acesso-titulo">
+      <div class="modal-hd">
+        <h3 id="modal-acesso-titulo">Acesso ao Portal</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-bd" id="modal-acesso-body"></div>
+      <div class="modal-ft"><button class="btn ghost" data-close type="button">Fechar</button></div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: excluir aluno, confirmando pelo ID (ui-acoes-aluno.js) ============ -->
+  <div class="modal-bg" id="modal-excluir">
+    <div class="modal modal-estreito" role="dialog" aria-modal="true" aria-labelledby="modal-excluir-titulo">
+      <form id="form-excluir">
+        <div class="modal-hd">
+          <h3 id="modal-excluir-titulo">Excluir aluno</h3>
+          <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-bd" id="modal-excluir-body"></div>
+        <div class="modal-ft">
+          <button class="btn ghost" data-close type="button">Cancelar</button>
+          <button class="btn danger" id="btn-excluir-ok" type="submit" disabled>Excluir para sempre</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ============ MODAL: foto do Diário de Evolução, em tela cheia ============ -->
   <div class="modal-bg modal-foto" id="modal-foto">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-foto-titulo">
@@ -391,6 +423,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=14"></script>
+  <script type="module" src="./main.js?v=15"></script>
 </body>
 </html>

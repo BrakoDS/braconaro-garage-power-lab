@@ -31,11 +31,11 @@ globalThis.document = /** @type {any} */ ({
 const mem = new Map();
 globalThis.localStorage = /** @type {any} */ ({ getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) });
 
-const { emit, EVENTOS } = await import('./estado.js?v=14');
-const { iniciarTelaAvisos } = await import('./ui-tela-avisos.js?v=14');
-const { iniciarTelaMural } = await import('./ui-tela-mural.js?v=14');
-const { iniciarTelaDesafios } = await import('./ui-tela-desafios.js?v=14');
-const { iniciarTelaLeads, carregarBadgeLeads } = await import('./ui-tela-leads.js?v=14');
+const { emit, EVENTOS } = await import('./estado.js?v=15');
+const { iniciarTelaAvisos } = await import('./ui-tela-avisos.js?v=15');
+const { iniciarTelaMural } = await import('./ui-tela-mural.js?v=15');
+const { iniciarTelaDesafios } = await import('./ui-tela-desafios.js?v=15');
+const { iniciarTelaLeads, carregarBadgeLeads } = await import('./ui-tela-leads.js?v=15');
 
 /* ---------- o que vem de fora, em memória ---------- */
 const DIA = 86400000, AGORA = Date.UTC(2026, 9, 8, 12);

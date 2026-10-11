@@ -13,20 +13,19 @@
  *
  * Ao salvar, só grava (`db.atualizar`): a gravação já publica o Portal e emite
  * 'alunos-mudaram' (ver boot.js), e é isso que atualiza a lista e o cabeçalho.
+ *
+ * Excluir o aluno e o fluxo de Criar acesso moram no ui-acoes-aluno.js (menu ⋯
+ * do cabeçalho); aqui ficou só o resumo do acesso, cujo botão abre o mesmo modal.
  */
-import * as db from './db.js?v=14';
-import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=14';
-import { $, $$ } from './util/dom.js?v=14';
-import { estado, on, emit, EVENTOS } from './estado.js?v=14';
-import { regFicha } from './registro.js?v=14';
-import { apagarFotosDoAluno } from './ui-fotos.js?v=14';
-import * as eventos from './eventos.js?v=14';
-import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=14';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=14';
+import * as db from './db.js?v=15';
+import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=15';
+import { $, $$ } from './util/dom.js?v=15';
+import { estado, on, emit, EVENTOS } from './estado.js?v=15';
+import { regFicha } from './registro.js?v=15';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=15';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
-import { criarAcesso, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=14';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=14';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=15';
 
 /* ============================================================
    O formulário (o mesmo do cadastro)
@@ -231,51 +230,15 @@ export function htmlAcesso(a) {
     <div class="acesso-res" id="acesso-res" hidden></div>`;
 }
 
-/** Desenha o bloco de acesso com o que está salvo agora. @param {any} a */
+/**
+ * Desenha o bloco de acesso com o que está salvo agora. O botão abre o modal
+ * de acesso (ui-acoes-aluno.js) — o mesmo do menu ⋯ do cabeçalho.
+ * @param {any} a
+ */
 function renderAcessoAluno(a) {
   const el = $('#acesso-aluno'); if (!el) return;
   el.innerHTML = htmlAcesso(db.obter(a.id) || a);
-  $('#btn-acesso', el)?.addEventListener('click', () => gerarAcessoAluno(a.id));
-}
-
-/** @param {string} id */
-async function gerarAcessoAluno(id) {
-  const a = db.obter(id); if (!a) return;
-  const email = (a.email || '').trim().toLowerCase();
-  // O servidor confere o e-mail SALVO na nuvem. Um e-mail digitado e ainda não
-  // salvo daria "não está na Gestão" — melhor dizer o motivo real antes.
-  const campo = $('#form-dados input[name=email]');
-  if (campo && campo.value.trim().toLowerCase() !== email) {
-    avisar({ titulo: 'Salve a ficha primeiro', texto: 'O e-mail da ficha mudou e ainda não foi salvo. Clique em <b>Salvar alterações</b> e depois em Criar acesso.' });
-    return;
-  }
-  const btn = $('#btn-acesso'), res = $('#acesso-res');
-  const rotulo = btn.textContent;
-  btn.disabled = true; btn.textContent = 'Gerando…';
-  res.hidden = true;
-  try {
-    await db.enviarAgora().catch(() => undefined);
-    const r = await criarAcesso(email);
-    db.atualizar(id, { acessoEnviadoEm: Date.now() });
-    const texto = mensagemConvite(r.nome || a.nome || '', email, r.link, r.criado);
-    const wa = linkWhatsApp(a.telefone, texto);
-    res.innerHTML = `
-      <p class="acesso-ok">${r.criado ? '✓ Conta criada.' : '✓ O aluno já tinha conta — a senha dele não mudou; o link novo permite trocar.'} O link vale por 1 hora.</p>
-      <div class="acesso-acoes">
-        ${wa ? `<a class="btn btn-sm" href="${esc(wa)}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>` : '<span class="hint">Sem telefone na ficha — copie a mensagem e envie por onde preferir.</span>'}
-        <button class="btn ghost btn-sm" type="button" id="btn-acesso-copiar">Copiar mensagem</button>
-      </div>`;
-    $('#btn-acesso-copiar', res)?.addEventListener('click', async (/** @type {any} */ e) => {
-      try { await navigator.clipboard.writeText(texto); e.target.textContent = 'Copiado ✓'; } catch { e.target.textContent = 'Não deu para copiar'; }
-    });
-    btn.textContent = 'Gerar novo link';
-  } catch (e) {
-    res.innerHTML = `<p class="acesso-erro">${esc(/** @type {any} */ (e)?.message || 'Não deu para criar o acesso.')}</p>`;
-    btn.textContent = rotulo;
-  } finally {
-    btn.disabled = false;
-    res.hidden = false;
-  }
+  $('#btn-acesso', el)?.addEventListener('click', () => emit(EVENTOS.GERAR_ACESSO, a.id));
 }
 
 /** Indicador (só leitura) de consentimento LGPD do aluno. @param {any} a */
@@ -305,8 +268,6 @@ export function htmlAbaDados(a, o = {}) {
       <div class="form-actions">
         <button class="btn" type="submit">Salvar alterações</button>
         <span class="saved-flag" data-saved>Salvo ✓</span>
-        <span style="flex:1"></span>
-        <button class="btn danger btn-sm" type="button" id="btn-excluir-aluno">Excluir aluno</button>
       </div>
     </form>`;
 }
@@ -332,15 +293,6 @@ function renderDados(a) {
     // O e-mail salvo é o que habilita o "Criar acesso", e o app liberado muda o título.
     renderAcessoAluno(estado.alunoAtual);
   });
-  $('#btn-excluir-aluno').addEventListener('click', async () => {
-    if (await confirmar({ titulo: 'Excluir aluno?', texto: `Excluir <b>${esc(a.nome || a.id)}</b>? Esta ação <b>não pode ser desfeita</b>.`, ok: 'Excluir', perigo: true })) {
-      apagarFotosDoAluno(a);
-      // LGPD: a ficha sai, e o rastro dela na aba Registros sai junto.
-      eventos.apagarEventosDoAluno(a.id);
-      db.remover(a.id);
-      emit(EVENTOS.VOLTAR_LISTA);
-    }
-  });
 }
 
 /** Liga a aba ao barramento. Chamar uma vez, antes do resto do app. */
@@ -352,4 +304,7 @@ export function iniciarTabDados() {
     renderDados(estado.alunoAtual);
     desenhada = true;
   });
+  // O link gerado no modal de acesso grava `acessoEnviadoEm`: o bloco de acesso
+  // se atualiza sozinho. Só o bloco — o formulário guarda o que foi digitado.
+  on(EVENTOS.ALUNOS_MUDARAM, () => { if (desenhada && estado.alunoAtual) renderAcessoAluno(estado.alunoAtual); });
 }

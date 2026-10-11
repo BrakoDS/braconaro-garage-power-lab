@@ -46,6 +46,10 @@ export const EVENTOS = Object.freeze({
   EXPORTAR_FICHA: 'exportar-ficha',
   /** Pedido para trocar a foto do aluno aberto. */
   TROCAR_FOTO: 'trocar-foto',
+  /** Pedido para criar o acesso ao Portal (ou um link novo) do aluno aberto — abre o modal de acesso. */
+  GERAR_ACESSO: 'gerar-acesso',
+  /** Pedido para excluir o aluno aberto — abre a confirmação (digitar o ID). */
+  EXCLUIR_ALUNO: 'excluir-aluno',
   /** Entrou evento novo no log da aba Registros (uma ação do coach, a caixa do aluno). Dado: o id do aluno, se houver. */
   REGISTROS_MUDARAM: 'registros-mudaram',
   /**
