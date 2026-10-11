@@ -1,6 +1,7 @@
 // @ts-check
 /**
- * Aba Financeiro do perfil — o financeiro de UM aluno.
+ * O financeiro de UM aluno na ficha — o card Financeiro da aba Geral
+ * (ui-tab-geral.js) mostra, e este módulo faz as operações de dinheiro.
  *
  *  - Resumo do plano: mensalidade (com a parceria, se houver), vencimento, e
  *    quem paga a conta de quem.
@@ -12,23 +13,24 @@
  *  - Registrar pagamento: a baixa é da FATURA do mês — é assim que o Portal e o
  *    Pix cobram (`pagamentos['AAAA-MM']`). Não existe baixa por item.
  *
- * A mensalidade não é lançada à mão: ela sai do plano a cada mês (aba Dados).
+ * A mensalidade não é lançada à mão: ela sai do plano a cada mês (o plano se
+ * edita no ✎ do card Financeiro).
  *
  * Grava só pelo `db.js`; a gravação já publica o Portal e emite
- * 'alunos-mudaram', e é isso que redesenha esta aba, a lista e o cabeçalho.
+ * 'alunos-mudaram', e é isso que redesenha o card, a lista e o cabeçalho.
  * Depois de gravar, deixa a trilha na aba Registros (registro.js): pagamento
  * registrado (mês e valor), pagamento desfeito, lançamento avulso.
  * As regras (o que é atrasado, em que fatura cai) moram em financeiro-aluno.js.
  */
-import * as db from './db.js?v=16';
-import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=16';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=16';
-import { estado, on, EVENTOS } from './estado.js?v=16';
-import { confirmar } from '../../compartilhado/ui/dialogo.js?v=16';
+import * as db from './db.js?v=17';
+import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=17';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=17';
+import { estado } from './estado.js?v=17';
+import { confirmar } from '../../compartilhado/ui/dialogo.js?v=17';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=16';
-import { darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=16';
-import { regFinanceiro } from './registro.js?v=16';
+import { brl, numMoney, rotuloMesFin, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=17';
+import { darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=17';
+import { regFinanceiro } from './registro.js?v=17';
 
 /** Rótulo e cor de cada situação. */
 const STATUS = {
@@ -67,7 +69,7 @@ export function htmlResumo(r, h) {
   if (r.dependentes.length) {
     extras.push(`<span class="fa-nota">Paga também a conta de <b>${r.dependentes.map(esc).join(', ')}</b>.</span>`);
   }
-  if (semPlano) extras.push('<span class="fa-nota">Defina o valor na aba <b>Dados</b>, em Financeiro.</span>');
+  if (semPlano) extras.push('<span class="fa-nota">Defina o valor no <b>✎</b> deste card.</span>');
   const aberto = h.atrasado > 0
     ? `<span class="fa-aberto bad">${brl(h.emAberto)}<small>em aberto · ${brl(h.atrasado)} atrasado</small></span>`
     : h.emAberto > 0
@@ -125,7 +127,7 @@ export function htmlAbaFinanceiro(a, todos, hojeIso = hoje()) {
   const h = historicoFinanceiro(a, todos, hojeIso);
   const lista = h.faturas.length
     ? h.faturas.map(htmlFatura).join('')
-    : '<div class="empty"><b>Nenhuma cobrança ainda</b>Defina a mensalidade na aba Dados, ou lance um consumo.</div>';
+    : '<div class="empty"><b>Nenhuma cobrança ainda</b>Defina a mensalidade no ✎ do card, ou lance um consumo.</div>';
   return `
     ${htmlResumo(resumoDoPlano(a, todos, hojeIso), h)}
     <div class="fa-cab">
@@ -154,7 +156,7 @@ export function htmlFormLancamento(produtos, hojeIso) {
       <div class="field"><label>Data da compra</label><input name="data" type="date" value="${esc(hojeIso)}" max="${esc(hojeIso)}" /></div>
     </div>
     <p class="hint" id="fa-destino"></p>
-    <p class="hint">A mensalidade não precisa ser lançada: ela entra sozinha em cada mês, pelo valor do plano (aba Dados).</p>
+    <p class="hint">A mensalidade não precisa ser lançada: ela entra sozinha em cada mês, pelo valor do plano (o ✎ do card Financeiro).</p>
     <p class="fa-erro" id="fa-erro" role="alert" hidden></p>`;
 }
 
@@ -180,13 +182,6 @@ const alunoAberto = () => (estado.alunoAtual ? db.obter(estado.alunoAtual.id) : 
 
 /** O que o modal está fazendo agora. @type {{ modo: 'lancamento'|'pagamento', mesId?: string } | null} */
 let modal = null;
-
-/** Desenha a aba do aluno aberto. */
-export function renderFinanceiro() {
-  const a = alunoAberto(); const painel = $('#tab-financeiro');
-  if (!a || !painel) return;
-  painel.innerHTML = htmlAbaFinanceiro(a, db.listar());
-}
 
 function abrirLancamento() {
   const a = alunoAberto(); if (!a) return;
@@ -263,9 +258,14 @@ function salvarModal(e) {
   fecharModal('modal-fin');
 }
 
-/** Liga a aba à página e ao barramento. Chamar uma vez, antes do resto do app. */
-export function iniciarTabFinanceiro() {
-  $('#tab-financeiro')?.addEventListener('click', async (/** @type {any} */ e) => {
+/**
+ * Liga os botões de dinheiro (`data-fin`: novo, pagar, desfazer, remover) dentro
+ * de `painel` e o modal de lançamento/pagamento. Chamar uma vez, antes do resto
+ * do app. Quem desenha (e redesenha depois de gravar) é o card Financeiro.
+ * @param {string} [painel] onde ficam os botões — a aba Geral
+ */
+export function iniciarTabFinanceiro(painel = '#tab-geral') {
+  $(painel)?.addEventListener('click', async (/** @type {any} */ e) => {
     const b = e.target.closest('[data-fin]'); if (!b) return;
     const a = alunoAberto(); if (!a) return;
     if (b.dataset.fin === 'novo') abrirLancamento();
@@ -285,7 +285,4 @@ export function iniciarTabFinanceiro() {
   form?.addEventListener('submit', salvarModal);
   form?.addEventListener('input', () => { if (modal?.modo === 'lancamento') { atualizarDestino(); const er = $('#fa-erro'); if (er) er.hidden = true; } });
   form?.addEventListener('change', () => { if (modal?.modo === 'lancamento') atualizarDestino(); });
-
-  on(EVENTOS.ABRIR_ABA, (nome) => { if (nome === 'financeiro') renderFinanceiro(); });
-  on(EVENTOS.ALUNOS_MUDARAM, () => { if ($('#tab-financeiro')?.classList.contains('active')) renderFinanceiro(); });
 }

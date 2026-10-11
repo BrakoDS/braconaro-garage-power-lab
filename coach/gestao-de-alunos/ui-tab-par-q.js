@@ -11,10 +11,10 @@
  * respostas marcadas e ainda não salvas continuam marcadas —, e o que mudou
  * vai para a gravação única da ficha, com o log "PAR-Q editado · …".
  */
-import { esc } from './util/formato.js?v=16';
-import { $ } from './util/dom.js?v=16';
-import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=16';
-import { registrarFormulario } from './ui-salvar-global.js?v=16';
+import { esc } from './util/formato.js?v=17';
+import { $ } from './util/dom.js?v=17';
+import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=17';
+import { registrarFormulario } from './ui-salvar-global.js?v=17';
 
 /** O aviso de cada resultado da triagem ('' quando nada foi respondido). */
 const BANNER = {

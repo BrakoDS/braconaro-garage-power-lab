@@ -9,13 +9,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { htmlModalAcesso, faseInicialAcesso, htmlExcluir, confirmaExclusao } from './ui-acoes-aluno.js?v=16';
+import { htmlModalAcesso, faseInicialAcesso, htmlExcluir, confirmaExclusao } from './ui-acoes-aluno.js?v=17';
 
 const ana = { id: 'Ana01', nome: 'Ana Lima', email: 'ana@box.com', telefone: '14999990000' };
 
 /* ---------- acesso ---------- */
 
-test('acesso: a fase inicial depende do e-mail salvo (e do digitado na aba Dados)', () => {
+test('acesso: a fase inicial depende do e-mail salvo (e do pendente no rascunho)', () => {
   assert.deepEqual(faseInicialAcesso(ana), { fase: 'pronto' });
   assert.deepEqual(faseInicialAcesso({ ...ana, email: '' }), { fase: 'sem-email' });
   assert.deepEqual(faseInicialAcesso(ana, ' ANA@box.com '), { fase: 'pronto' }, 'maiúscula e espaço não contam');
@@ -23,10 +23,10 @@ test('acesso: a fase inicial depende do e-mail salvo (e do digitado na aba Dados
     'o servidor confere o e-mail SALVO: digitado e não salvo daria um erro sem explicação');
 });
 
-test('acesso: sem e-mail, leva à aba Dados em vez de oferecer um botão que falharia', () => {
+test('acesso: sem e-mail, leva ao card Contato em vez de oferecer um botão que falharia', () => {
   const h = htmlModalAcesso({ ...ana, email: '' }, { fase: 'sem-email' });
   assert.match(h, /não tem e-mail/);
-  assert.match(h, /data-acesso="ir-dados"/);
+  assert.match(h, /data-acesso="ir-contato"/);
   assert.doesNotMatch(h, /data-acesso="gerar"/);
 });
 

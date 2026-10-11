@@ -10,10 +10,10 @@
  * o coach digitou e ainda não salvou continua lá —, e o que mudou vai para a
  * gravação única da ficha, com o log "Anamnese editada · …".
  */
-import { esc, opt } from './util/formato.js?v=16';
-import { $ } from './util/dom.js?v=16';
-import { ANAMNESE_SECOES } from './saude.js?v=16';
-import { registrarFormulario, comPrefixo } from './ui-salvar-global.js?v=16';
+import { esc, opt } from './util/formato.js?v=17';
+import { $ } from './util/dom.js?v=17';
+import { ANAMNESE_SECOES } from './saude.js?v=17';
+import { registrarFormulario, comPrefixo } from './ui-salvar-global.js?v=17';
 
 /** @param {string[]} arr @param {string} [atual] */
 function optsSelect(arr, atual) { return `<option value="">—</option>` + arr.map((s) => opt(s, atual)).join(''); }

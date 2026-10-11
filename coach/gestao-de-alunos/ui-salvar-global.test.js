@@ -10,9 +10,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { comPrefixo, caminhosMudados, acaoDoCampo, htmlBarra, nomesDosCampos, completarPatch } from './ui-salvar-global.js?v=16';
-import { caminhosDoParq } from './ui-tab-par-q.js?v=16';
-import { definirGuardaDeSaida, sairComCuidado } from './estado.js?v=16';
+import { comPrefixo, caminhosMudados, acaoDoCampo, htmlBarra, nomesDosCampos, completarPatch } from './ui-salvar-global.js?v=17';
+import { caminhosDoParq } from './ui-tab-par-q.js?v=17';
+import { definirGuardaDeSaida, sairComCuidado } from './estado.js?v=17';
 
 test('comPrefixo: um objeto como caminhos', () => {
   assert.deepEqual(comPrefixo('anamnese', { sono: '7', rotina: 'Dev' }), { 'anamnese.sono': '7', 'anamnese.rotina': 'Dev' });

@@ -27,25 +27,28 @@
  * avaliações, financeiro (pagamento, lançamento), metas, acesso ao Portal e
  * exclusão. Plano: docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md.
  */
-import * as db from './db.js?v=16';
-import { esc } from './util/formato.js?v=16';
-import { $ } from './util/dom.js?v=16';
-import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=16';
-import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=16';
-import { regFicha, regAnamnese, regParq } from './registro.js?v=16';
-import { resumoFicha } from './registros-ui.js?v=16';
-import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=16';
-import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=16';
+import * as db from './db.js?v=17';
+import { esc } from './util/formato.js?v=17';
+import { $ } from './util/dom.js?v=17';
+import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=17';
+import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=17';
+import { regFicha, regAnamnese, regParq } from './registro.js?v=17';
+import { resumoFicha } from './registros-ui.js?v=17';
+import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=17';
+import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=17';
 
 /**
  * @typedef {{
  *   aba: string,
  *   desenhar: (vista: any) => void,
  *   ler: () => Record<string, any> | null,
+ *   aposSalvar?: () => void,
  * }} Formulario
  *   aba: o id da aba (o painel é `#tab-<aba>`); desenhar: monta o formulário
  *   com a ficha recebida (a ficha COM o rascunho); ler: o que está no
- *   formulário agora, por caminho de campo (null se o formulário não está lá)
+ *   formulário agora, por caminho de campo (null se o formulário não está lá);
+ *   aposSalvar: avisada depois de gravar, antes de a aba se redesenhar (os
+ *   cards da aba Geral voltam ao modo leitura)
  */
 
 /* ============================================================
@@ -188,6 +191,13 @@ function desenharAberta() {
   tocados = new Set();
 }
 
+/**
+ * Redesenha a aba aberta a partir da ficha com o rascunho — para quando a
+ * própria aba muda o que mostra (um card que entra ou sai do modo de edição).
+ * Não perde nada: o que foi digitado já está no rascunho.
+ */
+export function redesenharAberta() { desenharAberta(); }
+
 /** O formulário aberto mudou: passa para o rascunho o que mudou nele. */
 function coletar() {
   const f = formularios.get(abaAberta);
@@ -235,7 +245,7 @@ export async function salvar() {
   if (!a) return false;
 
   if (rascunho.caminhos().includes('nome') && !String(rascunho.valor('nome') || '').trim()) {
-    emit(EVENTOS.ABRIR_ABA, 'dados');
+    emit(EVENTOS.ABRIR_ABA, 'geral');
     await avisar({ titulo: 'Falta o nome', texto: 'O nome do aluno não pode ficar em branco.' });
     return false;
   }
@@ -268,6 +278,7 @@ export async function salvar() {
   }
 
   recomecar();
+  for (const f of formularios.values()) f.aposSalvar?.();
   desenharAberta(); // mostra o que foi gravado, já normalizado (a matriz limpa, por exemplo)
   avisarSalvo();
   return true;

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css?v=7" />
+  <link rel="stylesheet" href="./alunos.css?v=8" />
   <link rel="stylesheet" href="./matriz.css?v=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
@@ -237,8 +237,11 @@
           <nav class="perfil-abas" id="perfil-abas" role="tablist" aria-label="Seções da ficha"></nav>
         </div>
 
-        <!-- ABA 1: DADOS -->
-        <div class="tab-panel active" id="tab-dados" role="tabpanel" aria-labelledby="aba-dados"><!-- form injetado por JS --></div>
+        <!-- ABA: GERAL — os cards do dia a dia (ui-tab-geral.js) -->
+        <div class="tab-panel active" id="tab-geral" role="tabpanel" aria-labelledby="aba-geral"><!-- cards injetados por JS --></div>
+
+        <!-- ABA: DADOS — nascimento, sexo e os dados do treino (ui-tab-dados.js) -->
+        <div class="tab-panel" id="tab-dados" role="tabpanel" aria-labelledby="aba-dados"><!-- form injetado por JS --></div>
 
         <!-- ABA: ANAMNESE -->
         <div class="tab-panel" id="tab-anamnese" role="tabpanel" aria-labelledby="aba-anamnese"><!-- form injetado por JS --></div>
@@ -260,9 +263,6 @@
 
         <!-- ABA: MATRIZ — a individualização que o Montador lê (form injetado por JS) -->
         <div class="tab-panel" id="tab-matriz" role="tabpanel" aria-labelledby="aba-matriz"></div>
-
-        <!-- ABA: FINANCEIRO (esqueleto — ui-tab-financeiro.js) -->
-        <div class="tab-panel" id="tab-financeiro" role="tabpanel" aria-labelledby="aba-financeiro"></div>
 
         <!-- ABA: PORTAL — o Portal do Aluno deste aluno, em prévia -->
         <div class="tab-panel" id="tab-portal" role="tabpanel" aria-labelledby="aba-portal">
@@ -425,6 +425,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=16"></script>
+  <script type="module" src="./main.js?v=17"></script>
 </body>
 </html>

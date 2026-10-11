@@ -8,12 +8,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formDadosHTML, htmlAcesso, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=16';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=16';
-import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=16';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=16';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=16';
-import { EVENTOS } from './estado.js?v=16';
+import { formDadosHTML, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=17';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=17';
+import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=17';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=17';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=17';
+import { EVENTOS } from './estado.js?v=17';
 
 /* ---------- util/formato.js ---------- */
 
@@ -76,18 +76,14 @@ test('dados: texto da ficha é escapado no formulário', () => {
   assert.doesNotMatch(h, /<script>|<\/textarea><b>/);
 });
 
-test('dados: o bloco de acesso explica o próximo passo', () => {
-  assert.match(htmlAcesso({ email: '' }), /Preencha e salve o e-mail.*id="btn-acesso" disabled/s);
-  assert.match(htmlAcesso({ email: 'a@b.com' }), />Criar acesso</);
-  const enviado = htmlAcesso({ email: 'a@b.com', acessoEnviadoEm: Date.UTC(2026, 9, 1, 15) });
-  assert.match(enviado, /Link enviado em 01\/10\/2026/);
-  assert.match(enviado, />Gerar novo link</);
-  assert.match(htmlAcesso({ email: 'a@b.com', appLiberado: true }), /Acesso ao Portal e ao app/);
-});
-
-test('dados: a aba tem LGPD, acesso e formulário — salvar é a barra do rodapé, excluir é o menu ⋯', () => {
-  const h = htmlAbaDados(ana, { todos: [ana] });
-  for (const id of ['lgpd-tag', 'acesso-aluno', 'form-dados']) assert.match(h, new RegExp(`id="${id}"`));
+test('dados: a aba ficou com nascimento, sexo e o treino — contato, plano e acesso foram para a aba Geral', () => {
+  const h = htmlAbaDados(ana);
+  assert.match(h, /id="form-dados"/);
+  for (const n of ['nascimento', 'sexo', 'altura', 'peso', 'objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino', 'obs']) assert.match(h, new RegExp(`name="${n}"`), n);
+  for (const n of ['nome', 'telefone', 'email', 'endereco', 'status', 'appLiberado', 'modoLite', 'mensalidade', 'vencimento', 'pagoPorId']) {
+    assert.doesNotMatch(h, new RegExp(`name="${n}"`), `${n} mora num card da aba Geral`);
+  }
+  assert.doesNotMatch(h, /lgpd-tag|acesso-aluno/, 'LGPD e acesso estão no card Acesso');
   assert.doesNotMatch(h, /type="submit"|Salvar alterações/, 'sem Salvar por aba: o salvar global grava a ficha inteira');
   assert.doesNotMatch(h, /btn-excluir-aluno|Excluir aluno/, 'excluir colado no Salvar era um toque errado de distância');
 });
@@ -190,7 +186,7 @@ test('financeiro: resumo do plano e do que está em aberto', () => {
   const r = htmlResumo(resumoDoPlano(alunaFin, [alunaFin], HOJE_FIN), h);
   emOrdem(r, ['R$ 150,00<small>/mês</small>', '3x por semana · vence dia 10', 'fa-aberto bad">R$ 310,00<small>em aberto · R$ 160,00 atrasado']);
   const semPlano = htmlResumo(resumoDoPlano({}, [], HOJE_FIN), { emAberto: 0, atrasado: 0 });
-  emOrdem(semPlano, ['Sem mensalidade', 'vence dia 10 (padrão)', 'aba <b>Dados</b>', 'fa-aberto ok">Em dia']);
+  emOrdem(semPlano, ['Sem mensalidade', 'vence dia 10 (padrão)', 'no <b>✎</b> deste card', 'fa-aberto ok">Em dia']);
 });
 
 test('financeiro: a aba tem "Novo lançamento" e o vazio orienta', () => {

@@ -1,32 +1,33 @@
 // @ts-check
 /**
- * Aba Dados do perfil — o cadastro do aluno, o acesso ao Portal/app e o
- * indicador de consentimento LGPD.
+ * Aba Dados do perfil — o que ainda não tem card próprio: nascimento, sexo e
+ * os dados do treino (medidas do cadastro, objetivo, nível, foco, frequência,
+ * dias e horários, observações médicas). Contato, plano financeiro e acesso
+ * foram para os cards da aba Geral (ui-tab-geral.js); o resto vai para as
+ * abas Saúde e Treino nos próximos passos da refatoração
+ * (docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md).
  *
- * Saiu do `app.js` no fatiamento. O FORMULÁRIO (`formDadosHTML`, `wireForm`,
- * `lerForm`) também é o do cadastro de aluno novo, por isso é exportado: o
- * modal do "+ Cadastrar novo aluno" usa o mesmo, campo por campo.
+ * Este módulo é também o DONO dos campos do cadastro: cada campo é montado uma
+ * vez só (`camposDados`) e quem precisa compõe os que usa — o modal do "+
+ * Cadastrar novo aluno" (`formDadosHTML`, o formulário inteiro), esta aba
+ * (`formTreinoHTML`) e os cards da aba Geral. Assim um campo nunca tem duas
+ * marcações diferentes. `lerForm` lê qualquer um deles; `lerCampos` fica só
+ * com os campos de um card.
  *
- * Quem desenha e grava é o salvar global (ui-salvar-global.js): a aba se
- * desenha toda vez que abre, a partir da ficha com o rascunho por cima — o que
- * o coach digitou e ainda não salvou continua lá —, e o que mudou vai para a
- * gravação única da ficha (que publica o Portal e emite 'alunos-mudaram').
- *
- * Excluir o aluno e o fluxo de Criar acesso moram no ui-acoes-aluno.js (menu ⋯
- * do cabeçalho); aqui ficou só o resumo do acesso, cujo botão abre o mesmo modal.
+ * Quem desenha e grava a aba é o salvar global (ui-salvar-global.js): ela se
+ * desenha toda vez que abre, a partir da ficha com o rascunho por cima, e o
+ * que mudou vai para a gravação única da ficha.
  */
-import * as db from './db.js?v=16';
-import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=16';
-import { $, $$ } from './util/dom.js?v=16';
-import { estado, on, emit, EVENTOS } from './estado.js?v=16';
-import { registrarFormulario } from './ui-salvar-global.js?v=16';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=16';
+import * as db from './db.js?v=17';
+import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=17';
+import { $, $$ } from './util/dom.js?v=17';
+import { registrarFormulario } from './ui-salvar-global.js?v=17';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=17';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=16';
 
 /* ============================================================
-   O formulário (o mesmo do cadastro)
+   Os campos (montados uma vez, compostos por quem usa)
    ============================================================ */
 // A lista veio para o compartilhado (`config/objetivos.js`) quando a regra de
 // perfil do montador individual passou a precisar dela: duas listas de objetivo
@@ -37,6 +38,14 @@ const SEXOS = ['Masculino', 'Feminino', 'Outro'];
 /** Os dias que o box abre, na ordem da semana. */
 export const DIAS_FORM = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb']];
 
+/** Os campos da ficha que cada grupo grava (o que `lerCampos` devolve). */
+export const CAMPOS = Object.freeze({
+  contato: ['nome', 'telefone', 'email', 'endereco', 'status'],
+  plano: ['mensalidade', 'vencimento', 'parceria', 'pagoPor'],
+  acesso: ['appLiberado', 'modoLite'],
+  treino: ['nascimento', 'idade', 'sexo', 'altura', 'peso', 'objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino', 'horarios', 'obs'],
+});
+
 /** Idade em anos a partir de 'AAAA-MM-DD' ('' se não der). @param {string} [iso] */
 export function calcIdade(iso) { if (!iso) return ''; const n = new Date(iso + 'T00:00:00'); const h = new Date(); let i = h.getFullYear() - n.getFullYear(); const mm = h.getMonth() - n.getMonth(); if (mm < 0 || (mm === 0 && h.getDate() < n.getDate())) i--; return i >= 0 && i < 130 ? String(i) : ''; }
 
@@ -44,13 +53,13 @@ export function calcIdade(iso) { if (!iso) return ''; const n = new Date(iso + '
 export function waLink(tel) { const d = String(tel || '').replace(/\D/g, ''); if (!d) return ''; const full = d.startsWith('55') ? d : '55' + d; return `https://wa.me/${full}`; }
 
 /**
- * O HTML do formulário de dados.
+ * Cada campo do cadastro, já montado (o `.field` inteiro).
  * @param {any} [a] a ficha (vazia no cadastro)
  * @param {{ idEditavel?: boolean, todos?: any[] }} [opts]
  *   idEditavel: o cadastro deixa escolher o ID; todos: os alunos do box (para
  *   o "quem paga esta conta") — padrão, os do db.
  */
-export function formDadosHTML(a = {}, opts = {}) {
+export function camposDados(a = {}, opts = {}) {
   const todos = opts.todos || db.listar();
   const sexoOpts = `<option value="">—</option>` + SEXOS.map((s) => opt(s, a.sexo)).join('');
   const objOpts = `<option value="">—</option>` + OBJETIVOS.map((s) => opt(s, a.objetivo)).join('');
@@ -88,49 +97,61 @@ export function formDadosHTML(a = {}, opts = {}) {
   const pctAtual = String((a.parceria && a.parceria.percentual) || '');
   const parceriaOpts = `<option value="">Sem parceria</option>`
     + PERCENTUAIS_PARCERIA.map((n) => `<option value="${n}"${String(n) === pctAtual ? ' selected' : ''}>${n}% de desconto${n === 100 ? ' (cortesia)' : ''}</option>`).join('');
-  const idField = opts.idEditavel
-    ? `<div class="field full"><label>ID do aluno</label><input name="id" type="text" value="${esc(a.id)}" placeholder="Use o seu padrão de ID — ou deixe vazio para gerar (001, 002…)" /><span class="hint">Precisa ser único. Vazio = numeração automática.</span></div>`
-    : `<div class="field full"><label>ID do aluno</label><input type="text" value="${esc(a.id)}" disabled /><span class="hint">O ID é definido no cadastro e não muda (mantém as fotos no lugar).</span></div>`;
-  return `
+  return {
+    id: opts.idEditavel
+      ? `<div class="field full"><label>ID do aluno</label><input name="id" type="text" value="${esc(a.id)}" placeholder="Use o seu padrão de ID — ou deixe vazio para gerar (001, 002…)" /><span class="hint">Precisa ser único. Vazio = numeração automática.</span></div>`
+      : `<div class="field full"><label>ID do aluno</label><input type="text" value="${esc(a.id)}" disabled /><span class="hint">O ID é definido no cadastro e não muda (mantém as fotos no lugar).</span></div>`,
+    nome: `<div class="field full"><label>Nome completo *</label><input name="nome" type="text" required value="${esc(a.nome)}" placeholder="Nome do aluno" /></div>`,
+    nascimento: `<div class="field"><label>Data de nascimento</label><input name="nascimento" type="date" value="${esc(a.nascimento)}" /><span class="hint" data-idade>${a.nascimento ? 'Idade: ' + calcIdade(a.nascimento) + ' anos' : ''}</span></div>`,
+    sexo: `<div class="field"><label>Sexo</label><select name="sexo">${sexoOpts}</select></div>`,
+    telefone: `<div class="field"><label>Telefone / WhatsApp</label><input name="telefone" type="tel" value="${esc(a.telefone)}" placeholder="(14) 99999-9999" /><a class="wa" data-wa target="_blank" rel="noopener" style="display:none">Abrir no WhatsApp →</a></div>`,
+    email: `<div class="field"><label>E-mail</label><input name="email" type="email" value="${esc(a.email)}" placeholder="email@exemplo.com" /></div>`,
+    endereco: `<div class="field full"><label>Endereço</label><input name="endereco" type="text" value="${esc(a.endereco)}" placeholder="Rua, número, bairro, cidade" /></div>`,
+    status: `<div class="field"><label>Status</label><select name="status">${stOpts}</select></div>`,
+    appLiberado: `<div class="field full"><label>App mobile</label><label class="chk-app"><input type="checkbox" name="appLiberado" value="1"${a.appLiberado === true ? ' checked' : ''} /><span>Acesso ao Aplicativo Liberado</span></label><span class="hint">O app no celular é de planos específicos. Desmarcado, o aluno entra no app e para numa tela de bloqueio — o <b>Portal web continua valendo</b>. Ficha antiga, sem esta marcação, fica bloqueada.</span></div>`,
+    modoLite: `<div class="field full"><label>Tela do app</label><label class="chk-app"><input type="checkbox" name="modoLite" value="1"${a.modoLite === true ? ' checked' : ''} /><span>Modo simplificado (Lite)</span></label><span class="hint">Para quem quer o app sem distração: a tela inicial mostra só o <b>treino do dia</b> em destaque e os atalhos de água e de conversa com você, e o app fica com duas abas (Hoje e Perfil). Só você liga e desliga — o aluno não mexe nisso.</span></div>`,
+    altura: `<div class="field"><label>Altura (cm)</label><input name="altura" type="number" min="0" step="0.1" value="${esc(a.altura)}" placeholder="175" /></div>`,
+    peso: `<div class="field"><label>Peso atual (kg)</label><input name="peso" type="number" min="0" step="0.1" value="${esc(a.peso)}" placeholder="80" /></div>`,
+    objetivo: `<div class="field"><label>Objetivo</label><select name="objetivo">${objOpts}</select></div>`,
+    nivel: `<div class="field"><label>Nível de treino</label><select name="nivel">${nivelOpts}</select></div>`,
+    foco: `<div class="field full"><label>Foco (até 2 grupos)</label><div class="dias-treino">${focoHTML}</div><span class="hint">O Montador Individual tira série de onde ele está mais adiantado e põe no foco, mantendo o total do treino da turma.</span></div>`,
+    freqVezes: `<div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>`,
+    dias: `<div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>`,
+    obs: `<div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>`,
+    mensalidade: `<div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /></div>`,
+    vencimento: `<div class="field"><label>Dia de vencimento</label><input name="vencimento" type="number" min="1" max="31" value="${esc(a.vencimento)}" placeholder="10" /><span class="hint">Dia do mês (1–31) em que a mensalidade vence.</span></div>`,
+    parceriaPct: `<div class="field"><label>Parceria (desconto)</label><select name="parceriaPct">${parceriaOpts}</select><span class="hint">A mensalidade cheia continua acima. O desconto entra como investimento do box, não como preço menor.</span></div>`,
+    parceriaNome: `<div class="field"><label>Nome da parceria</label><input name="parceriaNome" type="text" value="${esc((a.parceria && a.parceria.nome) || '')}" placeholder="Ex.: Clínica São Jorge"${a.parceria && a.parceria.percentual ? '' : ' disabled'} /><span class="hint">Para saber quanto o box investe em cada uma.</span></div>`,
+    pagoPor: `<div class="field"><label>Quem paga esta conta</label><select name="pagoPorId">${pagadorOpts}</select><span class="hint">${temDependentes ? 'Este aluno já paga a conta de outro, então não pode ter um responsável.' : 'A conta dele entra somada na do responsável, e o Portal dele mostra quem acertou.'}</span></div>`,
+    pagoPorEscopo: `<div class="field"><label>O responsável cobre</label><select name="pagoPorEscopo"${a.pagoPor && a.pagoPor.id ? '' : ' disabled'}>${escopoOpts}</select><span class="hint">“Só o plano” deixa o que ele consumir no box por conta dele.</span></div>`,
+  };
+}
+
+/** Uma seção de formulário com os campos. @param {string} titulo @param {string[]} campos */
+const secao = (titulo, campos) => `
   <div class="form-sec">
-    <h3>Dados pessoais</h3>
+    <h3>${titulo}</h3>
     <div class="grid-form">
-      ${idField}
-      <div class="field full"><label>Nome completo *</label><input name="nome" type="text" required value="${esc(a.nome)}" placeholder="Nome do aluno" /></div>
-      <div class="field"><label>Data de nascimento</label><input name="nascimento" type="date" value="${esc(a.nascimento)}" /><span class="hint" data-idade>${a.nascimento ? 'Idade: ' + calcIdade(a.nascimento) + ' anos' : ''}</span></div>
-      <div class="field"><label>Sexo</label><select name="sexo">${sexoOpts}</select></div>
-      <div class="field"><label>Telefone / WhatsApp</label><input name="telefone" type="tel" value="${esc(a.telefone)}" placeholder="(14) 99999-9999" /><a class="wa" data-wa target="_blank" rel="noopener" style="display:none">Abrir no WhatsApp →</a></div>
-      <div class="field"><label>E-mail</label><input name="email" type="email" value="${esc(a.email)}" placeholder="email@exemplo.com" /></div>
-      <div class="field full"><label>Endereço</label><input name="endereco" type="text" value="${esc(a.endereco)}" placeholder="Rua, número, bairro, cidade" /></div>
-      <div class="field"><label>Status</label><select name="status">${stOpts}</select></div>
-      <div class="field full"><label>App mobile</label><label class="chk-app"><input type="checkbox" name="appLiberado" value="1"${a.appLiberado === true ? ' checked' : ''} /><span>Acesso ao Aplicativo Liberado</span></label><span class="hint">O app no celular é de planos específicos. Desmarcado, o aluno entra no app e para numa tela de bloqueio — o <b>Portal web continua valendo</b>. Ficha antiga, sem esta marcação, fica bloqueada.</span></div>
-      <div class="field full"><label>Tela do app</label><label class="chk-app"><input type="checkbox" name="modoLite" value="1"${a.modoLite === true ? ' checked' : ''} /><span>Modo simplificado (Lite)</span></label><span class="hint">Para quem quer o app sem distração: a tela inicial mostra só o <b>treino do dia</b> em destaque e os atalhos de água e de conversa com você, e o app fica com duas abas (Hoje e Perfil). Só você liga e desliga — o aluno não mexe nisso.</span></div>
-    </div>
-  </div>
-  <div class="form-sec">
-    <h3>Dados do treino</h3>
-    <div class="grid-form">
-      <div class="field"><label>Altura (cm)</label><input name="altura" type="number" min="0" step="0.1" value="${esc(a.altura)}" placeholder="175" /></div>
-      <div class="field"><label>Peso atual (kg)</label><input name="peso" type="number" min="0" step="0.1" value="${esc(a.peso)}" placeholder="80" /></div>
-      <div class="field"><label>Objetivo</label><select name="objetivo">${objOpts}</select></div>
-      <div class="field"><label>Nível de treino</label><select name="nivel">${nivelOpts}</select></div>
-      <div class="field full"><label>Foco (até 2 grupos)</label><div class="dias-treino">${focoHTML}</div><span class="hint">O Montador Individual tira série de onde ele está mais adiantado e põe no foco, mantendo o total do treino da turma.</span></div>
-      <div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>
-      <div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>
-      <div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>
-    </div>
-  </div>
-  <div class="form-sec">
-    <h3>Financeiro</h3>
-    <div class="grid-form">
-      <div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /></div>
-      <div class="field"><label>Dia de vencimento</label><input name="vencimento" type="number" min="1" max="31" value="${esc(a.vencimento)}" placeholder="10" /><span class="hint">Dia do mês (1–31) em que a mensalidade vence.</span></div>
-      <div class="field"><label>Parceria (desconto)</label><select name="parceriaPct">${parceriaOpts}</select><span class="hint">A mensalidade cheia continua acima. O desconto entra como investimento do box, não como preço menor.</span></div>
-      <div class="field"><label>Nome da parceria</label><input name="parceriaNome" type="text" value="${esc((a.parceria && a.parceria.nome) || '')}" placeholder="Ex.: Clínica São Jorge"${a.parceria && a.parceria.percentual ? '' : ' disabled'} /><span class="hint">Para saber quanto o box investe em cada uma.</span></div>
-      <div class="field"><label>Quem paga esta conta</label><select name="pagoPorId">${pagadorOpts}</select><span class="hint">${temDependentes ? 'Este aluno já paga a conta de outro, então não pode ter um responsável.' : 'A conta dele entra somada na do responsável, e o Portal dele mostra quem acertou.'}</span></div>
-      <div class="field"><label>O responsável cobre</label><select name="pagoPorEscopo"${a.pagoPor && a.pagoPor.id ? '' : ' disabled'}>${escopoOpts}</select><span class="hint">“Só o plano” deixa o que ele consumir no box por conta dele.</span></div>
+      ${campos.join('\n      ')}
     </div>
   </div>`;
+
+/**
+ * O formulário inteiro do cadastro (o modal do "+ Cadastrar novo aluno").
+ * @param {any} [a] @param {{ idEditavel?: boolean, todos?: any[] }} [opts]
+ */
+export function formDadosHTML(a = {}, opts = {}) {
+  const c = camposDados(a, opts);
+  return secao('Dados pessoais', [c.id, c.nome, c.nascimento, c.sexo, c.telefone, c.email, c.endereco, c.status, c.appLiberado, c.modoLite])
+    + secao('Dados do treino', [c.altura, c.peso, c.objetivo, c.nivel, c.foco, c.freqVezes, c.dias, c.obs])
+    + secao('Financeiro', [c.mensalidade, c.vencimento, c.parceriaPct, c.parceriaNome, c.pagoPor, c.pagoPorEscopo]);
+}
+
+/** O que esta aba ainda edita: nascimento, sexo e os dados do treino. @param {any} a */
+export function formTreinoHTML(a) {
+  const c = camposDados(a);
+  return secao('Dados pessoais', [c.nascimento, c.sexo])
+    + secao('Dados do treino', [c.altura, c.peso, c.objetivo, c.nivel, c.foco, c.freqVezes, c.dias, c.obs]);
 }
 
 /** Liga o cálculo de idade e o link do WhatsApp dentro de um container de form. @param {ParentNode} root */
@@ -199,85 +220,36 @@ export function lerForm(form) {
   return o;
 }
 
+/**
+ * Só os campos de um grupo (`CAMPOS`), lidos do formulário. `lerForm` sempre
+ * devolve os booleanos e as listas (para desmarcar gravar `false`); num
+ * formulário que não tem esses campos, eles não podem aparecer como "mexidos".
+ * @param {HTMLFormElement} form @param {readonly string[]} chaves
+ * @returns {Record<string, any>}
+ */
+export function lerCampos(form, chaves) {
+  const o = lerForm(form);
+  /** @type {Record<string, any>} */ const r = {};
+  for (const k of chaves) if (k in o) r[k] = o[k];
+  return r;
+}
+
 /* ============================================================
    A aba
    ============================================================ */
 
-/**
- * O bloco "Acesso ao Portal" (sem os eventos).
- *
- * O cadastro público está desligado, então é daqui que sai a conta de login de
- * todo aluno novo (ver acesso-aluno.js e a callable `criarAcessoAluno`). O botão
- * cria a conta sem senha e devolve um link para o aluno definir a dele; para
- * quem já tem conta, só gera um link novo — é o "reenviar acesso".
- * @param {any} a
- */
-export function htmlAcesso(a) {
-  const email = (a.email || '').trim();
-  const enviado = a.acessoEnviadoEm ? new Date(a.acessoEnviadoEm).toLocaleDateString('pt-BR') : '';
-  const dica = !email
-    ? 'Preencha e salve o e-mail da ficha para criar o acesso.'
-    : enviado
-      ? `Link enviado em ${enviado}. O mesmo botão gera outro — serve para quem esqueceu a senha.`
-      : 'Cria a conta de login e gera um link para o aluno definir a própria senha. Você não vê nem escolhe a senha.';
+/** O conteúdo da aba (sem os eventos). @param {any} a */
+export function htmlAbaDados(a) {
   return `
-    <div class="acesso-cab">
-      <div><b>Acesso ao Portal${a.appLiberado === true ? ' e ao app' : ''}</b><span class="hint">${esc(dica)}</span></div>
-      <button class="btn btn-sm" type="button" id="btn-acesso"${email ? '' : ' disabled'}>${enviado ? 'Gerar novo link' : 'Criar acesso'}</button>
-    </div>
-    <div class="acesso-res" id="acesso-res" hidden></div>`;
-}
-
-/**
- * Desenha o bloco de acesso com o que está salvo agora. O botão abre o modal
- * de acesso (ui-acoes-aluno.js) — o mesmo do menu ⋯ do cabeçalho.
- * @param {any} a
- */
-function renderAcessoAluno(a) {
-  const el = $('#acesso-aluno'); if (!el) return;
-  el.innerHTML = htmlAcesso(db.obter(a.id) || a);
-  $('#btn-acesso', el)?.addEventListener('click', () => emit(EVENTOS.GERAR_ACESSO, a.id));
-}
-
-/** Indicador (só leitura) de consentimento LGPD do aluno. @param {any} a */
-async function carregarConsentimentoAluno(a) {
-  const alvoId = a.id;
-  const el = $('#lgpd-tag'); if (!el) return;
-  const email = (a.email || '').trim().toLowerCase();
-  if (!email) { el.innerHTML = 'Consentimento LGPD: <span class="semdado">sem e-mail cadastrado</span>'; return; }
-  let c = null;
-  try { c = await carregarConsentimentoLGPD(email); } catch (e) { console.warn('LGPD:', /** @type {any} */ (e)?.code || e); }
-  if (!$('#lgpd-tag') || estado.alunoAtual?.id !== alvoId) return; // trocou de aluno enquanto carregava
-  if (c && c.aceitoEm) {
-    const d = new Date(c.aceitoEm).toLocaleDateString('pt-BR');
-    $('#lgpd-tag').innerHTML = `Consentimento LGPD: <span class="ok">✓ aceito em ${d}</span>`;
-  } else {
-    $('#lgpd-tag').innerHTML = 'Consentimento LGPD: <span class="pendente">⚠ ainda não aceito</span>';
-  }
-}
-
-/** O conteúdo da aba (sem os eventos). @param {any} a @param {{ todos?: any[] }} [o] */
-export function htmlAbaDados(a, o = {}) {
-  return `
-    <div class="lgpd-tag" id="lgpd-tag">Consentimento LGPD: <span>verificando…</span></div>
-    <div class="acesso-aluno" id="acesso-aluno"></div>
     <form id="form-dados">
-      ${formDadosHTML(a, o)}
+      ${formTreinoHTML(a)}
     </form>`;
 }
 
-/**
- * Desenha a aba com a ficha recebida (no app, a ficha com o rascunho por
- * cima). O consentimento e o acesso mostram o que está SALVO: são estado da
- * conta, não do formulário.
- * @param {any} a
- */
+/** Desenha a aba com a ficha recebida (no app, a ficha com o rascunho por cima). @param {any} a */
 function renderDados(a) {
   const painel = $('#tab-dados'); if (!painel) return;
-  const salvo = db.obter(a.id) || a;
   painel.innerHTML = htmlAbaDados(a);
-  carregarConsentimentoAluno(salvo);
-  renderAcessoAluno(salvo);
   wireForm($('#form-dados'));
 }
 
@@ -286,10 +258,6 @@ export function iniciarTabDados() {
   registrarFormulario({
     aba: 'dados',
     desenhar: renderDados,
-    ler: () => { const form = $('#form-dados'); return form ? lerForm(form) : null; },
+    ler: () => { const form = $('#form-dados'); return form ? lerCampos(form, CAMPOS.treino) : null; },
   });
-  // O link gerado no modal de acesso grava `acessoEnviadoEm`, e salvar o e-mail
-  // habilita o "Criar acesso": o bloco de acesso se atualiza sozinho. Só o
-  // bloco — o formulário é do salvar global.
-  on(EVENTOS.ALUNOS_MUDARAM, () => { if ($('#acesso-aluno') && estado.alunoAtual) renderAcessoAluno(estado.alunoAtual); });
 }
