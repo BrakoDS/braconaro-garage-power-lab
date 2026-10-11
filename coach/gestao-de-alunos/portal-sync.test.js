@@ -13,7 +13,7 @@ test('o perfil de treino vai na fatia, para o Portal calcular a versao do aluno'
   const a = {
     id: '007', nome: 'Ana', email: 'Ana@Exemplo.com ', objetivo: 'Hipertrofia',
     foco: ['perna'], restricoes: [{ evitarId: 'agacho_smith', substitutoId: 'leg_press', motivo: 'joelho' }],
-    metas: { perna: 20 },
+    metasGrupo: { perna: 20 },
   };
   const f = fatia(a, [a]);
   assert.equal(f.email, 'ana@exemplo.com', 'o e-mail e a chave do documento: sempre normalizado');
@@ -21,6 +21,22 @@ test('o perfil de treino vai na fatia, para o Portal calcular a versao do aluno'
   assert.deepEqual(f.foco, ['perna']);
   assert.equal(f.restricoes[0].substitutoId, 'leg_press');
   assert.deepEqual(f.metasGrupo, { perna: 20 });
+});
+
+test('metas corporais e metas por grupo saem cada uma no seu campo', () => {
+  // O bug: a lista de metas corporais (aba Progresso) saía como `metasGrupo`.
+  const meta = { id: 'm1', tipo: 'peso', alvo: 80, base: 90, baseData: '2026-09-01', criadoEm: 1 };
+  const f = fatia({ id: '007', email: 'a@b.com', metas: [meta], metasGrupo: { perna: 20 } }, []);
+  assert.deepEqual(f.metas, [meta]);
+  assert.deepEqual(f.metasGrupo, { perna: 20 });
+  const soCorporal = fatia({ id: '007', email: 'a@b.com', metas: [meta] }, []);
+  assert.deepEqual(soCorporal.metasGrupo, {}, 'a lista nunca vira meta por grupo');
+});
+
+test('ficha antiga, com o mapa por grupo em `metas`: sai como metasGrupo, e metas fica lista', () => {
+  const f = fatia({ id: '007', email: 'a@b.com', metas: { perna: 20 } }, []);
+  assert.deepEqual(f.metasGrupo, { perna: 20 });
+  assert.deepEqual(f.metas, []);
 });
 
 test('ficha antiga, sem perfil nenhum, publica vazio — e nao quebra o Portal', () => {
