@@ -31,7 +31,7 @@ export const EVENTOS = Object.freeze({
   ABRIR_PERFIL: 'abrir-perfil',
   /** O perfil de um aluno acabou de abrir (estado.alunoAtual já é ele). Dado: o id. */
   PERFIL_ABERTO: 'perfil-aberto',
-  /** Pedido para abrir uma aba do perfil. Dado: o id da aba ('dados', 'matriz'…). */
+  /** Pedido para abrir uma aba do perfil. Dado: o id da aba ('geral', 'treino'…). */
   ABRIR_ABA: 'abrir-aba',
   /** Pedido para sair do perfil e voltar à lista (o roteador traduz para abrir-tela 'lista'). */
   VOLTAR_LISTA: 'voltar-lista',

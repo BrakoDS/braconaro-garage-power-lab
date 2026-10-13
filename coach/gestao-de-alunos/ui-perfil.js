@@ -31,20 +31,19 @@
  * `#tab-<id>` no index.html. A barra rola de lado no celular e segue o padrão
  * de tablist (setas do teclado trocam de aba).
  */
-import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=18';
-import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=18';
-import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=18';
-import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=18';
-import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=18';
+import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=19';
+import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=19';
+import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=19';
+import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=19';
+import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=19';
 
 /** As abas da ficha, na ordem da barra. `id` casa com o painel `#tab-<id>`. */
 export const ABAS = Object.freeze([
   { id: 'geral', rotulo: 'Geral' },
   { id: 'saude', rotulo: 'Saúde' },
-  { id: 'dados', rotulo: 'Perfil de treino' },
+  { id: 'treino', rotulo: 'Treino' },
   { id: 'avaliacoes', rotulo: 'Avaliações' },
-  { id: 'progresso', rotulo: 'Progresso' },
-  { id: 'matriz', rotulo: 'Matriz' },
+  { id: 'progresso', rotulo: 'Uso do app' },
   { id: 'portal', rotulo: 'Portal' },
   { id: 'registros', rotulo: 'Registros' },
 ]);

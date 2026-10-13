@@ -8,8 +8,8 @@
  *                ações de dinheiro: Registrar pagamento da fatura mais antiga em
  *                aberto, + Lançamento e Ver faturas (abre a lista no próprio
  *                card — o pagamento já abre um modal, e modal sobre modal não);
- *  - Perfil      idade, objetivo, frequência e dias — só leitura; o ✎ leva à aba
- *                onde isso se edita (por enquanto, Dados);
+ *  - Perfil      idade, objetivo, frequência e dias — só leitura; o ✎ abre o
+ *                card Perfil de treino da aba Treino, já em edição;
  *  - Contato e cadastro  nome, telefone, e-mail, endereço, status e o ID;
  *  - Acesso      app liberado, modo Lite, o link do Portal e o consentimento LGPD.
  *
@@ -20,17 +20,18 @@
  * pelo ui-tab-financeiro.js e pelo ui-acoes-aluno.js; a situação e as faturas
  * mostram sempre a ficha SALVA.
  */
-import * as db from './db.js?v=18';
-import { esc, hoje, fmtData, horaLegivel, horaParaInput } from './util/formato.js?v=18';
-import { $ } from './util/dom.js?v=18';
-import { estado, on, emit, EVENTOS } from './estado.js?v=18';
-import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=18';
-import { camposDados, wireForm, lerCampos, CAMPOS, DIAS_FORM } from './ui-tab-dados.js?v=18';
-import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=18';
-import { brl, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=18';
-import { htmlFatura } from './ui-tab-financeiro.js?v=18';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=18';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=18';
+import * as db from './db.js?v=19';
+import { esc, hoje, fmtData } from './util/formato.js?v=19';
+import { $ } from './util/dom.js?v=19';
+import { estado, on, emit, EVENTOS } from './estado.js?v=19';
+import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=19';
+import { camposDados, wireForm, lerCampos, CAMPOS } from './ui-tab-dados.js?v=19';
+import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=19';
+import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=19';
+import { brl, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=19';
+import { htmlFatura } from './ui-tab-financeiro.js?v=19';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=19';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=19';
 
 /** Os cards com formulário (os que têm ✎ Editar). */
 export const CARDS_EDITAVEIS = Object.freeze(['contato', 'financeiro', 'acesso']);
@@ -39,19 +40,8 @@ export const CARDS_EDITAVEIS = Object.freeze(['contato', 'financeiro', 'acesso']
    HTML (puro)
    ============================================================ */
 
-/**
- * "Seg 7h · Qua 19h" — os dias de treino com a hora de cada um (a hora antiga,
- * única para a semana, vale para o dia que não tem a sua).
- * @param {any} a
- */
-export function resumoDosDias(a) {
-  const dias = new Set(a.diasTreino || []);
-  const horas = a.horarios || {};
-  const antiga = horaParaInput(a.freqHorario);
-  return DIAS_FORM.filter(([v]) => dias.has(v))
-    .map(([v, l]) => { const h = horas[v] || antiga; return h ? `${l} ${horaLegivel(h)}` : l; })
-    .join(' · ');
-}
+// Os dias com a hora de cada um — quem os edita é o card Perfil de treino.
+export { resumoDosDias };
 
 /** Card Perfil (só leitura). @param {any} v a ficha com o rascunho @param {string} hojeIso */
 export function htmlCardPerfil(v, hojeIso) {
@@ -60,7 +50,7 @@ export function htmlCardPerfil(v, hojeIso) {
   return htmlCard({
     id: 'perfil',
     titulo: 'Perfil',
-    acoes: '<button class="card-btn" type="button" data-ir-aba="dados" aria-label="Editar o perfil de treino (aba Dados)">✎ Editar</button>',
+    acoes: '<button class="card-btn" type="button" data-ir-aba="treino" data-editar="perfil-treino" aria-label="Editar o perfil de treino (aba Treino)">✎ Editar</button>',
     corpo: htmlLinhas([
       ['Idade', idade != null ? `${idade} anos` : ''],
       ['Objetivo', esc(v.objetivo || '')],
@@ -278,6 +268,8 @@ export function iniciarTabGeral() {
       redesenharAberta();
       // Abriu para editar: o foco vai para o primeiro campo do card.
       if (alvo.dataset.modo === 'editar') /** @type {any} */ ($(`#card-${card} form input:not([disabled]), #card-${card} form select`))?.focus();
+    } else if (alvo.dataset.editar) {
+      editarNaAbaTreino(alvo.dataset.editar);
     } else if (alvo.dataset.irAba) {
       emit(EVENTOS.ABRIR_ABA, alvo.dataset.irAba);
     } else if (alvo.dataset.geral === 'faturas') {

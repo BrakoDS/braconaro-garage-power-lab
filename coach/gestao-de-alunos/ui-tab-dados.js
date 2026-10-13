@@ -1,28 +1,22 @@
 // @ts-check
 /**
- * Aba "Perfil de treino" (id 'dados') — o que ainda não tem card próprio:
- * objetivo, nível, foco, frequência e os dias e horários. Contato, plano e
- * acesso foram para os cards da aba Geral (ui-tab-geral.js); nascimento, sexo,
- * medidas do cadastro e a nota clínica, para a aba Saúde (ui-tab-saude.js). O
- * que sobrou vira o card Perfil de treino da aba Treino no próximo passo
- * (docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md).
+ * Os campos do cadastro do aluno. Era a aba Dados; com a ficha em cards
+ * (docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md), cada
+ * grupo de campos foi para um card: contato, plano e acesso na aba Geral
+ * (ui-tab-geral.js); nascimento, sexo, medidas do cadastro e a nota clínica na
+ * aba Saúde (ui-tab-saude.js); objetivo, nível, foco, frequência e os dias e
+ * horários no card Perfil de treino da aba Treino (ui-tab-treino.js).
  *
- * Este módulo é também o DONO dos campos do cadastro: cada campo é montado uma
- * vez só (`camposDados`) e quem precisa compõe os que usa — o modal do "+
- * Cadastrar novo aluno" (`formDadosHTML`, o formulário inteiro), esta aba
- * (`formTreinoHTML`) e os cards da aba Geral. Assim um campo nunca tem duas
- * marcações diferentes. `lerForm` lê qualquer um deles; `lerCampos` fica só
- * com os campos de um card.
- *
- * Quem desenha e grava a aba é o salvar global (ui-salvar-global.js): ela se
- * desenha toda vez que abre, a partir da ficha com o rascunho por cima, e o
- * que mudou vai para a gravação única da ficha.
+ * Este módulo é o DONO dos campos: cada campo é montado uma vez só
+ * (`camposDados`) e quem precisa compõe os que usa — o modal do "+ Cadastrar
+ * novo aluno" (`formDadosHTML`, o formulário inteiro) e os cards. Assim um
+ * campo nunca tem duas marcações diferentes. `lerForm` lê qualquer um deles;
+ * `lerCampos` fica só com os campos de um card.
  */
-import * as db from './db.js?v=18';
-import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=18';
-import { $, $$ } from './util/dom.js?v=18';
-import { registrarFormulario } from './ui-salvar-global.js?v=18';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=18';
+import * as db from './db.js?v=19';
+import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=19';
+import { $, $$ } from './util/dom.js?v=19';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=19';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
 
@@ -149,12 +143,6 @@ export function formDadosHTML(a = {}, opts = {}) {
     + secao('Financeiro', [c.mensalidade, c.vencimento, c.parceriaPct, c.parceriaNome, c.pagoPor, c.pagoPorEscopo]);
 }
 
-/** O que esta aba ainda edita: o perfil de treino. @param {any} a */
-export function formTreinoHTML(a) {
-  const c = camposDados(a);
-  return secao('Perfil de treino', [c.objetivo, c.nivel, c.foco, c.freqVezes, c.dias]);
-}
-
 /** Liga o cálculo de idade e o link do WhatsApp dentro de um container de form. @param {ParentNode} root */
 export function wireForm(root) {
   const nasc = $('input[name=nascimento]', root);
@@ -233,32 +221,4 @@ export function lerCampos(form, chaves) {
   /** @type {Record<string, any>} */ const r = {};
   for (const k of chaves) if (k in o) r[k] = o[k];
   return r;
-}
-
-/* ============================================================
-   A aba
-   ============================================================ */
-
-/** O conteúdo da aba (sem os eventos). @param {any} a */
-export function htmlAbaDados(a) {
-  return `
-    <form id="form-dados">
-      ${formTreinoHTML(a)}
-    </form>`;
-}
-
-/** Desenha a aba com a ficha recebida (no app, a ficha com o rascunho por cima). @param {any} a */
-function renderDados(a) {
-  const painel = $('#tab-dados'); if (!painel) return;
-  painel.innerHTML = htmlAbaDados(a);
-  wireForm($('#form-dados'));
-}
-
-/** Liga a aba ao salvar global. Chamar uma vez, antes do resto do app (depois de `iniciarSalvarGlobal`). */
-export function iniciarTabDados() {
-  registrarFormulario({
-    aba: 'dados',
-    desenhar: renderDados,
-    ler: () => { const form = $('#form-dados'); return form ? lerCampos(form, CAMPOS.treino) : null; },
-  });
 }

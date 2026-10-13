@@ -14,14 +14,14 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=18';
+import * as db from './db.js?v=19';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=18';
-import { mesDoBox, darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=18';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=18';
-import { $, $$ } from './util/dom.js?v=18';
-import { on, EVENTOS } from './estado.js?v=18';
-import { regFinanceiro } from './registro.js?v=18';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=19';
+import { mesDoBox, darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=19';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=19';
+import { $, $$ } from './util/dom.js?v=19';
+import { on, EVENTOS } from './estado.js?v=19';
+import { regFinanceiro } from './registro.js?v=19';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */
@@ -138,7 +138,7 @@ function renderFinanceiro() {
     <div class="fin-card"><span class="fin-card-l">Consumíveis</span><span class="fin-card-v">${brl(extras)}</span></div>
     <div class="fin-card"><span class="fin-card-l">Investido em parcerias</span><span class="fin-card-v${investido > 0 ? ' parceria' : ''}">${brl(investido)}</span></div>`;
   $('#fin-list').innerHTML = (finEditandoProdutos ? painelProdutos() : '')
-    + (html || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade no perfil do aluno (aba Dados → Financeiro).</div>`);
+    + (html || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade na ficha do aluno (aba Geral → card Financeiro).</div>`);
   $('#fin-produtos').textContent = finEditandoProdutos ? 'Fechar produtos' : 'Produtos';
 }
 

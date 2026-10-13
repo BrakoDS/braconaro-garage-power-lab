@@ -14,9 +14,9 @@ import { readFileSync } from 'node:fs';
 import {
   origemDaMedida, htmlCardBiometria, htmlCardAlerta, seloDoParq, leituraAnamnese, leituraParq,
   respondidasAnamnese, htmlCardFormularios, htmlAbaSaude,
-} from './ui-tab-saude.js?v=18';
-import { CAMINHO_LESOES, normalizarLesoes, descreverLesao, linhaLesao, lesoesDe } from './lesoes.js?v=18';
-import { cruzaComRascunho } from './ui-salvar-global.js?v=18';
+} from './ui-tab-saude.js?v=19';
+import { CAMINHO_LESOES, normalizarLesoes, descreverLesao, linhaLesao, lesoesDe } from './lesoes.js?v=19';
+import { cruzaComRascunho } from './ui-salvar-global.js?v=19';
 
 const HOJE = '2026-10-11';
 const comLesoes = (lesoes, extra = {}) => ({ id: 'A1', nome: 'Ana', matrizIndividualizacao: { adaptacoes: { lesoes } }, ...extra });
@@ -41,11 +41,11 @@ test('lesões: a linha do editor vem com a gravidade leve e sem opção vazia de
   assert.match(linhaLesao({ obs: 'dor <no> joelho' }), /value="dor &lt;no&gt; joelho"/);
 });
 
-test('Matriz: as lesões só aparecem — quem edita é a aba Saúde', () => {
-  const fonte = readFileSync(new URL('./ui-tab-matriz.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(fonte, /mtz-add-lesao|data-remover-lesao|linhaLesao/, 'sem editor de lesões na Matriz');
+test('aba Treino: as lesões só aparecem — quem edita é a aba Saúde', () => {
+  const fonte = readFileSync(new URL('./ui-tab-treino.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(fonte, /mtz-add-lesao|data-remover-lesao|linhaLesao/, 'sem editor de lesões na aba Treino');
   assert.match(fonte, /data-ir-aba="saude">Editar na aba Saúde/);
-  assert.match(fonte, /lesoes: original\.adaptacoes\.lesoes,/, 'a Matriz devolve as lesões como recebeu, sem apagar');
+  assert.match(fonte, /r\[`\$\{CAMPO\}\.adaptacoes\.\$\{k\}`\]/, 'as adaptações gravam campo a campo: as lesões ficam como estão');
 });
 
 /* ---------- Biometria ---------- */

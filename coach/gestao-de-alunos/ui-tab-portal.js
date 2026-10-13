@@ -13,18 +13,18 @@
  * ganha) permissão nenhuma a mais.
  *
  * Saiu do `app.js` no fatiamento. O acesso do aluno (criar conta, link de
- * senha, app liberado) NÃO mora aqui: fica na aba Dados, junto do e-mail que
- * ele usa (ui-tab-dados.js).
+ * senha, app liberado) NÃO mora aqui: fica no card Acesso da aba Geral
+ * (ui-tab-geral.js) e no menu ⋯ do cabeçalho (ui-acoes-aluno.js).
  *
  * Quando desenha: toda vez que a aba abre (a prévia volta para a semana atual).
  * Não há o que digitar, então não há rascunho a guardar. Com a aba aberta, uma
  * gravação ('alunos-mudaram') reenvia a fatia — a prévia acompanha a ficha.
  */
-import * as db from './db.js?v=18';
-import { fatia } from './portal-sync.js?v=18';
-import { isoLocal } from './util/formato.js?v=18';
-import { $ } from './util/dom.js?v=18';
-import { estado, on, EVENTOS } from './estado.js?v=18';
+import * as db from './db.js?v=19';
+import { fatia } from './portal-sync.js?v=19';
+import { isoLocal } from './util/formato.js?v=19';
+import { $ } from './util/dom.js?v=19';
+import { estado, on, EVENTOS } from './estado.js?v=19';
 
 /** A página da prévia, relativa à Gestão. `?previa=1` liga o modo no Portal. */
 export const URL_PREVIA = '../../painel-do-aluno/previa.html';

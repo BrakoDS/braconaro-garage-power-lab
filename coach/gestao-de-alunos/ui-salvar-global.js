@@ -14,8 +14,8 @@
  *    não tocado nunca entra: assim um dado que chega da nuvem no meio da edição
  *    não é desfeito pelo formulário velho na tela;
  *  - toda vez que uma aba abre, ela é desenhada a partir da ficha COM o
- *    rascunho por cima. Trocar de aba não perde nada, e o nível mudado na
- *    Matriz aparece na aba Dados;
+ *    rascunho por cima. Trocar de aba não perde nada, e o que mudou numa aba
+ *    aparece na outra (o card Perfil da Geral mostra o perfil de treino editado);
  *  - a barra no rodapé diz quantos campos estão pendentes e tem Descartar e
  *    Salvar; as abas com pendência ganham um ponto;
  *  - Salvar grava o rascunho sobre a ficha de AGORA (`montarPatch`); se um
@@ -27,15 +27,15 @@
  * avaliações, financeiro (pagamento, lançamento), metas, acesso ao Portal e
  * exclusão. Plano: docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md.
  */
-import * as db from './db.js?v=18';
-import { esc } from './util/formato.js?v=18';
-import { $ } from './util/dom.js?v=18';
-import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=18';
-import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=18';
-import { regFicha, regAnamnese, regParq } from './registro.js?v=18';
-import { resumoFicha } from './registros-ui.js?v=18';
-import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=18';
-import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=18';
+import * as db from './db.js?v=19';
+import { esc } from './util/formato.js?v=19';
+import { $ } from './util/dom.js?v=19';
+import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=19';
+import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=19';
+import { regFicha, regAnamnese, regParq } from './registro.js?v=19';
+import { resumoFicha } from './registros-ui.js?v=19';
+import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=19';
+import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=19';
 
 /**
  * @typedef {{
