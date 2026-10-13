@@ -29,13 +29,13 @@
  * num formulário de cadastro convida o coach a digitar um número que vence na
  * segunda-feira seguinte. A leitura passa por aqui intacta, como veio.
  */
-import { registrarFormulario } from './ui-salvar-global.js?v=16';
+import { registrarFormulario } from './ui-salvar-global.js?v=17';
 import {
   CAMPO, matrizDe, separarParaGravar, e1rm, cargaDe1RM, resumoDeAdaptacoes, rotulo,
   OPCOES_NIVEL, FASES, LEVANTAMENTOS, ZONAS_RIR, REGIOES_LESAO, GRAVIDADES,
   REGRAS_IMPACTO, REGRAS_TRACAO, RESTRICOES_MOBILIDADE, GRUPOS_COM_ROTULO,
-} from '../../compartilhado/regras/matriz-individualizacao.js?v=16';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=16';
+} from '../../compartilhado/regras/matriz-individualizacao.js?v=17';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=17';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const $ = (s, r = document) => /** @type {any} */ (r.querySelector(s));

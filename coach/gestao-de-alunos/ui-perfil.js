@@ -31,22 +31,22 @@
  * `#tab-<id>` no index.html. A barra rola de lado no celular e segue o padrão
  * de tablist (setas do teclado trocam de aba).
  */
-import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=16';
-import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=16';
-import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=16';
-import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=16';
-import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=16';
-import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=16';
+import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=17';
+import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=17';
+import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=17';
+import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=17';
+import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=17';
+import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=17';
 
 /** As abas da ficha, na ordem da barra. `id` casa com o painel `#tab-<id>`. */
 export const ABAS = Object.freeze([
+  { id: 'geral', rotulo: 'Geral' },
   { id: 'dados', rotulo: 'Dados' },
   { id: 'anamnese', rotulo: 'Anamnese' },
   { id: 'parq', rotulo: 'PAR-Q' },
   { id: 'avaliacoes', rotulo: 'Avaliações' },
   { id: 'progresso', rotulo: 'Progresso' },
   { id: 'matriz', rotulo: 'Matriz' },
-  { id: 'financeiro', rotulo: 'Financeiro' },
   { id: 'portal', rotulo: 'Portal' },
   { id: 'registros', rotulo: 'Registros' },
 ]);
@@ -248,7 +248,7 @@ export function iniciarPerfil(d) {
   deps = d;
 
   // Abrir o perfil: a ficha vai para o estado, o cabeçalho é desenhado, as abas
-  // se preparam para o aluno novo ('perfil-aberto'), a aba Dados abre e a tela
+  // se preparam para o aluno novo ('perfil-aberto'), a aba Geral abre e a tela
   // aparece. Vem do clique num card da lista ou do cadastro de aluno novo.
   on(EVENTOS.ABRIR_PERFIL, (id) => {
     const a = deps?.obter(id);
@@ -256,12 +256,12 @@ export function iniciarPerfil(d) {
     estado.alunoAtual = a;
     renderCabecalho(a);
     emit(EVENTOS.PERFIL_ABERTO, a.id);
-    emit(EVENTOS.ABRIR_ABA, 'dados');
+    emit(EVENTOS.ABRIR_ABA, 'geral');
     emit(EVENTOS.ABRIR_TELA, 'perfil');
   });
   on(EVENTOS.EXPORTAR_FICHA, () => { if (estado.alunoAtual) deps?.exportar?.(estado.alunoAtual); });
   const abas = $('#perfil-abas');
-  if (abas) abas.innerHTML = htmlAbas('dados');
+  if (abas) abas.innerHTML = htmlAbas('geral');
 
   const cab = $('#perfil-cab');
   cab?.addEventListener('click', (e) => {

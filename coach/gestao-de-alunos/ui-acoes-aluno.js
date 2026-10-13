@@ -14,14 +14,14 @@
  * O HTML de cada estado é puro (testado em ui-acoes-aluno.test.js); a fiação
  * fica em `iniciarAcoesAluno`.
  */
-import * as db from './db.js?v=16';
-import { esc } from './util/formato.js?v=16';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=16';
-import { estado, on, emit, EVENTOS } from './estado.js?v=16';
-import { apagarFotosDoAluno } from './ui-fotos.js?v=16';
-import * as eventos from './eventos.js?v=16';
-import { criarAcesso as criarAcessoReal, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=16';
-import { valorPendente } from './ui-salvar-global.js?v=16';
+import * as db from './db.js?v=17';
+import { esc } from './util/formato.js?v=17';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=17';
+import { estado, on, emit, EVENTOS } from './estado.js?v=17';
+import { apagarFotosDoAluno } from './ui-fotos.js?v=17';
+import * as eventos from './eventos.js?v=17';
+import { criarAcesso as criarAcessoReal, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=17';
+import { valorPendente } from './ui-salvar-global.js?v=17';
 
 /* ============================================================
    Acesso ao Portal — HTML (puro)
@@ -42,8 +42,8 @@ export function htmlModalAcesso(a, f) {
   const alvo = `<p class="ac-alvo">${a?.appLiberado === true ? 'Portal e app' : 'Portal do Aluno'} · <b>${esc(email || 'sem e-mail')}</b></p>`;
   const rotulo = enviado ? 'Gerar novo link' : 'Criar acesso';
   if (f.fase === 'sem-email') {
-    return `<p class="dlg-texto">Esta ficha não tem e-mail. Preencha e salve o e-mail na aba <b>Dados</b> para criar o acesso.</p>
-      <div class="ac-botoes"><button class="btn btn-sm" type="button" data-acesso="ir-dados">Ir para Dados</button></div>`;
+    return `<p class="dlg-texto">Esta ficha não tem e-mail. Preencha e salve o e-mail no card <b>Contato e cadastro</b> (aba Geral) para criar o acesso.</p>
+      <div class="ac-botoes"><button class="btn btn-sm" type="button" data-acesso="ir-contato">Ir para Contato</button></div>`;
   }
   if (f.fase === 'email-nao-salvo') {
     return `${alvo}<p class="dlg-texto">O e-mail da ficha mudou e ainda não foi salvo. Salve a ficha (botão <b>Salvar</b> no rodapé) e gere o acesso depois — o servidor confere o e-mail salvo.</p>`;
@@ -163,7 +163,7 @@ export function iniciarAcoesAluno(d = {}) {
   $('#modal-acesso-body')?.addEventListener('click', async (/** @type {any} */ e) => {
     const b = e.target.closest('[data-acesso]'); if (!b) return;
     if (b.dataset.acesso === 'gerar') gerar();
-    else if (b.dataset.acesso === 'ir-dados') { fecharModal('modal-acesso'); emit(EVENTOS.ABRIR_ABA, 'dados'); }
+    else if (b.dataset.acesso === 'ir-contato') { fecharModal('modal-acesso'); emit(EVENTOS.ABRIR_ABA, 'geral'); }
     else if (b.dataset.acesso === 'copiar') {
       try { await navigator.clipboard.writeText(convite); b.textContent = 'Copiado ✓'; } catch { b.textContent = 'Não deu para copiar'; }
     }
