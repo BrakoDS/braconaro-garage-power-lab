@@ -43,16 +43,16 @@ globalThis.document = /** @type {any} */ ({ querySelector: (s) => (tela[s] ||= e
 // O FormData lê os campos "digitados" no elemento do formulário.
 globalThis.FormData = /** @type {any} */ (class { constructor(f) { this.m = f.campos; } entries() { return Object.entries(this.m); } get(k) { return this.m[k] ?? null; } });
 
-const saude = await import('./saude.js?v=20');
+const saude = await import('./saude.js?v=21');
 const { ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq, parqRaso, resumoAnamnese, resumoParq } = saude;
-const { regAnamnese, regParq } = await import('./registro.js?v=20');
-const eventos = await import('./eventos.js?v=20');
-const db = await import('./db.js?v=20');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=20');
-const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=20');
-const { htmlAnamnese } = await import('./ui-tab-anamnese.js?v=20');
-const { htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=20');
-const { iniciarTabSaude, editarSecao } = await import('./ui-tab-saude.js?v=20');
+const { regAnamnese, regParq } = await import('./registro.js?v=21');
+const eventos = await import('./eventos.js?v=21');
+const db = await import('./db.js?v=21');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=21');
+const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=21');
+const { htmlAnamnese } = await import('./ui-tab-anamnese.js?v=21');
+const { htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=21');
+const { iniciarTabSaude, editarSecao } = await import('./ui-tab-saude.js?v=21');
 iniciarSalvarGlobal();
 iniciarTabSaude();
 

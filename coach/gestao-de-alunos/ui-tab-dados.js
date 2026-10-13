@@ -8,15 +8,15 @@
  * horários no card Perfil de treino da aba Treino (ui-tab-treino.js).
  *
  * Este módulo é o DONO dos campos: cada campo é montado uma vez só
- * (`camposDados`) e quem precisa compõe os que usa — o modal do "+ Cadastrar
- * novo aluno" (`formDadosHTML`, o formulário inteiro) e os cards. Assim um
- * campo nunca tem duas marcações diferentes. `lerForm` lê qualquer um deles;
- * `lerCampos` fica só com os campos de um card.
+ * (`camposDados`) e quem precisa compõe os que usa — o cadastro curto do "+
+ * Cadastrar novo aluno" (`formCadastroCurtoHTML`) e os cards. Assim um campo
+ * nunca tem duas marcações diferentes. `lerForm` lê qualquer um deles;
+ * `lerCampos` fica só com os campos de um card (ou do cadastro).
  */
-import * as db from './db.js?v=20';
-import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=20';
-import { $, $$ } from './util/dom.js?v=20';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=20';
+import * as db from './db.js?v=21';
+import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=21';
+import { $, $$ } from './util/dom.js?v=21';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=21';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
 
@@ -133,14 +133,22 @@ const secao = (titulo, campos) => `
   </div>`;
 
 /**
- * O formulário inteiro do cadastro (o modal do "+ Cadastrar novo aluno").
- * @param {any} [a] @param {{ idEditavel?: boolean, todos?: any[] }} [opts]
+ * O que o cadastro curto grava: o essencial para o aluno existir, ser achado
+ * e ser cobrado. `idade` vai junto do nascimento (a ficha ainda a guarda).
  */
-export function formDadosHTML(a = {}, opts = {}) {
-  const c = camposDados(a, opts);
-  return secao('Dados pessoais', [c.id, c.nome, c.nascimento, c.sexo, c.telefone, c.email, c.endereco, c.status, c.appLiberado, c.modoLite])
-    + secao('Dados do treino', [c.altura, c.peso, c.objetivo, c.nivel, c.foco, c.freqVezes, c.dias, c.obs])
-    + secao('Financeiro', [c.mensalidade, c.vencimento, c.parceriaPct, c.parceriaNome, c.pagoPor, c.pagoPorEscopo]);
+export const CAMPOS_CADASTRO = Object.freeze(['id', 'nome', 'telefone', 'email', 'nascimento', 'idade', 'sexo', 'status', 'mensalidade', 'vencimento']);
+
+/**
+ * O cadastro curto (o modal do "+ Cadastrar novo aluno"): só o essencial. O
+ * resto — parceria, acesso ao app, treino, saúde — o coach completa na ficha,
+ * card a card, que é onde cada coisa tem a explicação e o contexto dela.
+ * @param {{ todos?: any[] }} [opts]
+ */
+export function formCadastroCurtoHTML(opts = {}) {
+  const c = camposDados({}, { ...opts, idEditavel: true });
+  return secao('Aluno', [c.id, c.nome, c.telefone, c.email, c.nascimento, c.sexo, c.status])
+    + secao('Plano', [c.mensalidade, c.vencimento])
+    + '<p class="hint cad-nota">Parceria, acesso ao app, treino e saúde você completa na ficha, depois de salvar — ela abre na aba Geral.</p>';
 }
 
 /** Liga o cálculo de idade e o link do WhatsApp dentro de um container de form. @param {ParentNode} root */

@@ -31,11 +31,11 @@ function elemento(sel) {
 const el = (s) => (tela[s] ||= elemento(s));
 globalThis.document = /** @type {any} */ ({ querySelector: (s) => el(s), querySelectorAll: () => [] });
 
-const db = await import('./db.js?v=20');
-const { emit, EVENTOS } = await import('./estado.js?v=20');
-const eventos = await import('./eventos.js?v=20');
-const { iniciarTelaCheckin } = await import('./ui-tela-checkin.js?v=20');
-const { hoje, addDias, fmtData } = await import('./util/formato.js?v=20');
+const db = await import('./db.js?v=21');
+const { emit, EVENTOS } = await import('./estado.js?v=21');
+const eventos = await import('./eventos.js?v=21');
+const { iniciarTelaCheckin } = await import('./ui-tela-checkin.js?v=21');
+const { hoje, addDias, fmtData } = await import('./util/formato.js?v=21');
 const { datasDaSemana } = await import('../../compartilhado/regras/semana.js');
 iniciarTelaCheckin();
 

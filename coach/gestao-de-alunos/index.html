@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css?v=11" />
+  <link rel="stylesheet" href="./alunos.css?v=12" />
   <link rel="stylesheet" href="./matriz.css?v=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
@@ -246,16 +246,23 @@
         <!-- ABA: TREINO — perfil de treino, cargas, adaptações, metas e evolução, força e gasto, feedbacks (ui-tab-treino.js) -->
         <div class="tab-panel" id="tab-treino" role="tabpanel" aria-labelledby="aba-treino"><!-- cards injetados por JS --></div>
 
-        <!-- ABA 2: AVALIAÇÕES -->
+        <!-- ABA: AVALIAÇÕES — resumo e lista num card; a avaliação abre no modal (ui-tab-avaliacoes.js) -->
         <div class="tab-panel" id="tab-avaliacoes" role="tabpanel" aria-labelledby="aba-avaliacoes">
-          <div class="aval-head">
-            <span class="eyebrow" style="font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.2em;font-size:.74rem;color:var(--accent)">Histórico de avaliações</span>
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-              <button class="btn ghost" id="btn-comparar" type="button">Comparar</button>
-              <button class="btn" id="btn-nova-aval" type="button">+ Nova avaliação</button>
-            </div>
+          <div class="cards-geral">
+            <section class="card card-largo" id="card-avaliacoes" aria-labelledby="card-avaliacoes-t">
+              <header class="card-hd">
+                <h2 class="card-t" id="card-avaliacoes-t">Avaliações físicas</h2>
+                <div class="card-acoes">
+                  <button class="card-btn" id="btn-comparar" type="button">Comparar</button>
+                  <button class="btn btn-sm" id="btn-nova-aval" type="button">+ Nova avaliação</button>
+                </div>
+              </header>
+              <div class="card-bd">
+                <div id="aval-sumario"></div>
+                <div id="aval-list" class="aval-list"></div>
+              </div>
+            </section>
           </div>
-          <div id="aval-list" class="aval-list"></div>
         </div>
 
         <!-- ABA: HISTÓRICO — uso do app; linha do tempo | prévia do Portal (ui-tab-historico.js).
@@ -407,6 +414,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=20"></script>
+  <script type="module" src="./main.js?v=21"></script>
 </body>
 </html>

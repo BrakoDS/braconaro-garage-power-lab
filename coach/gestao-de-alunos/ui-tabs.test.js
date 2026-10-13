@@ -8,13 +8,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formDadosHTML, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=20';
-import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=20';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=20';
-import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=20';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=20';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=20';
-import { EVENTOS } from './estado.js?v=20';
+import { readFileSync } from 'node:fs';
+import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=21';
+import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=21';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=21';
+import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=21';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=21';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=21';
+import { EVENTOS } from './estado.js?v=21';
 
 /* ---------- util/formato.js ---------- */
 
@@ -35,6 +36,9 @@ test('formato: números digitados, datas e horas como o box fala', () => {
 
 /* ---------- Dados ---------- */
 
+/** Todos os campos do cadastro, montados (cada card compõe os seus). @param {any} a @param {any} [o] */
+const todosOsCampos = (a, o) => Object.values(camposDados(a, o)).join('');
+
 const ana = {
   id: 'Ana01', nome: 'Ana Lima', email: 'ana@box.com', telefone: '(14) 99999-0000', sexo: 'Feminino',
   status: 'ativo', diasTreino: ['seg', 'qua'], horarios: { seg: '07:00' }, freqHorario: '19h',
@@ -44,7 +48,7 @@ const bia = { id: 'Bia02', nome: 'Bia', status: 'ativo' };
 const caio = { id: 'Caio03', nome: 'Caio', status: 'inativo' };
 
 test('dados: o formulário traz a ficha preenchida, com o ID travado', () => {
-  const h = formDadosHTML(ana, { todos: [ana, bia, caio] });
+  const h = todosOsCampos(ana, { todos: [ana, bia, caio] });
   assert.match(h, /name="nome" type="text" required value="Ana Lima"/);
   assert.match(h, /<option value="Feminino" selected>Feminino<\/option>/);
   assert.match(h, /value="Ana01" disabled/);
@@ -58,22 +62,33 @@ test('dados: o formulário traz a ficha preenchida, com o ID travado', () => {
 });
 
 test('dados: no cadastro o ID é editável', () => {
-  assert.match(formDadosHTML({}, { idEditavel: true, todos: [] }), /<input name="id" type="text"/);
+  assert.match(todosOsCampos({}, { idEditavel: true, todos: [] }), /<input name="id" type="text"/);
+});
+
+test('cadastro curto: só o essencial — ID, nome, telefone, e-mail, nascimento, sexo, status, mensalidade e vencimento', () => {
+  const h = formCadastroCurtoHTML({ todos: [] });
+  const nomes = [...h.matchAll(/name="([a-zA-Z_]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(nomes, ['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'mensalidade', 'vencimento']);
+  assert.match(h, /<input name="id" type="text"/, 'o ID é editável (ou vazio para numerar sozinho)');
+  assert.match(h, /name="nome" type="text" required/);
+  assert.match(h, /<option value="ativo" selected>/, 'novo aluno nasce ativo');
+  assert.match(h, /completa na ficha/);
+  assert.deepEqual([...CAMPOS_CADASTRO], ['id', 'nome', 'telefone', 'email', 'nascimento', 'idade', 'sexo', 'status', 'mensalidade', 'vencimento']);
 });
 
 test('dados: "quem paga" só oferece ativos que não são ele nem têm responsável', () => {
   const dep = { id: 'Dudu', nome: 'Dudu', pagoPor: { id: 'Bia02', escopo: 'tudo' } };
-  const h = formDadosHTML(ana, { todos: [ana, bia, caio, dep] });
+  const h = todosOsCampos(ana, { todos: [ana, bia, caio, dep] });
   assert.match(h, /<option value="Bia02">Bia<\/option>/);
   assert.doesNotMatch(h, /value="Caio03"/, 'inativo não é responsável');
   assert.doesNotMatch(h, /value="Dudu"/, 'quem já tem responsável não vira responsável (sem corrente)');
   assert.doesNotMatch(h, /<option value="Ana01"/, 'ninguém paga a própria conta por aqui');
-  const responsavel = formDadosHTML(bia, { todos: [ana, bia, dep] });
+  const responsavel = todosOsCampos(bia, { todos: [ana, bia, dep] });
   assert.match(responsavel, /já paga a conta de outro/);
 });
 
 test('dados: texto da ficha é escapado no formulário', () => {
-  const h = formDadosHTML({ id: 'x', nome: '"><script>', obs: '</textarea><b>' }, { todos: [] });
+  const h = todosOsCampos({ id: 'x', nome: '"><script>', obs: '</textarea><b>' }, { todos: [] });
   assert.doesNotMatch(h, /<script>|<\/textarea><b>/);
 });
 
@@ -109,13 +124,41 @@ const comAvs = {
   ],
 };
 
-test('avaliações: histórico da mais nova para a mais antiga, com atrasada marcada', () => {
+test('avaliações: histórico da mais nova para a mais antiga; só a mais recente pode estar atrasada', () => {
   const h = htmlListaAvaliacoes(comAvs, '2026-10-07');
   assert.ok(h.indexOf('Avaliação #02') < h.indexOf('Avaliação #01'));
   assert.match(h, /Realizada: 10\/07\/2026 · 67,5 kg/);
-  assert.match(h, /data-num="1"[\s\S]*class="aprox atrasada"[\s\S]*badge-late/, 'a #01 venceu em abril');
-  assert.match(h, /data-num="2"[\s\S]*badge-ok/);
+  assert.match(h, /data-num="2"[\s\S]*badge-ok">Em dia</);
+  assert.match(h, /data-num="1"[\s\S]*class="aprox"[\s\S]*badge-ok">Reavaliada</, 'a "próxima" da #01 foi cumprida pela #02');
+  assert.doesNotMatch(h, /badge-late/);
+  assert.match(htmlListaAvaliacoes(comAvs, '2026-12-11'), /data-num="2"[\s\S]*class="aprox atrasada"[\s\S]*badge-late">Atrasada/, 'a mais recente vence, sim');
   assert.match(htmlListaAvaliacoes({ avaliacoes: [] }), /Nenhuma avaliação/);
+});
+
+test('avaliações: o resumo do card — próxima reavaliação (pela regra do cabeçalho), a última e os números dela', () => {
+  const h = htmlResumoAvaliacoes(comAvs, '2026-10-07');
+  assert.match(h, /Próxima reavaliação<\/span>\s*<span class="bio-val">10\/12\/2026<\/span>\s*<span class="bio-sub">em 64 dias/);
+  assert.match(h, /Última avaliação<\/span>\s*<span class="bio-val">#02<\/span>\s*<span class="bio-sub">10\/07\/2026 · 2 avaliações/);
+  assert.match(h, /67,5 <small>kg<\/small>/);
+  assert.match(h, /% Gordura[\s\S]*sem as dobras/);
+  // Venceu: o bloco fica vermelho e diz há quanto tempo.
+  const atrasada = htmlResumoAvaliacoes(comAvs, '2026-12-13');
+  assert.match(atrasada, /class="bio-tile ruim"[\s\S]*atrasada há 3 dias/);
+  assert.match(htmlResumoAvaliacoes(comAvs, '2026-12-10'), /class="bio-tile atencao"[\s\S]*é hoje/);
+  assert.equal(htmlResumoAvaliacoes({ avaliacoes: [] }), '', 'sem avaliação, sem resumo (a lista já orienta)');
+});
+
+test('avaliações: a aba é um card com Comparar e "+ Nova avaliação" no canto (a Saúde aciona o mesmo botão)', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="card-avaliacoes"[\s\S]*id="btn-comparar"[\s\S]*id="btn-nova-aval"[\s\S]*id="aval-sumario"[\s\S]*id="aval-list"/);
+  assert.doesNotMatch(html, /aval-head/);
+});
+
+test('index.html: nenhum id repetido (um id em dois lugares faz uma tela desenhar por cima da outra)', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+  const repetidos = ids.filter((id, i) => ids.indexOf(id) !== i);
+  assert.deepEqual(repetidos, []);
 });
 
 test('avaliações: resultados calculados e o pedido do dado que falta', () => {

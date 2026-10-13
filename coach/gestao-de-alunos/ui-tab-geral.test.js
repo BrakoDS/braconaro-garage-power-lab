@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import {
   resumoDosDias, htmlCardPerfil, htmlCardContato, htmlCardAcesso, htmlAcessoPortal, htmlCardFinanceiro,
   htmlFinanceiroDinamico, faturaParaPagar, htmlAbaGeral, CARDS_EDITAVEIS,
-} from './ui-tab-geral.js?v=20';
-import { botaoEditar, htmlLinhas } from './ui-card.js?v=20';
-import { formDadosHTML, CAMPOS } from './ui-tab-dados.js?v=20';
+} from './ui-tab-geral.js?v=21';
+import { botaoEditar, htmlLinhas } from './ui-card.js?v=21';
+import { camposDados, CAMPOS } from './ui-tab-dados.js?v=21';
 
 const HOJE = '2026-10-11';
 const ana = {
@@ -151,8 +151,8 @@ test('aba Geral: Financeiro primeiro (largo), depois Perfil, Contato e Acesso; o
 test('os grupos de campos cobrem o cadastro inteiro, sem repetir', () => {
   const todos = [...CAMPOS.contato, ...CAMPOS.plano, ...CAMPOS.acesso, ...CAMPOS.treino];
   assert.equal(new Set(todos).size, todos.length, 'nenhum campo em dois grupos');
-  // O modal do "+ Cadastrar novo aluno" continua com o formulário inteiro.
-  const modal = formDadosHTML({}, { idEditavel: true, todos: [] });
+  // Todo campo do cadastro continua montado num lugar só (os cards e o cadastro curto compõem).
+  const modal = Object.values(camposDados({}, { idEditavel: true, todos: [] })).join('');
   for (const n of ['id', 'nome', 'telefone', 'email', 'endereco', 'status', 'appLiberado', 'modoLite', 'nascimento', 'sexo', 'altura', 'peso',
     'objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino', 'obs', 'mensalidade', 'vencimento', 'parceriaPct', 'pagoPorId']) {
     assert.match(modal, new RegExp(`name="${n}"`), n);
