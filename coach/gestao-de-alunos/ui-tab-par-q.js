@@ -7,8 +7,8 @@
  * (ui-tab-saude.js), que o desenha e o lê para o salvar global. As perguntas
  * e a regra da triagem moram em `saude.js`, as mesmas que o PDF usa.
  */
-import { esc } from './util/formato.js?v=20';
-import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=20';
+import { esc } from './util/formato.js?v=21';
+import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=21';
 
 /** O aviso de cada resultado da triagem ('' quando nada foi respondido). */
 const BANNER = {

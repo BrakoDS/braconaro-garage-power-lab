@@ -395,7 +395,6 @@ button{font-family:inherit}
 .acesso-cab .btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
 
 /* ---------- Aba 2: Avaliações (timeline) ---------- */
-.aval-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
 .aval-list{display:flex;flex-direction:column;gap:10px}
 .aval-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;
   background:var(--card);border:1px solid var(--line);padding:14px 18px;cursor:pointer;text-align:left;
@@ -1212,3 +1211,22 @@ button{font-family:inherit}
   .hi-seletor{width:100%}
   .hi-seg{flex:1 1 0;min-height:44px;padding:0 8px}
 }
+
+/* ---------- Aba Avaliações (ui-tab-avaliacoes.js) ----------
+   Um card: o resumo (os mesmos blocos da Biometria) e o histórico. */
+.aval-sumario{margin-bottom:16px}
+.bio-tile.ruim{border-color:rgba(255,91,80,.45)}
+.bio-tile.ruim .bio-sub{color:var(--bad)}
+.bio-tile.atencao{border-color:rgba(255,158,27,.45)}
+.bio-tile.atencao .bio-sub{color:var(--warn)}
+#card-avaliacoes .aval-row{background:var(--bg-2)}
+#card-avaliacoes .card-acoes{align-items:center;flex-wrap:wrap;justify-content:flex-end}
+#card-avaliacoes .card-acoes .btn{min-height:34px}
+#btn-comparar:disabled{opacity:.4;cursor:not-allowed}
+@media (max-width:640px){
+  #card-avaliacoes .card-hd{flex-wrap:wrap}
+  .aval-row{grid-template-columns:1fr auto;gap:8px 12px}
+  .aval-row .adatas{grid-column:1/-1;grid-row:2}
+}
+/* Cadastro curto (ui-modal-aluno.js): a nota de que o resto se completa na ficha. */
+.cad-nota{margin:2px 0 0;font-size:.84rem;color:var(--mut);line-height:1.45}

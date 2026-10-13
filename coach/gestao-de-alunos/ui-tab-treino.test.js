@@ -76,16 +76,16 @@ globalThis.FormData = /** @type {any} */ (class {
   getAll(k) { const v = this.m[k]; return Array.isArray(v) ? v : v == null ? [] : [v]; }
 });
 
-const db = await import('./db.js?v=20');
-const eventos = await import('./eventos.js?v=20');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=20');
-const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=20');
-const treino = await import('./ui-tab-treino.js?v=20');
+const db = await import('./db.js?v=21');
+const eventos = await import('./eventos.js?v=21');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=21');
+const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=21');
+const treino = await import('./ui-tab-treino.js?v=21');
 const {
   iniciarTabTreino, editarCard, editarNaAbaTreino, htmlCardPerfilTreino, htmlCardCargas, htmlCardAdaptacoes, htmlTrocas,
   htmlResumoMotor, htmlAbaTreino, htmlFixos, textoDoLevantamento, nomeDoExercicio, vistaCom, resumoDosDias, CARDS_EDITAVEIS,
 } = treino;
-const { matrizDe } = await import('../../compartilhado/regras/matriz-individualizacao.js?v=20');
+const { matrizDe } = await import('../../compartilhado/regras/matriz-individualizacao.js?v=21');
 iniciarSalvarGlobal();
 iniciarTabTreino();
 
@@ -186,7 +186,7 @@ test('a aba: resumo no topo; Perfil, Cargas, Adaptações (editáveis), depois M
 });
 
 test('a aba Treino substitui Perfil de treino, Matriz e Progresso', async () => {
-  const { ABAS } = await import('./ui-perfil.js?v=20');
+  const { ABAS } = await import('./ui-perfil.js?v=21');
   assert.ok(ABAS.some((a) => a.id === 'treino'));
   assert.ok(!ABAS.some((a) => ['dados', 'matriz', 'progresso'].includes(a.id)));
   const fonte = readFileSync(new URL('./ui-tab-treino.js', import.meta.url), 'utf8');

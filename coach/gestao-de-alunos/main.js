@@ -11,9 +11,9 @@
  * O antigo app.js (2.988 linhas) foi fatiado em módulos até sumir: cada tela
  * mora no seu ui-tela-*.js / ui-tab-*.js, e as regras em *-regras.js.
  */
-import { iniciarTelas } from './telas.js?v=20';
-import { iniciarBoot } from './boot.js?v=20';
-import { exportarFicha } from './pdf.js?v=20';
+import { iniciarTelas } from './telas.js?v=21';
+import { iniciarBoot } from './boot.js?v=21';
+import { exportarFicha } from './pdf.js?v=21';
 
 iniciarTelas({ exportarFicha });
 iniciarBoot();

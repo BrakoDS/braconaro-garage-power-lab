@@ -1,7 +1,9 @@
 // @ts-check
 /**
- * Aba Avaliações do perfil — o histórico, o formulário (modal) com resultados
- * calculados e fotos de progresso, a exclusão e a comparação entre duas.
+ * Aba Avaliações do perfil — um card com o resumo (a próxima reavaliação, a
+ * última avaliação e os números dela) e o histórico; o formulário (modal) com
+ * resultados calculados e fotos de progresso, a exclusão e a comparação entre
+ * duas.
  *
  * Saiu do `app.js` no fatiamento. Desenha a lista quando a aba abre e de novo
  * a cada 'alunos-mudaram' com a aba à vista (uma avaliação salva no modal, uma
@@ -10,21 +12,58 @@
  * As partes que só montam HTML (`htmlListaAvaliacoes`, `htmlResultados`,
  * `htmlComparacao`) são puras e testadas em `ui-tab-avaliacoes.test.js`.
  */
-import * as db from './db.js?v=20';
-import * as calc from '../../compartilhado/regras/calc.js?v=20';
-import { exportarAvaliacao } from './pdf.js?v=20';
-import { esc, hoje, fmtN, numf, fmtData, addDias } from './util/formato.js?v=20';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=20';
-import { estado, on, EVENTOS } from './estado.js?v=20';
-import { reg } from './registro.js?v=20';
-import { escolherFoto, uploadFoto, avisoStorage, apagarFotosDaAvaliacao, apagarArquivo } from './ui-fotos.js?v=20';
-import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=20';
+import * as db from './db.js?v=21';
+import * as calc from '../../compartilhado/regras/calc.js?v=21';
+import { exportarAvaliacao } from './pdf.js?v=21';
+import { esc, hoje, fmtN, numf, fmtData, addDias } from './util/formato.js?v=21';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=21';
+import { estado, on, EVENTOS } from './estado.js?v=21';
+import { reg } from './registro.js?v=21';
+import { statusAvaliacao } from './util/reavaliacao.js?v=21';
+import { escolherFoto, uploadFoto, avisoStorage, apagarFotosDaAvaliacao, apagarArquivo } from './ui-fotos.js?v=21';
+import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=21';
 
 const n2 = (/** @type {number} */ n) => String(n).padStart(2, '0');
 
 /* ============================================================
    HTML (puro)
    ============================================================ */
+
+/** "3 dias" / "1 dia". @param {number} n */
+const dias = (n) => `${n} ${n === 1 ? 'dia' : 'dias'}`;
+
+/** Um bloco de número grande (o mesmo da Biometria, na aba Saúde). @param {string} rotulo @param {string} valor @param {string} sub @param {string} [tom] */
+const tile = (rotulo, valor, sub, tom = '') => `
+  <div class="bio-tile${tom ? ' ' + tom : ''}">
+    <span class="bio-rot">${esc(rotulo)}</span>
+    <span class="bio-val">${valor || '<span class="card-vazio">—</span>'}</span>
+    ${sub ? `<span class="bio-sub">${esc(sub)}</span>` : ''}
+  </div>`;
+
+/**
+ * O resumo do topo do card: a próxima reavaliação (pela regra da lista e do
+ * cabeçalho, `statusAvaliacao`), a última avaliação e o peso e o % de gordura
+ * dela. '' sem avaliação — aí a lista já diz o que fazer.
+ * @param {any} a @param {string} [hojeIso]
+ */
+export function htmlResumoAvaliacoes(a, hojeIso = hoje()) {
+  const feitas = (a.avaliacoes || []).filter((x) => x.dataRealizada).sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
+  if (!feitas.length) return '';
+  const ultima = feitas[feitas.length - 1];
+  const r = calc.calcular(ultima, a);
+  const st = statusAvaliacao(a, hojeIso);
+  const quando = st.tipo === 'atrasada' ? `atrasada há ${dias(st.dias || 0)}`
+    : st.tipo === 'avencer' ? (st.dias === 0 ? 'é hoje' : `em ${dias(st.dias || 0)}`)
+      : st.tipo === 'emdia' ? `em ${dias(st.dias || 0)}` : 'sem data marcada';
+  const tom = st.tipo === 'atrasada' ? 'ruim' : st.tipo === 'avencer' ? 'atencao' : '';
+  const total = (a.avaliacoes || []).length;
+  return `<div class="bio-tiles aval-sumario">
+    ${tile('Próxima reavaliação', ultima.dataProxima ? fmtData(ultima.dataProxima) : '', quando, tom)}
+    ${tile('Última avaliação', `#${n2(ultima.num)}`, `${fmtData(ultima.dataRealizada)} · ${total} ${total === 1 ? 'avaliação' : 'avaliações'}`)}
+    ${tile('Peso', numf(ultima.peso) != null ? `${fmtN(numf(ultima.peso), 1)} <small>kg</small>` : '', 'na última avaliação')}
+    ${tile('% Gordura', r.perc != null ? `${fmtN(r.perc, 1)} <small>%</small>` : '', r.perc != null ? r.percClass || '' : 'sem as dobras')}
+  </div>`;
+}
 
 /**
  * O histórico, da mais nova para a mais antiga.
@@ -33,8 +72,12 @@ const n2 = (/** @type {number} */ n) => String(n).padStart(2, '0');
 export function htmlListaAvaliacoes(a, hojeIso = hoje()) {
   const avs = (a.avaliacoes || []).slice().sort((x, y) => (y.num || 0) - (x.num || 0));
   if (!avs.length) return `<div class="empty"><b>Nenhuma avaliação</b>Clique em “Nova avaliação” para registrar a primeira.</div>`;
+  // Só a mais recente pode estar atrasada: a "próxima" de uma antiga já foi
+  // cumprida pela avaliação seguinte (a #01 de março não deve nada se a #02 é de julho).
+  const maisRecente = avs[0];
   return avs.map((av) => {
-    const atrasada = av.dataProxima && av.dataProxima < hojeIso;
+    const reavaliada = av !== maisRecente;
+    const atrasada = !reavaliada && av.dataProxima && av.dataProxima < hojeIso;
     const r = calc.calcular(av, a);
     const resumo = [];
     if (av.peso) resumo.push(`${(+av.peso).toLocaleString('pt-BR')} kg`);
@@ -46,7 +89,7 @@ export function htmlListaAvaliacoes(a, hojeIso = hoje()) {
         <span class="adata">Realizada: ${fmtData(av.dataRealizada)}${resumo.length ? ' · ' + resumo.join(' · ') : ''}</span>
         <span class="aprox${atrasada ? ' atrasada' : ''}">Próxima: ${fmtData(av.dataProxima)}</span>
       </span>
-      ${atrasada ? '<span class="badge-late">Atrasada</span>' : '<span class="badge-ok">Em dia</span>'}
+      ${atrasada ? '<span class="badge-late">Atrasada</span>' : `<span class="badge-ok">${reavaliada ? 'Reavaliada' : 'Em dia'}</span>`}
     </button>`;
   }).join('');
 }
@@ -170,11 +213,19 @@ export function htmlComparacao(a, numA, numB) {
 /** O aluno aberto, relido do banco (o estado pode estar uma gravação atrás). */
 const alunoAberto = () => (estado.alunoAtual ? db.obter(estado.alunoAtual.id) || estado.alunoAtual : null);
 
-/** Desenha o histórico do aluno aberto. */
+/** Desenha o resumo e o histórico do aluno aberto. */
 export function renderAvaliacoes() {
   const a = alunoAberto(); const lista = $('#aval-list');
   if (!a || !lista) return;
+  const resumo = $('#aval-sumario'); if (resumo) resumo.innerHTML = htmlResumoAvaliacoes(a);
   lista.innerHTML = htmlListaAvaliacoes(a);
+  // Comparar pede duas: com menos, o botão diz por que não dá.
+  const comparar = $('#btn-comparar');
+  if (comparar) {
+    const poucas = (a.avaliacoes || []).length < 2;
+    comparar.disabled = poucas;
+    comparar.title = poucas ? 'Cadastre ao menos 2 avaliações para comparar' : 'Comparar duas avaliações';
+  }
 }
 
 /** Lê o formulário da avaliação. @param {HTMLFormElement} form */

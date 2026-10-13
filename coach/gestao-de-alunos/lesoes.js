@@ -8,8 +8,8 @@
  * Puro: a linha do editor, a limpeza (a MESMA do Motor, via `matrizDe`) e o
  * texto de uma lesão.
  */
-import { esc, fmtData } from './util/formato.js?v=20';
-import { CAMPO, matrizDe, rotulo, REGIOES_LESAO, GRAVIDADES } from '../../compartilhado/regras/matriz-individualizacao.js?v=20';
+import { esc, fmtData } from './util/formato.js?v=21';
+import { CAMPO, matrizDe, rotulo, REGIOES_LESAO, GRAVIDADES } from '../../compartilhado/regras/matriz-individualizacao.js?v=21';
 
 /** O caminho das lesões na ficha (para o rascunho do salvar global). */
 export const CAMINHO_LESOES = `${CAMPO}.adaptacoes.lesoes`;
