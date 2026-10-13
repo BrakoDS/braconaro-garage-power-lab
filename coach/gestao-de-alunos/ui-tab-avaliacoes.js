@@ -10,15 +10,15 @@
  * As partes que só montam HTML (`htmlListaAvaliacoes`, `htmlResultados`,
  * `htmlComparacao`) são puras e testadas em `ui-tab-avaliacoes.test.js`.
  */
-import * as db from './db.js?v=19';
-import * as calc from '../../compartilhado/regras/calc.js?v=19';
-import { exportarAvaliacao } from './pdf.js?v=19';
-import { esc, hoje, fmtN, numf, fmtData, addDias } from './util/formato.js?v=19';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=19';
-import { estado, on, EVENTOS } from './estado.js?v=19';
-import { reg } from './registro.js?v=19';
-import { escolherFoto, uploadFoto, avisoStorage, apagarFotosDaAvaliacao, apagarArquivo } from './ui-fotos.js?v=19';
-import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=19';
+import * as db from './db.js?v=20';
+import * as calc from '../../compartilhado/regras/calc.js?v=20';
+import { exportarAvaliacao } from './pdf.js?v=20';
+import { esc, hoje, fmtN, numf, fmtData, addDias } from './util/formato.js?v=20';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=20';
+import { estado, on, EVENTOS } from './estado.js?v=20';
+import { reg } from './registro.js?v=20';
+import { escolherFoto, uploadFoto, avisoStorage, apagarFotosDaAvaliacao, apagarArquivo } from './ui-fotos.js?v=20';
+import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=20';
 
 const n2 = (/** @type {number} */ n) => String(n).padStart(2, '0');
 

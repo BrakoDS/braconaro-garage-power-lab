@@ -1,6 +1,9 @@
 // @ts-check
 /**
- * Aba Portal do perfil — o Portal do Aluno deste aluno, em prévia.
+ * A prévia do Portal do Aluno deste aluno — o segmento "Prévia do Portal" do
+ * card Histórico, na aba Histórico (ui-tab-historico.js abre e troca os
+ * segmentos). O quadro só carrega quando o coach escolhe a prévia: abrir a
+ * aba não puxa o Portal inteiro à toa.
  *
  * Abre a PÁGINA REAL do Portal num quadro e manda para ela a mesma fatia que
  * `publicarPortal` grava em `portal/{email}`. É a mesma função — por isso o que
@@ -16,15 +19,16 @@
  * senha, app liberado) NÃO mora aqui: fica no card Acesso da aba Geral
  * (ui-tab-geral.js) e no menu ⋯ do cabeçalho (ui-acoes-aluno.js).
  *
- * Quando desenha: toda vez que a aba abre (a prévia volta para a semana atual).
- * Não há o que digitar, então não há rascunho a guardar. Com a aba aberta, uma
- * gravação ('alunos-mudaram') reenvia a fatia — a prévia acompanha a ficha.
+ * Quando desenha: toda vez que o segmento é escolhido (a prévia volta para a
+ * semana atual). Não há o que digitar, então não há rascunho a guardar. Com a
+ * prévia na tela, uma gravação ('alunos-mudaram') reenvia a fatia — a prévia
+ * acompanha a ficha. Perfil reaberto: o quadro esvazia (nada do aluno anterior).
  */
-import * as db from './db.js?v=19';
-import { fatia } from './portal-sync.js?v=19';
-import { isoLocal } from './util/formato.js?v=19';
-import { $ } from './util/dom.js?v=19';
-import { estado, on, EVENTOS } from './estado.js?v=19';
+import * as db from './db.js?v=20';
+import { fatia } from './portal-sync.js?v=20';
+import { isoLocal } from './util/formato.js?v=20';
+import { $ } from './util/dom.js?v=20';
+import { estado, on, EVENTOS } from './estado.js?v=20';
 
 /** A página da prévia, relativa à Gestão. `?previa=1` liga o modo no Portal. */
 export const URL_PREVIA = '../../painel-do-aluno/previa.html';
@@ -63,7 +67,8 @@ function prvEnviar() {
   $('#prv-lbl').textContent = rotuloSemana(prvSemana);
 }
 
-function renderPortalPrevia() {
+/** Põe a prévia do aluno aberto no quadro. A aba Histórico chama. */
+export function abrirPrevia() {
   const a = estado.alunoAtual;
   const frame = /** @type {HTMLIFrameElement|null} */ ($('#prv-frame'));
   if (!a || !frame) return;
@@ -81,8 +86,8 @@ function renderPortalPrevia() {
   frame.src = `${urlPrevia}?previa=1&t=${Date.now()}`;
 }
 
-/** A aba Portal está na tela? */
-const visivel = () => !!$('#tab-portal')?.classList.contains('active') && !!$('#tela-perfil')?.classList.contains('active');
+/** A prévia está na tela (aba Histórico aberta, neste segmento)? */
+const visivel = () => !!$('#tab-historico')?.classList.contains('active') && !$('#hi-portal')?.hidden && !!$('#tela-perfil')?.classList.contains('active');
 
 /**
  * Liga a aba ao barramento. Chamar uma vez, antes do resto do app.
@@ -91,7 +96,8 @@ const visivel = () => !!$('#tab-portal')?.classList.contains('active') && !!$('#
  */
 export function iniciarTabPortal(o = {}) {
   urlPrevia = o.urlPrevia || URL_PREVIA;
-  on(EVENTOS.ABRIR_ABA, (nome) => { if (nome === 'portal') renderPortalPrevia(); });
+  // Outro aluno: o quadro esvazia até a prévia ser escolhida de novo.
+  on(EVENTOS.PERFIL_ABERTO, () => { prvPronto = false; $('#prv-frame')?.removeAttribute('src'); });
   // Gravou com a prévia aberta: manda a fatia nova, na mesma semana.
   on(EVENTOS.ALUNOS_MUDARAM, () => {
     if (!visivel() || !estado.alunoAtual) return;

@@ -76,16 +76,16 @@ globalThis.FormData = /** @type {any} */ (class {
   getAll(k) { const v = this.m[k]; return Array.isArray(v) ? v : v == null ? [] : [v]; }
 });
 
-const db = await import('./db.js?v=19');
-const eventos = await import('./eventos.js?v=19');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=19');
-const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=19');
-const treino = await import('./ui-tab-treino.js?v=19');
+const db = await import('./db.js?v=20');
+const eventos = await import('./eventos.js?v=20');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=20');
+const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=20');
+const treino = await import('./ui-tab-treino.js?v=20');
 const {
   iniciarTabTreino, editarCard, editarNaAbaTreino, htmlCardPerfilTreino, htmlCardCargas, htmlCardAdaptacoes, htmlTrocas,
   htmlResumoMotor, htmlAbaTreino, htmlFixos, textoDoLevantamento, nomeDoExercicio, vistaCom, resumoDosDias, CARDS_EDITAVEIS,
 } = treino;
-const { matrizDe } = await import('../../compartilhado/regras/matriz-individualizacao.js?v=19');
+const { matrizDe } = await import('../../compartilhado/regras/matriz-individualizacao.js?v=20');
 iniciarSalvarGlobal();
 iniciarTabTreino();
 
@@ -185,10 +185,10 @@ test('a aba: resumo no topo; Perfil, Cargas, Adaptações (editáveis), depois M
   assert.doesNotMatch(fixos, /Adesão|Medalhas/, 'adesão e medalhas não são da aba Treino');
 });
 
-test('a aba Treino substitui Perfil de treino, Matriz e Progresso; Progresso vira "Uso do app"', async () => {
-  const { ABAS } = await import('./ui-perfil.js?v=19');
-  assert.deepEqual(ABAS.map((a) => a.id), ['geral', 'saude', 'treino', 'avaliacoes', 'progresso', 'portal', 'registros']);
-  assert.equal(ABAS.find((a) => a.id === 'progresso')?.rotulo, 'Uso do app');
+test('a aba Treino substitui Perfil de treino, Matriz e Progresso', async () => {
+  const { ABAS } = await import('./ui-perfil.js?v=20');
+  assert.ok(ABAS.some((a) => a.id === 'treino'));
+  assert.ok(!ABAS.some((a) => ['dados', 'matriz', 'progresso'].includes(a.id)));
   const fonte = readFileSync(new URL('./ui-tab-treino.js', import.meta.url), 'utf8');
   assert.doesNotMatch(fonte, /db\.atualizar\(|type="submit"/, 'quem grava é o salvar global');
   assert.doesNotMatch(fonte, /`\$\{CAMPO\}\.adaptacoes`\]/, 'nunca o bloco de adaptações inteiro');

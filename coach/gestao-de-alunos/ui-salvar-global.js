@@ -27,15 +27,15 @@
  * avaliações, financeiro (pagamento, lançamento), metas, acesso ao Portal e
  * exclusão. Plano: docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md.
  */
-import * as db from './db.js?v=19';
-import { esc } from './util/formato.js?v=19';
-import { $ } from './util/dom.js?v=19';
-import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=19';
-import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=19';
-import { regFicha, regAnamnese, regParq } from './registro.js?v=19';
-import { resumoFicha } from './registros-ui.js?v=19';
-import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=19';
-import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=19';
+import * as db from './db.js?v=20';
+import { esc } from './util/formato.js?v=20';
+import { $ } from './util/dom.js?v=20';
+import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=20';
+import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=20';
+import { regFicha, regAnamnese, regParq } from './registro.js?v=20';
+import { resumoFicha } from './registros-ui.js?v=20';
+import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=20';
+import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=20';
 
 /**
  * @typedef {{

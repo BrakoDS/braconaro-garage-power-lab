@@ -10,7 +10,7 @@
  *
  * Puro: só monta HTML.
  */
-import { esc } from './util/formato.js?v=19';
+import { esc } from './util/formato.js?v=20';
 
 /**
  * Um card.

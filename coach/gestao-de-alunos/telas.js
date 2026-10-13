@@ -11,33 +11,34 @@
  * das abas. Os ouvintes de um evento rodam na ordem em que foram ligados, então
  * a tela (ou o painel da aba) já está visível quando o módulo dela desenha.
  */
-import * as db from './db.js?v=19';
-import { iniciarModais } from './util/dom.js?v=19';
-import { iniciarNavegacao } from './navegacao.js?v=19';
-import { iniciarLista } from './ui-lista.js?v=19';
-import { iniciarPerfil } from './ui-perfil.js?v=19';
-import { iniciarFotoDoPerfil } from './ui-fotos.js?v=19';
-import { iniciarModalAluno } from './ui-modal-aluno.js?v=19';
-import { iniciarAcoesAluno } from './ui-acoes-aluno.js?v=19';
-import { iniciarSalvarGlobal } from './ui-salvar-global.js?v=19';
-import { iniciarTabGeral } from './ui-tab-geral.js?v=19';
-import { iniciarTabSaude } from './ui-tab-saude.js?v=19';
-import { iniciarTabTreino } from './ui-tab-treino.js?v=19';
-import { iniciarTabAvaliacoes } from './ui-tab-avaliacoes.js?v=19';
-import { iniciarTabProgresso } from './ui-tab-progresso.js?v=19';
-import { iniciarTabFinanceiro } from './ui-tab-financeiro.js?v=19';
-import { iniciarTabPortal } from './ui-tab-portal.js?v=19';
-import { iniciarTabRegistros } from './ui-tab-registros.js?v=19';
-import { iniciarTelaCheckin } from './ui-tela-checkin.js?v=19';
-import { iniciarTelaAgenda } from './ui-tela-agenda.js?v=19';
-import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js?v=19';
-import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js?v=19';
-import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=19';
-import { iniciarTelaMural } from './ui-tela-mural.js?v=19';
-import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=19';
-import { iniciarTelaLeads } from './ui-tela-leads.js?v=19';
-import { iniciarAutomacao } from './automacao.js?v=19';
-import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=19';
+import * as db from './db.js?v=20';
+import { iniciarModais } from './util/dom.js?v=20';
+import { iniciarNavegacao } from './navegacao.js?v=20';
+import { iniciarLista } from './ui-lista.js?v=20';
+import { iniciarPerfil } from './ui-perfil.js?v=20';
+import { iniciarFotoDoPerfil } from './ui-fotos.js?v=20';
+import { iniciarModalAluno } from './ui-modal-aluno.js?v=20';
+import { iniciarAcoesAluno } from './ui-acoes-aluno.js?v=20';
+import { iniciarSalvarGlobal } from './ui-salvar-global.js?v=20';
+import { iniciarTabGeral } from './ui-tab-geral.js?v=20';
+import { iniciarTabSaude } from './ui-tab-saude.js?v=20';
+import { iniciarTabTreino } from './ui-tab-treino.js?v=20';
+import { iniciarTabAvaliacoes } from './ui-tab-avaliacoes.js?v=20';
+import { iniciarTabProgresso } from './ui-tab-progresso.js?v=20';
+import { iniciarTabFinanceiro } from './ui-tab-financeiro.js?v=20';
+import { iniciarTabPortal } from './ui-tab-portal.js?v=20';
+import { iniciarTabRegistros } from './ui-tab-registros.js?v=20';
+import { iniciarTabHistorico } from './ui-tab-historico.js?v=20';
+import { iniciarTelaCheckin } from './ui-tela-checkin.js?v=20';
+import { iniciarTelaAgenda } from './ui-tela-agenda.js?v=20';
+import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js?v=20';
+import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js?v=20';
+import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=20';
+import { iniciarTelaMural } from './ui-tela-mural.js?v=20';
+import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=20';
+import { iniciarTelaLeads } from './ui-tela-leads.js?v=20';
+import { iniciarAutomacao } from './automacao.js?v=20';
+import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=20';
 
 /**
  * @param {{
@@ -72,6 +73,7 @@ export function iniciarTelas(o = {}) {
   iniciarTabFinanceiro('#tab-geral'); // os botões de dinheiro do card Financeiro
   iniciarTabPortal(o.urlPrevia ? { urlPrevia: o.urlPrevia } : {});
   iniciarTabRegistros();
+  iniciarTabHistorico(); // depois dos três que ela abre: uso do app, prévia e linha do tempo
   // As telas do box.
   iniciarTelaCheckin();
   iniciarTelaAgenda();
