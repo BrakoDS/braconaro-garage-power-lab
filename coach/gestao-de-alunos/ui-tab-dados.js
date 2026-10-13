@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * Aba Dados do perfil — o que ainda não tem card próprio: nascimento, sexo e
- * os dados do treino (medidas do cadastro, objetivo, nível, foco, frequência,
- * dias e horários, observações médicas). Contato, plano financeiro e acesso
- * foram para os cards da aba Geral (ui-tab-geral.js); o resto vai para as
- * abas Saúde e Treino nos próximos passos da refatoração
+ * Aba "Perfil de treino" (id 'dados') — o que ainda não tem card próprio:
+ * objetivo, nível, foco, frequência e os dias e horários. Contato, plano e
+ * acesso foram para os cards da aba Geral (ui-tab-geral.js); nascimento, sexo,
+ * medidas do cadastro e a nota clínica, para a aba Saúde (ui-tab-saude.js). O
+ * que sobrou vira o card Perfil de treino da aba Treino no próximo passo
  * (docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md).
  *
  * Este módulo é também o DONO dos campos do cadastro: cada campo é montado uma
@@ -18,11 +18,11 @@
  * desenha toda vez que abre, a partir da ficha com o rascunho por cima, e o
  * que mudou vai para a gravação única da ficha.
  */
-import * as db from './db.js?v=17';
-import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=17';
-import { $, $$ } from './util/dom.js?v=17';
-import { registrarFormulario } from './ui-salvar-global.js?v=17';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=17';
+import * as db from './db.js?v=18';
+import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=18';
+import { $, $$ } from './util/dom.js?v=18';
+import { registrarFormulario } from './ui-salvar-global.js?v=18';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=18';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
 
@@ -43,7 +43,9 @@ export const CAMPOS = Object.freeze({
   contato: ['nome', 'telefone', 'email', 'endereco', 'status'],
   plano: ['mensalidade', 'vencimento', 'parceria', 'pagoPor'],
   acesso: ['appLiberado', 'modoLite'],
-  treino: ['nascimento', 'idade', 'sexo', 'altura', 'peso', 'objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino', 'horarios', 'obs'],
+  biometria: ['nascimento', 'idade', 'sexo', 'altura', 'peso'],
+  clinica: ['obs'],
+  treino: ['objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino', 'horarios'],
 });
 
 /** Idade em anos a partir de 'AAAA-MM-DD' ('' se não der). @param {string} [iso] */
@@ -117,7 +119,7 @@ export function camposDados(a = {}, opts = {}) {
     foco: `<div class="field full"><label>Foco (até 2 grupos)</label><div class="dias-treino">${focoHTML}</div><span class="hint">O Montador Individual tira série de onde ele está mais adiantado e põe no foco, mantendo o total do treino da turma.</span></div>`,
     freqVezes: `<div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>`,
     dias: `<div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>`,
-    obs: `<div class="field full"><label>Observações médicas / restrições / histórico de lesões</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>`,
+    obs: `<div class="field full"><label>Nota clínica do coach</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>`,
     mensalidade: `<div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /></div>`,
     vencimento: `<div class="field"><label>Dia de vencimento</label><input name="vencimento" type="number" min="1" max="31" value="${esc(a.vencimento)}" placeholder="10" /><span class="hint">Dia do mês (1–31) em que a mensalidade vence.</span></div>`,
     parceriaPct: `<div class="field"><label>Parceria (desconto)</label><select name="parceriaPct">${parceriaOpts}</select><span class="hint">A mensalidade cheia continua acima. O desconto entra como investimento do box, não como preço menor.</span></div>`,
@@ -147,11 +149,10 @@ export function formDadosHTML(a = {}, opts = {}) {
     + secao('Financeiro', [c.mensalidade, c.vencimento, c.parceriaPct, c.parceriaNome, c.pagoPor, c.pagoPorEscopo]);
 }
 
-/** O que esta aba ainda edita: nascimento, sexo e os dados do treino. @param {any} a */
+/** O que esta aba ainda edita: o perfil de treino. @param {any} a */
 export function formTreinoHTML(a) {
   const c = camposDados(a);
-  return secao('Dados pessoais', [c.nascimento, c.sexo])
-    + secao('Dados do treino', [c.altura, c.peso, c.objetivo, c.nivel, c.foco, c.freqVezes, c.dias, c.obs]);
+  return secao('Perfil de treino', [c.objetivo, c.nivel, c.foco, c.freqVezes, c.dias]);
 }
 
 /** Liga o cálculo de idade e o link do WhatsApp dentro de um container de form. @param {ParentNode} root */

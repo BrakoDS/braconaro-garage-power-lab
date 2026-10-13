@@ -8,12 +8,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formDadosHTML, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=17';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=17';
-import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=17';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=17';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=17';
-import { EVENTOS } from './estado.js?v=17';
+import { formDadosHTML, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=18';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=18';
+import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=18';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=18';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=18';
+import { EVENTOS } from './estado.js?v=18';
 
 /* ---------- util/formato.js ---------- */
 
@@ -76,12 +76,12 @@ test('dados: texto da ficha é escapado no formulário', () => {
   assert.doesNotMatch(h, /<script>|<\/textarea><b>/);
 });
 
-test('dados: a aba ficou com nascimento, sexo e o treino — contato, plano e acesso foram para a aba Geral', () => {
+test('perfil de treino (aba dados): objetivo, nível, foco, frequência e dias — o resto foi para a Geral e a Saúde', () => {
   const h = htmlAbaDados(ana);
   assert.match(h, /id="form-dados"/);
-  for (const n of ['nascimento', 'sexo', 'altura', 'peso', 'objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino', 'obs']) assert.match(h, new RegExp(`name="${n}"`), n);
-  for (const n of ['nome', 'telefone', 'email', 'endereco', 'status', 'appLiberado', 'modoLite', 'mensalidade', 'vencimento', 'pagoPorId']) {
-    assert.doesNotMatch(h, new RegExp(`name="${n}"`), `${n} mora num card da aba Geral`);
+  for (const n of ['objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino']) assert.match(h, new RegExp(`name="${n}"`), n);
+  for (const n of ['nome', 'telefone', 'email', 'endereco', 'status', 'appLiberado', 'modoLite', 'mensalidade', 'vencimento', 'pagoPorId', 'nascimento', 'sexo', 'altura', 'peso', 'obs']) {
+    assert.doesNotMatch(h, new RegExp(`name="${n}"`), `${n} mora num card da aba Geral ou da Saúde`);
   }
   assert.doesNotMatch(h, /lgpd-tag|acesso-aluno/, 'LGPD e acesso estão no card Acesso');
   assert.doesNotMatch(h, /type="submit"|Salvar alterações/, 'sem Salvar por aba: o salvar global grava a ficha inteira');
@@ -121,7 +121,7 @@ test('avaliações: resultados calculados e o pedido do dado que falta', () => {
   const h = htmlResultados({ peso: '70', estatura: '170', perimetros: {} }, { sexo: 'Feminino', nascimento: '1996-01-01' });
   assert.match(h, /<span class="rt">IMC<\/span><span class="rv">24,2<\/span>/);
   assert.match(h, /Preencha as 3 dobras/);
-  assert.match(htmlResultados({ peso: '70' }, {}), /Defina o sexo na aba Dados/);
+  assert.match(htmlResultados({ peso: '70' }, {}), /Defina o sexo na aba Saúde/);
   assert.match(htmlResultados({ pas: '120', pad: '80' }, {}), /Pressão arterial[\s\S]*120\/80/);
 });
 

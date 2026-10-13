@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import {
   resumoDosDias, htmlCardPerfil, htmlCardContato, htmlCardAcesso, htmlAcessoPortal, htmlCardFinanceiro,
   htmlFinanceiroDinamico, faturaParaPagar, htmlAbaGeral, CARDS_EDITAVEIS,
-} from './ui-tab-geral.js?v=17';
-import { botaoEditar, htmlLinhas } from './ui-card.js?v=17';
-import { formDadosHTML, CAMPOS } from './ui-tab-dados.js?v=17';
+} from './ui-tab-geral.js?v=18';
+import { botaoEditar, htmlLinhas } from './ui-card.js?v=18';
+import { formDadosHTML, CAMPOS } from './ui-tab-dados.js?v=18';
 
 const HOJE = '2026-10-11';
 const ana = {

@@ -53,12 +53,12 @@ const ouvintesJanela = /** @type {Function[]} */ ([]);
 globalThis.window = /** @type {any} */ ({ addEventListener: (t, f) => { if (t === 'message') ouvintesJanela.push(f); } });
 globalThis.location = /** @type {any} */ ({ origin: 'http://gestao.test' });
 
-const db = await import('./db.js?v=17');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=17');
-const { iniciarPerfil } = await import('./ui-perfil.js?v=17');
-const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=17');
-const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=17');
-const { semanaSegSab, waMsg } = await import('./util/formato.js?v=17');
+const db = await import('./db.js?v=18');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=18');
+const { iniciarPerfil } = await import('./ui-perfil.js?v=18');
+const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=18');
+const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=18');
+const { semanaSegSab, waMsg } = await import('./util/formato.js?v=18');
 
 iniciarPerfil({ obter: db.obter });
 iniciarTabProgresso();
@@ -226,7 +226,7 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
   // Abrir o perfil: o aluno no estado, o cabeçalho, 'perfil-aberto', a aba Dados e a tela — nessa ordem.
   db.criar({ id: 'Abre01', nome: 'Abel' });
   const vistos = [];
-  const { on } = await import('./estado.js?v=17');
+  const { on } = await import('./estado.js?v=18');
   const parar = [EVENTOS.PERFIL_ABERTO, EVENTOS.ABRIR_ABA, EVENTOS.ABRIR_TELA].map((ev) => on(ev, (x) => vistos.push([ev, x, estado.alunoAtual?.id])));
   emit(EVENTOS.ABRIR_PERFIL, 'Abre01');
   parar.forEach((p) => p());
@@ -236,21 +236,21 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
   assert.equal(estado.alunoAtual.id, 'Abre01', 'id que não existe não troca a ficha aberta');
 
   const telas = ler('./telas.js');
-  const ordem = ['iniciarNavegacao();', 'iniciarPerfil(', 'iniciarFotoDoPerfil();', 'iniciarTabGeral();', 'iniciarTabDados();', 'iniciarTabAvaliacoes();', 'iniciarTabProgresso();',
-    'iniciarTabAnamnese();', 'iniciarTabParq();', "iniciarTabFinanceiro('#tab-geral');", 'iniciarTabMatriz();', 'iniciarTabPortal(',
+  const ordem = ['iniciarNavegacao();', 'iniciarPerfil(', 'iniciarFotoDoPerfil();', 'iniciarTabGeral();', 'iniciarTabSaude();', 'iniciarTabDados();', 'iniciarTabAvaliacoes();', 'iniciarTabProgresso();',
+    "iniciarTabFinanceiro('#tab-geral');", 'iniciarTabMatriz();', 'iniciarTabPortal(',
     'iniciarTabRegistros();'];
   const pos = ordem.map((f) => telas.indexOf(f));
   assert.ok(pos.every((p) => p >= 0), `telas.js liga tudo: ${ordem.filter((_, i) => pos[i] < 0)}`);
   assert.deepEqual([...pos].sort((x, y) => x - y), pos, 'o roteador e o perfil ligam antes das abas');
 
   // Cada aba da barra tem um módulo que a desenha.
-  const { ABAS } = { ABAS: ['geral', 'dados', 'anamnese', 'parq', 'avaliacoes', 'progresso', 'matriz', 'portal', 'registros'] };
-  const fontes = ['ui-tab-geral', 'ui-tab-dados', 'ui-tab-anamnese', 'ui-tab-par-q', 'ui-tab-avaliacoes', 'ui-tab-progresso', 'ui-tab-matriz',
+  const { ABAS } = { ABAS: ['geral', 'saude', 'dados', 'avaliacoes', 'progresso', 'matriz', 'portal', 'registros'] };
+  const fontes = ['ui-tab-geral', 'ui-tab-saude', 'ui-tab-dados', 'ui-tab-avaliacoes', 'ui-tab-progresso', 'ui-tab-matriz',
     'ui-tab-portal', 'ui-tab-registros'].map((f) => ler(`./${f}.js`)).join('\n');
   for (const aba of ABAS) assert.ok(fontes.includes(`'${aba}'`), `nenhum módulo desenha a aba ${aba}`);
 });
 
-test('perfil: as abas da barra são as nove com módulo — a Geral primeiro; o Financeiro virou card dela', async () => {
-  const { ABAS } = await import('./ui-perfil.js?v=17');
-  assert.deepEqual(ABAS.map((a) => a.id), ['geral', 'dados', 'anamnese', 'parq', 'avaliacoes', 'progresso', 'matriz', 'portal', 'registros']);
+test('perfil: as abas da barra, cada uma com módulo — Geral e Saúde primeiro; Financeiro, Anamnese e PAR-Q viraram cards', async () => {
+  const { ABAS } = await import('./ui-perfil.js?v=18');
+  assert.deepEqual(ABAS.map((a) => a.id), ['geral', 'saude', 'dados', 'avaliacoes', 'progresso', 'matriz', 'portal', 'registros']);
 });

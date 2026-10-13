@@ -1,20 +1,14 @@
 // @ts-check
 /**
- * Aba PAR-Q do perfil — o questionário de prontidão para atividade física, com
- * o resultado da triagem atualizado a cada resposta.
+ * O formulário do PAR-Q — o questionário de prontidão para atividade física,
+ * com o resultado da triagem atualizado a cada resposta.
  *
- * Saiu do `app.js` no fatiamento. As perguntas e a regra da triagem moram em
- * `saude.js`, as mesmas que o PDF da ficha usa.
- *
- * Quem desenha e grava é o salvar global (ui-salvar-global.js): a aba se
- * desenha toda vez que abre, a partir da ficha com o rascunho por cima — as
- * respostas marcadas e ainda não salvas continuam marcadas —, e o que mudou
- * vai para a gravação única da ficha, com o log "PAR-Q editado · …".
+ * Era uma aba; hoje é uma seção do card Formulários da aba Saúde
+ * (ui-tab-saude.js), que o desenha e o lê para o salvar global. As perguntas
+ * e a regra da triagem moram em `saude.js`, as mesmas que o PDF usa.
  */
-import { esc } from './util/formato.js?v=17';
-import { $ } from './util/dom.js?v=17';
-import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=17';
-import { registrarFormulario } from './ui-salvar-global.js?v=17';
+import { esc } from './util/formato.js?v=18';
+import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=18';
 
 /** O aviso de cada resultado da triagem ('' quando nada foi respondido). */
 const BANNER = {
@@ -50,7 +44,7 @@ export function htmlParq(a) {
 }
 
 /** As respostas marcadas no formulário. @param {HTMLFormElement} form */
-function respostasDoForm(form) {
+export function respostasDoForm(form) {
   const fd = new FormData(form);
   /** @type {Record<string, string>} */ const respostas = {};
   for (let i = 0; i < PARQ_PERGUNTAS.length; i++) { const v = fd.get('q' + i); if (v) respostas['q' + i] = String(v); }
@@ -72,21 +66,4 @@ export function caminhosDoParq(p) {
   /** @type {Record<string, any>} */ const r = { 'parq.data': p.data, 'parq.obs': p.obs };
   for (let i = 0; i < PARQ_PERGUNTAS.length; i++) r[`parq.respostas.q${i}`] = p.respostas['q' + i];
   return r;
-}
-
-/** Desenha a aba com a ficha recebida e liga o aviso da triagem. @param {any} a */
-function renderParq(a) {
-  const painel = $('#tab-parq'); if (!painel) return;
-  painel.innerHTML = htmlParq(a);
-  const form = $('#form-parq');
-  form.addEventListener('change', () => { $('#parq-result').innerHTML = bannerParq(respostasDoForm(form)); });
-}
-
-/** Liga a aba ao salvar global. Chamar uma vez, antes do resto do app (depois de `iniciarSalvarGlobal`). */
-export function iniciarTabParq() {
-  registrarFormulario({
-    aba: 'parq',
-    desenhar: renderParq,
-    ler: () => { const form = $('#form-parq'); return form ? caminhosDoParq(lerParq(form)) : null; },
-  });
 }

@@ -29,13 +29,15 @@
  * num formulário de cadastro convida o coach a digitar um número que vence na
  * segunda-feira seguinte. A leitura passa por aqui intacta, como veio.
  */
-import { registrarFormulario } from './ui-salvar-global.js?v=17';
+import { registrarFormulario } from './ui-salvar-global.js?v=18';
+import { emit, EVENTOS } from './estado.js?v=18';
+import { descreverLesao } from './lesoes.js?v=18';
 import {
   CAMPO, matrizDe, separarParaGravar, e1rm, cargaDe1RM, resumoDeAdaptacoes, rotulo,
-  OPCOES_NIVEL, FASES, LEVANTAMENTOS, ZONAS_RIR, REGIOES_LESAO, GRAVIDADES,
+  OPCOES_NIVEL, FASES, LEVANTAMENTOS, ZONAS_RIR,
   REGRAS_IMPACTO, REGRAS_TRACAO, RESTRICOES_MOBILIDADE, GRUPOS_COM_ROTULO,
-} from '../../compartilhado/regras/matriz-individualizacao.js?v=17';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=17';
+} from '../../compartilhado/regras/matriz-individualizacao.js?v=18';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=18';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const $ = (s, r = document) => /** @type {any} */ (r.querySelector(s));
@@ -63,18 +65,6 @@ const opcoesTexto = (lista, atual, vazio = '—') =>
 /* ------------------------------------------------------------------ *
  * Marcação
  * ------------------------------------------------------------------ */
-
-/** Uma linha de lesão. `i` é só para o `name` ficar único dentro do formulário. */
-function linhaLesao(l = { regiao: '', gravidade: 'leve', desde: '', obs: '' }) {
-  return `
-  <div class="mtz-lesao" data-lesao>
-    <select data-campo="regiao" aria-label="Região da lesão">${opcoes(REGIOES_LESAO, l.regiao, 'Região…')}</select>
-    <select data-campo="gravidade" aria-label="Gravidade">${opcoes(GRAVIDADES, l.gravidade, '')}</select>
-    <input type="date" data-campo="desde" value="${esc(l.desde)}" aria-label="Desde quando" />
-    <input type="text" data-campo="obs" value="${esc(l.obs)}" placeholder="Observação (ex.: menisco)" aria-label="Observação" />
-    <button class="btn danger btn-sm" type="button" data-remover-lesao aria-label="Remover lesão">✕</button>
-  </div>`;
-}
 
 /**
  * Bloco de um levantamento de referência.
@@ -168,10 +158,11 @@ function formHTML(m) {
       <div class="mtz-lesoes">
         <div class="mtz-lesoes-top">
           <span>Lesões e restrições articulares</span>
-          <button class="btn ghost btn-sm" type="button" id="mtz-add-lesao">+ Adicionar</button>
+          <button class="btn ghost btn-sm" type="button" data-ir-aba="saude">Editar na aba Saúde</button>
         </div>
-        <div data-lista-lesoes>${m.adaptacoes.lesoes.map(linhaLesao).join('')}</div>
-        <p class="mtz-vazio" data-lesoes-vazio ${m.adaptacoes.lesoes.length ? 'hidden' : ''}>Nenhuma lesão registrada.</p>
+        ${m.adaptacoes.lesoes.length
+    ? `<ul class="mtz-lesoes-lista">${m.adaptacoes.lesoes.map((l) => `<li>${esc(descreverLesao(l))}</li>`).join('')}</ul>`
+    : '<p class="mtz-vazio">Nenhuma lesão registrada.</p>'}
       </div>
 
       <label class="mtz-full">Observação geral das adaptações
@@ -220,12 +211,9 @@ function lerForm(form, original) {
       airbike: { rpm: v('rpm'), calPorMin: v('calPorMin'), obs: v('airbikeObs') },
     },
     adaptacoes: {
-      lesoes: $$('[data-lesao]', form).map((el) => ({
-        regiao: $('[data-campo=regiao]', el).value,
-        gravidade: $('[data-campo=gravidade]', el).value,
-        desde: $('[data-campo=desde]', el).value,
-        obs: $('[data-campo=obs]', el).value,
-      })),
+      // As lesões se editam na aba Saúde (lesoes.js): aqui elas só passam,
+      // como estavam quando a aba foi desenhada (já com o rascunho).
+      lesoes: original.adaptacoes.lesoes,
       impacto: v('impacto'),
       tracao: v('tracao'),
       mobilidade: $$('input[name=mobilidade]:checked', form).map((c) => c.value),
@@ -342,20 +330,10 @@ export function montar(aluno) {
   form.addEventListener('input', () => { atualizarSaidas(); conferirFoco(); resumoAoVivo(); });
   form.addEventListener('change', () => { atualizarSaidas(); conferirFoco(); resumoAoVivo(); });
 
-  /** Mexer nas linhas de lesão não dispara `input`: avisa o salvar global como se fosse. */
-  const avisarMudanca = () => form.dispatchEvent(new Event('input', { bubbles: true }));
-
-  $('#mtz-add-lesao', form).addEventListener('click', () => {
-    $('[data-lista-lesoes]', form).insertAdjacentHTML('beforeend', linhaLesao());
-    $('[data-lesoes-vazio]', form).hidden = true;
-  });
-
+  // "Editar na aba Saúde": as lesões moram lá.
   form.addEventListener('click', (ev) => {
-    const b = /** @type {HTMLElement} */ (ev.target).closest('[data-remover-lesao]');
-    if (!b) return;
-    b.closest('[data-lesao]')?.remove();
-    $('[data-lesoes-vazio]', form).hidden = $$('[data-lesao]', form).length > 0;
-    avisarMudanca();
+    const b = /** @type {HTMLElement} */ (ev.target).closest('[data-ir-aba]');
+    if (b && b.dataset.irAba) emit(EVENTOS.ABRIR_ABA, b.dataset.irAba);
   });
 
   atualizarSaidas();

@@ -20,17 +20,17 @@
  * pelo ui-tab-financeiro.js e pelo ui-acoes-aluno.js; a situação e as faturas
  * mostram sempre a ficha SALVA.
  */
-import * as db from './db.js?v=17';
-import { esc, hoje, fmtData, horaLegivel, horaParaInput } from './util/formato.js?v=17';
-import { $ } from './util/dom.js?v=17';
-import { estado, on, emit, EVENTOS } from './estado.js?v=17';
-import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=17';
-import { camposDados, wireForm, lerCampos, CAMPOS, DIAS_FORM } from './ui-tab-dados.js?v=17';
-import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=17';
-import { brl, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=17';
-import { htmlFatura } from './ui-tab-financeiro.js?v=17';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=17';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=17';
+import * as db from './db.js?v=18';
+import { esc, hoje, fmtData, horaLegivel, horaParaInput } from './util/formato.js?v=18';
+import { $ } from './util/dom.js?v=18';
+import { estado, on, emit, EVENTOS } from './estado.js?v=18';
+import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=18';
+import { camposDados, wireForm, lerCampos, CAMPOS, DIAS_FORM } from './ui-tab-dados.js?v=18';
+import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=18';
+import { brl, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=18';
+import { htmlFatura } from './ui-tab-financeiro.js?v=18';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=18';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=18';
 
 /** Os cards com formulário (os que têm ✎ Editar). */
 export const CARDS_EDITAVEIS = Object.freeze(['contato', 'financeiro', 'acesso']);

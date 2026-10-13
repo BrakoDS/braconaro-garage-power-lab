@@ -10,15 +10,15 @@
  * As partes que só montam HTML (`htmlListaAvaliacoes`, `htmlResultados`,
  * `htmlComparacao`) são puras e testadas em `ui-tab-avaliacoes.test.js`.
  */
-import * as db from './db.js?v=17';
-import * as calc from '../../compartilhado/regras/calc.js?v=17';
-import { exportarAvaliacao } from './pdf.js?v=17';
-import { esc, hoje, fmtN, numf, fmtData, addDias } from './util/formato.js?v=17';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=17';
-import { estado, on, EVENTOS } from './estado.js?v=17';
-import { reg } from './registro.js?v=17';
-import { escolherFoto, uploadFoto, avisoStorage, apagarFotosDaAvaliacao, apagarArquivo } from './ui-fotos.js?v=17';
-import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=17';
+import * as db from './db.js?v=18';
+import * as calc from '../../compartilhado/regras/calc.js?v=18';
+import { exportarAvaliacao } from './pdf.js?v=18';
+import { esc, hoje, fmtN, numf, fmtData, addDias } from './util/formato.js?v=18';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=18';
+import { estado, on, EVENTOS } from './estado.js?v=18';
+import { reg } from './registro.js?v=18';
+import { escolherFoto, uploadFoto, avisoStorage, apagarFotosDaAvaliacao, apagarArquivo } from './ui-fotos.js?v=18';
+import { confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=18';
 
 const n2 = (/** @type {number} */ n) => String(n).padStart(2, '0');
 
@@ -59,7 +59,7 @@ export function htmlResultados(av, aluno) {
   const r = calc.calcular(av, aluno);
   const rceVal = calc.rcest(av.perimetros?.cintura, av.estatura);
   const percSub = r.perc != null ? r.percClass
-    : (r.faltaSexo ? 'Defina o sexo na aba Dados' : r.faltaIdade ? 'Informe a data de nascimento (aba Dados)' : 'Preencha as 3 dobras');
+    : (r.faltaSexo ? 'Defina o sexo na aba Saúde (Biometria)' : r.faltaIdade ? 'Informe a data de nascimento (aba Saúde)' : 'Preencha as 3 dobras');
   const cards = [
     { t: '% Gordura corporal', v: r.perc != null ? fmtN(r.perc, 1) + '%' : '—', s: percSub, hi: true },
     { t: 'IMC', v: r.imc != null ? fmtN(r.imc, 1) : '—', s: r.imcClass },
@@ -214,8 +214,8 @@ function abrirFormAvaliacao(num) {
   const cond = av.cond || {}, dz = av.dobras || {}, pz = av.perimetros || {}, tz = av.testes || {}, mz = av.mobilidade || {};
   const chk = (k, l) => `<label class="chk"><input type="checkbox" name="cond_${k}"${cond[k] ? ' checked' : ''}/> ${l}</label>`;
   const f = (name, val, ph = '') => `<input name="${name}" type="number" inputmode="decimal" min="0" step="any" value="${esc(val ?? '')}" placeholder="${ph}"/>`;
-  const avisoSexo = cod ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Defina o <b>sexo</b> do aluno na aba <b>Dados</b> para calcular o % de gordura.</div>`;
-  const avisoIdade = (a.nascimento || a.idade) ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Informe a <b>data de nascimento</b> na aba Dados (a fórmula usa a idade).</div>`;
+  const avisoSexo = cod ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Defina o <b>sexo</b> do aluno na aba <b>Saúde</b> (card Biometria) para calcular o % de gordura.</div>`;
+  const avisoIdade = (a.nascimento || a.idade) ? '' : `<div class="note" style="margin-bottom:12px">⚠️ Informe a <b>data de nascimento</b> na aba Saúde (card Biometria) — a fórmula usa a idade.</div>`;
   $('#modal-aval-body').innerHTML = `
     <form id="form-aval">
       <div class="form-sec"><h3>Datas</h3><div class="grid-form">

@@ -27,15 +27,15 @@
  * avaliações, financeiro (pagamento, lançamento), metas, acesso ao Portal e
  * exclusão. Plano: docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md.
  */
-import * as db from './db.js?v=17';
-import { esc } from './util/formato.js?v=17';
-import { $ } from './util/dom.js?v=17';
-import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=17';
-import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=17';
-import { regFicha, regAnamnese, regParq } from './registro.js?v=17';
-import { resumoFicha } from './registros-ui.js?v=17';
-import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=17';
-import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=17';
+import * as db from './db.js?v=18';
+import { esc } from './util/formato.js?v=18';
+import { $ } from './util/dom.js?v=18';
+import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=18';
+import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=18';
+import { regFicha, regAnamnese, regParq } from './registro.js?v=18';
+import { resumoFicha } from './registros-ui.js?v=18';
+import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=18';
+import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=18';
 
 /**
  * @typedef {{
@@ -91,6 +91,18 @@ export function caminhosMudados(lidos, antes, tocados) {
  */
 export function acaoDoCampo(valor, mostrado, jaNoRascunho) {
   return !jaNoRascunho && mesmoValor(valor, mostrado) ? 'descartar' : 'definir';
+}
+
+/**
+ * O campo já tem edição no rascunho — nele mesmo, num campo de fora que o
+ * contém, ou num de dentro? Duas abas podem editar o mesmo dado em
+ * granularidades diferentes: a Matriz guarda `adaptacoes` inteiro e a Saúde,
+ * `adaptacoes.lesoes`. O que o formulário mostra veio dessa edição, e voltar
+ * a ele não pode apagá-la.
+ * @param {string} caminho @param {string[]} pendentes os caminhos do rascunho
+ */
+export function cruzaComRascunho(caminho, pendentes) {
+  return pendentes.some((p) => p === caminho || caminho.startsWith(p + '.') || p.startsWith(caminho + '.'));
 }
 
 /** "1 campo" / "3 campos". @param {number} n */
@@ -186,8 +198,7 @@ function desenharAberta() {
   if (!f || !v) return;
   f.desenhar(v);
   antes = f.ler() || {};
-  const pendentes = new Set(rascunho ? rascunho.caminhos() : []);
-  herdados = new Set(Object.keys(antes).filter((c) => pendentes.has(c)));
+  herdados = new Set(Object.keys(antes).filter((c) => cruzaComRascunho(c, rascunho ? rascunho.caminhos() : [])));
   tocados = new Set();
 }
 
