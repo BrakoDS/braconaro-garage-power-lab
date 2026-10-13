@@ -6,7 +6,7 @@
  *
  * Saiu do `app.js` no fatiamento. As CONTAS (o mês do box, os totais) e as
  * AÇÕES (dar baixa, desfazer, lançar e remover consumo) moram em
- * financeiro-regras.js, puras e testadas, as mesmas da aba Financeiro do aluno
+ * financeiro-regras.js, puras e testadas, as mesmas do card Financeiro do aluno
  * e das Cobranças. Aqui ficam o desenho, os botões e a aplicação: a regra
  * devolve o que mudar e a linha do log, e a tela grava (`db.atualizar` — que já
  * publica o Portal e avisa a lista) e registra.
@@ -14,14 +14,14 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=21';
+import * as db from './db.js?v=22';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=21';
-import { mesDoBox, darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=21';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=21';
-import { $, $$ } from './util/dom.js?v=21';
-import { on, EVENTOS } from './estado.js?v=21';
-import { regFinanceiro } from './registro.js?v=21';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=22';
+import { mesDoBox, darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=22';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=22';
+import { $, $$ } from './util/dom.js?v=22';
+import { on, EVENTOS } from './estado.js?v=22';
+import { regFinanceiro } from './registro.js?v=22';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */

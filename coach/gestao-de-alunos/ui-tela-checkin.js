@@ -11,14 +11,14 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'checkin'), que sempre volta
  * para hoje, e a cada ação ou troca de dia.
  */
-import * as db from './db.js?v=21';
-import * as regras from './checkin-regras.js?v=21';
-import { DIA_EXT } from './checkin-regras.js?v=21';
+import * as db from './db.js?v=22';
+import * as regras from './checkin-regras.js?v=22';
+import { DIA_EXT } from './checkin-regras.js?v=22';
 import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=21';
-import { $ } from './util/dom.js?v=21';
-import { on, EVENTOS } from './estado.js?v=21';
-import { reg } from './registro.js?v=21';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=22';
+import { $ } from './util/dom.js?v=22';
+import { on, EVENTOS } from './estado.js?v=22';
+import { reg } from './registro.js?v=22';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIA_MIN = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };

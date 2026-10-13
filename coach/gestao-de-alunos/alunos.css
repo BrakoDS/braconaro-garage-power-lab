@@ -376,25 +376,10 @@ button{font-family:inherit}
 .saved-flag{color:var(--ok);font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.08em;
   font-size:.8rem;align-self:center;opacity:0;transition:opacity .2s}
 .saved-flag.show{opacity:1}
-.lgpd-tag{display:inline-block;font-size:.82rem;color:var(--mut);margin-bottom:14px;padding:6px 12px;
-  border:1px solid var(--line-2);border-radius:20px}
-.lgpd-tag span.ok{color:var(--ok);font-weight:600}
-.lgpd-tag span.pendente{color:var(--bad);font-weight:600}
-.lgpd-tag span.semdado{color:var(--mut-2)}
-/* Acesso do aluno: criar a conta de login e mandar o link de senha. */
-.acesso-aluno{border:1px solid var(--line-2);background:var(--card);padding:12px 14px;margin-bottom:18px}
-.acesso-cab{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
-.acesso-cab > div{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 260px}
-.acesso-cab b{font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.06em;font-size:.82rem}
-.acesso-cab .hint{font-size:.78rem;color:var(--mut-2)}
-.acesso-res{margin-top:12px;padding-top:12px;border-top:1px solid var(--line-2)}
 .acesso-ok{color:var(--ok);font-size:.88rem;margin:0 0 10px}
 .acesso-erro{color:var(--bad);font-size:.88rem;margin:0}
-.acesso-acoes{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.acesso-acoes .hint{font-size:.78rem;color:var(--mut-2)}
-.acesso-cab .btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
 
-/* ---------- Aba 2: Avaliações (timeline) ---------- */
+/* ---------- Avaliações: a lista (ui-tab-avaliacoes.js) ---------- */
 .aval-list{display:flex;flex-direction:column;gap:10px}
 .aval-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;
   background:var(--card);border:1px solid var(--line);padding:14px 18px;cursor:pointer;text-align:left;
@@ -410,16 +395,9 @@ button{font-family:inherit}
 .aval-row .badge-ok{font-size:.66rem;color:var(--mut-2);font-family:var(--font-cond);text-transform:uppercase;
   letter-spacing:.06em;border:1px solid var(--line-2);padding:3px 8px;white-space:nowrap}
 
-/* ---------- Aba 3: Progresso ---------- */
-.prog-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-.prog-card{background:var(--card);border:1px solid var(--line);padding:22px;min-height:200px;
-  display:flex;flex-direction:column}
-.prog-card.full{grid-column:1/-1}
-.prog-card h4{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-  font-size:.86rem;margin:0 0 14px;color:var(--txt)}
+/* Aviso de "carregando" / "sem dado" dos cards de leitura (Treino, Histórico). */
 .prog-ph{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   border:1px dashed var(--line-2);color:var(--mut-2);text-align:center;padding:24px;font-size:.9rem}
-.prog-ph svg{width:34px;height:34px;opacity:.5}
 /* ---------- Desafios (emojis) ---------- */
 .des-emojis{display:flex;gap:6px;flex-wrap:wrap}
 .des-emoji{background:var(--bg-2);border:1px solid var(--line-2);cursor:pointer;font-size:1.2rem;line-height:1;padding:7px 9px;border-radius:8px}
@@ -687,7 +665,6 @@ button{font-family:inherit}
   .grid-form{grid-template-columns:1fr}
   .grid-form.g3{grid-template-columns:repeat(2,1fr)}
   .resultados{grid-template-columns:repeat(2,1fr)}
-  .prog-grid{grid-template-columns:1fr}
   .fab{left:clamp(16px,4vw,40px);text-align:center}
 }
 
@@ -978,23 +955,6 @@ button{font-family:inherit}
 .ac-chip-cortesia{color:var(--accent);background:rgba(245,197,24,.09);border-color:rgba(245,197,24,.28)}
 .ac-chip-coberto{color:var(--mut);border-color:var(--line-2)}
 
-.fa-eyebrow{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.22em;font-size:.72rem;color:var(--accent)}
-.fa-plano{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;
-  padding:18px 20px;background:var(--card);border:1px solid var(--line)}
-.fa-plano-l{display:flex;flex-direction:column;gap:4px;min-width:0}
-.fa-valor{font-family:var(--font-display);font-weight:400;font-size:2.1rem;line-height:1.05;letter-spacing:.01em}
-.fa-valor small{font-family:var(--font-body);font-size:.9rem;color:var(--mut);margin-left:4px}
-.fa-valor.fa-vazio{font-size:1.4rem;color:var(--mut)}
-.fa-plano-sub{color:var(--mut);font-size:.9rem}
-.fa-extras{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px}
-.fa-nota{color:var(--mut);font-size:.85rem}
-.fa-nota b{color:var(--txt);font-weight:600}
-.fa-aberto{display:flex;flex-direction:column;align-items:flex-end;text-align:right;
-  font-family:var(--font-cond);font-weight:700;font-size:1.5rem;line-height:1.1;font-variant-numeric:tabular-nums}
-.fa-aberto small{font-family:var(--font-body);font-weight:500;font-size:.78rem;color:var(--mut);margin-top:2px}
-.fa-aberto.bad{color:var(--bad)} .fa-aberto.warn{color:var(--warn)} .fa-aberto.ok{color:var(--ok)}
-
-.fa-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 12px}
 .fa-lista{display:grid;grid-template-columns:1fr;gap:10px}
 @media (min-width:760px){ .fa-lista{grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px} }
 .fa-fatura{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--line-2)}
@@ -1033,7 +993,6 @@ button{font-family:inherit}
 .fa-pg-itens li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
 .fa-pg-total{display:flex;justify-content:space-between;margin:10px 0 6px;padding-top:10px;border-top:1px solid var(--line-2)}
 .fa-pg-total b{font-family:var(--font-cond);font-size:1.25rem}
-@media (max-width:560px){ .fa-aberto{align-items:flex-start;text-align:left} }
 
 /* ---------- Salvar global (ui-salvar-global.js) ----------
    A barra aparece no rodapé quando há alteração não salva na ficha (e por um
@@ -1150,7 +1109,6 @@ button{font-family:inherit}
 .sf-r{flex:0 0 auto;font-family:var(--font-cond);letter-spacing:.06em;color:var(--mut-2)}
 .sf-r.sim{color:var(--warn)}
 .sf-r.nao{color:var(--ok)}
-.mtz-lesoes-lista{margin:6px 0 0;padding-left:18px;color:var(--txt);font-size:.9rem}
 @media (max-width:640px){
   .bio-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
   .bio-val{font-size:1.45rem}

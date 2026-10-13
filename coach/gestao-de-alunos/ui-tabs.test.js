@@ -9,13 +9,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=21';
-import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=21';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=21';
-import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=21';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=21';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=21';
-import { EVENTOS } from './estado.js?v=21';
+import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './campos-aluno.js?v=22';
+import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=22';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=22';
+import { htmlFatura, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=22';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=22';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=22';
+import { EVENTOS } from './estado.js?v=22';
 
 /* ---------- util/formato.js ---------- */
 
@@ -58,7 +58,7 @@ test('dados: o formulário traz a ficha preenchida, com o ID travado', () => {
   assert.match(h, /name="hora_qua" value="19:00" \/>/, 'dia sem hora própria herda o freqHorario antigo');
   assert.match(h, /name="hora_ter" value="19:00" disabled \/>/, 'dia desmarcado vem desabilitado');
   assert.match(h, /<option value="25" selected>25% de desconto<\/option>/);
-  assert.match(h, /name="foco" value="perna" checked\/>/);
+  assert.doesNotMatch(h, /name="foco"/, 'o foco em caixas saiu: ele é primário e secundário, no card Perfil de treino');
 });
 
 test('dados: no cadastro o ID é editável', () => {
@@ -73,7 +73,7 @@ test('cadastro curto: só o essencial — ID, nome, telefone, e-mail, nascimento
   assert.match(h, /name="nome" type="text" required/);
   assert.match(h, /<option value="ativo" selected>/, 'novo aluno nasce ativo');
   assert.match(h, /completa na ficha/);
-  assert.deepEqual([...CAMPOS_CADASTRO], ['id', 'nome', 'telefone', 'email', 'nascimento', 'idade', 'sexo', 'status', 'mensalidade', 'vencimento']);
+  assert.deepEqual([...CAMPOS_CADASTRO], ['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'mensalidade', 'vencimento'], 'a idade não: ela sai do nascimento');
 });
 
 test('dados: "quem paga" só oferece ativos que não são ele nem têm responsável', () => {
@@ -223,19 +223,6 @@ test('financeiro: conta acertada por outro aluno não tem baixa aqui', () => {
   assert.ok(h.includes('ac-chip-coberto">Na conta de Ana<'));
   assert.ok(h.includes('na conta de Ana</span>'));
   assert.ok(!h.includes('data-fin="pagar"') && !h.includes('data-fin="desfazer"'));
-});
-
-test('financeiro: resumo do plano e do que está em aberto', () => {
-  const h = historicoFinanceiro(alunaFin, [alunaFin], HOJE_FIN);
-  const r = htmlResumo(resumoDoPlano(alunaFin, [alunaFin], HOJE_FIN), h);
-  emOrdem(r, ['R$ 150,00<small>/mês</small>', '3x por semana · vence dia 10', 'fa-aberto bad">R$ 310,00<small>em aberto · R$ 160,00 atrasado']);
-  const semPlano = htmlResumo(resumoDoPlano({}, [], HOJE_FIN), { emAberto: 0, atrasado: 0 });
-  emOrdem(semPlano, ['Sem mensalidade', 'vence dia 10 (padrão)', 'no <b>✎</b> deste card', 'fa-aberto ok">Em dia']);
-});
-
-test('financeiro: a aba tem "Novo lançamento" e o vazio orienta', () => {
-  assert.ok(htmlAbaFinanceiro(alunaFin, [alunaFin], HOJE_FIN).includes('data-fin="novo" type="button">+ Novo lançamento<'));
-  assert.ok(htmlAbaFinanceiro({}, [], HOJE_FIN).includes('Nenhuma cobrança ainda'));
 });
 
 test('financeiro: lançamento por produto do box ou avulso; sem catálogo, só avulso', () => {

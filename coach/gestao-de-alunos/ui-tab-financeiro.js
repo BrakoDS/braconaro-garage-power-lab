@@ -22,15 +22,15 @@
  * registrado (mês e valor), pagamento desfeito, lançamento avulso.
  * As regras (o que é atrasado, em que fatura cai) moram em financeiro-aluno.js.
  */
-import * as db from './db.js?v=21';
-import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=21';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=21';
-import { estado } from './estado.js?v=21';
-import { confirmar } from '../../compartilhado/ui/dialogo.js?v=21';
+import * as db from './db.js?v=22';
+import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=22';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=22';
+import { estado } from './estado.js?v=22';
+import { confirmar } from '../../compartilhado/ui/dialogo.js?v=22';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=21';
-import { darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=21';
-import { regFinanceiro } from './registro.js?v=21';
+import { brl, numMoney, rotuloMesFin, historicoFinanceiro } from './financeiro-aluno.js?v=22';
+import { darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=22';
+import { regFinanceiro } from './registro.js?v=22';
 
 /** Rótulo e cor de cada situação. */
 const STATUS = {
@@ -45,47 +45,6 @@ const STATUS = {
 /* ============================================================
    HTML (puro)
    ============================================================ */
-
-/**
- * O card do topo: o plano e quanto está em aberto.
- * @param {ReturnType<typeof resumoDoPlano>} r @param {{ emAberto: number, atrasado: number }} h
- */
-export function htmlResumo(r, h) {
-  const semPlano = !(r.mensalidadeCheia > 0);
-  const linhas = [];
-  if (r.plano) linhas.push(esc(r.plano));
-  linhas.push(`vence dia ${r.vencimento}${r.vencimentoDefinido ? '' : ' (padrão)'}`);
-  const valor = semPlano
-    ? '<span class="fa-valor fa-vazio">Sem mensalidade</span>'
-    : `<span class="fa-valor">${brl(r.mensalidade)}<small>/mês</small></span>`;
-  const extras = [];
-  if (r.parceria) {
-    extras.push(`<span class="ac-chip ac-chip-cortesia">Parceria ${r.parceria.percentual}%${r.parceria.nome ? ' · ' + esc(r.parceria.nome) : ''}</span>`
-      + `<span class="fa-nota">cheia ${brl(r.mensalidadeCheia)} · o box banca ${brl(r.desconto)}</span>`);
-  }
-  if (r.responsavel) {
-    extras.push(`<span class="fa-nota">Conta acertada por <b>${esc(r.responsavel.nome)}</b> (${r.responsavel.escopo === 'plano' ? 'só o plano — o consumo é dele' : 'plano e consumíveis'}).</span>`);
-  }
-  if (r.dependentes.length) {
-    extras.push(`<span class="fa-nota">Paga também a conta de <b>${r.dependentes.map(esc).join(', ')}</b>.</span>`);
-  }
-  if (semPlano) extras.push('<span class="fa-nota">Defina o valor no <b>✎</b> deste card.</span>');
-  const aberto = h.atrasado > 0
-    ? `<span class="fa-aberto bad">${brl(h.emAberto)}<small>em aberto · ${brl(h.atrasado)} atrasado</small></span>`
-    : h.emAberto > 0
-      ? `<span class="fa-aberto warn">${brl(h.emAberto)}<small>em aberto</small></span>`
-      : '<span class="fa-aberto ok">Em dia<small>nada em aberto</small></span>';
-  return `
-    <section class="fa-plano" aria-label="Resumo do plano">
-      <div class="fa-plano-l">
-        <span class="fa-eyebrow">Plano</span>
-        ${valor}
-        <span class="fa-plano-sub">${linhas.join(' · ')}</span>
-        ${extras.length ? `<div class="fa-extras">${extras.join('')}</div>` : ''}
-      </div>
-      ${aberto}
-    </section>`;
-}
 
 /**
  * Um card de fatura.
@@ -117,25 +76,6 @@ export function htmlFatura(f) {
       <ul class="fa-itens">${itens}</ul>
       <footer class="fa-fatura-ft"><span class="fa-total">Total <b>${brl(f.total)}</b></span>${acao}</footer>
     </article>`;
-}
-
-/**
- * A aba inteira.
- * @param {any} a @param {any[]} todos @param {string} [hojeIso]
- */
-export function htmlAbaFinanceiro(a, todos, hojeIso = hoje()) {
-  const h = historicoFinanceiro(a, todos, hojeIso);
-  const lista = h.faturas.length
-    ? h.faturas.map(htmlFatura).join('')
-    : '<div class="empty"><b>Nenhuma cobrança ainda</b>Defina a mensalidade no ✎ do card, ou lance um consumo.</div>';
-  return `
-    ${htmlResumo(resumoDoPlano(a, todos, hojeIso), h)}
-    <div class="fa-cab">
-      <span class="fa-eyebrow">Histórico</span>
-      <button class="btn btn-sm" data-fin="novo" type="button">+ Novo lançamento</button>
-    </div>
-    <div class="fa-lista">${lista}</div>
-    ${h.temMais ? '<p class="hint fa-mais">Mostrando os últimos 12 meses.</p>' : ''}`;
 }
 
 /**

@@ -32,16 +32,16 @@ globalThis.document = /** @type {any} */ ({ querySelector: (s) => el(s), querySe
 // O boot importa o login do Firebase, que pendura um helper em `window` ao carregar.
 globalThis.window = /** @type {any} */ ({});
 
-const db = await import('./db.js?v=21');
-const { estado, on, emit, EVENTOS } = await import('./estado.js?v=21');
-const eventos = await import('./eventos.js?v=21');
-const { kcalDaSemana, medalhasPorAluno } = await import('./selos-lista.js?v=21');
-const { eventosDoMes, proxReav, iniciarTelaAgenda } = await import('./ui-tela-agenda.js?v=21');
-const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=21');
-const { medidaDoBanco, TETO_FIRESTORE } = await import('./medidor-banco.js?v=21');
-const { msgAuth } = await import('./boot.js?v=21');
-const { medalhasDaFicha } = await import('../../compartilhado/regras/gamificacao.js?v=21');
-const { mesIdAtual } = await import('./financeiro-aluno.js?v=21');
+const db = await import('./db.js?v=22');
+const { estado, on, emit, EVENTOS } = await import('./estado.js?v=22');
+const eventos = await import('./eventos.js?v=22');
+const { kcalDaSemana, medalhasPorAluno } = await import('./selos-lista.js?v=22');
+const { eventosDoMes, proxReav, iniciarTelaAgenda } = await import('./ui-tela-agenda.js?v=22');
+const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=22');
+const { medidaDoBanco, TETO_FIRESTORE } = await import('./medidor-banco.js?v=22');
+const { msgAuth } = await import('./boot.js?v=22');
+const { medalhasDaFicha } = await import('../../compartilhado/regras/gamificacao.js?v=22');
+const { mesIdAtual } = await import('./financeiro-aluno.js?v=22');
 
 /* ---------- selos da lista ---------- */
 

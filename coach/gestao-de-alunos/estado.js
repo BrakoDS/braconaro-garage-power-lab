@@ -50,7 +50,7 @@ export const EVENTOS = Object.freeze({
   GERAR_ACESSO: 'gerar-acesso',
   /** Pedido para excluir o aluno aberto — abre a confirmação (digitar o ID). */
   EXCLUIR_ALUNO: 'excluir-aluno',
-  /** Entrou evento novo no log da aba Registros (uma ação do coach, a caixa do aluno). Dado: o id do aluno, se houver. */
+  /** Entrou evento novo na linha do tempo (aba Histórico) (uma ação do coach, a caixa do aluno). Dado: o id do aluno, se houver. */
   REGISTROS_MUDARAM: 'registros-mudaram',
   /**
    * O coach acabou de fazer algo que ficou no log (registro.js). Dado:

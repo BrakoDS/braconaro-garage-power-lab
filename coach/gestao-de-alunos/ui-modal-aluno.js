@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Modal "+ Cadastrar novo aluno" — o cadastro curto (ui-tab-dados.js): ID,
+ * Modal "+ Cadastrar novo aluno" — o cadastro curto (campos-aluno.js): ID,
  * nome, telefone, e-mail, nascimento, sexo, status, mensalidade e vencimento.
  * O resto o coach completa na ficha, card a card.
  *
@@ -9,12 +9,12 @@
  * Registros e pede o perfil do aluno novo pelo barramento ('abrir-perfil'),
  * como o clique num card: a ficha abre na aba Geral.
  */
-import * as db from './db.js?v=21';
-import { formCadastroCurtoHTML, CAMPOS_CADASTRO, wireForm, lerCampos } from './ui-tab-dados.js?v=21';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=21';
-import { emit, EVENTOS } from './estado.js?v=21';
-import { reg } from './registro.js?v=21';
-import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=21';
+import * as db from './db.js?v=22';
+import { formCadastroCurtoHTML, CAMPOS_CADASTRO, wireForm, lerCampos } from './campos-aluno.js?v=22';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=22';
+import { emit, EVENTOS } from './estado.js?v=22';
+import { reg } from './registro.js?v=22';
+import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=22';
 
 /** @type {{ avisar: (o: any) => any }} */
 let deps = { avisar: avisarReal };
