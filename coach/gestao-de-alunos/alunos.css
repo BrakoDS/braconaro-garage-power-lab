@@ -1190,3 +1190,25 @@ button{font-family:inherit}
   .tr-colunas > div + div{margin-top:18px}
   #card-adaptacoes .tr-colunas > .sa-bloco + .sa-bloco{margin-top:16px}
 }
+
+/* ---------- Aba Histórico (ui-tab-historico.js) ----------
+   Uso do app: adesão e medalhas lado a lado no desktop. O card Histórico troca
+   entre a linha do tempo e a prévia do Portal por um seletor segmentado. */
+.hi-uso{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:18px 28px}
+.hi-uso > div{min-width:0}
+#card-historico .card-hd{flex-wrap:wrap}
+.hi-seletor{display:inline-flex;border:1px solid var(--line-2);background:var(--bg-2)}
+.hi-seg{appearance:none;border:0;background:transparent;color:var(--mut);cursor:pointer;min-height:38px;padding:0 14px;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.76rem}
+.hi-seg + .hi-seg{border-left:1px solid var(--line-2)}
+.hi-seg:hover{color:var(--txt)}
+.hi-seg[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.hi-seg:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hi-painel[hidden]{display:none}
+/* O display do .btn vencia o atributo hidden: o "Carregar mais" da linha do tempo aparecia sempre. */
+#tab-historico .btn[hidden]{display:none}
+@media (max-width:640px){
+  .hi-uso{grid-template-columns:minmax(0,1fr)}
+  .hi-seletor{width:100%}
+  .hi-seg{flex:1 1 0;min-height:44px;padding:0 8px}
+}

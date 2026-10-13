@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ABAS, htmlCabecalho, htmlAbas, linkWhatsAppDoAluno, abaDoAlerta, proximoCompacto, COMPACTA_EM, EXPANDE_EM } from './ui-perfil.js?v=19';
+import { ABAS, htmlCabecalho, htmlAbas, linkWhatsAppDoAluno, abaDoAlerta, proximoCompacto, COMPACTA_EM, EXPANDE_EM } from './ui-perfil.js?v=20';
 
 const HOJE = '2026-10-07';
 const ana = {

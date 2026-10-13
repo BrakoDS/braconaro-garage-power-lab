@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css?v=10" />
+  <link rel="stylesheet" href="./alunos.css?v=11" />
   <link rel="stylesheet" href="./matriz.css?v=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
@@ -258,28 +258,46 @@
           <div id="aval-list" class="aval-list"></div>
         </div>
 
-        <!-- ABA: PORTAL — o Portal do Aluno deste aluno, em prévia -->
-        <div class="tab-panel" id="tab-portal" role="tabpanel" aria-labelledby="aba-portal">
-          <div class="prv-barra">
-            <button class="btn btn-sm" id="prv-prev" type="button">← semana</button>
-            <span class="prv-lbl" id="prv-lbl"></span>
-            <button class="btn btn-sm" id="prv-next" type="button">semana →</button>
-            <button class="btn btn-sm ghost" id="prv-hoje" type="button">hoje</button>
-            <span class="prv-nota">Somente leitura — nada que você fizer aqui é gravado na conta do aluno.</span>
+        <!-- ABA: HISTÓRICO — uso do app; linha do tempo | prévia do Portal (ui-tab-historico.js).
+             Marcação estática: a linha do tempo, a prévia e o uso do app ligam os botões deles uma vez. -->
+        <div class="tab-panel" id="tab-historico" role="tabpanel" aria-labelledby="aba-historico">
+          <div class="cards-geral">
+            <section class="card card-largo" id="card-uso-app" aria-labelledby="card-uso-app-t">
+              <header class="card-hd"><h2 class="card-t" id="card-uso-app-t">Uso do app</h2></header>
+              <div class="card-bd hi-uso">
+                <div class="hi-adesao"><h3 class="sa-t">Adesão aos hábitos</h3><div id="prog-adesao"></div></div>
+                <div class="hi-medalhas"><h3 class="sa-t">Medalhas</h3><div id="prog-medalhas"></div></div>
+              </div>
+            </section>
+            <section class="card card-largo" id="card-historico" aria-labelledby="card-historico-t">
+              <header class="card-hd">
+                <h2 class="card-t" id="card-historico-t">Histórico</h2>
+                <div class="hi-seletor" id="hi-seletor" role="tablist" aria-label="O que mostrar no histórico">
+                  <button class="hi-seg" role="tab" id="hi-seg-tempo" aria-controls="hi-tempo" aria-selected="true" tabindex="0" data-hist="tempo" type="button">Linha do tempo</button>
+                  <button class="hi-seg" role="tab" id="hi-seg-portal" aria-controls="hi-portal" aria-selected="false" tabindex="-1" data-hist="portal" type="button">Prévia do Portal</button>
+                </div>
+              </header>
+              <div class="card-bd">
+                <div class="hi-painel" id="hi-tempo" role="tabpanel" aria-labelledby="hi-seg-tempo">
+                  <p class="hint" style="margin:0 0 14px">Check-ins, fotos, feedbacks e edições de ficha deste aluno — feitos por ele no app ou no Portal, ou por você aqui na Gestão.</p>
+                  <div class="reg-filtros"><div id="reg-filtros"></div></div>
+                  <div id="reg-lista"></div>
+                  <button class="btn ghost btn-sm" id="reg-mais" type="button" hidden>Carregar mais</button>
+                </div>
+                <div class="hi-painel" id="hi-portal" role="tabpanel" aria-labelledby="hi-seg-portal" hidden>
+                  <div class="prv-barra">
+                    <button class="btn btn-sm" id="prv-prev" type="button">← semana</button>
+                    <span class="prv-lbl" id="prv-lbl"></span>
+                    <button class="btn btn-sm" id="prv-next" type="button">semana →</button>
+                    <button class="btn btn-sm ghost" id="prv-hoje" type="button">hoje</button>
+                    <span class="prv-nota">Somente leitura — nada que você fizer aqui é gravado na conta do aluno.</span>
+                  </div>
+                  <div class="prv-quadro"><iframe id="prv-frame" title="Portal do Aluno (prévia)" loading="lazy"></iframe></div>
+                </div>
+              </div>
+            </section>
           </div>
-          <div class="prv-quadro"><iframe id="prv-frame" title="Portal do Aluno (prévia)" loading="lazy"></iframe></div>
         </div>
-
-        <!-- ABA: REGISTROS — a linha do tempo deste aluno, do mais novo ao mais antigo -->
-        <div class="tab-panel" id="tab-registros" role="tabpanel" aria-labelledby="aba-registros">
-          <p class="hint" style="margin:0 0 14px">Check-ins, fotos, feedbacks e edições de ficha deste aluno — feitos por ele no app ou no Portal, ou por você aqui na Gestão.</p>
-          <div class="reg-filtros"><div id="reg-filtros"></div></div>
-          <div id="reg-lista"></div>
-          <button class="btn ghost btn-sm" id="reg-mais" type="button" hidden>Carregar mais</button>
-        </div>
-
-        <!-- ABA: USO DO APP (id progresso) — adesão aos hábitos e medalhas (ui-tab-progresso.js) -->
-        <div class="tab-panel" id="tab-progresso" role="tabpanel" aria-labelledby="aba-progresso"><!-- injetado por JS --></div>
       </div>
       <!-- Salvar global (ui-salvar-global.js): aparece quando há alteração não salva na ficha. -->
       <div class="barra-salvar" id="barra-salvar" role="region" aria-label="Alterações da ficha" aria-live="polite" hidden></div>
@@ -389,6 +407,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=19"></script>
+  <script type="module" src="./main.js?v=20"></script>
 </body>
 </html>

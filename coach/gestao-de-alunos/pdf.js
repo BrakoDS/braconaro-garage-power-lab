@@ -4,12 +4,12 @@
  *  - exportarAvaliacao(aluno, av): relatório de uma avaliação.
  *  - exportarFicha(aluno): ficha completa (dados + matriz + anamnese + PAR-Q + histórico).
  */
-import * as calc from '../../compartilhado/regras/calc.js?v=19';
-import * as mtz from '../../compartilhado/regras/matriz-individualizacao.js?v=19';
+import * as calc from '../../compartilhado/regras/calc.js?v=20';
+import * as mtz from '../../compartilhado/regras/matriz-individualizacao.js?v=20';
 // Aviso pelo diálogo do site, não pelo alert() nativo, que o Chrome pode suprimir.
-import { avisar } from '../../compartilhado/ui/dialogo.js?v=19';
+import { avisar } from '../../compartilhado/ui/dialogo.js?v=20';
 // As perguntas do PAR-Q e os nomes da anamnese são os mesmos do formulário (saude.js).
-import { PARQ_PERGUNTAS as PARQ_Q, ANAMNESE_LABELS } from './saude.js?v=19';
+import { PARQ_PERGUNTAS as PARQ_Q, ANAMNESE_LABELS } from './saude.js?v=20';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (v, d = 1) => (v == null || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));

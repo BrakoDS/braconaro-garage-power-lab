@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=19';
+import { linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=20';
 
 const LINK = 'https://projeto-garage-f0a2f.firebaseapp.com/__/auth/action?mode=resetPassword&oobCode=abc';
 

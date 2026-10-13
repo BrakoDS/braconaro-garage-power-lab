@@ -7,25 +7,25 @@
  * Saiu do `app.js` no fatiamento, com o código como estava. Era a aba
  * Progresso; com a ficha em cards, as peças de performance (metas, gráficos,
  * força, gasto, feedbacks) são desenhadas pela aba Treino (ui-tab-treino.js),
- * que as importa daqui. A aba (id 'progresso') ficou com o "Uso do app" —
- * adesão e medalhas — até virar parte da aba Histórico.
+ * que as importa daqui, e o "Uso do app" — adesão e medalhas — virou um card
+ * da aba Histórico (ui-tab-historico.js chama `abrirUsoDoApp`).
  *
- * Quando desenha: TODA vez que a aba abre. Aqui tudo é leitura (da nuvem), e
- * abrir a aba tem de mostrar o que o aluno acabou de registrar no app.
+ * Quando desenha: TODA vez que a aba Histórico abre. Aqui tudo é leitura (da
+ * nuvem), e abrir a aba tem de mostrar o que o aluno acabou de registrar no app.
  */
-import * as db from './db.js?v=19';
-import * as calc from '../../compartilhado/regras/calc.js?v=19';
-import * as game from '../../compartilhado/regras/gamificacao.js?v=19';
+import * as db from './db.js?v=20';
+import * as calc from '../../compartilhado/regras/calc.js?v=20';
+import * as game from '../../compartilhado/regras/gamificacao.js?v=20';
 import { carregarSemanasPausadas } from '../../compartilhado/firebase/semanas-pausadas.js';
 import { resumoDeAdesao } from '../../compartilhado/regras/adesao.js';
-import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js?v=19';
-import { carregarGastoTreino } from './nutricao-read.js?v=19';
-import { carregarCargasAluno } from './cargas-read.js?v=19';
-import { carregarConclusoesDesafios } from './desafios-read.js?v=19';
-import { carregarRotinaAluno } from './rotina-read.js?v=19';
-import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=19';
-import { $, $$ } from './util/dom.js?v=19';
-import { estado, on, EVENTOS } from './estado.js?v=19';
+import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js?v=20';
+import { carregarGastoTreino } from './nutricao-read.js?v=20';
+import { carregarCargasAluno } from './cargas-read.js?v=20';
+import { carregarConclusoesDesafios } from './desafios-read.js?v=20';
+import { carregarRotinaAluno } from './rotina-read.js?v=20';
+import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=20';
+import { $, $$ } from './util/dom.js?v=20';
+import { estado, on, EVENTOS } from './estado.js?v=20';
 
 function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
   const W = 600, H = 180, pad = { l: 46, r: 14, t: 16, b: 28 };
@@ -114,15 +114,10 @@ export function htmlMelhorias(a) {
   return `<div class="insights">${insightsHTML(a, avaliacoesFeitas(a))}</div>`;
 }
 
-/** A aba "Uso do app": adesão aos hábitos e medalhas (o que o aluno faz no app). */
+/** O card "Uso do app" da aba Histórico: adesão aos hábitos e medalhas (o que o aluno faz no app). */
 function renderProgresso() {
   const a = estado.alunoAtual; if (!a) return;
-  const panel = $('#tab-progresso');
-  panel.innerHTML = `
-    <div class="prog-grid">
-      <div class="prog-card full"><h4>Adesão aos hábitos (app do aluno)</h4><div id="prog-adesao"><div class="prog-ph">Carregando…</div></div></div>
-      <div class="prog-card full"><h4>Medalhas do aluno</h4><div id="prog-medalhas"><div class="prog-ph">Carregando…</div></div></div>
-    </div>`;
+  for (const id of ['#prog-adesao', '#prog-medalhas']) { const el = $(id); if (el) el.innerHTML = '<div class="prog-ph">Carregando…</div>'; }
   carregarAdesaoHabitos(a);
   carregarMedalhasAluno(a);
 }
@@ -323,23 +318,22 @@ export function feedbacksHTML(a) {
    Redesenho e a ligação com o barramento
    ============================================================ */
 
-/** A aba "Uso do app" está na tela? */
-const visivel = () => !!$('#tab-progresso')?.classList.contains('active') && !!$('#tela-perfil')?.classList.contains('active');
+/** A aba Histórico (onde mora o card "Uso do app") está na tela? */
+const visivel = () => !!$('#tab-historico')?.classList.contains('active') && !!$('#tela-perfil')?.classList.contains('active');
 
-/** Redesenha a aba com a ficha do banco (a da abertura do perfil pode estar velha). */
-function redesenhar() {
+/** Desenha o card com a ficha do banco (a da abertura do perfil pode estar velha). A aba Histórico chama. */
+export function abrirUsoDoApp() {
   if (!estado.alunoAtual) return;
   const id = String(estado.alunoAtual.id);
   estado.alunoAtual = db.obter(id) || estado.alunoAtual;
   renderProgresso();
 }
 
-/** Liga a aba ao barramento. Chamar uma vez, antes do resto do app. */
+/** Liga o card ao barramento. Chamar uma vez, antes do resto do app. */
 export function iniciarTabProgresso() {
-  on(EVENTOS.ABRIR_ABA, (nome) => { if (nome === 'progresso') redesenhar(); });
   // O aluno mandou algo pelo app ou pelo Portal (o merge das caixas avisa por
-  // 'registros-mudaram'): com a aba aberta, aparece.
+  // 'registros-mudaram'): com a aba Histórico aberta, aparece.
   on(EVENTOS.REGISTROS_MUDARAM, (id) => {
-    if (visivel() && estado.alunoAtual && String(estado.alunoAtual.id) === String(id)) redesenhar();
+    if (visivel() && estado.alunoAtual && String(estado.alunoAtual.id) === String(id)) abrirUsoDoApp();
   });
 }
