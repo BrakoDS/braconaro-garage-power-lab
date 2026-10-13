@@ -1,19 +1,14 @@
 // @ts-check
 /**
- * Aba Anamnese do perfil — treino e rotina, hábitos, saúde e objetivo.
+ * O formulário da Anamnese — treino e rotina, hábitos, saúde e objetivo.
  *
- * Saiu do `app.js` no fatiamento. Os campos (nome, rótulo, opções) moram em
+ * Era uma aba; hoje é uma seção do card Formulários da aba Saúde
+ * (ui-tab-saude.js), que o desenha (em leitura ou, no ✎, este formulário) e o
+ * lê para o salvar global. Os campos (nome, rótulo, opções) moram em
  * `saude.js`, que o PDF da ficha e a linha da aba Registros também leem.
- *
- * Quem desenha e grava é o salvar global (ui-salvar-global.js): a aba se
- * desenha toda vez que abre, a partir da ficha com o rascunho por cima — o que
- * o coach digitou e ainda não salvou continua lá —, e o que mudou vai para a
- * gravação única da ficha, com o log "Anamnese editada · …".
  */
-import { esc, opt } from './util/formato.js?v=17';
-import { $ } from './util/dom.js?v=17';
-import { ANAMNESE_SECOES } from './saude.js?v=17';
-import { registrarFormulario, comPrefixo } from './ui-salvar-global.js?v=17';
+import { esc, opt } from './util/formato.js?v=18';
+import { ANAMNESE_SECOES } from './saude.js?v=18';
 
 /** @param {string[]} arr @param {string} [atual] */
 function optsSelect(arr, atual) { return `<option value="">—</option>` + arr.map((s) => opt(s, atual)).join(''); }
@@ -44,19 +39,4 @@ export function lerAnamnese(form) {
   /** @type {Record<string, any>} */ const o = {};
   for (const [k, v] of new FormData(form).entries()) o[k] = typeof v === 'string' ? v.trim() : v;
   return o;
-}
-
-/** Desenha a aba com a ficha recebida (no app, a ficha com o rascunho por cima). @param {any} a */
-function renderAnamnese(a) {
-  const painel = $('#tab-anamnese'); if (!painel) return;
-  painel.innerHTML = htmlAnamnese(a);
-}
-
-/** Liga a aba ao salvar global. Chamar uma vez, antes do resto do app (depois de `iniciarSalvarGlobal`). */
-export function iniciarTabAnamnese() {
-  registrarFormulario({
-    aba: 'anamnese',
-    desenhar: renderAnamnese,
-    ler: () => { const form = $('#form-anamnese'); return form ? comPrefixo('anamnese', lerAnamnese(form)) : null; },
-  });
 }

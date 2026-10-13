@@ -31,19 +31,17 @@
  * `#tab-<id>` no index.html. A barra rola de lado no celular e segue o padrão
  * de tablist (setas do teclado trocam de aba).
  */
-import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=17';
-import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=17';
-import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=17';
-import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=17';
-import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=17';
-import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=17';
+import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=18';
+import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=18';
+import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=18';
+import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=18';
+import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=18';
 
 /** As abas da ficha, na ordem da barra. `id` casa com o painel `#tab-<id>`. */
 export const ABAS = Object.freeze([
   { id: 'geral', rotulo: 'Geral' },
-  { id: 'dados', rotulo: 'Dados' },
-  { id: 'anamnese', rotulo: 'Anamnese' },
-  { id: 'parq', rotulo: 'PAR-Q' },
+  { id: 'saude', rotulo: 'Saúde' },
+  { id: 'dados', rotulo: 'Perfil de treino' },
   { id: 'avaliacoes', rotulo: 'Avaliações' },
   { id: 'progresso', rotulo: 'Progresso' },
   { id: 'matriz', rotulo: 'Matriz' },
@@ -82,12 +80,12 @@ export function linkWhatsAppDoAluno(tel) {
 }
 
 /**
- * A aba que o selo de alerta abre: onde o motivo se resolve HOJE — as lesões
- * moram na Matriz; sem lesão, o motivo é o PAR-Q. (Com a aba Saúde, vira ela.)
- * @param {any} a
+ * A aba que o selo de alerta abre: a Saúde, onde moram as lesões e o PAR-Q
+ * (os dois motivos de alerta).
+ * @param {any} [_a]
  */
-export function abaDoAlerta(a) {
-  return matrizDe(a).adaptacoes.lesoes.length ? 'matriz' : 'parq';
+export function abaDoAlerta(_a) {
+  return 'saude';
 }
 
 /** Os selos ao lado do nome. @param {any} a @param {{ tipo: string }} reav */

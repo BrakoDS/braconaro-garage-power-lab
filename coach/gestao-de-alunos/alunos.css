@@ -1113,3 +1113,49 @@ button{font-family:inherit}
   .card-linha{grid-template-columns:minmax(96px,40%) minmax(0,1fr)}
   .fg-botoes .btn{flex:1 1 auto}
 }
+
+/* ---------- Aba Saúde (ui-tab-saude.js) ---------- */
+.sa-status{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+.sa-motivos{color:var(--mut);font-size:.88rem}
+.sa-bloco{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.sa-t{margin:0 0 10px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:.76rem;color:var(--mut)}
+.sa-lesoes{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.sa-lesao{padding:8px 12px;border-left:3px solid var(--line-2);background:var(--bg-2);font-size:.92rem}
+.sa-lesao.g-leve{border-left-color:var(--warn)}
+.sa-lesao.g-moderada,.sa-lesao.g-severa{border-left-color:var(--bad)}
+.sa-nota{margin:0;white-space:pre-wrap;color:var(--txt);font-size:.93rem}
+.sa-parq-linha{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.sa-data{color:var(--mut);font-size:.85rem}
+.sa-bloco .btn{margin-top:10px}
+#form-saude-alerta [data-lista-lesoes]{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.bio-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.bio-tile{display:flex;flex-direction:column;gap:4px;padding:12px;background:var(--bg-2);border:1px solid var(--line);min-width:0}
+.bio-rot{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:.72rem;color:var(--mut-2)}
+.bio-val{font-family:var(--font-display);font-size:1.7rem;line-height:1.05;color:var(--txt)}
+.bio-val small{font-family:var(--font-body);font-size:.8rem;color:var(--mut)}
+.bio-sub{color:var(--mut);font-size:.78rem;overflow-wrap:anywhere}
+.bio-nota{margin:10px 0 0}
+.sf-sec{border-top:1px solid var(--line)}
+.sf-sec:first-child{border-top:0}
+.sf-cab{display:flex;align-items:center;gap:10px}
+.sf-toggle{appearance:none;flex:1;display:flex;align-items:baseline;gap:12px;min-height:48px;padding:10px 0;border:0;background:none;color:var(--txt);cursor:pointer;text-align:left}
+.sf-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sf-titulo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.95rem}
+.sf-resumo{color:var(--mut);font-size:.85rem}
+.sf-seta{margin-left:auto;color:var(--mut)}
+.sf-corpo{padding:4px 0 16px}
+.sf-sub{margin:14px 0 6px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.76rem;color:var(--accent)}
+.sf-sub:first-child{margin-top:0}
+.sf-pqs{margin:12px 0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.sf-pq{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;color:var(--mut)}
+.sf-r{flex:0 0 auto;font-family:var(--font-cond);letter-spacing:.06em;color:var(--mut-2)}
+.sf-r.sim{color:var(--warn)}
+.sf-r.nao{color:var(--ok)}
+.mtz-lesoes-lista{margin:6px 0 0;padding-left:18px;color:var(--txt);font-size:.9rem}
+@media (max-width:640px){
+  .bio-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bio-val{font-size:1.45rem}
+  /* O ✕ ao lado da data, e não numa linha inteira (o padrão da Matriz). */
+  #form-saude-alerta .mtz-lesao{grid-auto-flow:row dense}
+  #form-saude-alerta .mtz-lesao [data-remover-lesao]{grid-column:auto;justify-self:end;min-width:48px}
+}

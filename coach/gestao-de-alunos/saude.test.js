@@ -43,18 +43,18 @@ globalThis.document = /** @type {any} */ ({ querySelector: (s) => (tela[s] ||= e
 // O FormData lê os campos "digitados" no elemento do formulário.
 globalThis.FormData = /** @type {any} */ (class { constructor(f) { this.m = f.campos; } entries() { return Object.entries(this.m); } get(k) { return this.m[k] ?? null; } });
 
-const saude = await import('./saude.js?v=17');
+const saude = await import('./saude.js?v=18');
 const { ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq, parqRaso, resumoAnamnese, resumoParq } = saude;
-const { regAnamnese, regParq } = await import('./registro.js?v=17');
-const eventos = await import('./eventos.js?v=17');
-const db = await import('./db.js?v=17');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=17');
-const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=17');
-const { iniciarTabAnamnese, htmlAnamnese } = await import('./ui-tab-anamnese.js?v=17');
-const { iniciarTabParq, htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=17');
+const { regAnamnese, regParq } = await import('./registro.js?v=18');
+const eventos = await import('./eventos.js?v=18');
+const db = await import('./db.js?v=18');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=18');
+const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=18');
+const { htmlAnamnese } = await import('./ui-tab-anamnese.js?v=18');
+const { htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=18');
+const { iniciarTabSaude, editarSecao } = await import('./ui-tab-saude.js?v=18');
 iniciarSalvarGlobal();
-iniciarTabAnamnese();
-iniciarTabParq();
+iniciarTabSaude();
 
 const pendentes = () => eventos.pendentes().filter((e) => e.tipo === 'ficha-editada');
 const limpar = () => { for (const k of [...memoria.keys()]) if (k.includes('eventos')) memoria.delete(k); };
@@ -119,26 +119,28 @@ test('auditoria: PAR-Q diz qual pergunta mudou', () => {
   assert.ok(!/"sim"|nao/.test(JSON.stringify(ev)), 'a resposta não vai para o log');
 });
 
-/* ---------- a aba de verdade: salvar global, log ---------- */
+/* ---------- a aba Saúde de verdade: salvar global, log ---------- */
 
-test('anamnese: o rascunho sobrevive à troca de aba; o Salvar da barra grava e deixa a trilha', async () => {
+test('anamnese (aba Saúde): resumo em leitura; o ✎ abre o formulário; o rascunho sobrevive à troca de aba; o Salvar grava e deixa a trilha', async () => {
   novoDom(); limpar();
   db.criar({ id: 'Rascunho01', nome: 'Rafa', anamnese: { rotina: 'Dev', sono: '7' } });
   estado.alunoAtual = db.obter('Rascunho01');
   emit(EVENTOS.PERFIL_ABERTO, 'Rascunho01');
-  emit(EVENTOS.ABRIR_ABA, 'anamnese');
-  const painel = tela['#tab-anamnese'], form = tela['#form-anamnese'], barra = tela['#barra-salvar'];
-  assert.equal(painel.desenhos, 1);
+  emit(EVENTOS.ABRIR_ABA, 'saude');
+  const painel = tela['#tab-saude'];
+  assert.match(painel.innerHTML, /<span class="sf-titulo">Anamnese<\/span><span class="sf-resumo">2 de 14 respondidas/);
+  assert.doesNotMatch(painel.innerHTML, /id="form-anamnese"/, 'abre em leitura');
+  editarSecao('anamnese');
+  const form = tela['#form-anamnese'], barra = tela['#barra-salvar'];
   assert.match(painel.innerHTML, /name="rotina" value="Dev"/);
-  assert.doesNotMatch(painel.innerHTML, /type="submit"/, 'sem Salvar por aba');
+  assert.doesNotMatch(painel.innerHTML, /type="submit"/, 'sem Salvar próprio');
   // O coach digita: o que mudou vai para o rascunho, e a barra aparece.
   Object.assign(form.campos, { rotina: 'Dev', sono: '5 ', medicamentos: 'Losartana' });
   painel.ouvintes.input();
   assert.match(barra.innerHTML, /Alterações não salvas[\s\S]*2 campos/);
-  // Vai para outra aba e volta: a aba se redesenha COM o rascunho.
-  emit(EVENTOS.ABRIR_ABA, 'dados');
-  emit(EVENTOS.ABRIR_ABA, 'anamnese');
-  assert.equal(painel.desenhos, 2);
+  // Vai para outra aba e volta: a seção continua em edição, COM o rascunho.
+  emit(EVENTOS.ABRIR_ABA, 'geral');
+  emit(EVENTOS.ABRIR_ABA, 'saude');
   assert.match(painel.innerHTML, /name="sono" type="number" step="any" value="5"/);
   assert.match(painel.innerHTML, /Losartana/);
   assert.equal(await salvar(), true);
@@ -146,26 +148,33 @@ test('anamnese: o rascunho sobrevive à troca de aba; o Salvar da barra grava e 
   assert.equal(estado.alunoAtual.anamnese.sono, '5');
   assert.deepEqual(pendentes().map((e) => e.resumo), ['Anamnese editada · Sono (h/noite), Medicamentos']);
   assert.match(barra.innerHTML, /Alterações salvas/);
+  assert.doesNotMatch(painel.innerHTML, /id="form-anamnese"/, 'depois de salvar, volta à leitura');
+  assert.match(painel.innerHTML, /Medicamentos em uso<\/dt><dd>Losartana/);
   // Segunda edição: compara com o que acabou de ser salvo.
+  editarSecao('anamnese');
   form.campos.rotina = 'Professora';
   painel.ouvintes.input();
   await salvar();
   assert.equal(pendentes().at(-1).resumo, 'Anamnese editada · Profissão / rotina');
-  // Outro aluno: a aba redesenha com a ficha dele.
+  // Outro aluno: a aba redesenha com a ficha dele, em leitura.
   db.criar({ id: 'Outro02', nome: 'Outro' });
   estado.alunoAtual = db.obter('Outro02');
   emit(EVENTOS.PERFIL_ABERTO, 'Outro02');
-  emit(EVENTOS.ABRIR_ABA, 'anamnese');
+  emit(EVENTOS.ABRIR_ABA, 'saude');
   assert.doesNotMatch(painel.innerHTML, /Losartana/);
+  assert.doesNotMatch(painel.innerHTML, /id="form-anamnese"/);
 });
 
-test('PAR-Q: respostas marcadas sobrevivem à troca de aba; o aviso acompanha; o Salvar da barra deixa a trilha', async () => {
+test('PAR-Q (aba Saúde): respostas marcadas sobrevivem à troca de aba; o aviso acompanha; o Salvar deixa a trilha', async () => {
   novoDom(); limpar();
   db.criar({ id: 'Parq01', nome: 'Pri', parq: { respostas: { q0: 'nao' }, data: '', obs: '' } });
   estado.alunoAtual = db.obter('Parq01');
   emit(EVENTOS.PERFIL_ABERTO, 'Parq01');
-  emit(EVENTOS.ABRIR_ABA, 'parq');
-  const painel = tela['#tab-parq'], form = tela['#form-parq'];
+  emit(EVENTOS.ABRIR_ABA, 'saude');
+  const painel = tela['#tab-saude'];
+  assert.match(painel.innerHTML, /<span class="sf-titulo">PAR-Q<\/span><span class="sf-resumo">incompleto/);
+  editarSecao('parq');
+  const form = tela['#form-parq'];
   assert.match(painel.innerHTML, /name="q0" value="nao" checked/);
   assert.match(painel.innerHTML, /<div id="parq-result"><div class="parq-banner">Responda todas/, 'o aviso já vem no primeiro desenho');
   Object.assign(form.campos, { q0: 'nao', q3: 'sim', data: '2026-10-07', obs: '' });
@@ -173,11 +182,13 @@ test('PAR-Q: respostas marcadas sobrevivem à troca de aba; o aviso acompanha; o
   painel.ouvintes.change(); // o salvar global (o evento sobe até o painel)
   assert.match(tela['#parq-result'].innerHTML, /parq-banner alerta/);
   emit(EVENTOS.ABRIR_ABA, 'matriz');
-  emit(EVENTOS.ABRIR_ABA, 'parq');
+  emit(EVENTOS.ABRIR_ABA, 'saude');
   assert.match(painel.innerHTML, /name="q3" value="sim" checked/, 'a marcação não salva volta com a aba');
   await salvar();
   assert.deepEqual(db.obter('Parq01').parq, { respostas: { q0: 'nao', q3: 'sim' }, data: '2026-10-07', obs: '' });
   assert.deepEqual(pendentes().map((e) => e.resumo), ['PAR-Q editado · Pergunta 4, Data da triagem']);
+  assert.match(painel.innerHTML, /Há resposta &quot;Sim&quot;|Há resposta "Sim"/, 'o card Alerta já mostra a triagem nova');
+  editarSecao('parq');
   form.campos.obs = 'Liberado pelo cardiologista';
   painel.ouvintes.input();
   await salvar();
@@ -188,8 +199,9 @@ test('salvar global: campo não tocado não entra — o que chegou da nuvem no m
   novoDom(); limpar();
   db.criar({ id: 'Nuvem01', nome: 'Nina', anamnese: { rotina: 'Dev', medicamentos: '' } });
   emit(EVENTOS.PERFIL_ABERTO, 'Nuvem01');
-  emit(EVENTOS.ABRIR_ABA, 'anamnese');
-  const painel = tela['#tab-anamnese'], form = tela['#form-anamnese'];
+  emit(EVENTOS.ABRIR_ABA, 'saude');
+  editarSecao('anamnese');
+  const painel = tela['#tab-saude'], form = tela['#form-anamnese'];
   Object.assign(form.campos, { rotina: 'Dev', medicamentos: '' });
   painel.ouvintes.input(); // o formulário inteiro lido: nada mudou
   // Outro aparelho grava os medicamentos enquanto o coach edita só a rotina.
@@ -217,7 +229,7 @@ test('fatiamento: Anamnese e PAR-Q moram nos módulos delas, ligadas no main.js'
     assert.ok(!app.includes(resto), `app.js ainda tem ${resto}`);
   }
   const main = ler('./telas.js');
-  for (const f of ['iniciarTabAnamnese();', 'iniciarTabParq();']) {
+  for (const f of ['iniciarTabSaude();']) {
     assert.ok(main.includes(f), f);
     assert.ok(main.indexOf(f) < main.length, `${f} liga antes do app`);
   }

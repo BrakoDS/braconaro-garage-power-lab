@@ -10,9 +10,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { comPrefixo, caminhosMudados, acaoDoCampo, htmlBarra, nomesDosCampos, completarPatch } from './ui-salvar-global.js?v=17';
-import { caminhosDoParq } from './ui-tab-par-q.js?v=17';
-import { definirGuardaDeSaida, sairComCuidado } from './estado.js?v=17';
+import { comPrefixo, caminhosMudados, acaoDoCampo, htmlBarra, nomesDosCampos, completarPatch } from './ui-salvar-global.js?v=18';
+import { caminhosDoParq } from './ui-tab-par-q.js?v=18';
+import { definirGuardaDeSaida, sairComCuidado } from './estado.js?v=18';
 
 test('comPrefixo: um objeto como caminhos', () => {
   assert.deepEqual(comPrefixo('anamnese', { sono: '7', rotina: 'Dev' }), { 'anamnese.sono': '7', 'anamnese.rotina': 'Dev' });
@@ -98,7 +98,7 @@ test('saídas da ficha passam pela guarda: o voltar do cabeçalho e os botões d
 
 test('as abas de formulário não têm mais Salvar próprio, e se registram no salvar global', () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-  for (const [arq, aba] of [['ui-tab-dados', 'dados'], ['ui-tab-anamnese', 'anamnese'], ['ui-tab-par-q', 'parq'], ['ui-tab-matriz', 'matriz']]) {
+  for (const [arq, aba] of [['ui-tab-geral', 'geral'], ['ui-tab-saude', 'saude'], ['ui-tab-dados', 'dados'], ['ui-tab-matriz', 'matriz']]) {
     const f = ler(`./${arq}.js`);
     assert.doesNotMatch(f, /type="submit"|data-saved|db\.atualizar\(/, `${arq} ainda grava sozinho`);
     assert.match(f, new RegExp(`registrarFormulario\\(\\{\\s*aba: '${aba}'`), `${arq} não se registra`);

@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ABAS, htmlCabecalho, htmlAbas, linkWhatsAppDoAluno, abaDoAlerta, proximoCompacto, COMPACTA_EM, EXPANDE_EM } from './ui-perfil.js?v=17';
+import { ABAS, htmlCabecalho, htmlAbas, linkWhatsAppDoAluno, abaDoAlerta, proximoCompacto, COMPACTA_EM, EXPANDE_EM } from './ui-perfil.js?v=18';
 
 const HOJE = '2026-10-07';
 const ana = {
@@ -35,17 +35,17 @@ test('cabeçalho: selo de nível com os três níveis do Motor, e nenhum sem ní
 test('cabeçalho: alerta médico — vermelho na lesão moderada/severa, âmbar na leve e no PAR-Q', () => {
   assert.doesNotMatch(htmlCabecalho(ana, HOJE), /pc-selo alerta/, 'sem motivo, sem selo');
   const severa = htmlCabecalho({ ...ana, ...lesao('severa') }, HOJE);
-  assert.match(severa, /class="pc-selo alerta vermelho" data-acao="alerta" data-aba="matriz"/);
+  assert.match(severa, /class="pc-selo alerta vermelho" data-acao="alerta" data-aba="saude"/);
   assert.match(severa, /title="Lesão severa · Joelho"/, 'o motivo aparece ao passar o dedo/mouse');
   assert.match(htmlCabecalho({ ...ana, ...lesao('moderada') }, HOJE), /pc-selo alerta vermelho/);
   assert.match(htmlCabecalho({ ...ana, ...lesao('leve') }, HOJE), /pc-selo alerta ambar/);
   const parq = htmlCabecalho({ ...ana, parq: { respostas: { q2: 'sim' } } }, HOJE);
-  assert.match(parq, /class="pc-selo alerta ambar" data-acao="alerta" data-aba="parq"/, 'sem lesão, o selo leva ao PAR-Q');
+  assert.match(parq, /class="pc-selo alerta ambar" data-acao="alerta" data-aba="saude"/, 'o PAR-Q também mora na Saúde');
 });
 
-test('alerta: abre a aba onde o motivo se resolve hoje', () => {
-  assert.equal(abaDoAlerta(lesao('leve')), 'matriz');
-  assert.equal(abaDoAlerta({ parq: { respostas: { q0: 'sim' } } }), 'parq');
+test('alerta: abre a aba Saúde, onde moram as lesões e o PAR-Q', () => {
+  assert.equal(abaDoAlerta(lesao('leve')), 'saude');
+  assert.equal(abaDoAlerta({ parq: { respostas: { q0: 'sim' } } }), 'saude');
 });
 
 test('ações: WhatsApp com o telefone salvo; sem telefone, botão desabilitado e explicado', () => {

@@ -16,11 +16,11 @@ globalThis.localStorage = /** @type {any} */ ({
   getItem: (k) => (memoria.has(k) ? memoria.get(k) : null), setItem: (k, v) => memoria.set(k, String(v)), removeItem: (k) => memoria.delete(k),
 });
 
-const { eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, novoConsumo } = await import('./financeiro-aluno.js?v=17');
-const { regFinanceiro } = await import('./registro.js?v=17');
-const eventos = await import('./eventos.js?v=17');
-const { on, EVENTOS } = await import('./estado.js?v=17');
-const { TIPOS, CATEGORIAS, filtrarEventos, linhaHTML } = await import('./registros-ui.js?v=17');
+const { eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, novoConsumo } = await import('./financeiro-aluno.js?v=18');
+const { regFinanceiro } = await import('./registro.js?v=18');
+const eventos = await import('./eventos.js?v=18');
+const { on, EVENTOS } = await import('./estado.js?v=18');
+const { TIPOS, CATEGORIAS, filtrarEventos, linhaHTML } = await import('./registros-ui.js?v=18');
 
 const NB = (s) => s.replace(/ /g, ' ');
 const ana = { id: 'Ana', nome: 'Ana Lima', vencimento: '10', pagamentos: {} };
@@ -106,8 +106,8 @@ test('fatiamento: Registros e Matriz moram nos módulos delas, ligadas no main.j
   assert.match(main, /iniciarTabMatriz\(\);/);
   assert.match(main, /iniciarTabRegistros\(\);/);
   assert.ok(main.indexOf('iniciarTabRegistros();') < main.length, 'as abas ligam antes do app');
-  const matriz = await import('./ui-tab-matriz.js?v=17');
-  const registros = await import('./ui-tab-registros.js?v=17');
+  const matriz = await import('./ui-tab-matriz.js?v=18');
+  const registros = await import('./ui-tab-registros.js?v=18');
   assert.equal(typeof matriz.iniciarTabMatriz, 'function');
   assert.equal(typeof matriz.montar, 'function');
   assert.equal(typeof registros.iniciarTabRegistros, 'function');
@@ -120,6 +120,6 @@ test('log da Matriz: o salvar global compara com a ficha do banco na hora de sal
   const fonte = readFileSync(new URL('./ui-salvar-global.js', import.meta.url), 'utf8');
   assert.match(fonte, /const a = db\.obter\(alunoId\);[^]{0,1600}?db\.atualizar\(alunoId, patch\);\s*\n\s*if \(Object\.keys\(resto\)\.length\) regFicha\(a, resto\);/,
     'a ficha de antes é lida do banco na hora de salvar, e o log compara com ela');
-  const { resumoFicha } = await import('./registros-ui.js?v=17');
+  const { resumoFicha } = await import('./registros-ui.js?v=18');
   assert.equal(resumoFicha(['matrizIndividualizacao', 'nivel']), 'Ficha editada · Matriz, Nível');
 });
