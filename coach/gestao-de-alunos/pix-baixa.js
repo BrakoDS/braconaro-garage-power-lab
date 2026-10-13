@@ -24,8 +24,8 @@
  * A primeira metade é pura (testada em pix-baixa.test.js); `aplicarPixPendentes`
  * recebe o mundo por parâmetro.
  */
-import { darBaixa } from './financeiro-regras.js?v=21';
-import { brl, rotuloMesFin, contaDoMes } from './financeiro-aluno.js?v=21';
+import { darBaixa } from './financeiro-regras.js?v=22';
+import { brl, rotuloMesFin, contaDoMes } from './financeiro-aluno.js?v=22';
 
 const cents = (v) => Math.round((Number(v) || 0) * 100);
 
@@ -55,7 +55,7 @@ export function planoDoPix(c, a, todos) {
     return aviso(`Pix com divergência · ${mes} · pago ${brl(pago)}, cobrado ${brl(c.valor)} — a baixa NÃO foi feita; confira no Mercado Pago`);
   }
   if (c.status === 'estornado') {
-    return aviso(`Pix devolvido pelo Mercado Pago · ${mes} · ${brl(pago)} — a baixa do mês continua; desfaça na aba Financeiro se for o caso`);
+    return aviso(`Pix devolvido pelo Mercado Pago · ${mes} · ${brl(pago)} — a baixa do mês continua; desfaça no card Financeiro da ficha se for o caso`);
   }
   if (c.status !== 'aprovado') return { acao: 'nada', motivo: `status ${c.status}` };
 

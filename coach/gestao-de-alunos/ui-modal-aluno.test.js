@@ -39,9 +39,9 @@ globalThis.FormData = /** @type {any} */ (class {
   getAll(k) { const v = this.m[k]; return Array.isArray(v) ? v : v == null ? [] : [v]; }
 });
 
-const db = await import('./db.js?v=21');
-const { on, EVENTOS } = await import('./estado.js?v=21');
-const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=21');
+const db = await import('./db.js?v=22');
+const { on, EVENTOS } = await import('./estado.js?v=22');
+const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=22');
 const avisos = /** @type {string[]} */ ([]);
 iniciarModalAluno({ avisar: (o) => avisos.push(o.texto) });
 
@@ -69,9 +69,8 @@ test('cadastro curto: grava só o que o modal tem e abre a ficha do aluno novo',
   assert.equal(a.nome, 'Lia Rocha');
   assert.equal(a.email, 'lia@box.com');
   assert.equal(a.mensalidade, '150');
-  assert.ok(a.idade, 'a idade sai do nascimento (a ficha ainda a guarda)');
-  for (const k of ['diasTreino', 'foco', 'horarios', 'appLiberado', 'modoLite', 'pagoPor', 'parceria']) {
-    assert.ok(!(k in a), `${k} não é do cadastro curto: fica para o card dele`);
+  for (const k of ['idade', 'diasTreino', 'foco', 'horarios', 'appLiberado', 'modoLite', 'pagoPor', 'parceria']) {
+    assert.ok(!(k in a), `${k} não é do cadastro curto (a idade sai do nascimento; o resto fica para o card dele)`);
   }
   assert.deepEqual(abertos, ['Lia01'], 'a ficha abre (o perfil abre na aba Geral)');
   assert.ok(!el('#modal-aluno').classList.contains('open'), 'o modal fecha');

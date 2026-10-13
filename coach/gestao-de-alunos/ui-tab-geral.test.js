@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import {
   resumoDosDias, htmlCardPerfil, htmlCardContato, htmlCardAcesso, htmlAcessoPortal, htmlCardFinanceiro,
   htmlFinanceiroDinamico, faturaParaPagar, htmlAbaGeral, CARDS_EDITAVEIS,
-} from './ui-tab-geral.js?v=21';
-import { botaoEditar, htmlLinhas } from './ui-card.js?v=21';
-import { camposDados, CAMPOS } from './ui-tab-dados.js?v=21';
+} from './ui-tab-geral.js?v=22';
+import { botaoEditar, htmlLinhas } from './ui-card.js?v=22';
+import { camposDados, CAMPOS } from './campos-aluno.js?v=22';
 
 const HOJE = '2026-10-11';
 const ana = {
@@ -154,7 +154,7 @@ test('os grupos de campos cobrem o cadastro inteiro, sem repetir', () => {
   // Todo campo do cadastro continua montado num lugar só (os cards e o cadastro curto compõem).
   const modal = Object.values(camposDados({}, { idEditavel: true, todos: [] })).join('');
   for (const n of ['id', 'nome', 'telefone', 'email', 'endereco', 'status', 'appLiberado', 'modoLite', 'nascimento', 'sexo', 'altura', 'peso',
-    'objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino', 'obs', 'mensalidade', 'vencimento', 'parceriaPct', 'pagoPorId']) {
+    'objetivo', 'nivel', 'freqVezes', 'diasTreino', 'obs', 'mensalidade', 'vencimento', 'parceriaPct', 'pagoPorId']) {
     assert.match(modal, new RegExp(`name="${n}"`), n);
   }
 });

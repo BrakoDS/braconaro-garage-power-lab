@@ -14,14 +14,14 @@
  * O HTML de cada estado é puro (testado em ui-acoes-aluno.test.js); a fiação
  * fica em `iniciarAcoesAluno`.
  */
-import * as db from './db.js?v=21';
-import { esc } from './util/formato.js?v=21';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=21';
-import { estado, on, emit, EVENTOS } from './estado.js?v=21';
-import { apagarFotosDoAluno } from './ui-fotos.js?v=21';
-import * as eventos from './eventos.js?v=21';
-import { criarAcesso as criarAcessoReal, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=21';
-import { valorPendente } from './ui-salvar-global.js?v=21';
+import * as db from './db.js?v=22';
+import { esc } from './util/formato.js?v=22';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=22';
+import { estado, on, emit, EVENTOS } from './estado.js?v=22';
+import { apagarFotosDoAluno } from './ui-fotos.js?v=22';
+import * as eventos from './eventos.js?v=22';
+import { criarAcesso as criarAcessoReal, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=22';
+import { valorPendente } from './ui-salvar-global.js?v=22';
 
 /* ============================================================
    Acesso ao Portal — HTML (puro)
@@ -82,7 +82,7 @@ export function faseInicialAcesso(a, emailNoFormulario = null) {
 /** O corpo da confirmação de exclusão. @param {any} a */
 export function htmlExcluir(a) {
   return `
-    <p class="dlg-texto">Isto apaga a ficha de <b>${esc(a.nome || a.id)}</b>, as fotos dela e o histórico da aba Registros. <b>Não dá para desfazer.</b></p>
+    <p class="dlg-texto">Isto apaga a ficha de <b>${esc(a.nome || a.id)}</b>, as fotos dela e a linha do tempo dela (aba Histórico). <b>Não dá para desfazer.</b></p>
     <div class="field">
       <label for="excluir-id">Para confirmar, digite o ID do aluno: <code class="ex-id">${esc(a.id)}</code></label>
       <input id="excluir-id" name="confirmacao" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" />

@@ -76,16 +76,16 @@ globalThis.FormData = /** @type {any} */ (class {
   getAll(k) { const v = this.m[k]; return Array.isArray(v) ? v : v == null ? [] : [v]; }
 });
 
-const db = await import('./db.js?v=21');
-const eventos = await import('./eventos.js?v=21');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=21');
-const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=21');
-const treino = await import('./ui-tab-treino.js?v=21');
+const db = await import('./db.js?v=22');
+const eventos = await import('./eventos.js?v=22');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=22');
+const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=22');
+const treino = await import('./ui-tab-treino.js?v=22');
 const {
   iniciarTabTreino, editarCard, editarNaAbaTreino, htmlCardPerfilTreino, htmlCardCargas, htmlCardAdaptacoes, htmlTrocas,
   htmlResumoMotor, htmlAbaTreino, htmlFixos, textoDoLevantamento, nomeDoExercicio, vistaCom, resumoDosDias, CARDS_EDITAVEIS,
 } = treino;
-const { matrizDe } = await import('../../compartilhado/regras/matriz-individualizacao.js?v=21');
+const { matrizDe } = await import('../../compartilhado/regras/matriz-individualizacao.js?v=22');
 iniciarSalvarGlobal();
 iniciarTabTreino();
 
@@ -186,7 +186,7 @@ test('a aba: resumo no topo; Perfil, Cargas, Adaptações (editáveis), depois M
 });
 
 test('a aba Treino substitui Perfil de treino, Matriz e Progresso', async () => {
-  const { ABAS } = await import('./ui-perfil.js?v=21');
+  const { ABAS } = await import('./ui-perfil.js?v=22');
   assert.ok(ABAS.some((a) => a.id === 'treino'));
   assert.ok(!ABAS.some((a) => ['dados', 'matriz', 'progresso'].includes(a.id)));
   const fonte = readFileSync(new URL('./ui-tab-treino.js', import.meta.url), 'utf8');
@@ -303,5 +303,29 @@ test('o ✎ do card Perfil da aba Geral abre a aba Treino com o Perfil de treino
     assert.match(el('#treino-editaveis').innerHTML, /<form id="form-treino-perfil"/);
     const geral = readFileSync(new URL('./ui-tab-geral.js', import.meta.url), 'utf8');
     assert.match(geral, /data-ir-aba="treino" data-editar="perfil-treino"/);
+  });
+});
+
+test('salvar arruma a ficha: a hora antiga vira a hora de cada dia e a idade guardada sai — fora do log', async () => {
+  await semAviso(async () => {
+    db.criar({
+      id: 'Tr04', nome: 'Nina', nivel: 'iniciante', objetivo: 'Hipertrofia', freqVezes: '2',
+      diasTreino: ['seg', 'qua'], horarios: { seg: '07:00' }, freqHorario: '19h', nascimento: '1995-03-10', idade: '25',
+    });
+    const painel = abrirTreino('Tr04');
+    const form = el('#form-treino-perfil');
+    // O formulário já mostrava a quarta com a hora antiga (é o que o navegador desenha).
+    form.campos = { nivel: 'iniciante', objetivo: 'Hipertrofia', fase: '', freqVezes: '2', focoPrimario: '', focoSecundario: '', diasTreino: ['seg', 'qua'], hora_seg: '07:00', hora_qua: '19:00' };
+    editarCard('perfil-treino');
+    form.campos.nivel = 'intermediario';
+    painel.disparar('input');
+    assert.match(el('#barra-salvar').innerHTML, /1 campo/, 'a hora que só foi mostrada não conta como mudança');
+    await salvar();
+    const a = db.obter('Tr04');
+    assert.equal(a.nivel, 'intermediario');
+    assert.deepEqual(a.horarios, { seg: '07:00', qua: '19:00' }, 'a quarta ganhou a hora que o coach via');
+    assert.equal(a.freqHorario, '19h', 'a hora antiga continua: o Portal e o app a usam de reserva');
+    assert.ok(!('idade' in a), 'com nascimento, a idade é calculada, não guardada');
+    assert.equal(pendentes().at(-1).resumo, 'Ficha editada · Nível', 'a arrumação não vira "edição" no log');
   });
 });

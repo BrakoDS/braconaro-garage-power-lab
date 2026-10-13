@@ -7,8 +7,8 @@
  * lê para o salvar global. Os campos (nome, rótulo, opções) moram em
  * `saude.js`, que o PDF da ficha e a linha da aba Registros também leem.
  */
-import { esc, opt } from './util/formato.js?v=21';
-import { ANAMNESE_SECOES } from './saude.js?v=21';
+import { esc, opt } from './util/formato.js?v=22';
+import { ANAMNESE_SECOES } from './saude.js?v=22';
 
 /** @param {string[]} arr @param {string} [atual] */
 function optsSelect(arr, atual) { return `<option value="">—</option>` + arr.map((s) => opt(s, atual)).join(''); }
@@ -22,7 +22,7 @@ function campoHTML(c, an) {
   return `<div class="field"><label>${c.rotulo}</label><input name="${c.k}" value="${esc(v)}" /></div>`;
 }
 
-/** O formulário da aba (sem os eventos). @param {any} a */
+/** O formulário (sem os eventos). @param {any} a */
 export function htmlAnamnese(a) {
   const an = (a && a.anamnese) || {};
   const secoes = ANAMNESE_SECOES.map(([titulo, campos]) => `

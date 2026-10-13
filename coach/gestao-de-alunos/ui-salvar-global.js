@@ -21,21 +21,25 @@
  *  - Salvar grava o rascunho sobre a ficha de AGORA (`montarPatch`); se um
  *    campo editado aqui também mudou em outro aparelho, pergunta qual vale;
  *  - sair da ficha com algo pendente pergunta antes (Salvar e sair /
- *    Descartar / Continuar editando) — e fechar a página, também.
+ *    Descartar / Continuar editando) — e fechar a página, também;
+ *  - a gravação leva junto a arrumação da ficha (normalizar-ficha.js: a hora
+ *    antiga vira a hora de cada dia; a idade calculada deixa de ser guardada).
+ *    Fora do log: não foi o coach quem mudou.
  *
  * O que NÃO passa pelo rascunho continua gravando na hora, como sempre: foto,
  * avaliações, financeiro (pagamento, lançamento), metas, acesso ao Portal e
  * exclusão. Plano: docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md.
  */
-import * as db from './db.js?v=21';
-import { esc } from './util/formato.js?v=21';
-import { $ } from './util/dom.js?v=21';
-import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=21';
-import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=21';
-import { regFicha, regAnamnese, regParq } from './registro.js?v=21';
-import { resumoFicha } from './registros-ui.js?v=21';
-import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=21';
-import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=21';
+import * as db from './db.js?v=22';
+import { esc } from './util/formato.js?v=22';
+import { $ } from './util/dom.js?v=22';
+import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=22';
+import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=22';
+import { regFicha, regAnamnese, regParq } from './registro.js?v=22';
+import { resumoFicha } from './registros-ui.js?v=22';
+import { normalizarFicha } from './normalizar-ficha.js?v=22';
+import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=22';
+import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=22';
 
 /**
  * @typedef {{
@@ -279,9 +283,12 @@ export async function salvar() {
   if (rascunho.sujo()) {
     const patch = completarPatch(rascunho.montarPatch(a), Date.now());
     const { anamnese, parq, ...resto } = patch;
+    // A arrumação vai na mesma gravação, calculada sobre a ficha como vai
+    // ficar; o log (abaixo) continua só com o que o coach mudou.
+    const arrumacao = normalizarFicha({ ...a, ...patch });
     // A gravação publica o Portal e emite 'alunos-mudaram' (boot.js → db.aoGravar):
     // a lista, o cabeçalho e as outras abas se atualizam por lá.
-    db.atualizar(alunoId, patch);
+    db.atualizar(alunoId, { ...patch, ...arrumacao.patch }, { remover: arrumacao.remover });
     if (Object.keys(resto).length) regFicha(a, resto);
     if (anamnese) regAnamnese(a, anamnese);
     if (parq) regParq(a, parq);

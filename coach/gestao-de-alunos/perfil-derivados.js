@@ -11,10 +11,10 @@
  *
  * Puro: sem DOM, sem banco, e o "hoje" entra por parâmetro.
  */
-import { STATUS_LABEL, numf } from './util/formato.js?v=21';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=21';
-import { triagemParq } from './saude.js?v=21';
-import { matrizDe, rotulo, OPCOES_NIVEL, REGIOES_LESAO, GRAVIDADES } from '../../compartilhado/regras/matriz-individualizacao.js?v=21';
+import { STATUS_LABEL, numf } from './util/formato.js?v=22';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=22';
+import { triagemParq } from './saude.js?v=22';
+import { matrizDe, rotulo, OPCOES_NIVEL, REGIOES_LESAO, GRAVIDADES } from '../../compartilhado/regras/matriz-individualizacao.js?v=22';
 
 /* ============================================================
    Idade
@@ -112,7 +112,7 @@ export function alertaMedico(a) {
    ============================================================ */
 
 /**
- * A situação do aluno no card Financeiro, no MESMO critério da aba Financeiro e
+ * A situação do aluno no card Financeiro, no MESMO critério das faturas do card e
  * do Portal (`historicoFinanceiro` → `statusDaCobranca`).
  *  - 'atrasado':  alguma fatura vencida;
  *  - 'a-vencer':  fatura em aberto, ainda no prazo;

@@ -13,11 +13,10 @@
  * nunca tem duas marcações diferentes. `lerForm` lê qualquer um deles;
  * `lerCampos` fica só com os campos de um card (ou do cadastro).
  */
-import * as db from './db.js?v=21';
-import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=21';
-import { $, $$ } from './util/dom.js?v=21';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=21';
-import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
+import * as db from './db.js?v=22';
+import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=22';
+import { $, $$ } from './util/dom.js?v=22';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=22';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
 
 /* ============================================================
@@ -37,9 +36,10 @@ export const CAMPOS = Object.freeze({
   contato: ['nome', 'telefone', 'email', 'endereco', 'status'],
   plano: ['mensalidade', 'vencimento', 'parceria', 'pagoPor'],
   acesso: ['appLiberado', 'modoLite'],
-  biometria: ['nascimento', 'idade', 'sexo', 'altura', 'peso'],
+  biometria: ['nascimento', 'sexo', 'altura', 'peso'],
   clinica: ['obs'],
-  treino: ['objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino', 'horarios'],
+  // O foco não entra: ele é primário e secundário, lido pelo card Perfil de treino (ui-tab-treino.js).
+  treino: ['objetivo', 'nivel', 'freqVezes', 'diasTreino', 'horarios'],
 });
 
 /** Idade em anos a partir de 'AAAA-MM-DD' ('' se não der). @param {string} [iso] */
@@ -61,11 +61,6 @@ export function camposDados(a = {}, opts = {}) {
   const objOpts = `<option value="">—</option>` + OBJETIVOS.map((s) => opt(s, a.objetivo)).join('');
   const freqOpts = `<option value="">—</option>` + [1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}"${String(n) === String(a.freqVezes) ? ' selected' : ''}>${n}x por semana</option>`).join('');
   const nivelOpts = `<option value="">—</option>` + [['iniciante', 'Iniciante'], ['intermediario', 'Intermediário'], ['avancado', 'Avançado']].map(([v, l]) => `<option value="${v}"${a.nivel === v ? ' selected' : ''}>${l}</option>`).join('');
-  // Foco: até dois dos sete grupos grandes. O limite é aplicado na leitura do
-  // formulário e de novo na regra — marcar três aqui não pode virar treino torto.
-  const focoSel = new Set(a.foco || []);
-  const focoHTML = GRUPOS.map((g) => `
-    <label class="dia-check"><input type="checkbox" name="foco" value="${g}"${focoSel.has(g) ? ' checked' : ''}/><span>${esc(GRUPO_LABEL[g])}</span></label>`).join('');
   const diasSel = new Set(a.diasTreino || []);
   const horas = a.horarios || {};
   // Cada dia carrega a própria hora. O `freqHorario` antigo (uma hora só para a
@@ -110,7 +105,6 @@ export function camposDados(a = {}, opts = {}) {
     peso: `<div class="field"><label>Peso atual (kg)</label><input name="peso" type="number" min="0" step="0.1" value="${esc(a.peso)}" placeholder="80" /></div>`,
     objetivo: `<div class="field"><label>Objetivo</label><select name="objetivo">${objOpts}</select></div>`,
     nivel: `<div class="field"><label>Nível de treino</label><select name="nivel">${nivelOpts}</select></div>`,
-    foco: `<div class="field full"><label>Foco (até 2 grupos)</label><div class="dias-treino">${focoHTML}</div><span class="hint">O Montador Individual tira série de onde ele está mais adiantado e põe no foco, mantendo o total do treino da turma.</span></div>`,
     freqVezes: `<div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>`,
     dias: `<div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>`,
     obs: `<div class="field full"><label>Nota clínica do coach</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>`,
@@ -134,9 +128,9 @@ const secao = (titulo, campos) => `
 
 /**
  * O que o cadastro curto grava: o essencial para o aluno existir, ser achado
- * e ser cobrado. `idade` vai junto do nascimento (a ficha ainda a guarda).
+ * e ser cobrado. A idade não: ela sai do nascimento (perfil-derivados.js).
  */
-export const CAMPOS_CADASTRO = Object.freeze(['id', 'nome', 'telefone', 'email', 'nascimento', 'idade', 'sexo', 'status', 'mensalidade', 'vencimento']);
+export const CAMPOS_CADASTRO = Object.freeze(['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'mensalidade', 'vencimento']);
 
 /**
  * O cadastro curto (o modal do "+ Cadastrar novo aluno"): só o essencial. O
@@ -190,10 +184,6 @@ export function lerForm(form) {
   // salvar deixaria o `true` antigo intacto no `Object.assign` do db.atualizar.
   o.appLiberado = fd.get('appLiberado') === '1';
   o.modoLite = fd.get('modoLite') === '1'; // mesmo motivo do appLiberado
-  // Foco do aluno: até dois grupos, e é aqui que o limite vira verdade — a caixa
-  // de seleção não impede o terceiro clique, e a regra de perfil também corta,
-  // mas gravar três deixaria a ficha dizendo uma coisa e o treino outra.
-  o.foco = fd.getAll('foco').slice(0, 2);
   // As horas viram um mapa `{seg:'19:00'}`; os campos soltos `hora_seg` saem do
   // objeto para não virarem colunas fantasma na ficha do aluno. Só entra a hora
   // de dia marcado — hora de dia desmarcado é lixo esperando confundir depois.
@@ -213,7 +203,8 @@ export function lerForm(form) {
   const pct = parseInt(o.parceriaPct, 10);
   o.parceria = pct ? { nome: (o.parceriaNome || '').trim(), percentual: pct } : null;
   delete o.parceriaPct; delete o.parceriaNome;
-  if (o.nascimento) o.idade = calcIdade(o.nascimento);
+  // A idade não é gravada: ela sai do nascimento na hora de mostrar
+  // (perfil-derivados.js) — um número guardado envelhecia sem ninguém ver.
   return o;
 }
 
