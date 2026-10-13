@@ -31,7 +31,7 @@ export const EVENTOS = Object.freeze({
   ABRIR_PERFIL: 'abrir-perfil',
   /** O perfil de um aluno acabou de abrir (estado.alunoAtual já é ele). Dado: o id. */
   PERFIL_ABERTO: 'perfil-aberto',
-  /** Pedido para abrir uma aba do perfil. Dado: o id da aba ('dados', 'matriz'…). */
+  /** Pedido para abrir uma aba do perfil. Dado: o id da aba ('geral', 'treino'…). */
   ABRIR_ABA: 'abrir-aba',
   /** Pedido para sair do perfil e voltar à lista (o roteador traduz para abrir-tela 'lista'). */
   VOLTAR_LISTA: 'voltar-lista',
@@ -46,7 +46,11 @@ export const EVENTOS = Object.freeze({
   EXPORTAR_FICHA: 'exportar-ficha',
   /** Pedido para trocar a foto do aluno aberto. */
   TROCAR_FOTO: 'trocar-foto',
-  /** Entrou evento novo no log da aba Registros (uma ação do coach, a caixa do aluno). Dado: o id do aluno, se houver. */
+  /** Pedido para criar o acesso ao Portal (ou um link novo) do aluno aberto — abre o modal de acesso. */
+  GERAR_ACESSO: 'gerar-acesso',
+  /** Pedido para excluir o aluno aberto — abre a confirmação (digitar o ID). */
+  EXCLUIR_ALUNO: 'excluir-aluno',
+  /** Entrou evento novo na linha do tempo (aba Histórico) (uma ação do coach, a caixa do aluno). Dado: o id do aluno, se houver. */
   REGISTROS_MUDARAM: 'registros-mudaram',
   /**
    * O coach acabou de fazer algo que ficou no log (registro.js). Dado:
@@ -82,4 +86,30 @@ export function emit(evento, dados) {
   for (const fn of [...(ouvintes.get(evento) || [])]) {
     try { fn(dados); } catch (e) { console.error(`[Gestão] ouvinte de "${evento}" falhou:`, e); }
   }
+}
+
+/* ---------- Guarda de saída (alterações não salvas na ficha) ---------- */
+
+/** @type {(() => boolean | Promise<boolean>) | null} */
+let guarda = null;
+
+/**
+ * Registra quem decide se dá para sair da ficha agora (o salvar global,
+ * ui-salvar-global.js). Devolve `true` para sair já, ou uma promessa — com
+ * alterações não salvas, ela pergunta ao coach antes.
+ * @param {(() => boolean | Promise<boolean>) | null} fn
+ */
+export function definirGuardaDeSaida(fn) { guarda = fn; }
+
+/**
+ * Roda `acao` (sair da ficha) se a guarda deixar. Sem nada pendente, roda NA
+ * HORA, no mesmo tique: quem emite eventos de navegação continua síncrono
+ * quando não há o que perguntar.
+ * @param {() => void} acao
+ */
+export function sairComCuidado(acao) {
+  let r = true;
+  try { r = guarda ? guarda() : true; } catch (e) { console.error('[Gestão] guarda de saída falhou:', e); }
+  if (r === true) { acao(); return; }
+  Promise.resolve(r).then((ok) => { if (ok) acao(); }, (e) => console.error('[Gestão] guarda de saída falhou:', e));
 }

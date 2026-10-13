@@ -2,9 +2,10 @@
 /**
  * Rodar: node --test coach/gestao-de-alunos/perfil-componentes.test.js
  *
- * O fim do fatiamento do perfil: Progresso e Portal em módulo próprio, a troca
- * de painel no ui-perfil.js, a foto do cabeçalho no ui-fotos.js — e o app.js
- * sem nenhuma lógica de aba.
+ * O fim do fatiamento do perfil: a aba Histórico (uso do app, linha do tempo e
+ * prévia do Portal, cada um em módulo próprio), a troca de painel no
+ * ui-perfil.js, a foto do cabeçalho no ui-fotos.js — e o app.js sem nenhuma
+ * lógica de aba.
  *
  * A fiação é testada com um DOM de mentira (só o que as abas tocam) e o db.js
  * de verdade sobre um localStorage em memória, instalado ANTES dos imports.
@@ -47,102 +48,96 @@ let tela = {};
 const el = (s) => (tela[s] ||= elemento(s));
 globalThis.document = /** @type {any} */ ({
   querySelector: (s) => el(s),
-  querySelectorAll: (s) => (s === '.tab-panel' ? ['dados', 'progresso', 'portal'].map((n) => el('#tab-' + n)) : []),
+  querySelectorAll: (s) => (s === '.tab-panel' ? ['geral', 'treino', 'historico'].map((n) => el('#tab-' + n)) : []),
 });
 const ouvintesJanela = /** @type {Function[]} */ ([]);
 globalThis.window = /** @type {any} */ ({ addEventListener: (t, f) => { if (t === 'message') ouvintesJanela.push(f); } });
 globalThis.location = /** @type {any} */ ({ origin: 'http://gestao.test' });
 
-const db = await import('./db.js?v=14');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=14');
-const { iniciarPerfil } = await import('./ui-perfil.js?v=14');
-const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=14');
-const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=14');
-const { semanaSegSab, waMsg } = await import('./util/formato.js?v=14');
+const db = await import('./db.js?v=22');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=22');
+const { iniciarPerfil } = await import('./ui-perfil.js?v=22');
+const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=22');
+const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=22');
+const { iniciarTabRegistros } = await import('./ui-tab-registros.js?v=22');
+const { iniciarTabHistorico, SEGMENTOS, segmentoVizinho } = await import('./ui-tab-historico.js?v=22');
+const { semanaSegSab, waMsg } = await import('./util/formato.js?v=22');
 
 iniciarPerfil({ obter: db.obter });
 iniciarTabProgresso();
 iniciarTabPortal({ urlPrevia: '/vitrine/previa-falsa.html' });
+iniciarTabRegistros();
+iniciarTabHistorico();
 
 /** Abre o perfil como o app.js faz. @param {string} id */
 function abrirPerfil(id) {
   estado.alunoAtual = db.obter(id);
   el('#tela-perfil').classList.add('active');
   emit(EVENTOS.PERFIL_ABERTO, id);
-  emit(EVENTOS.ABRIR_ABA, 'dados');
+  emit(EVENTOS.ABRIR_ABA, 'geral');
 }
 
 /* ---------- a troca de aba mora no ui-perfil.js ---------- */
 
 test('perfil: "abrir-aba" mostra só o painel pedido', () => {
-  emit(EVENTOS.ABRIR_ABA, 'portal');
-  assert.deepEqual(['dados', 'progresso', 'portal'].map((n) => el('#tab-' + n).classList.contains('active')), [false, false, true]);
-  emit(EVENTOS.ABRIR_ABA, 'dados');
-  assert.deepEqual(['dados', 'progresso', 'portal'].map((n) => el('#tab-' + n).classList.contains('active')), [true, false, false]);
+  emit(EVENTOS.ABRIR_ABA, 'historico');
+  assert.deepEqual(['geral', 'treino', 'historico'].map((n) => el('#tab-' + n).classList.contains('active')), [false, false, true]);
+  emit(EVENTOS.ABRIR_ABA, 'geral');
+  assert.deepEqual(['geral', 'treino', 'historico'].map((n) => el('#tab-' + n).classList.contains('active')), [true, false, false]);
 });
 
-/* ---------- Progresso ---------- */
+/* ---------- Histórico: uso do app e os segmentos ---------- */
 
 const semAviso = async (fn) => { const w = console.warn; console.warn = () => {}; try { await fn(); } finally { console.warn = w; } };
+/** Um clique no seletor de segmentos do card Histórico. @param {string} seg */
+const clicarSegmento = (seg) => el('#hi-seletor').ouvintes.click({ target: { closest: () => ({ dataset: { hist: seg } }) } });
 
-test('progresso: redesenha a cada abertura, com a avaliação lançada em outra aba', async () => {
+test('histórico: abrir a aba desenha o uso do app e a linha do tempo; a prévia fica escondida e sem carregar', async () => {
   await semAviso(async () => {
     db.criar({ id: 'Prog01', nome: 'Paula' });
-    db.addAvaliacao('Prog01', { dataRealizada: '2026-01-10', peso: '80' });
     abrirPerfil('Prog01');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    const painel = el('#tab-progresso');
-    assert.equal(painel.desenhos, 1);
-    assert.match(painel.innerHTML, /Cadastre ao menos 2 avaliações/);
-    // Lançou a segunda avaliação na aba Avaliações e voltou.
-    emit(EVENTOS.ABRIR_ABA, 'avaliacoes');
-    db.addAvaliacao('Prog01', { dataRealizada: '2026-04-10', peso: '76' });
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    assert.equal(painel.desenhos, 2);
-    assert.match(painel.innerHTML, /Peso: −4,0 kg/, 'a evolução já entra no gráfico');
+    const adesao = el('#prog-adesao'), antes = adesao.desenhos;
+    emit(EVENTOS.ABRIR_ABA, 'historico');
+    assert.ok(adesao.desenhos > antes, 'o uso do app desenhou');
+    assert.match(adesao.innerHTML, /sem e-mail cadastrado/);
+    assert.match(el('#reg-filtros').innerHTML, /filtro-chip/, 'a linha do tempo abriu');
+    assert.equal(el('#hi-tempo').hidden, false);
+    assert.equal(el('#hi-portal').hidden, true);
+    assert.equal(el('#prv-frame').src, '', 'o quadro do Portal só carrega quando a prévia é escolhida');
+    emit(EVENTOS.ABRIR_ABA, 'geral');
+    emit(EVENTOS.ABRIR_ABA, 'historico');
+    assert.ok(adesao.desenhos > antes + 1, 'redesenha a cada abertura');
   });
 });
 
-test('progresso: a meta digitada sobrevive à troca de aba, mas não passa para outro aluno', async () => {
+test('histórico: o que chega pelo merge redesenha o uso do app com a aba aberta; de outro aluno ou com a aba fechada, não', async () => {
   await semAviso(async () => {
     abrirPerfil('Prog01');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    const desenhos = el('#tab-progresso').desenhos;
-    // O coach escolhe o tipo e digita o alvo, sem salvar, e vai para outra aba.
-    el('#meta-tipo').value = 'cintura';
-    el('#meta-alvo').value = '72';
-    emit(EVENTOS.ABRIR_ABA, 'financeiro');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    assert.equal(el('#tab-progresso').desenhos, desenhos + 1, 'redesenhou');
-    assert.deepEqual([el('#meta-tipo').value, el('#meta-alvo').value], ['cintura', '72'], 'o rascunho volta aos campos redesenhados');
-    // Fechou e reabriu o perfil do mesmo aluno: começa limpo, como nas outras abas.
-    abrirPerfil('Prog01');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    assert.deepEqual([el('#meta-tipo').value, el('#meta-alvo').value], ['', '']);
-    // Outro aluno: o rascunho fica para trás.
-    el('#meta-alvo').value = '65';
-    db.criar({ id: 'Prog02', nome: 'Pedro' });
-    abrirPerfil('Prog02');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    assert.equal(el('#meta-alvo').value, '');
-  });
-});
-
-test('progresso: feedback que chega pelo merge aparece na aba aberta', async () => {
-  await semAviso(async () => {
-    abrirPerfil('Prog01');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    const painel = el('#tab-progresso'), antes = painel.desenhos;
-    db.atualizar('Prog01', { feedbacks: [{ id: 'f1', data: '2026-10-06', esforco: 8, dor: 'leve', obs: 'pesado', criadoEm: 1 }] });
+    emit(EVENTOS.ABRIR_ABA, 'historico');
+    const adesao = el('#prog-adesao'), antes = adesao.desenhos;
     emit(EVENTOS.REGISTROS_MUDARAM, 'Prog01');
-    assert.equal(painel.desenhos, antes + 1);
-    assert.match(painel.innerHTML, /Esforço <b>8<\/b>\/10/);
+    assert.ok(adesao.desenhos > antes);
+    const depois = adesao.desenhos;
     emit(EVENTOS.REGISTROS_MUDARAM, 'Outro');
-    assert.equal(painel.desenhos, antes + 1, 'evento de outro aluno não redesenha');
-    emit(EVENTOS.ABRIR_ABA, 'dados');
+    assert.equal(adesao.desenhos, depois, 'evento de outro aluno não redesenha');
+    emit(EVENTOS.ABRIR_ABA, 'geral');
     emit(EVENTOS.REGISTROS_MUDARAM, 'Prog01');
-    assert.equal(painel.desenhos, antes + 1, 'aba fechada não redesenha');
+    assert.equal(adesao.desenhos, depois, 'aba fechada não redesenha');
   });
+});
+
+test('histórico: as setas trocam de segmento dando a volta; perfil reaberto volta para a linha do tempo', () => {
+  assert.deepEqual(SEGMENTOS.map((s) => s.id), ['tempo', 'portal']);
+  assert.equal(segmentoVizinho('tempo', 1), 'portal');
+  assert.equal(segmentoVizinho('tempo', -1), 'portal');
+  assert.equal(segmentoVizinho('portal', 1), 'tempo');
+  abrirPerfil('Prog01');
+  emit(EVENTOS.ABRIR_ABA, 'historico');
+  clicarSegmento('portal');
+  assert.equal(el('#hi-portal').hidden, false);
+  abrirPerfil('Prog01');
+  assert.equal(el('#hi-tempo').hidden, false, 'perfil reaberto começa na linha do tempo');
+  assert.equal(el('#hi-portal').hidden, true);
 });
 
 /* ---------- Portal ---------- */
@@ -164,7 +159,8 @@ test('portal: abre a prévia injetada, espera o "pronto", navega semanas e acomp
   abrirPerfil('Port01');
   const frame = el('#prv-frame');
   frame.contentWindow = { postMessage: (msg, origem) => frame.recebidas.push([msg, origem]) };
-  emit(EVENTOS.ABRIR_ABA, 'portal');
+  emit(EVENTOS.ABRIR_ABA, 'historico');
+  clicarSegmento('portal');
   assert.match(frame.src, /^\/vitrine\/previa-falsa\.html\?previa=1&t=\d+$/, 'a vitrine troca a página da prévia');
   assert.equal(frame.recebidas.length, 0, 'nada antes do "pronto"');
   // Mensagem de outra origem é ignorada.
@@ -187,7 +183,8 @@ test('portal: aluno sem e-mail não tem prévia — e a prévia do anterior não
   db.criar({ id: 'Port02', nome: 'Sem Email' });
   abrirPerfil('Port02');
   const frame = el('#prv-frame'), n = frame.recebidas.length;
-  emit(EVENTOS.ABRIR_ABA, 'portal');
+  emit(EVENTOS.ABRIR_ABA, 'historico');
+  clicarSegmento('portal');
   assert.equal(frame.src, '');
   assert.match(el('#prv-lbl').textContent, /sem e-mail não há Portal/);
   emit(EVENTOS.ALUNOS_MUDARAM);
@@ -226,31 +223,31 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
   // Abrir o perfil: o aluno no estado, o cabeçalho, 'perfil-aberto', a aba Dados e a tela — nessa ordem.
   db.criar({ id: 'Abre01', nome: 'Abel' });
   const vistos = [];
-  const { on } = await import('./estado.js?v=14');
+  const { on } = await import('./estado.js?v=22');
   const parar = [EVENTOS.PERFIL_ABERTO, EVENTOS.ABRIR_ABA, EVENTOS.ABRIR_TELA].map((ev) => on(ev, (x) => vistos.push([ev, x, estado.alunoAtual?.id])));
   emit(EVENTOS.ABRIR_PERFIL, 'Abre01');
   parar.forEach((p) => p());
-  assert.deepEqual(vistos, [['perfil-aberto', 'Abre01', 'Abre01'], ['abrir-aba', 'dados', 'Abre01'], ['abrir-tela', 'perfil', 'Abre01']]);
+  assert.deepEqual(vistos, [['perfil-aberto', 'Abre01', 'Abre01'], ['abrir-aba', 'geral', 'Abre01'], ['abrir-tela', 'perfil', 'Abre01']]);
   assert.match(el('#perfil-cab').innerHTML, /Abel/, 'o cabeçalho já desenhado');
   emit(EVENTOS.ABRIR_PERFIL, 'nao-existe');
   assert.equal(estado.alunoAtual.id, 'Abre01', 'id que não existe não troca a ficha aberta');
 
   const telas = ler('./telas.js');
-  const ordem = ['iniciarNavegacao();', 'iniciarPerfil(', 'iniciarFotoDoPerfil();', 'iniciarTabDados();', 'iniciarTabAvaliacoes();', 'iniciarTabProgresso();',
-    'iniciarTabAnamnese();', 'iniciarTabParq();', 'iniciarTabFinanceiro();', 'iniciarTabMatriz();', 'iniciarTabPortal(',
-    'iniciarTabRegistros();'];
+  const ordem = ['iniciarNavegacao();', 'iniciarPerfil(', 'iniciarFotoDoPerfil();', 'iniciarTabGeral();', 'iniciarTabSaude();', 'iniciarTabTreino();', 'iniciarTabAvaliacoes();', 'iniciarTabProgresso();',
+    "iniciarTabFinanceiro('#tab-geral');", 'iniciarTabPortal(',
+    'iniciarTabRegistros();', 'iniciarTabHistorico();'];
   const pos = ordem.map((f) => telas.indexOf(f));
   assert.ok(pos.every((p) => p >= 0), `telas.js liga tudo: ${ordem.filter((_, i) => pos[i] < 0)}`);
   assert.deepEqual([...pos].sort((x, y) => x - y), pos, 'o roteador e o perfil ligam antes das abas');
 
   // Cada aba da barra tem um módulo que a desenha.
-  const { ABAS } = { ABAS: ['dados', 'anamnese', 'parq', 'avaliacoes', 'progresso', 'matriz', 'financeiro', 'portal', 'registros'] };
-  const fontes = ['ui-tab-dados', 'ui-tab-anamnese', 'ui-tab-par-q', 'ui-tab-avaliacoes', 'ui-tab-progresso', 'ui-tab-matriz',
-    'ui-tab-financeiro', 'ui-tab-portal', 'ui-tab-registros'].map((f) => ler(`./${f}.js`)).join('\n');
+  const { ABAS } = { ABAS: ['geral', 'saude', 'treino', 'avaliacoes', 'historico'] };
+  const fontes = ['ui-tab-geral', 'ui-tab-saude', 'ui-tab-treino', 'ui-tab-avaliacoes', 'ui-tab-historico']
+    .map((f) => ler(`./${f}.js`)).join('\n');
   for (const aba of ABAS) assert.ok(fontes.includes(`'${aba}'`), `nenhum módulo desenha a aba ${aba}`);
 });
 
-test('perfil: as abas da barra são as nove com módulo', async () => {
-  const { ABAS } = await import('./ui-perfil.js?v=14');
-  assert.deepEqual(ABAS.map((a) => a.id), ['dados', 'anamnese', 'parq', 'avaliacoes', 'progresso', 'matriz', 'financeiro', 'portal', 'registros']);
+test('perfil: as 5 abas da barra, cada uma com módulo; Financeiro, Anamnese, PAR-Q, Matriz, Dados, Progresso, Portal e Registros viraram cards', async () => {
+  const { ABAS } = await import('./ui-perfil.js?v=22');
+  assert.deepEqual(ABAS.map((a) => a.id), ['geral', 'saude', 'treino', 'avaliacoes', 'historico']);
 });

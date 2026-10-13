@@ -14,7 +14,7 @@
  * Ligar antes das telas (main.js): este ouvinte vem primeiro, então a tela já
  * está visível quando o módulo dela desenha.
  */
-import { on, emit, EVENTOS } from './estado.js?v=14';
+import { on, emit, EVENTOS, sairComCuidado } from './estado.js?v=22';
 
 /** As telas que existem, na ordem da barra. */
 export const TELAS = Object.freeze(['lista', 'perfil', 'checkin', 'agenda', 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao']);
@@ -43,6 +43,7 @@ export function iniciarNavegacao() {
   // Um ouvinte para todos os botões de navegação.
   document.addEventListener('click', (e) => {
     const b = /** @type {any} */ (e.target)?.closest?.('[data-tela]');
-    if (b && b.dataset && b.dataset.tela) emit(EVENTOS.ABRIR_TELA, b.dataset.tela);
+    // Pela guarda de saída: sem nada pendente na ficha, troca na hora.
+    if (b && b.dataset && b.dataset.tela) sairComCuidado(() => emit(EVENTOS.ABRIR_TELA, b.dataset.tela));
   });
 }

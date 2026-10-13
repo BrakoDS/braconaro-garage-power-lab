@@ -1,18 +1,20 @@
 // @ts-check
 /**
- * Modal "+ Cadastrar novo aluno" — o mesmo formulário da aba Dados
- * (ui-tab-dados.js), com o ID editável.
+ * Modal "+ Cadastrar novo aluno" — o cadastro curto (campos-aluno.js): ID,
+ * nome, telefone, e-mail, nascimento, sexo, status, mensalidade e vencimento.
+ * O resto o coach completa na ficha, card a card.
  *
  * Saiu do `app.js` no fatiamento. Ao cadastrar, grava (`db.criar` — que
- * publica o Portal e avisa a lista), registra na aba Registros e pede o perfil
- * do aluno novo pelo barramento ('abrir-perfil'), como o clique num card.
+ * publica o Portal e avisa a lista) só os campos do cadastro, registra na aba
+ * Registros e pede o perfil do aluno novo pelo barramento ('abrir-perfil'),
+ * como o clique num card: a ficha abre na aba Geral.
  */
-import * as db from './db.js?v=14';
-import { formDadosHTML, wireForm, lerForm } from './ui-tab-dados.js?v=14';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=14';
-import { emit, EVENTOS } from './estado.js?v=14';
-import { reg } from './registro.js?v=14';
-import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=14';
+import * as db from './db.js?v=22';
+import { formCadastroCurtoHTML, CAMPOS_CADASTRO, wireForm, lerCampos } from './campos-aluno.js?v=22';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=22';
+import { emit, EVENTOS } from './estado.js?v=22';
+import { reg } from './registro.js?v=22';
+import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=22';
 
 /** @type {{ avisar: (o: any) => any }} */
 let deps = { avisar: avisarReal };
@@ -24,14 +26,14 @@ let deps = { avisar: avisarReal };
 export function iniciarModalAluno(d = {}) {
   deps = { ...deps, ...d };
   $('#fab-novo')?.addEventListener('click', () => {
-    $('#modal-aluno-body').innerHTML = formDadosHTML({}, { idEditavel: true });
+    $('#modal-aluno-body').innerHTML = formCadastroCurtoHTML();
     wireForm($('#modal-aluno-body'));
     abrirModal('modal-aluno');
     setTimeout(() => $('input[name=id]', $('#modal-aluno-body'))?.focus(), 50);
   });
   $('#form-novo')?.addEventListener('submit', (/** @type {any} */ e) => {
     e.preventDefault();
-    const dados = lerForm(e.target);
+    const dados = lerCampos(e.target, CAMPOS_CADASTRO);
     if (!dados.nome) { deps.avisar({ texto: 'Informe o nome do aluno.' }); return; }
     const novo = db.criar(dados);
     if (!novo) { deps.avisar({ texto: 'Já existe um aluno com esse ID. Escolha outro.' }); return; }

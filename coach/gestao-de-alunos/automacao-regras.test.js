@@ -15,8 +15,8 @@ import {
   GATILHOS, PRAZO_PENDENTE, GUARDA_FEITAS, chaveDe, filaVazia, foiFeita,
   sugestoesDaVarredura, sugestaoDaAcao, aoAgir, marcar, podar, normalizarFila,
   msgRecibo, textoDa, visiveis, mesclarFeitas, planoDeSync,
-} from './automacao-regras.js?v=14';
-import { darBaixa, desfazerBaixa, msgCobranca, cobrancasDoMes, itensFecham } from './financeiro-regras.js?v=14';
+} from './automacao-regras.js?v=22';
+import { darBaixa, desfazerBaixa, msgCobranca, cobrancasDoMes, itensFecham } from './financeiro-regras.js?v=22';
 
 const NB = (s) => s.replace(/ /g, ' ');
 const DIA = 86400000;

@@ -27,23 +27,23 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js?v=14';
-import * as eventos from './eventos.js?v=14';
-import { publicarPortal } from './portal-sync.js?v=14';
-import { mergarInboxes } from './portal-merge.js?v=14';
-import { sincronizarAvisos } from './avisos.js?v=14';
-import { sincronizarDesafios } from './desafios.js?v=14';
-import { estado, emit, EVENTOS } from './estado.js?v=14';
-import { $ } from './util/dom.js?v=14';
-import { renderLista } from './ui-lista.js?v=14';
-import { atualizarSelosDaLista } from './selos-lista.js?v=14';
-import { carregarBadgeLeads } from './ui-tela-leads.js?v=14';
-import { sincronizarAutomacao } from './automacao.js?v=14';
-import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=14';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=14';
-import { aplicarPixPendentes } from './pix-baixa.js?v=14';
-import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=14';
-import { reg } from './registro.js?v=14';
+import * as db from './db.js?v=22';
+import * as eventos from './eventos.js?v=22';
+import { publicarPortal } from './portal-sync.js?v=22';
+import { mergarInboxes } from './portal-merge.js?v=22';
+import { sincronizarAvisos } from './avisos.js?v=22';
+import { sincronizarDesafios } from './desafios.js?v=22';
+import { estado, emit, EVENTOS } from './estado.js?v=22';
+import { $ } from './util/dom.js?v=22';
+import { renderLista } from './ui-lista.js?v=22';
+import { atualizarSelosDaLista } from './selos-lista.js?v=22';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=22';
+import { sincronizarAutomacao } from './automacao.js?v=22';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=22';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=22';
+import { aplicarPixPendentes } from './pix-baixa.js?v=22';
+import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=22';
+import { reg } from './registro.js?v=22';
 
 /* ============================================================
    A gravação publica o Portal
@@ -137,7 +137,7 @@ async function entrar(user) {
       renderLista();
       const a = recarregarFichaAberta();
       // O merge acabou de pôr eventos novos na fila (foto, feedback, diário):
-      // a aba Registros e a Progresso, se abertas, mostram já.
+      // a linha do tempo e o uso do app (aba Histórico), se abertos, mostram já.
       if (a) emit(EVENTOS.REGISTROS_MUDARAM, a.id);
     }
     // 1b) os Pix aprovados no Mercado Pago viram baixa — antes de publicar o Portal

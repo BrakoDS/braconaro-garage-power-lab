@@ -1,6 +1,7 @@
 // @ts-check
 /**
- * Aba Registros do perfil — a linha do tempo DESTE aluno.
+ * A linha do tempo DESTE aluno — o segmento "Linha do tempo" do card
+ * Histórico, na aba Histórico (ui-tab-historico.js abre e troca os segmentos).
  *
  * Três fontes numa lista só (a parte pura está em registros-ui.js): os eventos
  * gravados do aluno, os que ainda estão na fila do navegador e, antes do
@@ -8,21 +9,22 @@
  * traz todos os eventos dele de uma vez (eventos.listarEventos), então
  * "Carregar mais" só pagina o histórico reconstruído.
  *
- * Saiu do `app.js` no fatiamento. Escuta o barramento:
- *   'abrir-aba' (registros)  lê os eventos gravados e as fotos do Diário;
+ * Saiu do `app.js` no fatiamento. Quem a abre é a aba Histórico
+ * (`abrirLinhaDoTempo`: lê os eventos gravados e as fotos do Diário). Escuta o
+ * barramento:
  *   'registros-mudaram'      entrou evento novo (uma ação do coach — inclusive
  *                            a trilha do financeiro —, a caixa do aluno):
  *                            redesenha, e relê as fotos do Diário;
  *   'alunos-mudaram'         a ficha mudou: redesenha (o histórico reconstruído
  *                            sai da ficha).
  */
-import * as eventos from './eventos.js?v=14';
+import * as eventos from './eventos.js?v=22';
 import { CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, anexarFotosDoDiario, fotosDoDiarioPorDia, juntarEventos,
-  linhaDoTempoDoAluno, linhaHTML } from './registros-ui.js?v=14';
-import { carregarFotosDoDiario } from './diario-read.js?v=14';
-import { esc, hoje } from './util/formato.js?v=14';
-import { $, abrirModal } from './util/dom.js?v=14';
-import { estado, on, EVENTOS } from './estado.js?v=14';
+  linhaDoTempoDoAluno, linhaHTML } from './registros-ui.js?v=22';
+import { carregarFotosDoDiario } from './diario-read.js?v=22';
+import { esc, hoje } from './util/formato.js?v=22';
+import { $, abrirModal } from './util/dom.js?v=22';
+import { estado, on, EVENTOS } from './estado.js?v=22';
 
 const REG_HIST = 60; // linhas do histórico reconstruído por "Carregar mais"
 let regAlunoId = ''; // de quem são os eventos em `regEventos`
@@ -37,9 +39,11 @@ let regFotosPedido = 0; // só a leitura de fotos mais recente vale (a do merge 
 /** @type {Record<string, string>} */
 const regFiltro = { categoria: 'todos', origem: 'todas' };
 
-const abaVisivel = () => !!$('#tab-registros')?.classList.contains('active');
+/** A linha do tempo está na tela (aba Histórico aberta, neste segmento)? */
+const abaVisivel = () => !!$('#tab-historico')?.classList.contains('active') && !$('#hi-tempo')?.hidden;
 
-async function abrirRegistros() {
+/** Lê os eventos gravados e as fotos do Diário do aluno aberto e desenha. A aba Histórico chama. */
+export async function abrirLinhaDoTempo() {
   if (!estado.alunoAtual) return;
   const id = String(estado.alunoAtual.id);
   const pedido = ++regPedido;
@@ -150,7 +154,6 @@ export function iniciarTabRegistros() {
     renderRegFiltros();
     desenharRegistros();
   });
-  on(EVENTOS.ABRIR_ABA, (nome) => { if (nome === 'registros') abrirRegistros(); });
   on(EVENTOS.REGISTROS_MUDARAM, () => { if (abaVisivel()) atualizarRegistros(); });
   on(EVENTOS.ALUNOS_MUDARAM, () => { if (abaVisivel()) desenharRegistros(); });
 }

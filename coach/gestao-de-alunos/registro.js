@@ -6,10 +6,10 @@
  * criar ou apagar avaliação). Depois da gravação, e nunca no lugar dela: o log
  * é testemunha da ação, não condição.
  */
-import * as eventos from './eventos.js?v=14';
-import { resumoFicha } from './registros-ui.js?v=14';
-import { emit, EVENTOS } from './estado.js?v=14';
-import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=14';
+import * as eventos from './eventos.js?v=22';
+import { resumoFicha } from './registros-ui.js?v=22';
+import { emit, EVENTOS } from './estado.js?v=22';
+import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=22';
 
 /**
  * Registra o que o coach acabou de fazer — e avisa o barramento.
@@ -24,7 +24,7 @@ export function reg(tipo, a, resumo, extra = {}, dados) {
   if (!a) return;
   const ev = eventos.novoEvento({ tipo, origem: 'gestao', aluno: a, em: Date.now(), resumo, ...extra });
   eventos.registrar(ev);
-  // A aba Registros aberta mostra a linha na hora, sem reabrir.
+  // A linha do tempo aberta (aba Histórico) mostra a linha na hora, sem reabrir.
   emit(EVENTOS.REGISTROS_MUDARAM, String(a.id));
   emit(EVENTOS.ACAO_REGISTRADA, { tipo, aluno: a, evento: ev, dados });
 }

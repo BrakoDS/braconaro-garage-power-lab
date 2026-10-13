@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css?v=5" />
-  <link rel="stylesheet" href="./matriz.css?v=1" />
+  <link rel="stylesheet" href="./alunos.css?v=13" />
+  <link rel="stylesheet" href="./matriz.css?v=2" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -230,90 +230,84 @@
     <!-- ----------- TELA 2: PERFIL ----------- -->
     <section id="tela-perfil" class="screen">
       <div class="wrap">
-        <!-- Cabeçalho e abas: desenhados por ui-perfil.js (as abas vêm de ABAS). -->
-        <header class="perfil-cab" id="perfil-cab"></header>
-        <nav class="perfil-abas" id="perfil-abas" role="tablist" aria-label="Seções da ficha"></nav>
+        <!-- Cabeçalho e abas: desenhados por ui-perfil.js (as abas vêm de ABAS).
+             Os dois ficam presos no topo juntos e encolhem ao rolar (.compacto). -->
+        <div class="perfil-topo" id="perfil-topo">
+          <header class="perfil-cab" id="perfil-cab"></header>
+          <nav class="perfil-abas" id="perfil-abas" role="tablist" aria-label="Seções da ficha"></nav>
+        </div>
 
-        <!-- ABA 1: DADOS -->
-        <div class="tab-panel active" id="tab-dados" role="tabpanel" aria-labelledby="aba-dados"><!-- form injetado por JS --></div>
+        <!-- ABA: GERAL — os cards do dia a dia (ui-tab-geral.js) -->
+        <div class="tab-panel active" id="tab-geral" role="tabpanel" aria-labelledby="aba-geral"><!-- cards injetados por JS --></div>
 
-        <!-- ABA: ANAMNESE -->
-        <div class="tab-panel" id="tab-anamnese" role="tabpanel" aria-labelledby="aba-anamnese"><!-- form injetado por JS --></div>
+        <!-- ABA: SAÚDE — alerta e lesões, biometria, anamnese e PAR-Q (ui-tab-saude.js) -->
+        <div class="tab-panel" id="tab-saude" role="tabpanel" aria-labelledby="aba-saude"><!-- cards injetados por JS --></div>
 
-        <!-- ABA: PAR-Q -->
-        <div class="tab-panel" id="tab-parq" role="tabpanel" aria-labelledby="aba-parq"><!-- form injetado por JS --></div>
+        <!-- ABA: TREINO — perfil de treino, cargas, adaptações, metas e evolução, força e gasto, feedbacks (ui-tab-treino.js) -->
+        <div class="tab-panel" id="tab-treino" role="tabpanel" aria-labelledby="aba-treino"><!-- cards injetados por JS --></div>
 
-        <!-- ABA 2: AVALIAÇÕES -->
+        <!-- ABA: AVALIAÇÕES — resumo e lista num card; a avaliação abre no modal (ui-tab-avaliacoes.js) -->
         <div class="tab-panel" id="tab-avaliacoes" role="tabpanel" aria-labelledby="aba-avaliacoes">
-          <div class="aval-head">
-            <span class="eyebrow" style="font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.2em;font-size:.74rem;color:var(--accent)">Histórico de avaliações</span>
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-              <button class="btn ghost" id="btn-comparar" type="button">Comparar</button>
-              <button class="btn" id="btn-nova-aval" type="button">+ Nova avaliação</button>
-            </div>
+          <div class="cards-geral">
+            <section class="card card-largo" id="card-avaliacoes" aria-labelledby="card-avaliacoes-t">
+              <header class="card-hd">
+                <h2 class="card-t" id="card-avaliacoes-t">Avaliações físicas</h2>
+                <div class="card-acoes">
+                  <button class="card-btn" id="btn-comparar" type="button">Comparar</button>
+                  <button class="btn btn-sm" id="btn-nova-aval" type="button">+ Nova avaliação</button>
+                </div>
+              </header>
+              <div class="card-bd">
+                <div id="aval-sumario"></div>
+                <div id="aval-list" class="aval-list"></div>
+              </div>
+            </section>
           </div>
-          <div id="aval-list" class="aval-list"></div>
         </div>
 
-        <!-- ABA: MATRIZ — a individualização que o Montador lê (form injetado por JS) -->
-        <div class="tab-panel" id="tab-matriz" role="tabpanel" aria-labelledby="aba-matriz"></div>
-
-        <!-- ABA: FINANCEIRO (esqueleto — ui-tab-financeiro.js) -->
-        <div class="tab-panel" id="tab-financeiro" role="tabpanel" aria-labelledby="aba-financeiro"></div>
-
-        <!-- ABA: PORTAL — o Portal do Aluno deste aluno, em prévia -->
-        <div class="tab-panel" id="tab-portal" role="tabpanel" aria-labelledby="aba-portal">
-          <div class="prv-barra">
-            <button class="btn btn-sm" id="prv-prev" type="button">← semana</button>
-            <span class="prv-lbl" id="prv-lbl"></span>
-            <button class="btn btn-sm" id="prv-next" type="button">semana →</button>
-            <button class="btn btn-sm ghost" id="prv-hoje" type="button">hoje</button>
-            <span class="prv-nota">Somente leitura — nada que você fizer aqui é gravado na conta do aluno.</span>
-          </div>
-          <div class="prv-quadro"><iframe id="prv-frame" title="Portal do Aluno (prévia)" loading="lazy"></iframe></div>
-        </div>
-
-        <!-- ABA: REGISTROS — a linha do tempo deste aluno, do mais novo ao mais antigo -->
-        <div class="tab-panel" id="tab-registros" role="tabpanel" aria-labelledby="aba-registros">
-          <p class="hint" style="margin:0 0 14px">Check-ins, fotos, feedbacks e edições de ficha deste aluno — feitos por ele no app ou no Portal, ou por você aqui na Gestão.</p>
-          <div class="reg-filtros"><div id="reg-filtros"></div></div>
-          <div id="reg-lista"></div>
-          <button class="btn ghost btn-sm" id="reg-mais" type="button" hidden>Carregar mais</button>
-        </div>
-
-        <!-- ABA 3: PROGRESSO -->
-        <div class="tab-panel" id="tab-progresso" role="tabpanel" aria-labelledby="aba-progresso">
-          <div class="prog-grid">
-            <div class="prog-card full">
-              <h4>Evolução do peso corporal</h4>
-              <div class="prog-ph">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 14 3-4 3 3 4-7"/></svg>
-                <span id="prog-peso-msg">Aqui um gráfico com o progresso do aluno.</span>
+        <!-- ABA: HISTÓRICO — uso do app; linha do tempo | prévia do Portal (ui-tab-historico.js).
+             Marcação estática: a linha do tempo, a prévia e o uso do app ligam os botões deles uma vez. -->
+        <div class="tab-panel" id="tab-historico" role="tabpanel" aria-labelledby="aba-historico">
+          <div class="cards-geral">
+            <section class="card card-largo" id="card-uso-app" aria-labelledby="card-uso-app-t">
+              <header class="card-hd"><h2 class="card-t" id="card-uso-app-t">Uso do app</h2></header>
+              <div class="card-bd hi-uso">
+                <div class="hi-adesao"><h3 class="sa-t">Adesão aos hábitos</h3><div id="prog-adesao"></div></div>
+                <div class="hi-medalhas"><h3 class="sa-t">Medalhas</h3><div id="prog-medalhas"></div></div>
               </div>
-            </div>
-            <div class="prog-card">
-              <h4>% Gordura / Massa magra</h4>
-              <div class="prog-ph">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="13" y="6" width="3" height="11"/></svg>
-                <span>Gráfico disponível após definirmos os dados da avaliação.</span>
+            </section>
+            <section class="card card-largo" id="card-historico" aria-labelledby="card-historico-t">
+              <header class="card-hd">
+                <h2 class="card-t" id="card-historico-t">Histórico</h2>
+                <div class="hi-seletor" id="hi-seletor" role="tablist" aria-label="O que mostrar no histórico">
+                  <button class="hi-seg" role="tab" id="hi-seg-tempo" aria-controls="hi-tempo" aria-selected="true" tabindex="0" data-hist="tempo" type="button">Linha do tempo</button>
+                  <button class="hi-seg" role="tab" id="hi-seg-portal" aria-controls="hi-portal" aria-selected="false" tabindex="-1" data-hist="portal" type="button">Prévia do Portal</button>
+                </div>
+              </header>
+              <div class="card-bd">
+                <div class="hi-painel" id="hi-tempo" role="tabpanel" aria-labelledby="hi-seg-tempo">
+                  <p class="hint" style="margin:0 0 14px">Check-ins, fotos, feedbacks e edições de ficha deste aluno — feitos por ele no app ou no Portal, ou por você aqui na Gestão.</p>
+                  <div class="reg-filtros"><div id="reg-filtros"></div></div>
+                  <div id="reg-lista"></div>
+                  <button class="btn ghost btn-sm" id="reg-mais" type="button" hidden>Carregar mais</button>
+                </div>
+                <div class="hi-painel" id="hi-portal" role="tabpanel" aria-labelledby="hi-seg-portal" hidden>
+                  <div class="prv-barra">
+                    <button class="btn btn-sm" id="prv-prev" type="button">← semana</button>
+                    <span class="prv-lbl" id="prv-lbl"></span>
+                    <button class="btn btn-sm" id="prv-next" type="button">semana →</button>
+                    <button class="btn btn-sm ghost" id="prv-hoje" type="button">hoje</button>
+                    <span class="prv-nota">Somente leitura — nada que você fizer aqui é gravado na conta do aluno.</span>
+                  </div>
+                  <div class="prv-quadro"><iframe id="prv-frame" title="Portal do Aluno (prévia)" loading="lazy"></iframe></div>
+                </div>
               </div>
-            </div>
-            <div class="prog-card">
-              <h4>Evolução de medidas</h4>
-              <div class="prog-ph">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 16 4-3 3 2 4-6"/></svg>
-                <span>Cintura, quadril, tórax, braço…</span>
-              </div>
-            </div>
-            <div class="prog-card full">
-              <h4>Pontos que foram melhorados</h4>
-              <div class="insights" id="prog-insights">
-                <div class="note">Os destaques de evolução aparecerão aqui assim que houver avaliações com dados comparáveis (definimos os campos e os cálculos na próxima etapa).</div>
-              </div>
-            </div>
+            </section>
           </div>
         </div>
       </div>
+      <!-- Salvar global (ui-salvar-global.js): aparece quando há alteração não salva na ficha. -->
+      <div class="barra-salvar" id="barra-salvar" role="region" aria-label="Alterações da ficha" aria-live="polite" hidden></div>
     </section>
   </div>
 
@@ -380,6 +374,35 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: acesso ao Portal (menu ⋯ da ficha — ui-acoes-aluno.js) ============ -->
+  <div class="modal-bg" id="modal-acesso">
+    <div class="modal modal-estreito" role="dialog" aria-modal="true" aria-labelledby="modal-acesso-titulo">
+      <div class="modal-hd">
+        <h3 id="modal-acesso-titulo">Acesso ao Portal</h3>
+        <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-bd" id="modal-acesso-body"></div>
+      <div class="modal-ft"><button class="btn ghost" data-close type="button">Fechar</button></div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: excluir aluno, confirmando pelo ID (ui-acoes-aluno.js) ============ -->
+  <div class="modal-bg" id="modal-excluir">
+    <div class="modal modal-estreito" role="dialog" aria-modal="true" aria-labelledby="modal-excluir-titulo">
+      <form id="form-excluir">
+        <div class="modal-hd">
+          <h3 id="modal-excluir-titulo">Excluir aluno</h3>
+          <button class="modal-x" data-close type="button" aria-label="Fechar">×</button>
+        </div>
+        <div class="modal-bd" id="modal-excluir-body"></div>
+        <div class="modal-ft">
+          <button class="btn ghost" data-close type="button">Cancelar</button>
+          <button class="btn danger" id="btn-excluir-ok" type="submit" disabled>Excluir para sempre</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ============ MODAL: foto do Diário de Evolução, em tela cheia ============ -->
   <div class="modal-bg modal-foto" id="modal-foto">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-foto-titulo">
@@ -391,6 +414,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=14"></script>
+  <script type="module" src="./main.js?v=22"></script>
 </body>
 </html>

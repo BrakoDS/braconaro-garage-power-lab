@@ -1,21 +1,14 @@
 // @ts-check
 /**
- * Aba PAR-Q do perfil — o questionário de prontidão para atividade física, com
- * o resultado da triagem atualizado a cada resposta.
+ * O formulário do PAR-Q — o questionário de prontidão para atividade física,
+ * com o resultado da triagem atualizado a cada resposta.
  *
- * Saiu do `app.js` no fatiamento. As perguntas e a regra da triagem moram em
- * `saude.js`, as mesmas que o PDF da ficha usa.
- *
- * Quando desenha: na primeira vez que a aba abre depois de 'perfil-aberto',
- * como Dados, Matriz e Anamnese. Trocar de aba e voltar NÃO redesenha — as
- * respostas marcadas e ainda não salvas continuam marcadas.
+ * Era uma aba; hoje é uma seção do card Formulários da aba Saúde
+ * (ui-tab-saude.js), que o desenha e o lê para o salvar global. As perguntas
+ * e a regra da triagem moram em `saude.js`, as mesmas que o PDF usa.
  */
-import * as db from './db.js?v=14';
-import { esc } from './util/formato.js?v=14';
-import { $ } from './util/dom.js?v=14';
-import { estado, on, EVENTOS } from './estado.js?v=14';
-import { regParq } from './registro.js?v=14';
-import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=14';
+import { esc } from './util/formato.js?v=22';
+import { PARQ_PERGUNTAS, triagemParq } from './saude.js?v=22';
 
 /** O aviso de cada resultado da triagem ('' quando nada foi respondido). */
 const BANNER = {
@@ -28,7 +21,7 @@ const BANNER = {
 /** O aviso para estas respostas. @param {Record<string, string>} respostas */
 export function bannerParq(respostas) { return BANNER[triagemParq(respostas)]; }
 
-/** O formulário da aba (sem os eventos). @param {any} a */
+/** O formulário (sem os eventos). @param {any} a */
 export function htmlParq(a) {
   const p = (a && a.parq) || {}; const resp = p.respostas || {};
   const linhas = PARQ_PERGUNTAS.map((q, i) => `
@@ -47,12 +40,11 @@ export function htmlParq(a) {
         <div class="field"><label>Data da triagem</label><input name="data" type="date" value="${esc(p.data || '')}" /></div>
         <div class="field full"><label>Observações</label><textarea name="obs">${esc(p.obs)}</textarea></div>
       </div></div>
-      <div class="form-actions"><button class="btn" type="submit">Salvar PAR-Q</button><span class="saved-flag" data-saved>Salvo ✓</span></div>
     </form>`;
 }
 
 /** As respostas marcadas no formulário. @param {HTMLFormElement} form */
-function respostasDoForm(form) {
+export function respostasDoForm(form) {
   const fd = new FormData(form);
   /** @type {Record<string, string>} */ const respostas = {};
   for (let i = 0; i < PARQ_PERGUNTAS.length; i++) { const v = fd.get('q' + i); if (v) respostas['q' + i] = String(v); }
@@ -65,31 +57,13 @@ export function lerParq(form) {
   return { respostas: respostasDoForm(form), data: String(fd.get('data') || ''), obs: String(fd.get('obs') || '').trim() };
 }
 
-/** Desenha a aba do aluno e liga a triagem e o salvar. @param {any} a */
-function renderParq(a) {
-  const painel = $('#tab-parq'); if (!painel) return;
-  painel.innerHTML = htmlParq(a);
-  const form = $('#form-parq');
-  form.addEventListener('change', () => { $('#parq-result').innerHTML = bannerParq(respostasDoForm(form)); });
-  form.addEventListener('submit', (/** @type {Event} */ e) => {
-    e.preventDefault();
-    const parq = lerParq(form);
-    // O "antes" é a ficha do banco na hora de salvar (ver ui-tab-anamnese.js).
-    const antes = db.obter(a.id);
-    db.atualizar(a.id, { parq });
-    regParq(antes, parq);
-    estado.alunoAtual = db.obter(a.id);
-    const fl = $('[data-saved]', form); fl.classList.add('show'); setTimeout(() => fl.classList.remove('show'), 1500);
-  });
-}
-
-/** Liga a aba ao barramento. Chamar uma vez, antes do resto do app. */
-export function iniciarTabParq() {
-  let desenhada = false;
-  on(EVENTOS.PERFIL_ABERTO, () => { desenhada = false; });
-  on(EVENTOS.ABRIR_ABA, (nome) => {
-    if (nome !== 'parq' || desenhada || !estado.alunoAtual) return;
-    renderParq(estado.alunoAtual);
-    desenhada = true;
-  });
+/**
+ * O PAR-Q por caminho de campo, para o salvar global: cada resposta no seu
+ * caminho ('parq.respostas.q3'), a data e as observações.
+ * @param {{ respostas: Record<string, string>, data: string, obs: string }} p
+ */
+export function caminhosDoParq(p) {
+  /** @type {Record<string, any>} */ const r = { 'parq.data': p.data, 'parq.obs': p.obs };
+  for (let i = 0; i < PARQ_PERGUNTAS.length; i++) r[`parq.respostas.q${i}`] = p.respostas['q' + i];
+  return r;
 }

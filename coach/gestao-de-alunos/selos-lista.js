@@ -11,14 +11,14 @@
  *     Chamada no login, depois do sync (boot.js). Silenciosa em falha: sem
  *     selo, a lista funciona igual.
  */
-import * as db from './db.js?v=14';
-import { carregarTodosGastos } from './nutricao-read.js?v=14';
-import { carregarTodasConclusoes } from './desafios-read.js?v=14';
+import * as db from './db.js?v=22';
+import { carregarTodosGastos } from './nutricao-read.js?v=22';
+import { carregarTodasConclusoes } from './desafios-read.js?v=22';
 import { carregarSemanasPausadas } from '../../compartilhado/firebase/semanas-pausadas.js';
-import { publicarRanking } from './ranking-sync.js?v=14';
-import { medalhasDaFicha } from '../../compartilhado/regras/gamificacao.js?v=14';
-import { isoLocal, semanaSegSab } from './util/formato.js?v=14';
-import { definirKcalDaSemana, definirMedalhas } from './ui-lista.js?v=14';
+import { publicarRanking } from './ranking-sync.js?v=22';
+import { medalhasDaFicha } from '../../compartilhado/regras/gamificacao.js?v=22';
+import { isoLocal, semanaSegSab } from './util/formato.js?v=22';
+import { definirKcalDaSemana, definirMedalhas } from './ui-lista.js?v=22';
 
 /** Calorias como número (aceita vírgula); 0 se não der. @param {unknown} v */
 const kcal = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
@@ -39,7 +39,7 @@ export function kcalDaSemana(gastosPorEmail, ini, fim) {
 }
 
 /**
- * Quantas medalhas cada aluno já tem (a mesma conta da aba Progresso,
+ * Quantas medalhas cada aluno já tem (a mesma conta do card Uso do app,
  * `medalhasDaFicha`), por id. Quem não tem nenhuma fica de fora.
  * @param {any[]} alunos @param {Map<string, any[]>} gastosPorEmail
  * @param {Map<string, any[]>} conclusoesPorEmail @param {string[]} pausadas

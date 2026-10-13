@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback } from './eventos.js?v=14';
+import { cortar, resumoFeedback } from './eventos.js?v=22';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -51,7 +51,7 @@ export const FILTROS_ORIGEM = [['todas', 'Todas'], ['app', 'App'], ['portal', 'P
 const ROTULO_CAMPO = {
   nome: 'Nome', email: 'E-mail', telefone: 'Telefone', nascimento: 'Nascimento', sexo: 'Sexo',
   endereco: 'Endereço', altura: 'Altura', peso: 'Peso', objetivo: 'Objetivo', nivel: 'Nível',
-  status: 'Status', obs: 'Observações', diasTreino: 'Dias de treino', horarios: 'Horários',
+  status: 'Status', obs: 'Nota clínica', diasTreino: 'Dias de treino', horarios: 'Horários',
   freqVezes: 'Frequência', foco: 'Foco', mensalidade: 'Mensalidade', vencimento: 'Vencimento',
   pagoPor: 'Pago por', parceria: 'Parceria', appLiberado: 'Acesso ao app', modoLite: 'Modo Lite', id: 'ID',
   anamnese: 'Anamnese', parq: 'PAR-Q', matriz: 'Matriz', matrizIndividualizacao: 'Matriz',

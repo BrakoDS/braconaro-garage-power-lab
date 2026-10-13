@@ -171,19 +171,36 @@ button{font-family:inherit}
 /* ============================================================
    TELA 2 — Perfil
    ============================================================ */
-/* ---------- Cabeçalho (ui-perfil.js) ----------
+/* ---------- O topo da ficha (ui-perfil.js) ----------
+   Cabeçalho + abas presos no topo, juntos (#perfil-topo). Na ficha (.na-ficha
+   no <html>) a barra global da Gestão solta: o topo da ficha toma o lugar dela,
+   em vez de as duas comerem a tela do celular. Ao rolar, .compacto encolhe o
+   topo para uma linha. Sem transição de tamanho: o ui-perfil.js mede a altura
+   logo depois de trocar a classe (--pc-folga), e uma animação falsearia a
+   medida. overflow-anchor:none impede o navegador de "corrigir" a rolagem
+   quando o topo encolhe — essa correção faria o topo crescer de novo. */
+.na-ficha{overflow-anchor:none}
+.na-ficha .topbar{position:relative}
+.na-ficha #tela-perfil .wrap{padding-bottom:calc(120px + var(--pc-folga,0px))}
+.perfil-topo{position:sticky;top:0;z-index:25;
+  margin:calc(-1 * clamp(18px,4vw,32px)) calc(-1 * clamp(16px,4vw,40px)) 22px;
+  padding:clamp(12px,3vw,22px) clamp(16px,4vw,40px) 0;
+  background:rgba(9,9,11,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line)}
+.perfil-topo.compacto{padding-top:8px;box-shadow:0 14px 28px -20px rgba(0,0,0,.95)}
+
+/* ---------- Cabeçalho ----------
    A foto grande leva o mesmo anel da lista (reavaliação atrasada / a vencer):
    o sinal que levou o coach a abrir a ficha continua ali. A câmera no canto
    diz que a foto se troca tocando nela. */
-.perfil-cab{margin-bottom:4px}
-.pc-acoes{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
-.pc-voltar{appearance:none;border:0;background:none;cursor:pointer;padding:8px 2px;color:var(--mut);
-  display:inline-flex;align-items:center;gap:6px;
+.perfil-cab{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"voltar voltar" "id acoes";
+  align-items:end;column-gap:24px;row-gap:10px}
+.pc-voltar{grid-area:voltar;justify-self:start;appearance:none;border:0;background:none;cursor:pointer;
+  padding:6px 8px 6px 0;margin-left:-4px;color:var(--mut);display:inline-flex;align-items:center;gap:2px;min-height:36px;
   font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.84rem}
-.pc-voltar span{font-size:1.4rem;line-height:.6}
 .pc-voltar:hover{color:var(--accent)}
 .pc-voltar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.pc-id{display:flex;align-items:center;gap:20px}
+.pc-id{grid-area:id;display:flex;align-items:center;gap:20px;min-width:0}
 .pc-foto{--anel:var(--line-2);position:relative;flex:0 0 auto;width:88px;height:88px;margin:6px;padding:0;border:0;
   border-radius:50%;cursor:pointer;background:var(--bg-3);color:var(--mut);display:grid;place-items:center;
   box-shadow:0 0 0 3px var(--bg),0 0 0 6px var(--anel);transition:opacity .2s ease}
@@ -203,21 +220,87 @@ button{font-family:inherit}
 .pc-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
 .pc-num{font-family:var(--font-display);font-size:1.05rem;line-height:1;color:var(--accent)}
 .pc-obj{margin-top:8px;color:var(--mut);font-size:.9rem}
-@media (max-width:560px){
+
+/* Selos: Status (.status, o mesmo da lista), Nível e Alerta médico.
+   Alerta: vermelho = lesão moderada/severa (muda a prescrição); âmbar = lesão
+   leve ou PAR-Q com "Sim". É botão: leva à aba onde o motivo se resolve. */
+.pc-selo{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line-2);
+  background:var(--bg-3);color:var(--txt);white-space:nowrap;line-height:1.2;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem}
+.pc-selo.alerta{cursor:pointer;transition:filter .15s ease}
+.pc-selo.alerta:hover{filter:brightness(1.2)}
+.pc-selo.alerta:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pc-selo.alerta.vermelho{color:#ffb4ae;background:rgba(255,91,80,.16);border-color:rgba(255,91,80,.65)}
+.pc-selo.alerta.ambar{color:#ffc477;background:rgba(255,158,27,.13);border-color:rgba(255,158,27,.55)}
+
+/* Ações: WhatsApp (o telefone salvo), PDF e o menu ⋯. */
+.pc-acoes{grid-area:acoes;display:flex;align-items:center;gap:8px}
+.pc-btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 14px;
+  border:1px solid var(--line-2);background:var(--bg-3);color:var(--txt);cursor:pointer;text-decoration:none;white-space:nowrap;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.8rem;
+  transition:border-color .15s ease,color .15s ease}
+.pc-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pc-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pc-btn:disabled{opacity:.4;cursor:not-allowed}
+.pc-btn.wa:not(:disabled) svg{color:var(--ok)}
+.pc-mais{width:40px;padding:0}
+.pc-mais[aria-expanded="true"]{border-color:var(--accent);color:var(--accent)}
+.pc-menu{position:relative}
+.pc-menu-lista{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:240px;padding:6px;
+  display:flex;flex-direction:column;background:var(--bg-2);border:1px solid var(--line-2);
+  box-shadow:0 20px 44px -14px rgba(0,0,0,.85)}
+.pc-menu-lista[hidden]{display:none}
+.pc-menu-lista [role="menuitem"]{appearance:none;border:0;background:none;color:var(--txt);cursor:pointer;text-align:left;
+  display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;font-family:var(--font-body);font-size:.95rem}
+.pc-menu-lista [role="menuitem"] svg{color:var(--mut);flex:0 0 auto}
+.pc-menu-lista [role="menuitem"]:hover,.pc-menu-lista [role="menuitem"]:focus-visible{background:var(--bg-3);outline:none}
+.pc-menu-lista [role="menuitem"].perigo,.pc-menu-lista [role="menuitem"].perigo svg{color:var(--bad)}
+.pc-menu-lista [role="menuitem"].perigo:hover,.pc-menu-lista [role="menuitem"].perigo:focus-visible{background:rgba(255,91,80,.1)}
+.pc-menu-lista .so-compacto{display:none}
+.pc-menu-sep{height:1px;background:var(--line);margin:6px 4px}
+
+/* Compacto (rolou a página): uma linha — voltar, foto pequena, nome, selos, ações em ícone. */
+.compacto .perfil-cab{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"voltar id acoes";align-items:center;column-gap:10px;row-gap:0}
+.compacto .pc-voltar{margin-left:-8px;padding:6px 4px}
+.compacto .pc-voltar span,.compacto .pc-btn span,.compacto .pc-cam,.compacto .pc-obj,.compacto .pc-num{display:none}
+.compacto .pc-id{gap:12px}
+.compacto .pc-foto{width:40px;height:40px;margin:3px;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--anel)}
+.compacto .pc-ini{font-size:.95rem}
+.compacto .pc-nome{font-size:1.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.compacto .pc-meta{margin-top:3px;flex-wrap:nowrap;overflow:hidden;gap:6px}
+.compacto .pc-meta .status,.compacto .pc-selo,.compacto .pc-meta .ac-chip{font-size:.62rem;padding:2px 7px}
+.compacto .pc-btn{width:38px;min-height:38px;padding:0}
+
+/* Celular: as ações viram uma linha cheia embaixo do nome; compacto, sobram
+   WhatsApp e ⋯ (o PDF passa para dentro do menu) e, dos selos, só o alerta. */
+@media (max-width:640px){
+  .perfil-cab{grid-template-columns:minmax(0,1fr);grid-template-areas:"voltar" "id" "acoes";row-gap:12px}
   .pc-id{gap:16px}
   .pc-foto{width:72px;height:72px}
   .pc-ini{font-size:1.4rem}
+  .pc-acoes .pc-btn:not(.pc-mais){flex:1 1 0}
+  .compacto .perfil-cab{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"voltar id acoes"}
+  .compacto .pc-foto{width:36px;height:36px}
+  .compacto .pc-nome{font-size:1.1rem}
+  .compacto .pc-acoes .pc-btn:not(.pc-mais){flex:0 0 auto}
+  .compacto .pc-acoes [data-acao="pdf"]{display:none}
+  .compacto .pc-menu-lista .so-compacto{display:flex}
+  .compacto .pc-meta > :not(.alerta){display:none}
+  .compacto .pc-selo.alerta{padding:3px 5px}
+  .compacto .pc-selo.alerta span{display:none}
 }
 
 /* ---------- Abas (ui-perfil.js: ABAS) ----------
    Rolam de lado quando não cabem (celular), sem barra de rolagem à vista; a
    aba aberta é trazida para a vista. */
-.perfil-abas{display:flex;gap:2px;margin:22px 0;border-bottom:1px solid var(--line);
+.perfil-abas{display:flex;gap:2px;margin:16px 0 0;
   overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+.compacto .perfil-abas{margin-top:6px}
 .perfil-abas::-webkit-scrollbar{display:none}
 .perfil-aba{appearance:none;border:0;background:transparent;cursor:pointer;position:relative;flex:0 0 auto;
   padding:12px 16px;color:var(--mut);white-space:nowrap;scroll-snap-align:start;
   font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.9rem}
+.compacto .perfil-aba{padding:9px 14px}
 .perfil-aba::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:2px;background:var(--accent);
   transform:scaleX(0);transition:transform .2s ease}
 .perfil-aba:hover{color:var(--txt)}
@@ -231,7 +314,20 @@ button{font-family:inherit}
 .perfil-abas{padding-right:36px;
   -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);
   mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}
-@media (prefers-reduced-motion:reduce){ .perfil-aba::after,.pc-foto,.pc-cam{transition:none} }
+
+/* ---------- Modais do menu ⋯ (ui-acoes-aluno.js) ---------- */
+.modal.modal-estreito{max-width:480px}
+#modal-acesso .dlg-texto,#modal-excluir .dlg-texto{margin:0 0 14px;color:var(--mut);font-size:.95rem;line-height:1.5}
+#modal-acesso .dlg-texto b,#modal-excluir .dlg-texto b{color:var(--txt)}
+.ac-alvo{margin:0 0 12px;color:var(--mut-2);font-size:.85rem}
+.ac-alvo b{color:var(--txt);font-weight:600;overflow-wrap:anywhere}
+.ac-botoes{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:6px}
+.ac-botoes .btn:disabled{opacity:.5;cursor:wait}
+#modal-acesso .acesso-erro{margin:0 0 12px}
+.ex-id{font-family:var(--font-display);font-size:1rem;color:var(--accent);letter-spacing:.02em;text-transform:none;user-select:all}
+#btn-excluir-ok:disabled{opacity:.35;cursor:not-allowed}
+
+@media (prefers-reduced-motion:reduce){ .perfil-aba::after,.pc-foto,.pc-cam,.pc-btn,.pc-selo{transition:none} }
 
 
 /* ---------- Avatares e fotos ---------- */
@@ -280,26 +376,10 @@ button{font-family:inherit}
 .saved-flag{color:var(--ok);font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.08em;
   font-size:.8rem;align-self:center;opacity:0;transition:opacity .2s}
 .saved-flag.show{opacity:1}
-.lgpd-tag{display:inline-block;font-size:.82rem;color:var(--mut);margin-bottom:14px;padding:6px 12px;
-  border:1px solid var(--line-2);border-radius:20px}
-.lgpd-tag span.ok{color:var(--ok);font-weight:600}
-.lgpd-tag span.pendente{color:var(--bad);font-weight:600}
-.lgpd-tag span.semdado{color:var(--mut-2)}
-/* Acesso do aluno: criar a conta de login e mandar o link de senha. */
-.acesso-aluno{border:1px solid var(--line-2);background:var(--card);padding:12px 14px;margin-bottom:18px}
-.acesso-cab{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
-.acesso-cab > div{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 260px}
-.acesso-cab b{font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.06em;font-size:.82rem}
-.acesso-cab .hint{font-size:.78rem;color:var(--mut-2)}
-.acesso-res{margin-top:12px;padding-top:12px;border-top:1px solid var(--line-2)}
 .acesso-ok{color:var(--ok);font-size:.88rem;margin:0 0 10px}
 .acesso-erro{color:var(--bad);font-size:.88rem;margin:0}
-.acesso-acoes{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.acesso-acoes .hint{font-size:.78rem;color:var(--mut-2)}
-.acesso-cab .btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
 
-/* ---------- Aba 2: Avaliações (timeline) ---------- */
-.aval-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+/* ---------- Avaliações: a lista (ui-tab-avaliacoes.js) ---------- */
 .aval-list{display:flex;flex-direction:column;gap:10px}
 .aval-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;
   background:var(--card);border:1px solid var(--line);padding:14px 18px;cursor:pointer;text-align:left;
@@ -315,16 +395,9 @@ button{font-family:inherit}
 .aval-row .badge-ok{font-size:.66rem;color:var(--mut-2);font-family:var(--font-cond);text-transform:uppercase;
   letter-spacing:.06em;border:1px solid var(--line-2);padding:3px 8px;white-space:nowrap}
 
-/* ---------- Aba 3: Progresso ---------- */
-.prog-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-.prog-card{background:var(--card);border:1px solid var(--line);padding:22px;min-height:200px;
-  display:flex;flex-direction:column}
-.prog-card.full{grid-column:1/-1}
-.prog-card h4{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-  font-size:.86rem;margin:0 0 14px;color:var(--txt)}
+/* Aviso de "carregando" / "sem dado" dos cards de leitura (Treino, Histórico). */
 .prog-ph{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   border:1px dashed var(--line-2);color:var(--mut-2);text-align:center;padding:24px;font-size:.9rem}
-.prog-ph svg{width:34px;height:34px;opacity:.5}
 /* ---------- Desafios (emojis) ---------- */
 .des-emojis{display:flex;gap:6px;flex-wrap:wrap}
 .des-emoji{background:var(--bg-2);border:1px solid var(--line-2);cursor:pointer;font-size:1.2rem;line-height:1;padding:7px 9px;border-radius:8px}
@@ -592,7 +665,6 @@ button{font-family:inherit}
   .grid-form{grid-template-columns:1fr}
   .grid-form.g3{grid-template-columns:repeat(2,1fr)}
   .resultados{grid-template-columns:repeat(2,1fr)}
-  .prog-grid{grid-template-columns:1fr}
   .fab{left:clamp(16px,4vw,40px);text-align:center}
 }
 
@@ -883,23 +955,6 @@ button{font-family:inherit}
 .ac-chip-cortesia{color:var(--accent);background:rgba(245,197,24,.09);border-color:rgba(245,197,24,.28)}
 .ac-chip-coberto{color:var(--mut);border-color:var(--line-2)}
 
-.fa-eyebrow{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.22em;font-size:.72rem;color:var(--accent)}
-.fa-plano{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;
-  padding:18px 20px;background:var(--card);border:1px solid var(--line)}
-.fa-plano-l{display:flex;flex-direction:column;gap:4px;min-width:0}
-.fa-valor{font-family:var(--font-display);font-weight:400;font-size:2.1rem;line-height:1.05;letter-spacing:.01em}
-.fa-valor small{font-family:var(--font-body);font-size:.9rem;color:var(--mut);margin-left:4px}
-.fa-valor.fa-vazio{font-size:1.4rem;color:var(--mut)}
-.fa-plano-sub{color:var(--mut);font-size:.9rem}
-.fa-extras{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px}
-.fa-nota{color:var(--mut);font-size:.85rem}
-.fa-nota b{color:var(--txt);font-weight:600}
-.fa-aberto{display:flex;flex-direction:column;align-items:flex-end;text-align:right;
-  font-family:var(--font-cond);font-weight:700;font-size:1.5rem;line-height:1.1;font-variant-numeric:tabular-nums}
-.fa-aberto small{font-family:var(--font-body);font-weight:500;font-size:.78rem;color:var(--mut);margin-top:2px}
-.fa-aberto.bad{color:var(--bad)} .fa-aberto.warn{color:var(--warn)} .fa-aberto.ok{color:var(--ok)}
-
-.fa-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 12px}
 .fa-lista{display:grid;grid-template-columns:1fr;gap:10px}
 @media (min-width:760px){ .fa-lista{grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px} }
 .fa-fatura{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--line-2)}
@@ -938,4 +993,198 @@ button{font-family:inherit}
 .fa-pg-itens li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
 .fa-pg-total{display:flex;justify-content:space-between;margin:10px 0 6px;padding-top:10px;border-top:1px solid var(--line-2)}
 .fa-pg-total b{font-family:var(--font-cond);font-size:1.25rem}
-@media (max-width:560px){ .fa-aberto{align-items:flex-start;text-align:left} }
+
+/* ---------- Salvar global (ui-salvar-global.js) ----------
+   A barra aparece no rodapé quando há alteração não salva na ficha (e por um
+   instante depois de salvar). Fica fixa, por cima do conteúdo; o fim da página
+   ganha folga para o último campo não ficar escondido atrás dela. Nas abas com
+   pendência, um ponto âmbar ao lado do nome. */
+.barra-salvar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:30;
+  width:min(720px,calc(100% - 24px));display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 12px 10px 16px;background:var(--bg-2);border:1px solid rgba(255,158,27,.55);
+  box-shadow:0 18px 40px -14px rgba(0,0,0,.9),0 0 0 1px rgba(0,0,0,.4)}
+.barra-salvar[hidden]{display:none}
+.barra-salvar.ok{border-color:rgba(63,185,80,.5);justify-content:center}
+.bs-texto{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.bs-texto b{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.86rem;color:#ffc477}
+.bs-texto span{color:var(--mut);font-size:.82rem}
+.bs-texto .bs-ok{color:var(--ok)}
+.bs-acoes{display:flex;gap:8px;flex:0 0 auto}
+.na-ficha #tela-perfil .wrap{padding-bottom:calc(150px + var(--pc-folga,0px))}
+.perfil-aba.pendente::before{content:"";position:absolute;top:9px;right:6px;width:7px;height:7px;border-radius:50%;
+  background:var(--warn);box-shadow:0 0 0 2px var(--bg)}
+@media (max-width:640px){
+  .barra-salvar{bottom:0;width:100%;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-width:1px 0 0}
+  .bs-acoes .btn{min-height:42px}
+}
+
+/* ---------- Cards da ficha (ui-card.js) e aba Geral (ui-tab-geral.js) ----------
+   Modo leitura por padrão; o ✎ troca o corpo pelo formulário. Duas colunas no
+   desktop (o Financeiro ocupa as duas), uma no celular. */
+.cards-geral{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);padding:16px 18px 18px;min-width:0}
+.card.card-largo{grid-column:1/-1}
+.card-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.card-t{margin:0;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:.82rem;color:var(--accent)}
+.card-acoes{display:flex;gap:6px}
+.card-btn{appearance:none;border:1px solid var(--line-2);background:transparent;color:var(--mut);cursor:pointer;min-height:34px;padding:0 12px;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.74rem;transition:color .15s ease,border-color .15s ease}
+.card-btn:hover{color:var(--accent);border-color:var(--accent)}
+.card-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card-btn.pronto{color:var(--ok);border-color:rgba(63,185,80,.5)}
+.card-dl{margin:0;display:flex;flex-direction:column}
+.card-linha{display:grid;grid-template-columns:minmax(110px,38%) minmax(0,1fr);gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.card-linha:first-child{border-top:0;padding-top:0}
+.card-linha dt{color:var(--mut-2);font-size:.84rem}
+.card-linha dd{margin:0;color:var(--txt);font-size:.95rem;overflow-wrap:anywhere}
+.card-vazio{color:var(--mut-2)}
+.card-id{font-family:var(--font-display);color:var(--accent);letter-spacing:.02em}
+.card .grid-form{margin:0}
+/* Financeiro */
+.fg-plano{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 16px}
+.fg-valor{font-family:var(--font-display);font-size:1.9rem;line-height:1;color:var(--txt)}
+.fg-valor small{font-family:var(--font-body);font-size:.85rem;color:var(--mut);margin-left:4px}
+.fg-sem{font-family:var(--font-cond);font-size:1.1rem;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.fg-venc{color:var(--mut);font-size:.88rem}
+.fg-notas{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:.84rem}
+.fg-notas b{color:var(--txt);font-weight:600}
+.fg-dinamico{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.fg-situacao{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.fg-chip{font-size:.74rem;padding:4px 10px}
+.fg-ok{color:#9be3a6;background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.4)}
+.fg-warn{color:#ffc477;background:rgba(255,158,27,.13);border-color:rgba(255,158,27,.4)}
+.fg-bad{color:#ffb4ae;background:rgba(255,91,80,.14);border-color:rgba(255,91,80,.45)}
+.fg-neutro{color:var(--mut);background:var(--bg-3);border-color:var(--line-2)}
+.fg-aberto{color:var(--txt);font-size:.9rem}
+.fg-botoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.fg-faturas{margin-top:14px}
+/* Acesso */
+.fg-acesso-portal{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.fg-portal{color:var(--mut);font-size:.88rem}
+.fg-lgpd .ok{color:var(--ok)}
+.fg-lgpd .pendente{color:var(--warn)}
+.fg-lgpd .semdado{color:var(--mut-2)}
+.fg-acesso-portal .btn:disabled{opacity:.35;cursor:not-allowed}
+@media (max-width:640px){
+  .cards-geral{grid-template-columns:minmax(0,1fr)}
+  .card{padding:14px}
+  .card-linha{grid-template-columns:minmax(96px,40%) minmax(0,1fr)}
+  .fg-botoes .btn{flex:1 1 auto}
+}
+
+/* ---------- Aba Saúde (ui-tab-saude.js) ---------- */
+.sa-status{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+.sa-motivos{color:var(--mut);font-size:.88rem}
+.sa-bloco{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.sa-t{margin:0 0 10px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:.76rem;color:var(--mut)}
+.sa-lesoes{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.sa-lesao{padding:8px 12px;border-left:3px solid var(--line-2);background:var(--bg-2);font-size:.92rem}
+.sa-lesao.g-leve{border-left-color:var(--warn)}
+.sa-lesao.g-moderada,.sa-lesao.g-severa{border-left-color:var(--bad)}
+.sa-nota{margin:0;white-space:pre-wrap;color:var(--txt);font-size:.93rem}
+.sa-parq-linha{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.sa-data{color:var(--mut);font-size:.85rem}
+.sa-bloco .btn{margin-top:10px}
+#form-saude-alerta [data-lista-lesoes]{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.bio-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.bio-tile{display:flex;flex-direction:column;gap:4px;padding:12px;background:var(--bg-2);border:1px solid var(--line);min-width:0}
+.bio-rot{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:.72rem;color:var(--mut-2)}
+.bio-val{font-family:var(--font-display);font-size:1.7rem;line-height:1.05;color:var(--txt)}
+.bio-val small{font-family:var(--font-body);font-size:.8rem;color:var(--mut)}
+.bio-sub{color:var(--mut);font-size:.78rem;overflow-wrap:anywhere}
+.bio-nota{margin:10px 0 0}
+.sf-sec{border-top:1px solid var(--line)}
+.sf-sec:first-child{border-top:0}
+.sf-cab{display:flex;align-items:center;gap:10px}
+.sf-toggle{appearance:none;flex:1;display:flex;align-items:baseline;gap:12px;min-height:48px;padding:10px 0;border:0;background:none;color:var(--txt);cursor:pointer;text-align:left}
+.sf-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sf-titulo{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.95rem}
+.sf-resumo{color:var(--mut);font-size:.85rem}
+.sf-seta{margin-left:auto;color:var(--mut)}
+.sf-corpo{padding:4px 0 16px}
+.sf-sub{margin:14px 0 6px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.76rem;color:var(--accent)}
+.sf-sub:first-child{margin-top:0}
+.sf-pqs{margin:12px 0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.sf-pq{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;color:var(--mut)}
+.sf-r{flex:0 0 auto;font-family:var(--font-cond);letter-spacing:.06em;color:var(--mut-2)}
+.sf-r.sim{color:var(--warn)}
+.sf-r.nao{color:var(--ok)}
+@media (max-width:640px){
+  .bio-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bio-val{font-size:1.45rem}
+  /* O ✕ ao lado da data, e não numa linha inteira (o padrão da Matriz). */
+  #form-saude-alerta .mtz-lesao{grid-auto-flow:row dense}
+  #form-saude-alerta .mtz-lesao [data-remover-lesao]{grid-column:auto;justify-self:end;min-width:48px}
+}
+
+/* ---------- Aba Treino (ui-tab-treino.js) ----------
+   Os cards editáveis e os de leitura moram em duas zonas (para o ✎ redesenhar
+   só os primeiros); `display:contents` deixa os cards das duas no mesmo grid. */
+.tr-zona{display:contents}
+.tr-motor{margin-bottom:14px}
+.tr-sub{color:var(--mut);font-size:.84rem}
+.tr-rm{font-family:var(--font-display);font-size:1.15rem;font-weight:400;color:var(--txt);letter-spacing:.02em}
+.tr-aviso{color:var(--warn);font-weight:600}
+/* Em leitura, o 1RM numa linha e de onde ele veio embaixo (o card é meia largura). */
+#card-cargas .card-dl .tr-rm{display:block;margin-bottom:2px}
+.tr-ajuda{margin:0}
+.card .mtz-lev h5{margin:0 0 8px;font-size:.95rem;font-weight:600}
+.card .mtz-lev{margin-bottom:0}
+.tr-colunas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
+.tr-colunas > div > .sa-t{margin-top:2px}
+.tr-bloco-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.tr-bloco-top .sa-t{margin:0}
+.tr-trocas{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:.92rem}
+.tr-trocas s{color:var(--mut)}
+.tr-primeiro{margin-top:0}
+.tr-graficos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tr-graf{background:var(--bg-2);border:1px solid var(--line);padding:12px 14px;min-width:0}
+.tr-graf-t{margin:0 0 2px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.74rem;color:var(--mut)}
+.tr-ph{padding:18px 12px;min-height:0;text-align:center}
+#card-forca .tr-colunas > div{min-width:0}
+@media (max-width:640px){
+  .tr-colunas,.tr-graficos{grid-template-columns:minmax(0,1fr)}
+  .tr-colunas > div + div{margin-top:18px}
+  #card-adaptacoes .tr-colunas > .sa-bloco + .sa-bloco{margin-top:16px}
+}
+
+/* ---------- Aba Histórico (ui-tab-historico.js) ----------
+   Uso do app: adesão e medalhas lado a lado no desktop. O card Histórico troca
+   entre a linha do tempo e a prévia do Portal por um seletor segmentado. */
+.hi-uso{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:18px 28px}
+.hi-uso > div{min-width:0}
+#card-historico .card-hd{flex-wrap:wrap}
+.hi-seletor{display:inline-flex;border:1px solid var(--line-2);background:var(--bg-2)}
+.hi-seg{appearance:none;border:0;background:transparent;color:var(--mut);cursor:pointer;min-height:38px;padding:0 14px;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.76rem}
+.hi-seg + .hi-seg{border-left:1px solid var(--line-2)}
+.hi-seg:hover{color:var(--txt)}
+.hi-seg[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.hi-seg:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hi-painel[hidden]{display:none}
+/* O display do .btn vencia o atributo hidden: o "Carregar mais" da linha do tempo aparecia sempre. */
+#tab-historico .btn[hidden]{display:none}
+@media (max-width:640px){
+  .hi-uso{grid-template-columns:minmax(0,1fr)}
+  .hi-seletor{width:100%}
+  .hi-seg{flex:1 1 0;min-height:44px;padding:0 8px}
+}
+
+/* ---------- Aba Avaliações (ui-tab-avaliacoes.js) ----------
+   Um card: o resumo (os mesmos blocos da Biometria) e o histórico. */
+.aval-sumario{margin-bottom:16px}
+.bio-tile.ruim{border-color:rgba(255,91,80,.45)}
+.bio-tile.ruim .bio-sub{color:var(--bad)}
+.bio-tile.atencao{border-color:rgba(255,158,27,.45)}
+.bio-tile.atencao .bio-sub{color:var(--warn)}
+#card-avaliacoes .aval-row{background:var(--bg-2)}
+#card-avaliacoes .card-acoes{align-items:center;flex-wrap:wrap;justify-content:flex-end}
+#card-avaliacoes .card-acoes .btn{min-height:34px}
+#btn-comparar:disabled{opacity:.4;cursor:not-allowed}
+@media (max-width:640px){
+  #card-avaliacoes .card-hd{flex-wrap:wrap}
+  .aval-row{grid-template-columns:1fr auto;gap:8px 12px}
+  .aval-row .adatas{grid-column:1/-1;grid-row:2}
+}
+/* Cadastro curto (ui-modal-aluno.js): a nota de que o resto se completa na ficha. */
+.cad-nota{margin:2px 0 0;font-size:.84rem;color:var(--mut);line-height:1.45}

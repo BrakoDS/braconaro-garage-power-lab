@@ -3,7 +3,7 @@
  * O financeiro de UM aluno — puro, sem DOM e sem banco.
  *
  * Usado pela tela Financeiro do box (ui-tela-financeiro.js, um mês, todos os alunos) e pela
- * aba Financeiro do perfil (ui-tab-financeiro.js, um aluno, vários meses). As
+ * card Financeiro da ficha (ui-tab-geral.js e ui-tab-financeiro.js, um aluno, vários meses). As
  * regras de dinheiro de verdade continuam onde sempre estiveram, compartilhadas
  * com o Portal e o app mobile:
  *
@@ -20,7 +20,7 @@
  *     O Portal e o Pix cobram o total do mês, então não existe baixa por item.
  */
 import { faturaDoMes, faturaComDependentes, mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=14';
+import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=22';
 
 export const MESES_FIN = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 

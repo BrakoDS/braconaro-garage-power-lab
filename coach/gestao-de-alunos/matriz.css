@@ -1,48 +1,16 @@
 /* ============================================================
-   ABA "MATRIZ" DA FICHA DO ALUNO · Garage Power Lab
+   FORMULÁRIOS DA MATRIZ NA FICHA DO ALUNO · Garage Power Lab
 
-   Folha PRÓPRIA, e não mais regras no fim de `alunos.css`: esta aba nasceu
-   junto do Montador Híbrido, num branch paralelo ao que edita a Gestão. Um
-   arquivo separado é um arquivo que não conflita — e se a aba um dia sair, some
-   junto, sem deixar regra órfã numa folha de 900 linhas.
+   Era a folha da aba Matriz. A aba virou cards: o que sobrou aqui serve aos
+   formulários que vieram dela — Cargas de referência e Adaptações, na aba
+   Treino (ui-tab-treino.js), e as linhas de lesão, na aba Saúde
+   (ui-tab-saude.js, lesoes.js) — e ao resumo "O Motor vai aplicar".
 
    Usa os tokens de `alunos.css` (--accent, --card, --line…), que já está
    carregada na página. Nada de cor solta aqui.
    ============================================================ */
 
 .mtz { display: grid; gap: 18px; }
-
-.mtz-sec {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 16px 18px;
-}
-.mtz-sec h4 {
-  margin: 0 0 4px;
-  font-family: var(--font-cond);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .12em;
-  font-size: .82rem;
-  color: var(--accent);
-}
-.mtz-sec h5 {
-  margin: 0 0 8px;
-  font-size: .95rem;
-  font-weight: 600;
-}
-
-/* O texto de ajuda explica a REGRA, não o campo. Um "digite o peso" embaixo de
-   um campo chamado "Peso" é ruído; "leg press não puxa do 1RM de agachamento"
-   é o que evita o coach preencher errado. */
-.mtz-ajuda {
-  margin: 0 0 14px;
-  color: var(--mut);
-  font-size: .86rem;
-  line-height: 1.5;
-}
-.mtz-ajuda b { color: var(--txt); }
 
 .mtz-grid {
   display: grid;
@@ -156,20 +124,6 @@
 
 /* ---------- lesões ---------- */
 
-.mtz-lesoes { margin-top: 16px; }
-.mtz-lesoes-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-  font-family: var(--font-cond);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  font-size: .72rem;
-  color: var(--mut);
-}
-.mtz-lesoes-top span { flex: 1; }
 /* Colunas fixas para as quatro primeiras e o ✕ no fim: as linhas de lesão se
    leem em coluna ("todas as regiões", "todas as datas"), e larguras automáticas
    desalinhariam cada linha conforme o texto digitado. */

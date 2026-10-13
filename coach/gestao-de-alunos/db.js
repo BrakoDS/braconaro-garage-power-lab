@@ -15,8 +15,8 @@
  * Continua local-first: toda função aqui é síncrona e responde do cache; a
  * nuvem vem atrás.
  */
-import { criarCache } from './db-cache.js?v=14';
-import { criarSync } from './db-sync.js?v=14';
+import { criarCache } from './db-cache.js?v=22';
+import { criarSync } from './db-sync.js?v=22';
 
 const cache = criarCache();
 
@@ -36,7 +36,7 @@ function idDoAparelho() {
 const sync = criarSync({
   cache,
   aparelho: idDoAparelho(),
-  abrirPorta: async (uid) => (await import('./db-firestore.js?v=14')).portaFirestore(uid),
+  abrirPorta: async (uid) => (await import('./db-firestore.js?v=22')).portaFirestore(uid),
 });
 
 let _aoGravar = null;
@@ -69,7 +69,7 @@ export async function enviarAgora() {
  */
 export async function iniciarSync(uid, aoAtualizar) {
   try {
-    const fs = await import('./db-firestore.js?v=14');
+    const fs = await import('./db-firestore.js?v=22');
     if (!fs.cloudAtivo() || !uid) return undefined;
     return await sync.iniciar(uid, aoAtualizar);
   } catch (e) {
@@ -142,11 +142,17 @@ export function criar(dados) {
   return cache.obter(id);
 }
 
-/** Atualiza campos de um aluno. @param {string} id @param {any} dados */
-export function atualizar(id, dados) {
+/**
+ * Atualiza campos de um aluno.
+ * @param {string} id @param {any} dados
+ * @param {{ remover?: string[] }} [o] remover: campos do topo a tirar da ficha
+ *   (a ficha sobe inteira para a nuvem, sem mesclar — tirar aqui é tirar lá)
+ */
+export function atualizar(id, dados, o = {}) {
   const a = cache.obter(id);
   if (!a) return null;
   Object.assign(a, dados);
+  for (const campo of o.remover || []) delete a[campo];
   cache.gravarAluno(a);
   gravou();
   return cache.obter(id);
