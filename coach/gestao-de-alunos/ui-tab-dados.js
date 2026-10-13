@@ -7,25 +7,23 @@
  * `lerForm`) também é o do cadastro de aluno novo, por isso é exportado: o
  * modal do "+ Cadastrar novo aluno" usa o mesmo, campo por campo.
  *
- * Quando desenha: na primeira vez que a aba abre depois de 'perfil-aberto'.
- * Trocar de aba e voltar NÃO redesenha — o que o coach digitou e ainda não
- * salvou continua no formulário, como sempre foi.
- *
- * Ao salvar, só grava (`db.atualizar`): a gravação já publica o Portal e emite
- * 'alunos-mudaram' (ver boot.js), e é isso que atualiza a lista e o cabeçalho.
+ * Quem desenha e grava é o salvar global (ui-salvar-global.js): a aba se
+ * desenha toda vez que abre, a partir da ficha com o rascunho por cima — o que
+ * o coach digitou e ainda não salvou continua lá —, e o que mudou vai para a
+ * gravação única da ficha (que publica o Portal e emite 'alunos-mudaram').
  *
  * Excluir o aluno e o fluxo de Criar acesso moram no ui-acoes-aluno.js (menu ⋯
  * do cabeçalho); aqui ficou só o resumo do acesso, cujo botão abre o mesmo modal.
  */
-import * as db from './db.js?v=15';
-import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=15';
-import { $, $$ } from './util/dom.js?v=15';
-import { estado, on, emit, EVENTOS } from './estado.js?v=15';
-import { regFicha } from './registro.js?v=15';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=15';
+import * as db from './db.js?v=16';
+import { esc, opt, horaParaInput, STATUS_LABEL } from './util/formato.js?v=16';
+import { $, $$ } from './util/dom.js?v=16';
+import { estado, on, emit, EVENTOS } from './estado.js?v=16';
+import { registrarFormulario } from './ui-salvar-global.js?v=16';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=16';
 import { GRUPOS, GRUPO_LABEL } from '../../compartilhado/regras/grupos.js';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=15';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=16';
 
 /* ============================================================
    O formulário (o mesmo do cadastro)
@@ -265,46 +263,33 @@ export function htmlAbaDados(a, o = {}) {
     <div class="acesso-aluno" id="acesso-aluno"></div>
     <form id="form-dados">
       ${formDadosHTML(a, o)}
-      <div class="form-actions">
-        <button class="btn" type="submit">Salvar alterações</button>
-        <span class="saved-flag" data-saved>Salvo ✓</span>
-      </div>
     </form>`;
 }
 
-/** Desenha a aba Dados do aluno e liga os eventos. @param {any} a */
+/**
+ * Desenha a aba com a ficha recebida (no app, a ficha com o rascunho por
+ * cima). O consentimento e o acesso mostram o que está SALVO: são estado da
+ * conta, não do formulário.
+ * @param {any} a
+ */
 function renderDados(a) {
   const painel = $('#tab-dados'); if (!painel) return;
+  const salvo = db.obter(a.id) || a;
   painel.innerHTML = htmlAbaDados(a);
-  carregarConsentimentoAluno(a);
-  renderAcessoAluno(a);
-  const form = $('#form-dados');
-  wireForm(form);
-  form.addEventListener('submit', (/** @type {Event} */ e) => {
-    e.preventDefault();
-    const antes = db.obter(a.id);
-    const novo = lerForm(form);
-    // A gravação publica o Portal e emite 'alunos-mudaram': a lista e o
-    // cabeçalho se atualizam por lá (boot.js → db.aoGravar).
-    db.atualizar(a.id, novo);
-    regFicha(antes, novo);
-    estado.alunoAtual = db.obter(a.id);
-    const flag = $('[data-saved]', form); flag.classList.add('show'); setTimeout(() => flag.classList.remove('show'), 1600);
-    // O e-mail salvo é o que habilita o "Criar acesso", e o app liberado muda o título.
-    renderAcessoAluno(estado.alunoAtual);
-  });
+  carregarConsentimentoAluno(salvo);
+  renderAcessoAluno(salvo);
+  wireForm($('#form-dados'));
 }
 
-/** Liga a aba ao barramento. Chamar uma vez, antes do resto do app. */
+/** Liga a aba ao salvar global. Chamar uma vez, antes do resto do app (depois de `iniciarSalvarGlobal`). */
 export function iniciarTabDados() {
-  let desenhada = false;
-  on(EVENTOS.PERFIL_ABERTO, () => { desenhada = false; });
-  on(EVENTOS.ABRIR_ABA, (nome) => {
-    if (nome !== 'dados' || desenhada || !estado.alunoAtual) return;
-    renderDados(estado.alunoAtual);
-    desenhada = true;
+  registrarFormulario({
+    aba: 'dados',
+    desenhar: renderDados,
+    ler: () => { const form = $('#form-dados'); return form ? lerForm(form) : null; },
   });
-  // O link gerado no modal de acesso grava `acessoEnviadoEm`: o bloco de acesso
-  // se atualiza sozinho. Só o bloco — o formulário guarda o que foi digitado.
-  on(EVENTOS.ALUNOS_MUDARAM, () => { if (desenhada && estado.alunoAtual) renderAcessoAluno(estado.alunoAtual); });
+  // O link gerado no modal de acesso grava `acessoEnviadoEm`, e salvar o e-mail
+  // habilita o "Criar acesso": o bloco de acesso se atualiza sozinho. Só o
+  // bloco — o formulário é do salvar global.
+  on(EVENTOS.ALUNOS_MUDARAM, () => { if ($('#acesso-aluno') && estado.alunoAtual) renderAcessoAluno(estado.alunoAtual); });
 }

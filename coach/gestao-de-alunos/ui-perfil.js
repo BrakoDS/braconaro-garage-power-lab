@@ -31,12 +31,12 @@
  * `#tab-<id>` no index.html. A barra rola de lado no celular e segue o padrão
  * de tablist (setas do teclado trocam de aba).
  */
-import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=15';
-import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=15';
-import { estado, on, emit, EVENTOS } from './estado.js?v=15';
-import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=15';
-import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=15';
-import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=15';
+import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=16';
+import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=16';
+import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=16';
+import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=16';
+import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=16';
+import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=16';
 
 /** As abas da ficha, na ordem da barra. `id` casa com o painel `#tab-<id>`. */
 export const ABAS = Object.freeze([
@@ -268,7 +268,8 @@ export function iniciarPerfil(d) {
     const alvo = /** @type {HTMLElement} */ (e.target).closest?.('[data-acao]');
     if (!(alvo instanceof HTMLElement) || alvo.getAttribute('role') === 'menuitem') return; // item do menu: ligarMenu trata
     const acao = alvo.dataset.acao;
-    if (acao === 'voltar') emit(EVENTOS.VOLTAR_LISTA);
+    // Sair da ficha passa pela guarda: com alterações não salvas, ela pergunta antes.
+    if (acao === 'voltar') sairComCuidado(() => emit(EVENTOS.VOLTAR_LISTA));
     else if (acao === 'pdf') emit(EVENTOS.EXPORTAR_FICHA);
     else if (acao === 'foto') emit(EVENTOS.TROCAR_FOTO);
     else if (acao === 'alerta' && alvo.dataset.aba) emit(EVENTOS.ABRIR_ABA, alvo.dataset.aba);

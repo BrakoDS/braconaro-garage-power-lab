@@ -21,7 +21,7 @@
  *
  * Plano: docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md.
  */
-import { canonico } from './db-migracao.js?v=15';
+import { canonico } from './db-migracao.js?v=16';
 
 /** @param {any} v */
 const copia = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
@@ -36,8 +36,12 @@ const ehMapa = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
  */
 const vazio = (v) => v === undefined || v === null || v === ''
   || (Array.isArray(v) && !v.length) || (ehMapa(v) && !Object.keys(v).length);
-/** @param {any} x @param {any} y */
-const igual = (x, y) => (vazio(x) && vazio(y)) || canonico(x) === canonico(y);
+/**
+ * Os dois valores são o mesmo para o formulário? (vazio = ausente; o resto, pelo conteúdo)
+ * @param {any} x @param {any} y
+ */
+export const mesmoValor = (x, y) => (vazio(x) && vazio(y)) || canonico(x) === canonico(y);
+const igual = mesmoValor;
 
 /**
  * O valor num caminho ('a.b.c'), ou undefined.

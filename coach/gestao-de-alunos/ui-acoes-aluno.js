@@ -14,13 +14,14 @@
  * O HTML de cada estado é puro (testado em ui-acoes-aluno.test.js); a fiação
  * fica em `iniciarAcoesAluno`.
  */
-import * as db from './db.js?v=15';
-import { esc } from './util/formato.js?v=15';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=15';
-import { estado, on, emit, EVENTOS } from './estado.js?v=15';
-import { apagarFotosDoAluno } from './ui-fotos.js?v=15';
-import * as eventos from './eventos.js?v=15';
-import { criarAcesso as criarAcessoReal, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=15';
+import * as db from './db.js?v=16';
+import { esc } from './util/formato.js?v=16';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=16';
+import { estado, on, emit, EVENTOS } from './estado.js?v=16';
+import { apagarFotosDoAluno } from './ui-fotos.js?v=16';
+import * as eventos from './eventos.js?v=16';
+import { criarAcesso as criarAcessoReal, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=16';
+import { valorPendente } from './ui-salvar-global.js?v=16';
 
 /* ============================================================
    Acesso ao Portal — HTML (puro)
@@ -45,8 +46,7 @@ export function htmlModalAcesso(a, f) {
       <div class="ac-botoes"><button class="btn btn-sm" type="button" data-acesso="ir-dados">Ir para Dados</button></div>`;
   }
   if (f.fase === 'email-nao-salvo') {
-    return `${alvo}<p class="dlg-texto">O e-mail da ficha mudou e ainda não foi salvo. Salve a aba <b>Dados</b> e gere o acesso depois — o servidor confere o e-mail salvo.</p>
-      <div class="ac-botoes"><button class="btn btn-sm" type="button" data-acesso="ir-dados">Ir para Dados</button></div>`;
+    return `${alvo}<p class="dlg-texto">O e-mail da ficha mudou e ainda não foi salvo. Salve a ficha (botão <b>Salvar</b> no rodapé) e gere o acesso depois — o servidor confere o e-mail salvo.</p>`;
   }
   if (f.fase === 'ok') {
     return `${alvo}<p class="acesso-ok">${f.criado ? '✓ Conta criada.' : '✓ O aluno já tinha conta — a senha dele não mudou; o link novo permite trocar.'} O link vale por 1 hora.</p>
@@ -66,7 +66,7 @@ export function htmlModalAcesso(a, f) {
 
 /**
  * A fase em que o modal abre.
- * @param {any} a a ficha salva @param {string|null} [emailNoFormulario] o e-mail digitado na aba Dados, se ela estiver aberta
+ * @param {any} a a ficha salva @param {string|null} [emailNoFormulario] o e-mail alterado e ainda não salvo, se houver
  * @returns {FaseAcesso}
  */
 export function faseInicialAcesso(a, emailNoFormulario = null) {
@@ -117,8 +117,9 @@ function desenharAcesso(f) {
 function abrirAcesso(id) {
   const a = db.obter(id); if (!a) return;
   alvoId = id; convite = '';
-  const campo = /** @type {HTMLInputElement|null} */ ($('#form-dados input[name=email]'));
-  desenharAcesso(faseInicialAcesso(a, campo ? campo.value : null));
+  // E-mail mexido e não salvo: o servidor conferiria o antigo.
+  const pendente = valorPendente('email');
+  desenharAcesso(faseInicialAcesso(a, pendente === undefined ? null : String(pendente || '')));
   abrirModal('modal-acesso');
 }
 
