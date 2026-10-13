@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import {
   resumoDosDias, htmlCardPerfil, htmlCardContato, htmlCardAcesso, htmlAcessoPortal, htmlCardFinanceiro,
   htmlFinanceiroDinamico, faturaParaPagar, htmlAbaGeral, CARDS_EDITAVEIS,
-} from './ui-tab-geral.js?v=18';
-import { botaoEditar, htmlLinhas } from './ui-card.js?v=18';
-import { formDadosHTML, CAMPOS } from './ui-tab-dados.js?v=18';
+} from './ui-tab-geral.js?v=19';
+import { botaoEditar, htmlLinhas } from './ui-card.js?v=19';
+import { formDadosHTML, CAMPOS } from './ui-tab-dados.js?v=19';
 
 const HOJE = '2026-10-11';
 const ana = {
@@ -38,10 +38,10 @@ test('perfil: dias com a hora de cada um; dia sem hora própria usa a hora antig
   assert.equal(resumoDosDias({}), '');
 });
 
-test('perfil: idade, objetivo, frequência e dias — só leitura; o ✎ leva à aba onde se edita', () => {
+test('perfil: idade, objetivo, frequência e dias — só leitura; o ✎ abre o Perfil de treino da aba Treino', () => {
   const h = htmlCardPerfil(ana, HOJE);
   for (const t of ['31 anos', 'Hipertrofia', '3x por semana', 'Seg 7h · Qua 19h']) assert.ok(h.includes(t), t);
-  assert.match(h, /data-ir-aba="dados"/);
+  assert.match(h, /data-ir-aba="treino" data-editar="perfil-treino"/);
   assert.doesNotMatch(h, /<form|data-modo/, 'o card Perfil não tem formulário próprio');
 });
 

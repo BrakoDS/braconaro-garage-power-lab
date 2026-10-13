@@ -18,17 +18,17 @@
  * salvar global (ui-salvar-global.js), que desenha a aba a partir da ficha COM
  * o rascunho e grava pela barra do rodapé.
  */
-import { esc, hoje, fmtData, fmtN } from './util/formato.js?v=18';
-import { $ } from './util/dom.js?v=18';
-import { on, emit, EVENTOS } from './estado.js?v=18';
-import { registrarFormulario, redesenharAberta, comPrefixo } from './ui-salvar-global.js?v=18';
-import { camposDados, wireForm, lerCampos, CAMPOS } from './ui-tab-dados.js?v=18';
-import { biometriaAtual, idadeDoAluno, alertaMedico } from './perfil-derivados.js?v=18';
-import { CAMINHO_LESOES, linhaLesao, lesoesDe, normalizarLesoes, descreverLesao, lerLinhasDeLesao } from './lesoes.js?v=18';
-import { ANAMNESE_SECOES, ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq } from './saude.js?v=18';
-import { htmlAnamnese, lerAnamnese } from './ui-tab-anamnese.js?v=18';
-import { htmlParq, lerParq, caminhosDoParq, bannerParq, respostasDoForm } from './ui-tab-par-q.js?v=18';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=18';
+import { esc, hoje, fmtData, fmtN } from './util/formato.js?v=19';
+import { $ } from './util/dom.js?v=19';
+import { on, emit, EVENTOS } from './estado.js?v=19';
+import { registrarFormulario, redesenharAberta, comPrefixo } from './ui-salvar-global.js?v=19';
+import { camposDados, wireForm, lerCampos, CAMPOS } from './ui-tab-dados.js?v=19';
+import { biometriaAtual, idadeDoAluno, alertaMedico } from './perfil-derivados.js?v=19';
+import { CAMINHO_LESOES, linhaLesao, lesoesDe, normalizarLesoes, descreverLesao, lerLinhasDeLesao } from './lesoes.js?v=19';
+import { ANAMNESE_SECOES, ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq } from './saude.js?v=19';
+import { htmlAnamnese, lerAnamnese } from './ui-tab-anamnese.js?v=19';
+import { htmlParq, lerParq, caminhosDoParq, bannerParq, respostasDoForm } from './ui-tab-par-q.js?v=19';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=19';
 
 /* ============================================================
    HTML (puro)

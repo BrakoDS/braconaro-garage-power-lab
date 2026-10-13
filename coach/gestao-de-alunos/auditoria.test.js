@@ -16,11 +16,11 @@ globalThis.localStorage = /** @type {any} */ ({
   getItem: (k) => (memoria.has(k) ? memoria.get(k) : null), setItem: (k, v) => memoria.set(k, String(v)), removeItem: (k) => memoria.delete(k),
 });
 
-const { eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, novoConsumo } = await import('./financeiro-aluno.js?v=18');
-const { regFinanceiro } = await import('./registro.js?v=18');
-const eventos = await import('./eventos.js?v=18');
-const { on, EVENTOS } = await import('./estado.js?v=18');
-const { TIPOS, CATEGORIAS, filtrarEventos, linhaHTML } = await import('./registros-ui.js?v=18');
+const { eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, novoConsumo } = await import('./financeiro-aluno.js?v=19');
+const { regFinanceiro } = await import('./registro.js?v=19');
+const eventos = await import('./eventos.js?v=19');
+const { on, EVENTOS } = await import('./estado.js?v=19');
+const { TIPOS, CATEGORIAS, filtrarEventos, linhaHTML } = await import('./registros-ui.js?v=19');
 
 const NB = (s) => s.replace(/ /g, ' ');
 const ana = { id: 'Ana', nome: 'Ana Lima', vencimento: '10', pagamentos: {} };
@@ -95,7 +95,7 @@ test('auditoria: as três telas que dão baixa usam a MESMA regra, e a trilha sa
 
 /* ---------- fatiamento de Registros e Matriz ---------- */
 
-test('fatiamento: Registros e Matriz moram nos módulos delas, ligadas no main.js', async () => {
+test('fatiamento: Registros e Treino (que absorveu a Matriz) moram nos módulos deles, ligados no main.js', async () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
   const app = ler('./boot.js');
   for (const resto of ['function abrirRegistros', 'function desenharRegistros', 'function atualizarRegistros', 'regFiltro',
@@ -103,23 +103,22 @@ test('fatiamento: Registros e Matriz moram nos módulos delas, ligadas no main.j
     assert.ok(!app.includes(resto), `app.js ainda tem ${resto}`);
   }
   const main = ler('./telas.js');
-  assert.match(main, /iniciarTabMatriz\(\);/);
+  assert.match(main, /iniciarTabTreino\(\);/);
   assert.match(main, /iniciarTabRegistros\(\);/);
   assert.ok(main.indexOf('iniciarTabRegistros();') < main.length, 'as abas ligam antes do app');
-  const matriz = await import('./ui-tab-matriz.js?v=18');
-  const registros = await import('./ui-tab-registros.js?v=18');
-  assert.equal(typeof matriz.iniciarTabMatriz, 'function');
-  assert.equal(typeof matriz.montar, 'function');
+  const treino = await import('./ui-tab-treino.js?v=19');
+  const registros = await import('./ui-tab-registros.js?v=19');
+  assert.equal(typeof treino.iniciarTabTreino, 'function');
   assert.equal(typeof registros.iniciarTabRegistros, 'function');
 });
 
 test('log da Matriz: o salvar global compara com a ficha do banco na hora de salvar, e chama o campo de "Matriz"', async () => {
-  // A Matriz não grava mais sozinha: quem grava (e registra) é o salvar global.
-  const matriz = readFileSync(new URL('./ui-tab-matriz.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(matriz, /db\.atualizar\(|regFicha\(/);
+  // A aba Treino (onde a Matriz se edita) não grava sozinha: quem grava (e registra) é o salvar global.
+  const treino = readFileSync(new URL('./ui-tab-treino.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(treino, /db\.atualizar\(|regFicha\(/);
   const fonte = readFileSync(new URL('./ui-salvar-global.js', import.meta.url), 'utf8');
   assert.match(fonte, /const a = db\.obter\(alunoId\);[^]{0,1600}?db\.atualizar\(alunoId, patch\);\s*\n\s*if \(Object\.keys\(resto\)\.length\) regFicha\(a, resto\);/,
     'a ficha de antes é lida do banco na hora de salvar, e o log compara com ela');
-  const { resumoFicha } = await import('./registros-ui.js?v=18');
+  const { resumoFicha } = await import('./registros-ui.js?v=19');
   assert.equal(resumoFicha(['matrizIndividualizacao', 'nivel']), 'Ficha editada · Matriz, Nível');
 });

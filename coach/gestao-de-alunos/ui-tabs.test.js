@@ -8,12 +8,13 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formDadosHTML, htmlAbaDados, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=18';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=18';
-import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=18';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=18';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=18';
-import { EVENTOS } from './estado.js?v=18';
+import { formDadosHTML, calcIdade, waLink, DIAS_FORM } from './ui-tab-dados.js?v=19';
+import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=19';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao } from './ui-tab-avaliacoes.js?v=19';
+import { htmlAbaFinanceiro, htmlFatura, htmlResumo, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=19';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=19';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=19';
+import { EVENTOS } from './estado.js?v=19';
 
 /* ---------- util/formato.js ---------- */
 
@@ -76,10 +77,10 @@ test('dados: texto da ficha é escapado no formulário', () => {
   assert.doesNotMatch(h, /<script>|<\/textarea><b>/);
 });
 
-test('perfil de treino (aba dados): objetivo, nível, foco, frequência e dias — o resto foi para a Geral e a Saúde', () => {
-  const h = htmlAbaDados(ana);
-  assert.match(h, /id="form-dados"/);
-  for (const n of ['objetivo', 'nivel', 'foco', 'freqVezes', 'diasTreino']) assert.match(h, new RegExp(`name="${n}"`), n);
+test('perfil de treino (card da aba Treino): objetivo, nível, fase, foco, frequência e dias — o resto foi para a Geral e a Saúde', () => {
+  const h = htmlCardPerfilTreino(ana, true);
+  assert.match(h, /id="form-treino-perfil"/);
+  for (const n of ['objetivo', 'nivel', 'fase', 'focoPrimario', 'focoSecundario', 'freqVezes', 'diasTreino']) assert.match(h, new RegExp(`name="${n}"`), n);
   for (const n of ['nome', 'telefone', 'email', 'endereco', 'status', 'appLiberado', 'modoLite', 'mensalidade', 'vencimento', 'pagoPorId', 'nascimento', 'sexo', 'altura', 'peso', 'obs']) {
     assert.doesNotMatch(h, new RegExp(`name="${n}"`), `${n} mora num card da aba Geral ou da Saúde`);
   }

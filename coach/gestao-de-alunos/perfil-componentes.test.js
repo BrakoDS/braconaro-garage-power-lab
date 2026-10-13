@@ -47,18 +47,18 @@ let tela = {};
 const el = (s) => (tela[s] ||= elemento(s));
 globalThis.document = /** @type {any} */ ({
   querySelector: (s) => el(s),
-  querySelectorAll: (s) => (s === '.tab-panel' ? ['dados', 'progresso', 'portal'].map((n) => el('#tab-' + n)) : []),
+  querySelectorAll: (s) => (s === '.tab-panel' ? ['geral', 'progresso', 'portal'].map((n) => el('#tab-' + n)) : []),
 });
 const ouvintesJanela = /** @type {Function[]} */ ([]);
 globalThis.window = /** @type {any} */ ({ addEventListener: (t, f) => { if (t === 'message') ouvintesJanela.push(f); } });
 globalThis.location = /** @type {any} */ ({ origin: 'http://gestao.test' });
 
-const db = await import('./db.js?v=18');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=18');
-const { iniciarPerfil } = await import('./ui-perfil.js?v=18');
-const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=18');
-const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=18');
-const { semanaSegSab, waMsg } = await import('./util/formato.js?v=18');
+const db = await import('./db.js?v=19');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=19');
+const { iniciarPerfil } = await import('./ui-perfil.js?v=19');
+const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=19');
+const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=19');
+const { semanaSegSab, waMsg } = await import('./util/formato.js?v=19');
 
 iniciarPerfil({ obter: db.obter });
 iniciarTabProgresso();
@@ -69,77 +69,47 @@ function abrirPerfil(id) {
   estado.alunoAtual = db.obter(id);
   el('#tela-perfil').classList.add('active');
   emit(EVENTOS.PERFIL_ABERTO, id);
-  emit(EVENTOS.ABRIR_ABA, 'dados');
+  emit(EVENTOS.ABRIR_ABA, 'geral');
 }
 
 /* ---------- a troca de aba mora no ui-perfil.js ---------- */
 
 test('perfil: "abrir-aba" mostra só o painel pedido', () => {
   emit(EVENTOS.ABRIR_ABA, 'portal');
-  assert.deepEqual(['dados', 'progresso', 'portal'].map((n) => el('#tab-' + n).classList.contains('active')), [false, false, true]);
-  emit(EVENTOS.ABRIR_ABA, 'dados');
-  assert.deepEqual(['dados', 'progresso', 'portal'].map((n) => el('#tab-' + n).classList.contains('active')), [true, false, false]);
+  assert.deepEqual(['geral', 'progresso', 'portal'].map((n) => el('#tab-' + n).classList.contains('active')), [false, false, true]);
+  emit(EVENTOS.ABRIR_ABA, 'geral');
+  assert.deepEqual(['geral', 'progresso', 'portal'].map((n) => el('#tab-' + n).classList.contains('active')), [true, false, false]);
 });
 
-/* ---------- Progresso ---------- */
+/* ---------- Uso do app (era o Progresso) ---------- */
 
 const semAviso = async (fn) => { const w = console.warn; console.warn = () => {}; try { await fn(); } finally { console.warn = w; } };
 
-test('progresso: redesenha a cada abertura, com a avaliação lançada em outra aba', async () => {
+test('uso do app: redesenha a cada abertura, só com adesão e medalhas (metas e gráficos foram para a aba Treino)', async () => {
   await semAviso(async () => {
     db.criar({ id: 'Prog01', nome: 'Paula' });
-    db.addAvaliacao('Prog01', { dataRealizada: '2026-01-10', peso: '80' });
     abrirPerfil('Prog01');
     emit(EVENTOS.ABRIR_ABA, 'progresso');
     const painel = el('#tab-progresso');
     assert.equal(painel.desenhos, 1);
-    assert.match(painel.innerHTML, /Cadastre ao menos 2 avaliações/);
-    // Lançou a segunda avaliação na aba Avaliações e voltou.
-    emit(EVENTOS.ABRIR_ABA, 'avaliacoes');
-    db.addAvaliacao('Prog01', { dataRealizada: '2026-04-10', peso: '76' });
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    assert.equal(painel.desenhos, 2);
-    assert.match(painel.innerHTML, /Peso: −4,0 kg/, 'a evolução já entra no gráfico');
-  });
-});
-
-test('progresso: a meta digitada sobrevive à troca de aba, mas não passa para outro aluno', async () => {
-  await semAviso(async () => {
-    abrirPerfil('Prog01');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    const desenhos = el('#tab-progresso').desenhos;
-    // O coach escolhe o tipo e digita o alvo, sem salvar, e vai para outra aba.
-    el('#meta-tipo').value = 'cintura';
-    el('#meta-alvo').value = '72';
+    assert.match(painel.innerHTML, /Adesão aos hábitos[\s\S]*Medalhas do aluno/);
+    assert.doesNotMatch(painel.innerHTML, /prog-metas|prog-cargas|prog-nutri|Feedbacks/);
     emit(EVENTOS.ABRIR_ABA, 'geral');
     emit(EVENTOS.ABRIR_ABA, 'progresso');
-    assert.equal(el('#tab-progresso').desenhos, desenhos + 1, 'redesenhou');
-    assert.deepEqual([el('#meta-tipo').value, el('#meta-alvo').value], ['cintura', '72'], 'o rascunho volta aos campos redesenhados');
-    // Fechou e reabriu o perfil do mesmo aluno: começa limpo, como nas outras abas.
-    abrirPerfil('Prog01');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    assert.deepEqual([el('#meta-tipo').value, el('#meta-alvo').value], ['', '']);
-    // Outro aluno: o rascunho fica para trás.
-    el('#meta-alvo').value = '65';
-    db.criar({ id: 'Prog02', nome: 'Pedro' });
-    abrirPerfil('Prog02');
-    emit(EVENTOS.ABRIR_ABA, 'progresso');
-    assert.equal(el('#meta-alvo').value, '');
+    assert.equal(painel.desenhos, 2);
   });
 });
 
-test('progresso: feedback que chega pelo merge aparece na aba aberta', async () => {
+test('uso do app: o que chega pelo merge redesenha a aba aberta; de outro aluno ou com a aba fechada, não', async () => {
   await semAviso(async () => {
     abrirPerfil('Prog01');
     emit(EVENTOS.ABRIR_ABA, 'progresso');
     const painel = el('#tab-progresso'), antes = painel.desenhos;
-    db.atualizar('Prog01', { feedbacks: [{ id: 'f1', data: '2026-10-06', esforco: 8, dor: 'leve', obs: 'pesado', criadoEm: 1 }] });
     emit(EVENTOS.REGISTROS_MUDARAM, 'Prog01');
     assert.equal(painel.desenhos, antes + 1);
-    assert.match(painel.innerHTML, /Esforço <b>8<\/b>\/10/);
     emit(EVENTOS.REGISTROS_MUDARAM, 'Outro');
     assert.equal(painel.desenhos, antes + 1, 'evento de outro aluno não redesenha');
-    emit(EVENTOS.ABRIR_ABA, 'dados');
+    emit(EVENTOS.ABRIR_ABA, 'geral');
     emit(EVENTOS.REGISTROS_MUDARAM, 'Prog01');
     assert.equal(painel.desenhos, antes + 1, 'aba fechada não redesenha');
   });
@@ -226,7 +196,7 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
   // Abrir o perfil: o aluno no estado, o cabeçalho, 'perfil-aberto', a aba Dados e a tela — nessa ordem.
   db.criar({ id: 'Abre01', nome: 'Abel' });
   const vistos = [];
-  const { on } = await import('./estado.js?v=18');
+  const { on } = await import('./estado.js?v=19');
   const parar = [EVENTOS.PERFIL_ABERTO, EVENTOS.ABRIR_ABA, EVENTOS.ABRIR_TELA].map((ev) => on(ev, (x) => vistos.push([ev, x, estado.alunoAtual?.id])));
   emit(EVENTOS.ABRIR_PERFIL, 'Abre01');
   parar.forEach((p) => p());
@@ -236,21 +206,21 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
   assert.equal(estado.alunoAtual.id, 'Abre01', 'id que não existe não troca a ficha aberta');
 
   const telas = ler('./telas.js');
-  const ordem = ['iniciarNavegacao();', 'iniciarPerfil(', 'iniciarFotoDoPerfil();', 'iniciarTabGeral();', 'iniciarTabSaude();', 'iniciarTabDados();', 'iniciarTabAvaliacoes();', 'iniciarTabProgresso();',
-    "iniciarTabFinanceiro('#tab-geral');", 'iniciarTabMatriz();', 'iniciarTabPortal(',
+  const ordem = ['iniciarNavegacao();', 'iniciarPerfil(', 'iniciarFotoDoPerfil();', 'iniciarTabGeral();', 'iniciarTabSaude();', 'iniciarTabTreino();', 'iniciarTabAvaliacoes();', 'iniciarTabProgresso();',
+    "iniciarTabFinanceiro('#tab-geral');", 'iniciarTabPortal(',
     'iniciarTabRegistros();'];
   const pos = ordem.map((f) => telas.indexOf(f));
   assert.ok(pos.every((p) => p >= 0), `telas.js liga tudo: ${ordem.filter((_, i) => pos[i] < 0)}`);
   assert.deepEqual([...pos].sort((x, y) => x - y), pos, 'o roteador e o perfil ligam antes das abas');
 
   // Cada aba da barra tem um módulo que a desenha.
-  const { ABAS } = { ABAS: ['geral', 'saude', 'dados', 'avaliacoes', 'progresso', 'matriz', 'portal', 'registros'] };
-  const fontes = ['ui-tab-geral', 'ui-tab-saude', 'ui-tab-dados', 'ui-tab-avaliacoes', 'ui-tab-progresso', 'ui-tab-matriz',
+  const { ABAS } = { ABAS: ['geral', 'saude', 'treino', 'avaliacoes', 'progresso', 'portal', 'registros'] };
+  const fontes = ['ui-tab-geral', 'ui-tab-saude', 'ui-tab-treino', 'ui-tab-avaliacoes', 'ui-tab-progresso',
     'ui-tab-portal', 'ui-tab-registros'].map((f) => ler(`./${f}.js`)).join('\n');
   for (const aba of ABAS) assert.ok(fontes.includes(`'${aba}'`), `nenhum módulo desenha a aba ${aba}`);
 });
 
-test('perfil: as abas da barra, cada uma com módulo — Geral e Saúde primeiro; Financeiro, Anamnese e PAR-Q viraram cards', async () => {
-  const { ABAS } = await import('./ui-perfil.js?v=18');
-  assert.deepEqual(ABAS.map((a) => a.id), ['geral', 'saude', 'dados', 'avaliacoes', 'progresso', 'matriz', 'portal', 'registros']);
+test('perfil: as abas da barra, cada uma com módulo — Geral, Saúde e Treino primeiro; Financeiro, Anamnese, PAR-Q, Matriz e Dados viraram cards', async () => {
+  const { ABAS } = await import('./ui-perfil.js?v=19');
+  assert.deepEqual(ABAS.map((a) => a.id), ['geral', 'saude', 'treino', 'avaliacoes', 'progresso', 'portal', 'registros']);
 });

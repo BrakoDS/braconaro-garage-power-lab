@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css?v=9" />
+  <link rel="stylesheet" href="./alunos.css?v=10" />
   <link rel="stylesheet" href="./matriz.css?v=1" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
@@ -243,8 +243,8 @@
         <!-- ABA: SAÚDE — alerta e lesões, biometria, anamnese e PAR-Q (ui-tab-saude.js) -->
         <div class="tab-panel" id="tab-saude" role="tabpanel" aria-labelledby="aba-saude"><!-- cards injetados por JS --></div>
 
-        <!-- ABA: PERFIL DE TREINO (id dados) — objetivo, nível, foco, frequência e dias (ui-tab-dados.js) -->
-        <div class="tab-panel" id="tab-dados" role="tabpanel" aria-labelledby="aba-dados"><!-- form injetado por JS --></div>
+        <!-- ABA: TREINO — perfil de treino, cargas, adaptações, metas e evolução, força e gasto, feedbacks (ui-tab-treino.js) -->
+        <div class="tab-panel" id="tab-treino" role="tabpanel" aria-labelledby="aba-treino"><!-- cards injetados por JS --></div>
 
         <!-- ABA 2: AVALIAÇÕES -->
         <div class="tab-panel" id="tab-avaliacoes" role="tabpanel" aria-labelledby="aba-avaliacoes">
@@ -257,9 +257,6 @@
           </div>
           <div id="aval-list" class="aval-list"></div>
         </div>
-
-        <!-- ABA: MATRIZ — a individualização que o Montador lê (form injetado por JS) -->
-        <div class="tab-panel" id="tab-matriz" role="tabpanel" aria-labelledby="aba-matriz"></div>
 
         <!-- ABA: PORTAL — o Portal do Aluno deste aluno, em prévia -->
         <div class="tab-panel" id="tab-portal" role="tabpanel" aria-labelledby="aba-portal">
@@ -281,38 +278,8 @@
           <button class="btn ghost btn-sm" id="reg-mais" type="button" hidden>Carregar mais</button>
         </div>
 
-        <!-- ABA 3: PROGRESSO -->
-        <div class="tab-panel" id="tab-progresso" role="tabpanel" aria-labelledby="aba-progresso">
-          <div class="prog-grid">
-            <div class="prog-card full">
-              <h4>Evolução do peso corporal</h4>
-              <div class="prog-ph">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 14 3-4 3 3 4-7"/></svg>
-                <span id="prog-peso-msg">Aqui um gráfico com o progresso do aluno.</span>
-              </div>
-            </div>
-            <div class="prog-card">
-              <h4>% Gordura / Massa magra</h4>
-              <div class="prog-ph">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="13" y="6" width="3" height="11"/></svg>
-                <span>Gráfico disponível após definirmos os dados da avaliação.</span>
-              </div>
-            </div>
-            <div class="prog-card">
-              <h4>Evolução de medidas</h4>
-              <div class="prog-ph">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 16 4-3 3 2 4-6"/></svg>
-                <span>Cintura, quadril, tórax, braço…</span>
-              </div>
-            </div>
-            <div class="prog-card full">
-              <h4>Pontos que foram melhorados</h4>
-              <div class="insights" id="prog-insights">
-                <div class="note">Os destaques de evolução aparecerão aqui assim que houver avaliações com dados comparáveis (definimos os campos e os cálculos na próxima etapa).</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- ABA: USO DO APP (id progresso) — adesão aos hábitos e medalhas (ui-tab-progresso.js) -->
+        <div class="tab-panel" id="tab-progresso" role="tabpanel" aria-labelledby="aba-progresso"><!-- injetado por JS --></div>
       </div>
       <!-- Salvar global (ui-salvar-global.js): aparece quando há alteração não salva na ficha. -->
       <div class="barra-salvar" id="barra-salvar" role="region" aria-label="Alterações da ficha" aria-live="polite" hidden></div>
@@ -422,6 +389,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=18"></script>
+  <script type="module" src="./main.js?v=19"></script>
 </body>
 </html>

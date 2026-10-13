@@ -43,16 +43,16 @@ globalThis.document = /** @type {any} */ ({ querySelector: (s) => (tela[s] ||= e
 // O FormData lê os campos "digitados" no elemento do formulário.
 globalThis.FormData = /** @type {any} */ (class { constructor(f) { this.m = f.campos; } entries() { return Object.entries(this.m); } get(k) { return this.m[k] ?? null; } });
 
-const saude = await import('./saude.js?v=18');
+const saude = await import('./saude.js?v=19');
 const { ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq, parqRaso, resumoAnamnese, resumoParq } = saude;
-const { regAnamnese, regParq } = await import('./registro.js?v=18');
-const eventos = await import('./eventos.js?v=18');
-const db = await import('./db.js?v=18');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=18');
-const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=18');
-const { htmlAnamnese } = await import('./ui-tab-anamnese.js?v=18');
-const { htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=18');
-const { iniciarTabSaude, editarSecao } = await import('./ui-tab-saude.js?v=18');
+const { regAnamnese, regParq } = await import('./registro.js?v=19');
+const eventos = await import('./eventos.js?v=19');
+const db = await import('./db.js?v=19');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=19');
+const { iniciarSalvarGlobal, salvar } = await import('./ui-salvar-global.js?v=19');
+const { htmlAnamnese } = await import('./ui-tab-anamnese.js?v=19');
+const { htmlParq, bannerParq } = await import('./ui-tab-par-q.js?v=19');
+const { iniciarTabSaude, editarSecao } = await import('./ui-tab-saude.js?v=19');
 iniciarSalvarGlobal();
 iniciarTabSaude();
 
@@ -181,7 +181,7 @@ test('PAR-Q (aba Saúde): respostas marcadas sobrevivem à troca de aba; o aviso
   form.ouvintes.change(); // o aviso da triagem (ouvinte do formulário)
   painel.ouvintes.change(); // o salvar global (o evento sobe até o painel)
   assert.match(tela['#parq-result'].innerHTML, /parq-banner alerta/);
-  emit(EVENTOS.ABRIR_ABA, 'matriz');
+  emit(EVENTOS.ABRIR_ABA, 'treino');
   emit(EVENTOS.ABRIR_ABA, 'saude');
   assert.match(painel.innerHTML, /name="q3" value="sim" checked/, 'a marcação não salva volta com a aba');
   await salvar();

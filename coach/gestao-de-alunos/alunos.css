@@ -1159,3 +1159,34 @@ button{font-family:inherit}
   #form-saude-alerta .mtz-lesao{grid-auto-flow:row dense}
   #form-saude-alerta .mtz-lesao [data-remover-lesao]{grid-column:auto;justify-self:end;min-width:48px}
 }
+
+/* ---------- Aba Treino (ui-tab-treino.js) ----------
+   Os cards editáveis e os de leitura moram em duas zonas (para o ✎ redesenhar
+   só os primeiros); `display:contents` deixa os cards das duas no mesmo grid. */
+.tr-zona{display:contents}
+.tr-motor{margin-bottom:14px}
+.tr-sub{color:var(--mut);font-size:.84rem}
+.tr-rm{font-family:var(--font-display);font-size:1.15rem;font-weight:400;color:var(--txt);letter-spacing:.02em}
+.tr-aviso{color:var(--warn);font-weight:600}
+/* Em leitura, o 1RM numa linha e de onde ele veio embaixo (o card é meia largura). */
+#card-cargas .card-dl .tr-rm{display:block;margin-bottom:2px}
+.tr-ajuda{margin:0}
+.card .mtz-lev h5{margin:0 0 8px;font-size:.95rem;font-weight:600}
+.card .mtz-lev{margin-bottom:0}
+.tr-colunas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
+.tr-colunas > div > .sa-t{margin-top:2px}
+.tr-bloco-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.tr-bloco-top .sa-t{margin:0}
+.tr-trocas{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:.92rem}
+.tr-trocas s{color:var(--mut)}
+.tr-primeiro{margin-top:0}
+.tr-graficos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tr-graf{background:var(--bg-2);border:1px solid var(--line);padding:12px 14px;min-width:0}
+.tr-graf-t{margin:0 0 2px;font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.74rem;color:var(--mut)}
+.tr-ph{padding:18px 12px;min-height:0;text-align:center}
+#card-forca .tr-colunas > div{min-width:0}
+@media (max-width:640px){
+  .tr-colunas,.tr-graficos{grid-template-columns:minmax(0,1fr)}
+  .tr-colunas > div + div{margin-top:18px}
+  #card-adaptacoes .tr-colunas > .sa-bloco + .sa-bloco{margin-top:16px}
+}

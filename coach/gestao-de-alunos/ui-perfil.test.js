@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ABAS, htmlCabecalho, htmlAbas, linkWhatsAppDoAluno, abaDoAlerta, proximoCompacto, COMPACTA_EM, EXPANDE_EM } from './ui-perfil.js?v=18';
+import { ABAS, htmlCabecalho, htmlAbas, linkWhatsAppDoAluno, abaDoAlerta, proximoCompacto, COMPACTA_EM, EXPANDE_EM } from './ui-perfil.js?v=19';
 
 const HOJE = '2026-10-07';
 const ana = {
@@ -102,12 +102,12 @@ test('cabeçalho: texto digitado é escapado', () => {
 });
 
 test('abas: tablist com uma só selecionada e só ela no Tab do teclado', () => {
-  const h = htmlAbas('matriz');
+  const h = htmlAbas('treino');
   assert.equal((h.match(/role="tab"/g) || []).length, ABAS.length);
   assert.equal((h.match(/aria-selected="true"/g) || []).length, 1);
-  assert.match(h, /id="aba-matriz" aria-controls="tab-matriz" aria-selected="true" tabindex="0" data-tab="matriz"/);
+  assert.match(h, /id="aba-treino" aria-controls="tab-treino" aria-selected="true" tabindex="0" data-tab="treino"/);
   assert.equal((h.match(/tabindex="0"/g) || []).length, 1);
-  assert.match(htmlAbas('dados', [{ id: 'financeiro', rotulo: 'Financeiro' }]), /data-tab="financeiro" type="button">Financeiro</, 'aba nova = uma linha a mais');
+  assert.match(htmlAbas('geral', [{ id: 'financeiro', rotulo: 'Financeiro' }]), /data-tab="financeiro" type="button">Financeiro</, 'aba nova = uma linha a mais');
 });
 
 test('abas: cada aba tem o seu painel no index.html, e cada painel tem aba', () => {

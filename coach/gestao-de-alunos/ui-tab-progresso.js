@@ -1,30 +1,31 @@
 // @ts-check
 /**
- * Aba Progresso do perfil — a evolução do aluno: gráficos das avaliações, os
- * pontos que melhoraram, as metas combinadas com o coach e o que vem do app e
- * do Portal (adesão aos hábitos, medalhas, gasto calórico, cargas, feedbacks).
+ * A evolução do aluno: gráficos das avaliações, os pontos que melhoraram, as
+ * metas combinadas com o coach e o que vem do app e do Portal (gasto calórico,
+ * cargas, feedbacks, adesão aos hábitos, medalhas).
  *
- * Saiu do `app.js` no fatiamento, com o código como estava.
+ * Saiu do `app.js` no fatiamento, com o código como estava. Era a aba
+ * Progresso; com a ficha em cards, as peças de performance (metas, gráficos,
+ * força, gasto, feedbacks) são desenhadas pela aba Treino (ui-tab-treino.js),
+ * que as importa daqui. A aba (id 'progresso') ficou com o "Uso do app" —
+ * adesão e medalhas — até virar parte da aba Histórico.
  *
- * Quando desenha: TODA vez que a aba abre — ao contrário de Dados, Matriz,
- * Anamnese e PAR-Q. Aqui quase tudo é leitura (de outras abas e da nuvem), e
- * abrir a aba tem de mostrar a avaliação recém-lançada e o treino que o aluno
- * acabou de registrar no app. O único campo digitável é o da nova meta: esse
- * rascunho é levado de um desenho para o outro (ver `rascunhoDaMeta`).
+ * Quando desenha: TODA vez que a aba abre. Aqui tudo é leitura (da nuvem), e
+ * abrir a aba tem de mostrar o que o aluno acabou de registrar no app.
  */
-import * as db from './db.js?v=18';
-import * as calc from '../../compartilhado/regras/calc.js?v=18';
-import * as game from '../../compartilhado/regras/gamificacao.js?v=18';
+import * as db from './db.js?v=19';
+import * as calc from '../../compartilhado/regras/calc.js?v=19';
+import * as game from '../../compartilhado/regras/gamificacao.js?v=19';
 import { carregarSemanasPausadas } from '../../compartilhado/firebase/semanas-pausadas.js';
 import { resumoDeAdesao } from '../../compartilhado/regras/adesao.js';
-import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js?v=18';
-import { carregarGastoTreino } from './nutricao-read.js?v=18';
-import { carregarCargasAluno } from './cargas-read.js?v=18';
-import { carregarConclusoesDesafios } from './desafios-read.js?v=18';
-import { carregarRotinaAluno } from './rotina-read.js?v=18';
-import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=18';
-import { $, $$ } from './util/dom.js?v=18';
-import { estado, on, EVENTOS } from './estado.js?v=18';
+import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js?v=19';
+import { carregarGastoTreino } from './nutricao-read.js?v=19';
+import { carregarCargasAluno } from './cargas-read.js?v=19';
+import { carregarConclusoesDesafios } from './desafios-read.js?v=19';
+import { carregarRotinaAluno } from './rotina-read.js?v=19';
+import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=19';
+import { $, $$ } from './util/dom.js?v=19';
+import { estado, on, EVENTOS } from './estado.js?v=19';
 
 function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
   const W = 600, H = 180, pad = { l: 46, r: 14, t: 16, b: 28 };
@@ -77,53 +78,59 @@ function insightsHTML(a, avs) {
   return `<div class="note" style="margin-bottom:8px">Comparando a 1ª avaliação (${fmtDataCurta(pri.dataRealizada)}) com a última (${fmtDataCurta(ult.dataRealizada)}).</div>` + items.join('');
 }
 
+/** As avaliações realizadas, da mais antiga para a mais nova. @param {any} a */
+const avaliacoesFeitas = (a) => (a.avaliacoes || []).filter((x) => x.dataRealizada).sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
+
+/**
+ * Os gráficos das avaliações (peso, % de gordura, massa magra, cintura e os
+ * testes de desempenho), só os que têm ao menos dois pontos.
+ * @param {any} a
+ */
+export function htmlEvolucao(a) {
+  const avs = avaliacoesFeitas(a);
+  if (avs.length < 2) {
+    return `<div class="prog-ph tr-ph">${avs.length ? 'Cadastre ao menos 2 avaliações para ver os gráficos.' : 'Nenhuma avaliação cadastrada ainda.'}</div>`;
+  }
+  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+  const serie = (fn) => avs.map((av) => ({ d: av.dataRealizada, y: fn(av) })).filter((p) => p.y != null && !isNaN(p.y));
+  const graficos = [
+    ['Peso corporal (kg)', serie((av) => numf(av.peso)), 'var(--accent)'],
+    ['% Gordura corporal', serie((av) => calc.calcular(av, a).perc), '#ff5b50'],
+    ['Massa magra (kg)', serie((av) => calc.calcular(av, a).massaMagra), '#3fb950'],
+    ['Cintura (cm)', serie((av) => numf(av.perimetros?.cintura)), 'var(--accent-2)'],
+    ['Flexões (máx.)', serie((av) => numf(av.testes?.flexoes)), 'var(--accent)'],
+    ['Prancha (s)', serie((av) => numf(av.testes?.prancha)), '#3fb950'],
+    ['Agachamentos (1 min)', serie((av) => numf(av.testes?.agachamentos)), 'var(--accent-2)'],
+    ['Abdominais (1 min)', serie((av) => numf(av.testes?.abdominais)), '#ff5b50'],
+  ].filter(([, s]) => s.length >= 2);
+  if (!graficos.length) return '<div class="prog-ph tr-ph">As avaliações ainda não têm um mesmo dado para comparar.</div>';
+  return `<div class="tr-graficos">${graficos.map(([t, s, cor]) => `
+    <div class="tr-graf"><h4 class="tr-graf-t">${t}</h4>${chartSVG(s, { cor })}</div>`).join('')}
+  </div>`;
+}
+
+/** "Pontos que foram melhorados": a 1ª avaliação contra a última. @param {any} a */
+export function htmlMelhorias(a) {
+  return `<div class="insights">${insightsHTML(a, avaliacoesFeitas(a))}</div>`;
+}
+
+/** A aba "Uso do app": adesão aos hábitos e medalhas (o que o aluno faz no app). */
 function renderProgresso() {
   const a = estado.alunoAtual; if (!a) return;
   const panel = $('#tab-progresso');
-  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada).sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
-  const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
-  const serie = (fn) => avs.map((av) => ({ d: av.dataRealizada, y: fn(av) })).filter((p) => p.y != null && !isNaN(p.y));
-  const sPeso = serie((av) => numf(av.peso));
-  const sPerc = serie((av) => calc.calcular(av, a).perc);
-  const sMagra = serie((av) => calc.calcular(av, a).massaMagra);
-  const sCintura = serie((av) => numf(av.perimetros?.cintura));
-  const sFlex = serie((av) => numf(av.testes?.flexoes));
-  const sPrancha = serie((av) => numf(av.testes?.prancha));
-  const sAgach = serie((av) => numf(av.testes?.agachamentos));
-  const sAbd = serie((av) => numf(av.testes?.abdominais));
-  const vazio = (s) => `<div class="prog-ph">${avs.length ? 'Cadastre ao menos 2 avaliações com este dado.' : 'Nenhuma avaliação cadastrada ainda.'}</div>`;
-  const chart = (s, opt) => (s.length >= 2 ? chartSVG(s, opt) : vazio(s));
-  const temDesempenho = [sFlex, sPrancha, sAgach, sAbd].some((s) => s.length >= 2);
   panel.innerHTML = `
     <div class="prog-grid">
       <div class="prog-card full"><h4>Adesão aos hábitos (app do aluno)</h4><div id="prog-adesao"><div class="prog-ph">Carregando…</div></div></div>
       <div class="prog-card full"><h4>Medalhas do aluno</h4><div id="prog-medalhas"><div class="prog-ph">Carregando…</div></div></div>
-      <div class="prog-card full"><h4>Metas do aluno</h4><div id="prog-metas"></div></div>
-      <div class="prog-card full"><h4>Evolução do peso corporal</h4>${chart(sPeso, { cor: 'var(--accent)' })}</div>
-      <div class="prog-card"><h4>% Gordura corporal</h4>${chart(sPerc, { cor: '#ff5b50' })}</div>
-      <div class="prog-card"><h4>Massa magra</h4>${chart(sMagra, { cor: '#3fb950' })}</div>
-      <div class="prog-card full"><h4>Evolução da cintura</h4>${chart(sCintura, { cor: 'var(--accent-2)' })}</div>
-      ${temDesempenho ? `
-      <div class="prog-card"><h4>Flexões (máx.)</h4>${chart(sFlex, { cor: 'var(--accent)' })}</div>
-      <div class="prog-card"><h4>Prancha (s)</h4>${chart(sPrancha, { cor: '#3fb950' })}</div>
-      <div class="prog-card"><h4>Agachamentos (1 min)</h4>${chart(sAgach, { cor: 'var(--accent-2)' })}</div>
-      <div class="prog-card"><h4>Abdominais (1 min)</h4>${chart(sAbd, { cor: '#ff5b50' })}</div>` : ''}
-      <div class="prog-card full"><h4>Pontos que foram melhorados</h4><div class="insights">${insightsHTML(a, avs)}</div></div>
-      <div class="prog-card full"><h4>Gasto calórico de treino (semana)</h4><div id="prog-nutri"><div class="prog-ph">Carregando…</div></div></div>
-      <div class="prog-card full"><h4>Evolução de força (registro de cargas)</h4><div id="prog-cargas"><div class="prog-ph">Carregando…</div></div></div>
-      <div class="prog-card full"><h4>Feedbacks pós-treino do aluno</h4>${feedbacksHTML(a)}</div>
     </div>`;
-  renderMetasCoach(a);
   carregarAdesaoHabitos(a);
   carregarMedalhasAluno(a);
-  carregarGastoSemana(a);
-  carregarCargasForca(a);
 }
 
 /* ---- Adesão aos hábitos (rotinas/{email}, gravado pelo app mobile) ---- */
 
 /**
- * Painel de adesão do aluno na aba Progresso.
+ * Painel de adesão do aluno na aba Uso do app.
  *
  * Aqui fica só o transporte: buscar o documento, tratar a troca de aluno durante
  * a carga e a falha de rede. A conta mora em `compartilhado/regras/adesao.js` e o
@@ -185,7 +192,7 @@ async function carregarMedalhasAluno(a) {
 }
 
 /** Card read-only de evolução de força (registro de cargas do Portal). */
-async function carregarCargasForca(a) {
+export async function carregarCargasForca(a) {
   const alvoId = a.id;
   const el = $('#prog-cargas'); if (!el) return;
   const email = (a.email || '').trim().toLowerCase();
@@ -211,7 +218,7 @@ async function carregarCargasForca(a) {
 }
 
 /** Card de metas do aluno (definir/remover + barra de progresso). Publica no Portal ao salvar. */
-function renderMetasCoach(a) {
+export function renderMetasCoach(a) {
   const el = $('#prog-metas'); if (!el) return;
   const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
   const avsOrd = avs.slice().sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
@@ -271,7 +278,7 @@ function barrasNutri(valores, labels, hojeIso, dias) {
     <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" class="ax"/>${bars}</svg>`;
 }
 
-async function carregarGastoSemana(a) {
+export async function carregarGastoSemana(a) {
   const alvoId = a.id;
   const el = $('#prog-nutri'); if (!el) return;
   const email = (a.email || '').trim().toLowerCase();
@@ -293,7 +300,7 @@ async function carregarGastoSemana(a) {
 }
 
 /** Lista os feedbacks pós-treino enviados pelo aluno no Portal (mais recentes primeiro). */
-function feedbacksHTML(a) {
+export function feedbacksHTML(a) {
   const fbs = (Array.isArray(a.feedbacks) ? a.feedbacks : []).slice().sort((x, y) => (y.criadoEm || 0) - (x.criadoEm || 0));
   if (!fbs.length) return `<div class="prog-ph">Nenhum feedback ainda. O aluno pode enviar pelo Portal do Aluno.</div>`;
   const DOR = { nenhuma: ['Sem dor', 'ok'], leve: ['Dor leve', 'ok'], moderada: ['Dor moderada', 'warn'], forte: ['Dor forte', 'bad'] };
@@ -313,41 +320,25 @@ function feedbacksHTML(a) {
 }
 
 /* ============================================================
-   Redesenho (com o rascunho da meta) e a ligação com o barramento
+   Redesenho e a ligação com o barramento
    ============================================================ */
 
-/** A aba Progresso está na tela? */
+/** A aba "Uso do app" está na tela? */
 const visivel = () => !!$('#tab-progresso')?.classList.contains('active') && !!$('#tela-perfil')?.classList.contains('active');
 
-/**
- * Redesenha a aba com a ficha do banco, levando junto a meta digitada e não
- * salva. O painel guarda de quem é o formulário (`data-aluno`): o rascunho só
- * passa para o mesmo aluno, nunca para o próximo perfil aberto.
- */
+/** Redesenha a aba com a ficha do banco (a da abertura do perfil pode estar velha). */
 function redesenhar() {
   if (!estado.alunoAtual) return;
-  const painel = $('#tab-progresso'); if (!painel) return;
   const id = String(estado.alunoAtual.id);
-  const tipo = $('#meta-tipo'), alvo = $('#meta-alvo');
-  const rascunho = painel.dataset.aluno === id && tipo && alvo ? { tipo: tipo.value, alvo: alvo.value } : null;
-  // A ficha do banco, não a da abertura do perfil: uma avaliação lançada na
-  // outra aba tem de entrar no gráfico.
   estado.alunoAtual = db.obter(id) || estado.alunoAtual;
   renderProgresso();
-  painel.dataset.aluno = id;
-  if (!rascunho) return;
-  const t = $('#meta-tipo'), v = $('#meta-alvo');
-  if (t && [...t.options].some((o) => o.value === rascunho.tipo)) t.value = rascunho.tipo;
-  if (v) v.value = rascunho.alvo;
 }
 
 /** Liga a aba ao barramento. Chamar uma vez, antes do resto do app. */
 export function iniciarTabProgresso() {
-  // Perfil reaberto começa limpo, como nas outras abas.
-  on(EVENTOS.PERFIL_ABERTO, () => { const p = $('#tab-progresso'); if (p) delete p.dataset.aluno; });
   on(EVENTOS.ABRIR_ABA, (nome) => { if (nome === 'progresso') redesenhar(); });
-  // O aluno mandou algo pelo app ou pelo Portal (feedback, foto, diário — o
-  // merge das caixas avisa por 'registros-mudaram'): com a aba aberta, aparece.
+  // O aluno mandou algo pelo app ou pelo Portal (o merge das caixas avisa por
+  // 'registros-mudaram'): com a aba aberta, aparece.
   on(EVENTOS.REGISTROS_MUDARAM, (id) => {
     if (visivel() && estado.alunoAtual && String(estado.alunoAtual.id) === String(id)) redesenhar();
   });
