@@ -11,6 +11,7 @@
  * de sair do montador, abrir a Gestão, achar o aluno e voltar — e não faria.
  */
 import * as gestaoDb from '../../gestao-de-alunos/db.js';
+import { metasGrupoDe } from '../../gestao-de-alunos/metas-grupo.js';
 
 /** Alunos da Gestão que treinam hoje no box (inativo não entra na turma). */
 export function listarAlunos() {
@@ -31,7 +32,9 @@ export function perfilDe(a) {
     objetivo: a?.objetivo || '',
     foco: a?.foco || [],
     restricoes: a?.restricoes || [],
-    metas: a?.metas || {},
+    // Meta por grupo muscular. Não é o `metas` da ficha, que hoje guarda as metas
+    // corporais da aba Progresso (ver gestao-de-alunos/metas-grupo.js).
+    metas: metasGrupoDe(a),
   };
 }
 

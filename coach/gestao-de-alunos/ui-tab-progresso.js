@@ -26,6 +26,7 @@ import { carregarRotinaAluno } from './rotina-read.js?v=22';
 import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=22';
 import { $, $$ } from './util/dom.js?v=22';
 import { estado, on, EVENTOS } from './estado.js?v=22';
+import { metasCorporaisDe, patchDeMetas } from './metas-grupo.js?v=22';
 
 function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
   const W = 600, H = 180, pad = { l: 46, r: 14, t: 16, b: 28 };
@@ -217,7 +218,7 @@ export function renderMetasCoach(a) {
   const el = $('#prog-metas'); if (!el) return;
   const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
   const avsOrd = avs.slice().sort((x, y) => (x.dataRealizada < y.dataRealizada ? -1 : 1));
-  const metas = Array.isArray(a.metas) ? a.metas : [];
+  const metas = metasCorporaisDe(a);
   const barras = metas.map((m) => {
     const p = calc.progressoMeta(m, avs, a);
     const t = calc.META_TIPOS[m.tipo] || { label: m.tipo, unidade: '', dec: 1 };
@@ -243,12 +244,12 @@ export function renderMetasCoach(a) {
     if (alvo == null) return;
     const base = calc.valorMetrica(tipo, avsOrd[avsOrd.length - 1], a);
     const nova = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), tipo, alvo, base, baseData: avsOrd[avsOrd.length - 1]?.dataRealizada || null, criadoEm: Date.now() };
-    db.atualizar(a.id, { metas: [...metas, nova] });
+    db.atualizar(a.id, patchDeMetas(a, [...metas, nova]));
     estado.alunoAtual = db.obter(a.id);
     renderMetasCoach(estado.alunoAtual);
   });
   $$('#prog-metas .meta-x').forEach((b) => b.addEventListener('click', () => {
-    db.atualizar(a.id, { metas: metas.filter((m) => m.id !== b.dataset.id) });
+    db.atualizar(a.id, patchDeMetas(a, metas.filter((m) => m.id !== b.dataset.id)));
     estado.alunoAtual = db.obter(a.id);
     renderMetasCoach(estado.alunoAtual);
   }));

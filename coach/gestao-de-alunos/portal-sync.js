@@ -9,6 +9,7 @@
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
 import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=22';
+import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=22';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -59,7 +60,9 @@ export function fatia(a, todos, fechadosDoBox = []) {
     // `compartilhado/regras/` que o coach usa — sem ler a ficha de ninguém.
     // Ficha antiga não tem nenhum dos três: entram vazios, e vazio quer dizer
     // "sem deslocamento", nunca erro.
-    foco: a.foco || [], restricoes: a.restricoes || [], metasGrupo: a.metas || {},
+    // `metasGrupo` é a meta por grupo muscular; as metas corporais vão em `metas`,
+    // mais abaixo. Antes as duas saíam do mesmo campo (ver metas-grupo.js).
+    foco: a.foco || [], restricoes: a.restricoes || [], metasGrupo: metasGrupoDe(a),
     // A matriz de individualização vai junto, e vai NORMALIZADA (`matrizDe`), não
     // crua: o aparelho do aluno recebe todos os campos preenchidos, com o padrão
     // no lugar do que a ficha não tem. Ficha antiga chega lá como "sem
@@ -99,7 +102,9 @@ export function fatia(a, todos, fechadosDoBox = []) {
     // agendada. O Portal mostra os dois; sem eles o aluno vê só o vermelho.
     atestados: a.atestados || {},
     avaliacoes: a.avaliacoes || [],
-    metas: a.metas || [],
+    // Só as metas corporais (lista). O mapa antigo por grupo saía aqui também,
+    // como objeto; ele já vai em `metasGrupo`.
+    metas: metasCorporaisDe(a),
     criadoEm: a.criadoEm || null,
     feedbacksCount: Array.isArray(a.feedbacks) ? a.feedbacks.length : 0,
     atualizadoEm: Date.now(),
