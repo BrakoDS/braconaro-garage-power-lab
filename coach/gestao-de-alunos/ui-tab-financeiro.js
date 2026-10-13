@@ -20,15 +20,15 @@
  * registrado (mês e valor), pagamento desfeito, lançamento avulso.
  * As regras (o que é atrasado, em que fatura cai) moram em financeiro-aluno.js.
  */
-import * as db from './db.js?v=14';
-import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=14';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=14';
-import { estado, on, EVENTOS } from './estado.js?v=14';
-import { confirmar } from '../../compartilhado/ui/dialogo.js?v=14';
+import * as db from './db.js?v=15';
+import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=15';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=15';
+import { estado, on, EVENTOS } from './estado.js?v=15';
+import { confirmar } from '../../compartilhado/ui/dialogo.js?v=15';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=14';
-import { darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=14';
-import { regFinanceiro } from './registro.js?v=14';
+import { brl, numMoney, rotuloMesFin, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=15';
+import { darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=15';
+import { regFinanceiro } from './registro.js?v=15';
 
 /** Rótulo e cor de cada situação. */
 const STATUS = {

@@ -171,19 +171,36 @@ button{font-family:inherit}
 /* ============================================================
    TELA 2 — Perfil
    ============================================================ */
-/* ---------- Cabeçalho (ui-perfil.js) ----------
+/* ---------- O topo da ficha (ui-perfil.js) ----------
+   Cabeçalho + abas presos no topo, juntos (#perfil-topo). Na ficha (.na-ficha
+   no <html>) a barra global da Gestão solta: o topo da ficha toma o lugar dela,
+   em vez de as duas comerem a tela do celular. Ao rolar, .compacto encolhe o
+   topo para uma linha. Sem transição de tamanho: o ui-perfil.js mede a altura
+   logo depois de trocar a classe (--pc-folga), e uma animação falsearia a
+   medida. overflow-anchor:none impede o navegador de "corrigir" a rolagem
+   quando o topo encolhe — essa correção faria o topo crescer de novo. */
+.na-ficha{overflow-anchor:none}
+.na-ficha .topbar{position:relative}
+.na-ficha #tela-perfil .wrap{padding-bottom:calc(120px + var(--pc-folga,0px))}
+.perfil-topo{position:sticky;top:0;z-index:25;
+  margin:calc(-1 * clamp(18px,4vw,32px)) calc(-1 * clamp(16px,4vw,40px)) 22px;
+  padding:clamp(12px,3vw,22px) clamp(16px,4vw,40px) 0;
+  background:rgba(9,9,11,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line)}
+.perfil-topo.compacto{padding-top:8px;box-shadow:0 14px 28px -20px rgba(0,0,0,.95)}
+
+/* ---------- Cabeçalho ----------
    A foto grande leva o mesmo anel da lista (reavaliação atrasada / a vencer):
    o sinal que levou o coach a abrir a ficha continua ali. A câmera no canto
    diz que a foto se troca tocando nela. */
-.perfil-cab{margin-bottom:4px}
-.pc-acoes{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
-.pc-voltar{appearance:none;border:0;background:none;cursor:pointer;padding:8px 2px;color:var(--mut);
-  display:inline-flex;align-items:center;gap:6px;
+.perfil-cab{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"voltar voltar" "id acoes";
+  align-items:end;column-gap:24px;row-gap:10px}
+.pc-voltar{grid-area:voltar;justify-self:start;appearance:none;border:0;background:none;cursor:pointer;
+  padding:6px 8px 6px 0;margin-left:-4px;color:var(--mut);display:inline-flex;align-items:center;gap:2px;min-height:36px;
   font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.84rem}
-.pc-voltar span{font-size:1.4rem;line-height:.6}
 .pc-voltar:hover{color:var(--accent)}
 .pc-voltar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.pc-id{display:flex;align-items:center;gap:20px}
+.pc-id{grid-area:id;display:flex;align-items:center;gap:20px;min-width:0}
 .pc-foto{--anel:var(--line-2);position:relative;flex:0 0 auto;width:88px;height:88px;margin:6px;padding:0;border:0;
   border-radius:50%;cursor:pointer;background:var(--bg-3);color:var(--mut);display:grid;place-items:center;
   box-shadow:0 0 0 3px var(--bg),0 0 0 6px var(--anel);transition:opacity .2s ease}
@@ -203,21 +220,87 @@ button{font-family:inherit}
 .pc-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
 .pc-num{font-family:var(--font-display);font-size:1.05rem;line-height:1;color:var(--accent)}
 .pc-obj{margin-top:8px;color:var(--mut);font-size:.9rem}
-@media (max-width:560px){
+
+/* Selos: Status (.status, o mesmo da lista), Nível e Alerta médico.
+   Alerta: vermelho = lesão moderada/severa (muda a prescrição); âmbar = lesão
+   leve ou PAR-Q com "Sim". É botão: leva à aba onde o motivo se resolve. */
+.pc-selo{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line-2);
+  background:var(--bg-3);color:var(--txt);white-space:nowrap;line-height:1.2;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem}
+.pc-selo.alerta{cursor:pointer;transition:filter .15s ease}
+.pc-selo.alerta:hover{filter:brightness(1.2)}
+.pc-selo.alerta:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pc-selo.alerta.vermelho{color:#ffb4ae;background:rgba(255,91,80,.16);border-color:rgba(255,91,80,.65)}
+.pc-selo.alerta.ambar{color:#ffc477;background:rgba(255,158,27,.13);border-color:rgba(255,158,27,.55)}
+
+/* Ações: WhatsApp (o telefone salvo), PDF e o menu ⋯. */
+.pc-acoes{grid-area:acoes;display:flex;align-items:center;gap:8px}
+.pc-btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 14px;
+  border:1px solid var(--line-2);background:var(--bg-3);color:var(--txt);cursor:pointer;text-decoration:none;white-space:nowrap;
+  font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.8rem;
+  transition:border-color .15s ease,color .15s ease}
+.pc-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pc-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pc-btn:disabled{opacity:.4;cursor:not-allowed}
+.pc-btn.wa:not(:disabled) svg{color:var(--ok)}
+.pc-mais{width:40px;padding:0}
+.pc-mais[aria-expanded="true"]{border-color:var(--accent);color:var(--accent)}
+.pc-menu{position:relative}
+.pc-menu-lista{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:240px;padding:6px;
+  display:flex;flex-direction:column;background:var(--bg-2);border:1px solid var(--line-2);
+  box-shadow:0 20px 44px -14px rgba(0,0,0,.85)}
+.pc-menu-lista[hidden]{display:none}
+.pc-menu-lista [role="menuitem"]{appearance:none;border:0;background:none;color:var(--txt);cursor:pointer;text-align:left;
+  display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;font-family:var(--font-body);font-size:.95rem}
+.pc-menu-lista [role="menuitem"] svg{color:var(--mut);flex:0 0 auto}
+.pc-menu-lista [role="menuitem"]:hover,.pc-menu-lista [role="menuitem"]:focus-visible{background:var(--bg-3);outline:none}
+.pc-menu-lista [role="menuitem"].perigo,.pc-menu-lista [role="menuitem"].perigo svg{color:var(--bad)}
+.pc-menu-lista [role="menuitem"].perigo:hover,.pc-menu-lista [role="menuitem"].perigo:focus-visible{background:rgba(255,91,80,.1)}
+.pc-menu-lista .so-compacto{display:none}
+.pc-menu-sep{height:1px;background:var(--line);margin:6px 4px}
+
+/* Compacto (rolou a página): uma linha — voltar, foto pequena, nome, selos, ações em ícone. */
+.compacto .perfil-cab{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"voltar id acoes";align-items:center;column-gap:10px;row-gap:0}
+.compacto .pc-voltar{margin-left:-8px;padding:6px 4px}
+.compacto .pc-voltar span,.compacto .pc-btn span,.compacto .pc-cam,.compacto .pc-obj,.compacto .pc-num{display:none}
+.compacto .pc-id{gap:12px}
+.compacto .pc-foto{width:40px;height:40px;margin:3px;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--anel)}
+.compacto .pc-ini{font-size:.95rem}
+.compacto .pc-nome{font-size:1.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.compacto .pc-meta{margin-top:3px;flex-wrap:nowrap;overflow:hidden;gap:6px}
+.compacto .pc-meta .status,.compacto .pc-selo,.compacto .pc-meta .ac-chip{font-size:.62rem;padding:2px 7px}
+.compacto .pc-btn{width:38px;min-height:38px;padding:0}
+
+/* Celular: as ações viram uma linha cheia embaixo do nome; compacto, sobram
+   WhatsApp e ⋯ (o PDF passa para dentro do menu) e, dos selos, só o alerta. */
+@media (max-width:640px){
+  .perfil-cab{grid-template-columns:minmax(0,1fr);grid-template-areas:"voltar" "id" "acoes";row-gap:12px}
   .pc-id{gap:16px}
   .pc-foto{width:72px;height:72px}
   .pc-ini{font-size:1.4rem}
+  .pc-acoes .pc-btn:not(.pc-mais){flex:1 1 0}
+  .compacto .perfil-cab{grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"voltar id acoes"}
+  .compacto .pc-foto{width:36px;height:36px}
+  .compacto .pc-nome{font-size:1.1rem}
+  .compacto .pc-acoes .pc-btn:not(.pc-mais){flex:0 0 auto}
+  .compacto .pc-acoes [data-acao="pdf"]{display:none}
+  .compacto .pc-menu-lista .so-compacto{display:flex}
+  .compacto .pc-meta > :not(.alerta){display:none}
+  .compacto .pc-selo.alerta{padding:3px 5px}
+  .compacto .pc-selo.alerta span{display:none}
 }
 
 /* ---------- Abas (ui-perfil.js: ABAS) ----------
    Rolam de lado quando não cabem (celular), sem barra de rolagem à vista; a
    aba aberta é trazida para a vista. */
-.perfil-abas{display:flex;gap:2px;margin:22px 0;border-bottom:1px solid var(--line);
+.perfil-abas{display:flex;gap:2px;margin:16px 0 0;
   overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+.compacto .perfil-abas{margin-top:6px}
 .perfil-abas::-webkit-scrollbar{display:none}
 .perfil-aba{appearance:none;border:0;background:transparent;cursor:pointer;position:relative;flex:0 0 auto;
   padding:12px 16px;color:var(--mut);white-space:nowrap;scroll-snap-align:start;
   font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.9rem}
+.compacto .perfil-aba{padding:9px 14px}
 .perfil-aba::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:2px;background:var(--accent);
   transform:scaleX(0);transition:transform .2s ease}
 .perfil-aba:hover{color:var(--txt)}
@@ -231,7 +314,20 @@ button{font-family:inherit}
 .perfil-abas{padding-right:36px;
   -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);
   mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}
-@media (prefers-reduced-motion:reduce){ .perfil-aba::after,.pc-foto,.pc-cam{transition:none} }
+
+/* ---------- Modais do menu ⋯ (ui-acoes-aluno.js) ---------- */
+.modal.modal-estreito{max-width:480px}
+#modal-acesso .dlg-texto,#modal-excluir .dlg-texto{margin:0 0 14px;color:var(--mut);font-size:.95rem;line-height:1.5}
+#modal-acesso .dlg-texto b,#modal-excluir .dlg-texto b{color:var(--txt)}
+.ac-alvo{margin:0 0 12px;color:var(--mut-2);font-size:.85rem}
+.ac-alvo b{color:var(--txt);font-weight:600;overflow-wrap:anywhere}
+.ac-botoes{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:6px}
+.ac-botoes .btn:disabled{opacity:.5;cursor:wait}
+#modal-acesso .acesso-erro{margin:0 0 12px}
+.ex-id{font-family:var(--font-display);font-size:1rem;color:var(--accent);letter-spacing:.02em;text-transform:none;user-select:all}
+#btn-excluir-ok:disabled{opacity:.35;cursor:not-allowed}
+
+@media (prefers-reduced-motion:reduce){ .perfil-aba::after,.pc-foto,.pc-cam,.pc-btn,.pc-selo{transition:none} }
 
 
 /* ---------- Avatares e fotos ---------- */
