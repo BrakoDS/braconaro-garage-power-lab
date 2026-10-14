@@ -496,13 +496,15 @@ service cloud.firestore {
     // no dia: `lousa/{AAAA-MM-DD}/alunos/{email}`. O tablet do box (logado como
     // coach) e o celular do aluno mexem no MESMO documento:
     //  - o ALUNO lê e grava só o dele; o COACH lê e grava todos;
-    //  - só seis campos: `horarioAula` (a turma em que o aluno se conectou à
+    //  - só sete campos: `horarioAula` (a turma em que o aluno se conectou à
     //    lousa, 'HH:MM', ou null ao sair — é o que o põe no tablet; o check-in
     //    da Gestão não entra), `aulaSelecionada` (a modalidade DESTE aluno — a
     //    Ana no Cross e o Bruno no H1 no mesmo horário), `concluidoEm` (o
     //    "Finalizar Treino": a hora do servidor no momento em que é gravado,
-    //    depois só pode ficar igual), `feitos` (lista de ids ticados), `timer`
-    //    e `atualizadoEm`;
+    //    depois só pode ficar igual), `origem` (quem pôs o aluno na turma:
+    //    'aluno' pelo "Conectar à Lousa" ou 'coach' pelo "Adicionar aluno" do
+    //    tablet — só o coach grava 'coach'; o aluno só o mantém ao ticar),
+    //    `feitos` (lista de ids ticados), `timer` e `atualizadoEm`;
     //  - o descanso guarda só o início e a duração, nunca o tempo que falta — e o
     //    início tem de ser a hora do servidor (`serverTimestamp()`) quando muda:
     //    um relógio de aparelho errado não entra no documento que o outro lê.
@@ -517,7 +519,11 @@ service cloud.firestore {
     }
     function lousaValida() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'concluidoEm', 'feitos', 'timer', 'atualizadoEm'])
+      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'concluidoEm', 'origem', 'feitos', 'timer', 'atualizadoEm'])
+        && (!('origem' in d)
+          || d.origem == 'aluno'
+          || (d.origem == 'coach'
+            && (ehCoach() || (resource != null && resource.data.get('origem', null) == 'coach'))))
         && (d.get('concluidoEm', null) == null
           || d.concluidoEm == request.time
           || (resource != null && resource.data.get('concluidoEm', null) == d.concluidoEm))
