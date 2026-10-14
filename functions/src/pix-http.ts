@@ -43,7 +43,15 @@ export async function responderWebhook(req: ReqHttp, res: ResHttp, criarDeps: ()
   if (req.method !== 'POST') { res.status(405).send('use POST'); return; }
   const deps = criarDeps();
   try {
-    const r = await processarWebhook({ headers: req.headers, query: achatarQuery(req.query), corpo: req.body }, deps);
+    const query = achatarQuery(req.query);
+    const r = await processarWebhook({ headers: req.headers, query, corpo: req.body }, deps);
+    // Toda notificação deixa rastro: sem isto, "o Mercado Pago chamou?" só se via no log de requisições.
+    const corpo = req.body as { type?: unknown; action?: unknown; data?: { id?: unknown } } | null;
+    deps.log.info('Webhook do Mercado Pago.', {
+      status: r.status, resultado: r.resultado,
+      tipo: String(query.type ?? query.topic ?? corpo?.type ?? corpo?.action ?? ''),
+      paymentId: String(query['data.id'] ?? corpo?.data?.id ?? ''),
+    });
     res.status(r.status).send(r.resultado);
   } catch (e) {
     deps.log.error('webhookMercadoPago falhou.', { erro: String((e as Error)?.message || e) });

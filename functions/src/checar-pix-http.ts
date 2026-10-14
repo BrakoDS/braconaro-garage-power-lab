@@ -28,6 +28,7 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { COACH_UIDS, ehCoachPorUid } from './acesso';
 import { executarGerarPix, responderWebhook, type DepsPix } from './pix-http';
 import { clienteMercadoPago, repoFirestore } from './pix-firestore';
+import { reconciliarCobrancas } from './pix-servico';
 import type { CobrancaPix } from './pix';
 
 let falhas = 0;
@@ -96,8 +97,9 @@ class MemDb {
     return {
       doc: (id: string) => db.doc(`${path}/${id}`),
       where: (campo: string, op: string, v: unknown) => {
-        if (op !== '==') throw new Error('só igualdade');
-        return consulta((d) => d[campo] === v);
+        if (op === '==') return consulta((d) => d[campo] === v);
+        if (op === 'in' && Array.isArray(v)) return consulta((d) => v.includes(d[campo]));
+        throw new Error('só igualdade e in');
       },
       get: consulta(() => true).get,
     };
@@ -192,7 +194,12 @@ async function main(): Promise<void> {
   const mp = mercadoPagoFalso();
   const baseMp = await ouvir(mp.server);
   const erros: string[] = [];
-  const log = { info() {}, warn() {}, error(msg: string, extra?: object) { erros.push(`${msg} ${JSON.stringify(extra ?? {})}`); } };
+  const infos: string[] = [];
+  const log = {
+    info(msg: string, extra?: object) { infos.push(`${msg} ${JSON.stringify(extra ?? {})}`); },
+    warn() {},
+    error(msg: string, extra?: object) { erros.push(`${msg} ${JSON.stringify(extra ?? {})}`); },
+  };
   const deps = (o: { timeoutMs?: number } = {}): DepsPix => ({
     repo: repoFirestore(db as any), mp: clienteMercadoPago(TOKEN, { base: baseMp, timeoutMs: o.timeoutMs ?? 2000 }),
     agora: AGORA, ehCoach: ehCoachPorUid, log,
@@ -295,6 +302,11 @@ async function main(): Promise<void> {
   await responderWebhook({ method: 'POST', headers: { 'x-signature': assinar(rui.paymentId, 'rq', '5'), 'x-request-id': 'rq' }, query: { data: { id: rui.paymentId }, type: 'payment' }, body: {} }, resFalsa, () => depsWebhook());
   ok(respondido.status === 200 && respondido.corpo.startsWith('sem mudança'), 'query aninhada ({ data: { id } }): o id não se perde');
 
+  // O "Simular notificação" do painel: id que o Mercado Pago não conhece → 404 lá, 200 aqui.
+  const simulada = await notificar('123456');
+  ok(simulada.status === 200 && simulada.texto.includes('não encontrado'), `simulação do painel (404 no Mercado Pago): 200 "${simulada.texto}"`);
+  ok(infos.some((i) => i.startsWith('Webhook do Mercado Pago.') && i.includes('"paymentId":"123456"')), 'e toda notificação fica no log, com o resultado');
+
   // Mercado Pago fora ao consultar: 500 (ele reenvia depois), e o token não vaza no log.
   mp.modo.erro500 = true;
   const cai = await notificar(rui.paymentId);
@@ -315,6 +327,19 @@ async function main(): Promise<void> {
   ok((await notificar(rui.paymentId)).status === 401, 'segredo do webhook vazio no servidor: 401 para tudo');
 
   ok(db.transacoes >= 9, `as aprovações passaram por transação (${db.transacoes})`);
+
+  /* ---------- varredura: adaptador real + cliente HTTP real ---------- */
+  console.log('\n3. reconciliarPix pelas portas de verdade');
+  db.docs.set(`gestao/${UID}/alunos/Zeca04`, { nome: 'Zeca', email: 'zeca@box.com', mensalidade: '60', vencimento: '15' });
+  const zeca = await executarGerarPix(comoAluno('zeca@box.com'), () => deps());
+  const abertas = await deps().repo.cobrancasAbertas(UID);
+  ok(abertas.some((c) => c.paymentId === zeca.paymentId) && abertas.every((c) => c.status === 'pendente' || c.status === 'substituida'),
+    `cobrancasAbertas: where status in [pendente, substituida] (${abertas.length})`);
+  mp.pagamentos.get(zeca.paymentId)!.status = 'approved'; // pago, sem webhook
+  const rodada = await reconciliarCobrancas({ ...deps(), uids: COACH_UIDS });
+  const z = db.docs.get(`gestao/${UID}/cobrancasPix/${zeca.paymentId}`) as CobrancaPix;
+  ok(rodada.aprovadas >= 1 && z.status === 'aprovado' && z.avisarGestao === true, `a varredura aprova o Pix pago sem webhook (${JSON.stringify(rodada)})`);
+  ok(mp.chamadas.some((c) => c.metodo === 'GET' && c.caminho === `/v1/payments/${zeca.paymentId}` && c.auth === `Bearer ${TOKEN}`), 'consultando GET /v1/payments/{id} com o nosso token');
 
   await fechar(servidor);
   await fechar(mp.server);

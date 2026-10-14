@@ -23,6 +23,9 @@
  *   - webhook repetido (o Mercado Pago reenvia até receber 200): a aprovação é
  *     uma TRANSAÇÃO que só muda a cobrança que ainda não estava aprovada; a
  *     segunda notificação não muda nada;
+ *   - webhook e varredura (`reconciliarCobrancas`, a cada 10 min, para quando a
+ *     notificação não vem) passam pela mesma `aplicarPagamento`: quem chegar
+ *     primeiro aprova, o outro vê "sem mudança";
  *   - dois toques no "Gerar Pix": a mesma chave de idempotência no Mercado Pago
  *     (ver PIX_JANELA_MIN) e o QR ainda válido é devolvido de novo;
  *   - a baixa na Gestão é `darBaixa` (não paga duas vezes) com evento de id fixo.
@@ -59,6 +62,8 @@ export interface RepoPix {
     Promise<{ existe: boolean; mudou: boolean }>;
   /** `portal/{email}.pagamentos[mesId] = true` — o aluno vê "pago" sem esperar o coach. */
   marcarPagoNoPortal(email: string, mesId: string): Promise<void>;
+  /** As cobranças que ainda podem virar pagamento (`pendente` e `substituida`) — o que a varredura confere. */
+  cobrancasAbertas(uid: string): Promise<CobrancaPix[]>;
 }
 
 export interface ClienteMp {
@@ -216,9 +221,35 @@ export async function processarWebhook(
   const id = idDaNotificacao(req.query, req.corpo);
   if (!id) return { status: 200, resultado: 'ignorado: sem id de pagamento' };
 
-  const pg = await deps.mp.buscarPagamento(id);
+  let pg: Record<string, unknown>;
+  try {
+    pg = await deps.mp.buscarPagamento(id);
+  } catch (e) {
+    // Pagamento que o Mercado Pago não conhece: o "Simular notificação" do painel
+    // manda um id inventado. Não há o que refazer — 200, senão ele reenvia sem fim.
+    if ((e as { status?: unknown })?.status === 404) {
+      log.info('Webhook do Mercado Pago para pagamento inexistente (simulação do painel?).', { paymentId: id });
+      return { status: 200, resultado: 'ignorado: pagamento não encontrado no Mercado Pago' };
+    }
+    throw e;
+  }
+  return { status: 200, resultado: await aplicarPagamento(id, pg, deps) };
+}
+
+/**
+ * O pagamento como a API do Mercado Pago o devolve, aplicado à cobrança: a
+ * MESMA decisão e a MESMA transação para o webhook e para a varredura
+ * (`reconciliarCobrancas`) — quem chegar primeiro aprova, o outro vê "sem
+ * mudança". Devolve o resultado em texto (vai para o log e para a resposta HTTP).
+ */
+async function aplicarPagamento(
+  id: string,
+  pg: Record<string, unknown>,
+  deps: { repo: RepoPix; agora: number; ehCoach: (uid: string) => boolean; log?: Log },
+): Promise<string> {
+  const log = deps.log || SEM_LOG;
   const ref = lerReferencia(pg.external_reference);
-  if (!ref || !deps.ehCoach(ref.uid)) return { status: 200, resultado: 'ignorado: pagamento de fora deste sistema' };
+  if (!ref || !deps.ehCoach(ref.uid)) return 'ignorado: pagamento de fora deste sistema';
 
   let decisao = '';
   let cobranca: CobrancaPix | null = null;
@@ -240,7 +271,7 @@ export async function processarWebhook(
   });
   if (!r.existe) {
     log.warn('Pagamento do Mercado Pago sem cobrança registrada.', { paymentId: id });
-    return { status: 200, resultado: 'ignorado: cobrança desconhecida' };
+    return 'ignorado: cobrança desconhecida';
   }
   const c = cobranca as CobrancaPix | null;
   if (decisao === 'aprovar' && r.mudou && c) {
@@ -249,9 +280,61 @@ export async function processarWebhook(
       log.warn('Pix aprovado, mas o Portal não foi marcado agora.', { paymentId: id, erro: String((e as Error)?.message || e) });
     }
     log.info('Pix aprovado.', { paymentId: id, alunoId: c.alunoId, mesId: c.mesId });
-    return { status: 200, resultado: 'aprovado' };
+    return 'aprovado';
   }
   if (decisao === 'estornar' && r.mudou) log.warn('Pix ESTORNADO depois de aprovado — conferir na Gestão.', { paymentId: id });
   if (decisao === 'divergente' && r.mudou) log.warn('Pix com divergência — não aplicado.', { paymentId: id });
-  return { status: 200, resultado: r.mudou ? decisao : `sem mudança (${decisao || 'nada'})` };
+  return r.mudou ? decisao : `sem mudança (${decisao || 'nada'})`;
+}
+
+/* ================================================================== *
+ * reconciliarPix — a varredura
+ * ================================================================== */
+
+/**
+ * Cobrança vencida há mais que isto sai da varredura mesmo sem resposta final
+ * do Mercado Pago. O Pix não pode ser pago depois do vencimento; a folga cobre
+ * o atraso do Mercado Pago em fechar o pagamento (ele passa a `cancelled`, e aí
+ * a cobrança vira "cancelado" e sai da lista sozinha).
+ */
+export const FOLGA_VARREDURA_MS = 3 * 24 * 3600_000;
+/** Teto de consultas ao Mercado Pago por rodada — o resto fica para a próxima. */
+export const MAXIMO_POR_RODADA = 50;
+
+export interface ResultadoVarredura { conferidas: number; aprovadas: number; mudaram: number; falhas: number }
+
+/**
+ * A REDE DE SEGURANÇA do webhook: confere no Mercado Pago cada cobrança ainda
+ * aberta e aplica o que mudou, pelo mesmo caminho do webhook. Se a notificação
+ * não vier (URL fora do painel, Mercado Pago fora, função fora), o Pix pago
+ * aparece na rodada seguinte.
+ *
+ * Um pagamento que falha na consulta não derruba a rodada: fica para a próxima.
+ */
+export async function reconciliarCobrancas(
+  deps: { repo: RepoPix; mp: ClienteMp; agora: number; ehCoach: (uid: string) => boolean; uids: readonly string[]; log?: Log },
+): Promise<ResultadoVarredura> {
+  const log = deps.log || SEM_LOG;
+  const total: ResultadoVarredura = { conferidas: 0, aprovadas: 0, mudaram: 0, falhas: 0 };
+  for (const uid of deps.uids) {
+    const abertas = (await deps.repo.cobrancasAbertas(uid))
+      .filter((c) => c.expiraEm + FOLGA_VARREDURA_MS >= deps.agora)
+      .sort((x, y) => x.criadoEm - y.criadoEm)
+      .slice(0, MAXIMO_POR_RODADA - total.conferidas);
+    for (const c of abertas) {
+      total.conferidas++;
+      try {
+        const resultado = await aplicarPagamento(c.paymentId, await deps.mp.buscarPagamento(c.paymentId), deps);
+        if (resultado === 'aprovado') total.aprovadas++;
+        if (!resultado.startsWith('sem mudança') && !resultado.startsWith('ignorado')) {
+          total.mudaram++;
+          log.info('Varredura do Pix: cobrança atualizada.', { paymentId: c.paymentId, alunoId: c.alunoId, mesId: c.mesId, resultado });
+        }
+      } catch (e) {
+        total.falhas++;
+        log.warn('Varredura do Pix: não deu para conferir agora.', { paymentId: c.paymentId, erro: String((e as Error)?.message || e) });
+      }
+    }
+  }
+  return total;
 }
