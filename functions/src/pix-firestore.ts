@@ -80,6 +80,11 @@ export function repoFirestore(db: Firestore): RepoPix {
         return { existe: true, mudou: true };
       });
     },
+    async cobrancasAbertas(uid) {
+      // `in` num campo só: também não pede índice composto.
+      const q = await cobrancas(uid).where('status', 'in', ['pendente', 'substituida']).get();
+      return q.docs.map((d) => d.data() as CobrancaPix);
+    },
     async marcarPagoNoPortal(email, mesId) {
       const e = normalizarEmail(email);
       if (!e) return;
@@ -101,7 +106,10 @@ export function repoFirestore(db: Firestore): RepoPix {
 const API_MP = 'https://api.mercadopago.com';
 const TIMEOUT_MP_MS = 15_000;
 
-/** Uma chamada à API do Mercado Pago. O erro diz o status e a mensagem dela — nunca o token. */
+/**
+ * Uma chamada à API do Mercado Pago. O erro diz o status e a mensagem dela —
+ * nunca o token — e leva o status HTTP em `status` (o webhook trata o 404).
+ */
 async function chamar(o: OpcoesMp, metodo: 'GET' | 'POST' | 'PUT', caminho: string, corpo?: unknown, extra: Record<string, string> = {}): Promise<Record<string, unknown>> {
   const controle = new AbortController();
   const timer = setTimeout(() => controle.abort(), o.timeoutMs);
@@ -115,7 +123,9 @@ async function chamar(o: OpcoesMp, metodo: 'GET' | 'POST' | 'PUT', caminho: stri
     const texto = await r.text();
     let json: Record<string, unknown> = {};
     try { json = texto ? JSON.parse(texto) : {}; } catch { /* corpo não-JSON: fica vazio */ }
-    if (!r.ok) throw new Error(`Mercado Pago ${metodo} ${caminho.split('?')[0]} → ${r.status}: ${String(json.message ?? json.error ?? texto).slice(0, 200)}`);
+    if (!r.ok) {
+      throw Object.assign(new Error(`Mercado Pago ${metodo} ${caminho.split('?')[0]} → ${r.status}: ${String(json.message ?? json.error ?? texto).slice(0, 200)}`), { status: r.status });
+    }
     return json;
   } finally {
     clearTimeout(timer);

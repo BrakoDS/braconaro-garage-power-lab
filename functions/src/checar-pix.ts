@@ -20,7 +20,9 @@ import {
   assinaturaValida, contaDoMes, dataMp, decidir, diaSaoPaulo, lerReferencia, mesDaCobranca, montarPedidoPix,
   PIX_JANELA_MIN, PIX_VALIDADE_MIN, type CobrancaPix, type Ficha, type PedidoPix,
 } from './pix';
-import { ErroPix, gerarPix, processarWebhook, type ClienteMp, type RepoPix } from './pix-servico';
+import {
+  ErroPix, FOLGA_VARREDURA_MS, MAXIMO_POR_RODADA, gerarPix, processarWebhook, reconciliarCobrancas, type ClienteMp, type RepoPix,
+} from './pix-servico';
 import { normalizarEmail } from './acesso';
 
 let falhas = 0;
@@ -217,6 +219,9 @@ function bancoFalso(todos: Ficha[], opcoes: { refazerTransacao?: boolean } = {})
       escritasPortal.push(`${email}:${mesId}`);
       portal.set(email, { ...(portal.get(email) || {}), [mesId]: true });
     },
+    async cobrancasAbertas(uid) {
+      return [...doUid(uid).values()].filter((c) => c.status === 'pendente' || c.status === 'substituida').map((c) => structuredClone(c));
+    },
   };
   return { repo, cobrancas, deOutroUid, portal, escritasPortal, UID };
 }
@@ -227,6 +232,7 @@ function mercadoPagoFalso() {
   const porChave = new Map<string, string>();
   const chamadas: string[] = [];
   let seq = 1000, falharCriar = false, falharBuscar = false;
+  const falharBuscarId = new Set<string>();
   const mp: ClienteMp = {
     async criarPix(p: PedidoPix) {
       chamadas.push(`criar:${p.corpo.transaction_amount}`);
@@ -241,15 +247,15 @@ function mercadoPagoFalso() {
     },
     async buscarPagamento(id) {
       chamadas.push(`buscar:${id}`);
-      if (falharBuscar) throw new Error('Mercado Pago GET → 503');
+      if (falharBuscar || falharBuscarId.has(id)) throw Object.assign(new Error('Mercado Pago GET → 503'), { status: 503 });
       const p = pagamentos.get(id);
-      if (!p) throw new Error('Mercado Pago GET → 404');
+      if (!p) throw Object.assign(new Error('Mercado Pago GET → 404'), { status: 404 });
       return { ...p };
     },
     async cancelarPagamento(id) { chamadas.push(`cancelar:${id}`); const p = pagamentos.get(id); if (p) p.status = 'cancelled'; },
   };
   return {
-    mp, pagamentos, chamadas,
+    mp, pagamentos, chamadas, falharBuscarId,
     falhar: (o: { criar?: boolean; buscar?: boolean }) => { falharCriar = !!o.criar; falharBuscar = !!o.buscar; },
     pagar: (id: string, valor?: number) => { const p = pagamentos.get(id)!; p.status = 'approved'; if (valor !== undefined) p.transaction_amount = valor; },
   };
@@ -451,10 +457,94 @@ async function webhook(): Promise<void> {
   (misturado.corpo as { action: string }).action = 'payment.updated';
   ok((await processarWebhook(misturado, wDeps())).resultado.includes('não é pagamento'), 'type=merchant_order com action payment.*: o type manda');
 
+  // O "Simular notificação" do painel: assinado, mas com um id que o Mercado Pago não conhece.
+  const simulada = await processarWebhook(notificar('123456'), wDeps());
+  ok(simulada.status === 200 && simulada.resultado.includes('não encontrado'), `simulação do painel (pagamento inexistente): 200, "${simulada.resultado}"`);
+
   mpf.falhar({ buscar: true });
   let subiu = false;
   try { await processarWebhook(notificar(val.paymentId), wDeps()); } catch { subiu = true; }
   ok(subiu, 'Mercado Pago fora ao consultar: o erro sobe (500) e o Mercado Pago reenvia depois');
+}
+
+async function varredura(): Promise<void> {
+  console.log('\n5. A varredura (reconciliarPix), para quando o webhook não vem');
+  const todos = boxDeTeste();
+  todos.push({ id: 'Rui07', nome: 'Rui', email: 'rui@box.com', mensalidade: '90', vencimento: '15' });
+  todos.push({ id: 'Val08', nome: 'Val', email: 'val@box.com', mensalidade: '70', vencimento: '15' });
+  todos.push({ id: 'Exp10', nome: 'Exp', email: 'exp@box.com', mensalidade: '100', vencimento: '15' });
+  const banco = bancoFalso(todos);
+  const mpf = mercadoPagoFalso();
+  const gDeps = { repo: banco.repo, mp: mpf.mp, agora: AGORA, ehCoach };
+  const vDeps = (agora = AGORA + 10 * 60_000) => ({ repo: banco.repo, mp: mpf.mp, agora, ehCoach, uids: ['C1'] });
+  const buscas = () => mpf.chamadas.filter((c) => c.startsWith('buscar')).length;
+
+  const vazia = await reconciliarCobrancas(vDeps());
+  ok(vazia.conferidas === 0 && buscas() === 0, 'sem cobrança aberta: a rodada nem chama o Mercado Pago');
+
+  const ana = await gerarPix({ uid: 'U', email: 'ana@box.com' }, gDeps);
+  const rui = await gerarPix({ uid: 'U', email: 'rui@box.com' }, gDeps);
+  const exp = await gerarPix({ uid: 'U', email: 'exp@box.com' }, gDeps);
+  mpf.pagar(ana.paymentId); // pago, e o webhook nunca veio
+  mpf.pagamentos.get(exp.paymentId)!.status = 'cancelled'; // venceu sem pagar
+
+  const r1 = await reconciliarCobrancas(vDeps());
+  const c = banco.cobrancas.get(ana.paymentId)!;
+  ok(r1.conferidas === 3 && r1.aprovadas === 1 && r1.falhas === 0, `primeira rodada: 3 conferidas, 1 aprovada (${JSON.stringify(r1)})`);
+  ok(c.status === 'aprovado' && c.avisarGestao === true && c.valorPago === 280 && c.aprovadoEm === AGORA + 10 * 60_000,
+    'o Pix pago sem webhook vira "aprovado" com avisarGestao — igual ao webhook');
+  ok(igual(banco.portal.get('ana@box.com'), { '2026-10': true }), 'e o Portal da Ana já mostra outubro pago');
+  ok(banco.cobrancas.get(rui.paymentId)?.status === 'pendente', 'ainda não pago: continua pendente');
+  ok(banco.cobrancas.get(exp.paymentId)?.status === 'cancelado', 'vencido no Mercado Pago: "cancelado", e sai da varredura');
+
+  const r2 = await reconciliarCobrancas(vDeps(AGORA + 20 * 60_000));
+  ok(r2.conferidas === 1 && r2.aprovadas === 0 && banco.escritasPortal.length === 1, 'segunda rodada: só a pendente é conferida; nada é reaprovado');
+
+  // O webhook atrasado chega depois da varredura: sem mudança.
+  const tarde = await processarWebhook({
+    headers: { 'x-request-id': 'r-tarde', 'x-signature': assinar(ana.paymentId, 'r-tarde', '1700009999') },
+    query: { 'data.id': ana.paymentId, type: 'payment' }, corpo: { type: 'payment', data: { id: ana.paymentId } },
+  }, { repo: banco.repo, mp: mpf.mp, segredo: SEGREDO, agora: AGORA + 30 * 60_000, ehCoach });
+  ok(tarde.resultado.startsWith('sem mudança') && banco.escritasPortal.length === 1, 'webhook depois da varredura: "sem mudança", o Portal não é marcado de novo');
+
+  // Um pagamento com o Mercado Pago instável não derruba a rodada.
+  const val = await gerarPix({ uid: 'U', email: 'val@box.com' }, gDeps);
+  mpf.pagar(val.paymentId);
+  mpf.pagar(rui.paymentId);
+  mpf.falharBuscarId.add(rui.paymentId);
+  const r3 = await reconciliarCobrancas(vDeps(AGORA + 40 * 60_000));
+  ok(r3.falhas === 1 && r3.aprovadas === 1 && banco.cobrancas.get(val.paymentId)?.status === 'aprovado' && banco.cobrancas.get(rui.paymentId)?.status === 'pendente',
+    'uma consulta falha: as outras seguem, e a que falhou fica para a próxima rodada');
+  mpf.falharBuscarId.clear();
+  const r4 = await reconciliarCobrancas(vDeps(AGORA + 50 * 60_000));
+  ok(r4.aprovadas === 1 && banco.cobrancas.get(rui.paymentId)?.status === 'aprovado', 'na rodada seguinte, a que falhou é aprovada');
+
+  // QR substituído e pago mesmo assim (o cancelamento falhou): a varredura também acha.
+  todos.push({ id: 'Sub11', nome: 'Sub', email: 'sub@box.com', mensalidade: '100', vencimento: '15' });
+  const s1 = await gerarPix({ uid: 'U', email: 'sub@box.com' }, gDeps);
+  todos[todos.length - 1].consumos = [{ id: 'c9', nome: 'Gel', preco: 10, data: '2026-10-09', mesId: '2026-10' }];
+  await gerarPix({ uid: 'U', email: 'sub@box.com' }, { ...gDeps, agora: AGORA + 60_000 });
+  ok(banco.cobrancas.get(s1.paymentId)?.status === 'substituida', 'o QR antigo ficou "substituída"');
+  mpf.pagamentos.get(s1.paymentId)!.status = 'approved';
+  await reconciliarCobrancas(vDeps(AGORA + 60 * 60_000));
+  ok(banco.cobrancas.get(s1.paymentId)?.status === 'aprovado' && banco.cobrancas.get(s1.paymentId)?.avisarGestao === true,
+    'QR substituído pago assim mesmo: aprovado e avisado (a Gestão confere mês já pago)');
+
+  // Vencida há mais de 3 dias sem resposta final: sai da varredura.
+  todos.push({ id: 'Old12', nome: 'Old', email: 'old@box.com', mensalidade: '100', vencimento: '15' });
+  const old = await gerarPix({ uid: 'U', email: 'old@box.com' }, gDeps);
+  const antes = buscas();
+  await reconciliarCobrancas(vDeps(old.expiraEm + FOLGA_VARREDURA_MS + 1));
+  ok(!mpf.chamadas.slice(antes).includes(`buscar:${old.paymentId}`), 'vencida há mais de 3 dias: não é mais consultada');
+
+  // Teto por rodada.
+  const muitas = bancoFalso(todos);
+  for (let i = 0; i < MAXIMO_POR_RODADA + 5; i++) {
+    await muitas.repo.salvarCobranca('C1', { paymentId: `9${i}`, alunoId: 'Ana01', alunoNome: 'Ana', email: 'ana@box.com', mesId: '2026-10', valor: 1,
+      soMensalidade: true, status: 'pendente', criadoEm: AGORA + i, expiraEm: AGORA + 3600_000, qrCode: 'q', qrCodeBase64: 'b', ticketUrl: '' });
+  }
+  const teto = await reconciliarCobrancas({ ...vDeps(), repo: muitas.repo });
+  ok(teto.conferidas === MAXIMO_POR_RODADA, `muitas abertas: no máximo ${MAXIMO_POR_RODADA} consultas por rodada`);
 }
 
 /* ================================================================== */
@@ -467,6 +557,7 @@ async function webhook(): Promise<void> {
   decisoes();
   await gerar();
   await webhook();
+  await varredura();
   console.log(falhas ? `\n✗ ${falhas} falha(s).` : '\n✓ Pix dinâmico conferido.');
   process.exitCode = falhas ? 1 : 0;
 })().catch((e) => { console.error(e); process.exitCode = 1; });

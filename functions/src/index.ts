@@ -58,6 +58,7 @@ import { COACH_UIDS, ehCoachPorUid, normalizarEmail } from './acesso';
 import { acharAlunoDaGestao, fichasDaGestao, fonteFirestore } from './gestao-leitura';
 import { executarGerarPix, responderWebhook } from './pix-http';
 import { clienteMercadoPago, repoFirestore } from './pix-firestore';
+import { reconciliarCobrancas } from './pix-servico';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
@@ -2721,4 +2722,34 @@ export const webhookMercadoPago = onRequest(
     () => ({ repo: repoFirestore(getFirestore()), mp: clienteMercadoPago(MP_ACCESS_TOKEN.value()), segredo: MP_WEBHOOK_SECRET.value(),
       agora: Date.now(), ehCoach: ehCoachPorUid, log: logger }),
   ),
+);
+
+/**
+ * A rede de segurança do webhook: a cada 10 minutos, confere no Mercado Pago
+ * as cobranças ainda abertas (`pendente`/`substituida`) e aplica o que mudou
+ * pelo MESMO caminho do webhook (`reconciliarCobrancas`). Pix pago sem
+ * notificação aparece pago em até 10 minutos. Sem cobrança aberta, a rodada é
+ * uma consulta só ao Firestore e nenhuma ao Mercado Pago.
+ */
+export const reconciliarPix = onSchedule(
+  {
+    schedule: 'every 10 minutes',
+    timeZone: 'America/Sao_Paulo',
+    region: 'southamerica-east1',
+    secrets: [MP_ACCESS_TOKEN],
+    memory: '256MiB',
+    timeoutSeconds: 120,
+    // Uma rodada por vez (ver sincronizarPrecosDiario): duas em paralelo só
+    // consultariam o mesmo pagamento duas vezes — a transação já impede aprovar duas.
+    maxInstances: 1,
+    concurrency: 1,
+    retryCount: 0, // a próxima rodada vem em 10 minutos
+  },
+  async () => {
+    const r = await reconciliarCobrancas({
+      repo: repoFirestore(getFirestore()), mp: clienteMercadoPago(MP_ACCESS_TOKEN.value()), agora: Date.now(),
+      ehCoach: ehCoachPorUid, uids: COACH_UIDS, log: logger,
+    });
+    if (r.conferidas) logger.info('Varredura do Pix.', r);
+  },
 );

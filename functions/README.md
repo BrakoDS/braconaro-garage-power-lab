@@ -357,13 +357,13 @@ o `checar-conquistas` confere que as duas datas são iguais.
 "Voz ativa" já no lançamento. Para recortar, é preciso registrar a data de cada feedback (ou uma
 linha de base `feedbacksAntesDoCorte` gravada uma vez) na Gestão.
 
-## Pix dinâmico — Mercado Pago (`gerarPixCobranca`, `webhookMercadoPago`)
+## Pix dinâmico — Mercado Pago (`gerarPixCobranca`, `webhookMercadoPago`, `reconciliarPix`)
 
 Regra em `src/pix.ts` (conta do mês, pedido, assinatura, decisão), orquestração em
 `src/pix-servico.ts`, Firestore e cliente do Mercado Pago em `src/pix-firestore.ts`, a borda HTTP
 em `src/pix-http.ts`. `npm run checar:pix` roda os dois testes, sem rede:
 
-- `checar-pix`: a regra (conta × código da Gestão em milhares de boxes, assinatura, gerar, webhook);
+- `checar-pix`: a regra (conta × código da Gestão em milhares de boxes, assinatura, gerar, webhook, varredura);
 - `checar-pix-http`: a fiação, com um Express de verdade recebendo POSTs reais (assinatura válida,
   inválida, ausente), o cliente real falando HTTP com um Mercado Pago falso local e o adaptador real
   sobre um Firestore em memória com transação. O emulador do Firestore (precisa de Java) ainda não
@@ -371,8 +371,8 @@ em `src/pix-http.ts`. `npm run checar:pix` roda os dois testes, sem rede:
 
 | Caminho | Quem grava | Quem lê |
 | --- | --- | --- |
-| `gestao/{uid}/cobrancasPix/{paymentId}` | as duas funções (cria, aprova); a Gestão desliga `avisarGestao` | o coach |
-| `portal/{email}.pagamentos[mês]` | o webhook, ao aprovar | o aluno |
+| `gestao/{uid}/cobrancasPix/{paymentId}` | as três funções (cria, aprova); a Gestão desliga `avisarGestao` | o coach |
+| `portal/{email}.pagamentos[mês]` | o webhook ou a varredura, ao aprovar | o aluno |
 
 **O webhook NÃO grava na ficha** (`gestao/{uid}/alunos/{id}`). A Gestão é local-first e regrava
 a ficha inteira a cada edição: uma baixa escrita pelo servidor seria apagada pela próxima edição
@@ -380,6 +380,14 @@ num aparelho aberto antes do Pix. O webhook anota o Pix aprovado no livro-caixa 
 `avisarGestao: true`; a Gestão (`coach/gestao-de-alunos/pix-baixa.js`) aplica a baixa com o
 mesmo `darBaixa` da baixa manual ao abrir, de 2 em 2 minutos e antes de publicar o Portal. Até lá
 o aluno já vê "pago" no Portal, e um segundo Pix do mesmo mês é recusado.
+
+**A varredura (`reconciliarPix`, a cada 10 minutos) é a rede de segurança do webhook.** Ela lê as
+cobranças `pendente`/`substituida` (`where status in`, sem índice composto), consulta cada uma em
+`GET /v1/payments/{id}` e aplica o resultado pela MESMA `aplicarPagamento` do webhook — quem chegar
+primeiro aprova, o outro vê "sem mudança". Pix pago sem notificação (URL fora do painel, Mercado
+Pago ou função fora) aparece pago em até 10 minutos; QR vencido vira `cancelado` e sai da lista.
+No máximo 50 consultas por rodada; cobrança vencida há mais de 3 dias deixa de ser consultada.
+Nasceu do incidente de 13/10/2026: a URL não estava no painel e nenhum webhook chegou desde o deploy.
 
 **O valor nunca vem do cliente.** `gerarPixCobranca` calcula a conta do mês a partir da ficha:
 porte de `contaDoMes` (Gestão), conferido lado a lado com o original em milhares de boxes
@@ -392,22 +400,27 @@ a conta da Gestão, a mesma das Cobranças e da baixa.
 1. **Credenciais**: no painel do Mercado Pago, *Suas integrações → (sua aplicação) →
    Credenciais de produção → Access Token*. Para testar antes, use as credenciais de **teste**.
 2. **Webhook**: *Suas integrações → (sua aplicação) → Webhooks → Configurar notificações*:
-   - URL de produção: `https://southamerica-east1-projeto-garage-f0a2f.cloudfunctions.net/webhookMercadoPago`
+   - URL de produção: `https://webhookmercadopago-wnprj7n6iq-rj.a.run.app` (a do Cloud Run;
+     `https://southamerica-east1-projeto-garage-f0a2f.cloudfunctions.net/webhookMercadoPago` chega
+     na mesma função)
    - Evento: **Pagamentos**
    - Salve e copie a **assinatura secreta** gerada ali.
 
    A URL vai no painel, e não no pedido de pagamento: só as notificações da URL cadastrada no
    painel vêm com a assinatura `x-signature`, e o webhook recusa (401) o que vier sem ela.
+   O "Simular notificação" do painel manda um id inventado: a resposta é 200 "pagamento não
+   encontrado no Mercado Pago" (401 se a assinatura secreta não bater com o segredo). Toda
+   notificação deixa a linha `Webhook do Mercado Pago.` no log, com o resultado.
 3. **Segredos** (da pasta `teste-hibrido/`, a única que publica; o valor é pedido sem eco):
 
    ```bash
    firebase functions:secrets:set MERCADOPAGO_ACCESS_TOKEN
    firebase functions:secrets:set MERCADOPAGO_WEBHOOK_SECRET
    ```
-4. **Publicar só as duas funções**:
+4. **Publicar só as funções do Pix**:
 
    ```bash
-   firebase deploy --only functions:gerarPixCobranca,functions:webhookMercadoPago
+   firebase deploy --only functions:gerarPixCobranca,functions:webhookMercadoPago,functions:reconciliarPix
    ```
 
 Emulador: os segredos falsos vão em `functions/.secret.local` (já ignorado pelo Git), uma linha
