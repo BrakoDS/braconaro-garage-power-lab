@@ -5,8 +5,10 @@
  * que repetia a prova inteira toda semana.
  *
  * ── Regras do coach (06/10/2026) ─────────────────────────────────────────────
- *  1. FORMATO em rodízio (`REGRA_FORMATO_HYROX`): prova completa, metade A,
- *     metade B ou compromised running — sem repetir o da semana anterior.
+ *  1. FORMATO: Hyrox na QUINTA é sempre a prova completa, com as 8 estações
+ *     (`DIA_HYROX_COMPLETO`, decisão de 15/10/2026). Fora da quinta, rodízio
+ *     (`REGRA_FORMATO_HYROX`): prova completa, metade A, metade B ou
+ *     compromised running — sem repetir o da semana anterior.
  *  2. ESTAÇÕES: as do formato, na ordem da prova. O compromised sorteia 4 das
  *     8, preferindo as que NÃO estiveram no Hyrox da semana anterior.
  *  3. NÍVEIS: Iniciante, Intermediário, Avançado e Competição — a prescrição
@@ -19,8 +21,8 @@
  * Determinístico: mesma `semente` e mesmo inventário → mesmo Hyrox.
  */
 import {
-  ESTACOES_HYROX, FORMATOS_HYROX, REGRA_FORMATO_HYROX,
-  type AlertaHyrox, type EstacaoHyrox, type FormatoHyrox, type HyroxProgramado, type RecursoBox,
+  DIA_HYROX_COMPLETO, ESTACOES_HYROX, FORMATOS_HYROX, REGRA_FORMATO_HYROX,
+  type AlertaHyrox, type DiaSemana, type EstacaoHyrox, type FormatoHyrox, type HyroxProgramado, type RecursoBox,
 } from './modelo-box';
 import { DADOS_ESTACAO_HYROX } from './catalogo-hyrox';
 import { embaralhar, hashSeed, mulberry32 } from './sorteio';
@@ -33,6 +35,8 @@ export interface ContextoHyrox {
   semanaPassada?: { formato: FormatoHyrox | null; estacoes: ReadonlySet<EstacaoHyrox> };
   /** Semente do sorteio: `${semanaId}:Hyrox:${variacao}`. */
   semente: string;
+  /** Os dias da semana com o Hyrox. Com a quinta, é a prova completa (sem rodízio). */
+  dias?: readonly DiaSemana[];
 }
 
 export interface HyroxGerado {
@@ -48,7 +52,9 @@ export function gerarHyrox(ctx: ContextoHyrox): HyroxGerado {
   const rng = mulberry32(hashSeed(ctx.semente));
   const passada = ctx.semanaPassada ?? { formato: null, estacoes: new Set<EstacaoHyrox>() };
 
-  const formato = embaralhar(FORMATOS_HYROX, rng).sort((a, b) => Number(a === passada.formato) - Number(b === passada.formato))[0];
+  // O sorteio do rodízio roda sempre: assim a quinta não mexe na sequência do rng (estações, substitutas).
+  const sorteado = embaralhar(FORMATOS_HYROX, rng).sort((a, b) => Number(a === passada.formato) - Number(b === passada.formato))[0];
+  const formato: FormatoHyrox = ctx.dias?.includes(DIA_HYROX_COMPLETO) ? 'prova' : sorteado;
   const regra = REGRA_FORMATO_HYROX[formato];
   const fixas = regra.estacoes;
   const estacoes: EstacaoHyrox[] = typeof fixas === 'number'
