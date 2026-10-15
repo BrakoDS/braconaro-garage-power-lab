@@ -95,12 +95,12 @@ console.log('\nInventário');
 {
   const padrao = lerInventario(undefined);
   ok(igual(RECURSOS_INVENTARIO.map((r) => padrao.limitesAtivos[r]), RECURSOS_INVENTARIO.map((r) => INVENTARIO_PADRAO[r])),
-    'sem documento = padrão (smith 2, banco 2, monocross 3, maquinaLegs 1, cavalinho 2)');
+    'sem documento = padrão (smith 2, banco 2, monocross 2, maquinaLegs 1, cavalinho 2)');
   const quebrado = lerInventario({ equipamentos: { smith: { total: 2, emManutencao: 1 }, banco: { total: -1 } } });
   ok(quebrado.limitesAtivos.smith === 1, 'smith com 1 em manutenção = 1 ativo');
   ok(quebrado.limitesAtivos.banco === 2, 'valor torto gravado volta ao padrão');
   const r = aplicarInventario(padrao, { monocross: { emManutencao: 1, observacao: 'cabo rompido' } });
-  ok('inventario' in r && r.inventario.limitesAtivos.monocross === 2 && r.inventario.equipamentos.monocross.total === 3,
+  ok('inventario' in r && r.inventario.limitesAtivos.monocross === 1 && r.inventario.equipamentos.monocross.total === 2,
     'manutenção parcial preserva o total');
   ok('erro' in aplicarInventario(padrao, { esteira: { total: 1 } }), 'recurso desconhecido é erro');
   ok('erro' in aplicarInventario(padrao, { smith: { total: 1, emManutencao: 2 } }), 'manutenção > total é erro');
@@ -268,7 +268,9 @@ console.log('\nGerador: matriz, grade e rodízio (catálogo base, inventário pa
   const usados41 = idsDaSemana(w41.dias);
   const repetidos = [...idsDaSemana(w42.dias)].filter((id) => usados41.has(id));
   ok(repetidos.length === 0, 'W42 não repete nenhuma variação exata da W41', repetidos.join(', '));
-  ok(!w42.avisos.length, 'e sem precisar avisar repetição', w42.avisos.join(' | '));
+  // O único aviso é o do transbordo do SkiErg (turma de 6 × 2 monocross), que não é repetição.
+  const avisos42 = w42.avisos.filter((a) => !a.startsWith('Hyrox: SkiErg:'));
+  ok(!avisos42.length && w42.avisos.length === 1, 'e sem precisar avisar repetição (só o transbordo do SkiErg)', w42.avisos.join(' | '));
 
   // Quando a instância só tem uma opção, ela volta — com aviso, e não com vaga vazia.
   const pobre = new Map([...catalogo].filter(([id, e]) => e.instancia !== 'estabilizar_tronco' || id === 'pallof_press'));

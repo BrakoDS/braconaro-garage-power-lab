@@ -14,8 +14,8 @@ import { CATALOGO_CROSS } from './catalogo-cross';
 import { CORRIDA_MODELOS_HYROX, DADOS_ESTACAO_HYROX, MUSCULOS_CORRIDA_HYROX, MUSCULOS_HYROX, caloriasDaCorrida } from './catalogo-hyrox';
 import { blocosDoWod, catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox, seriesDaTecnica } from './volume-cross-hyrox';
 import {
-  CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, MODELOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, PISTA_HYROX_M,
-  REGRA_FORMATO_CROSS,
+  CAPACIDADE_SKIERG, CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, INVENTARIO_CROSS_HYROX_PADRAO, INVENTARIO_PADRAO,
+  MODELOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, PISTA_HYROX_M, REGRA_FORMATO_CROSS,
   REGRA_FORMATO_HYROX,
   type DiaSemana, type FormatoCross, type ItemCatalogo, type RecursoBox, type RecursoCross,
 } from './modelo-box';
@@ -28,7 +28,7 @@ import { diasPassadosAlterados } from './edicao-box';
 import { bloqueiaCross, conflitosDoCross, conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
 import { alunosPorMovimento, consumoCross, contarCross } from './conta-cross';
 import { gerarCross, type ContextoCross } from './gerador-cross';
-import { gerarHyrox } from './gerador-hyrox';
+import { gerarHyrox, transbordoDoSkierg } from './gerador-hyrox';
 import { crossDaSemana, gerarSemana, hyroxDaSemana } from './gerador-box';
 import { MAX_CARACTERES_ESTRATEGIA, nomeCurto, quebrarSeries } from './estrategia-cross';
 
@@ -364,6 +364,26 @@ console.log('\nGerador do Hyrox');
     'quinta com o sled em manutenção: continua com 8 estações (as 2 de sled pela substituta)');
   ok(new Set(SEMENTES.map((s) => gerarHyrox({ limites: LIMITES, semente: s, dias: ['sabado'] }).hyrox.formato)).size === 4,
     'Hyrox fora da quinta: o rodízio dos 4 formatos continua');
+
+  // O SkiErg são 2 monocross lado a lado (15/10/2026): 2 alunos por vez, o transbordo vai para a corda naval.
+  ok(INVENTARIO_PADRAO.monocross === 2 && INVENTARIO_CROSS_HYROX_PADRAO.remo === 1 && CAPACIDADE_SKIERG === 2,
+    'inventário de fábrica: 2 monocross (o SkiErg) e 1 remo indoor oficial');
+  ok(igual(transbordoDoSkierg(LIMITES, 6), { vagas: 2, naCorda: 4, semCorda: false }), 'turma de 6: 2 nos monocross, até 4 na corda naval');
+  ok(transbordoDoSkierg(LIMITES, 2) === null && transbordoDoSkierg({ ...LIMITES, monocross: 0 }, 6) === null,
+    'turma de 2: cabe, sem transbordo; sem monocross ativo: a estação inteira já vai para a substituta');
+  ok(igual(transbordoDoSkierg({ ...LIMITES, monocross: 1, cordaNaval: 0 }, 6), { vagas: 1, naCorda: 5, semCorda: true }),
+    'um monocross em manutenção: 1 por vez; sem corda naval ativa, avisa');
+  ok(igual(transbordoDoSkierg({ ...LIMITES, monocross: 5 }, 6), { vagas: 2, naCorda: 4, semCorda: false }),
+    'mais monocross no inventário não muda a capacidade do SkiErg (os 2 lado a lado)');
+  const comTurma = gerarHyrox({ limites: LIMITES, semente: 'q', dias: ['quinta'], alunosPorAula: 6 });
+  ok(comTurma.avisos.some((a) => a.startsWith('SkiErg: 2 alunos por vez') && a.includes('corda naval (até 4'))
+    && !comTurma.hyrox.estacoes[0].substituta && !comTurma.alertas.length,
+  'gerador: o transbordo é AVISO (a estação continua no monocross, sem alerta)', comTurma.avisos.join(' | '));
+  ok(!gerarHyrox({ limites: { ...LIMITES, monocross: 0 }, semente: 'q', dias: ['quinta'], alunosPorAula: 6 }).avisos.some((a) => a.startsWith('SkiErg:'))
+    && gerarHyrox({ limites: { ...LIMITES, monocross: 0 }, semente: 'q', dias: ['quinta'], alunosPorAula: 6 }).hyrox.estacoes[0].substituta,
+  'sem monocross: a estação vai para a corda naval inteira, sem aviso de transbordo');
+  ok(DADOS_ESTACAO_HYROX.skierg.carga.includes('até 2 por vez') && DADOS_ESTACAO_HYROX.skierg.nota.includes('corda naval'),
+    'a regra aparece para o aluno na estação (carga e nota)');
 }
 
 /* ───────────────────────────── salvar ───────────────────────────── */

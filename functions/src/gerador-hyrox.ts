@@ -14,14 +14,16 @@
  *  3. NÍVEIS: Iniciante, Intermediário, Avançado e Competição — a prescrição
  *     de cada estação e a corrida (com a air bike como alternativa) por nível.
  *  4. EQUIPAMENTO: for time em rodízio, então a estação só precisa das unidades
- *     dela ATIVAS (`conta-cross.ts`). Sem elas (sled em manutenção), entra a
+ *     dela ATIVAS (`conta-cross.ts`). O SkiErg (2 monocross) comporta 2 alunos
+ *     por vez: com a turma maior, o transbordo vai para a corda naval — aviso,
+ *     não troca (`transbordoDoSkierg`). Sem elas (sled em manutenção), entra a
  *     substituta da estação; sem substituta que caiba, a estação fica e vira
  *     alerta — o rascunho existe, a semana não publica.
  *
  * Determinístico: mesma `semente` e mesmo inventário → mesmo Hyrox.
  */
 import {
-  DIA_HYROX_COMPLETO, ESTACOES_HYROX, FORMATOS_HYROX, REGRA_FORMATO_HYROX,
+  CAPACIDADE_SKIERG, DIA_HYROX_COMPLETO, ESTACOES_HYROX, FORMATOS_HYROX, REGRA_FORMATO_HYROX,
   type AlertaHyrox, type DiaSemana, type EstacaoHyrox, type FormatoHyrox, type HyroxProgramado, type RecursoBox,
 } from './modelo-box';
 import { DADOS_ESTACAO_HYROX } from './catalogo-hyrox';
@@ -37,6 +39,25 @@ export interface ContextoHyrox {
   semente: string;
   /** Os dias da semana com o Hyrox. Com a quinta, é a prova completa (sem rodízio). */
   dias?: readonly DiaSemana[];
+  /** A turma: com mais alunos que vagas no SkiErg, o aviso do transbordo para a corda naval. */
+  alunosPorAula?: number;
+}
+
+/**
+ * O transbordo do SkiErg: até `CAPACIDADE_SKIERG` alunos por vez nos monocross
+ * ATIVOS; com a turma maior, quem chega com eles ocupados faz a corda naval (a
+ * substituta). `null` sem transbordo — turma que cabe, ou nenhum monocross
+ * ativo (aí a estação inteira já vai para a substituta). `semCorda`: não há
+ * corda naval ativa para o transbordo.
+ */
+export function transbordoDoSkierg(
+  limites: Partial<Record<RecursoBox, number>>,
+  alunosPorAula: number,
+): { vagas: number; naCorda: number; semCorda: boolean } | null {
+  const vagas = Math.min(CAPACIDADE_SKIERG, limites.monocross ?? 0);
+  if (vagas <= 0) return null;
+  const naCorda = Math.max(0, alunosPorAula - vagas);
+  return naCorda ? { vagas, naCorda, semCorda: (limites.cordaNaval ?? 0) < 1 } : null;
 }
 
 export interface HyroxGerado {
@@ -75,6 +96,14 @@ export function gerarHyrox(ctx: ContextoHyrox): HyroxGerado {
     avisos.push(`${dados.nome}: falta equipamento ativo e não há substituta que caiba.`);
     return { estacao, substituta: false };
   });
+
+  const skierg = escolhas.find((e) => e.estacao === 'skierg');
+  const transbordo = skierg && !skierg.substituta && ctx.alunosPorAula ? transbordoDoSkierg(ctx.limites, ctx.alunosPorAula) : null;
+  if (transbordo) {
+    avisos.push(`SkiErg: ${transbordo.vagas} ${transbordo.vagas === 1 ? 'aluno' : 'alunos'} por vez nos monocross; com a turma de ${ctx.alunosPorAula}, `
+      + `quem chegar com eles ocupados faz a corda naval (até ${transbordo.naCorda} ao mesmo tempo).`
+      + (transbordo.semCorda ? ' Sem corda naval ativa: escalone a largada.' : ''));
+  }
 
   const hyrox = montarHyrox(formato, escolhas);
   return { hyrox, cru: { formato, estacoes: escolhas }, alertas: alertasDoHyrox(hyrox, ctx.limites), avisos };

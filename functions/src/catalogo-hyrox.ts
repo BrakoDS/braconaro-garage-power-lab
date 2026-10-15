@@ -18,8 +18,9 @@
  *  - as cargas são por nível, feminino e masculino;
  *  - a air bike no lugar da corrida é em calorias (20 m = 1 cal), em todo
  *    nível e modelo.
- * Equipamento: o SkiErg é feito nos monocross com puxada para baixo (o
- * simulador da casa); o Rowing, no remo indoor oficial — sem substituta.
+ * Equipamento: o SkiErg é feito nos 2 monocross com puxada para baixo (o
+ * simulador da casa, até 2 alunos por vez — `CAPACIDADE_SKIERG`; o transbordo
+ * vai para a corda naval); o Rowing, no remo indoor oficial — sem substituta.
  *
  * `recursos`: as unidades do inventário que a estação precisa ATIVAS.
  * `substituta`: o que roda quando o equipamento está em manutenção (ou quando
@@ -118,8 +119,9 @@ const ERG = tabela([300, 450, 600], [400, 600, 800], [500, 750, 1000], [600, 100
 export const DADOS_ESTACAO_HYROX: Readonly<Record<EstacaoHyrox, DadosEstacaoHyrox>> = {
   skierg: {
     n: 1, base: 'SkiErg', nome: 'SkiErg (monocross)', tipo: 'metros', modelos: ERG, piso: false,
-    cargas: null, carga: 'monocross com puxada para baixo, carga moderada',
-    nota: 'O SkiErg da casa: os 2 monocross com puxada para baixo. Puxada explosiva, tronco à frente.',
+    cargas: null, carga: 'monocross com puxada para baixo · até 2 por vez; com os dois ocupados, corda naval',
+    nota: 'O SkiErg da casa: os 2 monocross lado a lado, com puxada para baixo — até 2 alunos ao mesmo tempo. '
+      + 'Chegou com os dois ocupados? Faça a corda naval (a substituta), sem esperar. Puxada explosiva, tronco à frente.',
     recursos: { monocross: 1 },
     substituta: {
       nome: 'Battle rope (corda naval)', tipo: 'segundos', modelos: igualEmTodoModelo(nivel(45, 60, 75, 150)), piso: false,

@@ -70,7 +70,8 @@ export type RecursoInventario = (typeof RECURSOS_INVENTARIO)[number];
 export const INVENTARIO_PADRAO: Readonly<Record<RecursoInventario, number>> = {
   smith: 2,
   banco: 2,
-  monocross: 3,
+  // 15/10/2026: 2, lado a lado (o SkiErg do Hyrox) — o 3º foi vendido para comprar o remo indoor oficial.
+  monocross: 2,
   maquinaLegs: 1,
   cavalinho: 2,
 };
@@ -160,6 +161,7 @@ export const INVENTARIO_HIIT_PADRAO: Readonly<Record<RecursoHiit, number>> = {
 
 /** Observação de fábrica de um recurso (quando o coach ainda não escreveu a dele). */
 export const OBSERVACAO_PADRAO: Readonly<Partial<Record<RecursoBox, string>>> = {
+  monocross: '2 lado a lado (o SkiErg do Hyrox)',
   kettlebell: '8 kg · 2× 10 kg · 2× 12 kg · 2× 16 kg · 18 kg · 20 kg · 22 kg',
   wallBall: '2× 10 lb · 2× 14 lb',
   cordaNaval: '4 m',
@@ -572,6 +574,13 @@ export const DESCRICAO_MODELO_HYROX: Readonly<Record<ModeloHyrox, string>> = {
   strength: 'Estações pesadas, com as cargas oficiais, e corrida curta de recuperação.',
   dupla: 'A dupla corre junta; o volume de cada estação é o total da dupla, dividido entre os dois.',
 };
+
+/**
+ * O SkiErg do box são os 2 monocross lado a lado: até 2 alunos AO MESMO TEMPO.
+ * Quem chega com os dois ocupados faz a corda naval (a substituta cadastrada),
+ * em transbordo — a estação não troca inteira. Decisão do coach, 15/10/2026.
+ */
+export const CAPACIDADE_SKIERG = 2;
 
 /** Doubles: cada atleta faz metade do volume das estações (a corrida, feita junto, conta inteira). */
 export const FATOR_ESTACAO_DUPLA = 0.5;
