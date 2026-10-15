@@ -23,8 +23,9 @@
  */
 import { MUSCULOS_CORRIDA_HYROX, MUSCULOS_HYROX, type MusculosHyrox } from './catalogo-hyrox';
 import {
-  FATOR_VOLUME, MINUTOS_MINIMOS_POR_RODADA_AMRAP, MINUTOS_POR_RODADA_AMRAP, REGRA_FORMATO_HYROX, SERIES_TECNICA_PADRAO,
-  type HyroxProgramado, type ItemCatalogo, type RegistroCrossLido, type RegistroHyroxLido, type WodProgramado,
+  FATOR_ESTACAO_DUPLA, FATOR_VOLUME, MINUTOS_MINIMOS_POR_RODADA_AMRAP, MINUTOS_POR_RODADA_AMRAP, MODELOS_HYROX,
+  REGRA_FORMATO_HYROX, SERIES_TECNICA_PADRAO,
+  type HyroxProgramado, type ItemCatalogo, type ModeloHyrox, type RegistroCrossLido, type RegistroHyroxLido, type WodProgramado,
 } from './modelo-box';
 
 const inteiro = (v: unknown, min: number, max: number): number | null =>
@@ -131,8 +132,13 @@ export function catalogoDoHyrox(): Map<string, MusculosHyrox> {
 }
 
 /**
- * O registro do Hyrox: `{ comoPrescrito: true }` ou `{ estacoesFeitas?, corridaNaBike? }`.
- * As estações contam na ordem (rodada após rodada); cada uma traz a corrida de antes dela.
+ * O registro do Hyrox: `{ comoPrescrito: true }` ou `{ estacoesFeitas? }`, e nos
+ * dois `corridaNaBike?` ("Fiz na Airbike", em todo nível e modelo) e
+ * `modelo?` ('cardio' | 'strength' | 'dupla', desde 15/10/2026).
+ * As estações contam na ordem (rodada após rodada); cada uma traz a corrida de
+ * antes dela. Doubles: cada atleta faz metade da estação (`FATOR_ESTACAO_DUPLA`)
+ * e a corrida inteira (a dupla corre junta). A air bike recebe exatamente o
+ * volume da corrida — só os músculos mudam (`hyrox:air_bike`).
  */
 export function lerRegistroHyrox(
   entrada: unknown,
@@ -144,23 +150,26 @@ export function lerRegistroHyrox(
   const regra = REGRA_FORMATO_HYROX[hyrox.formato];
   const total = hyrox.estacoes.length * Math.max(1, hyrox.rodadas);
 
+  if (e.corridaNaBike !== undefined && typeof e.corridaNaBike !== 'boolean') return { erro: 'Corrida na bike: sim ou não.' };
+  const corridaNaBike = e.corridaNaBike === true;
+  if (e.modelo !== undefined && !(MODELOS_HYROX as readonly unknown[]).includes(e.modelo)) {
+    return { erro: `Modelo do Hyrox: ${MODELOS_HYROX.join(', ')}.` };
+  }
+  const modelo = (e.modelo ?? null) as ModeloHyrox | null;
+
   let estacoesFeitas = total;
-  let corridaNaBike = false;
-  if (!comoPrescrito) {
-    if (e.estacoesFeitas !== undefined) {
-      const n = inteiro(e.estacoesFeitas, 0, 100);
-      if (n === null) return { erro: 'Estações feitas: um inteiro.' };
-      estacoesFeitas = Math.min(n, total);
-    }
-    if (e.corridaNaBike !== undefined && typeof e.corridaNaBike !== 'boolean') return { erro: 'Corrida na bike: sim ou não.' };
-    corridaNaBike = e.corridaNaBike === true;
+  if (!comoPrescrito && e.estacoesFeitas !== undefined) {
+    const n = inteiro(e.estacoesFeitas, 0, 100);
+    if (n === null) return { erro: 'Estações feitas: um inteiro.' };
+    estacoesFeitas = Math.min(n, total);
   }
 
+  const fatorEstacao = (regra?.fatorEstacao ?? 1) * (modelo === 'dupla' ? FATOR_ESTACAO_DUPLA : 1);
   const series: Record<string, number> = {};
   for (let k = 0; k < estacoesFeitas; k++) {
     const est = hyrox.estacoes[k % hyrox.estacoes.length];
-    somar(series, chaveEstacao(est.estacao, est.substituta), FATOR_VOLUME.estacaoHyrox * (regra?.fatorEstacao ?? 1));
+    somar(series, chaveEstacao(est.estacao, est.substituta), FATOR_VOLUME.estacaoHyrox * fatorEstacao);
     somar(series, corridaNaBike ? 'hyrox:air_bike' : 'hyrox:corrida', FATOR_VOLUME.cardio * (regra?.fatorCorrida ?? 1));
   }
-  return { series, registro: { tipo: 'hyrox', comoPrescrito, estacoesFeitas, corridaNaBike } };
+  return { series, registro: { tipo: 'hyrox', comoPrescrito, estacoesFeitas, corridaNaBike, modelo } };
 }

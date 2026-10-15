@@ -218,6 +218,9 @@ test('inventário: turma e documento de antes do HIIT', () => {
     equipamentos: { ...novo.equipamentos, ...Object.fromEntries(RECURSOS_CROSS_HYROX.map((r) => [r, { total: 1, emManutencao: 0 }])) },
   };
   assert.equal(inventarioCompleto(atual), true);
+  const semRemo = { ...atual, equipamentos: { ...atual.equipamentos } };
+  delete semRemo.equipamentos.remo;
+  assert.equal(inventarioCompleto(semRemo), false, 'gravado antes do remo oficial (15/10/2026): normaliza (o servidor põe 1)');
   assert.equal(inventarioCompleto({ ...atual, alunosPorAula: 0 }), false, 'turma fora da faixa = incompleto');
   assert.deepEqual([TURMA_MIN, TURMA_MAX], [1, 40], 'mesma faixa do servidor');
   assert.deepEqual([1, 4, 5, 6, 8, 9].map(alunosPorEstacao), [1, 1, 2, 2, 2, 3], 'turma ÷ 4, para cima (espelho do servidor)');

@@ -1,0 +1,1383 @@
+{
+  "status": "rascunho",
+  "dataInicio": {
+    "seconds": 1794193200,
+    "nanoseconds": 0
+  },
+  "dataFim": {
+    "seconds": 1794711599,
+    "nanoseconds": 0
+  },
+  "anoMes": "2026-11",
+  "dias": {
+    "segunda": {
+      "treinos": [
+        "H1"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "leg_press_vertical_smith",
+          "nome": "Vertical Leg Press no Smith",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "agachar",
+          "recursos": [
+            "smith"
+          ]
+        },
+        {
+          "exercicioId": "supino_smith",
+          "nome": "Supino reto no Smith",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "smith",
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "elevacao_lateral_halter",
+          "nome": "Elevação lateral com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": []
+        },
+        {
+          "exercicioId": "remada_trx",
+          "nome": "Remada no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "terra_barra_livre",
+          "nome": "Levantamento terra (barra livre)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "puxada_aberta_pronada",
+          "nome": "Puxada aberta pronada (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H1",
+        "papel": "principal",
+        "nome": "Força Base — Agachar/Empurrar"
+      },
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "smith": 2,
+        "banco": 1,
+        "monocross": 1
+      },
+      "hiit": null,
+      "cross": null,
+      "hyrox": null,
+      "aviso": null
+    },
+    "terca": {
+      "treinos": [
+        "Cross",
+        "H1"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "leg_press_vertical_smith",
+          "nome": "Vertical Leg Press no Smith",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "agachar",
+          "recursos": [
+            "smith"
+          ]
+        },
+        {
+          "exercicioId": "supino_smith",
+          "nome": "Supino reto no Smith",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "smith",
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "elevacao_lateral_halter",
+          "nome": "Elevação lateral com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": []
+        },
+        {
+          "exercicioId": "remada_trx",
+          "nome": "Remada no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "terra_barra_livre",
+          "nome": "Levantamento terra (barra livre)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "puxada_aberta_pronada",
+          "nome": "Puxada aberta pronada (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H1",
+        "papel": "alternativa",
+        "nome": "Força Base — Agachar/Empurrar"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "Cross",
+          "papel": "principal",
+          "formato": "WOD",
+          "descricao": "AMRAP, EMOM, For Time ou Chipper, com RX e Scaled."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "smith": 2,
+        "banco": 1,
+        "monocross": 1
+      },
+      "hiit": null,
+      "cross": {
+        "formato": "AMRAP",
+        "descricao": "Máximo de rodadas possíveis no tempo — o cronômetro corre até o fim.",
+        "minutos": 15,
+        "rodadas": null,
+        "movimentos": [
+          {
+            "exercicioId": "polichinelo",
+            "nome": "Polichinelo (jumping jacks)",
+            "padrao": "cardio",
+            "unidade": "reps",
+            "rx": 40,
+            "scaled": 30,
+            "porLado": false,
+            "carga": null,
+            "consumoPorAluno": {}
+          },
+          {
+            "exercicioId": "remada_trx",
+            "nome": "Remada no TRX",
+            "padrao": "puxar",
+            "unidade": "reps",
+            "rx": 12,
+            "scaled": 8,
+            "porLado": false,
+            "carga": null,
+            "consumoPorAluno": {
+              "trx": 1
+            }
+          },
+          {
+            "exercicioId": "afundo_kb",
+            "nome": "Afundo com kettlebell",
+            "padrao": "agachar",
+            "unidade": "reps",
+            "rx": 10,
+            "scaled": 7,
+            "porLado": true,
+            "carga": {
+              "rx": "16/12 kg",
+              "scaled": "sem carga"
+            },
+            "consumoPorAluno": {
+              "kettlebell": 1
+            }
+          },
+          {
+            "exercicioId": "push_press",
+            "nome": "Push press (barra, após o clean)",
+            "padrao": "empurrar",
+            "unidade": "reps",
+            "rx": 10,
+            "scaled": 7,
+            "porLado": false,
+            "carga": {
+              "rx": "40/30 kg",
+              "scaled": "25/15 kg"
+            },
+            "consumoPorAluno": {
+              "barraOlimpica": 1
+            }
+          }
+        ],
+        "tecnica": {
+          "exercicioId": "push_press",
+          "nome": "Push press (barra, após o clean)",
+          "categoria": "barra",
+          "tipo": "forca",
+          "minutos": 12,
+          "dinamica": "5 × 5 subindo a carga (RPE 7–8), 2 min de descanso — duplas revezando a barra.",
+          "objetivo": "Dip and drive: a força da perna passando para a barra acima da cabeça.",
+          "carga": "Acima da carga RX do WOD nas últimas séries",
+          "consumoPorAluno": {
+            "barraOlimpica": 1
+          },
+          "alternativas": [
+            {
+              "exercicioId": "remada_trx",
+              "nome": "Remada no TRX",
+              "categoria": "ginastica"
+            }
+          ]
+        },
+        "estrategia": "A força de push press vem antes do WOD, e o movimento volta no AMRAP, agora mais leve e mais rápido. Atenção aos ombros: polichinelo volta a carregar o que o bloco de push press já cansou. Para segurar o ritmo até o fim, faça o dip curto e o drive forte — a perna empurra, o ombro só termina."
+      },
+      "hyrox": null,
+      "aviso": null
+    },
+    "quarta": {
+      "treinos": [
+        "H2"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "estender_quadril",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "remada_aberta_neutra",
+          "nome": "Remada aberta neutra (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 120,
+          "instancia": "puxar_horizontal",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "puxada_braco_estendido",
+          "nome": "Puxada com braço estendido no monocross",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        },
+        {
+          "exercicioId": "afundo_trx",
+          "nome": "Afundo no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "supino_inclinado_halter",
+          "nome": "Supino inclinado com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": [
+            "banco"
+          ]
+        },
+        {
+          "exercicioId": "pallof_press",
+          "nome": "Pallof press",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 45,
+          "instancia": "estabilizar_tronco",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H2",
+        "papel": "principal",
+        "nome": "Força Base — Cadeia Posterior/Puxar"
+      },
+      "blocosMetabolicos": [],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "banco": 2,
+        "monocross": 3
+      },
+      "hiit": null,
+      "cross": null,
+      "hyrox": null,
+      "aviso": null
+    },
+    "quinta": {
+      "treinos": [
+        "Hyrox"
+      ],
+      "blocoPrincipal": [],
+      "sessaoForca": null,
+      "blocosMetabolicos": [
+        {
+          "modalidade": "Hyrox",
+          "papel": "principal",
+          "formato": "For Time",
+          "descricao": "Formato da competição: corrida intercalada com estações funcionais, em 4 níveis."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {},
+      "hiit": null,
+      "cross": null,
+      "hyrox": {
+        "formato": "prova",
+        "nome": "Prova completa",
+        "descricao": "As 8 estações na ordem da prova, com uma corrida antes de cada uma. For time.",
+        "rodadas": 1,
+        "corrida": {
+          "iniciante": {
+            "metros": 300,
+            "bikeSeg": 90
+          },
+          "intermediario": {
+            "metros": 400,
+            "bikeSeg": 120
+          },
+          "avancado": {
+            "metros": 500,
+            "bikeSeg": 150
+          },
+          "competicao": {
+            "metros": 600,
+            "bikeSeg": 180
+          }
+        },
+        "corridaModelos": {
+          "cardio": {
+            "iniciante": {
+              "metros": 300,
+              "bikeCal": 15
+            },
+            "intermediario": {
+              "metros": 400,
+              "bikeCal": 20
+            },
+            "avancado": {
+              "metros": 500,
+              "bikeCal": 25
+            },
+            "competicao": {
+              "metros": 600,
+              "bikeCal": 30
+            }
+          },
+          "strength": {
+            "iniciante": {
+              "metros": 200,
+              "bikeCal": 10
+            },
+            "intermediario": {
+              "metros": 300,
+              "bikeCal": 15
+            },
+            "avancado": {
+              "metros": 300,
+              "bikeCal": 15
+            },
+            "competicao": {
+              "metros": 400,
+              "bikeCal": 20
+            }
+          },
+          "dupla": {
+            "iniciante": {
+              "metros": 200,
+              "bikeCal": 10
+            },
+            "intermediario": {
+              "metros": 300,
+              "bikeCal": 15
+            },
+            "avancado": {
+              "metros": 500,
+              "bikeCal": 25
+            },
+            "competicao": {
+              "metros": 400,
+              "bikeCal": 20
+            }
+          }
+        },
+        "estacoes": [
+          {
+            "estacao": "skierg",
+            "n": 1,
+            "nome": "SkiErg (monocross)",
+            "base": "SkiErg",
+            "tipo": "metros",
+            "prescricao": {
+              "iniciante": 300,
+              "intermediario": 400,
+              "avancado": 500,
+              "competicao": 600
+            },
+            "modelos": {
+              "cardio": {
+                "iniciante": 300,
+                "intermediario": 400,
+                "avancado": 500,
+                "competicao": 600
+              },
+              "strength": {
+                "iniciante": 450,
+                "intermediario": 600,
+                "avancado": 750,
+                "competicao": 1000
+              },
+              "dupla": {
+                "iniciante": 600,
+                "intermediario": 800,
+                "avancado": 1000,
+                "competicao": 1000
+              }
+            },
+            "cargas": null,
+            "carga": "monocross com puxada para baixo, carga moderada",
+            "nota": "O SkiErg da casa: os 2 monocross com puxada para baixo. Puxada explosiva, tronco à frente.",
+            "substituta": false,
+            "recursos": {
+              "monocross": 1
+            }
+          },
+          {
+            "estacao": "sled_push",
+            "n": 2,
+            "nome": "Sled Push (empurrar trenó)",
+            "base": "Sled Push",
+            "tipo": "metros",
+            "prescricao": {
+              "iniciante": 12.5,
+              "intermediario": 25,
+              "avancado": 25,
+              "competicao": 37.5
+            },
+            "modelos": {
+              "cardio": {
+                "iniciante": 12.5,
+                "intermediario": 25,
+                "avancado": 25,
+                "competicao": 37.5
+              },
+              "strength": {
+                "iniciante": 25,
+                "intermediario": 50,
+                "avancado": 50,
+                "competicao": 50
+              },
+              "dupla": {
+                "iniciante": 25,
+                "intermediario": 50,
+                "avancado": 50,
+                "competicao": 50
+              }
+            },
+            "cargas": {
+              "iniciante": {
+                "f": "60 kg",
+                "m": "90 kg"
+              },
+              "intermediario": {
+                "f": "80 kg",
+                "m": "120 kg"
+              },
+              "avancado": {
+                "f": "102 kg",
+                "m": "152 kg"
+              },
+              "competicao": {
+                "f": "102–152 kg",
+                "m": "152–202 kg"
+              }
+            },
+            "carga": "F 60 kg a 102–152 kg · M 90 kg a 152–202 kg (pelo nível)",
+            "nota": "Trenó baixo, tronco firme, passos curtos e potentes. Distância em idas de 12,5 m na pista.",
+            "substituta": false,
+            "recursos": {
+              "sled": 1
+            }
+          },
+          {
+            "estacao": "sled_pull",
+            "n": 3,
+            "nome": "Sled Pull (puxar trenó)",
+            "base": "Sled Pull",
+            "tipo": "metros",
+            "prescricao": {
+              "iniciante": 12.5,
+              "intermediario": 25,
+              "avancado": 25,
+              "competicao": 37.5
+            },
+            "modelos": {
+              "cardio": {
+                "iniciante": 12.5,
+                "intermediario": 25,
+                "avancado": 25,
+                "competicao": 37.5
+              },
+              "strength": {
+                "iniciante": 25,
+                "intermediario": 50,
+                "avancado": 50,
+                "competicao": 50
+              },
+              "dupla": {
+                "iniciante": 25,
+                "intermediario": 50,
+                "avancado": 50,
+                "competicao": 50
+              }
+            },
+            "cargas": {
+              "iniciante": {
+                "f": "40 kg",
+                "m": "60 kg"
+              },
+              "intermediario": {
+                "f": "60 kg",
+                "m": "80 kg"
+              },
+              "avancado": {
+                "f": "78 kg",
+                "m": "103 kg"
+              },
+              "competicao": {
+                "f": "78–103 kg",
+                "m": "103–153 kg"
+              }
+            },
+            "carga": "F 40 kg a 78–103 kg · M 60 kg a 103–153 kg (pelo nível)",
+            "nota": "Puxe a corda mão sobre mão, quadril baixo e tronco estável. Distância em idas de 12,5 m na pista.",
+            "substituta": false,
+            "recursos": {
+              "sled": 1,
+              "cordaNaval": 1
+            }
+          },
+          {
+            "estacao": "burpee_broad_jump",
+            "n": 4,
+            "nome": "Burpee Broad Jump",
+            "base": "Burpee Broad Jump",
+            "tipo": "metros",
+            "prescricao": {
+              "iniciante": 20,
+              "intermediario": 30,
+              "avancado": 40,
+              "competicao": 50
+            },
+            "modelos": {
+              "cardio": {
+                "iniciante": 20,
+                "intermediario": 30,
+                "avancado": 40,
+                "competicao": 50
+              },
+              "strength": {
+                "iniciante": 40,
+                "intermediario": 60,
+                "avancado": 80,
+                "competicao": 80
+              },
+              "dupla": {
+                "iniciante": 40,
+                "intermediario": 60,
+                "avancado": 80,
+                "competicao": 80
+              }
+            },
+            "cargas": null,
+            "carga": "peso corporal",
+            "nota": "Como na prova (avança em metros): a cada rep, peito ao chão + salto para a frente. No Start, pode trocar por burpees simples.",
+            "substituta": false,
+            "recursos": {}
+          },
+          {
+            "estacao": "remo",
+            "n": 5,
+            "nome": "Rowing (remo indoor oficial)",
+            "base": "Rowing",
+            "tipo": "metros",
+            "prescricao": {
+              "iniciante": 300,
+              "intermediario": 400,
+              "avancado": 500,
+              "competicao": 600
+            },
+            "modelos": {
+              "cardio": {
+                "iniciante": 300,
+                "intermediario": 400,
+                "avancado": 500,
+                "competicao": 600
+              },
+              "strength": {
+                "iniciante": 450,
+                "intermediario": 600,
+                "avancado": 750,
+                "competicao": 1000
+              },
+              "dupla": {
+                "iniciante": 600,
+                "intermediario": 800,
+                "avancado": 1000,
+                "competicao": 1000
+              }
+            },
+            "cargas": null,
+            "carga": "remo indoor oficial",
+            "nota": "No remo oficial da casa. Cadência de prova: empurra com a perna, depois puxa.",
+            "substituta": false,
+            "recursos": {
+              "remo": 1
+            }
+          },
+          {
+            "estacao": "farmers_carry",
+            "n": 6,
+            "nome": "Farmer’s carry",
+            "base": "Farmers Carry",
+            "tipo": "metros",
+            "prescricao": {
+              "iniciante": 62.5,
+              "intermediario": 75,
+              "avancado": 100,
+              "competicao": 125
+            },
+            "modelos": {
+              "cardio": {
+                "iniciante": 62.5,
+                "intermediario": 75,
+                "avancado": 100,
+                "competicao": 125
+              },
+              "strength": {
+                "iniciante": 100,
+                "intermediario": 150,
+                "avancado": 200,
+                "competicao": 200
+              },
+              "dupla": {
+                "iniciante": 100,
+                "intermediario": 150,
+                "avancado": 200,
+                "competicao": 200
+              }
+            },
+            "cargas": {
+              "iniciante": {
+                "f": "2× 8 kg",
+                "m": "2× 12 kg"
+              },
+              "intermediario": {
+                "f": "2× 12 kg",
+                "m": "2× 18–20 kg"
+              },
+              "avancado": {
+                "f": "2× 16 kg",
+                "m": "2× 24 kg"
+              },
+              "competicao": {
+                "f": "2× 16–24 kg",
+                "m": "2× 24–32 kg"
+              }
+            },
+            "carga": "F 2× 8 kg a 2× 16–24 kg · M 2× 12 kg a 2× 24–32 kg (pelo nível)",
+            "nota": "Tronco firme, ombros para trás, passos curtos. Distância em idas de 12,5 m na pista.",
+            "substituta": false,
+            "recursos": {}
+          },
+          {
+            "estacao": "sandbag_lunges",
+            "n": 7,
+            "nome": "Sandbag Lunges (avanço com saco de areia)",
+            "base": "Sandbag Lunges",
+            "tipo": "metros",
+            "prescricao": {
+              "iniciante": 25,
+              "intermediario": 37.5,
+              "avancado": 50,
+              "competicao": 62.5
+            },
+            "modelos": {
+              "cardio": {
+                "iniciante": 25,
+                "intermediario": 37.5,
+                "avancado": 50,
+                "competicao": 62.5
+              },
+              "strength": {
+                "iniciante": 50,
+                "intermediario": 75,
+                "avancado": 100,
+                "competicao": 100
+              },
+              "dupla": {
+                "iniciante": 50,
+                "intermediario": 75,
+                "avancado": 100,
+                "competicao": 100
+              }
+            },
+            "cargas": {
+              "iniciante": {
+                "f": "peso corporal ou saco 5 kg",
+                "m": "peso corporal ou saco 10 kg"
+              },
+              "intermediario": {
+                "f": "8 kg",
+                "m": "15 kg"
+              },
+              "avancado": {
+                "f": "10 kg",
+                "m": "20 kg"
+              },
+              "competicao": {
+                "f": "10–20 kg",
+                "m": "20–30 kg"
+              }
+            },
+            "carga": "F peso corporal ou saco 5 kg a 10–20 kg · M peso corporal ou saco 10 kg a 20–30 kg (pelo nível)",
+            "nota": "Saco apoiado nos ombros; joelho de trás toca o chão, tronco ereto. Distância em idas de 12,5 m na pista.",
+            "substituta": false,
+            "recursos": {
+              "sandbag": 1
+            }
+          },
+          {
+            "estacao": "wall_ball",
+            "n": 8,
+            "nome": "Wall ball",
+            "base": "Wall Balls",
+            "tipo": "reps",
+            "prescricao": {
+              "iniciante": 30,
+              "intermediario": 40,
+              "avancado": 50,
+              "competicao": 60
+            },
+            "modelos": {
+              "cardio": {
+                "iniciante": 30,
+                "intermediario": 40,
+                "avancado": 50,
+                "competicao": 60
+              },
+              "strength": {
+                "iniciante": 50,
+                "intermediario": 75,
+                "avancado": 100,
+                "competicao": 100
+              },
+              "dupla": {
+                "iniciante": 50,
+                "intermediario": 75,
+                "avancado": 100,
+                "competicao": 100
+              }
+            },
+            "cargas": {
+              "iniciante": {
+                "f": "3 kg",
+                "m": "4 kg"
+              },
+              "intermediario": {
+                "f": "4 kg",
+                "m": "6 kg"
+              },
+              "avancado": {
+                "f": "4 kg",
+                "m": "6 kg"
+              },
+              "competicao": {
+                "f": "4–6 kg",
+                "m": "6–9 kg"
+              }
+            },
+            "carga": "F 3 kg a 4–6 kg · M 4 kg a 6–9 kg (pelo nível)",
+            "nota": "Agachou → arremessou ao alvo; recebe já agachando.",
+            "substituta": false,
+            "recursos": {
+              "wallBall": 1
+            }
+          }
+        ]
+      },
+      "aviso": null
+    },
+    "sexta": {
+      "treinos": [
+        "H3",
+        "HIIT"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "agachamento_frontal",
+          "nome": "Agachamento frontal",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "rdl_halter",
+          "nome": "Levantamento terra romeno com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "flexao_trx",
+          "nome": "Flexão no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "remada_curvada_barra",
+          "nome": "Remada curvada com barra",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "landmine_press",
+          "nome": "Landmine press (cavalinho)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": [
+            "cavalinho"
+          ]
+        },
+        {
+          "exercicioId": "puxada_aberta_neutra",
+          "nome": "Puxada aberta neutra (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H3",
+        "papel": "principal",
+        "nome": "Consolidação Full Body"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "HIIT",
+          "papel": "alternativa",
+          "formato": "TABATA",
+          "descricao": "4 estações TABATA (Pernas · Core · Superiores · Cardio), 16 rounds cada."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "cavalinho": 1,
+        "monocross": 1
+      },
+      "hiit": {
+        "estacoes": [
+          {
+            "estacao": "superiores",
+            "nome": "Superiores",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "remada_trx",
+                "nome": "Remada no TRX",
+                "consumoPorAluno": {
+                  "trx": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "remada_unilateral_kb",
+                "nome": "Remada unilateral com kettlebell",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": "D"
+              },
+              {
+                "exercicioId": "remada_unilateral_kb",
+                "nome": "Remada unilateral com kettlebell",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": "E"
+              },
+              {
+                "exercicioId": "flexao",
+                "nome": "Flexão de braço",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "core",
+            "nome": "Core",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "prancha_lateral",
+                "nome": "Prancha lateral",
+                "consumoPorAluno": {},
+                "lado": "D"
+              },
+              {
+                "exercicioId": "prancha_lateral",
+                "nome": "Prancha lateral",
+                "consumoPorAluno": {},
+                "lado": "E"
+              },
+              {
+                "exercicioId": "abdominal_bicicleta",
+                "nome": "Abdominal bicicleta",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "abdominal_remador",
+                "nome": "Abdominal Remador",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "pernas",
+            "nome": "Pernas",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "goblet_squat",
+                "nome": "Agachamento goblet com kettlebell",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "agachamento_livre",
+                "nome": "Agachamento livre (peso corporal)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "ponte_gluteo",
+                "nome": "Ponte de glúteo no chão",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "kb_swing",
+                "nome": "Kettlebell swing",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "cardio",
+            "nome": "Cardio",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "pular_corda",
+                "nome": "Pular corda (speed rope)",
+                "consumoPorAluno": {
+                  "cordaPular": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "high_knees",
+                "nome": "High knees (joelho alto)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "burpee",
+                "nome": "Burpee",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "corrida_100m",
+                "nome": "Corrida 100 m (rua)",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          }
+        ]
+      },
+      "cross": null,
+      "hyrox": null,
+      "aviso": null
+    },
+    "sabado": {
+      "treinos": [
+        "HIIT",
+        "H3"
+      ],
+      "blocoPrincipal": [
+        {
+          "exercicioId": "agachamento_frontal",
+          "nome": "Agachamento frontal",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "agachar",
+          "recursos": []
+        },
+        {
+          "exercicioId": "rdl_halter",
+          "nome": "Levantamento terra romeno com halteres",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "estender_quadril",
+          "recursos": []
+        },
+        {
+          "exercicioId": "flexao_trx",
+          "nome": "Flexão no TRX",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "remada_curvada_barra",
+          "nome": "Remada curvada com barra",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_horizontal",
+          "recursos": []
+        },
+        {
+          "exercicioId": "landmine_press",
+          "nome": "Landmine press (cavalinho)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "empurrar_vertical",
+          "recursos": [
+            "cavalinho"
+          ]
+        },
+        {
+          "exercicioId": "puxada_aberta_neutra",
+          "nome": "Puxada aberta neutra (monocross)",
+          "series": 4,
+          "repeticoes": "8-12",
+          "descansoSeg": 90,
+          "instancia": "puxar_vertical",
+          "recursos": [
+            "monocross"
+          ]
+        }
+      ],
+      "sessaoForca": {
+        "sessao": "H3",
+        "papel": "alternativa",
+        "nome": "Consolidação Full Body"
+      },
+      "blocosMetabolicos": [
+        {
+          "modalidade": "HIIT",
+          "papel": "principal",
+          "formato": "TABATA",
+          "descricao": "4 estações TABATA (Pernas · Core · Superiores · Cardio), 16 rounds cada."
+        }
+      ],
+      "cadencia": "3010",
+      "descansos": {
+        "entreSeriesSeg": 90,
+        "entreExerciciosSeg": 90
+      },
+      "consumoEquipamentos": {
+        "cavalinho": 1,
+        "monocross": 1
+      },
+      "hiit": {
+        "estacoes": [
+          {
+            "estacao": "superiores",
+            "nome": "Superiores",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "remada_trx",
+                "nome": "Remada no TRX",
+                "consumoPorAluno": {
+                  "trx": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "remada_unilateral_kb",
+                "nome": "Remada unilateral com kettlebell",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": "D"
+              },
+              {
+                "exercicioId": "remada_unilateral_kb",
+                "nome": "Remada unilateral com kettlebell",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": "E"
+              },
+              {
+                "exercicioId": "flexao",
+                "nome": "Flexão de braço",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "core",
+            "nome": "Core",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "prancha_lateral",
+                "nome": "Prancha lateral",
+                "consumoPorAluno": {},
+                "lado": "D"
+              },
+              {
+                "exercicioId": "prancha_lateral",
+                "nome": "Prancha lateral",
+                "consumoPorAluno": {},
+                "lado": "E"
+              },
+              {
+                "exercicioId": "abdominal_bicicleta",
+                "nome": "Abdominal bicicleta",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "abdominal_remador",
+                "nome": "Abdominal Remador",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "pernas",
+            "nome": "Pernas",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "goblet_squat",
+                "nome": "Agachamento goblet com kettlebell",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "agachamento_livre",
+                "nome": "Agachamento livre (peso corporal)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "ponte_gluteo",
+                "nome": "Ponte de glúteo no chão",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "kb_swing",
+                "nome": "Kettlebell swing",
+                "consumoPorAluno": {
+                  "kettlebell": 1
+                },
+                "lado": null
+              }
+            ]
+          },
+          {
+            "estacao": "cardio",
+            "nome": "Cardio",
+            "protocolo": "2 Músicas de Tabata (16 rounds no total). 4x cada exercício.",
+            "slots": [
+              {
+                "exercicioId": "pular_corda",
+                "nome": "Pular corda (speed rope)",
+                "consumoPorAluno": {
+                  "cordaPular": 1
+                },
+                "lado": null
+              },
+              {
+                "exercicioId": "high_knees",
+                "nome": "High knees (joelho alto)",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "burpee",
+                "nome": "Burpee",
+                "consumoPorAluno": {},
+                "lado": null
+              },
+              {
+                "exercicioId": "corrida_100m",
+                "nome": "Corrida 100 m (rua)",
+                "consumoPorAluno": {},
+                "lado": null
+              }
+            ]
+          }
+        ]
+      },
+      "cross": null,
+      "hyrox": null,
+      "aviso": null
+    }
+  },
+  "alertas": [],
+  "alertasHiit": [],
+  "alertasCross": [],
+  "alertasHyrox": [],
+  "problemasParaPublicar": [],
+  "alunosPorAula": 6,
+  "limitesUsados": {
+    "smith": 2,
+    "banco": 2,
+    "monocross": 3,
+    "maquinaLegs": 1,
+    "cavalinho": 2,
+    "kettlebell": 10,
+    "wallBall": 4,
+    "caixote": 4,
+    "cordaNaval": 2,
+    "cordaPular": 2,
+    "sandbag": 1,
+    "airbike": 2,
+    "trx": 2,
+    "halteres": 4,
+    "barraOlimpica": 4,
+    "sled": 1,
+    "remo": 1
+  },
+  "geracao": {
+    "variacao": 0,
+    "semanaAnterior": null,
+    "trocas": [],
+    "avisos": [],
+    "hiitFora": [
+      {
+        "exercicioId": "sandbag_clean",
+        "nome": "Clean com sandbag",
+        "recurso": "sandbag",
+        "precisa": 2,
+        "limite": 1
+      }
+    ]
+  },
+  "avisosEdicao": []
+}

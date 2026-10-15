@@ -48,13 +48,34 @@ test('Hyrox no cartão da quinta: formato, corrida, air bike e as estações nos
   const hy = W44.dias.quinta.hyrox;
   const h = hyroxHtml(W44, '2026-10-20');
   assert.ok(h.includes('Hyrox <span class="mut">· Compromised running · 2 rodadas</span>'));
-  assert.ok(h.includes('<th scope="col" title="Iniciante">Ini</th>') && h.includes('<th scope="col" title="Competição">Comp</th>'));
+  assert.ok(h.includes('<th scope="col" title="Garage Start">Start</th>') && h.includes('<th scope="col" title="Garage Pro">Pro</th>'),
+    'os níveis com os nomes do box (15/10/2026), também na semana de antes');
+  assert.ok(!h.includes('hy-modelo'), 'semana de antes dos modelos: uma tabela só');
   assert.ok(h.includes('<td class="hy-num">100</td><td class="hy-num">300</td><td class="hy-num">500</td><td class="hy-num">1000</td>'), 'corrida');
   assert.ok(h.includes('<td class="hy-num">50 s</td><td class="hy-num">1 min</td>'), 'air bike');
   assert.equal((h.match(/<tr class="hy-estacao/g) || []).length, hy.estacoes.length);
   const wb = hy.estacoes.find((e) => e.estacao === 'wall_ball');
   assert.ok(h.includes(`<td class="hy-num">${wb.prescricao.iniciante}</td><td class="hy-num">${wb.prescricao.intermediario}</td>`), 'a prescrição gravada, por nível');
   assert.equal((h.match(/data-trocar-hyrox=/g) || []).length, hy.estacoes.length, 'toda estação desta semana tem substituta');
+});
+
+test('Hyrox por modelo (15/10/2026): uma tabela por modelo, corrida com a air bike em calorias, carga F/M', () => {
+  const W46 = JSON.parse(readFileSync(new URL('../core/fixtures/semana-hyrox-modelos.json', import.meta.url), 'utf8'));
+  const base = { chave: '2026-W46', rotulo: '09/11 a 14/11', inicio: '2026-11-09' };
+  const tudo = renderSemana({ ...base, doc: W46, hoje: '2026-11-01' });
+  const h = fatia(tudo, 'metabolico hyrox', 'dia-rodape');
+  assert.equal((h.match(/<details class="hy-modelo"/g) || []).length, 3, 'Cardio, Strength e Doubles');
+  assert.ok(h.indexOf('<details class="hy-modelo" open>') < h.indexOf('<strong>Cardio Focus</strong>')
+    && (h.match(/<details class="hy-modelo" open>/g) || []).length === 1, 'o Cardio abre aberto (os outros, fechados)');
+  const strength = fatia(h, '<strong>Strength Focus</strong>', '</table>');
+  assert.ok(strength.includes('<td class="hy-num">200</td><td class="hy-num">300</td><td class="hy-num">300</td><td class="hy-num">400</td>'), 'corrida do Strength');
+  assert.ok(strength.includes('<td class="hy-num">10</td><td class="hy-num">15</td><td class="hy-num">15</td><td class="hy-num">20</td>'), 'air bike em cal');
+  assert.ok(strength.includes('<td class="hy-num">25<span class="hy-carga">F 60 kg · M 90 kg</span></td>'), 'Sled Push Start Strength: 25 m, F 60 · M 90');
+  const cardio = fatia(h, '<strong>Cardio Focus</strong>', '</table>');
+  assert.ok(cardio.includes('<td class="hy-num">12,5<span class="hy-carga">'), 'Sled no Cardio Start: 12,5 m (vírgula)');
+  assert.equal((h.match(/data-trocar-hyrox=/g) || []).length, 6, '"trocar" só na primeira tabela, nas 6 estações com substituta');
+  assert.ok(!h.includes('data-trocar-hyrox="remo"') && !h.includes('data-trocar-hyrox="burpee_broad_jump"'), 'Rowing e BBJ sem substituta');
+  assert.ok(fatia(tudo, 'metabolico hyrox', '</div>').includes('20 m = 1 cal'), 'rodapé: a regra da air bike');
 });
 
 test('Hyrox: estação na substituta tem o selo com a da prova; Burpee Broad Jump não tem "trocar"', () => {

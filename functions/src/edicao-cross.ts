@@ -219,7 +219,8 @@ export function opcoesDoHyrox(o: {
     const equipamento = RECURSOS_BOX.filter((r) => !cabeNoInventario({ [r]: outra.recursos[r] ?? 0 }, o.limites));
     opcoes.push({
       substituta: !usaSubstituta, nome: outra.nome, tipo: outra.tipo,
-      prescricao: Object.fromEntries(NIVEIS_HYROX.map((n) => [n, outra.prescricao[n]])) as Record<NivelHyrox, number>,
+      // A do Cardio Focus (a coluna da tabela do coach); o servidor grava a de cada modelo ao salvar.
+      prescricao: Object.fromEntries(NIVEIS_HYROX.map((n) => [n, outra.modelos.cardio[n]])) as Record<NivelHyrox, number>,
       carga: outra.carga, equipamento, bloqueada: equipamento.length > 0,
     });
   }

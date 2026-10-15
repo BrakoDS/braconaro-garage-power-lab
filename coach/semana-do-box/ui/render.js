@@ -11,7 +11,8 @@ import {
   consumoVisivel, publicacao, datasDosDias, tituloForca, sessaoEditavel, textoAvisoEdicao,
   alunosPorEstacao, hiitDaSemana, hiitEditavel, nomesDoHiit, rotuloDiasHiit, slotsEmAlertaHiit, textoAlertaHiit, textoForaDoHiit,
   totalDeAlertas,
-  NIVEIS_HYROX, NOME_PADRAO_CROSS, UNIDADE_HYROX, conteudoEditavel, estacoesEmAlerta, linhasDaCorrida, movimentosEmAlerta,
+  MODELOS_HYROX, NIVEIS_HYROX, NOME_PADRAO_CROSS, UNIDADE_HYROX, cargaHyrox, conteudoEditavel, estacoesEmAlerta, linhasDaCorrida,
+  movimentosEmAlerta, numeroHyrox, prescricaoHyrox,
   nomesDoWod, quantidadeCross, temSubstitutaHyrox, textoAlertaCross, textoAlertaHyrox, textoContaWod, tituloHyrox, tituloWod,
   alertasDaTecnica, tituloTecnica, unidadesNaTecnica,
   diaEditavel, semanaEmBranco, tituloAviso,
@@ -312,10 +313,12 @@ function blocoWod(doc, dia, b, hoje) {
 }
 
 /**
- * O Hyrox no cartão do dia: o formato, a corrida (com a air bike) e as
- * estações numa tabela com os 4 níveis. Estação na substituta leva o selo e a
- * estação da prova embaixo; em alerta fica vermelha; com `hoje`, a que tem
- * substituta ganha "trocar".
+ * O Hyrox no cartão do dia: o formato e, por modelo (Cardio, Strength,
+ * Doubles — o aluno escolhe), uma tabela com a corrida (e a air bike) e as
+ * estações nos 4 níveis, com a carga F/M embaixo do número. Semana de antes
+ * dos modelos: uma tabela só, como antes. Estação na substituta leva o selo e
+ * a estação da prova embaixo; em alerta fica vermelha; com `hoje`, a que tem
+ * substituta ganha "trocar" (na tabela do primeiro modelo).
  * @param {any} doc @param {any} dia @param {{modalidade: string, papel: string}} b @param {string} [hoje]
  */
 function blocoHyrox(doc, dia, b, hoje) {
@@ -324,30 +327,41 @@ function blocoHyrox(doc, dia, b, hoje) {
   const podeTrocar = hoje !== undefined && conteudoEditavel(doc, 'hyrox', hoje);
   const nomeDe = new Map(h.estacoes.map((e) => [e.estacao, e.nome]));
   const alertas = (doc.alertasHyrox ?? []).map((a) => textoAlertaHyrox(a, nomeDe.get(a.estacao)));
-  const celulas = (valores) => valores.map((v) => `<td class="hy-num">${esc(v)}</td>`).join('');
-  const corrida = linhasDaCorrida(h).map((l) => `
-          <tr class="hy-corrida"><th scope="row">${esc(l.rotulo)}${l.unidade ? ` <span class="mut">(${esc(l.unidade)})</span>` : ''}</th>${celulas(l.valores)}</tr>`).join('');
-  const estacoes = h.estacoes.map((e) => `
+  const comModelos = h.estacoes.some((e) => e.modelos) || !!h.corridaModelos;
+  const cabeca = `<thead><tr><th scope="col"><span class="sr">Estação</span></th>${NIVEIS_HYROX.map((n) => `<th scope="col" title="${esc(n.nome)}">${esc(n.curto)}</th>`).join('')}</tr></thead>`;
+  const tabela = (modelo, comTrocar) => {
+    const corrida = linhasDaCorrida(h, modelo).map((l) => `
+          <tr class="hy-corrida"><th scope="row">${esc(l.rotulo)}${l.unidade ? ` <span class="mut">(${esc(l.unidade)})</span>` : ''}</th>${l.valores.map((v) => `<td class="hy-num">${esc(v)}</td>`).join('')}</tr>`).join('');
+    const estacoes = h.estacoes.map((e) => `
           <tr class="hy-estacao${emAlerta.has(e.estacao) ? ' em-alerta' : ''}${e.substituta ? ' substituta' : ''}">
             <th scope="row">
               <span class="hy-n">${esc(e.n)}</span> <span class="hy-nome">${esc(e.nome)}</span>
               <span class="mut hy-unid">(${esc(UNIDADE_HYROX[e.tipo] ?? e.tipo)})</span>
               ${e.substituta ? `<span class="hy-sub">substituta de ${esc(e.base)}</span>` : ''}
-              ${podeTrocar && temSubstitutaHyrox(e.estacao) ? `<button class="ex-trocar hy-trocar" type="button" data-trocar-hyrox="${esc(e.estacao)}"
+              ${comTrocar && podeTrocar && temSubstitutaHyrox(e.estacao) ? `<button class="ex-trocar hy-trocar" type="button" data-trocar-hyrox="${esc(e.estacao)}"
                 aria-label="Trocar ${esc(e.nome)} (Hyrox, estação ${esc(e.n)})">trocar</button>` : ''}
-            </th>${celulas(NIVEIS_HYROX.map((n) => String(e.prescricao?.[n.id] ?? '—')))}
+            </th>${NIVEIS_HYROX.map((n) => {
+    const carga = cargaHyrox(e, n.id);
+    return `<td class="hy-num">${esc(numeroHyrox(prescricaoHyrox(e, modelo, n.id)))}${carga ? `<span class="hy-carga">${esc(carga)}</span>` : ''}</td>`;
+  }).join('')}
           </tr>`).join('');
+    return `<table class="hy-tabela">${cabeca}<tbody>${corrida}${estacoes}
+        </tbody></table>`;
+  };
+  const corpo = comModelos
+    ? MODELOS_HYROX.map((m, i) => `
+      <details class="hy-modelo"${i === 0 ? ' open' : ''}>
+        <summary><strong>${esc(m.nome)}</strong> <span class="mut">· ${esc(m.descricao)}</span></summary>
+        ${tabela(m.id, i === 0)}
+      </details>`).join('')
+    : tabela('cardio', true);
   return `
     <div class="metabolico hyrox${b.papel === 'principal' ? ' principal' : ''}">
       <h4>Hyrox <span class="mut">· ${esc(tituloHyrox(h))}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
       <p class="mut">${esc(h.descricao)}</p>
       ${caixaAlerta('Estação do Hyrox sem equipamento', alertas, 'Troque a estação pela substituta ou ajuste o inventário.')}
-      <table class="hy-tabela">
-        <thead><tr><th scope="col"><span class="sr">Estação</span></th>${NIVEIS_HYROX.map((n) => `<th scope="col" title="${esc(n.nome)}">${esc(n.curto)}</th>`).join('')}</tr></thead>
-        <tbody>${corrida}${estacoes}
-        </tbody>
-      </table>
-      <p class="mut dia-rodape">A corrida vem antes de cada estação. Air bike: mesmo esforço, sem impacto.</p>
+      ${corpo}
+      <p class="mut dia-rodape">A corrida vem antes de cada estação. Air bike: mesmo esforço, sem impacto${comModelos ? ' (20 m = 1 cal), em todo nível e modelo' : ''}.${comModelos ? ' Sled, Farmers e Sandbag em idas de 12,5 m.' : ''}</p>
     </div>`;
 }
 
