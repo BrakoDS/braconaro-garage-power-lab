@@ -509,7 +509,8 @@ service cloud.firestore {
     // no dia: `lousa/{AAAA-MM-DD}/alunos/{email}`. O tablet do box (logado como
     // coach) e o celular do aluno mexem no MESMO documento:
     //  - o ALUNO lê e grava só o dele; o COACH lê e grava todos;
-    //  - só nove campos: `variante` e `cronometro` (a prova "for time": a categoria
+    //  - só onze campos: `iniciadoEm` e `ordem` (o início do treino e a ordem
+    //    das estações, ver as funções abaixo), `variante` e `cronometro` (a prova "for time": a categoria
     //    e o cronômetro progressivo, ver as funções abaixo), `horarioAula` (a turma em que o aluno se conectou à
     //    lousa, 'HH:MM', ou null ao sair — é o que o põe no tablet; o check-in
     //    da Gestão não entra), `aulaSelecionada` (a modalidade DESTE aluno — a
@@ -556,10 +557,25 @@ service cloud.firestore {
               && c.paradoEm <= request.time.toMillis() + 60000))
           && (c.get('registro', null) == null || c.registro is map));
     }
+    // O início do treino ("Iniciar treino" ou a "Largada"): conectar à lousa é só
+    // presença; o treino começa quando alguém toca em iniciar — a hora do servidor
+    // quando muda, depois só pode ficar igual (ou voltar a null ao reconectar).
+    function inicioDoTreinoValido(i) {
+      return i == null
+        || (i is timestamp
+          && (i == request.time || (resource != null && resource.data.get('iniciadoEm', null) == i)));
+    }
+    // A ordem das estações do aluno (o rodízio do box): as chaves dos itens na
+    // ordem escolhida, no celular ou no tablet. Só o tamanho; o Portal lê sem confiar.
+    function ordemDaLousaValida(o) {
+      return o == null || (o is list && o.size() <= 60);
+    }
     function lousaValida() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'concluidoEm', 'origem', 'variante', 'cronometro', 'feitos', 'timer', 'atualizadoEm'])
+      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'concluidoEm', 'origem', 'variante', 'cronometro', 'iniciadoEm', 'ordem', 'feitos', 'timer', 'atualizadoEm'])
         && varianteDaLousaValida(d.get('variante', null))
+        && inicioDoTreinoValido(d.get('iniciadoEm', null))
+        && ordemDaLousaValida(d.get('ordem', null))
         && cronometroDaLousaValido(d.get('cronometro', null))
         && (!('origem' in d)
           || d.origem == 'aluno'
