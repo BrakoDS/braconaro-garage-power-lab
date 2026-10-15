@@ -11,10 +11,11 @@
  */
 import { CATALOGO_COMPLETO } from './catalogo-completo';
 import { CATALOGO_CROSS } from './catalogo-cross';
-import { CORRIDA_HYROX, DADOS_ESTACAO_HYROX, MUSCULOS_CORRIDA_HYROX, MUSCULOS_HYROX } from './catalogo-hyrox';
+import { CORRIDA_MODELOS_HYROX, DADOS_ESTACAO_HYROX, MUSCULOS_CORRIDA_HYROX, MUSCULOS_HYROX, caloriasDaCorrida } from './catalogo-hyrox';
 import { blocosDoWod, catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox, seriesDaTecnica } from './volume-cross-hyrox';
 import {
-  CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, REGRA_FORMATO_CROSS,
+  CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, MODELOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, PISTA_HYROX_M,
+  REGRA_FORMATO_CROSS,
   REGRA_FORMATO_HYROX,
   type DiaSemana, type FormatoCross, type ItemCatalogo, type RecursoBox, type RecursoCross,
 } from './modelo-box';
@@ -249,12 +250,37 @@ console.log('\nGerador do WOD');
 console.log('\nEstações e formatos do Hyrox');
 {
   ok(igual(ESTACOES_HYROX.map((e) => DADOS_ESTACAO_HYROX[e].n), [1, 2, 3, 4, 5, 6, 7, 8]), 'as 8 estações, na ordem da prova');
-  ok(ESTACOES_HYROX.every((e) => {
-    const p = DADOS_ESTACAO_HYROX[e].prescricao;
-    return p.iniciante < p.intermediario && p.intermediario < p.avancado && p.avancado <= p.competicao;
-  }), 'a prescrição sobe com o nível');
-  ok(DADOS_ESTACAO_HYROX.burpee_broad_jump.substituta === null && ESTACOES_HYROX.filter((e) => DADOS_ESTACAO_HYROX[e].substituta).length === 7,
-    'toda estação com equipamento tem substituta; o Burpee Broad Jump não precisa');
+  // A tabela do coach (15/10/2026): modelo × nível, Start → Pro.
+  ok(ESTACOES_HYROX.every((e) => MODELOS_HYROX.every((m) => {
+    const p = DADOS_ESTACAO_HYROX[e].modelos[m];
+    return p.iniciante <= p.intermediario && p.intermediario <= p.avancado && p.avancado <= p.competicao && p.iniciante < p.competicao;
+  })), 'em todo modelo, a estação sobe do Start ao Pro');
+  ok(ESTACOES_HYROX.every((e) => NIVEIS_HYROX.every((n) => DADOS_ESTACAO_HYROX[e].modelos.strength[n] >= DADOS_ESTACAO_HYROX[e].modelos.cardio[n])),
+    'Strength Focus: estação igual ou mais pesada que no Cardio Focus, em todo nível');
+  const d = DADOS_ESTACAO_HYROX;
+  ok(d.skierg.modelos.strength.intermediario === 600 && d.remo.modelos.dupla.avancado === 1000 && d.skierg.modelos.cardio.iniciante === 300
+    && d.remo.modelos.strength.competicao === 1000 && d.skierg.tipo === 'metros' && d.remo.tipo === 'metros',
+  'SkiErg e Rowing em metros: Fit Strength 600, Open Doubles 1.000, Start Cardio 300, Pro Strength 1.000');
+  ok(igual(MODELOS_HYROX.map((m) => d.wall_ball.modelos[m].intermediario), [40, 75, 75])
+    && igual(MODELOS_HYROX.map((m) => d.burpee_broad_jump.modelos[m].iniciante), [20, 40, 40]),
+  'faixa do coach: o menor no Cardio, o maior no Strength e no Doubles (Wall Balls Fit 40–75, BBJ Start 20–40)');
+  const naPistaToda = (['sled_push', 'sled_pull', 'farmers_carry', 'sandbag_lunges'] as const)
+    .every((e) => MODELOS_HYROX.every((m) => NIVEIS_HYROX.every((n) => d[e].modelos[m][n] % PISTA_HYROX_M === 0)));
+  ok(naPistaToda && d.sled_push.modelos.cardio.iniciante === 12.5 && d.sled_pull.modelos.strength.competicao === 50
+    && d.farmers_carry.modelos.cardio.intermediario === 75 && d.sandbag_lunges.modelos.cardio.competicao === 62.5,
+  'Sled, Farmers e Sandbag na pista de 12,5 m (Start Sled 12,5; Farmers Fit 80 → 75; Sandbag Pro 60 → 62,5)');
+  ok(d.sled_push.cargas!.avancado.f === '102 kg' && d.sled_push.cargas!.avancado.m === '152 kg'
+    && d.farmers_carry.cargas!.intermediario.m === '2× 18–20 kg' && d.wall_ball.cargas!.iniciante.f === '3 kg'
+    && d.skierg.cargas === null && d.burpee_broad_jump.cargas === null,
+  'cargas por nível, F e M (Sled Push Garage Open 102/152 kg; Farmers Fit M 2× 18–20 kg); SkiErg e BBJ sem carga');
+  ok(d.remo.substituta === null && d.remo.recursos.remo === 1 && !d.remo.recursos.monocross && d.skierg.recursos.monocross === 1,
+    'Rowing no remo indoor oficial, sem substituta; o SkiErg é o monocross');
+  ok(ESTACOES_HYROX.filter((e) => !DADOS_ESTACAO_HYROX[e].substituta).join() === 'burpee_broad_jump,remo',
+    'só o Burpee Broad Jump e o Rowing não têm substituta');
+  ok(igual(MODELOS_HYROX.map((m) => NIVEIS_HYROX.map((n) => CORRIDA_MODELOS_HYROX[m][n])),
+    [[300, 400, 500, 600], [200, 300, 300, 400], [200, 300, 500, 400]]),
+  'corrida por modelo × nível: Cardio 300/400/500/600, Strength 200/300/300/400, Doubles 200/300/500/400');
+  ok(caloriasDaCorrida(400) === 20 && caloriasDaCorrida(300) === 15 && caloriasDaCorrida(200) === 10, 'air bike: 20 m de corrida = 1 cal');
   ok(ESTACOES_HYROX.every((e) => {
     const d = DADOS_ESTACAO_HYROX[e];
     return !d.substituta || !Object.keys(d.recursos).some((r) => r in d.substituta!.recursos);
@@ -266,18 +292,24 @@ console.log('\nEstações e formatos do Hyrox');
 
   const prova = montarHyrox('prova', ESTACOES_HYROX.map((estacao) => ({ estacao, substituta: false })));
   ok(prova.estacoes.length === 8 && prova.rodadas === 1, 'prova: 8 estações, 1 rodada');
-  ok(igual(NIVEIS_HYROX.map((n) => prova.corrida[n].metros), [100, 300, 500, 1000]), 'prova: corrida 100/300/500/1000 m por nível');
-  ok(prova.estacoes[7].prescricao.intermediario === 50 && prova.estacoes[7].nome === 'Wall ball', 'prova: wall ball 50 no intermediário');
+  ok(prova.estacoes.every((e) => igual(e.modelos, DADOS_ESTACAO_HYROX[e.estacao].modelos) && igual(e.prescricao, e.modelos.cardio)),
+    'prova: a tabela inteira gravada em cada estação; `prescricao` (o app de antes) é a do Cardio Focus');
+  ok(igual(prova.corridaModelos.strength.intermediario, { metros: 300, bikeCal: 15 }) && igual(prova.corridaModelos.cardio.competicao, { metros: 600, bikeCal: 30 })
+    && igual(NIVEIS_HYROX.map((n) => prova.corrida[n].metros), [300, 400, 500, 600]),
+  'prova: corrida por modelo com a air bike em calorias (Fit Strength 300 m = 15 cal; Pro Cardio 600 m = 30 cal); `corrida` = Cardio');
+  ok(prova.estacoes[1].cargas!.iniciante.m === '90 kg' && prova.estacoes[0].cargas === null, 'prova: cargas F/M gravadas por nível');
   const metade = montarHyrox('metadeA', ESTACOES_HYROX.slice(0, 4).map((estacao) => ({ estacao, substituta: false })));
-  ok(igual(NIVEIS_HYROX.map((n) => metade.corrida[n].metros), [200, 600, 1000, 2000]), 'metade A: corrida dobrada');
-  ok(CORRIDA_HYROX.iniciante.bikeSeg === 48 && metade.corrida.iniciante.bikeSeg === 95,
-    'metade A: a air bike dobra junto (48 s → 96 → 95 s, de 5 em 5)');
+  ok(igual(NIVEIS_HYROX.map((n) => metade.corridaModelos.cardio[n].metros), [600, 800, 1000, 1200])
+    && metade.corridaModelos.cardio.intermediario.bikeCal === 40,
+  'metade A: corrida dobrada, e a air bike dobra junto (800 m = 40 cal)');
   const comp = montarHyrox('compromised', [{ estacao: 'sled_push', substituta: false }, { estacao: 'wall_ball', substituta: false }]);
-  ok(comp.estacoes[0].prescricao.intermediario === 15 && comp.estacoes[1].prescricao.intermediario === 25 && comp.rodadas === 2,
-    'compromised: metade da estação (sled 30 → 15 m, wall ball 50 → 25), 2 rodadas');
-  const sub = montarHyrox('prova', ESTACOES_HYROX.map((estacao) => ({ estacao, substituta: estacao === 'remo' })));
-  ok(sub.estacoes[4].nome === 'Air bike' && sub.estacoes[4].tipo === 'calorias' && sub.estacoes[4].base === 'Rowing' && sub.estacoes[4].substituta,
-    'substituta: nome, tipo e prescrição dela; a base continua a da prova');
+  ok(comp.estacoes[0].modelos.cardio.intermediario === 12.5 && comp.estacoes[0].modelos.strength.iniciante === 12.5
+    && comp.estacoes[1].modelos.cardio.intermediario === 20 && comp.rodadas === 2,
+  'compromised: metade da estação, e o sled continua na pista (25 → 12,5 m; 25 → 12,5 e não 10); wall ball 40 → 20');
+  const sub = montarHyrox('prova', ESTACOES_HYROX.map((estacao) => ({ estacao, substituta: estacao === 'skierg' })));
+  ok(sub.estacoes[0].nome === 'Battle rope (corda naval)' && sub.estacoes[0].tipo === 'segundos' && sub.estacoes[0].base === 'SkiErg'
+    && sub.estacoes[0].substituta && sub.estacoes[0].cargas === null && sub.estacoes[0].modelos.strength.intermediario === 60,
+  'substituta: nome, tipo e prescrição dela (igual nos 3 modelos); a base continua a da prova');
 }
 
 console.log('\nGerador do Hyrox');
@@ -692,7 +724,7 @@ console.log('\nTrava de semana publicada e conta única');
   const antes = montar({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'kb_swing', 'flexao']) }, prova);
   const outroWod = montar({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'kb_swing', 'flexao_pike']) }, prova);
   const outroHyrox = montar({ formato: 'AMRAP', minutos: 16, movimentos: mov(['corrida', 'kb_swing', 'flexao']) },
-    { formato: 'prova', estacoes: ESTACOES_HYROX.map((estacao) => ({ estacao, substituta: estacao === 'remo' })) });
+    { formato: 'prova', estacoes: ESTACOES_HYROX.map((estacao) => ({ estacao, substituta: estacao === 'skierg' })) });
   const datas = intervaloDaSemana('2026-W42')!.datas;
   ok(igual(diasPassadosAlterados(antes, outroWod, datas, datas.quarta), ['terca']), 'trocar o WOD com a terça no passado: a terça trava');
   ok(igual(diasPassadosAlterados(antes, outroHyrox, datas, datas.sexta), ['quinta']), 'trocar estação do Hyrox com a quinta no passado: a quinta trava');
@@ -787,21 +819,39 @@ console.log('\nVolume do Cross e do Hyrox (séries equivalentes)');
   ok(sc['hyrox:skierg'] === 1 && sc['hyrox:corrida'] === 2, 'compromised: 2 rodadas × metade da estação = 1; 8 corridas');
   const metA = hy('metadeA', ['skierg', 'sled_push', 'sled_pull', 'burpee_broad_jump']);
   ok(hseries(lerRegistroHyrox({ comoPrescrito: true }, metA))['hyrox:corrida'] === 2, 'metade A: corrida dobrada conta dobrado (4 × 0,25 × 2)');
-  const comSub = hy('prova', [...ESTACOES_HYROX], ['sled_pull', 'remo']);
+  const comSub = hy('prova', [...ESTACOES_HYROX], ['skierg', 'sled_pull']);
   const ss = hseries(lerRegistroHyrox({ estacoesFeitas: 5, corridaNaBike: true }, comSub));
-  ok(ss['hyrox:sled_pull:substituta'] === 1 && ss['hyrox:remo:substituta'] === 1 && !ss['hyrox:wall_ball'] && ss['hyrox:air_bike'] === 1.25,
-    'substitutas e air bike: o volume vai para o que foi feito; parou na 5ª estação', JSON.stringify(ss));
+  ok(ss['hyrox:skierg:substituta'] === 1 && ss['hyrox:sled_pull:substituta'] === 1 && ss['hyrox:remo'] === 1 && !ss['hyrox:wall_ball']
+    && ss['hyrox:air_bike'] === 1.25 && !ss['hyrox:corrida'],
+  'substitutas e air bike: o volume vai para o que foi feito; parou na 5ª estação', JSON.stringify(ss));
   const vh = volumeDaSessao(ss, catalogoDoHyrox());
-  // Costas: SkiErg (principal 1) + remada no TRX (principal 1) + air bike no lugar do remo (secundário 0,5) + a bike das corridas (0,5 × 1,25).
-  // Bíceps: só a remada no TRX (secundário 0,5) — o sled pull da prova não foi feito.
-  ok(vh.costas === 3.125 && vh.biceps === 0.5, 'músculos das substitutas: remada no TRX e air bike', JSON.stringify(vh));
+  // Costas: remada no TRX (principal 1) + Rowing (principal 1) + a bike das corridas (secundário 0,5 × 1,25); a corda naval não pega costas.
+  // Bíceps: remada no TRX (secundário 0,5) + Rowing (secundário 0,5) — o sled pull da prova não foi feito.
+  ok(vh.costas === 2.625 && vh.biceps === 1, 'músculos das substitutas: corda naval, remada no TRX e air bike', JSON.stringify(vh));
   ok('erro' in lerRegistroHyrox({ corridaNaBike: 'sim' }, prova), 'bike: sim ou não');
+
+  // Os modelos da quinta (15/10/2026): Doubles divide as estações; "Fiz na Airbike" em qualquer modelo, sem perder volume.
+  const dupla = lerRegistroHyrox({ comoPrescrito: true, modelo: 'dupla' }, prova);
+  const sd = hseries(dupla);
+  ok(ESTACOES_HYROX.every((e) => sd[`hyrox:${e}`] === 0.5) && sd['hyrox:corrida'] === 2 && !('erro' in dupla) && dupla.registro.modelo === 'dupla',
+    'Doubles: cada atleta 0,5 por estação (a dupla divide); a corrida, feita junta, conta inteira (8 × 0,25)', JSON.stringify(sd));
+  for (const modelo of ['cardio', 'strength', 'dupla'] as const) {
+    const corrida = hseries(lerRegistroHyrox({ comoPrescrito: true, modelo }, prova));
+    const bike = hseries(lerRegistroHyrox({ comoPrescrito: true, modelo, corridaNaBike: true }, prova));
+    ok(bike['hyrox:air_bike'] === corrida['hyrox:corrida'] && !bike['hyrox:corrida']
+      && ESTACOES_HYROX.every((e) => bike[`hyrox:${e}`] === corrida[`hyrox:${e}`]),
+    `${modelo}: "Fiz na Airbike" no um toque leva o volume inteiro da corrida para a air bike`);
+  }
+  const antigo = lerRegistroHyrox({ comoPrescrito: true }, prova);
+  ok(!('erro' in antigo) && antigo.registro.modelo === null && hseries(antigo)['hyrox:skierg'] === 1,
+    'registro do app de antes (sem modelo): estação inteira, modelo null');
+  ok('erro' in lerRegistroHyrox({ comoPrescrito: true, modelo: 'trio' }, prova), 'modelo desconhecido: erro');
 
   // As substitutas que já são exercício do catálogo têm os MESMOS músculos de lá.
   const igualAo = (m: { musculoPrincipal: string[]; musculosSecundarios: string[] }, id: string) =>
     igual(m.musculoPrincipal, catalogo.get(id)!.musculoPrincipal) && igual(m.musculosSecundarios, catalogo.get(id)!.musculosSecundarios);
   ok(igualAo(MUSCULOS_HYROX.skierg.substituta!, 'corda_naval') && igualAo(MUSCULOS_HYROX.sled_pull.substituta!, 'remada_trx')
-    && igualAo(MUSCULOS_HYROX.remo.substituta!, 'air_bike_sprint') && igualAo(MUSCULOS_HYROX.farmers_carry.substituta!, 'farmer_carry_kb')
+    && igualAo(MUSCULOS_HYROX.farmers_carry.substituta!, 'farmer_carry_kb')
     && igualAo(MUSCULOS_HYROX.sandbag_lunges.substituta!, 'afundo_kb') && igualAo(MUSCULOS_HYROX.wall_ball.substituta!, 'thruster_halteres')
     && igualAo(MUSCULOS_HYROX.wall_ball.estacao, 'wall_ball_shot')
     && igualAo(MUSCULOS_CORRIDA_HYROX.corrida, 'corrida') && igualAo(MUSCULOS_CORRIDA_HYROX.bike, 'air_bike_sprint'),

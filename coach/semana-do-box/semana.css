@@ -191,6 +191,10 @@
 .hy-tabela th[scope="row"] { text-align: left; font-weight: 500; padding: 5px 6px; border-radius: 8px 0 0 8px; }
 .hy-tabela td { text-align: right; padding: 5px 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hy-tabela td:last-child { border-radius: 0 8px 8px 0; }
+.hy-carga { display: block; font-size: 10.5px; color: var(--mut); font-weight: 500; }
+.hy-modelo { margin-top: 8px; }
+.hy-modelo > summary { cursor: pointer; padding: 4px 0; }
+.hy-modelo:not([open]) > summary { color: var(--mut); }
 .hy-corrida th, .hy-corrida td { color: var(--mut); }
 .hy-estacao th, .hy-estacao td { background: var(--card2); }
 .hy-n { color: var(--mut2); font-weight: 700; }

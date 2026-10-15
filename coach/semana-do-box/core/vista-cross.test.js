@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  ESTACOES_HYROX_SEM_SUBSTITUTA, NIVEIS_HYROX, NOME_PADRAO_CROSS, alunosPorMovimento, conteudoEditavel, diasComCrossTrocado,
+  ESTACOES_HYROX_SEM_SUBSTITUTA, MODELOS_HYROX, NIVEIS_HYROX, NOME_PADRAO_CROSS, alunosPorMovimento, conteudoEditavel, diasComCrossTrocado,
   diasComHyroxTrocado, estacoesEmAlerta, hyroxDaSemana, linhasDaCorrida, linhasDoInventario, movimentosEmAlerta, nomesDoWod,
   quantidadeCross, selosDaOpcaoCross, acoesDoConflitoCross, semanaAfetada, temSubstitutaHyrox, textoAlertaCross,
   textoAlertaHyrox, textoContaWod, textoSegundos, tituloHyrox, tituloWod, totalDeAlertas, wodDaSemana,
@@ -27,6 +27,7 @@ const lista = (nome) => {
 test('paridade: padrões, níveis e estações sem substituta são os do servidor', () => {
   assert.deepEqual(Object.keys(NOME_PADRAO_CROSS), lista('PADROES_CROSS'));
   assert.deepEqual(NIVEIS_HYROX.map((n) => n.id), lista('NIVEIS_HYROX'));
+  assert.deepEqual(MODELOS_HYROX.map((m) => m.id), lista('MODELOS_HYROX'));
   // Um pedaço por estação de `DADOS_ESTACAO_HYROX` (cada uma começa em `  id: {`), só até o fim
   // dele: a tabela de músculos (`MUSCULOS_HYROX`), logo abaixo, também tem `substituta: null`.
   const inicio = catalogoHyrox.indexOf('export const DADOS_ESTACAO_HYROX');
@@ -140,12 +141,15 @@ test('trava: rascunho troca; publicada trava o dia que passou', () => {
 
 test('inventário: barras e sled no grupo do Cross/Hyrox; semana afetada fala do WOD e do Hyrox', () => {
   const doc = {
-    equipamentos: { barraOlimpica: { total: 4, emManutencao: 1, observacao: '' }, sled: { total: 1, emManutencao: 0, observacao: '' } },
-    limitesAtivos: { barraOlimpica: 3, sled: 1 },
+    equipamentos: {
+      barraOlimpica: { total: 4, emManutencao: 1, observacao: '' }, sled: { total: 1, emManutencao: 0, observacao: '' },
+      remo: { total: 1, emManutencao: 0, observacao: 'remo indoor oficial' },
+    },
+    limitesAtivos: { barraOlimpica: 3, sled: 1, remo: 1 },
   };
   const linhas = linhasDoInventario(doc).filter((l) => l.grupo === 'crossHyrox');
-  assert.deepEqual(linhas.map((l) => [l.recurso, l.nome, l.ativos]), [['barraOlimpica', 'Barra olímpica', 3], ['sled', 'Sled (trenó)', 1]]);
-  const s = semanaAfetada({
+  assert.deepEqual(linhas.map((l) => [l.recurso, l.nome, l.ativos]),
+    [['barraOlimpica', 'Barra olímpica', 3], ['sled', 'Sled (trenó)', 1], ['remo', 'Remo indoor', 1]]);  const s = semanaAfetada({
     semanaId: '2026-W44', status: 'rascunho',
     alertasCross: [{ recurso: 'barraOlimpica', usado: 6, limite: 3, exercicios: ['power_clean'], dias: ['terca'] }],
     alertasHyrox: [{ estacao: 'sled_push', recurso: 'sled', precisa: 1, limite: 0, temSubstituta: true, dias: ['quinta'] }],

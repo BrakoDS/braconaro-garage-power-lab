@@ -11,14 +11,14 @@ import {
   ADAPTACOES, ALUNOS_POR_AULA_MAX, ALUNOS_POR_AULA_PADRAO, CADENCIA_PADRAO, DIAS_SEMANA, EQUIPAMENTOS, ESTACOES_HIIT,
   ESTACOES_HYROX, EXERCICIOS_POR_BLOCO, FATOR_SCALED, FORMATO_METABOLICO, FORMATOS_CROSS, FORMATOS_HYROX, INSTANCIAS,
   INVENTARIO_CROSS_HYROX_PADRAO, INVENTARIO_HIIT_PADRAO, INVENTARIO_PADRAO, MATRIZ_H, MINUTOS_CROSS, MODALIDADES,
-  MUSCULOS, NIVEIS_HYROX, OBSERVACAO_PADRAO, PADROES_CROSS, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA,
+  MODELOS_HYROX, MUSCULOS, NIVEIS_HYROX, OBSERVACAO_PADRAO, PADROES_CROSS, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA,
   RECURSO_DO_EQUIPAMENTO, RECURSOS_BOX, RECURSOS_CROSS, REGRA_FORMATO_CROSS, REGRA_FORMATO_HYROX, RODADAS_CROSS,
   NOME_ESTACAO_HIIT, PROTOCOLO_HIIT, RECURSOS_HIIT, RECURSOS_INVENTARIO, SESSOES_H, SESSOES_METABOLICAS, SLOTS_POR_ESTACAO,
   UNIDADES_CROSS, CATEGORIAS_FOCO, MINUTOS_TECNICA, TIPOS_TECNICA, MAX_TEXTO_AVISO, NOME_TIPO_AVISO, TIPOS_AVISO,
   type AvisoDoDia, type AlertaCrossDaSemana, type AlertaEquipamento, type AlertaHiitDaSemana, type AlertaHyrox, type AlertaHyroxDaSemana, type DadosCross,
   type DadosHiit, type DiaProgramado, type DiaSemana, type EstacaoHiit, type EstacaoHyrox, type EstacaoHyroxProgramada,
   type EstacaoProgramada, type ExercicioCatalogo, type FormatoCross, type FormatoHyrox, type HiitProgramado,
-  type HyroxProgramado, type MovimentoCross, type NivelHyrox, type SlotHiit, type UnidadeCross, type WodProgramado,
+  type HyroxProgramado, type ModeloHyrox, type MovimentoCross, type NivelHyrox, type SlotHiit, type UnidadeCross, type WodProgramado,
   type DadosTecnica, type TecnicaProgramada,
   type ExercicioProgramado, type FeedbackExercicio, type ItemCatalogo, type Modalidade, type Musculo, type PapelSessao,
   type RecursoBox, type RecursoCross, type RecursoHiit, type RecursoInventario, type SessaoH, type SessaoMetabolica,
@@ -26,7 +26,7 @@ import {
 } from './modelo-box';
 import { alunosPorEstacao, consumoPorAluno, contarHiit } from './conta-hiit';
 import { alunosPorMovimento, cabeNoInventario, consumoCross, contarCross, contarHyrox } from './conta-cross';
-import { CORRIDA_HYROX, DADOS_ESTACAO_HYROX } from './catalogo-hyrox';
+import { CORRIDA_HYROX, CORRIDA_MODELOS_HYROX, DADOS_ESTACAO_HYROX, caloriasDaCorrida, naPista } from './catalogo-hyrox';
 import { estrategiaDoWod } from './estrategia-cross';
 
 /** O box fica em São Paulo, que não tem horário de verão desde 2019. */
@@ -626,8 +626,10 @@ export function tecnicaDoWod(
 
 /**
  * O Hyrox calculado de `catalogo-hyrox.ts` e do formato: a prescrição de cada
- * nível × `fatorEstacao`, a corrida × `fatorCorrida`. O gerador e a validação
- * usam ESTE — o coach não digita prescrição.
+ * modelo × nível × `fatorEstacao`, a corrida × `fatorCorrida` (com a air bike
+ * em calorias). O gerador e a validação usam ESTE — o coach não digita
+ * prescrição. `prescricao` e `corrida` (os campos que o app de antes lê) são
+ * os do Cardio Focus.
  */
 export function montarHyrox(
   formato: FormatoHyrox,
@@ -636,21 +638,32 @@ export function montarHyrox(
   const regra = REGRA_FORMATO_HYROX[formato];
   const porNivel = <T>(f: (n: NivelHyrox) => T) =>
     Object.fromEntries(NIVEIS_HYROX.map((n) => [n, f(n)])) as Record<NivelHyrox, T>;
+  const porModelo = <T>(f: (m: ModeloHyrox) => T) =>
+    Object.fromEntries(MODELOS_HYROX.map((m) => [m, f(m)])) as Record<ModeloHyrox, T>;
   const estacoes: EstacaoHyroxProgramada[] = escolhas.map(({ estacao, substituta }) => {
     const dados = DADOS_ESTACAO_HYROX[estacao];
     const v = substituta && dados.substituta ? dados.substituta : dados;
+    // Na pista do box (Sled, Farmers, Sandbag) a distância continua em múltiplos de 12,5 m, também cortada pela metade.
+    const arredondar = (x: number) => (v.piso ? naPista(x) : arredondarPrescricao(x, v.tipo));
+    const modelos = porModelo((m) => porNivel((n) => arredondar(v.modelos[m][n] * regra.fatorEstacao)));
     return {
       estacao, n: dados.n, nome: v.nome, base: dados.base, tipo: v.tipo,
-      prescricao: porNivel((n) => arredondarPrescricao(v.prescricao[n] * regra.fatorEstacao, v.tipo)),
+      prescricao: { ...modelos.cardio }, modelos,
+      cargas: v.cargas ? porNivel((n) => ({ ...v.cargas![n] })) : null,
       carga: v.carga, nota: v.nota, substituta: v !== dados, recursos: { ...v.recursos },
     };
   });
+  const corridaModelos = porModelo((m) => porNivel((n) => {
+    const metros = arredondarPrescricao(CORRIDA_MODELOS_HYROX[m][n] * regra.fatorCorrida, 'metros');
+    return { metros, bikeCal: caloriasDaCorrida(metros) };
+  }));
   return {
     formato, nome: regra.nome, descricao: regra.descricao, rodadas: regra.rodadas,
     corrida: porNivel((n) => ({
-      metros: arredondarPrescricao(CORRIDA_HYROX[n].metros * regra.fatorCorrida, 'metros'),
+      metros: corridaModelos.cardio[n].metros,
       bikeSeg: arredondarPrescricao(CORRIDA_HYROX[n].bikeSeg * regra.fatorCorrida, 'segundos'),
     })),
+    corridaModelos,
     estacoes,
   };
 }

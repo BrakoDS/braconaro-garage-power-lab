@@ -31,7 +31,7 @@ export const RECURSOS_HIIT = ['kettlebell', 'wallBall', 'caixote', 'cordaNaval',
  * Os recursos SÓ do Cross e do Hyrox, na ordem do servidor (`RECURSOS_CROSS_HYROX`).
  * O resto do que eles usam são as linhas do HIIT e o monocross.
  */
-export const RECURSOS_CROSS_HYROX = ['barraOlimpica', 'sled'];
+export const RECURSOS_CROSS_HYROX = ['barraOlimpica', 'sled', 'remo'];
 
 /** @type {Record<string, {um: string, varios: string}>} */
 export const NOME_RECURSO = {
@@ -51,6 +51,7 @@ export const NOME_RECURSO = {
   halteres: { um: 'Par de halteres', varios: 'Pares de halteres' },
   barraOlimpica: { um: 'Barra olímpica', varios: 'Barras olímpicas' },
   sled: { um: 'Sled (trenó)', varios: 'Sleds' },
+  remo: { um: 'Remo indoor', varios: 'Remos indoor' },
 };
 
 /** @type {Record<string, string>} */
@@ -869,19 +870,53 @@ export const acoesDoConflitoCross = acoesDoConflitoHiit;
 
 /* ───────────────────────────── Hyrox ───────────────────────────── */
 
-/** Os 4 níveis, na ordem do servidor (`NIVEIS_HYROX`), com o nome e a coluna curta da tabela. */
+/**
+ * Os 4 níveis, na ordem do servidor (`NIVEIS_HYROX`), com o nome e a coluna
+ * curta da tabela. Os ids são os de antes; os nomes, os do box desde 15/10/2026.
+ */
 export const NIVEIS_HYROX = [
-  { id: 'iniciante', nome: 'Iniciante', curto: 'Ini' },
-  { id: 'intermediario', nome: 'Intermediário', curto: 'Int' },
-  { id: 'avancado', nome: 'Avançado', curto: 'Av' },
-  { id: 'competicao', nome: 'Competição', curto: 'Comp' },
+  { id: 'iniciante', nome: 'Garage Start', curto: 'Start' },
+  { id: 'intermediario', nome: 'Garage Fit', curto: 'Fit' },
+  { id: 'avancado', nome: 'Garage Open', curto: 'Open' },
+  { id: 'competicao', nome: 'Garage Pro', curto: 'Pro' },
+];
+
+/** Os 3 modelos da quinta, na ordem do servidor (`MODELOS_HYROX`): o aluno escolhe um. */
+export const MODELOS_HYROX = [
+  { id: 'cardio', nome: 'Cardio Focus', descricao: 'Mais corrida (ou air bike) e estações moderadas.' },
+  { id: 'strength', nome: 'Strength Focus', descricao: 'Estações pesadas, com as cargas oficiais, e corrida curta de recuperação.' },
+  { id: 'dupla', nome: 'Doubles (em dupla)', descricao: 'A dupla corre junta; o volume de cada estação é o total da dupla, dividido entre os dois.' },
 ];
 
 /**
  * As estações sem substituta (`substituta: null` em `functions/src/catalogo-hyrox.ts`):
  * nelas a tela não mostra "trocar". O teste de paridade confere a lista.
  */
-export const ESTACOES_HYROX_SEM_SUBSTITUTA = ['burpee_broad_jump'];
+export const ESTACOES_HYROX_SEM_SUBSTITUTA = ['burpee_broad_jump', 'remo'];
+
+/**
+ * A prescrição de uma estação num modelo e nível. Semana de antes dos modelos
+ * (sem `modelos`): a prescrição única de antes, igual em todo modelo.
+ * @param {{prescricao?: any, modelos?: any}} e @param {string} modelo @param {string} nivel
+ */
+export function prescricaoHyrox(e, modelo, nivel) {
+  return e.modelos?.[modelo]?.[nivel] ?? e.prescricao?.[nivel] ?? null;
+}
+
+/** '12,5' (vírgula decimal); inteiro sai sem casas. @param {number|null} v */
+export function numeroHyrox(v) {
+  return Number.isFinite(v) ? String(v).replace('.', ',') : '—';
+}
+
+/**
+ * A carga de uma estação num nível, F e M ('F 60 kg · M 90 kg'), ou '' sem carga
+ * por nível (Burpee, SkiErg, substituta, semana de antes dos modelos).
+ * @param {{cargas?: any}} e @param {string} nivel
+ */
+export function cargaHyrox(e, nivel) {
+  const c = e.cargas?.[nivel];
+  return c ? `F ${c.f} · M ${c.m}` : '';
+}
 
 /** A unidade de uma estação, para a tabela. @type {Record<string, string>} */
 export const UNIDADE_HYROX = { reps: 'reps', metros: 'm', calorias: 'cal', segundos: 's' };
@@ -904,10 +939,19 @@ export function tituloHyrox(h) {
 
 /**
  * As duas linhas da corrida na tabela (por nível): os metros e, como
- * alternativa, a air bike.
- * @param {{corrida: Record<string, {metros: number, bikeSeg: number}>}} h
+ * alternativa, a air bike. Com os modelos (desde 15/10/2026), a corrida do
+ * modelo e a air bike em calorias; semana de antes, a corrida única e a air
+ * bike em tempo.
+ * @param {{corrida: Record<string, {metros: number, bikeSeg: number}>, corridaModelos?: any}} h @param {string} [modelo]
  */
-export function linhasDaCorrida(h) {
+export function linhasDaCorrida(h, modelo = 'cardio') {
+  const doModelo = h.corridaModelos?.[modelo];
+  if (doModelo) {
+    return [
+      { rotulo: 'Corrida', unidade: 'm', valores: NIVEIS_HYROX.map((n) => numeroHyrox(doModelo[n.id]?.metros)) },
+      { rotulo: 'ou air bike', unidade: 'cal', valores: NIVEIS_HYROX.map((n) => numeroHyrox(doModelo[n.id]?.bikeCal)) },
+    ];
+  }
   return [
     { rotulo: 'Corrida', unidade: 'm', valores: NIVEIS_HYROX.map((n) => String(h.corrida?.[n.id]?.metros ?? '—')) },
     {

@@ -111,7 +111,7 @@ export type RecursoHiit = (typeof RECURSOS_HIIT)[number];
  *    todo movimento de barra sai do chão.
  *  - `sled`: o trenó do Hyrox, no turf.
  */
-export const RECURSOS_CROSS_HYROX = ['barraOlimpica', 'sled'] as const;
+export const RECURSOS_CROSS_HYROX = ['barraOlimpica', 'sled', 'remo'] as const;
 export type RecursoCrossHyrox = (typeof RECURSOS_CROSS_HYROX)[number];
 
 /** Tudo o que o inventário guarda: os recursos do bloco H, os do HIIT e os do Cross/Hyrox. */
@@ -122,6 +122,8 @@ export type RecursoBox = RecursoInventario | RecursoHiit | RecursoCrossHyrox;
 export const INVENTARIO_CROSS_HYROX_PADRAO: Readonly<Record<RecursoCrossHyrox, number>> = {
   barraOlimpica: 4,
   sled: 1,
+  // O remo indoor oficial do box (15/10/2026): a estação Rowing não usa mais monocross nem tem substituta.
+  remo: 1,
 };
 
 /** O que limita o WOD do Cross: os recursos do HIIT e as barras. */
@@ -166,6 +168,7 @@ export const OBSERVACAO_PADRAO: Readonly<Partial<Record<RecursoBox, string>>> = 
   halteres: 'pares, torres de 1 a 10 kg',
   barraOlimpica: '2× 2,0 m · 2× 1,5 m, com anilhas',
   sled: 'no turf de 5 m',
+  remo: 'remo indoor oficial',
 };
 
 /** Que recurso do HIIT cada equipamento consome. Equipamento fora daqui não limita o HIIT. */
@@ -540,12 +543,62 @@ export interface AlertaCrossDaSemana extends AlertaCross {
 
 /* ───────────────────────── HYROX (decisão do coach, 06/10/2026) ───────────────────────── */
 
-/** Os 4 níveis do Hyrox. 'competicao' é a prescrição de prova (1 km por corrida). */
+/**
+ * Os 4 níveis do Hyrox, do mais leve ao mais pesado. Os ids são os de antes
+ * (as semanas gravadas e o app instalado leem por eles); os NOMES são os do
+ * box desde 15/10/2026: Garage Start, Garage Fit (a maioria), Garage Open (a
+ * base oficial ajustada) e Garage Pro (o RX).
+ */
 export const NIVEIS_HYROX = ['iniciante', 'intermediario', 'avancado', 'competicao'] as const;
 export type NivelHyrox = (typeof NIVEIS_HYROX)[number];
 export const NOME_NIVEL_HYROX: Readonly<Record<NivelHyrox, string>> = {
-  iniciante: 'Iniciante', intermediario: 'Intermediário', avancado: 'Avançado', competicao: 'Competição',
+  iniciante: 'Start', intermediario: 'Fit', avancado: 'Garage Open', competicao: 'Pro',
 };
+
+/**
+ * Os 3 modelos da aula de Hyrox, que o ALUNO escolhe (decisão do coach, 15/10/2026):
+ *  - Cardio Focus: mais corrida (ou air bike) e estações moderadas;
+ *  - Strength Focus: estações pesadas, com as cargas oficiais, e corrida curta de recuperação;
+ *  - Doubles: a dupla corre JUNTA e divide o volume das estações.
+ * A prescrição de cada estação é por modelo × nível; as cargas, só por nível.
+ */
+export const MODELOS_HYROX = ['cardio', 'strength', 'dupla'] as const;
+export type ModeloHyrox = (typeof MODELOS_HYROX)[number];
+export const NOME_MODELO_HYROX: Readonly<Record<ModeloHyrox, string>> = {
+  cardio: 'Cardio Focus', strength: 'Strength Focus', dupla: 'Doubles (em dupla)',
+};
+export const DESCRICAO_MODELO_HYROX: Readonly<Record<ModeloHyrox, string>> = {
+  cardio: 'Mais corrida (ou air bike) e estações moderadas.',
+  strength: 'Estações pesadas, com as cargas oficiais, e corrida curta de recuperação.',
+  dupla: 'A dupla corre junta; o volume de cada estação é o total da dupla, dividido entre os dois.',
+};
+
+/** Doubles: cada atleta faz metade do volume das estações (a corrida, feita junto, conta inteira). */
+export const FATOR_ESTACAO_DUPLA = 0.5;
+
+/** Air bike no lugar da corrida, em calorias: 20 m de corrida = 1 cal (400 m = 20 cal). Decisão de 15/10/2026. */
+export const METROS_POR_CAL_AIRBIKE = 20;
+
+/**
+ * A pista do box para Sled, Farmers e Sandbag: as distâncias dessas estações
+ * são múltiplos dela (12,5 m = uma ida no piso útil). Decisão de 15/10/2026.
+ */
+export const PISTA_HYROX_M = 12.5;
+
+/** As cargas de uma estação num nível: feminino e masculino. */
+export interface CargaHyrox {
+  f: string;
+  m: string;
+}
+
+/** A prescrição de uma estação (ou da corrida) por modelo × nível. */
+export type PrescricaoModelosHyrox = Record<ModeloHyrox, Record<NivelHyrox, number>>;
+
+/** A corrida de um modelo num nível, com a air bike equivalente em calorias. */
+export interface CorridaModeloHyrox {
+  metros: number;
+  bikeCal: number;
+}
 
 /** As 8 estações da prova, NA ORDEM da prova. Os dados de cada uma estão em `catalogo-hyrox.ts`. */
 export const ESTACOES_HYROX = [
@@ -599,7 +652,11 @@ export const REGRA_FORMATO_HYROX: Readonly<Record<FormatoHyrox, {
   },
 };
 
-/** A corrida de UMA rodada num nível, com a alternativa na air bike (mesmo esforço, sem impacto). */
+/**
+ * A corrida de UMA rodada num nível, com a alternativa na air bike (mesmo
+ * esforço, sem impacto). Desde 15/10/2026 é a do Cardio Focus — o campo antigo
+ * que o app de antes lê; a de cada modelo fica em `corridaModelos`.
+ */
 export interface CorridaHyrox {
   metros: number;
   bikeSeg: number;
@@ -615,7 +672,13 @@ export interface EstacaoHyroxProgramada {
   /** A estação da competição ('Sled Push'). */
   base: string;
   tipo: TipoHyrox;
+  /** A do Cardio Focus — o campo que o app de antes lê. A de cada modelo está em `modelos`. */
   prescricao: Record<NivelHyrox, number>;
+  /** A prescrição por modelo × nível (desde 15/10/2026; Doubles = o total da dupla). */
+  modelos: PrescricaoModelosHyrox;
+  /** As cargas por nível, F e M; `null` quando a estação não tem carga (Burpee) ou na substituta. */
+  cargas: Record<NivelHyrox, CargaHyrox> | null;
+  /** Resumo da carga em uma linha (o app de antes mostra este). */
   carga: string;
   nota: string;
   /** A estação foi trocada pela substituta (equipamento em manutenção, ou escolha do coach). */
@@ -630,8 +693,10 @@ export interface HyroxProgramado {
   nome: string;
   descricao: string;
   rodadas: number;
-  /** Corrida antes de cada estação, por nível (já com o `fatorCorrida`). */
+  /** Corrida antes de cada estação, por nível (já com o `fatorCorrida`): a do Cardio Focus. */
   corrida: Record<NivelHyrox, CorridaHyrox>;
+  /** A corrida por modelo × nível, com a air bike em calorias (desde 15/10/2026). */
+  corridaModelos: Record<ModeloHyrox, Record<NivelHyrox, CorridaModeloHyrox>>;
   /** Na ordem da prova. */
   estacoes: EstacaoHyroxProgramada[];
 }
@@ -1018,12 +1083,14 @@ export interface RegistroCrossLido {
   adaptacoes: Record<string, string>;
 }
 
-/** O registro do Hyrox lido: estações feitas, na ordem, e se a corrida foi na air bike. */
+/** O registro do Hyrox lido: estações feitas, na ordem, se a corrida foi na air bike e o modelo. */
 export interface RegistroHyroxLido {
   tipo: 'hyrox';
   comoPrescrito: boolean;
   estacoesFeitas: number;
   corridaNaBike: boolean;
+  /** O modelo que o aluno fez; `null` no registro do app de antes (conta como estação inteira). */
+  modelo: ModeloHyrox | null;
 }
 
 export interface FeedbackExercicio {
