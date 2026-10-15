@@ -560,6 +560,14 @@ export const FORMATOS_HYROX = ['prova', 'metadeA', 'metadeB', 'compromised'] as 
 export type FormatoHyrox = (typeof FORMATOS_HYROX)[number];
 
 /**
+ * A quinta é o dia do Hyrox: SEMPRE a prova completa, com as 8 estações (ou
+ * as substitutas) — nunca metade nem compromised. Decisão do coach, 15/10/2026,
+ * depois da W42 sair com a Metade B. Os outros formatos ficam para um Hyrox
+ * fora da quinta.
+ */
+export const DIA_HYROX_COMPLETO: DiaSemana = 'quinta';
+
+/**
  * Os formatos do Hyrox, em rodízio semana a semana:
  *  - `estacoes`: as estações FIXAS do formato, ou um número = quantas o gerador sorteia das 8;
  *  - `rodadas`: quantas vezes a lista de estações se repete;

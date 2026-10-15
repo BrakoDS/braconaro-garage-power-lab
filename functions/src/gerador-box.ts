@@ -331,6 +331,7 @@ export function gerarSemana(entrada: {
     limites: limitesBox,
     semanaPassada: hyroxDaSemana(entrada.diasDaSemanaAnterior),
     semente: `${entrada.semanaId}:Hyrox:${entrada.variacao ?? 0}`,
+    dias: diasCom('Hyrox'),
   }) : null;
   if (hyrox) avisos.push(...hyrox.avisos.map((a) => `Hyrox: ${a}`));
 

@@ -316,6 +316,22 @@ console.log('\nGerador do Hyrox');
   ok(!!pull && !pull.temSubstituta && nada.avisos.some((a) => a.includes('não há substituta')),
     'sled e TRX parados: o Sled Pull fica, com alerta e SEM oferecer substituta (ela também não cabe)');
   ok(igual(gerarHyrox({ limites: LIMITES, semente: 'x' }), gerarHyrox({ limites: LIMITES, semente: 'x' })), 'determinístico');
+
+  // A quinta é o dia do Hyrox completo (decisão de 15/10/2026): nunca metade nem compromised.
+  const naQuinta = SEMENTES.flatMap((s) => [null, ...FORMATOS_HYROX].map((antes) => gerarHyrox({
+    limites: LIMITES, semente: s.replace('Cross', 'Hyrox'), dias: ['quinta'],
+    semanaPassada: { formato: antes, estacoes: new Set(ESTACOES_HYROX.slice(0, 4)) },
+  })));
+  const cortada = naQuinta.find((g) => g.hyrox.formato !== 'prova' || g.hyrox.estacoes.map((e) => e.estacao).join() !== ESTACOES_HYROX.join());
+  ok(!cortada, `quinta: prova completa com as 8 estações na ordem da prova (${naQuinta.length} sorteios, qualquer formato na semana anterior)`,
+    cortada && `${cortada.hyrox.formato}: ${cortada.hyrox.estacoes.map((e) => e.estacao).join()}`);
+  ok(naQuinta.every((g) => g.hyrox.rodadas === 1 && igual((lerHyrox(g.cru, 'quinta') as { hyrox?: unknown }).hyrox, g.hyrox)),
+    'quinta: 1 rodada, e o pedido passa na validação do salvar');
+  const quintaSemSled = gerarHyrox({ limites: { ...LIMITES, sled: 0 }, semente: 'q', dias: ['quinta'] });
+  ok(quintaSemSled.hyrox.estacoes.length === 8 && quintaSemSled.hyrox.estacoes.filter((e) => e.substituta).length === 2,
+    'quinta com o sled em manutenção: continua com 8 estações (as 2 de sled pela substituta)');
+  ok(new Set(SEMENTES.map((s) => gerarHyrox({ limites: LIMITES, semente: s, dias: ['sabado'] }).hyrox.formato)).size === 4,
+    'Hyrox fora da quinta: o rodízio dos 4 formatos continua');
 }
 
 /* ───────────────────────────── salvar ───────────────────────────── */
@@ -426,23 +442,24 @@ console.log('\nA semana inteira (gerarSemana)');
   ok(!igual(w43.dias.terca.cross, gerar('2026-W43', null, 1).dias.terca.cross), '"Sortear de novo" (variação 1) muda o WOD');
   ok(igual(w43.dias.segunda.blocoPrincipal, gerar('2026-W43', null).dias.segunda.blocoPrincipal), 'o bloco H não muda por causa do Cross');
 
-  // 30 semanas encadeadas: rodízio de formato e de movimentos, sem alerta.
+  // 30 semanas encadeadas: rodízio do Cross, o Hyrox da quinta sempre completo, sem alerta.
   let anterior: unknown = null;
   let falhou = '';
   for (let i = 0; i < 30 && !falhou; i++) {
     const id = `2027-W${String(i + 1).padStart(2, '0')}`;
     const r = gerar(id, anterior);
     const antesC = crossDaSemana(anterior);
-    const antesH = hyroxDaSemana(anterior);
     const c = r.dias.terca.cross!;
+    const h = r.dias.quinta.hyrox!;
     const repetiu = c.movimentos.filter((m) => antesC.ids.has(m.exercicioId));
     if (c.formato === antesC.formato) falhou = `${id}: formato do Cross repetiu`;
     else if (repetiu.length) falhou = `${id}: ${repetiu.map((m) => m.nome).join(', ')} repetiu no Cross`;
-    else if (r.dias.quinta.hyrox!.formato === antesH.formato) falhou = `${id}: formato do Hyrox repetiu`;
+    else if (h.formato !== 'prova' || h.estacoes.length !== 8) falhou = `${id}: Hyrox da quinta cortado (${h.formato}, ${h.estacoes.length} estações)`;
     else if (r.alertasCross.length || r.alertasHyrox.length) falhou = `${id}: alerta com o inventário de fábrica`;
     anterior = r.dias;
   }
-  ok(!falhou, '30 semanas encadeadas: formato e movimentos nunca repetem a semana anterior, nenhum alerta', falhou);
+  ok(!falhou, '30 semanas encadeadas: o Cross nunca repete a semana anterior, o Hyrox da quinta tem as 8 estações, nenhum alerta', falhou);
+  ok(igual(hyroxDaSemana(gerar('2026-W42', null).dias).formato, 'prova'), 'W42 gerada de novo: quinta com a prova completa');
 }
 
 /* ───────────────────────────── Técnica / Força ───────────────────────────── */
