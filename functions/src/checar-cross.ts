@@ -11,11 +11,13 @@
  */
 import { CATALOGO_COMPLETO } from './catalogo-completo';
 import { CATALOGO_CROSS } from './catalogo-cross';
-import { CORRIDA_MODELOS_HYROX, DADOS_ESTACAO_HYROX, MUSCULOS_CORRIDA_HYROX, MUSCULOS_HYROX, caloriasDaCorrida } from './catalogo-hyrox';
+import {
+  CORRIDA_MODELOS_HYROX, DADOS_ESTACAO_HYROX, MUSCULOS_CORRIDA_HYROX, MUSCULOS_HYROX, caloriasDaCorrida, puxadasDoSkierg,
+} from './catalogo-hyrox';
 import { blocosDoWod, catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox, seriesDaTecnica } from './volume-cross-hyrox';
 import {
   CAPACIDADE_SKIERG, CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, INVENTARIO_CROSS_HYROX_PADRAO, INVENTARIO_PADRAO,
-  MODELOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, PISTA_HYROX_M, REGRA_FORMATO_CROSS,
+  METROS_POR_PUXADA_SKIERG, MODELOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, PISTA_HYROX_M, REGRA_FORMATO_CROSS,
   REGRA_FORMATO_HYROX,
   type DiaSemana, type FormatoCross, type ItemCatalogo, type RecursoBox, type RecursoCross,
 } from './modelo-box';
@@ -258,9 +260,18 @@ console.log('\nEstações e formatos do Hyrox');
   ok(ESTACOES_HYROX.every((e) => NIVEIS_HYROX.every((n) => DADOS_ESTACAO_HYROX[e].modelos.strength[n] >= DADOS_ESTACAO_HYROX[e].modelos.cardio[n])),
     'Strength Focus: estação igual ou mais pesada que no Cardio Focus, em todo nível');
   const d = DADOS_ESTACAO_HYROX;
-  ok(d.skierg.modelos.strength.intermediario === 600 && d.remo.modelos.dupla.avancado === 1000 && d.skierg.modelos.cardio.iniciante === 300
-    && d.remo.modelos.strength.competicao === 1000 && d.skierg.tipo === 'metros' && d.remo.tipo === 'metros',
-  'SkiErg e Rowing em metros: Fit Strength 600, Open Doubles 1.000, Start Cardio 300, Pro Strength 1.000');
+  ok(d.remo.modelos.dupla.avancado === 1000 && d.remo.modelos.strength.competicao === 1000 && d.remo.modelos.cardio.iniciante === 300
+    && d.remo.tipo === 'metros', 'Rowing em metros: Open Doubles 1.000, Pro Strength 1.000, Start Cardio 300');
+  // O SkiErg é o monocross (sem visor de metros): puxadas, 10 m = 1 (15/10/2026).
+  ok(METROS_POR_PUXADA_SKIERG === 10 && puxadasDoSkierg(500) === 50 && puxadasDoSkierg(300) === 30 && puxadasDoSkierg(1000) === 100,
+    'SkiErg no monocross: 10 m = 1 puxada (500 m = 50, 300 m = 30, 1.000 m = 100)');
+  ok(d.skierg.tipo === 'reps' && MODELOS_HYROX.every((m) => NIVEIS_HYROX.every((n) => d.skierg.modelos[m][n] * 10 === d.remo.modelos[m][n]))
+    && d.skierg.modelos.strength.intermediario === 60 && d.skierg.modelos.cardio.avancado === 50 && d.skierg.modelos.dupla.competicao === 100,
+  'SkiErg em puxadas: a tabela do coach ÷ 10 (Fit Strength 600 m = 60; Open Cardio 500 m = 50; Pro Doubles 1.000 m = 100)');
+  ok(d.skierg.nome.includes('puxadas no monocross') && d.skierg.carga.includes('10 m de SkiErg = 1 puxada'),
+    'a conversão aparece para o aluno no nome e na carga da estação');
+  ok(montarHyrox('compromised', [{ estacao: 'skierg', substituta: false }]).estacoes[0].modelos.cardio.intermediario === 20,
+    'compromised: metade das puxadas (40 → 20)');
   ok(igual(MODELOS_HYROX.map((m) => d.wall_ball.modelos[m].intermediario), [40, 75, 75])
     && igual(MODELOS_HYROX.map((m) => d.burpee_broad_jump.modelos[m].iniciante), [20, 40, 40]),
   'faixa do coach: o menor no Cardio, o maior no Strength e no Doubles (Wall Balls Fit 40–75, BBJ Start 20–40)');
@@ -834,6 +845,8 @@ console.log('\nVolume do Cross e do Hyrox (séries equivalentes)');
   const prova = hy('prova', [...ESTACOES_HYROX]);
   const sp = hseries(lerRegistroHyrox({ comoPrescrito: true }, prova));
   ok(ESTACOES_HYROX.every((e) => sp[`hyrox:${e}`] === 1) && sp['hyrox:corrida'] === 2, 'prova: 8 estações × 1,0 e 8 corridas × 0,25');
+  ok(sp['hyrox:skierg'] === 1 && volumeDaSessao({ 'hyrox:skierg': 1 }, catalogoDoHyrox()).costas === 1,
+    'SkiErg em puxadas: a estação feita continua 1,0 (costas principal), igual a quando era em metros');
   const comp = hy('compromised', ['skierg', 'remo', 'wall_ball', 'sled_push']);
   const sc = hseries(lerRegistroHyrox({ comoPrescrito: true }, comp));
   ok(sc['hyrox:skierg'] === 1 && sc['hyrox:corrida'] === 2, 'compromised: 2 rodadas × metade da estação = 1; 8 corridas');
