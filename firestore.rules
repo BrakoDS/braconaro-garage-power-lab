@@ -195,6 +195,19 @@ service cloud.firestore {
       allow read, write: if ehCoach();
     }
 
+    // Histórico de tempos das provas "for time" (Hyrox, Cross For Time, Murph) —
+    // gravado pelo "Parar" do cronômetro da Lousa Digital (tablet ou celular), um
+    // doc por aluno, id == e-mail, no padrão de `cargas`: o aluno lê e grava o dele;
+    // o coach lê e grava todos. `registros` é um mapa por id (o "Desfazer parada"
+    // apaga a chave).
+    match /tempos/{email} {
+      allow read: if (request.auth != null && request.auth.token.email.lower() == email.lower()) || ehCoach();
+      allow write: if ((request.auth != null && request.auth.token.email.lower() == email.lower()) || ehCoach())
+        && request.resource.data.keys().hasOnly(['registros', 'atualizadoEm'])
+        && request.resource.data.get('registros', {}) is map
+        && request.resource.data.get('registros', {}).size() <= 2000;
+    }
+
     // Exceções do treino por aluno (Montador Individual) — um doc por aluno, id ==
     // e-mail, no mesmo padrão de cargas/desafios. Guarda só o que FUGIU da regra
     // naquele dia ("hoje o João faz 2 séries de agachamento"); a versão comum de
@@ -496,7 +509,8 @@ service cloud.firestore {
     // no dia: `lousa/{AAAA-MM-DD}/alunos/{email}`. O tablet do box (logado como
     // coach) e o celular do aluno mexem no MESMO documento:
     //  - o ALUNO lê e grava só o dele; o COACH lê e grava todos;
-    //  - só sete campos: `horarioAula` (a turma em que o aluno se conectou à
+    //  - só nove campos: `variante` e `cronometro` (a prova "for time": a categoria
+    //    e o cronômetro progressivo, ver as funções abaixo), `horarioAula` (a turma em que o aluno se conectou à
     //    lousa, 'HH:MM', ou null ao sair — é o que o põe no tablet; o check-in
     //    da Gestão não entra), `aulaSelecionada` (a modalidade DESTE aluno — a
     //    Ana no Cross e o Bruno no H1 no mesmo horário), `concluidoEm` (o
@@ -517,9 +531,36 @@ service cloud.firestore {
           && (t.timerStartedAt == request.time
             || (resource != null && resource.data.get('timer', null) == t)));
     }
+    // A variante da prova "for time" (Hyrox: modelo e nível; Cross For Time / Murph:
+    // RX ou Scaled): só os dois ids, curtos. Quais valem é o Portal que confere.
+    function varianteDaLousaValida(v) {
+      return v == null
+        || (v is map && v.keys().hasOnly(['modelo', 'nivel'])
+          && (v.get('modelo', null) == null || (v.modelo is string && v.modelo.size() <= 20))
+          && (v.get('nivel', null) == null || (v.nivel is string && v.nivel.size() <= 20)));
+    }
+    // O cronômetro progressivo da prova: o início tem de ser a hora do servidor
+    // quando muda (a "Largada" da turma é um lote: todos com o mesmo instante);
+    // a parada é um número (ms) depois do início e no máximo 1 min além da hora
+    // do servidor — ninguém grava um tempo de prova inventado para o futuro.
+    function cronometroDaLousaValido(c) {
+      return c == null
+        || (c is map
+          && c.keys().hasOnly(['iniciadoEm', 'paradoEm', 'registro'])
+          && c.iniciadoEm is timestamp
+          && (c.iniciadoEm == request.time
+            || (resource != null && resource.data.get('cronometro', null) != null
+              && resource.data.cronometro.get('iniciadoEm', null) == c.iniciadoEm))
+          && (c.get('paradoEm', null) == null
+            || (c.paradoEm is number && c.paradoEm > c.iniciadoEm.toMillis()
+              && c.paradoEm <= request.time.toMillis() + 60000))
+          && (c.get('registro', null) == null || c.registro is map));
+    }
     function lousaValida() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'concluidoEm', 'origem', 'feitos', 'timer', 'atualizadoEm'])
+      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'concluidoEm', 'origem', 'variante', 'cronometro', 'feitos', 'timer', 'atualizadoEm'])
+        && varianteDaLousaValida(d.get('variante', null))
+        && cronometroDaLousaValido(d.get('cronometro', null))
         && (!('origem' in d)
           || d.origem == 'aluno'
           || (d.origem == 'coach'
