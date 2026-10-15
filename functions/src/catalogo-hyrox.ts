@@ -20,14 +20,15 @@
  *    nível e modelo.
  * Equipamento: o SkiErg é feito nos 2 monocross com puxada para baixo (o
  * simulador da casa, até 2 alunos por vez — `CAPACIDADE_SKIERG`; o transbordo
- * vai para a corda naval); o Rowing, no remo indoor oficial — sem substituta.
+ * vai para a corda naval), contado em PUXADAS (10 m = 1, sem visor de metros);
+ * o Rowing, no remo indoor oficial — sem substituta.
  *
  * `recursos`: as unidades do inventário que a estação precisa ATIVAS.
  * `substituta`: o que roda quando o equipamento está em manutenção (ou quando
  * o coach escolhe). Burpee Broad Jump e Rowing não têm.
  */
 import {
-  METROS_POR_CAL_AIRBIKE, MODELOS_HYROX, NIVEIS_HYROX, PISTA_HYROX_M,
+  METROS_POR_CAL_AIRBIKE, METROS_POR_PUXADA_SKIERG, MODELOS_HYROX, NIVEIS_HYROX, PISTA_HYROX_M,
   type CargaHyrox, type CorridaHyrox, type EstacaoHyrox, type ModeloHyrox, type Musculo, type NivelHyrox,
   type PrescricaoModelosHyrox, type RecursoBox, type TipoHyrox,
 } from './modelo-box';
@@ -114,12 +115,22 @@ const SLED = tabela(faixaPiso(12.5, 25), faixaPiso(25, 50), faixaPiso(25, 50), f
 const FARMERS = tabela(faixaPiso(60, 100), faixaPiso(80, 150), faixaPiso(100, 200), faixaPiso(120, 200));
 const SANDBAG = tabela(faixaPiso(25, 50), faixaPiso(40, 75), faixaPiso(50, 100), faixaPiso(60, 100));
 const WALL_BALL = tabela(faixa(30, 50), faixa(40, 75), faixa(50, 100), faixa(60, 100));
+/** A tabela do coach em METROS para SkiErg e Rowing: [Cardio, Strength, Doubles] por nível. */
 const ERG = tabela([300, 450, 600], [400, 600, 800], [500, 750, 1000], [600, 1000, 1000]);
+
+/**
+ * O SkiErg da casa é o monocross (puxada alta para baixo), que não tem visor de
+ * metros: a estação é contada em PUXADAS, 10 m de SkiErg = 1 puxada (500 m = 50).
+ * Decisão do coach, 15/10/2026.
+ */
+export const puxadasDoSkierg = (metros: number): number => Math.round(metros / METROS_POR_PUXADA_SKIERG);
+const SKIERG_PUXADAS = Object.fromEntries(MODELOS_HYROX.map((m) => [m,
+  Object.fromEntries(NIVEIS_HYROX.map((n) => [n, puxadasDoSkierg(ERG[m][n])]))])) as PrescricaoModelosHyrox;
 
 export const DADOS_ESTACAO_HYROX: Readonly<Record<EstacaoHyrox, DadosEstacaoHyrox>> = {
   skierg: {
-    n: 1, base: 'SkiErg', nome: 'SkiErg (monocross)', tipo: 'metros', modelos: ERG, piso: false,
-    cargas: null, carga: 'monocross com puxada para baixo · até 2 por vez; com os dois ocupados, corda naval',
+    n: 1, base: 'SkiErg', nome: 'SkiErg — puxadas no monocross', tipo: 'reps', modelos: SKIERG_PUXADAS, piso: false,
+    cargas: null, carga: 'puxada alta para baixo · 10 m de SkiErg = 1 puxada · até 2 por vez; com os dois ocupados, corda naval',
     nota: 'O SkiErg da casa: os 2 monocross lado a lado, com puxada para baixo — até 2 alunos ao mesmo tempo. '
       + 'Chegou com os dois ocupados? Faça a corda naval (a substituta), sem esperar. Puxada explosiva, tronco à frente.',
     recursos: { monocross: 1 },

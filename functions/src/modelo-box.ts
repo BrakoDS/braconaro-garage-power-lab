@@ -582,6 +582,12 @@ export const DESCRICAO_MODELO_HYROX: Readonly<Record<ModeloHyrox, string>> = {
  */
 export const CAPACIDADE_SKIERG = 2;
 
+/**
+ * O monocross não tem visor de metros: o SkiErg é contado em PUXADAS (puxada
+ * alta para baixo), 10 m de SkiErg = 1 puxada. Decisão do coach, 15/10/2026.
+ */
+export const METROS_POR_PUXADA_SKIERG = 10;
+
 /** Doubles: cada atleta faz metade do volume das estações (a corrida, feita junto, conta inteira). */
 export const FATOR_ESTACAO_DUPLA = 0.5;
 
