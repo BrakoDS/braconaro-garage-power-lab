@@ -597,5 +597,18 @@ service cloud.firestore {
       allow create, update: if (ehAlunoDono(email) || ehCoach()) && lousaValida();
       allow delete: if ehCoach();
     }
+    // A ocupação das estações de cada turma (o rodízio): o resumo que o tablet do
+    // coach publica para o celular do aluno avisar "Sled Push já é a 2ª de Ana R."
+    // sem ler o documento dos colegas. Só o primeiro nome com a inicial, a aula e
+    // a posição de cada estação, por uma chave curta (nunca o e-mail). Qualquer
+    // pessoa logada lê (como a Semana do Box publicada); só o coach grava.
+    match /lousa/{dia}/turmas/{horario} {
+      allow read: if request.auth != null;
+      allow write: if ehCoach()
+        && request.resource.data.keys().hasOnly(['alunos', 'atualizadoEm'])
+        && request.resource.data.alunos is map
+        && request.resource.data.alunos.size() <= 80
+        && request.resource.data.atualizadoEm == request.time;
+    }
   }
 }
