@@ -54,14 +54,14 @@ const ouvintesJanela = /** @type {Function[]} */ ([]);
 globalThis.window = /** @type {any} */ ({ addEventListener: (t, f) => { if (t === 'message') ouvintesJanela.push(f); } });
 globalThis.location = /** @type {any} */ ({ origin: 'http://gestao.test' });
 
-const db = await import('./db.js?v=22');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=22');
-const { iniciarPerfil } = await import('./ui-perfil.js?v=22');
-const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=22');
-const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=22');
-const { iniciarTabRegistros } = await import('./ui-tab-registros.js?v=22');
-const { iniciarTabHistorico, SEGMENTOS, segmentoVizinho } = await import('./ui-tab-historico.js?v=22');
-const { semanaSegSab, waMsg } = await import('./util/formato.js?v=22');
+const db = await import('./db.js?v=23');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=23');
+const { iniciarPerfil } = await import('./ui-perfil.js?v=23');
+const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=23');
+const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=23');
+const { iniciarTabRegistros } = await import('./ui-tab-registros.js?v=23');
+const { iniciarTabHistorico, SEGMENTOS, segmentoVizinho } = await import('./ui-tab-historico.js?v=23');
+const { semanaSegSab, waMsg } = await import('./util/formato.js?v=23');
 
 iniciarPerfil({ obter: db.obter });
 iniciarTabProgresso();
@@ -223,7 +223,7 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
   // Abrir o perfil: o aluno no estado, o cabeçalho, 'perfil-aberto', a aba Dados e a tela — nessa ordem.
   db.criar({ id: 'Abre01', nome: 'Abel' });
   const vistos = [];
-  const { on } = await import('./estado.js?v=22');
+  const { on } = await import('./estado.js?v=23');
   const parar = [EVENTOS.PERFIL_ABERTO, EVENTOS.ABRIR_ABA, EVENTOS.ABRIR_TELA].map((ev) => on(ev, (x) => vistos.push([ev, x, estado.alunoAtual?.id])));
   emit(EVENTOS.ABRIR_PERFIL, 'Abre01');
   parar.forEach((p) => p());
@@ -248,6 +248,6 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
 });
 
 test('perfil: as 5 abas da barra, cada uma com módulo; Financeiro, Anamnese, PAR-Q, Matriz, Dados, Progresso, Portal e Registros viraram cards', async () => {
-  const { ABAS } = await import('./ui-perfil.js?v=22');
+  const { ABAS } = await import('./ui-perfil.js?v=23');
   assert.deepEqual(ABAS.map((a) => a.id), ['geral', 'saude', 'treino', 'avaliacoes', 'historico']);
 });

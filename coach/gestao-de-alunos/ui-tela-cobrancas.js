@@ -11,13 +11,13 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'cobrancas') — sempre o mês
  * atual — e depois de cada lembrete ou baixa.
  */
-import * as db from './db.js?v=22';
-import { brl, mesIdAtual, rotuloMesFin } from './financeiro-aluno.js?v=22';
-import { cobrancasDoMes, msgCobranca, darBaixa } from './financeiro-regras.js?v=22';
-import { esc, hoje, waMsg } from './util/formato.js?v=22';
-import { $ } from './util/dom.js?v=22';
-import { on, EVENTOS } from './estado.js?v=22';
-import { regFinanceiro } from './registro.js?v=22';
+import * as db from './db.js?v=23';
+import { brl, mesIdAtual, rotuloMesFin } from './financeiro-aluno.js?v=23';
+import { cobrancasDoMes, msgCobranca, darBaixa } from './financeiro-regras.js?v=23';
+import { esc, hoje, waMsg } from './util/formato.js?v=23';
+import { $ } from './util/dom.js?v=23';
+import { on, EVENTOS } from './estado.js?v=23';
+import { regFinanceiro } from './registro.js?v=23';
 
 /** Quem já foi lembrado nesta sessão (só para marcar "avisado ✓"). */
 const cobLembrados = new Set();

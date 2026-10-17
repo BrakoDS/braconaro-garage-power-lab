@@ -95,17 +95,31 @@ function normalizarRemarcacao(v) {
  * @property {Record<string,string>} [horas]         data → 'HH:MM' do check-in
  * @property {Record<string,any>} [remarcacoes]      data planejada → {data, hora}
  * @property {Record<string,any>} [atestados]        data da aula perdida → {reposicao?:{data,hora}}
+ * @property {Record<string,any>} [faltas]           data planejada → {tipo:'fora-do-prazo'|'no-show'}
  * @property {Date} [hoje]
  */
 
 /**
+ * O crédito passou da validade? Só vence o que tem `expira` (a desmarcação no
+ * prazo e o crédito de exceção, 30 dias); o atestado médico não vence.
+ * @param {any} credito um valor de `atestados` @param {string} hojeIso
+ */
+export function creditoVencido(credito, hojeIso) {
+  return !!(credito && credito.expira && credito.expira < hojeIso);
+}
+
+/**
  * Os créditos de reposição que ainda não foram agendados.
- * @param {Record<string,any>} [atestados]
+ *
+ * Sem `hojeIso`, todos (o comportamento de sempre). Com ele, só os que ainda
+ * valem: crédito vencido não volta a aparecer como "a agendar".
+ * @param {Record<string,any>} [atestados] @param {string} [hojeIso]
  * @returns {string[]} datas das aulas perdidas, da mais antiga para a mais nova
  */
-export function reposicoesPendentes(atestados = {}) {
+export function reposicoesPendentes(atestados = {}, hojeIso) {
   return Object.entries(atestados)
     .filter(([, v]) => !(v && v.reposicao && v.reposicao.data))
+    .filter(([, v]) => !hojeIso || !creditoVencido(v, hojeIso))
     .map(([iso]) => iso).sort();
 }
 
@@ -116,7 +130,7 @@ export function reposicoesPendentes(atestados = {}) {
  */
 export function semanaDoAluno({
   diasTreino = [], horarios = {}, presencas = [], horas = {},
-  remarcacoes = {}, atestados = {}, hoje = new Date(), fechados = [],
+  remarcacoes = {}, atestados = {}, faltas = {}, hoje = new Date(), fechados = [],
 } = {}) {
   // `fechados`: dias em que o BOX não abriu (feriado que o coach confirmou). Não
   // é falta nem presença — o aluno não podia ter vindo. Sem isto, todo feriado
@@ -144,6 +158,7 @@ export function semanaDoAluno({
   for (const k of fixos) {
     const iso = daSemana[k];
     if (atestados[iso]) continue; // atestado não usa dia nenhum desta semana
+    if (faltas[iso] && !presentes.has(iso)) continue; // falta lançada também não
     const r = normalizarRemarcacao(remarcacoes[iso]);
     reservados.add(r ? r.data : iso);
   }
@@ -169,6 +184,10 @@ export function semanaDoAluno({
     if (presentes.has(efetivo)) {
       return { ...b, estado: /** @type {'ok'} */ ('ok'), veioEm: remarcado ? efetivo : undefined, hora: horas[efetivo] };
     }
+    // Falta lançada pelo coach (desmarcou fora do prazo, ou no-show): é falta
+    // na hora, sem esperar o dia passar, e a cobertura automática não a
+    // resgata — o coach já disse o que aconteceu, e não gerou crédito.
+    if (faltas[iso]) return { ...b, alterado: true, estado: /** @type {'falta'} */ ('falta') };
     if (semAula.has(efetivo)) return { ...b, estado: /** @type {'fechado'} */ ('fechado') };
     if (r) {
       return { ...b, estado: /** @type {'falta'|'aguardando'} */ (efetivo < hojeIso ? 'falta' : 'aguardando') };

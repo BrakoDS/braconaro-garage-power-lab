@@ -209,3 +209,17 @@ test('gestao v2: depois da virada, ninguém regrava o blob nem tira o schema', (
   assert.ok(c.includes("allow write: if ehCoachDono(uid) && (resource == null || resource.data.get('schema', 0) != 2 "
     + "|| (request.resource.data.get('schema', 0) == 2 && !('alunos' in request.resource.data)));"), 'trava do schema 2 no gestao/{uid}');
 });
+
+test('avisosAusencia: o aluno só lê o seu; nenhum cliente cria (a hora do aviso vem do servidor)', () => {
+  // A hora do aviso decide o crédito de reposição (2h antes da aula). Se o
+  // aluno pudesse gravar aqui, bastava escrever uma hora antiga para ganhar o
+  // crédito — por isso quem cria é só a Cloud Function avisarAusencia.
+  const c = codigo(firestore);
+  const bloco = c.split('match /avisosAusencia/{email} {')[1]?.split(/\n    \}/)[0] || '';
+  const allows = (bloco.match(/allow [^;]+;/g) || []).map((a) => a.replace(/\s+/g, ' '));
+  assert.deepEqual(allows, [
+    'allow read: if ehAlunoDono(email) || ehCoach();',
+    'allow update, delete: if ehCoach();',
+  ]);
+  assert.doesNotMatch(bloco, /create|write/, 'nenhuma porta de criação pelo cliente');
+});

@@ -11,14 +11,14 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'checkin'), que sempre volta
  * para hoje, e a cada ação ou troca de dia.
  */
-import * as db from './db.js?v=22';
-import * as regras from './checkin-regras.js?v=22';
-import { DIA_EXT } from './checkin-regras.js?v=22';
+import * as db from './db.js?v=23';
+import * as regras from './checkin-regras.js?v=23';
+import { DIA_EXT } from './checkin-regras.js?v=23';
 import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=22';
-import { $ } from './util/dom.js?v=22';
-import { on, EVENTOS } from './estado.js?v=22';
-import { reg } from './registro.js?v=22';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=23';
+import { $ } from './util/dom.js?v=23';
+import { on, EVENTOS } from './estado.js?v=23';
+import { reg } from './registro.js?v=23';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIA_MIN = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };
@@ -89,7 +89,7 @@ function linhaGrade(a) {
   const quadrados = semanaDoAluno({
     diasTreino: a.diasTreino, horarios: a.horarios || {},
     presencas: a.presencas || [], horas: a.presencaHoras || {},
-    remarcacoes: a.remarcacoes || {}, atestados: a.atestados || {},
+    remarcacoes: a.remarcacoes || {}, atestados: a.atestados || {}, faltas: a.faltas || {},
     hoje: new Date(chkData + 'T00:00:00'),
     // Feriado que o coach marcou como "não abriu": ninguém leva falta por um dia
     // de porta fechada. A mesma lista é publicada no Portal, para os dois lados
@@ -101,7 +101,7 @@ function linhaGrade(a) {
   // passa do total e deixa de querer dizer alguma coisa.
   const fixos = quadrados.filter((q) => q.tipo === 'fixo');
   const feitos = fixos.filter((q) => q.estado === 'ok').length;
-  const pendentes = reposicoesPendentes(a.atestados);
+  const pendentes = reposicoesPendentes(a.atestados, hoje()); // crédito vencido não volta a pedir data
 
   const painelAberto = chkPainel && chkPainel.tipo === 'reposicao' && chkPainel.chave.split('|')[0] === a.id;
   const chip = pendentes.length
@@ -117,7 +117,12 @@ function linhaGrade(a) {
 }
 
 /** A frase de rodapé do quadrado: o que aconteceu com aquela aula. */
-function notaDaAula(q) {
+function notaDaAula(q, a) {
+  // O que o Painel de Presença (tela Turmas) lançou tem nome próprio.
+  const credito = (a.atestados || {})[q.iso], falta = (a.faltas || {})[q.iso];
+  if (q.estado === 'atestado' && credito && credito.tipo === 'desmarcacao') return 'desmarcou no prazo · a repor';
+  if (q.estado === 'atestado' && credito && credito.tipo === 'excecao') return 'crédito de exceção · a repor';
+  if (q.estado === 'falta' && falta && !q.veioEm) return falta.tipo === 'fora-do-prazo' ? 'desmarcou fora do prazo' : 'no-show';
   if (q.estado === 'ok') {
     if (q.veioEm) return `veio ${DIA_MIN[chaveDoDia(q.veioEm)]}${q.hora ? ' · ' + q.hora : ''}`;
     return q.hora ? `chegou ${q.hora}` : 'presente';
@@ -171,7 +176,7 @@ function quadrado(a, q, semana) {
        <button class="btn ghost btn-sm chk-atestado" ${alvo} type="button">Atestado</button>`;
 
   const aviso = chkAviso && chkAviso.chave === `${a.id}|${q.iso}` ? chkAviso.texto : '';
-  const nota = notaDaAula(q);
+  const nota = notaDaAula(q, a);
 
   return `<div class="chk-cel ${q.estado}${aberto ? ' aberto' : ''}">
     <span class="chk-cel-dia">${esc(DIA_EXT[q.chave])}</span>

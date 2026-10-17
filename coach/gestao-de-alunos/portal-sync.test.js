@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fatia } from './portal-sync.js?v=22';
+import { fatia } from './portal-sync.js?v=23';
 
 test('o perfil de treino vai na fatia, para o Portal calcular a versao do aluno', () => {
   const a = {
@@ -84,4 +84,16 @@ test('appLiberado sai como booleano, e sobrevive ao JSON da publicacao', () => {
   const publicado = JSON.parse(JSON.stringify(fatia({ id: '001', email: 'a@b.com' }, [])));
   assert.ok('appLiberado' in publicado);
   assert.equal(typeof publicado.appLiberado, 'boolean');
+});
+
+test('as faltas lançadas no Painel de Presença vão na fatia, junto com os créditos', () => {
+  const a = {
+    id: '008', nome: 'Bia', email: 'bia@exemplo.com',
+    atestados: { '2026-10-05': { em: 1, tipo: 'desmarcacao', expira: '2026-11-03', reposicao: null } },
+    faltas: { '2026-10-07': { em: 2, tipo: 'no-show', aula: { data: '2026-10-07', hora: '07:00' } } },
+  };
+  const f = fatia(a, [a]);
+  assert.deepEqual(f.faltas, a.faltas);
+  assert.equal(f.atestados['2026-10-05'].expira, '2026-11-03');
+  assert.deepEqual(fatia({ id: '009', nome: 'Sem', email: 's@e.com' }, []).faltas, {}, 'ficha antiga publica vazio');
 });

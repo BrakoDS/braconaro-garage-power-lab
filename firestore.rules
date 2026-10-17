@@ -343,6 +343,18 @@ service cloud.firestore {
       allow read, write: if ehCoach();
     }
 
+    // "Não irei ao treino" — avisosAusencia/{email}.itens: quem grava é SÓ a
+    // Cloud Function avisarAusencia (Admin SDK), com o relógio do servidor: a
+    // hora do aviso é o que decide se o aluno ganha o crédito de reposição (2h
+    // antes), e por isso não pode ir no portalInbox, que o aluno escreve livre.
+    //  - o ALUNO só lê o seu (para ver o aviso que o coach ainda não aplicou);
+    //  - o COACH lê e consome (a Gestão aplica na ficha e tira o item).
+    //  - ninguém cria pelo cliente.
+    match /avisosAusencia/{email} {
+      allow read: if ehAlunoDono(email) || ehCoach();
+      allow update, delete: if ehCoach();
+    }
+
     // Aparelho do aluno (app mobile): o Expo Push Token que o app grava para
     // receber o push do chat. Quem envia é a Cloud Function
     // notificarRespostaDoCoach (Admin SDK, não passa por aqui).
