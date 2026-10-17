@@ -56,6 +56,7 @@ import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatal
 import { getAuth } from 'firebase-admin/auth';
 import { COACH_UIDS, ehCoachPorUid, normalizarEmail } from './acesso';
 import { acharAlunoDaGestao, fichasDaGestao, fonteFirestore } from './gestao-leitura';
+import { avaliarAusencia, avisosPorAluno, ocupacaoDoDia, relogioDoBox } from './presenca';
 import { executarGerarPix, responderWebhook } from './pix-http';
 import { clienteMercadoPago, repoFirestore } from './pix-firestore';
 import { reconciliarCobrancas } from './pix-servico';
@@ -2751,5 +2752,102 @@ export const reconciliarPix = onSchedule(
       ehCoach: ehCoachPorUid, uids: COACH_UIDS, log: logger,
     });
     if (r.conferidas) logger.info('Varredura do Pix.', r);
+  },
+);
+
+/* ================================================================== *
+ * Presença do aluno: "Não irei ao treino" e a ocupação dos horários
+ * ================================================================== */
+
+/**
+ * As fichas da Gestão inteira (v2: a subcoleção; v1: o array do blob), para a
+ * contagem das turmas. Só o servidor lê todas — o aluno recebe só números.
+ */
+async function todasAsFichas(db: Firestore, coachUid: string): Promise<{ meta: Record<string, unknown>; fichas: Record<string, unknown>[] }> {
+  const raiz = db.doc(`gestao/${coachUid}`);
+  const meta = (await raiz.get()).data() ?? {};
+  if (meta.schema === 2) {
+    const s = await raiz.collection('alunos').get();
+    return { meta, fichas: s.docs.map((d) => ({ ...d.data(), id: d.id })) };
+  }
+  return { meta, fichas: Array.isArray(meta.alunos) ? (meta.alunos as Record<string, unknown>[]) : [] };
+}
+
+/** O aluno logado, na Gestão deste coach — ou o erro que o app mostra. */
+async function alunoLogado(db: Firestore, auth: { token?: { email?: unknown } } | undefined, coachUid: unknown) {
+  const email = normalizarEmail(auth?.token?.email);
+  if (!auth || !email) throw new HttpsError('unauthenticated', 'Entre na sua conta.');
+  if (!ehCoachPorUid(coachUid)) throw new HttpsError('invalid-argument', 'Coach desconhecido.');
+  const fonte = fonteFirestore(db, coachUid as string);
+  const aluno = await acharAlunoDaGestao(fonte, email);
+  if (!aluno) throw new HttpsError('permission-denied', 'Você não está na lista de alunos desse coach.');
+  const ficha = (await fichasDaGestao(fonte, [aluno.id])).get(aluno.id);
+  if (!ficha || ficha.status === 'inativo') throw new HttpsError('permission-denied', 'Seu cadastro não está ativo no box.');
+  return { email, coachUid: coachUid as string, aluno, ficha };
+}
+
+/**
+ * "Não irei ao treino". A régua é a do coach (presenca.ts): avisou com 2h ou
+ * mais, a vaga fica livre e nasce +1 crédito de reposição (30 dias); com menos,
+ * é falta, sem crédito.
+ *
+ * O aviso vai para `avisosAusencia/{email}` — que só o servidor escreve — com o
+ * relógio do SERVIDOR: a hora do aviso é o que decide o crédito, e não pode vir
+ * do aparelho. A Gestão aplica na ficha (`ausencias-merge.js`). Avisar duas
+ * vezes a mesma aula devolve o primeiro aviso.
+ *
+ *     httpsCallable(getFunctions(app, 'southamerica-east1'), 'avisarAusencia')
+ *       ({ coachUid, tipo: 'titular' | 'reposicao', chave: 'AAAA-MM-DD' })
+ *     // data: { tipo, chave, aula: {data, hora}, noPrazo, antecedenciaMin, expira, jaAvisado }
+ */
+export const avisarAusencia = onCall(
+  { timeoutSeconds: 20, memory: '256MiB' },
+  async (req) => {
+    const dados = (req.data ?? {}) as { coachUid?: unknown; tipo?: unknown; chave?: unknown };
+    const tipo = dados.tipo === 'reposicao' ? 'reposicao' : dados.tipo === 'titular' ? 'titular' : null;
+    if (!tipo) throw new HttpsError('invalid-argument', 'Tipo de aula: titular ou reposicao.');
+    if (typeof dados.chave !== 'string' || !EH_DATA.test(dados.chave)) throw new HttpsError('invalid-argument', 'Aula no formato AAAA-MM-DD.');
+    const chave = dados.chave;
+    const db = getFirestore();
+    const { email, coachUid, aluno, ficha } = await alunoLogado(db, req.auth, dados.coachUid);
+
+    const ref = db.doc(`avisosAusencia/${email}`);
+    const id = `${tipo}|${chave}`;
+    return db.runTransaction(async (tx) => {
+      const ja = (((await tx.get(ref)).data() ?? {}).itens ?? {})[id];
+      if (ja) return { ...ja, jaAvisado: true };
+      const relogio = relogioDoBox(new Date());
+      const r = avaliarAusencia(ficha, tipo, chave, relogio);
+      if ('erro' in r) throw new HttpsError('failed-precondition', r.erro);
+      const item = { tipo, chave, coachUid, alunoId: aluno.id, aviso: relogio, em: Date.now(), ...r };
+      tx.set(ref, { itens: { [id]: item }, atualizadoEm: FieldValue.serverTimestamp() }, { merge: true });
+      logger.info('Aviso de ausência.', { email, id, noPrazo: r.noPrazo, antecedenciaMin: r.antecedenciaMin });
+      return { ...item, jaAvisado: false };
+    });
+  },
+);
+
+/**
+ * A ocupação das turmas dos próximos dias (hoje + 6), em números: horário,
+ * vagas, ocupadas. Nenhum nome sai daqui. O aviso de ausência que a Gestão
+ * ainda não aplicou já conta como vaga livre.
+ *
+ *     httpsCallable(getFunctions(app, 'southamerica-east1'), 'ocupacaoDosHorarios')({ coachUid })
+ *     // data: { hoje, turmas: [{ dia, hora, capacidade, ocupadas, vagas }] }
+ */
+export const ocupacaoDosHorarios = onCall(
+  { timeoutSeconds: 20, memory: '256MiB' },
+  async (req) => {
+    const db = getFirestore();
+    const { coachUid } = await alunoLogado(db, req.auth, (req.data ?? {}).coachUid);
+    const [{ meta, fichas }, avisosSnap] = await Promise.all([todasAsFichas(db, coachUid), db.collection('avisosAusencia').get()]);
+    const ativas = fichas.filter((f) => f && f.status !== 'inativo');
+    const avisos = avisosPorAluno(avisosSnap.docs.map((d) => d.data()), coachUid);
+    const feriados = (meta.feriados && typeof meta.feriados === 'object') ? meta.feriados as Record<string, unknown> : {};
+    const fechados = Object.entries(feriados).filter(([, abriu]) => abriu === false).map(([d]) => d);
+    const { hoje } = relogioDoBox(new Date());
+    const turmas = Array.from({ length: 7 }, (_, i) => somarDias(hoje, i)).flatMap((dia) =>
+      ocupacaoDoDia(ativas, dia, { hoje, fechados, experimentais: meta.experimentais, config: meta.turmas, avisos }));
+    return { hoje, turmas };
   },
 );

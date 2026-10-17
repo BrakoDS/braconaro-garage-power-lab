@@ -19,6 +19,7 @@ import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/f
 import { $ } from './util/dom.js?v=23';
 import { on, EVENTOS } from './estado.js?v=23';
 import { reg } from './registro.js?v=23';
+import { telaAtual } from './navegacao.js?v=23';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -363,6 +364,9 @@ export function iniciarTelaTurmas() {
     dia = hoje(); horaSel = null; horasAbertas = []; painel = null; aviso = null;
     render();
   });
+  // Um aviso "Não irei ao treino" aplicado pelo boot (ausencias-merge.js) ou a
+  // nuvem trazendo fichas novas: a turma aberta se redesenha na hora.
+  on(EVENTOS.ALUNOS_MUDARAM, () => { if (telaAtual() === 'turmas') render(); });
   const trocarDia = (/** @type {number} */ n) => { dia = addDias(dia, n); horaSel = null; horasAbertas = []; painel = null; aviso = null; render(); };
   $('#tur-prev')?.addEventListener('click', () => trocarDia(-1));
   $('#tur-next')?.addEventListener('click', () => trocarDia(1));
