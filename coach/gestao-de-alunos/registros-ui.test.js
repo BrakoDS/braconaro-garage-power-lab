@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   agruparPorDia, anexarFotosDoDiario, filtrarEventos, fotosDoDiarioPorDia, historicoDasFichas, juntarEventos,
   linhaDoTempoDoAluno, linhaHTML, rotuloDia,
-} from './registros-ui.js?v=22';
+} from './registros-ui.js?v=23';
 
 /** ms de um horário LOCAL — é assim que a tela lê as datas. */
 const local = (iso, hh = 0, mm = 0) => {
@@ -258,4 +258,26 @@ test('linha de foto apagada ou refeita diz o porquê, sem miniatura', () => {
   assert.ok(!apagada.includes('reg-thumb') && apagada.includes('apagou'));
   const refeita = linhaHTML({ ...evDiario('2026-09-24', 1), fotoEstado: 'refeita' });
   assert.ok(!refeita.includes('reg-thumb') && refeita.includes('refeita'));
+});
+
+test('créditos e faltas do Painel de Presença: cada um com o seu tipo, e a mesma chave do log ao vivo', () => {
+  const f = {
+    id: '013', nome: 'Ana', criadoEm: local('2026-01-10', 9),
+    atestados: {
+      '2026-10-05': { em: local('2026-10-04', 20), tipo: 'desmarcacao', expira: '2026-11-03', reposicao: null },
+      '2026-10-07': { em: local('2026-10-07', 9), tipo: 'excecao', antes: 'no-show', expira: '2026-11-06', reposicao: null },
+    },
+    faltas: {
+      '2026-10-09': { em: local('2026-10-09', 6), tipo: 'fora-do-prazo' },
+      '2026-10-12': { em: local('2026-10-12', 8), tipo: 'no-show' },
+    },
+  };
+  const evs = historicoDasFichas([f]).filter((e) => e.tipo !== 'aluno-criado');
+  assert.deepEqual(evs.map((e) => [e.tipo, e.resumo, e.chave]), [
+    ['falta', 'No-show · aula de 12/10', 'falta:013:2026-10-12'],
+    ['falta', 'Desmarcou fora do prazo · aula de 09/10', 'falta:013:2026-10-09'],
+    ['credito', 'Crédito de reposição (exceção) · aula de 07/10', 'atestado:013:2026-10-07'],
+    ['desmarcacao', 'Desmarcou no prazo · aula de 05/10', 'atestado:013:2026-10-05'],
+  ]);
+  assert.deepEqual(filtrarEventos(evs, { categoria: 'presenca' }).length, 4, 'os três tipos novos são do filtro Presença');
 });

@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback } from './eventos.js?v=22';
+import { cortar, resumoFeedback } from './eventos.js?v=23';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -20,6 +20,11 @@ export const TIPOS = {
   'atestado': { icone: '🩺', categoria: 'presenca' },
   'troca-aula': { icone: '🔁', categoria: 'presenca' },
   'reposicao': { icone: '📅', categoria: 'presenca' },
+  // Painel de Presença (presenca-regras.js): desmarcou no prazo (+1 crédito),
+  // falta sem crédito (fora do prazo, no-show) e o crédito de exceção.
+  'desmarcacao': { icone: '📵', categoria: 'presenca' },
+  'falta': { icone: '❌', categoria: 'presenca' },
+  'credito': { icone: '🎟️', categoria: 'presenca' },
   'foto-perfil': { icone: '📷', categoria: 'foto' },
   'foto-diario': { icone: '📸', categoria: 'foto' },
   'feedback': { icone: '💬', categoria: 'feedback' },
@@ -116,9 +121,20 @@ export function historicoDasFichas(alunos, { antesDe = Infinity, chaves = new Se
         h ? { dia } : { dia, semHora: true });
     }
 
+    // O crédito de reposição mora em `atestados`, mas nem todo é atestado: a
+    // desmarcação no prazo e a exceção do coach também (presenca-regras.js).
     for (const [dia, at] of Object.entries(mapa(a.atestados))) {
       if (!DATA_ISO.test(dia)) continue;
-      add(a, 'atestado', Number(at && at.em) || 0, `Atestado · aula de ${dataCurta(dia)}`, `atestado:${id}:${dia}`, { dia });
+      const t = at && at.tipo;
+      const [tipo, rotulo] = t === 'desmarcacao' ? ['desmarcacao', 'Desmarcou no prazo']
+        : t === 'excecao' ? ['credito', 'Crédito de reposição (exceção)'] : ['atestado', 'Atestado'];
+      add(a, tipo, Number(at && at.em) || 0, `${rotulo} · aula de ${dataCurta(dia)}`, `atestado:${id}:${dia}`, { dia });
+    }
+
+    for (const [dia, f] of Object.entries(mapa(a.faltas))) {
+      if (!DATA_ISO.test(dia)) continue;
+      const rotulo = f && f.tipo === 'fora-do-prazo' ? 'Desmarcou fora do prazo' : 'No-show';
+      add(a, 'falta', Number(f && f.em) || 0, `${rotulo} · aula de ${dataCurta(dia)}`, `falta:${id}:${dia}`, { dia });
     }
 
     for (const f of lista(a.feedbacks)) {

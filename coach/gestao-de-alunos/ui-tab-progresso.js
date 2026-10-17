@@ -13,20 +13,20 @@
  * Quando desenha: TODA vez que a aba Histórico abre. Aqui tudo é leitura (da
  * nuvem), e abrir a aba tem de mostrar o que o aluno acabou de registrar no app.
  */
-import * as db from './db.js?v=22';
-import * as calc from '../../compartilhado/regras/calc.js?v=22';
-import * as game from '../../compartilhado/regras/gamificacao.js?v=22';
+import * as db from './db.js?v=23';
+import * as calc from '../../compartilhado/regras/calc.js?v=23';
+import * as game from '../../compartilhado/regras/gamificacao.js?v=23';
 import { carregarSemanasPausadas } from '../../compartilhado/firebase/semanas-pausadas.js';
 import { resumoDeAdesao } from '../../compartilhado/regras/adesao.js';
-import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js?v=22';
-import { carregarGastoTreino } from './nutricao-read.js?v=22';
-import { carregarCargasAluno } from './cargas-read.js?v=22';
-import { carregarConclusoesDesafios } from './desafios-read.js?v=22';
-import { carregarRotinaAluno } from './rotina-read.js?v=22';
-import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=22';
-import { $, $$ } from './util/dom.js?v=22';
-import { estado, on, EVENTOS } from './estado.js?v=22';
-import { metasCorporaisDe, patchDeMetas } from './metas-grupo.js?v=22';
+import { cardDeAdesao } from '../../compartilhado/ui/adesao-card.js?v=23';
+import { carregarGastoTreino } from './nutricao-read.js?v=23';
+import { carregarCargasAluno } from './cargas-read.js?v=23';
+import { carregarConclusoesDesafios } from './desafios-read.js?v=23';
+import { carregarRotinaAluno } from './rotina-read.js?v=23';
+import { esc, isoLocal, fmtN, numf, fmtDataCurta, waMsg, semanaSegSab } from './util/formato.js?v=23';
+import { $, $$ } from './util/dom.js?v=23';
+import { estado, on, EVENTOS } from './estado.js?v=23';
+import { metasCorporaisDe, patchDeMetas } from './metas-grupo.js?v=23';
 
 function chartSVG(serie, { cor = 'var(--accent)' } = {}) {
   const W = 600, H = 180, pad = { l: 46, r: 14, t: 16, b: 28 };

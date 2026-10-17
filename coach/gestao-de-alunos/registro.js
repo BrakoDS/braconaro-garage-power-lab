@@ -6,10 +6,10 @@
  * criar ou apagar avaliação). Depois da gravação, e nunca no lugar dela: o log
  * é testemunha da ação, não condição.
  */
-import * as eventos from './eventos.js?v=22';
-import { resumoFicha } from './registros-ui.js?v=22';
-import { emit, EVENTOS } from './estado.js?v=22';
-import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=22';
+import * as eventos from './eventos.js?v=23';
+import { resumoFicha } from './registros-ui.js?v=23';
+import { emit, EVENTOS } from './estado.js?v=23';
+import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=23';
 
 /**
  * Registra o que o coach acabou de fazer — e avisa o barramento.

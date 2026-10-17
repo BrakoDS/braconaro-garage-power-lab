@@ -15,8 +15,8 @@
  * Continua local-first: toda função aqui é síncrona e responde do cache; a
  * nuvem vem atrás.
  */
-import { criarCache } from './db-cache.js?v=22';
-import { criarSync } from './db-sync.js?v=22';
+import { criarCache } from './db-cache.js?v=23';
+import { criarSync } from './db-sync.js?v=23';
 
 const cache = criarCache();
 
@@ -36,7 +36,7 @@ function idDoAparelho() {
 const sync = criarSync({
   cache,
   aparelho: idDoAparelho(),
-  abrirPorta: async (uid) => (await import('./db-firestore.js?v=22')).portaFirestore(uid),
+  abrirPorta: async (uid) => (await import('./db-firestore.js?v=23')).portaFirestore(uid),
 });
 
 let _aoGravar = null;
@@ -69,7 +69,7 @@ export async function enviarAgora() {
  */
 export async function iniciarSync(uid, aoAtualizar) {
   try {
-    const fs = await import('./db-firestore.js?v=22');
+    const fs = await import('./db-firestore.js?v=23');
     if (!fs.cloudAtivo() || !uid) return undefined;
     return await sync.iniciar(uid, aoAtualizar);
   } catch (e) {
@@ -212,6 +212,50 @@ export function feriadosDoBox() {
 /** Os dias em que o box NÃO abriu — é o que `semanaDoAluno` recebe em `fechados`. */
 export function diasFechados() {
   return Object.entries(feriadosDoBox()).filter(([, abriu]) => abriu === false).map(([iso]) => iso);
+}
+
+/* ---------- Turmas: vagas por horário e aulas experimentais ---------- */
+/**
+ * O que é do BOX, e não de um aluno, no Painel de Presença — por isso mora no
+ * meta, ao lado dos feriados:
+ *   turmas        { padrao?: n, porHorario?: { 'HH:MM': n } } — as vagas;
+ *   experimentais { 'AAAA-MM-DD': [{ id, nome, telefone, hora, status, em }] }
+ *                 — quem vem experimentar (ainda não tem ficha).
+ * Cada um sobe inteiro (`mergeFields`), então tirar uma chave aqui tira lá.
+ */
+
+/** @returns {{ padrao?: number, porHorario?: Record<string, number> }} */
+export function configTurmas() {
+  const m = cache.meta();
+  return (m.turmas && typeof m.turmas === 'object') ? m.turmas : {};
+}
+
+/** Define as vagas de um horário (`null` volta ao padrão do box). @param {string} hora @param {number|null} n */
+export function salvarVagasDaTurma(hora, n) {
+  const atual = configTurmas();
+  const porHorario = { ...(atual.porHorario || {}) };
+  if (n == null) delete porHorario[hora];
+  else porHorario[hora] = n;
+  cache.gravarMeta({ turmas: { ...atual, porHorario } });
+  gravou();
+}
+
+/** As aulas experimentais de um dia. @param {string} iso */
+export function experimentaisDoDia(iso) {
+  const m = cache.meta().experimentais;
+  return (m && typeof m === 'object' && Array.isArray(m[iso])) ? m[iso] : [];
+}
+
+/**
+ * Grava a lista de experimentais de um dia. `podar` tira os dias antigos (o
+ * meta tem teto de 1 MB) — presenca-regras.js decide quais.
+ * @param {string} iso @param {any[]} lista @param {(m: Record<string, any[]>) => Record<string, any[]>} podar
+ */
+export function salvarExperimentais(iso, lista, podar) {
+  const m = cache.meta().experimentais;
+  const todos = { ...((m && typeof m === 'object') ? m : {}), [iso]: lista };
+  cache.gravarMeta({ experimentais: podar(todos) });
+  gravou();
 }
 
 /**

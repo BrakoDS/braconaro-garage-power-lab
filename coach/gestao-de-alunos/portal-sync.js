@@ -8,8 +8,8 @@
  * de leitura para o aluno. Reaproveita o app Firebase já inicializado.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=22';
-import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=22';
+import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=23';
+import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=23';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -101,6 +101,9 @@ export function fatia(a, todos, fechadosDoBox = []) {
     // Atestados: a aula que virou falta com direito a repor, e a reposição já
     // agendada. O Portal mostra os dois; sem eles o aluno vê só o vermelho.
     atestados: a.atestados || {},
+    // Faltas lançadas pelo coach (desmarcou fora do prazo, no-show): falta já,
+    // sem crédito, e que a cobertura automática não resgata (semana.js).
+    faltas: a.faltas || {},
     avaliacoes: a.avaliacoes || [],
     // Só as metas corporais (lista). O mapa antigo por grupo saía aqui também,
     // como objeto; ele já vai em `metasGrupo`.

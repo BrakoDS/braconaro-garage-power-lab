@@ -24,11 +24,11 @@
  * prévia na tela, uma gravação ('alunos-mudaram') reenvia a fatia — a prévia
  * acompanha a ficha. Perfil reaberto: o quadro esvazia (nada do aluno anterior).
  */
-import * as db from './db.js?v=22';
-import { fatia } from './portal-sync.js?v=22';
-import { isoLocal } from './util/formato.js?v=22';
-import { $ } from './util/dom.js?v=22';
-import { estado, on, EVENTOS } from './estado.js?v=22';
+import * as db from './db.js?v=23';
+import { fatia } from './portal-sync.js?v=23';
+import { isoLocal } from './util/formato.js?v=23';
+import { $ } from './util/dom.js?v=23';
+import { estado, on, EVENTOS } from './estado.js?v=23';
 
 /** A página da prévia, relativa à Gestão. `?previa=1` liga o modo no Portal. */
 export const URL_PREVIA = '../../painel-do-aluno/previa.html';

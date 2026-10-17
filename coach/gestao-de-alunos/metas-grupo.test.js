@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { metasGrupoDe, metasCorporaisDe, patchDeMetas } from './metas-grupo.js?v=22';
+import { metasGrupoDe, metasCorporaisDe, patchDeMetas } from './metas-grupo.js?v=23';
 
 const corporal = { id: 'm1', tipo: 'peso', alvo: 80, base: 90, baseData: '2026-09-01', criadoEm: 1 };
 

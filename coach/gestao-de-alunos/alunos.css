@@ -1188,3 +1188,57 @@ button{font-family:inherit}
 }
 /* Cadastro curto (ui-modal-aluno.js): a nota de que o resto se completa na ficha. */
 .cad-nota{margin:2px 0 0;font-size:.84rem;color:var(--mut);line-height:1.45}
+
+/* ============================================================
+   Turmas — o painel de presença (ui-tela-turmas.js)
+   ============================================================ */
+.tur-horarios{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:16px}
+.tur-chip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:84px;padding:8px 12px;cursor:pointer;
+  background:var(--card);border:1px solid var(--line-2);color:var(--txt);font:inherit;text-align:left}
+.tur-chip:hover{border-color:var(--mut-2)}
+.tur-chip.ativo{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tur-chip-h{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.95rem}
+.tur-chip-n{font-size:.8rem;color:var(--mut)}
+.tur-chip.lotada .tur-chip-n{color:var(--bad)}
+.tur-abrir{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.tur-vazio-txt{color:var(--mut);font-size:.9rem}
+.tur-fechado{padding:10px 14px;margin-bottom:14px;border:1px solid rgba(255,158,27,.4);background:rgba(255,158,27,.07);color:var(--warn);font-size:.9rem}
+.tur-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tur-titulo{margin:0;font-family:var(--font-display);font-weight:400;text-transform:uppercase;font-size:1.3rem;letter-spacing:.02em}
+.tur-titulo span{font-family:var(--font-body);text-transform:none;font-size:.9rem;color:var(--mut)}
+.tur-vagas{display:inline-flex;align-items:center;gap:8px;color:var(--mut);font-size:.85rem}
+.tur-vagas input{width:72px}
+.fin-tot.tur-tot{grid-template-columns:repeat(5,1fr)}
+.fin-row.tur-row{grid-template-columns:1fr auto auto;border-left:3px solid var(--line-2)}
+.tur-row.st-presente{border-left-color:var(--ok)}
+.tur-row.st-falta,.tur-row.st-desmarcou-fora{border-left-color:var(--bad)}
+.tur-row.st-desmarcou-no-prazo,.tur-row.st-atestado{border-left-color:var(--warn)}
+.tur-row.st-confirmado{border-left-color:var(--accent)}
+.tur-tag{display:inline-block;margin-left:6px;padding:1px 7px;border:1px solid var(--line-2);vertical-align:middle;
+  font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.66rem;color:var(--mut)}
+.tur-tag.reposicao{border-color:rgba(255,158,27,.5);color:var(--warn)}
+.tur-tag.experimental{border-color:rgba(245,197,24,.5);color:var(--accent)}
+.tur-status{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:.76rem;
+  padding:4px 10px;border:1px solid var(--line-2);color:var(--mut);white-space:nowrap}
+.tur-status.st-confirmado{color:var(--accent);border-color:rgba(245,197,24,.4)}
+.tur-status.st-presente{color:var(--ok);border-color:rgba(63,185,80,.45)}
+.tur-status.st-desmarcou-no-prazo,.tur-status.st-atestado{color:var(--warn);border-color:rgba(255,158,27,.45)}
+.tur-status.st-desmarcou-fora,.tur-status.st-falta{color:var(--bad);border-color:rgba(255,91,80,.45)}
+.tur-acoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.tur-previa{display:block;margin-top:7px;font-size:.84rem}
+.tur-previa.ok{color:var(--ok)} .tur-previa.bad{color:var(--bad)}
+.tur-add{margin-top:16px;padding:14px 16px;background:var(--card);border:1px dashed var(--line-2);display:flex;flex-direction:column;gap:10px}
+.tur-add .eyebrow{font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.2em;font-size:.72rem;color:var(--accent)}
+.tur-add-linha{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tur-sel,.tur-inp{flex:1 1 200px;min-width:0;padding:.5em .7em;background:var(--bg-2);border:1px solid var(--line-2);
+  color:var(--txt);font-family:var(--font-body);font-size:.88rem;outline:none;color-scheme:dark}
+.tur-sel:focus,.tur-inp:focus{border-color:var(--accent)}
+.tur-regras{margin:18px 0 0;color:var(--mut-2);font-size:.82rem;line-height:1.5}
+.tur-regras b{color:var(--mut)}
+@media(max-width:760px){ .fin-tot.tur-tot{grid-template-columns:repeat(3,1fr)} }
+@media(max-width:560px){
+  .fin-tot.tur-tot{grid-template-columns:repeat(2,1fr)}
+  .fin-row.tur-row{grid-template-columns:1fr auto;grid-template-areas:'info badge' 'btn btn'}
+  .tur-row .tur-status{grid-area:badge} .tur-row .tur-acoes{grid-area:btn;justify-content:flex-start}
+  .tur-abrir{margin-left:0}
+}

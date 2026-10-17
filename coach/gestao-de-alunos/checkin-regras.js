@@ -21,7 +21,12 @@
  *   presencas      ['AAAA-MM-DD', …] — os dias em que ele veio (ordenados);
  *   presencaHoras  { 'AAAA-MM-DD': 'HH:MM' } — a hora do check-in feito no dia;
  *   remarcacoes    { diaPlanejado: { data, hora } } (antigo: só a data, string);
- *   atestados      { diaPlanejado: { em, reposicao: { data, hora } | null } }.
+ *   atestados      { diaPlanejado: { em, reposicao: { data, hora } | null } }
+ *                  — o crédito de reposição. Além do atestado médico, nasce aqui
+ *                  a desmarcação no prazo e o crédito de exceção (ver
+ *                  presenca-regras.js), com `tipo` e `expira`;
+ *   faltas         { diaPlanejado: { tipo: 'fora-do-prazo' | 'no-show', em, aula } }
+ *                  — falta lançada pelo coach, sem crédito (presenca-regras.js).
  *
  * @typedef {{ tipo: string, resumo: string, extra?: Record<string, any> }} LinhaDoLog
  * @typedef {{ patch: Record<string, any>, log: LinhaDoLog }} Mudanca
@@ -41,6 +46,19 @@ const ddmm = (iso) => { const [, m, d] = String(iso).split('-'); return `${d}/${
 
 /** As presenças como lista ordenada, sem repetição. @param {Set<string>} s */
 const ordenadas = (s) => [...s].sort();
+
+/**
+ * Resolver uma aula (check-in, troca, atestado, desfazer) apaga a falta que o
+ * coach tivesse lançado nela. Só entra no patch quando há o que apagar: a
+ * ficha sem `faltas` continua gravando o mesmo de sempre.
+ * @param {any} a @param {string} diaPlanejado @returns {{ faltas?: Record<string, any> }}
+ */
+export function semFalta(a, diaPlanejado) {
+  if (!(a.faltas && a.faltas[diaPlanejado])) return {};
+  const faltas = { ...a.faltas };
+  delete faltas[diaPlanejado];
+  return { faltas };
+}
 
 /* ============================================================
    Onde cada aula acontece
@@ -139,7 +157,7 @@ export function checkin(a, diaPlanejado, { ehReposicao = false, hoje, agora }) {
   const atestados = { ...(a.atestados || {}) };
   if (!ehReposicao) delete atestados[diaPlanejado];
   return {
-    patch: { presencas: ordenadas(presencas), presencaHoras: horas, atestados },
+    patch: { presencas: ordenadas(presencas), presencaHoras: horas, atestados, ...(ehReposicao ? {} : semFalta(a, diaPlanejado)) },
     log: {
       tipo: 'presenca',
       resumo: ehReposicao ? `Check-in da reposição · ${ddmm(dia)}` : dia === hoje ? 'Check-in' : `Check-in · aula de ${ddmm(dia)}`,
@@ -167,7 +185,7 @@ export function trocarDia(a, diaPlanejado, data, hora) {
   const atestados = { ...(a.atestados || {}) };
   delete atestados[diaPlanejado];
   return {
-    patch: { remarcacoes, atestados },
+    patch: { remarcacoes, atestados, ...semFalta(a, diaPlanejado) },
     log: {
       tipo: 'troca-aula',
       resumo: remarcacoes[diaPlanejado]
@@ -195,7 +213,7 @@ export function atestado(a, diaPlanejado, { em }) {
   const horas = { ...(a.presencaHoras || {}) };
   if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
   return {
-    patch: { atestados, remarcacoes, presencas: ordenadas(presencas), presencaHoras: horas },
+    patch: { atestados, remarcacoes, presencas: ordenadas(presencas), presencaHoras: horas, ...semFalta(a, diaPlanejado) },
     log: { tipo: 'atestado', resumo: `Atestado · aula de ${ddmm(diaPlanejado)}`, extra: { dia: diaPlanejado, chave: `atestado:${a.id}:${diaPlanejado}` } },
   };
 }
@@ -223,7 +241,7 @@ export function desfazer(a, diaPlanejado, { ehReposicao = false, origem } = {}) 
   const horas = { ...(a.presencaHoras || {}) };
   if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
   return {
-    patch: { remarcacoes, atestados, presencas: ordenadas(presencas), presencaHoras: horas },
+    patch: { remarcacoes, atestados, presencas: ordenadas(presencas), presencaHoras: horas, ...(ehReposicao ? {} : semFalta(a, diaPlanejado)) },
     log: { tipo: 'presenca-removida', resumo: `Aula de ${ddmm(efetivo)} desfeita`, extra: { dia: efetivo } },
   };
 }
