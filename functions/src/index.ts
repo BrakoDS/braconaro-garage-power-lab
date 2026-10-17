@@ -75,7 +75,7 @@ import {
 } from './semana-box';
 import { crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit, programarDia, semanaEmBranco } from './gerador-box';
 import { catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox } from './volume-cross-hyrox';
-import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
+import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, problemasCriadosPelaEdicao, sessoesTravadas } from './edicao-box';
 import { hiitTravado, opcoesDoHiit } from './edicao-hiit';
 import { conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
 
@@ -2091,7 +2091,13 @@ async function gravarDiasEditados(o: {
         }
       }
       if (publicada && problemas.length) {
-        throw new HttpsError('failed-precondition', `A semana está publicada e esta versão não pode ser: ${problemas[0]}`);
+        // Só o problema que a EDIÇÃO cria trava: o que a semana publicada já tinha com o inventário de hoje
+        // (um dia que já passou, um equipamento que saiu) não impede mexer nas outras sessões.
+        const antes = reconferirSemana(atual, limitesUsados, alunosPorAula)?.problemasParaPublicar ?? [];
+        const novos = problemasCriadosPelaEdicao(antes, problemas);
+        if (novos.length) {
+          throw new HttpsError('failed-precondition', `A semana está publicada e esta versão não pode ser: ${novos[0]}`);
+        }
       }
       // `set` sem merge: `dias` é mapa, e o merge manteria chave velha de
       // `consumoEquipamentos` que a versão nova não tem mais. Leva junto a
