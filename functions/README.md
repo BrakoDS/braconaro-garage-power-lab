@@ -9,6 +9,7 @@ npm run checar:box                 # só a semana do box
 npm run checar:hiit                # só o gerador do HIIT
 npm run checar:cross               # só os geradores do Cross e do Hyrox
 npm run checar:pix                 # Pix dinâmico: conta × Gestão, assinatura, gerar, webhook (sem rede)
+npm run checar:ugym                # check-in pela uGym: regras, cliente do FitControl e rodada (sem rede)
 npm run checar:emulador            # exclusão de treino contra o emulador do Firestore
 npm run checar:emulador:conquistas # motor de conquistas de ponta a ponta (Firestore + Functions)
 npm run seed:catalogo              # simula o seed do catálogo (força, HIIT e Cross); `-- --gravar` grava
@@ -452,6 +453,56 @@ um responsável, nada a pagar, matrícula inativa, ficha sem e-mail, Mercado Pag
 
 Pix com valor divergente ou estornado depois de aprovado não mexe na ficha: vira aviso ⚠️ na aba
 Registros do aluno para o coach decidir.
+
+## Check-in pelo app da uGym — FitControl (`sincronizarUgym`)
+
+O aluno faz o check-in da aula no app da uGym; de 2 em 2 minutos, `sincronizarUgym` lê as
+reservas das aulas de hoje no painel FitControl (`fitcontrol.ugym.com.br`) e cada check-in novo
+vira item em `checkinsUgym/{email}`. A Gestão aplica na ficha (`coach/gestao-de-alunos/ugym-merge.js`,
+com a regra do botão Check-in) e o Painel de Presença mostra **Presente**. Regra em `src/ugym.ts`,
+HTTP em `src/ugym-cliente.ts`, rodada e Firestore em `src/ugym-servico.ts`; `npm run checar:ugym`
+prova os três sem rede.
+
+Não há API oficial: é a API interna do painel, lida no código dele em 17/10/2026. Base
+`https://fitcontrol.ugym.com.br/api`; `language: 3` em toda chamada; resposta `{ errcode, data, errmsg }`
+(2001/3001 = sessão expirada). Login: `GET /pc/loginSecret` (chave pública RSA) →
+`POST /pc/loginByEmail` com `{ username, password }`, a senha em RSA PKCS#1 v1.5 e base64 duplo →
+`data.token`, que vai no `Authorization` **sem** "Bearer". Leituras: `POST /pc/sportsClasses/list`
+(`startDate`/`endDate`), `POST /pc/sportsClasses/memberList` (`memberClassId`; cada reserva traz
+`memberStudentId`, `memberDate` e `memberCheckinDate`) e `POST /pc/sportsDeviceStudent/list`
+(`studentId`, `studentEmail`), todas paginadas por `firstNum`/`num`.
+
+| Caminho | Quem grava | Quem lê |
+| --- | --- | --- |
+| `checkinsUgym/{email}` | `sincronizarUgym` | o aluno (o seu) e o coach, que consome |
+| `integracaoUgym/{coachUid}` | `sincronizarUgym` | o coach: livro de reservas, e-mails, `pendentes` e `ultimaRodada` (com o erro) |
+
+- **Só leitura no FitControl**: `sportsClasses/list`, `sportsClasses/memberList` e
+  `sportsDeviceStudent/list`. Fora da janela das aulas (30 min antes … 60 min depois do fim), a
+  rodada não chama o FitControl; a lista de aulas do dia é relida de hora em hora.
+- **Reserva não é presença**: só a reserva com `memberCheckinDate` vira item.
+- **O aluno é ligado pelo e-mail** do cadastro na uGym (`studentEmail`), que tem de ser o mesmo da
+  ficha. Check-in de quem não tem e-mail lá fica em `integracaoUgym/{uid}.pendentes` até o cadastro
+  ser corrigido (a lista de membros é relida no máximo de 30 em 30 min).
+- **Sem duplicata**: a reserva aplicada entra no livro (`vistos`) no mesmo lote do item; a Gestão
+  consome o item e o livro impede a rodada seguinte de recriá-lo.
+- **A API mudou** (login recusado, campo sumiu, `errcode` novo): a rodada para e grava o erro em
+  `ultimaRodada.erro`, com aviso no log. A próxima tenta de novo.
+
+### Publicar
+
+1. **Segredos** — a conta do box no FitControl (de preferência um coach só para isto). Da pasta
+   `teste-hibrido/`; o valor é pedido sem eco:
+
+   ```bash
+   firebase functions:secrets:set UGYM_USUARIO
+   firebase functions:secrets:set UGYM_SENHA
+   ```
+2. **Regras** (`checkinsUgym` e `integracaoUgym`): `firebase deploy --only firestore:rules`.
+3. **A função**: `firebase deploy --only functions:sincronizarUgym`.
+4. **A Gestão** (`ugym-merge.js` e o `boot.js`) vai junto com o site.
+5. **Conferir** no log a linha `Check-in da uGym.` depois do primeiro check-in de uma aula, e
+   `integracaoUgym/{uid}.ultimaRodada.erro` vazio.
 
 ## Código compartilhado
 

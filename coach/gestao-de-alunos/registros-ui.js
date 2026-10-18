@@ -25,6 +25,9 @@ export const TIPOS = {
   'desmarcacao': { icone: '📵', categoria: 'presenca' },
   'falta': { icone: '❌', categoria: 'presenca' },
   'credito': { icone: '🎟️', categoria: 'presenca' },
+  // Check-in no app da uGym num dia sem aula do aluno (ugym-merge.js): a
+  // presença não entra sozinha — o coach confere.
+  'presenca-ugym-fora-da-grade': { icone: '⚠️', categoria: 'presenca' },
   'foto-perfil': { icone: '📷', categoria: 'foto' },
   'foto-diario': { icone: '📸', categoria: 'foto' },
   'feedback': { icone: '💬', categoria: 'feedback' },

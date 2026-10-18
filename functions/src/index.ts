@@ -60,6 +60,8 @@ import { avaliarAusencia, avisosPorAluno, ocupacaoDoDia, relogioDoBox } from './
 import { executarGerarPix, responderWebhook } from './pix-http';
 import { clienteMercadoPago, repoFirestore } from './pix-firestore';
 import { reconciliarCobrancas } from './pix-servico';
+import { clienteFitControl } from './ugym-cliente';
+import { repoUgymFirestore, sincronizarCheckinsUgym } from './ugym-servico';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
@@ -2849,5 +2851,49 @@ export const ocupacaoDosHorarios = onCall(
     const turmas = Array.from({ length: 7 }, (_, i) => somarDias(hoje, i)).flatMap((dia) =>
       ocupacaoDoDia(ativas, dia, { hoje, fechados, experimentais: meta.experimentais, config: meta.turmas, avisos }));
     return { hoje, turmas };
+  },
+);
+
+/* ================================================================== *
+ * Check-in pelo app da uGym (FitControl)
+ * ================================================================== */
+
+/**
+ * A conta do box no painel FitControl (fitcontrol.ugym.com.br): o e-mail de
+ * login e a senha. Moram no Secret Manager — ver functions/README.md. O ideal é
+ * uma conta de coach só para isto, e não a principal.
+ */
+const UGYM_USUARIO = defineSecret('UGYM_USUARIO');
+const UGYM_SENHA = defineSecret('UGYM_SENHA');
+/** O cliente (e o token dele) vive enquanto a instância vive: não faz login a cada 2 minutos. */
+let clienteUgymDaInstancia: ReturnType<typeof clienteFitControl> | null = null;
+
+/**
+ * De 2 em 2 minutos: as reservas das aulas de hoje no FitControl, e o check-in
+ * que o aluno fez pelo app da uGym vira item em `checkinsUgym/{email}` — a
+ * Gestão aplica na ficha (`ugym-merge.js`) e o Painel de Presença mostra
+ * "Presente". Fora da janela das aulas (30 min antes … 60 min depois), a rodada
+ * não chama o FitControl. Só leitura lá. A regra está em `ugym-servico.ts`.
+ */
+export const sincronizarUgym = onSchedule(
+  {
+    schedule: 'every 2 minutes',
+    timeZone: 'America/Sao_Paulo',
+    region: 'southamerica-east1',
+    secrets: [UGYM_USUARIO, UGYM_SENHA],
+    memory: '256MiB',
+    timeoutSeconds: 90,
+    // Uma rodada por vez: duas em paralelo leriam o mesmo livro e criariam o mesmo item duas vezes.
+    maxInstances: 1,
+    concurrency: 1,
+    retryCount: 0, // a próxima rodada vem em 2 minutos
+  },
+  async () => {
+    clienteUgymDaInstancia ??= clienteFitControl({ usuario: UGYM_USUARIO.value(), senha: UGYM_SENHA.value() }, relogioDoBox);
+    const agora = Date.now();
+    await sincronizarCheckinsUgym({
+      cliente: clienteUgymDaInstancia, repo: repoUgymFirestore(getFirestore()), coachUid: COACH_UIDS[0],
+      agora, relogio: relogioDoBox(new Date(agora)), log: logger,
+    });
   },
 );
