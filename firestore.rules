@@ -355,6 +355,21 @@ service cloud.firestore {
       allow update, delete: if ehCoach();
     }
 
+    // Check-in pelo app da uGym — checkinsUgym/{email}.itens: quem grava é SÓ a
+    // Cloud Function sincronizarUgym (Admin SDK), que lê o FitControl. Mesmo
+    // desenho do avisosAusencia: o aluno lê o seu, o coach lê e consome (a
+    // Gestão aplica na ficha e tira o item), ninguém cria pelo cliente — senão
+    // um aluno daria presença a si mesmo.
+    match /checkinsUgym/{email} {
+      allow read: if ehAlunoDono(email) || ehCoach();
+      allow update, delete: if ehCoach();
+    }
+    // O estado da integração (livro de reservas, e-mails da uGym, pendentes e a
+    // última rodada, com o erro): só o servidor grava; só o coach lê.
+    match /integracaoUgym/{uid} {
+      allow read: if ehCoachDono(uid);
+    }
+
     // Aparelho do aluno (app mobile): o Expo Push Token que o app grava para
     // receber o push do chat. Quem envia é a Cloud Function
     // notificarRespostaDoCoach (Admin SDK, não passa por aqui).
