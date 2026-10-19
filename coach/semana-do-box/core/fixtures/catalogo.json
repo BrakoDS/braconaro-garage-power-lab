@@ -1,0 +1,3058 @@
+{
+  "exercicios": [
+    {
+      "id": "abdominal_bicicleta",
+      "nome": "Abdominal bicicleta",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "core"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "colchonete"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "abdominal_infra",
+      "nome": "Abdominal Infra (Elevação de pernas)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estabilizar_tronco",
+      "sessoes": [
+        "H2"
+      ],
+      "hiit": [
+        "core"
+      ],
+      "cross": {
+        "padrao": "core",
+        "unidade": "reps",
+        "rx": 15,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "colchonete"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "pallof_press",
+          "nome": "Pallof press"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "abdominal_monocross",
+      "nome": "Abdominal no monocross (cable crunch)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estabilizar_tronco",
+      "sessoes": [
+        "H2"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "pallof_press",
+          "nome": "Pallof press"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "abdominal_remador",
+      "nome": "Abdominal Remador",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "core"
+      ],
+      "cross": {
+        "padrao": "core",
+        "unidade": "reps",
+        "rx": 12,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [
+        "quadriceps"
+      ],
+      "equipamentos": [
+        "colchonete"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "abdominal_supra",
+      "nome": "Abdominal Supra (Crunch)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "core"
+      ],
+      "cross": {
+        "padrao": "core",
+        "unidade": "reps",
+        "rx": 15,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "colchonete"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "afundo_halter",
+      "nome": "Afundo com halteres",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "posterior_coxa"
+      ],
+      "equipamentos": [
+        "halteres"
+      ],
+      "unilateral": true,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "afundo_trx",
+          "nome": "Afundo no TRX"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "afundo_kb",
+      "nome": "Afundo com kettlebell",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": {
+        "padrao": "agachar",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": {
+          "rx": "16/12 kg",
+          "scaled": "sem carga"
+        },
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "core"
+      ],
+      "equipamentos": [
+        "kettlebell"
+      ],
+      "unilateral": true,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "afundo_trx",
+      "nome": "Afundo no TRX",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "trx"
+      ],
+      "unilateral": true,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "afundo_reverso",
+      "nome": "Afundo reverso (peso corporal)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": {
+        "padrao": "agachar",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": true,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "bulgaro_caixote",
+      "nome": "Agachamento búlgaro no caixote",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "caixote",
+        "halteres"
+      ],
+      "unilateral": true,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "afundo_trx",
+          "nome": "Afundo no TRX"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "agachamento_salto",
+      "nome": "Agachamento com salto (squat jump)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "agachar",
+        "unidade": "reps",
+        "rx": 15,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "panturrilha"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "agachamento_frontal",
+      "nome": "Agachamento frontal",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": {
+        "padrao": "agachar",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": {
+          "rx": "40/30 kg",
+          "scaled": "25/15 kg"
+        },
+        "foco": "barra"
+      },
+      "musculoPrincipal": [
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "gluteo",
+        "core"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)"
+        },
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "leg_press_vertical_smith",
+          "nome": "Vertical Leg Press no Smith"
+        },
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "bulgaro_caixote",
+          "nome": "Agachamento búlgaro no caixote"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "agachamento_trx",
+          "nome": "Agachamento no TRX"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "goblet_squat",
+      "nome": "Agachamento goblet com kettlebell",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": {
+        "padrao": "agachar",
+        "unidade": "reps",
+        "rx": 12,
+        "carga": {
+          "rx": "16/12 kg",
+          "scaled": "12/8 kg"
+        },
+        "foco": "kettlebell"
+      },
+      "musculoPrincipal": [
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "gluteo",
+        "core"
+      ],
+      "equipamentos": [
+        "kettlebell"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "agachamento_livre",
+      "nome": "Agachamento livre (peso corporal)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": {
+        "padrao": "agachar",
+        "unidade": "reps",
+        "rx": 20,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "gluteo"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "agachamento_smith",
+      "nome": "Agachamento no Smith (barra guiada)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": true,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "gluteo",
+        "core"
+      ],
+      "equipamentos": [
+        "smith"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)"
+        },
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "leg_press_vertical_smith",
+          "nome": "Vertical Leg Press no Smith"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "agachamento_trx",
+          "nome": "Agachamento no TRX"
+        }
+      ],
+      "original": {
+        "nome": "Agachamento no Smith",
+        "musculoPrincipal": [
+          "quadriceps"
+        ],
+        "musculosSecundarios": [
+          "gluteo",
+          "posterior_coxa"
+        ],
+        "equipamentos": [
+          "smith"
+        ]
+      }
+    },
+    {
+      "id": "agachamento_trx",
+      "nome": "Agachamento no TRX",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "gluteo",
+        "core"
+      ],
+      "equipamentos": [
+        "trx"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "air_bike_sprint",
+      "nome": "Air bike (sprint/cals)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "cardio",
+        "unidade": "calorias",
+        "rx": 12,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "core"
+      ],
+      "musculosSecundarios": [
+        "ombro",
+        "costas"
+      ],
+      "equipamentos": [
+        "air_bike"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "corda_naval",
+      "nome": "Battle ropes (corda naval)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "cardio",
+        "unidade": "segundos",
+        "rx": 30,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "ombro",
+        "core"
+      ],
+      "musculosSecundarios": [
+        "antebraco"
+      ],
+      "equipamentos": [
+        "corda_naval"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "box_jump",
+      "nome": "Box jump",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "agachar",
+        "unidade": "reps",
+        "rx": 12,
+        "carga": {
+          "rx": "caixote 60/50 cm",
+          "scaled": "step-up no caixote"
+        },
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "panturrilha",
+        "posterior_coxa"
+      ],
+      "equipamentos": [
+        "caixote"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "burpee",
+      "nome": "Burpee",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "corpo_todo",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "peito"
+      ],
+      "musculosSecundarios": [
+        "core",
+        "ombro",
+        "triceps"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "cadeira_extensora",
+      "nome": "Cadeira extensora",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "quadriceps"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "extensora"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "sandbag_clean",
+      "nome": "Clean com sandbag",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": {
+        "padrao": "olimpico",
+        "unidade": "reps",
+        "rx": 8,
+        "carga": {
+          "rx": "20 kg",
+          "scaled": "20 kg"
+        },
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "gluteo",
+        "posterior_coxa"
+      ],
+      "musculosSecundarios": [
+        "quadriceps",
+        "costas",
+        "trapezio"
+      ],
+      "equipamentos": [
+        "sandbag"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "coice_gluteo_monocross",
+      "nome": "Coice de glúteo no monocross",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estender_quadril",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "posterior_coxa"
+      ],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "corrida",
+      "nome": "Corrida (rua)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "cardio",
+        "unidade": "metros",
+        "rx": 200,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "posterior_coxa"
+      ],
+      "musculosSecundarios": [
+        "panturrilha",
+        "gluteo"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "corrida_100m",
+      "nome": "Corrida 100 m (rua)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "quadriceps",
+        "posterior_coxa"
+      ],
+      "musculosSecundarios": [
+        "panturrilha",
+        "gluteo"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "crucifixo_crossover_medial",
+      "nome": "Crucifixo no crossover medial",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "peito"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "supino_halter",
+          "nome": "Supino reto com halteres"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "desenvolvimento_halter",
+      "nome": "Desenvolvimento militar com halteres",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_vertical",
+      "sessoes": [
+        "H1",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "triceps"
+      ],
+      "equipamentos": [
+        "halteres",
+        "banco"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "landmine_press",
+          "nome": "Landmine press (cavalinho)"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "landmine_press",
+          "nome": "Landmine press (cavalinho)"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "desenvolvimento_smith",
+      "nome": "Desenvolvimento militar no Smith",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_vertical",
+      "sessoes": [
+        "H1",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "triceps"
+      ],
+      "equipamentos": [
+        "smith"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "desenvolvimento_halter",
+          "nome": "Desenvolvimento militar com halteres"
+        },
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "landmine_press",
+          "nome": "Landmine press (cavalinho)"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "landmine_press",
+          "nome": "Landmine press (cavalinho)"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "desenvolvimento_unilateral_kb",
+      "nome": "Desenvolvimento unilateral com kettlebell",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "superiores"
+      ],
+      "cross": {
+        "padrao": "empurrar",
+        "unidade": "reps",
+        "rx": 8,
+        "carga": {
+          "rx": "12/8 kg",
+          "scaled": "8/6 kg"
+        },
+        "foco": "kettlebell"
+      },
+      "musculoPrincipal": [
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "triceps",
+        "core"
+      ],
+      "equipamentos": [
+        "kettlebell"
+      ],
+      "unilateral": true,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "elevacao_lateral_halter",
+      "nome": "Elevação lateral com halteres",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_vertical",
+      "sessoes": [
+        "H1",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "ombro"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "halteres"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "elevacao_lateral_monocross",
+          "nome": "Elevação lateral no monocross"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "elevacao_lateral_monocross",
+      "nome": "Elevação lateral no monocross",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_vertical",
+      "sessoes": [
+        "H1",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "ombro"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "elevacao_pelvica",
+      "nome": "Elevação pélvica (hip thrust)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estender_quadril",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "posterior_coxa"
+      ],
+      "equipamentos": [
+        "banco",
+        "halteres"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "face_pull_monocross",
+      "nome": "Face pull na corda",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "ombro",
+        "costas"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "fallout_trx",
+      "nome": "Fallout no TRX",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estabilizar_tronco",
+      "sessoes": [
+        "H2"
+      ],
+      "hiit": [
+        "core"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [
+        "ombro"
+      ],
+      "equipamentos": [
+        "trx"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "pallof_press",
+          "nome": "Pallof press"
+        },
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "pallof_press",
+          "nome": "Pallof press"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "farmer_carry_kb",
+      "nome": "Farmer carry (2 kettlebells)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "core",
+        "unidade": "metros",
+        "rx": 50,
+        "carga": {
+          "rx": "2× 16/12 kg",
+          "scaled": "2× 12/8 kg"
+        },
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "antebraco",
+        "trapezio"
+      ],
+      "musculosSecundarios": [
+        "core"
+      ],
+      "equipamentos": [
+        "kettlebell"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "flexao",
+      "nome": "Flexão de braço",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "superiores"
+      ],
+      "cross": {
+        "padrao": "empurrar",
+        "unidade": "reps",
+        "rx": 12,
+        "carga": null,
+        "foco": "ginastica"
+      },
+      "musculoPrincipal": [
+        "peito"
+      ],
+      "musculosSecundarios": [
+        "triceps",
+        "ombro",
+        "core"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "flexao_trx",
+      "nome": "Flexão no TRX",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": [
+        "superiores"
+      ],
+      "cross": {
+        "padrao": "empurrar",
+        "unidade": "reps",
+        "rx": 12,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "peito"
+      ],
+      "musculosSecundarios": [
+        "triceps",
+        "ombro",
+        "core"
+      ],
+      "equipamentos": [
+        "trx"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "flexao_pike",
+      "nome": "Flexão pike",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "superiores"
+      ],
+      "cross": {
+        "padrao": "empurrar",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": null,
+        "foco": "ginastica"
+      },
+      "musculoPrincipal": [
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "triceps"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "good_morning_barra",
+      "nome": "Good morning (barra)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estender_quadril",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "posterior_coxa"
+      ],
+      "musculosSecundarios": [
+        "gluteo",
+        "core"
+      ],
+      "equipamentos": [
+        "barra"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "mesa_flexora",
+          "nome": "Mesa flexora"
+        },
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "rdl_halter",
+          "nome": "Levantamento terra romeno com halteres"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "ground_to_overhead",
+      "nome": "Ground to overhead (barra)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "olimpico",
+        "unidade": "reps",
+        "rx": 8,
+        "carga": {
+          "rx": "40/30 kg",
+          "scaled": "25/15 kg"
+        },
+        "foco": "olimpico"
+      },
+      "musculoPrincipal": [
+        "ombro",
+        "gluteo",
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "trapezio",
+        "triceps",
+        "core"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "hang_power_clean",
+      "nome": "Hang power clean (barra)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "olimpico",
+        "unidade": "reps",
+        "rx": 8,
+        "carga": {
+          "rx": "50/35 kg",
+          "scaled": "30/20 kg"
+        },
+        "foco": "olimpico"
+      },
+      "musculoPrincipal": [
+        "posterior_coxa",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "trapezio",
+        "quadriceps",
+        "core"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "high_knees",
+      "nome": "High knees (joelho alto)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "cardio",
+        "unidade": "reps",
+        "rx": 40,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "core"
+      ],
+      "musculosSecundarios": [
+        "panturrilha"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "kb_swing",
+      "nome": "Kettlebell swing",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": {
+        "padrao": "quadril",
+        "unidade": "reps",
+        "rx": 15,
+        "carga": {
+          "rx": "16/12 kg",
+          "scaled": "12/8 kg"
+        },
+        "foco": "kettlebell"
+      },
+      "musculoPrincipal": [
+        "gluteo",
+        "posterior_coxa"
+      ],
+      "musculosSecundarios": [
+        "core",
+        "ombro"
+      ],
+      "equipamentos": [
+        "kettlebell"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "landmine_press",
+      "nome": "Landmine press (cavalinho)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_vertical",
+      "sessoes": [
+        "H1",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "ombro",
+        "peito"
+      ],
+      "musculosSecundarios": [
+        "triceps",
+        "core"
+      ],
+      "equipamentos": [
+        "cavalinho",
+        "barra"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "desenvolvimento_halter",
+          "nome": "Desenvolvimento militar com halteres"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "terra_barra_livre",
+      "nome": "Levantamento terra (barra livre)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estender_quadril",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": {
+        "padrao": "quadril",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": {
+          "rx": "60/40 kg",
+          "scaled": "40/25 kg"
+        },
+        "foco": "barra"
+      },
+      "musculoPrincipal": [
+        "posterior_coxa",
+        "gluteo",
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "core",
+        "antebraco"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "rdl_halter",
+          "nome": "Levantamento terra romeno com halteres"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "rdl_halter",
+      "nome": "Levantamento terra romeno com halteres",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estender_quadril",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "posterior_coxa",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "costas"
+      ],
+      "equipamentos": [
+        "halteres"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "rdl_smith",
+      "nome": "Levantamento terra romeno no Smith",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estender_quadril",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "posterior_coxa",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "costas"
+      ],
+      "equipamentos": [
+        "smith"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "mesa_flexora",
+      "nome": "Mesa flexora",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estender_quadril",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "posterior_coxa"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "flexora"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "mountain_climber",
+      "nome": "Mountain climber (escalador)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "cardio",
+        "unidade": "reps",
+        "rx": 30,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [
+        "ombro",
+        "quadriceps"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "pallof_press",
+      "nome": "Pallof press",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estabilizar_tronco",
+      "sessoes": [
+        "H2"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "polichinelo",
+      "nome": "Polichinelo (jumping jacks)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "cardio",
+        "unidade": "reps",
+        "rx": 40,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "panturrilha",
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "quadriceps",
+        "core"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "ponte_gluteo",
+      "nome": "Ponte de glúteo no chão",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estender_quadril",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "posterior_coxa",
+        "core"
+      ],
+      "equipamentos": [
+        "colchonete"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "power_clean",
+      "nome": "Power clean (barra)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "olimpico",
+        "unidade": "reps",
+        "rx": 8,
+        "carga": {
+          "rx": "50/35 kg",
+          "scaled": "30/20 kg"
+        },
+        "foco": "olimpico"
+      },
+      "musculoPrincipal": [
+        "posterior_coxa",
+        "gluteo",
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "trapezio",
+        "costas",
+        "core"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "prancha",
+      "nome": "Prancha isométrica",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "core"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [
+        "ombro"
+      ],
+      "equipamentos": [
+        "colchonete"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "prancha_lateral",
+      "nome": "Prancha lateral",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "core"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "colchonete"
+      ],
+      "unilateral": true,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "pular_corda",
+      "nome": "Pular corda (speed rope)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": {
+        "padrao": "cardio",
+        "unidade": "reps",
+        "rx": 50,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "panturrilha"
+      ],
+      "musculosSecundarios": [
+        "ombro"
+      ],
+      "equipamentos": [
+        "corda_pular"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "push_press",
+      "nome": "Push press (barra, após o clean)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "empurrar",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": {
+          "rx": "40/30 kg",
+          "scaled": "25/15 kg"
+        },
+        "foco": "barra"
+      },
+      "musculoPrincipal": [
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "triceps",
+        "quadriceps",
+        "core"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "puxada_aberta_neutra",
+      "nome": "Puxada aberta neutra (monocross)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_vertical",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps"
+      ],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "puxada_aberta_pronada",
+      "nome": "Puxada aberta pronada (monocross)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_vertical",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps"
+      ],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "puxada_aberta_neutra",
+          "nome": "Puxada aberta neutra (monocross)"
+        },
+        {
+          "adaptacao": "mobilidade",
+          "exercicioId": "puxada_fechada_triangulo",
+          "nome": "Puxada fechada triângulo (monocross)"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "puxada_braco_estendido",
+      "nome": "Puxada com braço estendido no monocross",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_vertical",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "puxada_aberta_neutra",
+          "nome": "Puxada aberta neutra (monocross)"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "puxada_fechada_triangulo",
+      "nome": "Puxada fechada triângulo (monocross)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_vertical",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps"
+      ],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "remada_aberta_neutra",
+      "nome": "Remada aberta neutra (monocross)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps",
+        "antebraco"
+      ],
+      "equipamentos": [
+        "monocross"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "remada_cavalinho_fechada",
+      "nome": "Remada cavalinho pegada fechada",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps",
+        "antebraco"
+      ],
+      "equipamentos": [
+        "cavalinho",
+        "barra"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "remada_aberta_neutra",
+          "nome": "Remada aberta neutra (monocross)"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "remada_curvada_barra",
+      "nome": "Remada curvada com barra",
+      "ativo": false,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps",
+        "posterior_coxa"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "remada_halter_unilateral",
+          "nome": "Remada unilateral com halter"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "coach_remada_landmine",
+      "nome": "Remada landmine",
+      "ativo": true,
+      "origem": "coach",
+      "editado": false,
+      "instancia": "puxar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps",
+        "core"
+      ],
+      "equipamentos": [
+        "cavalinho",
+        "barra"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "agachamento_smith",
+          "nome": "Agachamento no Smith (barra guiada)"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "remada_trx",
+      "nome": "Remada no TRX",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": [
+        "superiores"
+      ],
+      "cross": {
+        "padrao": "puxar",
+        "unidade": "reps",
+        "rx": 12,
+        "carga": null,
+        "foco": "ginastica"
+      },
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps",
+        "core"
+      ],
+      "equipamentos": [
+        "trx"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "remada_halter_unilateral",
+      "nome": "Remada unilateral com halter",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "puxar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps",
+        "core"
+      ],
+      "equipamentos": [
+        "halteres",
+        "banco"
+      ],
+      "unilateral": true,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "remada_unilateral_kb",
+      "nome": "Remada unilateral com kettlebell",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "superiores"
+      ],
+      "cross": {
+        "padrao": "puxar",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": {
+          "rx": "16/12 kg",
+          "scaled": "12/8 kg"
+        },
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "costas"
+      ],
+      "musculosSecundarios": [
+        "biceps",
+        "core"
+      ],
+      "equipamentos": [
+        "kettlebell"
+      ],
+      "unilateral": true,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "russian_twist",
+      "nome": "Russian twist",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "estabilizar_tronco",
+      "sessoes": [
+        "H2"
+      ],
+      "hiit": [
+        "core"
+      ],
+      "cross": {
+        "padrao": "core",
+        "unidade": "reps",
+        "rx": 20,
+        "carga": {
+          "rx": "anilha 10/5 kg",
+          "scaled": "sem carga"
+        },
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "core"
+      ],
+      "musculosSecundarios": [],
+      "equipamentos": [
+        "anilhas",
+        "colchonete"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "lombar",
+          "exercicioId": "pallof_press",
+          "nome": "Pallof press"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "shuttle_run",
+      "nome": "Shuttle run (ir e vir, 10 m)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "cardio",
+        "unidade": "metros",
+        "rx": 100,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "posterior_coxa"
+      ],
+      "musculosSecundarios": [
+        "panturrilha",
+        "gluteo"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "skater",
+      "nome": "Skater (saltos laterais)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "cardio"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "gluteo",
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "panturrilha"
+      ],
+      "equipamentos": [
+        "peso_corporal"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "box_step_up",
+      "nome": "Step-up no caixote",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": {
+        "padrao": "agachar",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": null,
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "panturrilha"
+      ],
+      "equipamentos": [
+        "caixote"
+      ],
+      "unilateral": true,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "ponte_gluteo",
+          "nome": "Ponte de glúteo no chão"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "sdhp_barra",
+      "nome": "Sumo deadlift high pull (barra)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "puxar",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": {
+          "rx": "40/30 kg",
+          "scaled": "25/15 kg"
+        },
+        "foco": "barra"
+      },
+      "musculoPrincipal": [
+        "trapezio",
+        "posterior_coxa",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "ombro",
+        "costas"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "sdhp_kb",
+      "nome": "Sumo deadlift high pull (kettlebell)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "puxar",
+        "unidade": "reps",
+        "rx": 12,
+        "carga": {
+          "rx": "16/12 kg",
+          "scaled": "12/8 kg"
+        },
+        "foco": "kettlebell"
+      },
+      "musculoPrincipal": [
+        "trapezio",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "ombro",
+        "posterior_coxa"
+      ],
+      "equipamentos": [
+        "kettlebell"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "supino_inclinado_halter",
+      "nome": "Supino inclinado com halteres",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "peito",
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "triceps"
+      ],
+      "equipamentos": [
+        "halteres",
+        "banco"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "supino_halter",
+          "nome": "Supino reto com halteres"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "supino_halter",
+      "nome": "Supino reto com halteres",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "peito"
+      ],
+      "musculosSecundarios": [
+        "triceps",
+        "ombro"
+      ],
+      "equipamentos": [
+        "halteres",
+        "banco"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "flexao_trx",
+          "nome": "Flexão no TRX"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "supino_smith",
+      "nome": "Supino reto no Smith",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "empurrar_horizontal",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "peito"
+      ],
+      "musculosSecundarios": [
+        "triceps",
+        "ombro"
+      ],
+      "equipamentos": [
+        "smith",
+        "banco"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "ombro",
+          "exercicioId": "supino_halter",
+          "nome": "Supino reto com halteres"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "thruster_barra",
+      "nome": "Thruster (barra, após o clean)",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": null,
+      "cross": {
+        "padrao": "corpo_todo",
+        "unidade": "reps",
+        "rx": 10,
+        "carga": {
+          "rx": "40/30 kg",
+          "scaled": "25/15 kg"
+        },
+        "foco": "barra"
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "gluteo",
+        "triceps",
+        "core"
+      ],
+      "equipamentos": [
+        "barra",
+        "anilhas"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "thruster_halteres",
+      "nome": "Thruster com halteres",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "superiores"
+      ],
+      "cross": {
+        "padrao": "corpo_todo",
+        "unidade": "reps",
+        "rx": 12,
+        "carga": {
+          "rx": "par de 10/7 kg",
+          "scaled": "par de 5/3 kg"
+        },
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "ombro",
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "gluteo",
+        "triceps"
+      ],
+      "equipamentos": [
+        "halteres"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "thruster_wallball",
+      "nome": "Thruster com wall ball",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "superiores"
+      ],
+      "cross": null,
+      "musculoPrincipal": [
+        "ombro",
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "gluteo",
+        "triceps"
+      ],
+      "equipamentos": [
+        "wall_ball"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    },
+    {
+      "id": "leg_press_vertical_smith",
+      "nome": "Vertical Leg Press no Smith",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": "agachar",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "hiit": null,
+      "cross": null,
+      "musculoPrincipal": [
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "gluteo"
+      ],
+      "equipamentos": [
+        "smith"
+      ],
+      "unilateral": false,
+      "adaptacoes": [
+        {
+          "adaptacao": "joelho",
+          "exercicioId": "elevacao_pelvica",
+          "nome": "Elevação pélvica (hip thrust)"
+        }
+      ],
+      "original": null
+    },
+    {
+      "id": "wall_ball_shot",
+      "nome": "Wall ball shot",
+      "ativo": true,
+      "origem": "seed",
+      "editado": false,
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "pernas"
+      ],
+      "cross": {
+        "padrao": "corpo_todo",
+        "unidade": "reps",
+        "rx": 15,
+        "carga": {
+          "rx": "14/10 lb",
+          "scaled": "10 lb, alvo mais baixo"
+        },
+        "foco": null
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "gluteo"
+      ],
+      "equipamentos": [
+        "wall_ball"
+      ],
+      "unilateral": false,
+      "adaptacoes": [],
+      "original": null
+    }
+  ],
+  "hyrox": [
+    {
+      "estacao": "skierg",
+      "n": 1,
+      "nome": "SkiErg — puxadas no monocross",
+      "recursos": {
+        "monocross": 1
+      },
+      "musculoPrincipal": [
+        "costas",
+        "core"
+      ],
+      "musculosSecundarios": [
+        "triceps",
+        "ombro",
+        "gluteo"
+      ],
+      "substituta": {
+        "nome": "Battle rope (corda naval)",
+        "musculoPrincipal": [
+          "ombro",
+          "core"
+        ],
+        "musculosSecundarios": [
+          "antebraco"
+        ]
+      }
+    },
+    {
+      "estacao": "sled_push",
+      "n": 2,
+      "nome": "Sled Push (empurrar trenó)",
+      "recursos": {
+        "sled": 1
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "panturrilha",
+        "ombro",
+        "triceps",
+        "core"
+      ],
+      "substituta": {
+        "nome": "Plate push (anilha no turf)",
+        "musculoPrincipal": [
+          "quadriceps",
+          "gluteo"
+        ],
+        "musculosSecundarios": [
+          "panturrilha",
+          "ombro",
+          "triceps",
+          "core"
+        ]
+      }
+    },
+    {
+      "estacao": "sled_pull",
+      "n": 3,
+      "nome": "Sled Pull (puxar trenó)",
+      "recursos": {
+        "sled": 1,
+        "cordaNaval": 1
+      },
+      "musculoPrincipal": [
+        "costas",
+        "biceps"
+      ],
+      "musculosSecundarios": [
+        "antebraco",
+        "posterior_coxa",
+        "gluteo",
+        "core"
+      ],
+      "substituta": {
+        "nome": "Remada no TRX",
+        "musculoPrincipal": [
+          "costas"
+        ],
+        "musculosSecundarios": [
+          "biceps",
+          "core"
+        ]
+      }
+    },
+    {
+      "estacao": "burpee_broad_jump",
+      "n": 4,
+      "nome": "Burpee Broad Jump",
+      "recursos": {},
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo",
+        "peito"
+      ],
+      "musculosSecundarios": [
+        "ombro",
+        "triceps",
+        "core",
+        "panturrilha"
+      ],
+      "substituta": null
+    },
+    {
+      "estacao": "remo",
+      "n": 5,
+      "nome": "Rowing (remo indoor oficial)",
+      "recursos": {
+        "remo": 1
+      },
+      "musculoPrincipal": [
+        "costas",
+        "quadriceps"
+      ],
+      "musculosSecundarios": [
+        "posterior_coxa",
+        "gluteo",
+        "biceps",
+        "core"
+      ],
+      "substituta": null
+    },
+    {
+      "estacao": "farmers_carry",
+      "n": 6,
+      "nome": "Farmer’s carry",
+      "recursos": {},
+      "musculoPrincipal": [
+        "antebraco",
+        "trapezio"
+      ],
+      "musculosSecundarios": [
+        "core"
+      ],
+      "substituta": {
+        "nome": "Farmer’s carry com kettlebells",
+        "musculoPrincipal": [
+          "antebraco",
+          "trapezio"
+        ],
+        "musculosSecundarios": [
+          "core"
+        ]
+      }
+    },
+    {
+      "estacao": "sandbag_lunges",
+      "n": 7,
+      "nome": "Sandbag Lunges (avanço com saco de areia)",
+      "recursos": {
+        "sandbag": 1
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "gluteo"
+      ],
+      "musculosSecundarios": [
+        "posterior_coxa",
+        "core",
+        "trapezio"
+      ],
+      "substituta": {
+        "nome": "Afundo andando com kettlebell (goblet)",
+        "musculoPrincipal": [
+          "quadriceps",
+          "gluteo"
+        ],
+        "musculosSecundarios": [
+          "core"
+        ]
+      }
+    },
+    {
+      "estacao": "wall_ball",
+      "n": 8,
+      "nome": "Wall ball",
+      "recursos": {
+        "wallBall": 1
+      },
+      "musculoPrincipal": [
+        "quadriceps",
+        "ombro"
+      ],
+      "musculosSecundarios": [
+        "gluteo"
+      ],
+      "substituta": {
+        "nome": "Thruster com halteres",
+        "musculoPrincipal": [
+          "ombro",
+          "quadriceps"
+        ],
+        "musculosSecundarios": [
+          "gluteo",
+          "triceps"
+        ]
+      }
+    }
+  ],
+  "vocabulario": {
+    "musculos": [
+      "peito",
+      "costas",
+      "ombro",
+      "trapezio",
+      "biceps",
+      "triceps",
+      "antebraco",
+      "core",
+      "lombar",
+      "quadriceps",
+      "posterior_coxa",
+      "gluteo",
+      "panturrilha"
+    ],
+    "equipamentos": [
+      "smith",
+      "banco",
+      "monocross",
+      "flexora",
+      "extensora",
+      "cavalinho",
+      "halteres",
+      "barra",
+      "anilhas",
+      "kettlebell",
+      "caixote",
+      "step",
+      "trx",
+      "banco_scott",
+      "colchonete",
+      "peso_corporal",
+      "wall_ball",
+      "corda_naval",
+      "corda_pular",
+      "sandbag",
+      "air_bike"
+    ],
+    "instancias": [
+      "empurrar_horizontal",
+      "puxar_horizontal",
+      "agachar",
+      "estender_quadril",
+      "estabilizar_tronco",
+      "empurrar_vertical",
+      "puxar_vertical"
+    ],
+    "adaptacoes": [
+      "joelho",
+      "lombar",
+      "ombro",
+      "mobilidade"
+    ],
+    "estacoesHiit": [
+      "pernas",
+      "core",
+      "superiores",
+      "cardio"
+    ],
+    "padroesCross": [
+      "cardio",
+      "agachar",
+      "quadril",
+      "empurrar",
+      "puxar",
+      "corpo_todo",
+      "olimpico",
+      "core"
+    ],
+    "unidadesCross": [
+      "reps",
+      "metros",
+      "calorias",
+      "segundos"
+    ]
+  }
+}

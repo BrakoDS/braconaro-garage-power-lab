@@ -9,8 +9,8 @@
  * aparece é sempre o que está gravado, inclusive quando a chamada falha depois
  * de o servidor ter atualizado os alertas (ver `publicarSemanaBox`).
  *
- * Duas seções na barra do topo: Semanas (esta tela) e Inventário
- * (`inventario.js`). Elas conversam por evento: o inventário salvo pede
+ * Três seções na barra do topo: Semanas (esta tela), Inventário
+ * (`inventario.js`) e Catálogo (`catalogo.js`, os exercícios que o gerador usa). Elas conversam por evento: o inventário salvo pede
  * `semana:recarregar` (o servidor reconferiu as semanas em aberto) e o atalho
  * de uma semana afetada pede `semana:abrir`.
  */
@@ -20,6 +20,7 @@ import { chaveMes, chaveSemana, rotuloMes, semanasDoMes } from '../../montador-h
 import { DIAS, diasComAviso, segundaDaChave, tituloAviso, variacaoSeguinte } from '../core/vista.js';
 import { gerarMatriz, programarDia, publicar, lerSemanas, salvarSemana } from '../cloud/semana.js';
 import { pedirAviso } from './dia-sem-aula.js';
+import * as catalogo from './catalogo.js';
 import * as inventario from './inventario.js';
 import { trocarExercicio } from './troca.js';
 import { trocarExercicioHiit } from './troca-hiit.js';
@@ -265,15 +266,15 @@ $('#mes-hoje').addEventListener('click', () => {
 });
 $('#view-semanas').addEventListener('click', (ev) => { aoClicar(ev).catch((e) => console.error(e)); });
 // "ver estações ↓" (sexta e sábado): rola até a faixa do HIIT. Botão, e não link
-// com #hash — o hash é o que escolhe a seção (Semanas | Inventário).
+// com #hash — o hash é o que escolhe a seção (Semanas | Inventário | Catálogo).
 $('#view-semanas').addEventListener('click', (ev) => {
   if (!(/** @type {HTMLElement} */ (ev.target).closest('[data-ver-hiit]'))) return;
   document.getElementById('hiit-da-semana')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
-/* ---------- seções (Semanas | Inventário) ---------- */
+/* ---------- seções (Semanas | Inventário | Catálogo) ---------- */
 
-const VISTAS = ['semanas', 'inventario'];
+const VISTAS = ['semanas', 'inventario', 'catalogo'];
 
 /** @param {string} vista */
 function irPara(vista) {
@@ -317,5 +318,18 @@ try {
   console.error('Falha ao montar o inventário:', e);
 }
 
+/** @param {string} msg @param {'ok'|'erro'|''} [tipo] */
+function statusCatalogo(msg, tipo = '') {
+  const el = $('#catalogo-status');
+  el.textContent = msg;
+  el.className = `semana-status ${tipo}`;
+}
+
+try {
+  catalogo.montar({ status: statusCatalogo });
+} catch (e) {
+  console.error('Falha ao montar o catálogo:', e);
+}
+
 carregarMes();
-irPara(location.hash === '#inventario' ? 'inventario' : 'semanas');
+irPara(location.hash.slice(1) || 'semanas');

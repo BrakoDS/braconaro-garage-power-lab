@@ -171,6 +171,10 @@ test('semana do box: semana, inventario, catalogo base e historico do aluno so a
   const catalogo = c.split('match /catalogoExercicios/{exercicioId} {')[1]?.split('}')[0];
   assert.deepEqual(catalogo?.match(/allow [^;]+;/g), ['allow read: if request.auth != null;', 'allow write: if false;']);
 
+  // Os ajustes do coach (tela Catálogo): só o coach lê, só a função grava.
+  const ajustes = c.split('match /catalogoAjustes/{exercicioId} {')[1]?.split('}')[0];
+  assert.deepEqual(ajustes?.match(/allow [^;]+;/g), ['allow read: if ehCoach();', 'allow write: if false;']);
+
   const historico = c.split('match /treinoAluno/{email} {')[1]?.split('match /historico/{anoMes} {')[1]?.split('}')[0];
   assert.deepEqual(historico?.match(/allow [^;]+;/g), [
     'allow read: if (request.auth != null && request.auth.token.email.lower() == email.lower()) || ehCoach();',

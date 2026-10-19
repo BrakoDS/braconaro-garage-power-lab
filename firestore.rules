@@ -63,6 +63,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Ajustes do coach por cima do catálogo base (tela Catálogo da Semana do Box):
+    // nome/músculos editados, exercício criado por ele e desativado. O servidor
+    // aplica na leitura antes de gerar (functions/src/catalogo-ajustes.ts); quem
+    // grava é salvarExercicioCatalogo / ativarExercicioCatalogo, com o Admin SDK —
+    // o seed nunca toca aqui.
+    match /catalogoAjustes/{exercicioId} {
+      allow read: if ehCoach();
+      allow write: if false;
+    }
+
     // Montador individual (o montador novo, em teste ao lado do atual) — mesma
     // forma de `coaches/{uid}`: documento leve e o histórico por mês em
     // `treinos/{YYYY-MM}`. Coleção separada de propósito: durante o teste, os dois

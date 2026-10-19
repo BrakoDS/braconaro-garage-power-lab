@@ -163,6 +163,35 @@ export function salvarInventario(equipamentos, alunosPorAula) {
 }
 
 /**
+ * O catálogo que o gerador usa (seed + ajustes do coach), as 8 estações do
+ * Hyrox e o vocabulário que o servidor aceita. Leitura pela função: os ajustes
+ * são aplicados no servidor, e a tela não tem cópia da regra de juntar.
+ * @returns {Promise<{exercicios: any[], hyrox: any[], vocabulario: any}>}
+ */
+export function listarCatalogo() {
+  return chamar('listarCatalogoBox', {});
+}
+
+/**
+ * Cria (sem `id`) ou edita um exercício do catálogo; `{ id, restaurar: true }`
+ * volta um exercício do catálogo base ao original. O servidor revalida tudo e
+ * grava em `catalogoAjustes/` (o seed não é tocado).
+ * @param {Record<string, any>} pedido
+ */
+export function salvarExercicio(pedido) {
+  return chamar('salvarExercicioCatalogo', pedido);
+}
+
+/**
+ * Ativa ou desativa um exercício. A resposta traz `avisos` (o que fica com menos
+ * opção); desativar o último de uma vaga do H é recusado pelo servidor.
+ * @param {string} id @param {boolean} ativo
+ */
+export function ativarExercicio(id, ativo) {
+  return chamar('ativarExercicioCatalogo', { id, ativo });
+}
+
+/**
  * O inventário gravado (`coaches/{uid}/inventario/atual`), ou `null` se ainda
  * não existe. Só o coach lê; só a função grava.
  * @param {string} uid
