@@ -3,12 +3,17 @@
  * Check-in pelo app da uGym (lado coach): aplica na ficha o check-in que o
  * aluno fez no app da uGym, e o Painel de Presença passa a mostrar "Presente".
  *
- * Quem lê o FitControl é a Cloud Function `sincronizarUgym`, de 2 em 2 minutos,
- * e ela grava em `checkinsUgym/{email}.itens[`ugym|${reserva}`]` — nunca na
+ * Quem lê o FitControl é a Cloud Function `sincronizarUgym`, a cada minuto, e
+ * ela grava em `checkinsUgym/{email}.itens[`ugym|${reserva}`]` — nunca na
  * ficha, que é da Gestão (ver functions/src/ugym-servico.ts). Aqui a Gestão
  * aplica com a MESMA regra do botão Check-in (`checkin` de checkin-regras.js),
  * com a hora do check-in no app (e não a hora em que o coach abriu a tela), e
  * tira o item consumido.
+ *
+ * A HORA já chega como hora local do box (`checkin.agora`, 'HH:MM'): o servidor
+ * converte o carimbo UTC do FitControl (`relogioDoTexto(…, 'utc')` em
+ * functions/src/ugym.ts). Aqui não se converte de novo — converter dos dois
+ * lados é o jeito certo de errar 3h para o outro lado.
  *
  * Qual aula da ficha o check-in fecha: a que acontece naquele dia — a titular
  * (no dia dela ou no trocado) ou a reposição marcada para ele
@@ -17,7 +22,9 @@
  * não pode contar uma visita fora da grade sozinha —, e o coach recebe a linha
  * no Registros para decidir.
  *
- * Roda no boot e de 2 em 2 minutos, junto com o Pix e os avisos (boot.js).
+ * Roda no boot, AO VIVO enquanto a Gestão está aberta (`ouvirCheckinsUgym`: o
+ * item é aplicado segundos depois de o servidor gravar) e, de rede de
+ * segurança, de 2 em 2 minutos junto com o Pix e os avisos (boot.js).
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
 import { datasDaSemana } from '../../compartilhado/regras/semana.js';
@@ -96,6 +103,37 @@ async function init() {
   F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
   const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
   _db = F.getFirestore(app);
+}
+
+/**
+ * Escuta `checkinsUgym` e chama `aoChegar` quando há item para aplicar — é o
+ * que tira o "até 2 minutos" do lado da Gestão. O próprio consumo (apagar os
+ * itens aplicados) dispara o ouvinte de novo, mas aí não há item, e ele não
+ * chama ninguém. Devolve o cancelamento; sem nuvem ou com erro, não ouve nada
+ * (a rodada de 2 em 2 minutos continua valendo).
+ * @param {() => void} aoChegar
+ * @returns {Promise<() => void>}
+ */
+export async function ouvirCheckinsUgym(aoChegar) {
+  if (!(CLOUD_ATIVO && firebaseConfig && firebaseConfig.apiKey)) return () => {};
+  try {
+    await init();
+    return F.onSnapshot(F.collection(_db, 'checkinsUgym'), (/** @type {any} */ snap) => {
+      if (temItens(snap.docs.map((/** @type {any} */ d) => d.data()))) aoChegar();
+    }, (/** @type {any} */ e) => console.warn('[uGym] o ouvinte dos check-ins parou:', e?.code || e));
+  } catch (e) {
+    console.warn('[uGym] não deu para ouvir os check-ins:', e);
+    return () => {};
+  }
+}
+
+/**
+ * Algum documento de `checkinsUgym` tem item? (O ouvinte só acorda a Gestão
+ * quando há o que aplicar.)
+ * @param {any[]} docs
+ */
+export function temItens(docs) {
+  return (docs || []).some((d) => d && d.itens && typeof d.itens === 'object' && Object.keys(d.itens).length > 0);
 }
 
 /**

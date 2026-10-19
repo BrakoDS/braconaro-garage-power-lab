@@ -78,6 +78,18 @@ ok(igual(relogioDoTexto('2026-10-14T07:05', relogioDoBox), { hoje: '2026-10-14',
 ok(igual(relogioDoTexto(Date.UTC(2026, 9, 14, 22, 0) / 1000, relogioDoBox), { hoje: '2026-10-14', agora: '19:00' }), 'número em segundos: no fuso do box');
 ok(igual(relogioDoTexto(Date.UTC(2026, 9, 14, 22, 0), relogioDoBox), { hoje: '2026-10-14', agora: '19:00' }), 'número em milissegundos também');
 ok(relogioDoTexto(null, relogioDoBox) === null && relogioDoTexto('', relogioDoBox) === null && relogioDoTexto('ontem', relogioDoBox) === null, 'null, vazio ou lixo: sem hora');
+
+console.log('\nO FUSO: A GRADE É HORA DE PAREDE, O CHECK-IN É UTC\n');
+ok(igual(relogioDoTexto('2026-10-19 10:11:23', relogioDoBox, 'utc'), { hoje: '2026-10-19', agora: '07:11' }),
+  'o caso real de 19/10: o check-in "10:11" (UTC) é 07:11 no box');
+ok(igual(relogioDoTexto('2026-10-19 10:11:23', relogioDoBox), { hoje: '2026-10-19', agora: '10:11' }), 'a grade (padrão) continua hora de parede');
+ok(igual(relogioDoTexto('2026-10-21 00:28:00', relogioDoBox, 'utc'), { hoje: '2026-10-20', agora: '21:28' }),
+  'aula da noite: 00:28 UTC do dia 21 ainda é 21:28 do dia 20 no box');
+ok(igual(relogioDoTexto('2026-10-19 02:59', relogioDoBox, 'utc'), { hoje: '2026-10-18', agora: '23:59' }), 'antes das 03:00 UTC é o dia anterior');
+ok(igual(relogioDoTexto('2026-10-19T10:11:00Z', relogioDoBox), { hoje: '2026-10-19', agora: '07:11' }), 'com Z é instante, em qualquer fonte');
+ok(igual(relogioDoTexto('2026-10-19T07:11:00-03:00', relogioDoBox, 'utc'), { hoje: '2026-10-19', agora: '07:11' }), 'com −03:00 também: não desconta duas vezes');
+ok(igual(relogioDoTexto('2026-10-19 10:11:00.123+0000', relogioDoBox), { hoje: '2026-10-19', agora: '07:11' }), '+0000 e milissegundos também');
+ok(igual(relogioDoTexto(Date.UTC(2026, 9, 19, 10, 11) / 1000, relogioDoBox, 'utc'), { hoje: '2026-10-19', agora: '07:11' }), 'número é instante, em qualquer fonte');
 {
   const aulas = lerAulas([aulaReal(138776, '2026-10-14 19:10', '2026-10-14 20:10'), { id: 1 }, { classStartDate: '2026-10-14 07:00' },
     { id: 2, classStartDate: '2026-10-14 07:00' }], relogioDoBox);
@@ -87,12 +99,23 @@ ok(relogioDoTexto(null, relogioDoBox) === null && relogioDoTexto('', relogioDoBo
 {
   const r = lerReservas([
     reservaReal(64045, 138776, 4468, '2026-10-14 19:10', null),
-    reservaReal(64046, 138776, 4469, '2026-10-14 19:10', '2026-10-14 19:04:10'),
+    reservaReal(64046, 138776, 4469, '2026-10-14 19:10', '2026-10-14 22:04:10'),
     { id: 1, memberClassId: 2 },
   ], relogioDoBox);
   ok(r.length === 2, 'reserva sem aluno ou sem aula fica de fora');
   ok(r[0].checkin === null && r[0].dia === '2026-10-14' && r[0].hora === '19:10' && r[0].alunoUgymId === '4468', 'só reservou: sem check-in');
-  ok(igual(r[1].checkin, { hoje: '2026-10-14', agora: '19:04' }), 'com check-in: a hora dele');
+  ok(igual(r[1].checkin, { hoje: '2026-10-14', agora: '19:04' }) && r[1].hora === '19:10',
+    'com check-in: a hora dele no box (22:04 UTC = 19:04), e a aula segue 19:10');
+}
+{
+  // Os check-ins reais de 19/10, com a forma da API: aula das 07:05 (parede), check-in 10:11 (UTC).
+  const [r] = lerReservas([reservaReal(65005, 138668, 4470, '2026-10-19 07:05', '2026-10-19 10:11:23')], relogioDoBox);
+  const n = checkinsNovos([r], { emails: { 4470: 'ana@x.com' }, vistos: {}, coachUid: UID, em: 1 });
+  ok(n.itens[0]?.item.checkin.agora === '07:11' && n.itens[0]?.item.hora === '07:05', 'o item de checkinsUgym leva 07:11 — a hora local do check-in — e a aula das 07:05');
+  const [noite] = lerReservas([reservaReal(65100, 138800, 4471, '2026-10-20 21:30', '2026-10-21 00:28:00')], relogioDoBox);
+  const n2 = checkinsNovos([noite], { emails: { 4471: 'bia@x.com' }, vistos: {}, coachUid: UID, em: 1 });
+  ok(n2.itens.length === 1 && n2.itens[0].item.checkin.hoje === '2026-10-20' && n2.itens[0].item.checkin.agora === '21:28',
+    'aula das 21:30: o check-in não "cai no dia seguinte" e vira item');
 }
 ok(igual(emailsDosMembros([membroReal(1, ' Ana@X.com '), membroReal(2, null), membroReal(3, 'sem-arroba'), { id: 4, studentEmail: 'b@y.com.br' }]),
   { 1: 'ana@x.com', 4: 'b@y.com.br' }), 'membro → e-mail em minúsculas; sem e-mail válido, fora; `id` serve se não houver `studentId`');

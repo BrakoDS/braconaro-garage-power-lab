@@ -497,7 +497,7 @@ Registros do aluno para o coach decidir.
 
 ## Check-in pelo app da uGym — FitControl (`sincronizarUgym`)
 
-O aluno faz o check-in da aula no app da uGym; de 2 em 2 minutos, `sincronizarUgym` lê as
+O aluno faz o check-in da aula no app da uGym; a cada minuto, `sincronizarUgym` lê as
 reservas das aulas de hoje no painel FitControl (`fitcontrol.ugym.com.br`) e cada check-in novo
 vira item em `checkinsUgym/{email}`. A Gestão aplica na ficha (`coach/gestao-de-alunos/ugym-merge.js`,
 com a regra do botão Check-in) e o Painel de Presença mostra **Presente**. Regra em `src/ugym.ts`,

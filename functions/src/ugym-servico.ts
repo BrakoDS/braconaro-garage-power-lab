@@ -1,6 +1,6 @@
 /**
- * A rodada do check-in da uGym: o que `sincronizarUgym` (index.ts) roda de 2
- * em 2 minutos. A regra está em `ugym.ts`; o HTTP, em `ugym-cliente.ts`.
+ * A rodada do check-in da uGym: o que `sincronizarUgym` (index.ts) roda a cada
+ * minuto. A regra está em `ugym.ts`; o HTTP, em `ugym-cliente.ts`.
  *
  *   1. As aulas de hoje no FitControl (relidas de hora em hora; no meio, vêm
  *      do estado guardado).
