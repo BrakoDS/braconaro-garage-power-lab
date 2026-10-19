@@ -261,6 +261,18 @@ export function diasPassadosAlterados(antes: unknown, depois: unknown, datas: Re
   return DIAS_SEMANA.filter((d) => datas[d] < hoje && retrato(diaDe(antes, d)) !== retrato(diaDe(depois, d)));
 }
 
+/**
+ * Os problemas que uma EDIÇÃO de semana publicada cria: os da versão nova que a
+ * versão de antes não tinha, os dois contados com o inventário de hoje. O que a
+ * semana já tinha — um dia que já passou com um equipamento que saiu do
+ * inventário (a terça da W42 com 3 monocross, 15/10/2026) — não trava a edição
+ * das outras sessões; só não pode piorar.
+ */
+export function problemasCriadosPelaEdicao(antes: readonly string[], depois: readonly string[]): string[] {
+  const jaTinha = new Set(antes);
+  return depois.filter((p) => !jaTinha.has(p));
+}
+
 /** As sessões que têm algum dia já passado — numa semana publicada, não se editam. */
 export function sessoesTravadas(dias: unknown, datas: Record<DiaSemana, string>, hoje: string): SessaoH[] {
   return SESSOES_H.filter((s) => diasDaSessao(dias, s).some((d) => datas[d] < hoje));

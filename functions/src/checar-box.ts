@@ -23,7 +23,8 @@ import {
 } from './semana-box';
 import { descansoDaVaga, gerarSemana, idsDaSemana, montarBloco, programarDia, semanaEmBranco } from './gerador-box';
 import {
-  avisosDeEdicao, blocosDaSemana, conflitosDaTroca, diasDaSessao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas, sugestoesPara,
+  avisosDeEdicao, blocosDaSemana, conflitosDaTroca, diasDaSessao, diasPassadosAlterados, opcoesDaVaga, problemasCriadosPelaEdicao,
+  sessoesTravadas, sugestoesPara,
 } from './edicao-box';
 
 let falhas = 0;
@@ -439,6 +440,15 @@ console.log('\nEdição manual: conflitos, sugestões, avisos e trava');
   ok(diasPassadosAlterados(dias, dias, datas, '2026-10-20').length === 0, 'semana igual não acusa nada');
   ok(igual(sessoesTravadas(dias, datas, '2026-10-13'), ['H1']) && igual(sessoesTravadas(dias, datas, '2026-10-15'), ['H1', 'H2']),
     'sessões travadas: as que têm algum dia passado');
+
+  // Semana publicada editada depois de mudar o inventário (a W42, 15/10/2026: a terça já tinha usado 3 monocross).
+  const terca3 = 'terca: 3 estações de monocross, e o box tem 2 ativa(s).';
+  ok(problemasCriadosPelaEdicao([terca3], [terca3]).length === 0,
+    'problema que a semana já tinha (dia que passou, inventário que mudou) não trava a edição do H3');
+  ok(igual(problemasCriadosPelaEdicao([terca3], [terca3, 'sexta: 3 estações de smith, e o box tem 2 ativa(s).']),
+    ['sexta: 3 estações de smith, e o box tem 2 ativa(s).']), 'problema que a edição CRIA continua travando');
+  ok(igual(problemasCriadosPelaEdicao([], ['x']), ['x']) && problemasCriadosPelaEdicao(['x'], []).length === 0,
+    'semana sem problema: qualquer problema novo trava; corrigir um problema nunca trava');
 }
 
 console.log('\nSemana em branco (feriado, recesso, evento) e um dia programado depois');
