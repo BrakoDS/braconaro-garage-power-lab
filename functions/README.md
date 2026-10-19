@@ -6,6 +6,7 @@ Região `southamerica-east1`, Node 22, TypeScript (`src/` → `lib/`).
 npm run build                      # tsc
 npm run checar                     # lógica pura (IA, preços, Montador, conquistas e semana do box), sem rede
 npm run checar:box                 # só a semana do box
+npm run checar:catalogo            # só os ajustes do catálogo (tela Catálogo do coach)
 npm run checar:hiit                # só o gerador do HIIT
 npm run checar:cross               # só os geradores do Cross e do Hyrox
 npm run checar:pix                 # Pix dinâmico: conta × Gestão, assinatura, gerar, webhook (sem rede)
@@ -25,6 +26,7 @@ leitura** para qualquer cliente (`firestore.rules`); quem grava são estas funç
 | Caminho | Quem grava | Quem lê |
 | --- | --- | --- |
 | `catalogoExercicios/{id}` | `seed-catalogo.ts` | qualquer logado |
+| `catalogoAjustes/{id}` | `salvarExercicioCatalogo` / `ativarExercicioCatalogo` | o coach |
 | `coaches/{uid}/semanas/{AAAA-Www}` | `gerarMatrizSemanalBox` / `salvarSemanaBox` / `publicarSemanaBox` | o coach; aluno logado se `status == 'publicado'` |
 | `coaches/{uid}/inventario/atual` | `salvarInventarioBox` | o coach |
 | `treinoAluno/{email}/historico/{AAAA-MM}` | `registrarSessaoAluno` | o aluno e o coach |
@@ -252,6 +254,45 @@ servidor calcula o resto. Não publica com: WOD com menos movimentos que o forma
   - `opcoesTrocaHyroxBox({ semanaId, estacao })`: a outra variante da estação (a substituta, ou de
     volta à da prova), bloqueada se o equipamento dela não está ativo.
   - Os dois dizem `travada`, `temHoje` e `publicada`, como as trocas do H e do HIIT.
+
+### Catálogo de Exercícios (`src/catalogo-ajustes.ts`, conferido pelo `checar-catalogo`, 18/10/2026)
+
+**Quem o gerador lê:** o FIRESTORE. `gerarMatrizSemanalBox`, `programarDiaBox`, as trocas
+(`opcoesTroca*Box`), `salvarSemanaBox`/`publicarSemanaBox` e o volume do aluno
+(`registrarSessaoAluno`) leem `catalogoExercicios/` por `carregarCatalogo`/`carregarCatalogoInteiro`;
+`catalogo-base.ts`, `catalogo-hiit.ts` e `catalogo-cross.ts` são só a fonte do seed. As 8 estações do
+Hyrox ficam fora (`catalogo-hyrox.ts`), e a lousa tem a memória dela em `coaches/{uid}/catalogoExercicios`.
+
+**A camada de ajustes:** a aba Catálogo da Semana do Box (`coach/semana-do-box/#catalogo`) grava ao lado,
+em `catalogoAjustes/{id}`, e o servidor aplica por cima na leitura (`catalogoEfetivo`) — o seed continua
+reescrevendo `catalogoExercicios/` sem apagar nada do coach:
+
+| Campo | O quê |
+| --- | --- |
+| `campos` | Item do seed: só o que o coach mudou (nome, músculos, equipamentos, adaptações, unilateral). O resto continua vindo do seed. |
+| `criado: true` | Exercício novo (id `coach_…`): `campos` é o item inteiro, com a vaga de força, o `hiit` e/ou o `cross`. |
+| `ativo: false` | O gerador e as trocas não oferecem. Semana que já usa continua válida; o volume continua contando. |
+
+- Ajuste que não fecha (`lerItemCatalogo`) é ignorado e vale o item do seed (o log da listagem avisa).
+- O gerador sorteia só entre os ativos (`ativosDe`); as trocas recebem o catálogo inteiro (o conflito conta
+  o que já está na semana) e tiram os desativados das opções e das sugestões (`semInativos`).
+- Desativar o ÚLTIMO exercício ativo de uma vaga do H é recusado (o bloco sairia com menos de 6); o que só
+  empobrece o sorteio (vaga com menos opções que sessões, estação do HIIT com menos de 4, Cross sem foco)
+  volta em `avisos`.
+- Editar não muda a vaga, as estações nem a parte do Cross de um item do seed (mexeria em semanas gravadas):
+  isso só se escolhe ao criar. Semana já gravada guarda o nome de quando foi salva.
+
+**Callables:** `listarCatalogoBox` (o catálogo efetivo, as estações do Hyrox e o vocabulário aceito),
+`salvarExercicioCatalogo` (criar sem `id`; editar; `{ id, restaurar: true }` volta ao seed) e
+`ativarExercicioCatalogo({ id, ativo })`. O fixture da tela (`coach/semana-do-box/core/fixtures/catalogo.json`)
+é a saída real do `linhasDoCatalogo`, conferida pelo `checar-catalogo` (`--gravar-fixture` regrava).
+
+Publicar: as regras (`firebase deploy --only firestore:rules`, ou o merge na master) e as funções — as 3
+novas e as que passaram a ler os ajustes:
+
+```bash
+firebase deploy --only functions:listarCatalogoBox,functions:salvarExercicioCatalogo,functions:ativarExercicioCatalogo,functions:gerarMatrizSemanalBox,functions:programarDiaBox,functions:salvarSemanaBox,functions:publicarSemanaBox,functions:opcoesTrocaBox,functions:opcoesTrocaHiitBox,functions:opcoesTrocaCrossBox,functions:registrarSessaoAluno
+```
 
 ### Semana em branco e dia sem aula (06/10/2026)
 

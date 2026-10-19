@@ -72,7 +72,7 @@ import {
 } from './modelo-box';
 import {
   aplicarInventario, contaDaSemana, historicoComSessao, intervaloDaSemana, lerDias,
-  diasComConteudoGravado, lerInventario, lerItemCatalogo, lerSessaoAluno, reconferirSemana, semanaAnterior,
+  diasComConteudoGravado, lerInventario, lerSessaoAluno, reconferirSemana, semanaAnterior,
   semanaDoPedido, semanaEmBrancoNosDias, volumeDaSessao, lerAviso, type ContaDaSemana, type IntervaloSemana, type SessaoLida,
 } from './semana-box';
 import { crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit, programarDia, semanaEmBranco } from './gerador-box';
@@ -80,6 +80,10 @@ import { catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox } from './volume-cr
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, sessoesTravadas } from './edicao-box';
 import { hiitTravado, opcoesDoHiit } from './edicao-hiit';
 import { conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
+import {
+  ativosDe, catalogoEfetivo, efeitoDeDesativar, lerPedidoExercicio, linhasDoCatalogo, semInativos,
+  type CatalogoEfetivo, type PedidoExercicio,
+} from './catalogo-ajustes';
 
 initializeApp();
 
@@ -1986,20 +1990,29 @@ function idsDosDias(dias: unknown): string[] {
 }
 
 /**
- * Os itens do catálogo com esses ids — de força, só de HIIT e só de Cross. Item
- * torto fica de fora (ver `lerItemCatalogo`); quem recusa item sem força no bloco
- * de força é `lerDias`.
+ * Os itens do catálogo com esses ids — de força, só de HIIT e só de Cross —, já
+ * com os ajustes do coach (`catalogoAjustes/`, ver `catalogo-ajustes.ts`): nome e
+ * músculos editados e exercícios criados por ele. Desativado continua aqui —
+ * semana gravada e volume leem; só o sorteio o deixa de fora. Item torto fica de
+ * fora (ver `lerItemCatalogo`); quem recusa item sem força no bloco de força é
+ * `lerDias`.
  */
 async function carregarCatalogo(db: Firestore, ids: string[]): Promise<Map<string, ItemCatalogoBox>> {
-  const unicos = [...new Set(ids)];
-  const mapa = new Map<string, ItemCatalogoBox>();
-  if (!unicos.length) return mapa;
-  const docs = await db.getAll(...unicos.map((id) => db.doc(`catalogoExercicios/${id}`)));
-  for (const d of docs) {
-    const item = lerItemCatalogo(d.data());
-    if (item) mapa.set(d.id, item);
-  }
-  return mapa;
+  const unicos = [...new Set(ids)].filter((id) => EH_ID_CATALOGO.test(id));
+  if (!unicos.length) return new Map();
+  const [bases, ajustes] = await Promise.all([
+    db.getAll(...unicos.map((id) => db.doc(`catalogoExercicios/${id}`))),
+    db.getAll(...unicos.map((id) => db.doc(`catalogoAjustes/${id}`))),
+  ]);
+  return catalogoEfetivo(
+    bases.filter((d) => d.exists).map((d) => [d.id, d.data()] as const),
+    ajustes.filter((d) => d.exists).map((d) => [d.id, d.data()] as const),
+  ).itens;
+}
+
+/** As opções de uma troca sem os desativados (`semInativos`); `null` passa — a vaga não existe. */
+function semInativosOuNulo<T extends Parameters<typeof semInativos>[0]>(resultado: T | null, inativos: ReadonlySet<string>): T | null {
+  return resultado && semInativos(resultado, inativos);
 }
 
 /** Só os de força (com instância): o que o bloco H e a troca manual enxergam. */
@@ -2141,12 +2154,13 @@ export const programarDiaBox = onCall(
     const db = getFirestore();
     const ref = refSemana(db, uid, semanaId);
     const anteriorId = semanaAnterior(semanaId);
-    const [gravada, inv, anterior, catalogo] = await Promise.all([
+    const [gravada, inv, anterior, efetivo] = await Promise.all([
       ref.get(),
       refInventario(db, uid).get(),
       anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
       carregarCatalogoInteiro(db),
     ]);
+    const catalogo = efetivo.itens;
     if (!gravada.exists) throw new HttpsError('failed-precondition', 'Essa semana ainda não existe: gere a semana ou crie em branco antes.');
     if (!catalogo.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
     const atual = lerDias(gravada.data()?.dias, catalogo);
@@ -2157,8 +2171,9 @@ export const programarDiaBox = onCall(
 
     const { limitesAtivos, alunosPorAula } = lerInventario(inv.data());
     const v = gravada.data()?.geracao?.variacao;
+    // O sorteio só entre os ativos; a semana gravada (que pode ter um desativado) é lida com todos.
     const sorteada = gerarSemana({
-      semanaId, catalogo, limites: limitesAtivos, alunosPorAula,
+      semanaId, catalogo: ativosDe(efetivo), limites: limitesAtivos, alunosPorAula,
       diasDaSemanaAnterior: anterior?.data()?.dias, variacao: Number.isInteger(v) ? v : 0,
     });
     const lido = lerDias(programarDia(atual.dias, dia, sorteada.dias), catalogo);
@@ -2195,21 +2210,21 @@ export const opcoesTrocaBox = onCall(
 
     const db = getFirestore();
     const anteriorId = semanaAnterior(semanaId);
-    const [semana, catalogo, inv, anterior] = await Promise.all([
+    const [semana, efetivo, inv, anterior] = await Promise.all([
       refSemana(db, uid, semanaId).get(),
-      carregarCatalogoInteiro(db).then(soForca),
+      carregarCatalogoInteiro(db),
       refInventario(db, uid).get(),
       anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
     ]);
     const doc = semana.data();
     if (!doc) throw new HttpsError('not-found', 'Gere a semana antes de editar.');
 
-    const resultado = opcoesDaVaga({
-      dias: doc.dias, sessao, posicao, catalogo,
+    const resultado = semInativosOuNulo(opcoesDaVaga({
+      dias: doc.dias, sessao, posicao, catalogo: soForca(efetivo.itens),
       limites: lerInventario(inv.data()).limitesAtivos,
       semanaPassada: idsDaSemana(anterior?.data()?.dias),
       semente: `${semanaId}:${sessao}:${posicao}`,
-    });
+    }), efetivo.inativos);
     if (!resultado) throw new HttpsError('not-found', `${sessao} não tem a vaga ${posicao} nesta semana.`);
 
     const hoje = diaSaoPaulo();
@@ -2252,7 +2267,7 @@ export const opcoesTrocaHiitBox = onCall(
 
     const db = getFirestore();
     const anteriorId = semanaAnterior(semanaId);
-    const [semana, catalogo, inv, anterior] = await Promise.all([
+    const [semana, efetivo, inv, anterior] = await Promise.all([
       refSemana(db, uid, semanaId).get(),
       carregarCatalogoInteiro(db),
       refInventario(db, uid).get(),
@@ -2262,10 +2277,10 @@ export const opcoesTrocaHiitBox = onCall(
     if (!doc) throw new HttpsError('not-found', 'Gere a semana antes de editar.');
 
     const { limitesAtivos, alunosPorAula } = lerInventario(inv.data());
-    const resultado = opcoesDoHiit({
-      dias: doc.dias, estacao: dados.estacao as string, slot, catalogo, limites: limitesAtivos, alunosPorAula,
+    const resultado = semInativosOuNulo(opcoesDoHiit({
+      dias: doc.dias, estacao: dados.estacao as string, slot, catalogo: efetivo.itens, limites: limitesAtivos, alunosPorAula,
       semanaPassada: idsDoHiit(anterior?.data()?.dias),
-    });
+    }), efetivo.inativos);
     if (!resultado) throw new HttpsError('not-found', `Esta semana não tem o slot ${slot} na estação ${dados.estacao} do HIIT.`);
 
     const hoje = diaSaoPaulo();
@@ -2300,7 +2315,7 @@ export const opcoesTrocaCrossBox = onCall(
 
     const db = getFirestore();
     const anteriorId = semanaAnterior(semanaId);
-    const [semana, catalogo, inv, anterior] = await Promise.all([
+    const [semana, efetivo, inv, anterior] = await Promise.all([
       refSemana(db, uid, semanaId).get(),
       carregarCatalogoInteiro(db),
       refInventario(db, uid).get(),
@@ -2310,10 +2325,10 @@ export const opcoesTrocaCrossBox = onCall(
     if (!doc) throw new HttpsError('not-found', 'Gere a semana antes de editar.');
 
     const { limitesAtivos, alunosPorAula } = lerInventario(inv.data());
-    const resultado = opcoesDoCross({
-      dias: doc.dias, posicao, catalogo, limites: limitesAtivos as Record<RecursoCross, number>, alunosPorAula,
+    const resultado = semInativosOuNulo(opcoesDoCross({
+      dias: doc.dias, posicao, catalogo: efetivo.itens, limites: limitesAtivos as Record<RecursoCross, number>, alunosPorAula,
       semanaPassada: crossDaSemana(anterior?.data()?.dias).ids,
-    });
+    }), efetivo.inativos);
     if (!resultado) throw new HttpsError('not-found', `Esta semana não tem o movimento ${posicao} no WOD.`);
 
     const hoje = diaSaoPaulo();
@@ -2416,16 +2431,109 @@ export const publicarSemanaBox = onCall(
   },
 );
 
-/** O catálogo inteiro (~80 documentos: força, só HIIT e só Cross). Item torto fica de fora. */
-async function carregarCatalogoInteiro(db: Firestore): Promise<Map<string, ItemCatalogoBox>> {
-  const snap = await db.collection('catalogoExercicios').get();
-  const mapa = new Map<string, ItemCatalogoBox>();
-  for (const d of snap.docs) {
-    const item = lerItemCatalogo(d.data());
-    if (item) mapa.set(d.id, item);
-  }
-  return mapa;
+/**
+ * O catálogo inteiro (~80 documentos: força, só HIIT e só Cross) com os ajustes
+ * do coach por cima (`catalogo-ajustes.ts`). Item torto fica de fora. O gerador
+ * sorteia só entre os ativos (`ativosDe`); as trocas recebem `itens` inteiro (o
+ * conflito conta o que já está na semana) e tiram os inativos das opções
+ * (`semInativos`).
+ */
+async function carregarCatalogoInteiro(db: Firestore): Promise<CatalogoEfetivo> {
+  const [bases, ajustes] = await Promise.all([
+    db.collection('catalogoExercicios').get(),
+    db.collection('catalogoAjustes').get(),
+  ]);
+  return catalogoEfetivo(bases.docs.map((d) => [d.id, d.data()] as const), ajustes.docs.map((d) => [d.id, d.data()] as const));
 }
+
+/* ───────────────────── Catálogo de Exercícios (tela do coach) ───────────────────── */
+
+const refAjuste = (db: Firestore, id: string) => db.doc(`catalogoAjustes/${id}`);
+
+/**
+ * O catálogo que o gerador usa, para a tela "Catálogo" da Semana do Box: todos
+ * os exercícios (seed + ajustes do coach), ativos ou não, as 8 estações do Hyrox
+ * (só leitura: ficam em `catalogo-hyrox.ts`) e o vocabulário que o servidor
+ * aceita (músculos, equipamentos, vagas, estações, padrões) — a tela não tem
+ * cópia dessas listas.
+ */
+export const listarCatalogoBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    exigirCoach(req);
+    const efetivo = await carregarCatalogoInteiro(getFirestore());
+    if (!efetivo.itens.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
+    if (efetivo.ignorados.length) logger.warn('Ajustes do catálogo ignorados (não fecham).', { ids: efetivo.ignorados });
+    return linhasDoCatalogo(efetivo);
+  },
+);
+
+/**
+ * Cria um exercício (sem `id`), edita (nome, músculos, equipamentos, adaptações,
+ * unilateral) ou volta um item do seed ao original (`restaurar: true`). Grava
+ * SÓ em `catalogoAjustes/{id}` — o seed (`catalogoExercicios/`) fica intocado e o
+ * próximo `seed:catalogo` não apaga nada do coach. Vale na próxima geração e nas
+ * trocas; semana já gravada guarda o nome de quando foi salva.
+ */
+export const salvarExercicioCatalogo = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const db = getFirestore();
+    const efetivo = await carregarCatalogoInteiro(db);
+    const lido = lerPedidoExercicio((req.data ?? {}) as PedidoExercicio, efetivo);
+    if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
+
+    const ref = refAjuste(db, lido.id);
+    const quem = { atualizadoEm: FieldValue.serverTimestamp(), atualizadoPor: uid };
+    if (lido.campos) {
+      await ref.set({ campos: lido.campos, criado: lido.criado, ...quem }, { merge: true });
+    } else {
+      // Sem campo editado: some o `campos`; o documento fica só se guardar a desativação.
+      const atual = (await ref.get()).data();
+      if (atual?.ativo === false) await ref.set({ campos: FieldValue.delete(), criado: false, ...quem }, { merge: true });
+      else if (atual) await ref.delete();
+    }
+    logger.info('Catálogo: exercício salvo.', { uid, id: lido.id, criado: lido.criado, campos: lido.campos ? Object.keys(lido.campos) : [] });
+    return { id: lido.id, criado: lido.criado, nome: lido.item.nome };
+  },
+);
+
+/**
+ * Ativa ou desativa um exercício (equipamento quebrado, exercício fora de
+ * moda). Desativado: o gerador não sorteia e as trocas não oferecem; a semana
+ * que já o usa continua válida e o volume dele continua contando. Recusa
+ * desativar o último exercício ativo de uma vaga do H (a semana não teria como
+ * ser gerada); o resto que empobrece o sorteio volta em `avisos`.
+ */
+export const ativarExercicioCatalogo = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { id?: unknown; ativo?: unknown };
+    if (typeof dados.id !== 'string' || !EH_ID_CATALOGO.test(dados.id) || typeof dados.ativo !== 'boolean') {
+      throw new HttpsError('invalid-argument', 'Mande o id do exercício e ativo (true ou false).');
+    }
+    const { id, ativo } = dados as { id: string; ativo: boolean };
+    const db = getFirestore();
+    const efetivo = await carregarCatalogoInteiro(db);
+    if (!efetivo.itens.has(id)) throw new HttpsError('not-found', 'Esse exercício não está no catálogo.');
+
+    let avisos: string[] = [];
+    if (!ativo) {
+      const efeito = efeitoDeDesativar(efetivo, id);
+      if (efeito.erro) throw new HttpsError('failed-precondition', efeito.erro);
+      avisos = efeito.avisos;
+    }
+    const ref = refAjuste(db, id);
+    const atual = (await ref.get()).data();
+    if (ativo && atual && !atual.campos) await ref.delete(); // só guardava a desativação
+    else if (!ativo || atual) await ref.set({ ativo, atualizadoEm: FieldValue.serverTimestamp(), atualizadoPor: uid }, { merge: true });
+    // (ativar o que nunca teve ajuste: nada a gravar)
+    logger.info('Catálogo: exercício ativado/desativado.', { uid, id, ativo });
+    return { id, ativo, avisos };
+  },
+);
 
 /**
  * Monta a semana do box no SERVIDOR e grava como `rascunho`.
@@ -2460,8 +2568,9 @@ export const gerarMatrizSemanalBox = onCall(
 
     const db = getFirestore();
     const anteriorId = semanaAnterior(semanaId);
+    // O gerador sorteia só entre os ATIVOS: o exercício desativado na tela Catálogo não entra.
     const [catalogo, inv, anterior] = await Promise.all([
-      branco ? Promise.resolve(new Map<string, ItemCatalogoBox>()) : carregarCatalogoInteiro(db),
+      branco ? Promise.resolve(new Map<string, ItemCatalogoBox>()) : carregarCatalogoInteiro(db).then(ativosDe),
       refInventario(db, uid).get(),
       anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
     ]);
