@@ -2978,7 +2978,7 @@ const UGYM_SENHA = defineSecret('UGYM_SENHA');
 let clienteUgymDaInstancia: ReturnType<typeof clienteFitControl> | null = null;
 
 /**
- * De 2 em 2 minutos: as reservas das aulas de hoje no FitControl, e o check-in
+ * A cada minuto: as reservas das aulas de hoje no FitControl, e o check-in
  * que o aluno fez pelo app da uGym vira item em `checkinsUgym/{email}` — a
  * Gestão aplica na ficha (`ugym-merge.js`) e o Painel de Presença mostra
  * "Presente". Fora da janela das aulas (30 min antes … 60 min depois), a rodada
@@ -2986,7 +2986,7 @@ let clienteUgymDaInstancia: ReturnType<typeof clienteFitControl> | null = null;
  */
 export const sincronizarUgym = onSchedule(
   {
-    schedule: 'every 2 minutes',
+    schedule: 'every 1 minutes',
     timeZone: 'America/Sao_Paulo',
     region: 'southamerica-east1',
     secrets: [UGYM_USUARIO, UGYM_SENHA],
@@ -2995,7 +2995,7 @@ export const sincronizarUgym = onSchedule(
     // Uma rodada por vez: duas em paralelo leriam o mesmo livro e criariam o mesmo item duas vezes.
     maxInstances: 1,
     concurrency: 1,
-    retryCount: 0, // a próxima rodada vem em 2 minutos
+    retryCount: 0, // a próxima rodada vem em 1 minuto
   },
   async () => {
     clienteUgymDaInstancia ??= clienteFitControl({ usuario: UGYM_USUARIO.value(), senha: UGYM_SENHA.value() }, relogioDoBox);

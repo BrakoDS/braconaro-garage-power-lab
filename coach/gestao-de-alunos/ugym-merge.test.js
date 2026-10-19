@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aplicarCheckinsNaFicha } from './ugym-merge.js?v=23';
+import { aplicarCheckinsNaFicha, temItens } from './ugym-merge.js?v=23';
 import { aulasDoDia } from './presenca-regras.js?v=23';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08';
@@ -114,4 +114,16 @@ test('a ficha recebida não é alterada', () => {
   aplicarCheckinsNaFicha(a, { 'ugym|1': item(QUA, '06:58') });
   assert.deepEqual(a.presencas, []);
   assert.deepEqual(a.presencaHoras, {});
+});
+
+test('a hora de chegada é a do item, sem converter de novo (o servidor já entrega a hora local do box)', () => {
+  // O caso de 19/10: check-in às 07:11 no box. O servidor grava agora: '07:11'; a ficha tem de dizer 07:11, e não 10:11 nem 04:11.
+  const r = aplicarCheckinsNaFicha(ana(), { 'ugym|65005': item(QUA, '07:11', 1, '07:05') });
+  assert.equal(r.patch.presencaHoras[QUA], '07:11');
+});
+
+test('o ouvinte só acorda a Gestão quando há item para aplicar', () => {
+  assert.equal(temItens([]), false);
+  assert.equal(temItens([{ itens: {} }, { atualizadoEm: 1 }, null]), false, 'o consumo deixa documentos vazios: não acorda (sem laço)');
+  assert.equal(temItens([{ itens: {} }, { itens: { 'ugym|1': item(QUA, '07:11') } }]), true);
 });

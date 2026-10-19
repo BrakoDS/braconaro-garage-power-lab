@@ -85,11 +85,35 @@ export function abrirPagina(data: unknown): { lista: Dados[]; total: number } {
   return { lista: d.list.map(mapa), total: Number.isFinite(total) ? total : d.list.length };
 }
 
-/** 'AAAA-MM-DD HH:MM[:SS]' (ou com T) → dia e hora de parede; número = instante (s ou ms) no fuso do box. */
-export function relogioDoTexto(v: unknown, relogioDoInstante: (d: Date) => Relogio): Relogio | null {
+/**
+ * Em que relógio o FitControl escreve cada data — ele mistura os dois, sem
+ * marca de fuso em nenhum (conferido com os check-ins reais de 19/10/2026: o
+ * check-in das 07:11 veio "10:11", e a aula das 07:05 veio "07:05"):
+ *   'parede' — a GRADE (`classStartDate`, `memberClassStartDate`…): a hora
+ *              local do box, como o coach cadastrou;
+ *   'utc'    — os CARIMBOS de evento (`memberCheckinDate`, `memberDate`): UTC.
+ *              Lido como hora de parede, o check-in saía 3h adiantado — e o
+ *              das aulas depois das 21h caía no dia seguinte.
+ */
+export type RelogioDaApi = 'parede' | 'utc';
+
+/**
+ * 'AAAA-MM-DD HH:MM[:SS]' (ou com T) → dia e hora de parede do box. Texto com
+ * fuso explícito (Z, ±HH:MM) e número (instante em s ou ms) são instantes, e
+ * vão para o fuso do box em qualquer caso; texto sem fuso segue `fonte`.
+ */
+export function relogioDoTexto(v: unknown, relogioDoInstante: (d: Date) => Relogio, fonte: RelogioDaApi = 'parede'): Relogio | null {
   if (typeof v === 'number' && Number.isFinite(v) && v > 0) return relogioDoInstante(new Date(v < 1e12 ? v * 1000 : v));
-  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/.exec(texto(v));
-  return m ? { hoje: m[1], agora: `${m[2]}:${m[3]}` } : null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*(Z|[+-]\d{2}:?\d{2})?/.exec(texto(v));
+  if (!m) return null;
+  const [, a, mes, d, h, min, s = '00', fuso] = m;
+  if (fuso) {
+    const iso = `${a}-${mes}-${d}T${h}:${min}:${s}${fuso === 'Z' ? 'Z' : `${fuso.slice(0, 3)}:${fuso.slice(-2)}`}`;
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? relogioDoInstante(new Date(t)) : null;
+  }
+  if (fonte === 'utc') return relogioDoInstante(new Date(Date.UTC(+a, +mes - 1, +d, +h, +min, +s)));
+  return { hoje: `${a}-${mes}-${d}`, agora: `${h}:${min}` };
 }
 
 export interface AulaUgym { id: string; nome: string; dia: string; inicio: string; fim: string }
@@ -130,7 +154,8 @@ export function lerReservas(linhas: Dados[], relogioDoInstante: (d: Date) => Rel
     if (!id || !aulaId || !alunoUgymId || !aula) continue;
     out.push({
       id, aulaId, alunoUgymId, noid: texto(l.memberStudentNoid).slice(0, 60),
-      dia: aula.hoje, hora: aula.agora, checkin: relogioDoTexto(l.memberCheckinDate, relogioDoInstante),
+      // A aula é hora de parede; o check-in é um carimbo em UTC (ver RelogioDaApi).
+      dia: aula.hoje, hora: aula.agora, checkin: relogioDoTexto(l.memberCheckinDate, relogioDoInstante, 'utc'),
     });
   }
   return out;

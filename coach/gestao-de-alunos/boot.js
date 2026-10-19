@@ -32,7 +32,7 @@ import * as eventos from './eventos.js?v=23';
 import { publicarPortal } from './portal-sync.js?v=23';
 import { mergarInboxes } from './portal-merge.js?v=23';
 import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=23';
-import { mesclarCheckinsUgym } from './ugym-merge.js?v=23';
+import { mesclarCheckinsUgym, ouvirCheckinsUgym } from './ugym-merge.js?v=23';
 import { sincronizarAvisos } from './avisos.js?v=23';
 import { sincronizarDesafios } from './desafios.js?v=23';
 import { estado, emit, EVENTOS } from './estado.js?v=23';
@@ -108,19 +108,32 @@ function tratarAusencias() {
 /* ---------- Check-in pelo app da uGym (ugym-merge.js) ---------- */
 
 let _ugymRodando = /** @type {Promise<void>|null} */ (null);
+let _ugymDeNovo = false;
 /**
  * Aplica nas fichas os check-ins que os alunos fizeram no app da uGym (quem lê
  * o FitControl é a Cloud Function sincronizarUgym) — uma rodada por vez, só com
- * a nuvem em dia (v2), como os avisos de ausência.
+ * a nuvem em dia (v2), como os avisos de ausência. Um check-in que chega no
+ * meio de uma rodada não espera a próxima: a rodada roda de novo ao terminar.
  */
 function tratarCheckinsUgym() {
   const uid = estado.uid;
   if (!uid || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
-  if (_ugymRodando) return _ugymRodando;
+  if (_ugymRodando) { _ugymDeNovo = true; return _ugymRodando; }
   _ugymRodando = mesclarCheckinsUgym({ coachUid: uid, alunos: db.listar(), aplicar: db.atualizar, registrar: reg })
     .then((n) => { if (n) { renderLista(); recarregarFichaAberta(); emit(EVENTOS.ALUNOS_MUDARAM); } })
-    .finally(() => { _ugymRodando = null; });
+    .finally(() => {
+      _ugymRodando = null;
+      if (_ugymDeNovo) { _ugymDeNovo = false; tratarCheckinsUgym(); }
+    });
   return _ugymRodando;
+}
+
+let _ugymOuvindo = false;
+/** Ao vivo: o check-in que o servidor grava é aplicado em segundos, sem esperar a rodada de 2 min. */
+function ouvirUgymAoVivo() {
+  if (_ugymOuvindo) return;
+  _ugymOuvindo = true;
+  ouvirCheckinsUgym(() => { tratarCheckinsUgym(); });
 }
 
 let _pixLigado = false;
@@ -183,7 +196,7 @@ async function entrar(user) {
     // 1c) os avisos "Não irei ao treino" viram desmarcação ou falta na ficha
     if (nuvemEmDia) await tratarAusencias();
     // 1d) os check-ins feitos no app da uGym viram presença na ficha
-    if (nuvemEmDia) await tratarCheckinsUgym();
+    if (nuvemEmDia) { await tratarCheckinsUgym(); ouvirUgymAoVivo(); }
     // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
     if (nuvemEmDia) publicarPortal(db.listar());
     // 3) puxa o mural de avisos + desafios da nuvem (para editar no mesmo estado em qualquer aparelho)
