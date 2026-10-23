@@ -174,8 +174,9 @@ function excedentes(ids: string[], ctx: ContextoBloco): { recursos: RecursoInven
   return { recursos, sobra: recursos.reduce((s, r) => s + (consumo[r] ?? 0) - ctx.limites[r], 0) };
 }
 
+// "> 0", não "=== 1": o crucifixo no crossover ocupa 2 monocross e também USA monocross.
 const usa = (id: string, r: RecursoInventario, ctx: ContextoBloco): boolean =>
-  consumoDoDia([{ exercicioId: id }], ctx.catalogo)[r] === 1;
+  (consumoDoDia([{ exercicioId: id }], ctx.catalogo)[r] ?? 0) > 0;
 
 export interface BlocoGerado {
   ids: string[];

@@ -54,6 +54,8 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     nome: 'Crucifixo no crossover medial', instancia: 'empurrar_horizontal',
     musculoPrincipal: ['peito'], musculosSecundarios: [],
     equipamentos: ['monocross'],
+    // As 2 polias ao mesmo tempo: ocupa os 2 monocross do box (decisão do coach, 23/10/2026).
+    unidades: { monocross: 2 },
     adaptacoes: { ombro: 'supino_halter' },
   },
 
@@ -115,22 +117,7 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     equipamentos: ['barra', 'anilhas'],
     adaptacoes: { lombar: 'remada_halter_unilateral' },
   },
-  remada_trx: {
-    nome: 'Remada no TRX', instancia: 'puxar_horizontal',
-    musculoPrincipal: ['costas'], musculosSecundarios: ['biceps', 'core'],
-    equipamentos: ['trx'],
-    hiit: { estacoes: ['superiores'] },
-    adaptacoes: {},
-    cross: {
-      padrao: 'puxar', unidade: 'reps', rx: 12,
-      tecnica: {
-        categoria: 'ginastica', tipo: 'skill', minutos: 10, seriesEquivalentes: 3,
-        dinamica: 'EMOM 10 min: 8–10 remadas estritas, ajustando o ângulo do corpo.',
-        objetivo: 'Retração das escápulas e corpo em prancha do começo ao fim.',
-        chave: 'mantenha o corpo em prancha e puxe com as escápulas, não com os braços',
-      },
-    },
-  },
+  // A Remada no TRX saiu da hipertrofia (23/10/2026): está em `catalogo-hiit.ts`, só HIIT e Cross.
   face_pull_monocross: {
     nome: 'Face pull na corda', instancia: 'puxar_horizontal',
     musculoPrincipal: ['ombro', 'costas'], musculosSecundarios: [],
@@ -232,13 +219,8 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     hiit: { estacoes: ['pernas'] },
     adaptacoes: { joelho: 'ponte_gluteo' },
   },
-  afundo_trx: {
-    nome: 'Afundo no TRX', instancia: 'agachar',
-    musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: [],
-    equipamentos: ['trx'],
-    unilateral: true,
-    adaptacoes: { joelho: 'ponte_gluteo' },
-  },
+  // O Afundo no TRX saiu da hipertrofia (23/10/2026): está em `catalogo-hiit.ts` (estação Pernas) — segue
+  // como a adaptação de mobilidade do afundo com halteres e do búlgaro.
 
   /* ───────────── estender quadril ───────────── */
   terra_barra_livre: {

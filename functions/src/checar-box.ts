@@ -18,8 +18,8 @@ import {
 import {
   alertasDaSemana, aplicarInventario, consumoDoDia, contaDaSemana, diasComConteudoGravado, historicoComSessao, intervaloDaSemana,
   lerAviso, lerDias, semanaEmBrancoNosDias,
-  lerExercicioCatalogo, lerInventario, lerSessaoAluno, problemasParaPublicar, reconferirSemana, semanaAnterior, semanaDoPedido,
-  volumeDaSessao,
+  lerExercicioCatalogo, lerInventario, lerItemCatalogo, lerSessaoAluno, problemasParaPublicar, reconferirSemana, recursosDo,
+  semanaAnterior, semanaDoPedido, volumeDaSessao,
 } from './semana-box';
 import { descansoDaVaga, gerarSemana, idsDaSemana, montarBloco, programarDia, semanaEmBranco } from './gerador-box';
 import {
@@ -62,7 +62,8 @@ console.log('\nCatálogo base');
   const tortos = ids.filter((id) => !lerExercicioCatalogo(CATALOGO_BASE[id]));
   ok(!tortos.length, 'todo item passa na mesma leitura que o servidor faz', tortos.join(', '));
   const quebradas = ids.flatMap((id) => Object.entries(CATALOGO_BASE[id].adaptacoes)
-    .filter(([, alvo]) => !CATALOGO_BASE[alvo!] || alvo === id).map(([k, alvo]) => `${id}.${k} → ${alvo}`));
+    // O alvo pode estar em qualquer parte do catálogo (o afundo no TRX, adaptação de mobilidade, é só HIIT desde 23/10/2026).
+    .filter(([, alvo]) => !CATALOGO_COMPLETO[alvo!] || alvo === id).map(([k, alvo]) => `${id}.${k} → ${alvo}`));
   ok(!quebradas.length, 'toda adaptação aponta para OUTRO exercício do catálogo', quebradas.join(', '));
   const semInstancia = INSTANCIAS.filter((i) => !ids.some((id) => CATALOGO_BASE[id].instancia === i));
   ok(!semInstancia.length, 'as 7 instâncias têm exercício', semInstancia.join(', '));
@@ -268,7 +269,10 @@ console.log('\nGerador: matriz, grade e rodízio (catálogo base, inventário pa
   const w42 = gerarSemana({ semanaId: '2026-W42', catalogo: catalogoInteiro, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: w41.dias });
   const usados41 = idsDaSemana(w41.dias);
   const repetidos = [...idsDaSemana(w42.dias)].filter((id) => usados41.has(id));
-  ok(repetidos.length === 0, 'W42 não repete nenhuma variação exata da W41', repetidos.join(', '));
+  // Empurrar horizontal tem 3 vagas por semana; com o crucifixo no crossover ocupando os 2 monocross (23/10/2026),
+  // ele só cabe em dia sem outro monocross, e a vaga pode repetir UM exercício de uma semana para a outra.
+  ok(repetidos.length <= 1 && repetidos.every((id) => CATALOGO_BASE[id]?.instancia === 'empurrar_horizontal'),
+    'W42 não repete a W41 (no máximo 1 de empurrar horizontal, a vaga apertada pelo crossover)', repetidos.join(', '));
   // O único aviso é o do transbordo do SkiErg (turma de 6 × 2 monocross), que não é repetição.
   const avisos42 = w42.avisos.filter((a) => !a.startsWith('Hyrox: SkiErg:'));
   ok(!avisos42.length && w42.avisos.length === 1, 'e sem precisar avisar repetição (só o transbordo do SkiErg)', w42.avisos.join(' | '));
@@ -373,9 +377,63 @@ console.log('\nReconferir semana gravada quando o inventário muda');
   ok(!!torto && torto.alertas.length === 0 && semOMotivo(torto.problemasParaPublicar).length === 0, 'dia sem consumo gravado não estoura nada');
 }
 
+console.log('\nHipertrofia: o crossover ocupa os 2 monocross; TRX fora do H (23/10/2026)');
+{
+  ok(consumoDoDia([{ exercicioId: 'crucifixo_crossover_medial' }], catalogoInteiro).monocross === 2
+    && consumoDoDia([{ exercicioId: 'crucifixo_crossover_medial' }, { exercicioId: 'puxada_aberta_neutra' }], catalogoInteiro).monocross === 3,
+  'o crucifixo no crossover conta 2 monocross (com uma puxada no monocross, 3)');
+  const base = { nome: 'X', instancia: 'empurrar_horizontal', musculoPrincipal: ['peito'], musculosSecundarios: [], equipamentos: ['monocross'], adaptacoes: {} };
+  ok(lerItemCatalogo({ ...base, unidades: { monocross: 2 } })?.unidades?.monocross === 2
+    && lerItemCatalogo({ ...base, unidades: { smith: 2 } }) === null && lerItemCatalogo({ ...base, unidades: { monocross: 1 } }) === null
+    && lerItemCatalogo({ ...base, unidades: { monocross: 11 } }) === null,
+  'unidades: só de recurso que o exercício usa, de 2 a 10');
+
+  /** 40 semanas encadeadas: quantas vezes o crossover sai, o primeiro estouro de monocross e o primeiro TRX no H. */
+  const quarentaSemanas = (cat: ReadonlyMap<string, ItemCatalogo>) => {
+    let anterior: unknown = null;
+    let estourou = '';
+    let crossover = 0;
+    let trxNoH = '';
+    for (let i = 0; i < 40; i++) {
+      const w = gerarSemana({ semanaId: `2027-W${String(i + 1).padStart(2, '0')}`, catalogo: cat, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: anterior, variacao: i });
+      for (const [dia, d] of Object.entries(w.dias)) {
+        const bloco = d.blocoPrincipal.map((e) => e.exercicioId);
+        const mono = consumoDoDia(d.blocoPrincipal, cat).monocross ?? 0;
+        if (mono > INVENTARIO_PADRAO.monocross) estourou ||= `${i}:${dia} ${mono} monocross`;
+        if (bloco.includes('crucifixo_crossover_medial')) {
+          crossover++;
+          const outros = bloco.filter((id) => id !== 'crucifixo_crossover_medial' && recursosDo(cat.get(id)!).includes('monocross'));
+          if (outros.length) estourou ||= `${i}:${dia} crossover + ${outros.join(',')}`;
+        }
+        const trx = bloco.filter((id) => id === 'remada_trx' || id === 'afundo_trx');
+        if (trx.length) trxNoH ||= `${i}:${dia} ${trx.join(',')}`;
+      }
+      anterior = w.dias;
+    }
+    return { estourou, crossover, trxNoH };
+  };
+  const hoje = quarentaSemanas(catalogoInteiro);
+  ok(!hoje.estourou, '40 semanas: nenhum dia passa de 2 monocross, e o crossover nunca divide o dia com outro', hoje.estourou);
+  // Com o catálogo de hoje, TODA puxada vertical é no monocross e H1, H2 e H3 têm essa vaga: o crossover (2) não cabe.
+  ok(hoje.crossover === 0, 'catálogo de hoje: o crossover não é sorteado (toda sessão já tem uma puxada vertical no monocross)');
+  const comBarraFixa = new Map(catalogoInteiro).set('barra_fixa_teste', {
+    nome: 'Barra fixa (teste)', instancia: 'puxar_vertical', musculoPrincipal: ['costas'], musculosSecundarios: ['biceps'],
+    equipamentos: ['peso_corporal'], adaptacoes: {},
+  });
+  const comOpcao = quarentaSemanas(comBarraFixa);
+  ok(!comOpcao.estourou && comOpcao.crossover > 0,
+    `com uma puxada vertical sem monocross, o crossover sai (${comOpcao.crossover}x) e sozinho nos monocross`, comOpcao.estourou);
+  ok(!hoje.trxNoH && !comOpcao.trxNoH, '40 semanas: Remada no TRX e Afundo no TRX nunca no bloco H', hoje.trxNoH || comOpcao.trxNoH);
+  const remada = CATALOGO_COMPLETO.remada_trx;
+  const afundo = CATALOGO_COMPLETO.afundo_trx;
+  ok(remada.instancia === null && !!remada.hiit?.estacoes.includes('superiores') && !!remada.cross?.tecnica
+    && afundo.instancia === null && !!afundo.hiit?.estacoes.includes('pernas') && CATALOGO_BASE.afundo_halter.adaptacoes.mobilidade === 'afundo_trx',
+  'os dois seguem no HIIT (e a remada no Cross, como foco), e o afundo segue como adaptação de mobilidade');
+}
+
 console.log('\nEdição manual: conflitos, sugestões, avisos e trava');
 {
-  const H1 = ['agachamento_smith', 'supino_halter', 'desenvolvimento_halter', 'remada_trx', 'rdl_halter', 'puxada_aberta_neutra'];
+  const H1 = ['agachamento_smith', 'supino_halter', 'desenvolvimento_halter', 'remada_halter_unilateral', 'rdl_halter', 'puxada_aberta_neutra'];
   const H2 = ['rdl_smith', 'remada_cavalinho_fechada', 'puxada_fechada_triangulo', 'afundo_halter', 'flexao_trx', 'pallof_press'];
   const semanaCom = (h1: string[], h2: string[]) => {
     const r = lerDias({
