@@ -165,6 +165,14 @@ test('edição: a troca vale para TODOS os dias da sessão (H1 = segunda e terç
     W42.dias.segunda.blocoPrincipal.map((e) => e.exercicioId), 'sem troca, a semana volta igual');
 });
 
+test('edição: o RIR prescrito (7 × 3) vai junto; semana 6 × 4 continua sem', () => {
+  const comRir = { ...W42, dias: { ...W42.dias, segunda: { ...W42.dias.segunda,
+    blocoPrincipal: W42.dias.segunda.blocoPrincipal.map((e) => ({ ...e, series: 3, rir: '0-3' })) } } };
+  const novo = diasParaSalvar(comRir, [{ sessao: 'H1', posicao: 2, exercicioId: 'supino_smith' }]);
+  assert.ok(novo.segunda.blocoPrincipal.every((e) => e.rir === '0-3'), 'a vaga trocada mantém o RIR');
+  assert.ok(diasParaSalvar(W42).segunda.blocoPrincipal.every((e) => !('rir' in e)), 'sem RIR gravado, não inventa');
+});
+
 test('edição: sessão travada só em semana já publicada com dia passado', () => {
   assert.equal(sessaoEditavel(W42, 'H1', '2026-10-20'), true, 'rascunho nunca trava');
   const pub = { ...W42, status: 'publicado' };

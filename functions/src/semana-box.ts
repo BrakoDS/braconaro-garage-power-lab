@@ -9,7 +9,7 @@
 import { chaveSemana } from './volume-agregado';
 import {
   ADAPTACOES, ALUNOS_POR_AULA_MAX, ALUNOS_POR_AULA_PADRAO, CADENCIA_PADRAO, DIAS_SEMANA, EQUIPAMENTOS, ESTACOES_HIIT,
-  ESTACOES_HYROX, EXERCICIOS_POR_BLOCO, FATOR_SCALED, FORMATO_METABOLICO, FORMATOS_CROSS, FORMATOS_HYROX, INSTANCIAS,
+  ESTACOES_HYROX, EXERCICIOS_POR_BLOCO, EXERCICIOS_POR_BLOCO_6X4, FATOR_SCALED, FORMATO_METABOLICO, FORMATOS_CROSS, FORMATOS_HYROX, INSTANCIAS,
   INVENTARIO_CROSS_HYROX_PADRAO, INVENTARIO_HIIT_PADRAO, INVENTARIO_PADRAO, MATRIZ_H, MINUTOS_CROSS, MODALIDADES,
   MODELOS_HYROX, MUSCULOS, NIVEIS_HYROX, OBSERVACAO_PADRAO, PADROES_CROSS, PESO_PRINCIPAL, PESO_SECUNDARIO, PRESCRICAO_FORCA,
   RECURSO_DO_EQUIPAMENTO, RECURSOS_BOX, RECURSOS_CROSS, REGRA_FORMATO_CROSS, REGRA_FORMATO_HYROX, RODADAS_CROSS,
@@ -35,6 +35,17 @@ const DIA_MS = 864e5;
 
 const EH_SEMANA = /^\d{4}-W\d{2}$/;
 const EH_CADENCIA = /^[0-9X]{4}$/;
+/** RIR prescrito: um número ('2') ou uma faixa crescente ('0-3'), de 0 a 10. */
+const EH_RIR = /^(\d{1,2})(?:-(\d{1,2}))?$/;
+
+/** O RIR prescrito normalizado ('0–3' → '0-3'), ou null se não for um RIR válido. */
+export function lerRir(v: unknown): string | null {
+  const m = EH_RIR.exec(texto(v, 10).replace(/[–—]/g, '-').replace(/\s/g, ''));
+  if (!m) return null;
+  const de = Number(m[1]);
+  const ate = m[2] === undefined ? de : Number(m[2]);
+  return ate <= 10 && de <= ate ? (m[2] === undefined ? `${de}` : `${de}-${ate}`) : null;
+}
 
 /** Lista fechada → type guard. */
 function em<T extends string>(lista: readonly T[], v: unknown): v is T {
@@ -437,8 +448,11 @@ export function lerDias(
       if (!repeticoes) return { erro: `${dia}, ${item.nome}: escreva as repetições.` };
       const descansoSeg = x.descansoSeg === undefined ? entreSeriesSeg : inteiro(x.descansoSeg, 0, 600);
       if (descansoSeg === null) return { erro: `${dia}, ${item.nome}: descanso é um inteiro de 0 a 600 segundos.` };
+      // Sem RIR no pedido, o exercício fica sem (semana 6 × 4): não inventa prescrição.
+      const rir = x.rir === undefined || x.rir === null || x.rir === '' ? undefined : lerRir(x.rir);
+      if (rir === null) return { erro: `${dia}, ${item.nome}: RIR é um número ou uma faixa de 0 a 10 (ex.: 0-3).` };
       bloco.push({
-        exercicioId: id, nome: item.nome, series, repeticoes, descansoSeg,
+        exercicioId: id, nome: item.nome, series, repeticoes, descansoSeg, ...(rir ? { rir } : {}),
         instancia: item.instancia, recursos: recursosDo(item),
       });
     }
@@ -915,7 +929,9 @@ export function problemasParaPublicar(
   const nomes = new Map<string, string>();
   for (const dia of DIAS_SEMANA) {
     const d = dias[dia];
-    if (d.sessaoForca && d.blocoPrincipal.length !== EXERCICIOS_POR_BLOCO) {
+    // 6 é o bloco das semanas 6 × 4, que continuam completas (sem alerta, sem trava).
+    const n = d.blocoPrincipal.length;
+    if (d.sessaoForca && n !== EXERCICIOS_POR_BLOCO && n !== EXERCICIOS_POR_BLOCO_6X4) {
       problemas.push(`${dia}: o bloco do ${d.sessaoForca.sessao} tem ${d.blocoPrincipal.length} de ${EXERCICIOS_POR_BLOCO} exercícios.`);
     }
     // Dia de HIIT SEM estações (semana de antes do gerador) não trava: o dia

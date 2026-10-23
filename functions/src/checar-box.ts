@@ -12,7 +12,7 @@ import { CATALOGO_HIIT } from './catalogo-hiit';
 import { CATALOGO_COMPLETO } from './catalogo-completo';
 import { chaveSemana } from './volume-agregado';
 import {
-  DIAS_SEMANA, INSTANCIAS, INVENTARIO_PADRAO, MATRIZ_H, MAX_TEXTO_AVISO, RECURSOS_INVENTARIO,
+  DIAS_SEMANA, INSTANCIAS, INVENTARIO_PADRAO, MATRIZ_H, MAX_TEXTO_AVISO, RECURSOS_INVENTARIO, SESSOES_H, instanciaDaVaga,
   type DiaProgramado, type DiaSemana, type ExercicioCatalogo, type Instancia, type ItemCatalogo, type RecursoInventario,
 } from './modelo-box';
 import {
@@ -21,7 +21,7 @@ import {
   lerExercicioCatalogo, lerInventario, lerItemCatalogo, lerSessaoAluno, problemasParaPublicar, reconferirSemana, recursosDo,
   semanaAnterior, semanaDoPedido, volumeDaSessao,
 } from './semana-box';
-import { descansoDaVaga, gerarSemana, idsDaSemana, montarBloco, programarDia, semanaEmBranco } from './gerador-box';
+import { gerarSemana, idsDaSemana, montarBloco, programarDia, semanaEmBranco } from './gerador-box';
 import {
   avisosDeEdicao, blocosDaSemana, conflitosDaTroca, diasDaSessao, diasPassadosAlterados, opcoesDaVaga, problemasCriadosPelaEdicao,
   sessoesTravadas, sugestoesPara,
@@ -147,7 +147,7 @@ console.log('\nDias e consumo de equipamento');
   const erro = (entrada: unknown) => { const x = lerDias(entrada, catalogo); return 'erro' in x ? x.erro : ''; };
   ok(!!erro({ domingo: {} }), 'domingo é recusado');
   ok(!!erro({ segunda: { treinos: ['Yoga'] } }), 'modalidade fora da lista é recusada');
-  ok(!!erro({ segunda: { treinos: ['H1'], blocoPrincipal: bloco([...DIA_OK, 'rdl_halter']) } }), '7 exercícios é recusado');
+  ok(!!erro({ segunda: { treinos: ['H1'], blocoPrincipal: bloco([...DIA_OK, 'rdl_halter', 'puxada_aberta_pronada']) } }), '8 exercícios é recusado');
   ok(!!erro({ segunda: { treinos: ['H1'], blocoPrincipal: bloco(['nao_existe']) } }), 'exercício fora do catálogo é recusado');
   ok(!!erro({ segunda: { treinos: ['H1'], blocoPrincipal: bloco(['supino_smith', 'supino_smith']) } }), 'exercício repetido é recusado');
   ok(!!erro({ segunda: { treinos: [], blocoPrincipal: bloco(['supino_smith']) } }), 'bloco em dia sem treino é recusado');
@@ -156,7 +156,23 @@ console.log('\nDias e consumo de equipamento');
     'zero séries é recusado');
 
   const incompleto = lerDias({ segunda: { treinos: ['H2'], blocoPrincipal: bloco(DIA_OK.slice(0, 4)) } }, catalogo);
-  ok('dias' in incompleto && semOMotivo(problemasParaPublicar(incompleto.dias, [])).length === 1, 'bloco com 4 de 6 salva, mas não publica');
+  ok('dias' in incompleto && semOMotivo(problemasParaPublicar(incompleto.dias, [])).length === 1, 'bloco com 4 de 7 salva, mas não publica');
+  const sete = lerDias({ segunda: { treinos: ['H1'], blocoPrincipal: bloco([...DIA_OK, 'puxada_aberta_pronada']) } }, catalogo);
+  ok('dias' in sete && semOMotivo(problemasParaPublicar(sete.dias, [])).length === 0, 'bloco 7 × 3 completo publica');
+  // Semana 6 × 4 (gerada antes de 23/10/2026): continua completa, sem alerta e sem trava.
+  const antiga = lerDias({ segunda: { treinos: ['H1'], blocoPrincipal: DIA_OK.map((exercicioId) => ({ exercicioId, series: 4, repeticoes: '8-12', descansoSeg: 90 })) } }, catalogo);
+  ok('dias' in antiga && semOMotivo(problemasParaPublicar(antiga.dias, [])).length === 0
+    && antiga.dias.segunda.blocoPrincipal.every((e) => !('rir' in e)),
+  'semana 6 × 4 continua completa, e sem RIR (não inventa prescrição)');
+  const cinco = lerDias({ segunda: { treinos: ['H1'], blocoPrincipal: bloco(DIA_OK.slice(0, 5)) } }, catalogo);
+  ok('dias' in cinco && semOMotivo(problemasParaPublicar(cinco.dias, [])).length === 1, 'bloco com 5 não publica');
+
+  // RIR prescrito.
+  const comRir = (rir: unknown) => lerDias({ segunda: { treinos: ['H1'], blocoPrincipal: [{ exercicioId: 'supino_smith', series: 3, repeticoes: '8-12', rir }] } }, catalogo);
+  const rirDe = (rir: unknown) => { const r = comRir(rir); return 'dias' in r ? r.dias.segunda.blocoPrincipal[0].rir : 'erro'; };
+  ok(rirDe('0-3') === '0-3' && rirDe('0–3') === '0-3' && rirDe(' 1 - 2 ') === '1-2' && rirDe('2') === '2', 'RIR: faixa e número, com travessão normalizado');
+  ok(rirDe('3-0') === 'erro' && rirDe('0-11') === 'erro' && rirDe('pesado') === 'erro' && rirDe(2) === 'erro', 'RIR fora do formato é recusado');
+  ok(rirDe(undefined) === undefined && rirDe('') === undefined, 'sem RIR, o exercício fica sem');
   const vazia = lerDias({}, catalogo);
   ok('dias' in vazia && problemasParaPublicar(vazia.dias, []).some((p) => p.includes('nenhum treino')), 'semana sem treino não publica');
 }
@@ -235,17 +251,19 @@ console.log('\nGerador: matriz, grade e rodízio (catálogo base, inventário pa
   ok(w41.dias.quinta.blocoPrincipal.length === 0 && w41.dias.quinta.treinos[0] === 'Hyrox', 'quinta: Hyrox, sem bloco');
   ok(w41.dias.sabado.treinos[0] === 'HIIT' && w41.dias.sabado.sessaoForca?.papel === 'alternativa', 'sábado: HIIT principal, H3 alternativa');
   const seg = w41.dias.segunda;
-  ok(seg.cadencia === '3010' && seg.blocoPrincipal.every((e) => e.series === 4 && e.repeticoes === '8-12')
-    && seg.descansos.entreSeriesSeg === 90, 'prescrição: 4 × 8-12, cadência 3010, descanso padrão 90 s');
+  ok(seg.cadencia === '3010' && seg.blocoPrincipal.every((e) => e.series === 3 && e.repeticoes === '8-12' && e.rir === '0-3')
+    && seg.descansos.entreSeriesSeg === 90, 'prescrição: 3 × 8-12, RIR 0-3, cadência 3010, descanso padrão 90 s');
 
-  // Descanso por vaga (decisão de 05/10/2026).
+  // 7 × 3 (decisão de 23/10/2026): as 7 vagas, todas a 90 s, e o core no fim das três sessões.
+  ok(SESSOES_H.every((s) => MATRIZ_H[s].instancias.length === 7 && new Set(MATRIZ_H[s].instancias).size === 7
+    && MATRIZ_H[s].instancias[6] === 'estabilizar_tronco'), 'H1, H2 e H3 cobrem os 7 padrões, com o core na vaga 7');
   const descansos = (dia: DiaSemana) => w41.dias[dia].blocoPrincipal.map((e) => e.descansoSeg);
-  ok(igual(descansos('segunda'), [120, 120, 90, 90, 90, 90]), 'H1: agachar e empurrar_horizontal 120 s, resto 90 s', descansos('segunda').join(','));
-  ok(igual(descansos('quarta'), [120, 120, 90, 90, 90, 45]), 'H2: terra/romeno e remada 120 s, core 45 s', descansos('quarta').join(','));
-  ok(igual(descansos('sexta'), [90, 90, 90, 90, 90, 90]), 'H3: tudo 90 s (agachar do H3 não é a abertura pesada)', descansos('sexta').join(','));
+  ok((['segunda', 'quarta', 'sexta'] as const).every((d) => igual(descansos(d), [90, 90, 90, 90, 90, 90, 90])),
+    'H1, H2 e H3: 90 s em todas as vagas (sem as exceções do 6 × 4)', descansos('segunda').join(','));
   ok(igual(descansos('terca'), descansos('segunda')) && igual(descansos('sabado'), descansos('sexta')),
     'o catch-up herda o descanso da sessão original');
-  ok(descansoDaVaga('H1', 1, 'estabilizar_tronco') === 45, 'core vence a regra de posição');
+  ok(instanciaDaVaga('H2', 6, 7) === 'empurrar_vertical' && instanciaDaVaga('H2', 6, 6) === 'estabilizar_tronco'
+    && instanciaDaVaga('H1', 7, 7) === 'estabilizar_tronco', 'vaga de semana 6 × 4 lê a matriz antiga (o core do H2 era a 6)');
 
   // O que a tela usa sem ler o catálogo: instância e recursos de cada exercício.
   ok(w41.dias.segunda.blocoPrincipal.every((e, i) => e.instancia === MATRIZ_H.H1.instancias[i]),
@@ -271,8 +289,12 @@ console.log('\nGerador: matriz, grade e rodízio (catálogo base, inventário pa
   const repetidos = [...idsDaSemana(w42.dias)].filter((id) => usados41.has(id));
   // Empurrar horizontal tem 3 vagas por semana; com o crucifixo no crossover ocupando os 2 monocross (23/10/2026),
   // ele só cabe em dia sem outro monocross, e a vaga pode repetir UM exercício de uma semana para a outra.
-  ok(repetidos.length <= 1 && repetidos.every((id) => CATALOGO_BASE[id]?.instancia === 'empurrar_horizontal'),
-    'W42 não repete a W41 (no máximo 1 de empurrar horizontal, a vaga apertada pelo crossover)', repetidos.join(', '));
+  // O core, desde o 7 × 3, também tem 3 vagas por semana e é a ÚLTIMA vaga — a primeira que o reparo troca
+  // quando a puxada vertical já ocupa o monocross. Sem monocross o seed tem 3 cores: pode repetir UM.
+  const apertadas = ['empurrar_horizontal', 'estabilizar_tronco'];
+  ok(repetidos.length <= 2 && repetidos.every((id) => apertadas.includes(String(CATALOGO_BASE[id]?.instancia)))
+    && new Set(repetidos.map((id) => CATALOGO_BASE[id].instancia)).size === repetidos.length,
+  'W42 não repete a W41 (no máximo 1 de empurrar horizontal e 1 de core, as vagas apertadas pelo monocross)', repetidos.join(', '));
   // O único aviso é o do transbordo do SkiErg (turma de 6 × 2 monocross), que não é repetição.
   const avisos42 = w42.avisos.filter((a) => !a.startsWith('Hyrox: SkiErg:'));
   ok(!avisos42.length && w42.avisos.length === 1, 'e sem precisar avisar repetição (só o transbordo do SkiErg)', w42.avisos.join(' | '));
@@ -598,6 +620,55 @@ console.log('\nSemana em branco (feriado, recesso, evento) e um dia programado d
   // A semana depois de uma em branco sorteia normalmente.
   const depois = gerarSemana({ semanaId: '2026-W44', catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: branca.dias });
   ok(DIAS_SEMANA.every((d) => depois.dias[d].treinos.length), 'semana seguinte a uma em branco: sorteio normal');
+}
+
+console.log('\nHipertrofia 7 × 3: 80 semanas simuladas (catálogo completo, inventário padrão, turma de 6)');
+{
+  const completo = new Map<string, ItemCatalogo>(Object.entries(CATALOGO_COMPLETO));
+  const forma: string[] = [];
+  const volume: string[] = [];
+  const problemas: string[] = [];
+  let repetidasDaAnterior = 0;
+  let anterior: Record<DiaSemana, DiaProgramado> | null = null;
+  for (let i = 0; i < 80; i++) {
+    const semanaId = `${2027 + Math.floor(i / 52)}-W${String((i % 52) + 1).padStart(2, '0')}`;
+    const w = gerarSemana({ semanaId, catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: anterior, alunosPorAula: 6 });
+    for (const dia of DIAS_SEMANA) {
+      const d = w.dias[dia];
+      if (!d.sessaoForca) continue;
+      const b = d.blocoPrincipal;
+      const vagas = b.map((e) => e.instancia);
+      if (b.length !== 7 || !igual(vagas, MATRIZ_H[d.sessaoForca.sessao].instancias)
+        || !b.every((e) => e.series === 3 && e.repeticoes === '8-12' && e.rir === '0-3' && e.descansoSeg === 90)) {
+        forma.push(`${semanaId} ${dia}: ${b.map((e) => `${e.instancia} ${e.series}×${e.repeticoes} RIR ${e.rir} ${e.descansoSeg}s`).join(' | ')}`);
+      }
+      // O aluno que faz tudo (e até uma série a mais) soma 21 séries: o volume é o das séries prescritas.
+      const sessao = lerSessaoAluno({ exercicios: b.map((e) => ({ exercicioId: e.exercicioId, seriesValidas: 4 })) }, d);
+      const total = 'series' in sessao ? Object.values(sessao.series).reduce((s, n) => s + n, 0) : -1;
+      const esperado: Record<string, number> = {};
+      for (const e of b) {
+        const item = completo.get(e.exercicioId) as ExercicioCatalogo;
+        for (const m of item.musculoPrincipal) esperado[m] = (esperado[m] ?? 0) + 3;
+        for (const m of item.musculosSecundarios) esperado[m] = (esperado[m] ?? 0) + 1.5;
+      }
+      const v = 'series' in sessao ? volumeDaSessao(sessao.series, completo) : {};
+      const chaves = Object.keys(esperado).sort();
+      if (total !== 21 || !igual(chaves, Object.keys(v).sort()) || !chaves.every((m) => Math.abs((v as Record<string, number>)[m] - esperado[m]) < 1e-9)) {
+        volume.push(`${semanaId} ${dia}: ${total} séries, ${JSON.stringify(v)}`);
+      }
+    }
+    const p = semOMotivo(problemasParaPublicar(w.dias, w.alertas, w.alertasHiit, 6, w.alertasCross, w.alertasHyrox));
+    if (p.length) problemas.push(`${semanaId}: ${p.join(' | ')}`);
+    if (anterior) {
+      const usados = idsDaSemana(anterior);
+      repetidasDaAnterior += [...idsDaSemana(w.dias)].filter((id) => usados.has(id)).length;
+    }
+    anterior = w.dias;
+  }
+  ok(!forma.length, '80 semanas: todo dia de força com 7 vagas na ordem da matriz e 3 × 8-12, RIR 0-3, 90 s', forma.slice(0, 3).join('\n      '));
+  ok(!volume.length, '80 semanas: cada sessão soma 21 séries (7 × 3) e o volume por músculo é o das séries prescritas', volume.slice(0, 3).join('\n      '));
+  ok(!problemas.length, '80 semanas: nenhuma com alerta de equipamento ou problema para publicar', problemas.slice(0, 3).join('\n      '));
+  console.log(`    (rodízio: ${repetidasDaAnterior} exercício(s) de força repetido(s) da semana anterior em 79 trocas de semana)`);
 }
 
 console.log('\nSanidade do vocabulário');

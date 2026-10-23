@@ -31,7 +31,9 @@
       "editado": false,
       "instancia": "estabilizar_tronco",
       "sessoes": [
-        "H2"
+        "H1",
+        "H2",
+        "H3"
       ],
       "hiit": [
         "core"
@@ -68,7 +70,9 @@
       "editado": false,
       "instancia": "estabilizar_tronco",
       "sessoes": [
-        "H2"
+        "H1",
+        "H2",
+        "H3"
       ],
       "hiit": null,
       "cross": null,
@@ -904,6 +908,7 @@
       "instancia": "empurrar_vertical",
       "sessoes": [
         "H1",
+        "H2",
         "H3"
       ],
       "hiit": null,
@@ -942,6 +947,7 @@
       "instancia": "empurrar_vertical",
       "sessoes": [
         "H1",
+        "H2",
         "H3"
       ],
       "hiit": null,
@@ -1019,6 +1025,7 @@
       "instancia": "empurrar_vertical",
       "sessoes": [
         "H1",
+        "H2",
         "H3"
       ],
       "hiit": null,
@@ -1049,6 +1056,7 @@
       "instancia": "empurrar_vertical",
       "sessoes": [
         "H1",
+        "H2",
         "H3"
       ],
       "hiit": null,
@@ -1132,7 +1140,9 @@
       "editado": false,
       "instancia": "estabilizar_tronco",
       "sessoes": [
-        "H2"
+        "H1",
+        "H2",
+        "H3"
       ],
       "hiit": [
         "core"
@@ -1485,6 +1495,7 @@
       "instancia": "empurrar_vertical",
       "sessoes": [
         "H1",
+        "H2",
         "H3"
       ],
       "hiit": null,
@@ -1706,7 +1717,9 @@
       "editado": false,
       "instancia": "estabilizar_tronco",
       "sessoes": [
-        "H2"
+        "H1",
+        "H2",
+        "H3"
       ],
       "hiit": null,
       "cross": null,
@@ -2295,7 +2308,9 @@
       "editado": false,
       "instancia": "estabilizar_tronco",
       "sessoes": [
-        "H2"
+        "H1",
+        "H2",
+        "H3"
       ],
       "hiit": [
         "core"

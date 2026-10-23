@@ -1965,7 +1965,7 @@ export const calcularConquistasXPDesafios = gatilhoDeConquistas('desafios');
 
 const EH_ID_CATALOGO = /^[a-z0-9_-]{1,100}$/;
 
-/** Os ids de exercício que aparecem nos `dias` crus — no máximo 6 por bloco, 16 por HIIT e 6 por WOD. */
+/** Os ids de exercício que aparecem nos `dias` crus — no máximo 7 por bloco, 16 por HIIT e 6 por WOD. */
 function idsDosDias(dias: unknown): string[] {
   const d = (dias ?? {}) as Record<string, {
     blocoPrincipal?: unknown; hiit?: { estacoes?: unknown } | null; cross?: { movimentos?: unknown } | null;

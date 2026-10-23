@@ -207,7 +207,7 @@ export type Adaptacao = (typeof ADAPTACOES)[number];
 export const MODALIDADES = ['H1', 'H2', 'H3', 'Hyrox', 'Cross', 'HIIT'] as const;
 export type Modalidade = (typeof MODALIDADES)[number];
 
-/** As sessões de FORÇA — as únicas que têm bloco principal de 6 exercícios. */
+/** As sessões de FORÇA — as únicas que têm bloco principal (7 exercícios). */
 export const SESSOES_H = ['H1', 'H2', 'H3'] as const;
 export type SessaoH = (typeof SESSOES_H)[number];
 
@@ -219,33 +219,56 @@ export type SessaoMetabolica = (typeof SESSOES_METABOLICAS)[number];
 export const DIAS_SEMANA = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'] as const;
 export type DiaSemana = (typeof DIAS_SEMANA)[number];
 
-/** Quantos exercícios o bloco principal de uma sessão H tem. */
-export const EXERCICIOS_POR_BLOCO = 6;
+/** Quantos exercícios o bloco principal de uma sessão H tem (7 × 3 desde 23/10/2026). */
+export const EXERCICIOS_POR_BLOCO = 7;
+/**
+ * O bloco das semanas geradas ANTES do 7 × 3 (6 × 4). Continua completo: a
+ * semana já publicada não ganha alerta nem trava a edição.
+ */
+export const EXERCICIOS_POR_BLOCO_6X4 = 6;
 
 /** Cadência quando o coach não escreve outra: 3 s excêntrica, 0 pausa, 1 s concêntrica, 0 pausa. */
 export const CADENCIA_PADRAO = '3010';
 
-/* ───────────────────────── matriz e grade (decisão do coach, 05/10/2026) ───────────────────────── */
+/* ──────────────── matriz e grade (decisão do coach, 05/10/2026; 7 × 3 em 23/10/2026) ──────────────── */
 
 /**
- * As 6 instâncias de cada sessão H, NA ORDEM do bloco. A ordem importa: é a
- * ordem das estações, e o reparo de equipamento troca primeiro o exercício
- * conflitante MAIS PARA O FIM do bloco.
+ * As 7 instâncias de cada sessão H, NA ORDEM do bloco: cada sessão cobre os 7
+ * padrões de movimento, com o core no fim. A ordem importa: é a ordem das
+ * estações, e o reparo de equipamento troca primeiro o exercício conflitante
+ * MAIS PARA O FIM do bloco.
  */
 export const MATRIZ_H: Readonly<Record<SessaoH, { nome: string; instancias: readonly Instancia[] }>> = {
   H1: {
     nome: 'Força Base — Agachar/Empurrar',
-    instancias: ['agachar', 'empurrar_horizontal', 'empurrar_vertical', 'puxar_horizontal', 'estender_quadril', 'puxar_vertical'],
+    instancias: ['agachar', 'empurrar_horizontal', 'empurrar_vertical', 'puxar_horizontal', 'estender_quadril', 'puxar_vertical', 'estabilizar_tronco'],
   },
   H2: {
     nome: 'Força Base — Cadeia Posterior/Puxar',
-    instancias: ['estender_quadril', 'puxar_horizontal', 'puxar_vertical', 'agachar', 'empurrar_horizontal', 'estabilizar_tronco'],
+    instancias: ['estender_quadril', 'puxar_horizontal', 'puxar_vertical', 'agachar', 'empurrar_horizontal', 'empurrar_vertical', 'estabilizar_tronco'],
   },
   H3: {
     nome: 'Consolidação Full Body',
-    instancias: ['agachar', 'estender_quadril', 'empurrar_horizontal', 'puxar_horizontal', 'empurrar_vertical', 'puxar_vertical'],
+    instancias: ['agachar', 'estender_quadril', 'empurrar_horizontal', 'puxar_horizontal', 'empurrar_vertical', 'puxar_vertical', 'estabilizar_tronco'],
   },
 };
+
+/**
+ * As vagas das semanas 6 × 4 (geradas antes de 23/10/2026). Só o H2 muda de
+ * posição: o core era a vaga 6. Serve para achar a instância de uma vaga de
+ * semana antiga (`instanciaDaVaga`).
+ */
+export const MATRIZ_H_6X4: Readonly<Record<SessaoH, readonly Instancia[]>> = {
+  H1: MATRIZ_H.H1.instancias.slice(0, 6),
+  H2: ['estender_quadril', 'puxar_horizontal', 'puxar_vertical', 'agachar', 'empurrar_horizontal', 'estabilizar_tronco'],
+  H3: MATRIZ_H.H3.instancias.slice(0, 6),
+};
+
+/** A instância da vaga `posicao` (de 1 em diante) num bloco de `tamanho` exercícios. */
+export function instanciaDaVaga(sessao: SessaoH, posicao: number, tamanho: number): Instancia {
+  const vagas = tamanho === EXERCICIOS_POR_BLOCO_6X4 ? MATRIZ_H_6X4[sessao] : MATRIZ_H[sessao].instancias;
+  return vagas[posicao - 1];
+}
 
 /**
  * A grade fixa do box. O PRIMEIRO treino de cada dia é a aula principal; os
@@ -261,28 +284,19 @@ export const GRADE_SEMANAL: Readonly<Record<DiaSemana, readonly Modalidade[]>> =
 };
 
 /**
- * Prescrição do bloco de força quando o gerador monta a semana (4 × 8–12,
- * cadência 3010). `entreSeriesSeg` é o descanso PADRÃO de cada exercício; as
- * exceções estão logo abaixo. O coach ajusta no rascunho antes de publicar.
+ * Prescrição do bloco de força quando o gerador monta a semana: 3 séries
+ * válidas × 8–12, RIR 0–3, cadência 3010 e 90 s em TODOS os exercícios (saíram
+ * os 120 s dos compostos pesados e os 45 s do core do 6 × 4). 7 × 3 = 21
+ * séries por sessão. Decisão do coach, 23/10/2026. O coach ajusta no rascunho
+ * antes de publicar.
  */
 export const PRESCRICAO_FORCA = {
-  series: 4,
+  series: 3,
   repeticoes: '8-12',
+  rir: '0-3',
   cadencia: CADENCIA_PADRAO,
   descansos: { entreSeriesSeg: 90, entreExerciciosSeg: 90 },
 } as const;
-
-/**
- * Compostos pesados: as duas PRIMEIRAS vagas do H1 (agachar, empurrar
- * horizontal) e do H2 (estender quadril, puxar horizontal) descansam 120 s.
- * Por posição, e não por instância: o agachar do H3 e do H2 não é a abertura
- * pesada da sessão. Decisão do coach, 05/10/2026.
- */
-export const DESCANSO_COMPOSTO_PESADO_SEG = 120;
-export const VAGAS_COMPOSTO_PESADO: Readonly<Record<SessaoH, readonly number[]>> = { H1: [1, 2], H2: [1, 2], H3: [] };
-
-/** Descanso por instância, que vence a posição. Core (H2) descansa 45 s. */
-export const DESCANSO_POR_INSTANCIA: Readonly<Partial<Record<Instancia, number>>> = { estabilizar_tronco: 45 };
 
 /**
  * Como cada sessão metabólica aparece no dia (o cabeçalho). O conteúdo mora em
@@ -806,6 +820,11 @@ export interface ExercicioProgramado {
   repeticoes: string;
   /** Descanso entre as séries DESTE exercício. Sem valor no pedido, vale o `descansos.entreSeriesSeg` do dia. */
   descansoSeg: number;
+  /**
+   * Repetições de reserva prescritas ('0-3'). Texto, como `repeticoes`.
+   * Ausente em semana 6 × 4, de antes do RIR na prescrição.
+   */
+  rir?: string;
   /** CALCULADO (catálogo): a vaga que o exercício ocupa. Para a tela não precisar ler o catálogo. */
   instancia: Instancia;
   /** CALCULADO (catálogo): os recursos limitados que ele ocupa — é o que a tela destaca num alerta. */
@@ -838,7 +857,7 @@ export interface BlocoMetabolico {
 export interface DiaProgramado {
   /** O primeiro é a aula principal; os demais, alternativa. Vazio = dia sem aula. */
   treinos: Modalidade[];
-  /** Exatamente `EXERCICIOS_POR_BLOCO` quando o dia tem sessão H; vazio quando não tem. */
+  /** `EXERCICIOS_POR_BLOCO` (6 em semana 6 × 4) quando o dia tem sessão H; vazio quando não tem. */
   blocoPrincipal: ExercicioProgramado[];
   /** CALCULADO: a sessão H do dia (no máximo uma), ou null. */
   sessaoForca: SessaoForcaDoDia | null;

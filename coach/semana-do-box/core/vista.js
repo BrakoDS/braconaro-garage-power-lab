@@ -240,7 +240,7 @@ export function diasParaSalvar(doc, trocas = []) {
       treinos: Array.isArray(x.treinos) ? [...x.treinos] : [],
       blocoPrincipal: (Array.isArray(x.blocoPrincipal) ? x.blocoPrincipal : []).map((e, i) => {
         const t = trocas.find((tr) => tr.sessao === sessao && tr.posicao === i + 1);
-        return { exercicioId: t ? t.exercicioId : e.exercicioId, series: e.series, repeticoes: e.repeticoes, descansoSeg: e.descansoSeg };
+        return { exercicioId: t ? t.exercicioId : e.exercicioId, series: e.series, repeticoes: e.repeticoes, descansoSeg: e.descansoSeg, ...(e.rir ? { rir: e.rir } : {}) };
       }),
       cadencia: x.cadencia,
       descansos: x.descansos ? { ...x.descansos } : undefined,

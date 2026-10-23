@@ -21,7 +21,7 @@
  */
 import { candidatosEmOrdem } from './gerador-box';
 import {
-  DIAS_SEMANA, MATRIZ_H, RECURSOS_INVENTARIO, SESSOES_H,
+  DIAS_SEMANA, RECURSOS_INVENTARIO, SESSOES_H, instanciaDaVaga,
   type DiaSemana, type ExercicioCatalogo, type Instancia, type RecursoInventario, type SessaoH,
 } from './modelo-box';
 import { consumoDoDia, recursosDo } from './semana-box';
@@ -123,7 +123,7 @@ export function sugestoesPara(o: {
 }): string[] {
   const bloco = o.blocos[o.sessao] ?? [];
   const atual = bloco[o.posicao - 1];
-  const instancia: Instancia | undefined = o.catalogo.get(atual)?.instancia ?? MATRIZ_H[o.sessao].instancias[o.posicao - 1];
+  const instancia: Instancia | undefined = o.catalogo.get(atual)?.instancia ?? instanciaDaVaga(o.sessao, o.posicao, bloco.length);
   if (!instancia) return [];
   const usadosNaSemana = new Set(Object.values(o.blocos).flat());
   return candidatosEmOrdem(instancia, { catalogo: o.catalogo, semanaPassada: o.semanaPassada, usadosNaSemana, semente: o.semente })
@@ -167,7 +167,7 @@ export function opcoesDaVaga(o: {
   const bloco = blocos[o.sessao];
   if (!bloco || o.posicao < 1 || o.posicao > bloco.length) return null;
   const atual = bloco[o.posicao - 1];
-  const instancia = o.catalogo.get(atual)?.instancia ?? MATRIZ_H[o.sessao].instancias[o.posicao - 1];
+  const instancia = o.catalogo.get(atual)?.instancia ?? instanciaDaVaga(o.sessao, o.posicao, bloco.length);
   const dia0 = diasDaSessao(o.dias, o.sessao)[0];
   const nomeAtual = String(diaDe(o.dias, dia0)?.blocoPrincipal?.[o.posicao - 1]?.nome ?? o.catalogo.get(atual)?.nome ?? atual);
 
@@ -233,7 +233,7 @@ function retrato(d: any): string {
   return JSON.stringify({
     treinos: Array.isArray(d?.treinos) ? d.treinos : [],
     bloco: (Array.isArray(d?.blocoPrincipal) ? d.blocoPrincipal : [])
-      .map((e: any) => [e?.exercicioId, e?.series, e?.repeticoes, e?.descansoSeg]),
+      .map((e: any) => [e?.exercicioId, e?.series, e?.repeticoes, e?.descansoSeg, e?.rir ?? null]),
     cadencia: d?.cadencia ?? '',
     descansos: [d?.descansos?.entreSeriesSeg ?? null, d?.descansos?.entreExerciciosSeg ?? null],
     // Ausente (semana de antes do HIIT) e `null` têm o mesmo retrato: nada mudou.

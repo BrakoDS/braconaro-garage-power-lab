@@ -30,6 +30,13 @@ test('rascunho: grade dos 6 dias, H1/H2/H3 e metabólicos', () => {
   assert.ok(h.includes('O que o gerador decidiu') && h.includes('Trocas pela trava de equipamento'));
 });
 
+test('semana 7 × 3: a prescrição mostra o RIR; a 6 × 4 (W42) não', () => {
+  const comRir = { ...W42, dias: { ...W42.dias, segunda: { ...W42.dias.segunda,
+    blocoPrincipal: W42.dias.segunda.blocoPrincipal.map((e) => ({ ...e, series: 3, rir: '0-3', descansoSeg: 90 })) } } };
+  assert.ok(renderSemana({ ...BASE, doc: comRir }).includes('3 × 8-12 · RIR 0–3 · 90 s'));
+  assert.ok(!renderSemana({ ...BASE, doc: W42 }).includes('RIR'));
+});
+
 test('alerta de inventário: banner claro e exercícios marcados no dia', () => {
   const doc = {
     ...W42,
