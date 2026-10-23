@@ -229,13 +229,11 @@
       "ativo": true,
       "origem": "seed",
       "editado": false,
-      "instancia": "agachar",
-      "sessoes": [
-        "H1",
-        "H2",
-        "H3"
+      "instancia": null,
+      "sessoes": [],
+      "hiit": [
+        "pernas"
       ],
-      "hiit": null,
       "cross": null,
       "musculoPrincipal": [
         "quadriceps",
@@ -2199,12 +2197,8 @@
       "ativo": true,
       "origem": "seed",
       "editado": false,
-      "instancia": "puxar_horizontal",
-      "sessoes": [
-        "H1",
-        "H2",
-        "H3"
-      ],
+      "instancia": null,
+      "sessoes": [],
       "hiit": [
         "superiores"
       ],

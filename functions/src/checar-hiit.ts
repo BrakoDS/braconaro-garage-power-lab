@@ -100,8 +100,9 @@ console.log('\nCatálogo do HIIT');
   ok(soHiit.every((id) => lerExercicioCatalogo(CATALOGO_HIIT[id]) === null),
     'exercício só de HIIT NÃO entra no catálogo de força (o bloco H nunca o vê)');
   const forcaComHiit = Object.entries(CATALOGO_BASE).filter(([, i]) => i.hiit).map(([id]) => id);
-  ok(forcaComHiit.length === 8 && forcaComHiit.every((id) => lerExercicioCatalogo(CATALOGO_BASE[id])?.hiit),
-    'os 8 de força que também servem ao HIIT continuam no catálogo de força, com o hiit', forcaComHiit.join(', '));
+  // 7 desde 23/10/2026: a remada no TRX saiu da hipertrofia e mora no catálogo do HIIT.
+  ok(forcaComHiit.length === 7 && forcaComHiit.every((id) => lerExercicioCatalogo(CATALOGO_BASE[id])?.hiit),
+    'os 7 de força que também servem ao HIIT continuam no catálogo de força, com o hiit', forcaComHiit.join(', '));
 
   // A migração do Montador antigo está completa: os 28 ids com categoria 'hiit'.
   const antigos = [

@@ -743,6 +743,12 @@ export interface ExercicioCatalogo {
   adaptacoes: Partial<Record<Adaptacao, string>>;
   /** Um lado por vez. No HIIT ocupa 2 slots (D e E). Ausente = bilateral. */
   unilateral?: boolean;
+  /**
+   * No bloco H, quantas unidades do recurso o exercício ocupa quando não é 1
+   * (ex.: o crucifixo no crossover usa as 2 polias — `{ monocross: 2 }`,
+   * decisão do coach, 23/10/2026). Ausente = 1 de cada recurso dos `equipamentos`.
+   */
+  unidades?: Partial<Record<RecursoInventario, number>>;
   /** Só nos exercícios que servem ao HIIT. */
   hiit?: DadosHiit;
   /** Só nos exercícios que servem ao WOD do Cross. */

@@ -24,6 +24,35 @@ import type { ExercicioSoHiit } from './modelo-box';
 const SEM = { adaptacoes: {}, instancia: null } as const;
 
 export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
+  /* ───────────── fora da hipertrofia (decisão do coach, 23/10/2026) ─────────────
+   * Saíram das vagas de força do H1–H3 e ficam só no HIIT, no Cross e como
+   * adaptação de restrição. Os ids são os de antes: semanas gravadas e
+   * adaptações (o afundo com halteres e o búlgaro apontam para o afundo no TRX)
+   * continuam valendo. */
+  remada_trx: {
+    ...SEM, nome: 'Remada no TRX',
+    musculoPrincipal: ['costas'], musculosSecundarios: ['biceps', 'core'],
+    equipamentos: ['trx'],
+    hiit: { estacoes: ['superiores'] },
+    cross: {
+      padrao: 'puxar', unidade: 'reps', rx: 12,
+      tecnica: {
+        categoria: 'ginastica', tipo: 'skill', minutos: 10, seriesEquivalentes: 3,
+        dinamica: 'EMOM 10 min: 8–10 remadas estritas, ajustando o ângulo do corpo.',
+        objetivo: 'Retração das escápulas e corpo em prancha do começo ao fim.',
+        chave: 'mantenha o corpo em prancha e puxe com as escápulas, não com os braços',
+      },
+    },
+  },
+  afundo_trx: {
+    nome: 'Afundo no TRX', instancia: null,
+    musculoPrincipal: ['quadriceps', 'gluteo'], musculosSecundarios: [],
+    equipamentos: ['trx'],
+    unilateral: true,
+    hiit: { estacoes: ['pernas'] },
+    adaptacoes: { joelho: 'ponte_gluteo' },
+  },
+
   /* ───────────── pernas ───────────── */
   agachamento_livre: {
     ...SEM, nome: 'Agachamento livre (peso corporal)',

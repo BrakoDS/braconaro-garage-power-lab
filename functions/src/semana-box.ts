@@ -221,9 +221,23 @@ export function lerItemCatalogo(doc: unknown): ItemCatalogo | null {
   const adaptacoes: ExercicioCatalogo['adaptacoes'] = {};
   const a = (d.adaptacoes ?? {}) as Record<string, unknown>;
   for (const k of ADAPTACOES) if (typeof a[k] === 'string' && a[k]) adaptacoes[k] = a[k] as string;
+  // Unidades por recurso (2 a 10) só de recurso que os equipamentos usam: o resto é torto.
+  let unidades: Partial<Record<RecursoInventario, number>> | undefined;
+  if (d.unidades !== undefined) {
+    const u = (d.unidades ?? null) as Record<string, unknown> | null;
+    if (!u || typeof u !== 'object') return null;
+    const usados = recursosDo({ equipamentos });
+    unidades = {};
+    for (const [r, n] of Object.entries(u)) {
+      const q = inteiro(n, 2, 10);
+      if (!em(RECURSOS_INVENTARIO, r) || !usados.includes(r) || q === null) return null;
+      unidades[r] = q;
+    }
+  }
   const base = {
     nome, musculoPrincipal, musculosSecundarios, equipamentos, adaptacoes,
     ...(d.unilateral ? { unilateral: true } : {}),
+    ...(unidades && Object.keys(unidades).length ? { unidades } : {}),
     ...(hiit ? { hiit } : {}),
     ...(cross ? { cross } : {}),
   };
@@ -313,13 +327,14 @@ function lerDadosHiit(v: unknown): DadosHiit | null {
 /** Unidades de cada recurso que o bloco ocupa: cada exercício é uma estação. */
 export function consumoDoDia(
   bloco: readonly { exercicioId: string }[],
-  catalogo: ReadonlyMap<string, Pick<ItemCatalogo, 'equipamentos'>>,
+  catalogo: ReadonlyMap<string, Pick<ItemCatalogo, 'equipamentos' | 'unidades'>>,
 ): Partial<Record<RecursoInventario, number>> {
   const consumo: Partial<Record<RecursoInventario, number>> = {};
   for (const ex of bloco) {
     const item = catalogo.get(ex.exercicioId);
     if (!item) continue;
-    for (const r of recursosDo(item)) consumo[r] = (consumo[r] ?? 0) + 1;
+    // `unidades`: o exercício que ocupa mais de uma (o crucifixo no crossover usa os 2 monocross).
+    for (const r of recursosDo(item)) consumo[r] = (consumo[r] ?? 0) + (item.unidades?.[r] ?? 1);
   }
   return consumo;
 }

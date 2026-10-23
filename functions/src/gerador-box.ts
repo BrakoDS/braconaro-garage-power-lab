@@ -174,8 +174,27 @@ function excedentes(ids: string[], ctx: ContextoBloco): { recursos: RecursoInven
   return { recursos, sobra: recursos.reduce((s, r) => s + (consumo[r] ?? 0) - ctx.limites[r], 0) };
 }
 
+/**
+ * O bloco `ids` cabe no inventário mesmo depois das vagas `seguintes`? Cada vaga
+ * seguinte reserva, por recurso, o MÍNIMO que suas opções usam (puxar vertical
+ * só tem opção no monocross: reserva 1 monocross).
+ */
+function cabeComAsProximas(ids: string[], seguintes: readonly Instancia[], ctx: ContextoBloco): boolean {
+  const consumo = consumoDoDia(ids.map((exercicioId) => ({ exercicioId })), ctx.catalogo);
+  for (const instancia of seguintes) {
+    const opcoes = [...ctx.catalogo.entries()].filter(([id, e]) => e.instancia === instancia && !ids.includes(id));
+    if (!opcoes.length) continue;
+    for (const r of RECURSOS_INVENTARIO) {
+      const minimo = Math.min(...opcoes.map(([id]) => consumoDoDia([{ exercicioId: id }], ctx.catalogo)[r] ?? 0));
+      if (minimo) consumo[r] = (consumo[r] ?? 0) + minimo;
+    }
+  }
+  return RECURSOS_INVENTARIO.every((r) => (consumo[r] ?? 0) <= ctx.limites[r]);
+}
+
+// "> 0", não "=== 1": o crucifixo no crossover ocupa 2 monocross e também USA monocross.
 const usa = (id: string, r: RecursoInventario, ctx: ContextoBloco): boolean =>
-  consumoDoDia([{ exercicioId: id }], ctx.catalogo)[r] === 1;
+  (consumoDoDia([{ exercicioId: id }], ctx.catalogo)[r] ?? 0) > 0;
 
 export interface BlocoGerado {
   ids: string[];
@@ -194,7 +213,12 @@ export function montarBloco(instancias: readonly Instancia[], ctx: ContextoBloco
 
   // 1 + 2: sorteio por vaga, com o rodízio na ordem da fila.
   for (const [i, instancia] of instancias.entries()) {
-    const id = filaDaInstancia(instancia, ctx).find((c) => !ids.includes(c));
+    const fila = filaDaInstancia(instancia, ctx).filter((c) => !ids.includes(c));
+    // Exercício que ocupa MAIS de uma unidade (o crossover, 2 monocross) só entra se o bloco ainda
+    // couber com o mínimo que as vagas seguintes vão precisar — senão a troca da etapa 3 nem sempre
+    // acha saída e a semana sai com alerta (23/10/2026). Os outros seguem como sempre.
+    // Sem nenhuma que caiba, a primeira da fila (a vaga nunca fica vazia; a etapa 3 e o alerta cuidam do resto).
+    const id = fila.find((c) => !ctx.catalogo.get(c)!.unidades || cabeComAsProximas([...ids, c], instancias.slice(i + 1), ctx)) ?? fila[0];
     if (!id) {
       avisos.push(`Vaga ${i + 1} (${instancia}): o catálogo não tem exercício livre para essa instância.`);
       continue;
