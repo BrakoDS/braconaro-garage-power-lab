@@ -23,9 +23,8 @@
  * e o mesmo inventário, sai igual. `variacao` muda o sorteio.
  */
 import {
-  ALUNOS_POR_AULA_PADRAO, DESCANSO_COMPOSTO_PESADO_SEG, DESCANSO_POR_INSTANCIA, DIAS_SEMANA, ESTACOES_HYROX,
+  ALUNOS_POR_AULA_PADRAO, DIAS_SEMANA, ESTACOES_HYROX,
   FORMATOS_CROSS, FORMATOS_HYROX, GRADE_SEMANAL, MATRIZ_H, PRESCRICAO_FORCA, RECURSOS_INVENTARIO, SESSOES_H,
-  VAGAS_COMPOSTO_PESADO,
   type AlertaCrossDaSemana, type AlertaEquipamento, type AlertaHiitDaSemana, type AlertaHyroxDaSemana,
   type AvisoDoDia, type DiaProgramado, type DiaSemana, type EstacaoHyrox, type ExercicioCatalogo, type ForaPorEquipamento,
   type FormatoCross, type FormatoHyrox, type Instancia, type ItemCatalogo, type Modalidade, type RecursoBox,
@@ -39,20 +38,7 @@ import { gerarHiit } from './gerador-hiit';
 import { gerarCross } from './gerador-cross';
 import { gerarHyrox } from './gerador-hyrox';
 
-/**
- * Descanso entre séries de uma vaga do bloco (`posicao` começa em 1).
- * A instância vence a posição: core descansa 45 s onde estiver; depois, as
- * duas primeiras vagas do H1 e do H2 (compostos pesados) descansam 120 s; o
- * resto fica no padrão de `PRESCRICAO_FORCA`.
- */
-export function descansoDaVaga(sessao: SessaoH, posicao: number, instancia: Instancia): number {
-  const porInstancia = DESCANSO_POR_INSTANCIA[instancia];
-  if (porInstancia !== undefined) return porInstancia;
-  if (VAGAS_COMPOSTO_PESADO[sessao].includes(posicao)) return DESCANSO_COMPOSTO_PESADO_SEG;
-  return PRESCRICAO_FORCA.descansos.entreSeriesSeg;
-}
-
-/** Teto de trocas por bloco: 6 vagas × recursos já sobra; é freio contra laço, não regra. */
+/** Teto de trocas por bloco: 7 vagas × recursos já sobra; é freio contra laço, não regra. */
 const MAX_TROCAS_POR_BLOCO = 30;
 
 
@@ -366,9 +352,9 @@ export function gerarSemana(entrada: {
     const h = sessaoDoDia(dia);
     crus[dia] = {
       treinos: [...treinos],
-      blocoPrincipal: h ? blocos[h].map((exercicioId, i) => ({
+      blocoPrincipal: h ? blocos[h].map((exercicioId) => ({
         exercicioId, series: PRESCRICAO_FORCA.series, repeticoes: PRESCRICAO_FORCA.repeticoes,
-        descansoSeg: descansoDaVaga(h, i + 1, forca.get(exercicioId)!.instancia),
+        rir: PRESCRICAO_FORCA.rir, descansoSeg: PRESCRICAO_FORCA.descansos.entreSeriesSeg,
       })) : [],
       cadencia: PRESCRICAO_FORCA.cadencia,
       descansos: { ...PRESCRICAO_FORCA.descansos },

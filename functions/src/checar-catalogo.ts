@@ -19,7 +19,7 @@ import { opcoesDaVaga } from './edicao-box';
 import { opcoesDoHiit } from './edicao-hiit';
 import { gerarSemana, idsDaSemana, idsDoHiit } from './gerador-box';
 import {
-  DIAS_SEMANA, ESTACOES_HYROX, INSTANCIAS, INVENTARIO_PADRAO, type ExercicioCatalogo, type ItemCatalogo, type RecursoHiit,
+  DIAS_SEMANA, ESTACOES_HYROX, EXERCICIOS_POR_BLOCO, INSTANCIAS, INVENTARIO_PADRAO, type ExercicioCatalogo, type ItemCatalogo, type RecursoHiit,
 } from './modelo-box';
 import { lerDias, lerItemCatalogo, volumeDaSessao } from './semana-box';
 
@@ -154,7 +154,7 @@ console.log('\nO que desativar causa');
   ok(efeitoDeDesativar(doisRestam, verticais[0]).avisos.some((a) => a.includes('repetir')), 'sobrar menos opções que sessões: aviso de repetição');
   ok(efeitoDeDesativar(base, 'nao_existe').erro !== null, 'id que não existe: erro');
   // Com a vaga no mínimo, o gerador ainda monta a semana inteira.
-  ok(DIAS_SEMANA.every((d) => [0, 6].includes(semana(ativosDe(quaseTodos)).dias[d].blocoPrincipal.length)), 'uma opção por vaga ainda gera blocos de 6');
+  ok(DIAS_SEMANA.every((d) => [0, EXERCICIOS_POR_BLOCO].includes(semana(ativosDe(quaseTodos)).dias[d].blocoPrincipal.length)), 'uma opção por vaga ainda gera blocos de 7');
   const hiitPernas = [...base.itens].filter(([, e]) => e.hiit?.estacoes.includes('pernas')).map(([id]) => id);
   const pernasNoFim = efetivo(Object.fromEntries(hiitPernas.slice(1).map((id) => [id, { ativo: false }])));
   let gerou = true;

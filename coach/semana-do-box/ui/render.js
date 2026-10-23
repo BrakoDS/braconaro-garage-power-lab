@@ -160,7 +160,7 @@ function cartaoDia(doc, d, data, hoje) {
         <li class="exercicio${emAlerta.has(i) ? ' em-alerta' : ''}">
           <span class="ex-inst">${esc(NOME_INSTANCIA[e.instancia] ?? e.instancia ?? '')}</span>
           <span class="ex-nome">${esc(e.nome)}</span>
-          <span class="ex-presc">${esc(e.series)} × ${esc(e.repeticoes)} · ${esc(e.descansoSeg)} s</span>
+          <span class="ex-presc">${esc(e.series)} × ${esc(e.repeticoes)}${e.rir ? ` · RIR ${esc(String(e.rir).replace('-', '–'))}` : ''} · ${esc(e.descansoSeg)} s</span>
           ${podeTrocar ? `<button class="ex-trocar" type="button" data-trocar="${esc(sessao)}:${i + 1}"
             aria-label="Trocar ${esc(e.nome)} (${esc(sessao)}, vaga ${i + 1})">trocar</button>` : ''}
         </li>`).join('')}
