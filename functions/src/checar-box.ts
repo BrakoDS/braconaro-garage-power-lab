@@ -396,6 +396,8 @@ console.log('\nHipertrofia: o crossover ocupa os 2 monocross; TRX fora do H (23/
     let trxNoH = '';
     for (let i = 0; i < 40; i++) {
       const w = gerarSemana({ semanaId: `2027-W${String(i + 1).padStart(2, '0')}`, catalogo: cat, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: anterior, variacao: i });
+      const alerta = w.alertas.find((x) => x.recurso === 'monocross');
+      if (alerta) estourou ||= `${i}: alerta de ${alerta.usado} monocross (${alerta.dia})`;
       for (const [dia, d] of Object.entries(w.dias)) {
         const bloco = d.blocoPrincipal.map((e) => e.exercicioId);
         const mono = consumoDoDia(d.blocoPrincipal, cat).monocross ?? 0;
@@ -413,7 +415,15 @@ console.log('\nHipertrofia: o crossover ocupa os 2 monocross; TRX fora do H (23/
     return { estourou, crossover, trxNoH };
   };
   const hoje = quarentaSemanas(catalogoInteiro);
-  ok(!hoje.estourou, '40 semanas: nenhum dia passa de 2 monocross, e o crossover nunca divide o dia com outro', hoje.estourou);
+  ok(!hoje.estourou, '40 semanas: nenhuma com alerta de monocross, e o crossover nunca divide o dia com outro', hoje.estourou);
+  // O caso da produção (23/10/2026): todo empurrar horizontal sem monocross usa banco, e o banco do dia está cheio —
+  // a troca da etapa 3 não acha saída. O sorteio não pode escolher o crossover quando a puxada vertical ainda vem.
+  const apertado = montarBloco(['estender_quadril', 'puxar_horizontal', 'puxar_vertical', 'agachar', 'empurrar_horizontal', 'estabilizar_tronco'], {
+    catalogo: new Map([...catalogo].filter(([id, e]) => e.instancia !== 'empurrar_horizontal' || id === 'crucifixo_crossover_medial' || id === 'supino_halter')),
+    limites: { ...INVENTARIO_PADRAO }, semanaPassada: new Set(['supino_halter']), usadosNaSemana: new Set<string>(), rng: () => 0.5,
+  });
+  ok(!apertado.ids.includes('crucifixo_crossover_medial') && (consumoDoDia(apertado.ids.map((exercicioId) => ({ exercicioId })), catalogo).monocross ?? 0) <= 2,
+    'com a puxada vertical na frente, o sorteio pula o crossover mesmo ele vindo primeiro no rodízio', apertado.ids.join(', '));
   // Com o catálogo de hoje, TODA puxada vertical é no monocross e H1, H2 e H3 têm essa vaga: o crossover (2) não cabe.
   ok(hoje.crossover === 0, 'catálogo de hoje: o crossover não é sorteado (toda sessão já tem uma puxada vertical no monocross)');
   const comBarraFixa = new Map(catalogoInteiro).set('barra_fixa_teste', {
