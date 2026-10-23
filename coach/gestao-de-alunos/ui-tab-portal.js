@@ -5,85 +5,74 @@
  * segmentos). O quadro só carrega quando o coach escolhe a prévia: abrir a
  * aba não puxa o Portal inteiro à toa.
  *
- * Abre a PÁGINA REAL do Portal num quadro e manda para ela a mesma fatia que
- * `publicarPortal` grava em `portal/{email}`. É a mesma função — por isso o que
- * aparece aqui é, por construção, o que o aluno vê: não existe uma segunda
- * implementação da tela para divergir.
+ * Abre a PÁGINA REAL do Portal novo (`/previa` do portal-aluno-web, no mesmo
+ * Hosting e no mesmo deploy do portal) num quadro. Ela desenha o mesmo
+ * componente que o aluno vê, com as mesmas consultas — treino do dia, cargas,
+ * "Última vez", semana do box —, num pacote em que o Firebase não grava. Não
+ * existe uma segunda implementação da tela para divergir, nem uma cópia que
+ * fica para trás quando o portal muda.
  *
- * Por que mandar em vez de deixar a página buscar: a regra do Firestore só
- * permite ao ALUNO ler `portal/{email}`. O coach escreve, não lê. Como é ele
- * quem monta o documento, ele já tem o conteúdo — e a prévia não precisa (nem
- * ganha) permissão nenhuma a mais.
+ * Quem lê lá dentro é o coach: o quadro é de outro site, então ele entra com a
+ * conta dele uma vez no próprio quadro. As regras deixam o coach ler tudo do
+ * aluno, menos `portal/{email}` (só o ALUNO lê; o coach escreve). Esse a Gestão
+ * manda por mensagem: a mesma fatia que `publicarPortal` grava lá — é a mesma
+ * função.
  *
  * Saiu do `app.js` no fatiamento. O acesso do aluno (criar conta, link de
  * senha, app liberado) NÃO mora aqui: fica no card Acesso da aba Geral
  * (ui-tab-geral.js) e no menu ⋯ do cabeçalho (ui-acoes-aluno.js).
  *
- * Quando desenha: toda vez que o segmento é escolhido (a prévia volta para a
- * semana atual). Não há o que digitar, então não há rascunho a guardar. Com a
- * prévia na tela, uma gravação ('alunos-mudaram') reenvia a fatia — a prévia
- * acompanha a ficha. Perfil reaberto: o quadro esvazia (nada do aluno anterior).
+ * Quando desenha: toda vez que o segmento é escolhido. Não há o que digitar,
+ * então não há rascunho a guardar. Com a prévia na tela, uma gravação
+ * ('alunos-mudaram') reenvia a fatia — a prévia acompanha a ficha. Perfil
+ * reaberto: o quadro esvazia (nada do aluno anterior).
  */
-import * as db from './db.js?v=23';
-import { fatia } from './portal-sync.js?v=23';
-import { isoLocal } from './util/formato.js?v=23';
-import { $ } from './util/dom.js?v=23';
-import { estado, on, EVENTOS } from './estado.js?v=23';
+import * as db from './db.js?v=24';
+import { fatia } from './portal-sync.js?v=24';
+import { $ } from './util/dom.js?v=24';
+import { estado, on, EVENTOS } from './estado.js?v=24';
 
-/** A página da prévia, relativa à Gestão. `?previa=1` liga o modo no Portal. */
-export const URL_PREVIA = '../../painel-do-aluno/previa.html';
+/** A prévia do Portal novo. Outros dias e semanas o coach abre lá dentro, no cronograma do Treino. */
+export const URL_PREVIA = 'https://portal-garagepowerlab.web.app/previa';
 
-let prvSemana = 0;   // 0 = semana de hoje; -1 = a anterior, e assim por diante
 let prvPronto = false;
 let urlPrevia = URL_PREVIA;
+/** Só desta origem a Gestão aceita o "pronto", e só para ela manda a ficha. */
+let origemPrevia = '';
 
-/** Segunda-feira da semana deslocada em `n` semanas, em ISO. @param {number} n */
-function prvDataRef(n) {
-  const d = new Date();
-  d.setDate(d.getDate() + n * 7);
-  return isoLocal(d);
-}
-
-/** O rótulo da semana mostrada. @param {number} n */
-export function rotuloSemana(n) {
-  return n === 0 ? 'Semana atual' : n < 0 ? `${-n} semana(s) atrás` : `${n} semana(s) à frente`;
-}
-
-/** A mensagem que a prévia recebe: a mesma fatia do `portal/{email}`. @param {any} a @param {number} semana */
-export function mensagemPrevia(a, semana) {
+/** A mensagem que a prévia recebe: a mesma fatia do `portal/{email}`. @param {any} a */
+export function mensagemPrevia(a) {
   return {
     tipo: 'portal-previa',
     dados: fatia(a, db.listar(), db.diasFechados()),
     email: (a.email || '').toLowerCase(),
-    hoje: prvDataRef(semana),
   };
 }
 
+const quadro = () => /** @type {HTMLIFrameElement|null} */ ($('#prv-frame'));
+
 function prvEnviar() {
   const a = estado.alunoAtual;
-  const frame = /** @type {HTMLIFrameElement|null} */ ($('#prv-frame'));
+  const frame = quadro();
   if (!a || !frame || !frame.contentWindow || !prvPronto) return;
-  frame.contentWindow.postMessage(mensagemPrevia(a, prvSemana), location.origin);
-  $('#prv-lbl').textContent = rotuloSemana(prvSemana);
+  frame.contentWindow.postMessage(mensagemPrevia(a), origemPrevia);
 }
 
 /** Põe a prévia do aluno aberto no quadro. A aba Histórico chama. */
 export function abrirPrevia() {
   const a = estado.alunoAtual;
-  const frame = /** @type {HTMLIFrameElement|null} */ ($('#prv-frame'));
+  const frame = quadro();
   if (!a || !frame) return;
   // Até a página nova avisar que está pronta, nada é enviado — nem para a
   // prévia do aluno anterior, que ainda pode estar no quadro.
-  prvSemana = 0;
   prvPronto = false;
   if (!a.email) {
     $('#prv-lbl').textContent = 'Este aluno não tem e-mail cadastrado — sem e-mail não há Portal.';
     frame.removeAttribute('src');
     return;
   }
-  // `previa.html` e não `index.html`: o index do portal antigo agora só redireciona
-  // para o portal novo, que ainda não tem prévia; previa.html é o antigo, só para cá.
-  frame.src = `${urlPrevia}?previa=1&t=${Date.now()}`;
+  $('#prv-lbl').textContent = `Portal de ${a.email.toLowerCase()}`;
+  frame.src = `${urlPrevia}?t=${Date.now()}`;
 }
 
 /** A prévia está na tela (aba Histórico aberta, neste segmento)? */
@@ -96,9 +85,10 @@ const visivel = () => !!$('#tab-historico')?.classList.contains('active') && !$(
  */
 export function iniciarTabPortal(o = {}) {
   urlPrevia = o.urlPrevia || URL_PREVIA;
+  origemPrevia = new URL(urlPrevia, location.href).origin;
   // Outro aluno: o quadro esvazia até a prévia ser escolhida de novo.
-  on(EVENTOS.PERFIL_ABERTO, () => { prvPronto = false; $('#prv-frame')?.removeAttribute('src'); });
-  // Gravou com a prévia aberta: manda a fatia nova, na mesma semana.
+  on(EVENTOS.PERFIL_ABERTO, () => { prvPronto = false; quadro()?.removeAttribute('src'); });
+  // Gravou com a prévia aberta: manda a fatia nova.
   on(EVENTOS.ALUNOS_MUDARAM, () => {
     if (!visivel() || !estado.alunoAtual) return;
     estado.alunoAtual = db.obter(estado.alunoAtual.id) || estado.alunoAtual;
@@ -106,13 +96,10 @@ export function iniciarTabPortal(o = {}) {
   });
 
   // O Portal avisa quando terminou de carregar; só então os dados são enviados —
-  // mandar antes seria falar com uma página que ainda não tem quem escute.
+  // mandar antes seria falar com uma página que ainda não tem quem escute. Só
+  // vale o aviso do nosso quadro, vindo do endereço da prévia.
   window.addEventListener('message', (ev) => {
-    if (ev.origin !== location.origin) return;
+    if (ev.origin !== origemPrevia || !ev.source || ev.source !== quadro()?.contentWindow) return;
     if (ev.data && ev.data.tipo === 'portal-previa-pronto') { prvPronto = true; prvEnviar(); }
   });
-
-  $('#prv-prev')?.addEventListener('click', () => { prvSemana -= 1; prvEnviar(); });
-  $('#prv-next')?.addEventListener('click', () => { prvSemana += 1; prvEnviar(); });
-  $('#prv-hoje')?.addEventListener('click', () => { prvSemana = 0; prvEnviar(); });
 }

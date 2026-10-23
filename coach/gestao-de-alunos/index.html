@@ -309,14 +309,13 @@
                   <button class="btn ghost btn-sm" id="reg-mais" type="button" hidden>Carregar mais</button>
                 </div>
                 <div class="hi-painel" id="hi-portal" role="tabpanel" aria-labelledby="hi-seg-portal" hidden>
+                  <!-- O Portal novo (portal-garagepowerlab.web.app/previa): pede o login do coach uma vez,
+                       no próprio quadro. `referrerpolicy`: é pela origem desta página que a prévia sabe a quem responder. -->
                   <div class="prv-barra">
-                    <button class="btn btn-sm" id="prv-prev" type="button">← semana</button>
                     <span class="prv-lbl" id="prv-lbl"></span>
-                    <button class="btn btn-sm" id="prv-next" type="button">semana →</button>
-                    <button class="btn btn-sm ghost" id="prv-hoje" type="button">hoje</button>
                     <span class="prv-nota">Somente leitura — nada que você fizer aqui é gravado na conta do aluno.</span>
                   </div>
-                  <div class="prv-quadro"><iframe id="prv-frame" title="Portal do Aluno (prévia)" loading="lazy"></iframe></div>
+                  <div class="prv-quadro"><iframe id="prv-frame" title="Portal do Aluno (prévia)" loading="lazy" referrerpolicy="origin"></iframe></div>
                 </div>
               </div>
             </section>
@@ -431,6 +430,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=23"></script>
+  <script type="module" src="./main.js?v=24"></script>
 </body>
 </html>

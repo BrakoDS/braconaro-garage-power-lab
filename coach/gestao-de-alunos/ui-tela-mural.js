@@ -10,12 +10,12 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'mural'), que limpa o
  * formulário, e depois de cada gravação.
  */
-import { listarAvisos, salvarAvisos } from './avisos.js?v=23';
-import { recentes, publicarItem, alternarAtivo, removerItem } from './comunicacao-regras.js?v=23';
-import { esc } from './util/formato.js?v=23';
-import { $ } from './util/dom.js?v=23';
-import { on, EVENTOS } from './estado.js?v=23';
-import { confirmar as confirmarReal } from '../../compartilhado/ui/dialogo.js?v=23';
+import { listarAvisos, salvarAvisos } from './avisos.js?v=24';
+import { recentes, publicarItem, alternarAtivo, removerItem } from './comunicacao-regras.js?v=24';
+import { esc } from './util/formato.js?v=24';
+import { $ } from './util/dom.js?v=24';
+import { on, EVENTOS } from './estado.js?v=24';
+import { confirmar as confirmarReal } from '../../compartilhado/ui/dialogo.js?v=24';
 
 const MURAL_TIPO = { info: 'Informativo', importante: 'Importante', evento: 'Evento' };
 /** O id do aviso em edição, ou null. */

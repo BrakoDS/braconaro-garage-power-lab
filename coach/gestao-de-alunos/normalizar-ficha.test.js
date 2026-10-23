@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizarFicha } from './normalizar-ficha.js?v=23';
+import { normalizarFicha } from './normalizar-ficha.js?v=24';
 
 test('horários: o dia marcado sem hora própria recebe a hora antiga; o que já tem, fica', () => {
   const r = normalizarFicha({ diasTreino: ['seg', 'qua', 'sex'], horarios: { seg: '07:00' }, freqHorario: '19 Horas' });
