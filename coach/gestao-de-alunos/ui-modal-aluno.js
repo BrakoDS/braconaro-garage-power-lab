@@ -9,12 +9,12 @@
  * Registros e pede o perfil do aluno novo pelo barramento ('abrir-perfil'),
  * como o clique num card: a ficha abre na aba Geral.
  */
-import * as db from './db.js?v=23';
-import { formCadastroCurtoHTML, CAMPOS_CADASTRO, wireForm, lerCampos } from './campos-aluno.js?v=23';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=23';
-import { emit, EVENTOS } from './estado.js?v=23';
-import { reg } from './registro.js?v=23';
-import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=23';
+import * as db from './db.js?v=24';
+import { formCadastroCurtoHTML, CAMPOS_CADASTRO, wireForm, lerCampos } from './campos-aluno.js?v=24';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=24';
+import { emit, EVENTOS } from './estado.js?v=24';
+import { reg } from './registro.js?v=24';
+import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=24';
 
 /** @type {{ avisar: (o: any) => any }} */
 let deps = { avisar: avisarReal };

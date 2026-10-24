@@ -34,22 +34,22 @@
  *  - `matrizIndividualizacao.historico` (as correções de volume da semana) não
  *    se edita aqui: vem do fluxo da semana e vence sozinho.
  */
-import * as db from './db.js?v=23';
-import { esc, fmtData, fmtN, horaLegivel, horaParaInput } from './util/formato.js?v=23';
-import { $, $$ } from './util/dom.js?v=23';
-import { estado, on, emit, EVENTOS } from './estado.js?v=23';
-import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=23';
-import { camposDados, wireForm, lerCampos, CAMPOS, DIAS_FORM } from './campos-aluno.js?v=23';
-import { criarRascunho } from './perfil-rascunho.js?v=23';
-import { descreverLesao } from './lesoes.js?v=23';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=23';
+import * as db from './db.js?v=24';
+import { esc, fmtData, fmtN, horaLegivel, horaParaInput } from './util/formato.js?v=24';
+import { $, $$ } from './util/dom.js?v=24';
+import { estado, on, emit, EVENTOS } from './estado.js?v=24';
+import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=24';
+import { camposDados, wireForm, lerCampos, CAMPOS, DIAS_FORM } from './campos-aluno.js?v=24';
+import { criarRascunho } from './perfil-rascunho.js?v=24';
+import { descreverLesao } from './lesoes.js?v=24';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=24';
 import {
   htmlEvolucao, htmlMelhorias, feedbacksHTML, renderMetasCoach, carregarGastoSemana, carregarCargasForca,
-} from './ui-tab-progresso.js?v=23';
+} from './ui-tab-progresso.js?v=24';
 import {
   CAMPO, matrizDe, separarParaGravar, cargaDe1RM, resumoDeAdaptacoes, rotulo,
   OPCOES_NIVEL, FASES, LEVANTAMENTOS, ZONAS_RIR, REGRAS_IMPACTO, REGRAS_TRACAO, RESTRICOES_MOBILIDADE, GRUPOS_COM_ROTULO,
-} from '../../compartilhado/regras/matriz-individualizacao.js?v=23';
+} from '../../compartilhado/regras/matriz-individualizacao.js?v=24';
 
 /** Os cards com formulário (os que têm ✎ Editar). */
 export const CARDS_EDITAVEIS = Object.freeze(['perfil-treino', 'cargas', 'adaptacoes']);
@@ -528,7 +528,7 @@ async function carregarNomes() {
   if (carregandoNomes) return;
   carregandoNomes = true;
   try {
-    const { EXERCICIO_POR_ID } = await import('../../compartilhado/dados/exercicios.js?v=23');
+    const { EXERCICIO_POR_ID } = await import('../../compartilhado/dados/exercicios.js?v=24');
     nomesEx = Object.fromEntries(Object.entries(EXERCICIO_POR_ID).map(([id, e]) => [id, /** @type {any} */ (e).nome]));
   } catch (e) {
     console.warn('Catálogo de exercícios:', /** @type {any} */ (e)?.message || e);

@@ -52,16 +52,16 @@ globalThis.document = /** @type {any} */ ({
 });
 const ouvintesJanela = /** @type {Function[]} */ ([]);
 globalThis.window = /** @type {any} */ ({ addEventListener: (t, f) => { if (t === 'message') ouvintesJanela.push(f); } });
-globalThis.location = /** @type {any} */ ({ origin: 'http://gestao.test' });
+globalThis.location = /** @type {any} */ ({ origin: 'http://gestao.test', href: 'http://gestao.test/coach/gestao-de-alunos/' });
 
-const db = await import('./db.js?v=23');
-const { estado, emit, EVENTOS } = await import('./estado.js?v=23');
-const { iniciarPerfil } = await import('./ui-perfil.js?v=23');
-const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=23');
-const { iniciarTabPortal, rotuloSemana, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=23');
-const { iniciarTabRegistros } = await import('./ui-tab-registros.js?v=23');
-const { iniciarTabHistorico, SEGMENTOS, segmentoVizinho } = await import('./ui-tab-historico.js?v=23');
-const { semanaSegSab, waMsg } = await import('./util/formato.js?v=23');
+const db = await import('./db.js?v=24');
+const { estado, emit, EVENTOS } = await import('./estado.js?v=24');
+const { iniciarPerfil } = await import('./ui-perfil.js?v=24');
+const { iniciarTabProgresso } = await import('./ui-tab-progresso.js?v=24');
+const { iniciarTabPortal, mensagemPrevia, URL_PREVIA } = await import('./ui-tab-portal.js?v=24');
+const { iniciarTabRegistros } = await import('./ui-tab-registros.js?v=24');
+const { iniciarTabHistorico, SEGMENTOS, segmentoVizinho } = await import('./ui-tab-historico.js?v=24');
+const { semanaSegSab, waMsg } = await import('./util/formato.js?v=24');
 
 iniciarPerfil({ obter: db.obter });
 iniciarTabProgresso();
@@ -142,37 +142,31 @@ test('histórico: as setas trocam de segmento dando a volta; perfil reaberto vol
 
 /* ---------- Portal ---------- */
 
-test('portal: o rótulo da semana e a mensagem são a fatia publicada', () => {
-  assert.equal(rotuloSemana(0), 'Semana atual');
-  assert.equal(rotuloSemana(-2), '2 semana(s) atrás');
-  assert.equal(rotuloSemana(1), '1 semana(s) à frente');
+test('portal: a mensagem é a fatia publicada; o quadro abre a /previa do Portal novo', () => {
   db.criar({ id: 'Port01', nome: 'Rui', email: 'Rui@Box.com' });
-  const m = mensagemPrevia(db.obter('Port01'), 0);
+  const m = mensagemPrevia(db.obter('Port01'));
   assert.equal(m.tipo, 'portal-previa');
   assert.equal(m.email, 'rui@box.com');
-  assert.match(m.hoje, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(m.dados.nome, 'Rui');
-  assert.equal(URL_PREVIA, '../../painel-do-aluno/previa.html');
+  assert.equal(URL_PREVIA, 'https://portal-garagepowerlab.web.app/previa');
 });
 
-test('portal: abre a prévia injetada, espera o "pronto", navega semanas e acompanha a gravação', () => {
+test('portal: abre a prévia, espera o "pronto" do próprio quadro e acompanha a gravação', () => {
   abrirPerfil('Port01');
   const frame = el('#prv-frame');
   frame.contentWindow = { postMessage: (msg, origem) => frame.recebidas.push([msg, origem]) };
   emit(EVENTOS.ABRIR_ABA, 'historico');
   clicarSegmento('portal');
-  assert.match(frame.src, /^\/vitrine\/previa-falsa\.html\?previa=1&t=\d+$/, 'a vitrine troca a página da prévia');
+  assert.match(frame.src, /^\/vitrine\/previa-falsa\.html\?t=\d+$/, 'a vitrine troca a página da prévia');
+  assert.equal(el('#prv-lbl').textContent, 'Portal de rui@box.com');
   assert.equal(frame.recebidas.length, 0, 'nada antes do "pronto"');
-  // Mensagem de outra origem é ignorada.
-  ouvintesJanela.forEach((f) => f({ origin: 'http://intruso.test', data: { tipo: 'portal-previa-pronto' } }));
+  // Outra origem, ou outra janela da mesma origem: ignorado.
+  ouvintesJanela.forEach((f) => f({ origin: 'http://intruso.test', source: frame.contentWindow, data: { tipo: 'portal-previa-pronto' } }));
+  ouvintesJanela.forEach((f) => f({ origin: 'http://gestao.test', source: {}, data: { tipo: 'portal-previa-pronto' } }));
   assert.equal(frame.recebidas.length, 0);
-  ouvintesJanela.forEach((f) => f({ origin: 'http://gestao.test', data: { tipo: 'portal-previa-pronto' } }));
+  ouvintesJanela.forEach((f) => f({ origin: 'http://gestao.test', source: frame.contentWindow, data: { tipo: 'portal-previa-pronto' } }));
   assert.equal(frame.recebidas.length, 1);
   assert.deepEqual([frame.recebidas[0][0].email, frame.recebidas[0][1]], ['rui@box.com', 'http://gestao.test']);
-  el('#prv-prev').ouvintes.click();
-  assert.equal(el('#prv-lbl').textContent, '1 semana(s) atrás');
-  el('#prv-hoje').ouvintes.click();
-  assert.equal(el('#prv-lbl').textContent, 'Semana atual');
   // Gravou com a prévia aberta: a fatia nova vai na hora.
   db.atualizar('Port01', { nome: 'Rui Alves' });
   emit(EVENTOS.ALUNOS_MUDARAM);
@@ -188,7 +182,6 @@ test('portal: aluno sem e-mail não tem prévia — e a prévia do anterior não
   assert.equal(frame.src, '');
   assert.match(el('#prv-lbl').textContent, /sem e-mail não há Portal/);
   emit(EVENTOS.ALUNOS_MUDARAM);
-  el('#prv-next').ouvintes.click();
   assert.equal(frame.recebidas.length, n);
 });
 
@@ -223,7 +216,7 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
   // Abrir o perfil: o aluno no estado, o cabeçalho, 'perfil-aberto', a aba Dados e a tela — nessa ordem.
   db.criar({ id: 'Abre01', nome: 'Abel' });
   const vistos = [];
-  const { on } = await import('./estado.js?v=23');
+  const { on } = await import('./estado.js?v=24');
   const parar = [EVENTOS.PERFIL_ABERTO, EVENTOS.ABRIR_ABA, EVENTOS.ABRIR_TELA].map((ev) => on(ev, (x) => vistos.push([ev, x, estado.alunoAtual?.id])));
   emit(EVENTOS.ABRIR_PERFIL, 'Abre01');
   parar.forEach((p) => p());
@@ -248,6 +241,6 @@ test('fatiamento: abrir o perfil é do ui-perfil.js; o boot não sabe de aba nen
 });
 
 test('perfil: as 5 abas da barra, cada uma com módulo; Financeiro, Anamnese, PAR-Q, Matriz, Dados, Progresso, Portal e Registros viraram cards', async () => {
-  const { ABAS } = await import('./ui-perfil.js?v=23');
+  const { ABAS } = await import('./ui-perfil.js?v=24');
   assert.deepEqual(ABAS.map((a) => a.id), ['geral', 'saude', 'treino', 'avaliacoes', 'historico']);
 });

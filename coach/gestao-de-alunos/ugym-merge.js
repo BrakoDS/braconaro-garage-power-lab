@@ -28,8 +28,8 @@
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
 import { datasDaSemana } from '../../compartilhado/regras/semana.js';
-import { alternarPresenca, checkin, diasReivindicados } from './checkin-regras.js?v=23';
-import { casarCaixasComFichas } from './portal-merge.js?v=23';
+import { alternarPresenca, checkin, diasReivindicados } from './checkin-regras.js?v=24';
+import { casarCaixasComFichas } from './portal-merge.js?v=24';
 
 /**
  * @typedef {{ coachUid: string, origem: 'ugym', dia: string, hora: string,

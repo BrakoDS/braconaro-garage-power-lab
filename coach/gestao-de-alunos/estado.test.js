@@ -6,12 +6,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estado, on, emit, EVENTOS } from './estado.js?v=23';
+import { estado, on, emit, EVENTOS } from './estado.js?v=24';
 
 test('o estado começa vazio e é um objeto só, compartilhado', async () => {
   assert.deepEqual(estado, { uid: null, alunoAtual: null, avalAberta: null });
   estado.uid = 'coach';
-  const outro = await import('./estado.js?v=23');
+  const outro = await import('./estado.js?v=24');
   assert.equal(outro.estado.uid, 'coach', 'quem importa de novo vê o mesmo objeto');
   estado.uid = null;
 });
