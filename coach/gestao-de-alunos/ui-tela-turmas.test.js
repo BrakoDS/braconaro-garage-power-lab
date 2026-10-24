@@ -9,9 +9,18 @@
  * DOM de mentira (só o que a tela toca) e o db.js de verdade sobre um
  * localStorage em memória, instalado ANTES dos imports. Todo mundo treina os
  * sete dias às 23:59, para a turma de hoje existir e ainda não ter começado.
+ *
+ * O relógio fica parado às 10:00 de hoje (hora local). Com o relógio de
+ * verdade, entre 23:00 e 23:59 a turma das 23h59 entrava na janela de "reposição
+ * só até 1h antes" e três testes falhavam — no CI, que roda em UTC, isso é
+ * todo dia das 20h às 21h de Brasília, e o push na master não publicava a Gestão.
  */
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import assert from 'node:assert/strict';
+
+const dezDaManha = new Date();
+dezDaManha.setHours(10, 0, 0, 0);
+mock.timers.enable({ apis: ['Date'], now: dezDaManha });
 
 const memoria = new Map();
 globalThis.localStorage = /** @type {any} */ ({
