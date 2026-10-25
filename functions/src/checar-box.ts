@@ -463,6 +463,41 @@ console.log('\nHipertrofia: o crossover ocupa os 2 monocross; TRX fora do H (23/
   'os dois seguem no HIIT (e a remada no Cross, como foco), e o afundo segue como adaptação de mobilidade');
 }
 
+console.log('\nHipertrofia: Agachamento no TRX e Ponte fora do H; Supra e Remador na vaga de core (25/10/2026)');
+{
+  const completo = new Map<string, ItemCatalogo>(Object.entries(CATALOGO_COMPLETO));
+  const agTrx = CATALOGO_COMPLETO.agachamento_trx;
+  const ponte = CATALOGO_COMPLETO.ponte_gluteo;
+  ok(agTrx.instancia === null && !!agTrx.hiit?.estacoes.includes('pernas') && ponte.instancia === null && !!ponte.hiit?.estacoes.includes('pernas'),
+    'Agachamento no TRX e Ponte (Elevação Pélvica Solo) saem do H e seguem no HIIT Pernas');
+  ok(CATALOGO_BASE.agachamento_smith.adaptacoes.mobilidade === 'agachamento_trx' && CATALOGO_BASE.mesa_flexora.adaptacoes.joelho === 'ponte_gluteo'
+    && completo.has('agachamento_trx') && completo.has('ponte_gluteo'), 'e seguem como alvo de adaptação de restrição');
+  const supra = CATALOGO_COMPLETO.abdominal_supra;
+  const remador = CATALOGO_COMPLETO.abdominal_remador;
+  ok([supra, remador].every((e) => e.instancia === 'estabilizar_tronco' && !recursosDo(e as ExercicioCatalogo).length
+    && !!e.hiit?.estacoes.includes('core') && e.cross?.padrao === 'core'),
+  'Supra e Remador: vaga de core, no solo (sem recurso limitado), e seguem no HIIT Core e no Cross');
+
+  // 80 semanas encadeadas: nenhum dos dois que saíram volta ao H, e os novos cores entram no rodízio.
+  let anterior: unknown = null;
+  let foraNoH = '';
+  const cores = new Map<string, number>();
+  for (let i = 0; i < 80; i++) {
+    const w = gerarSemana({ semanaId: `2028-W${String((i % 52) + 1).padStart(2, '0')}`, catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: anterior, variacao: i });
+    for (const dia of ['segunda', 'quarta', 'sexta'] as const) {
+      const b = w.dias[dia].blocoPrincipal;
+      const fora = b.filter((e) => e.exercicioId === 'agachamento_trx' || e.exercicioId === 'ponte_gluteo');
+      if (fora.length) foraNoH ||= `${i}:${dia} ${fora.map((e) => e.exercicioId).join(',')}`;
+      const core = b[6].exercicioId;
+      cores.set(core, (cores.get(core) ?? 0) + 1);
+    }
+    anterior = w.dias;
+  }
+  ok(!foraNoH, '80 semanas: Agachamento no TRX e Ponte nunca no bloco H', foraNoH);
+  ok((cores.get('abdominal_supra') ?? 0) > 0 && (cores.get('abdominal_remador') ?? 0) > 0,
+    `80 semanas: Supra (${cores.get('abdominal_supra') ?? 0}x) e Remador (${cores.get('abdominal_remador') ?? 0}x) saem na vaga 7`);
+}
+
 console.log('\nEdição manual: conflitos, sugestões, avisos e trava');
 {
   const H1 = ['agachamento_smith', 'supino_halter', 'desenvolvimento_halter', 'remada_halter_unilateral', 'rdl_halter', 'puxada_aberta_neutra'];

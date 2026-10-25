@@ -99,8 +99,12 @@
       "ativo": true,
       "origem": "seed",
       "editado": false,
-      "instancia": null,
-      "sessoes": [],
+      "instancia": "estabilizar_tronco",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
       "hiit": [
         "core"
       ],
@@ -130,8 +134,12 @@
       "ativo": true,
       "origem": "seed",
       "editado": false,
-      "instancia": null,
-      "sessoes": [],
+      "instancia": "estabilizar_tronco",
+      "sessoes": [
+        "H1",
+        "H2",
+        "H3"
+      ],
       "hiit": [
         "core"
       ],
@@ -544,12 +552,8 @@
       "ativo": true,
       "origem": "seed",
       "editado": false,
-      "instancia": "agachar",
-      "sessoes": [
-        "H1",
-        "H2",
-        "H3"
-      ],
+      "instancia": null,
+      "sessoes": [],
       "hiit": [
         "pernas"
       ],
@@ -1773,12 +1777,8 @@
       "ativo": true,
       "origem": "seed",
       "editado": false,
-      "instancia": "estender_quadril",
-      "sessoes": [
-        "H1",
-        "H2",
-        "H3"
-      ],
+      "instancia": null,
+      "sessoes": [],
       "hiit": [
         "pernas"
       ],

@@ -52,6 +52,21 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
     hiit: { estacoes: ['pernas'] },
     adaptacoes: { joelho: 'ponte_gluteo' },
   },
+  // 25/10/2026: o Agachamento no TRX é a mobilidade do agachamento no Smith e do frontal; a Elevação
+  // Pélvica Solo, a adaptação de joelho e lombar dos exercícios de perna.
+  agachamento_trx: {
+    nome: 'Agachamento no TRX', instancia: null,
+    musculoPrincipal: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
+    equipamentos: ['trx'],
+    hiit: { estacoes: ['pernas'] },
+    adaptacoes: { joelho: 'ponte_gluteo' },
+  },
+  ponte_gluteo: {
+    ...SEM, nome: 'Ponte de glúteo no chão',
+    musculoPrincipal: ['gluteo'], musculosSecundarios: ['posterior_coxa', 'core'],
+    equipamentos: ['colchonete'],
+    hiit: { estacoes: ['pernas'] },
+  },
 
   /* ───────────── pernas ───────────── */
   agachamento_livre: {
@@ -116,18 +131,7 @@ export const CATALOGO_HIIT: Readonly<Record<string, ExercicioSoHiit>> = {
   },
 
   /* ───────────── core ───────────── */
-  abdominal_supra: {
-    ...SEM, nome: 'Abdominal Supra (Crunch)',
-    musculoPrincipal: ['core'], musculosSecundarios: [],
-    equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
-    cross: { padrao: 'core', unidade: 'reps', rx: 15 },
-  },
-  abdominal_remador: {
-    ...SEM, nome: 'Abdominal Remador',
-    musculoPrincipal: ['core'], musculosSecundarios: ['quadriceps'],
-    equipamentos: ['colchonete'], hiit: { estacoes: ['core'] },
-    cross: { padrao: 'core', unidade: 'reps', rx: 12 },
-  },
+  // Supra e Remador estão no `catalogo-base.ts` desde 25/10/2026 (vaga de core da hipertrofia).
   abdominal_bicicleta: {
     ...SEM, nome: 'Abdominal bicicleta',
     musculoPrincipal: ['core'], musculosSecundarios: [],

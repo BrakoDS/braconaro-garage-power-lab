@@ -212,15 +212,9 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     adaptacoes: { joelho: 'ponte_gluteo' },
     cross: { padrao: 'agachar', unidade: 'reps', rx: 10 },
   },
-  agachamento_trx: {
-    nome: 'Agachamento no TRX', instancia: 'agachar',
-    musculoPrincipal: ['quadriceps'], musculosSecundarios: ['gluteo', 'core'],
-    equipamentos: ['trx'],
-    hiit: { estacoes: ['pernas'] },
-    adaptacoes: { joelho: 'ponte_gluteo' },
-  },
-  // O Afundo no TRX saiu da hipertrofia (23/10/2026): está em `catalogo-hiit.ts` (estação Pernas) — segue
-  // como a adaptação de mobilidade do afundo com halteres e do búlgaro.
+  // O Afundo no TRX saiu da hipertrofia (23/10/2026) e o Agachamento no TRX (25/10/2026): estão em
+  // `catalogo-hiit.ts` (estação Pernas) — seguem como a adaptação de mobilidade do afundo com halteres e do
+  // búlgaro, e do agachamento no Smith e do frontal.
 
   /* ───────────── estender quadril ───────────── */
   terra_barra_livre: {
@@ -269,13 +263,8 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     equipamentos: ['banco', 'halteres'],
     adaptacoes: { lombar: 'ponte_gluteo' },
   },
-  ponte_gluteo: {
-    nome: 'Ponte de glúteo no chão', instancia: 'estender_quadril',
-    musculoPrincipal: ['gluteo'], musculosSecundarios: ['posterior_coxa', 'core'],
-    equipamentos: ['colchonete'],
-    hiit: { estacoes: ['pernas'] },
-    adaptacoes: {},
-  },
+  // A Elevação Pélvica Solo (`ponte_gluteo`) saiu da hipertrofia (25/10/2026): está em `catalogo-hiit.ts`
+  // (estação Pernas) — segue como a adaptação de joelho e lombar dos exercícios de perna.
   coice_gluteo_monocross: {
     nome: 'Coice de glúteo no monocross', instancia: 'estender_quadril',
     musculoPrincipal: ['gluteo'], musculosSecundarios: ['posterior_coxa'],
@@ -318,5 +307,22 @@ export const CATALOGO_BASE: Readonly<Record<string, ExercicioCatalogo>> = {
     hiit: { estacoes: ['core'] },
     adaptacoes: { lombar: 'pallof_press' },
     cross: { padrao: 'core', unidade: 'reps', rx: 20, carga: { rx: 'anilha 10/5 kg', scaled: 'sem carga' } },
+  },
+  // Supra e Remador entraram na vaga de core (25/10/2026): no solo, sem monocross; seguem no HIIT Core e no Cross.
+  abdominal_supra: {
+    nome: 'Abdominal Supra (Crunch)', instancia: 'estabilizar_tronco',
+    musculoPrincipal: ['core'], musculosSecundarios: [],
+    equipamentos: ['colchonete'],
+    hiit: { estacoes: ['core'] },
+    adaptacoes: {},
+    cross: { padrao: 'core', unidade: 'reps', rx: 15 },
+  },
+  abdominal_remador: {
+    nome: 'Abdominal Remador', instancia: 'estabilizar_tronco',
+    musculoPrincipal: ['core'], musculosSecundarios: ['quadriceps'],
+    equipamentos: ['colchonete'],
+    hiit: { estacoes: ['core'] },
+    adaptacoes: {},
+    cross: { padrao: 'core', unidade: 'reps', rx: 12 },
   },
 };
