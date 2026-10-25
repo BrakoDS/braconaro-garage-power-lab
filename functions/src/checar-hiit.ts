@@ -444,15 +444,15 @@ console.log('\nA semana com o HIIT (gerar, salvar, publicar, reconferir)');
   const incompleta = ler(pernas(['agachamento_livre', 'goblet_squat', 'kb_swing']));
   ok('dias' in incompleta && problemasParaPublicar(incompleta.dias, []).some((p) => p.includes('Pernas do HIIT tem 3 de 4 slots')),
     'rascunho aceita estação incompleta; publicar não');
-  // Repetição no dia: o agachamento no TRX no H3 E no HIIT da sexta.
+  // Repetição no dia: o step-up no caixote no H3 E no HIIT da sexta.
   const repete = lerDias({
     sexta: {
       treinos: ['H3', 'HIIT'],
-      blocoPrincipal: [{ exercicioId: 'agachamento_trx', series: 4, repeticoes: '8-12' }],
-      hiit: pernas(['agachamento_trx', 'goblet_squat', 'kb_swing', 'agachamento_livre']),
+      blocoPrincipal: [{ exercicioId: 'box_step_up', series: 3, repeticoes: '8-12' }],
+      hiit: pernas(['box_step_up', 'box_step_up', 'goblet_squat', 'kb_swing']),
     },
   }, catalogo);
-  ok('dias' in repete && problemasParaPublicar(repete.dias, []).some((p) => p.includes('Agachamento no TRX está no bloco do H3 e no HIIT')),
+  ok('dias' in repete && problemasParaPublicar(repete.dias, []).some((p) => p.includes('Step-up no caixote está no bloco do H3 e no HIIT')),
     'o mesmo exercício no H3 e no HIIT do dia: não publica');
 
   // A troca manual do bloco H manda os dias SEM o hiit: o servidor preserva o gravado.
