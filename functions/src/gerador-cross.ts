@@ -22,7 +22,7 @@
  *     serve de foco (`cross.tecnica` no catálogo), e o foco é o de categoria
  *     mais à frente (olímpico > barra > kettlebell > ginástica) que CABE no
  *     inventário com a turma em duplas revezando. Com o bloco antes, o WOD
- *     fica em até `MINUTOS_MAX_WOD` (15 min) — a aula tem 60.
+ *     fica em até `MINUTOS_MAX_WOD` (20 min) — a aula tem 60, com 5 de aquecimento.
  *
  * ── Como monta ───────────────────────────────────────────────────────────────
  * Sorteia uma ORDEM de padrões (o cardio sempre na frente) e procura, em
@@ -47,13 +47,16 @@ import { estrategiaDoWod } from './estrategia-cross';
 /** Teto da busca. Com o catálogo real, um WOD gasta poucas dezenas de nós. */
 const MAX_NOS = 200_000;
 
-/** Duração do AMRAP, em minutos — até o teto do WOD. */
-const MINUTOS_AMRAP = [12, 13, 14, MINUTOS_MAX_WOD] as const;
-/** Rodadas do For Time; o time cap é 4 min por rodada, até o teto (4 rodadas = 15, como a aula de 06/10). */
-const RODADAS_FOR_TIME = [3, 4] as const;
+/** Duração do AMRAP, em minutos — até o teto do WOD (27/10/2026). */
+const MINUTOS_AMRAP = [12, 14, 16, 18, MINUTOS_MAX_WOD] as const;
+/** Rodadas do For Time; o time cap é 4 min por rodada: 12, 16 ou 20 (27/10/2026). */
+const RODADAS_FOR_TIME = [3, 4, 5] as const;
 const MINUTOS_POR_RODADA_FOR_TIME = 4;
-/** O EMOM fica entre estes minutos (movimentos × rodadas). */
-const EMOM_MINUTOS = { min: 12, max: MINUTOS_MAX_WOD } as const;
+/**
+ * O EMOM fica entre estes minutos (movimentos × rodadas), sempre em voltas
+ * COMPLETAS: com 3 movimentos, 12 ou 15; com 4, 12 ou 16 (27/10/2026).
+ */
+const EMOM_MINUTOS = { min: 12, max: 16 } as const;
 const MINUTOS_CHIPPER = MINUTOS_MAX_WOD;
 
 export interface ContextoCross {

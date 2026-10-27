@@ -16,7 +16,7 @@ import {
 } from './catalogo-hyrox';
 import { blocosDoWod, catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox, seriesDaTecnica } from './volume-cross-hyrox';
 import {
-  CAPACIDADE_SKIERG, CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, FORMATOS_HYROX, INVENTARIO_CROSS_HYROX_PADRAO, INVENTARIO_PADRAO,
+  CAPACIDADE_SKIERG, CATEGORIAS_FOCO, ESTACOES_HYROX, FORMATOS_CROSS, MINUTOS_MAX_WOD, FORMATOS_HYROX, INVENTARIO_CROSS_HYROX_PADRAO, INVENTARIO_PADRAO,
   METROS_POR_PUXADA_SKIERG, MODELOS_HYROX, NIVEIS_HYROX, PADROES_CROSS, PISTA_HYROX_M, REGRA_FORMATO_CROSS,
   REGRA_FORMATO_HYROX,
   type DiaSemana, type FormatoCross, type ItemCatalogo, type RecursoBox, type RecursoCross,
@@ -111,7 +111,7 @@ console.log('\nPrescrição (RX, Scaled e formato)');
   const swing = (f: FormatoCross) => wod(f, ['kb_swing']).movimentos[0];
   ok(swing('AMRAP').rx === 15 && swing('AMRAP').scaled === 11, 'AMRAP: RX = RX-base (15), Scaled −30% (11)');
   ok(swing('EMOM').rx === 9 && swing('EMOM').scaled === 6, 'EMOM: RX × 0,6 (9), Scaled 6');
-  ok(swing('Chipper').rx === 30 && swing('Chipper').scaled === 20, 'Chipper: RX × 2 (cap de 15 min com a Técnica antes), Scaled 21 → 20');
+  ok(swing('Chipper').rx === 40 && swing('Chipper').scaled === 30, 'Chipper: RX × 2,5 (cap de 20 min, 27/10/2026): 37,5 → 40, Scaled 28 → 30', JSON.stringify(swing('Chipper')));
   const kb = swing('AMRAP');
   ok(igual(kb.carga, { rx: '16/12 kg', scaled: '12/8 kg' }), 'a carga RX/Scaled vem do catálogo');
   ok(wod('AMRAP', ['afundo_kb']).movimentos[0].porLado && !kb.porLado, 'unilateral: a quantidade é por lado');
@@ -165,16 +165,21 @@ console.log('\nGerador do WOD');
   ok(todos.filter((g) => g.wod.formato === 'EMOM').every((g) => !g.wod.movimentos.some((m) => comBarra.has(m.exercicioId) || m.exercicioId === 'wall_ball_shot')),
     'EMOM com turma de 6: nunca barra (4) nem wall ball (4) — a turma inteira no mesmo minuto');
 
-  const tempoOk = todos.every(({ wod: w }) => {
-    if (w.formato === 'AMRAP') return w.rodadas === null && w.minutos >= 12 && w.minutos <= 15;
-    if (w.formato === 'For Time') return w.rodadas !== null && w.minutos === Math.min(15, w.rodadas * 4);
-    if (w.formato === 'EMOM') return w.rodadas !== null && w.minutos === w.rodadas * w.movimentos.length && w.minutos >= 12 && w.minutos <= 15;
-    return w.rodadas === null && w.minutos === 15;
-  });
-  ok(tempoOk, 'tempo, com a Técnica antes (aula de 60 min): AMRAP 12–15; For Time 3 ou 4 rodadas, cap 12 ou 15; EMOM 12–15; Chipper 15');
-  ok(todos.every(({ wod: w }) => w.minutos <= 15), 'nenhum WOD passa de 15 min');
-  ok(todos.some(({ wod: w }) => w.formato === 'For Time' && w.rodadas === 4 && w.minutos === 15),
-    'For Time de 4 rodadas com cap 15, como a aula de 06/10');
+  // Tetos de 27/10/2026 (aquecimento de 5 min): AMRAP até 20, EMOM até 16 em voltas completas, For Time e Chipper com cap até 20.
+  const foraDoTempo = todos.filter(({ wod: w }) => {
+    if (w.formato === 'AMRAP') return !(w.rodadas === null && [12, 14, 16, 18, 20].includes(w.minutos));
+    if (w.formato === 'For Time') return !(w.rodadas !== null && [3, 4, 5].includes(w.rodadas) && w.minutos === w.rodadas * 4);
+    if (w.formato === 'EMOM') return !(w.rodadas !== null && w.minutos === w.rodadas * w.movimentos.length && w.minutos >= 12 && w.minutos <= 16);
+    return !(w.rodadas === null && w.minutos === 20);
+  }).map(({ wod: w }) => `${w.formato} ${w.minutos} min, ${w.rodadas} rodadas, ${w.movimentos.length} movimentos`);
+  ok(!foraDoTempo.length, 'tempo: AMRAP 12/14/16/18/20; For Time 3, 4 ou 5 rodadas, cap 12/16/20; EMOM 12–16 em voltas completas; Chipper 20',
+    foraDoTempo.slice(0, 3).join(' | '));
+  ok(todos.every(({ wod: w }) => w.minutos <= 20), 'nenhum WOD passa de 20 min (5 de aquecimento + 12 de Técnica + 20 cabem na aula de 60)');
+  const vistos = (f: string) => [...new Set(todos.filter(({ wod: w }) => w.formato === f).map(({ wod: w }) => w.minutos))].sort((x, y) => x - y);
+  ok(igual(vistos('AMRAP'), [12, 14, 16, 18, 20]), `o AMRAP usa as 5 durações (${vistos('AMRAP').join(', ')})`);
+  ok(igual(vistos('For Time'), [12, 16, 20]), `o For Time usa os 3 caps (${vistos('For Time').join(', ')})`);
+  ok(vistos('EMOM').every((m) => [12, 15, 16].includes(m)) && vistos('EMOM').includes(16),
+    `o EMOM chega a 16 (com 4 movimentos) e nunca para no meio da lista (${vistos('EMOM').join(', ')})`);
 
   const a = gerarCross(ctx({ semente: 's1' }));
   ok(igual(a, gerarCross(ctx({ semente: 's1' }))), 'determinístico: mesma semente, mesmo WOD');
@@ -629,9 +634,11 @@ console.log('\nEstratégia do Coach (a ponte entre a Técnica / Força e o WOD)'
   const alivio = estr('AMRAP', ['air_bike_sprint', 'flexao', 'remada_unilateral_kb']) ?? '';
   ok(/O resto do WOD puxa mais|Os outros movimentos pegam mais/.test(alivio) && !alivio.includes('dos ombros'),
     'foco de ombro com o resto em pernas e costas: frase de alívio, sem citar o ombro', alivio);
-  ok(quebrarSeries(12) === '5-4-3' && quebrarSeries(16) === '7-5-4' && quebrarSeries(10) === '5-3-2', 'quebra das séries: 12 → 5-4-3');
-  ok((estr('Chipper', ['corrida', 'power_clean', 'box_jump', 'flexao_pike', 'farmer_carry_kb']) ?? '').includes('16 reps em 7-5-4'),
-    'Chipper com 16 power cleans: sugere 7-5-4');
+  ok(quebrarSeries(12) === '5-4-3' && quebrarSeries(16) === '7-5-4' && quebrarSeries(10) === '5-3-2' && quebrarSeries(20) === '8-6-6',
+    'quebra das séries: 12 → 5-4-3, 20 → 8-6-6');
+  // Chipper RX × 2,5 desde 27/10/2026: o power clean (RX-base 8) vira 20.
+  ok((estr('Chipper', ['corrida', 'power_clean', 'box_jump', 'flexao_pike', 'farmer_carry_kb']) ?? '').includes('20 reps em 8-6-6'),
+    'Chipper com 20 power cleans: sugere 8-6-6');
   ok(!/reps em/.test(estr('For Time', ['corrida', 'desenvolvimento_unilateral_kb', 'goblet_squat']) ?? 'reps em'),
     'foco unilateral ou com menos de 10 reps: sem sugestão de quebra');
   ok(nomeCurto('Remada no TRX') === 'remada no TRX' && nomeCurto('Battle ropes (corda naval)') === 'battle ropes', 'nome curto: sem parênteses, sigla mantida');
@@ -825,7 +832,7 @@ console.log('\nVolume do Cross e do Hyrox (séries equivalentes)');
   ok(series(lerRegistroCross({ comoPrescrito: true }, emom, catalogo)).kb_swing === 1.5, 'EMOM 3 voltas: 3 blocos × 0,5');
   const chipper = wodDe({ formato: 'Chipper', minutos: 15, movimentos: mov(['corrida', 'power_clean', 'kb_swing', 'flexao', 'agachamento_livre']) });
   ok(igual(series(lerRegistroCross({ comoPrescrito: true }, chipper, catalogo)), { power_clean: 4, corrida: 0.5, kb_swing: 1, flexao: 1, agachamento_livre: 1 }),
-    'Chipper: 2 blocos por movimento (o fator 2 das repetições)');
+    'Chipper: 2 blocos por movimento (regra de volume de 06/10, igual no app; as reps são × 2,5 desde 27/10)');
   ok(igual(series(lerRegistroCross({ chipperAte: 2 }, chipper, catalogo)), { power_clean: 4, corrida: 0.5 }), 'Chipper: parou no 2º movimento');
 
   // Adaptações: só as do catálogo; o volume vai para o que o aluno FEZ.
@@ -892,6 +899,32 @@ console.log('\nVolume do Cross e do Hyrox (séries equivalentes)');
   ok(ESTACOES_HYROX.every((e) => MUSCULOS_HYROX[e].estacao.musculoPrincipal.length > 0)
     && ESTACOES_HYROX.every((e) => !!MUSCULOS_HYROX[e].substituta === !!DADOS_ESTACAO_HYROX[e].substituta),
   'toda estação tem músculo principal; toda substituta do catálogo do Hyrox tem os seus');
+}
+
+console.log('\nWOD com os tetos de 27/10/2026: 80 semanas encadeadas (catálogo completo, inventário padrão, turma de 6)');
+{
+  let anterior: unknown = null;
+  let formatoAnterior = '';
+  const porFormato = new Map<string, Set<number>>();
+  const problemas: string[] = [];
+  for (let i = 0; i < 80; i++) {
+    const semanaId = `${2029 + Math.floor(i / 52)}-W${String((i % 52) + 1).padStart(2, '0')}`;
+    const w = gerarSemana({ semanaId, catalogo, limites: INV.limitesAtivos, diasDaSemanaAnterior: anterior, alunosPorAula: 6 });
+    const c = w.dias.terca.cross!;
+    if (!porFormato.has(c.formato)) porFormato.set(c.formato, new Set());
+    porFormato.get(c.formato)!.add(c.minutos);
+    if (c.minutos > MINUTOS_MAX_WOD) problemas.push(`${semanaId}: ${c.formato} de ${c.minutos} min`);
+    if (c.formato === formatoAnterior) problemas.push(`${semanaId}: ${c.formato} repete a semana anterior`);
+    if (w.alertasCross.length) problemas.push(`${semanaId}: alerta de equipamento no Cross`);
+    formatoAnterior = c.formato;
+    anterior = w.dias;
+  }
+  const resumo = [...porFormato].map(([f, m]) => `${f}: ${[...m].sort((x, y) => x - y).join('/')}`).join('; ');
+  ok(!problemas.length, '80 semanas: nenhum WOD acima de 20 min, nenhum formato repetido da semana anterior, nenhum alerta',
+    problemas.slice(0, 3).join(' | '));
+  ok(FORMATOS_CROSS.every((f) => porFormato.has(f)), `os 4 formatos aparecem (${resumo})`);
+  ok([...(porFormato.get('AMRAP') ?? [])].some((m) => m > 15) && !!porFormato.get('Chipper')?.has(20),
+    'as durações novas saem na semana de verdade (AMRAP acima de 15, Chipper de 20)');
 }
 
 console.log(falhas ? `\n✗ Cross/Hyrox: ${falhas} falha(s).` : '\n✓ Cross/Hyrox: tudo certo.');

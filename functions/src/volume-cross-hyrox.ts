@@ -10,7 +10,8 @@
  *  - WOD: blocos por movimento × 0,5 (cardio: × 0,25). For Time e EMOM:
  *    rodadas/voltas completas, até o prescrito; AMRAP: rodadas completas, até
  *    minutos ÷ 2 ("como prescrito" = minutos ÷ 3); Chipper: 2 blocos por
- *    movimento feito (o fator 2 das repetições);
+ *    movimento feito (era o fator das repetições; desde 27/10/2026 as reps são
+ *    × 2,5 e o volume segue em 2 — a mesma conta do app e do Portal);
  *  - Hyrox: cada estação feita × 1,0 × `fatorEstacao` (metade no
  *    compromised); a corrida antes dela × 0,25 × `fatorCorrida`.
  *
