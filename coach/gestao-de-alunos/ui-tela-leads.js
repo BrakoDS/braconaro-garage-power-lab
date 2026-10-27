@@ -11,12 +11,12 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'leads'), que recarrega da
  * nuvem, e depois de cada mudança de status ou exclusão.
  */
-import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js?v=24';
-import { followUpLead, painelDeLeads, comStatus, LEAD_STATUS_LABEL } from './comunicacao-regras.js?v=24';
-import { esc, waMsg } from './util/formato.js?v=24';
-import { $ } from './util/dom.js?v=24';
-import { on, EVENTOS } from './estado.js?v=24';
-import { confirmar as confirmarReal } from '../../compartilhado/ui/dialogo.js?v=24';
+import { carregarLeads, atualizarStatusLead, excluirLead } from './leads-read.js?v=25';
+import { followUpLead, painelDeLeads, comStatus, LEAD_STATUS_LABEL } from './comunicacao-regras.js?v=25';
+import { esc, waMsg } from './util/formato.js?v=25';
+import { $ } from './util/dom.js?v=25';
+import { on, EVENTOS } from './estado.js?v=25';
+import { confirmar as confirmarReal } from '../../compartilhado/ui/dialogo.js?v=25';
 
 /** Os leads carregados por último. */
 let LEADS_CACHE = /** @type {any[]} */ ([]);

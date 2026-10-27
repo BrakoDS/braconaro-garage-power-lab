@@ -20,18 +20,18 @@
  * pelo ui-tab-financeiro.js e pelo ui-acoes-aluno.js; a situação e as faturas
  * mostram sempre a ficha SALVA.
  */
-import * as db from './db.js?v=24';
-import { esc, hoje, fmtData } from './util/formato.js?v=24';
-import { $ } from './util/dom.js?v=24';
-import { estado, on, emit, EVENTOS } from './estado.js?v=24';
-import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=24';
-import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=24';
-import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=24';
-import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=24';
-import { brl, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=24';
-import { htmlFatura } from './ui-tab-financeiro.js?v=24';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=24';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=24';
+import * as db from './db.js?v=25';
+import { esc, hoje, fmtData } from './util/formato.js?v=25';
+import { $ } from './util/dom.js?v=25';
+import { estado, on, emit, EVENTOS } from './estado.js?v=25';
+import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=25';
+import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=25';
+import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=25';
+import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=25';
+import { brl, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=25';
+import { htmlFatura } from './ui-tab-financeiro.js?v=25';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=25';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=25';
 
 /** Os cards com formulário (os que têm ✎ Editar). */
 export const CARDS_EDITAVEIS = Object.freeze(['contato', 'financeiro', 'acesso']);

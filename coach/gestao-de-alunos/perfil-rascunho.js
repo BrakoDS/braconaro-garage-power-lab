@@ -21,7 +21,7 @@
  *
  * Plano: docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md.
  */
-import { canonico } from './db-migracao.js?v=24';
+import { canonico } from './db-migracao.js?v=25';
 
 /** @param {any} v */
 const copia = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));

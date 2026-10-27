@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fatia } from './portal-sync.js?v=24';
+import { fatia } from './portal-sync.js?v=25';
 
 test('o perfil de treino vai na fatia, para o Portal calcular a versao do aluno', () => {
   const a = {

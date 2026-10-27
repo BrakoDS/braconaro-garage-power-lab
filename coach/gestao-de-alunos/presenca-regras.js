@@ -49,7 +49,7 @@
  * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
  */
 import { datasDaSemana, chaveDoDia } from '../../compartilhado/regras/semana.js';
-import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=24';
+import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=25';
 
 /**
  * O mesmo `creditoVencido` do semana.js, de propósito aqui: o semana.js é

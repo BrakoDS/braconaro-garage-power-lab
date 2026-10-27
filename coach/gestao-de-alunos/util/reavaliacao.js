@@ -6,7 +6,7 @@
  * (anel na foto grande) precisam dizer a MESMA coisa sobre o mesmo aluno —
  * duas cópias da regra divergiriam no primeiro ajuste. Puro.
  */
-import { hoje } from './formato.js?v=24';
+import { hoje } from './formato.js?v=25';
 
 /**
  * Situação da próxima avaliação do aluno (pela avaliação mais recente).

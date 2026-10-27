@@ -27,25 +27,25 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js?v=24';
-import * as eventos from './eventos.js?v=24';
-import { publicarPortal } from './portal-sync.js?v=24';
-import { mergarInboxes } from './portal-merge.js?v=24';
-import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=24';
-import { mesclarCheckinsUgym, ouvirCheckinsUgym } from './ugym-merge.js?v=24';
-import { sincronizarAvisos } from './avisos.js?v=24';
-import { sincronizarDesafios } from './desafios.js?v=24';
-import { estado, emit, EVENTOS } from './estado.js?v=24';
-import { $ } from './util/dom.js?v=24';
-import { renderLista } from './ui-lista.js?v=24';
-import { atualizarSelosDaLista } from './selos-lista.js?v=24';
-import { carregarBadgeLeads } from './ui-tela-leads.js?v=24';
-import { sincronizarAutomacao } from './automacao.js?v=24';
-import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=24';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=24';
-import { aplicarPixPendentes } from './pix-baixa.js?v=24';
-import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=24';
-import { reg } from './registro.js?v=24';
+import * as db from './db.js?v=25';
+import * as eventos from './eventos.js?v=25';
+import { publicarPortal } from './portal-sync.js?v=25';
+import { mergarInboxes } from './portal-merge.js?v=25';
+import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=25';
+import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=25';
+import { sincronizarAvisos } from './avisos.js?v=25';
+import { sincronizarDesafios } from './desafios.js?v=25';
+import { estado, emit, EVENTOS } from './estado.js?v=25';
+import { $ } from './util/dom.js?v=25';
+import { renderLista } from './ui-lista.js?v=25';
+import { atualizarSelosDaLista } from './selos-lista.js?v=25';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=25';
+import { sincronizarAutomacao } from './automacao.js?v=25';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=25';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=25';
+import { aplicarPixPendentes } from './pix-baixa.js?v=25';
+import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=25';
+import { reg } from './registro.js?v=25';
 
 /* ============================================================
    A gravação publica o Portal
@@ -105,21 +105,24 @@ function tratarAusencias() {
   return _ausenciasRodando;
 }
 
-/* ---------- Check-in pelo app da uGym (ugym-merge.js) ---------- */
+/* ---------- Check-in pelo app da uGym e pela chamada da Lousa (ugym-merge.js) ---------- */
 
 let _ugymRodando = /** @type {Promise<void>|null} */ (null);
 let _ugymDeNovo = false;
 /**
  * Aplica nas fichas os check-ins que os alunos fizeram no app da uGym (quem lê
- * o FitControl é a Cloud Function sincronizarUgym) — uma rodada por vez, só com
- * a nuvem em dia (v2), como os avisos de ausência. Um check-in que chega no
- * meio de uma rodada não espera a próxima: a rodada roda de novo ao terminar.
+ * o FitControl é a Cloud Function sincronizarUgym) e os da chamada fechada na
+ * Lousa (`checkinsLousa`) — uma caixa depois da outra, com a ficha já em dia, e
+ * uma rodada por vez, só com a nuvem em dia (v2), como os avisos de ausência.
+ * Um check-in que chega no meio de uma rodada não espera a próxima: a rodada
+ * roda de novo ao terminar.
  */
 function tratarCheckinsUgym() {
   const uid = estado.uid;
   if (!uid || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
   if (_ugymRodando) { _ugymDeNovo = true; return _ugymRodando; }
   _ugymRodando = mesclarCheckinsUgym({ coachUid: uid, alunos: db.listar(), aplicar: db.atualizar, registrar: reg })
+    .then(async (n) => n + await mesclarCheckinsLousa({ coachUid: uid, alunos: db.listar(), aplicar: db.atualizar, registrar: reg }))
     .then((n) => { if (n) { renderLista(); recarregarFichaAberta(); emit(EVENTOS.ALUNOS_MUDARAM); } })
     .finally(() => {
       _ugymRodando = null;
@@ -129,11 +132,12 @@ function tratarCheckinsUgym() {
 }
 
 let _ugymOuvindo = false;
-/** Ao vivo: o check-in que o servidor grava é aplicado em segundos, sem esperar a rodada de 2 min. */
+/** Ao vivo: o check-in que o servidor (ou a chamada da Lousa) grava é aplicado em segundos, sem esperar a rodada de 2 min. */
 function ouvirUgymAoVivo() {
   if (_ugymOuvindo) return;
   _ugymOuvindo = true;
   ouvirCheckinsUgym(() => { tratarCheckinsUgym(); });
+  ouvirCheckinsLousa(() => { tratarCheckinsUgym(); });
 }
 
 let _pixLigado = false;

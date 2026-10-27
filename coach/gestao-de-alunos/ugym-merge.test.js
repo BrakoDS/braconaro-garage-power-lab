@@ -8,8 +8,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aplicarCheckinsNaFicha, temItens } from './ugym-merge.js?v=24';
-import { aulasDoDia } from './presenca-regras.js?v=24';
+import { ORIGENS, aplicarCheckinsNaFicha, temItens } from './ugym-merge.js?v=25';
+import { aulasDoDia } from './presenca-regras.js?v=25';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08';
 const ana = (extra = {}) => ({
@@ -126,4 +126,48 @@ test('o ouvinte só acorda a Gestão quando há item para aplicar', () => {
   assert.equal(temItens([]), false);
   assert.equal(temItens([{ itens: {} }, { atualizadoEm: 1 }, null]), false, 'o consumo deixa documentos vazios: não acorda (sem laço)');
   assert.equal(temItens([{ itens: {} }, { itens: { 'ugym|1': item(QUA, '07:11') } }]), true);
+});
+
+/* ---------- A chamada da Lousa: a mesma caixa, outra coleção (ORIGENS.lousa) ---------- */
+
+/**
+ * O item que o tablet grava ao "Fechar chamada" (portal-aluno-web, lib/rolDaLousa
+ * `itemDeCheckinDaLousa`): o mesmo formato da uGym, com a hora do início do treino.
+ * @param {string} dia @param {string} agora
+ */
+const daLousa = (dia, agora) => ({ coachUid: 'C', origem: /** @type {'lousa'} */ ('lousa'), dia, hora: '07:00', checkin: { hoje: dia, agora }, em: 1 });
+
+test('chamada da Lousa: o presente ganha o check-in na aula dele, com a hora em que começou o treino', () => {
+  const r = aplicarCheckinsNaFicha(ana(), { [`lousa|${QUA}|07:00`]: daLousa(QUA, '07:04') }, ORIGENS.lousa);
+  assert.deepEqual(r.patch.presencas, [QUA]);
+  assert.equal(r.patch.presencaHoras[QUA], '07:04');
+  assert.equal(r.logs[0].resumo, 'Pela chamada da Lousa: Check-in');
+  const [aula] = aulasDoDia([{ ...ana(), ...r.patch }], QUA, { hoje: QUA });
+  assert.equal(aula.status, 'presente');
+});
+
+test('chamada da Lousa: presente sem aula dele no dia (veio de fora da grade) — nada muda, o coach recebe a linha', () => {
+  const r = aplicarCheckinsNaFicha(ana(), { [`lousa|${TER}|18:10`]: daLousa(TER, '18:12') }, ORIGENS.lousa);
+  assert.deepEqual(r.patch, {});
+  assert.equal(r.logs[0].tipo, 'presenca-lousa-fora-da-grade');
+  assert.match(r.logs[0].resumo, /^Presença na chamada da Lousa em 06\/10 às 18:12/);
+});
+
+test('chamada da Lousa fechada duas vezes: a mesma chave, um check-in só', () => {
+  const r = aplicarCheckinsNaFicha(ana({ presencas: [QUA] }), { [`lousa|${QUA}|07:00`]: daLousa(QUA, '07:04') }, ORIGENS.lousa);
+  assert.deepEqual(r.patch, {});
+  assert.deepEqual(r.consumidos, [`lousa|${QUA}|07:00`]);
+});
+
+test('quem faltou não gera item: a falta é a automática quando o dia passa (aula usada, sem crédito)', () => {
+  const [aula] = aulasDoDia([ana()], QUA, { hoje: QUI });
+  assert.equal(aula.status, 'falta');
+  assert.equal(aula.automatica, true);
+  assert.equal(aula.credito, undefined);
+});
+
+test('as duas origens: cada uma com a sua coleção e a sua linha de "fora da grade"', () => {
+  assert.equal(ORIGENS.ugym.colecao, 'checkinsUgym');
+  assert.equal(ORIGENS.lousa.colecao, 'checkinsLousa');
+  assert.notEqual(ORIGENS.ugym.foraDaGrade, ORIGENS.lousa.foraDaGrade);
 });
