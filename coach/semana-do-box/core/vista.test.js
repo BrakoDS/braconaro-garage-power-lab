@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  DIAS, RECURSOS, NOME_INSTANCIA, NOME_RECURSO, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
+  DIAS, RECURSOS, NOME_INSTANCIA, NOME_RECURSO, diasDoBloco, textoSortearBloco, estadoDaSemana, textoAlerta, textoTroca, posicoesEmAlerta,
   consumoVisivel, publicacao, variacaoSeguinte, msDe, datasDosDias, tituloForca,
   linhasDoInventario, alteracoesDoInventario, semanaAfetada, segundaDaChave,
   rotuloDias, datasIsoDosDias, sessaoEditavel, diasParaSalvar, textoConflitos, selosDaOpcao, acoesDoConflito, temConflito, textoAvisoEdicao,
@@ -371,4 +371,16 @@ test('troca no H: exercício que já está no HIIT do dia bloqueia', () => {
   assert.deepEqual(selosDaOpcao(c).map((x) => x.rotulo), ['no HIIT do dia']);
   assert.deepEqual(acoesDoConflito({ conflitos: c, substitutos: [] }).map((a) => a.id), ['outro'], 'sem "manter"');
   assert.ok(textoConflitos(c, 'H3').some((l) => l.includes('Já está no HIIT (sexta e sábado)')));
+});
+
+test('sortear de novo UM bloco: os dias e o texto da confirmação', () => {
+  const W44 = JSON.parse(readFileSync(new URL('./fixtures/semana-cross-hyrox.json', import.meta.url), 'utf8'));
+  assert.deepEqual(diasDoBloco(W44, 'H1').map((d) => d.id), ['segunda', 'terca']);
+  assert.deepEqual(diasDoBloco(W44, 'HIIT').map((d) => d.id), ['sexta', 'sabado']);
+  assert.deepEqual(diasDoBloco(W44, 'Cross').map((d) => d.id), ['terca']);
+  const h3 = textoSortearBloco(W44, 'H3');
+  assert.equal(h3.titulo, 'Sortear de novo o H3?');
+  assert.ok(h3.texto.includes('sexta e sábado') && h3.texto.includes('3 × 8–12') && h3.texto.includes('trocas neste bloco se perdem'));
+  assert.equal(textoSortearBloco(W44, 'Cross').titulo, 'Sortear de novo o WOD?');
+  assert.ok(textoSortearBloco(W44, 'Cross').texto.includes('em outro formato'));
 });

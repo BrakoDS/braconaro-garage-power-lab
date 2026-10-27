@@ -65,6 +65,11 @@ export interface ContextoCross {
   alunosPorAula: number;
   /** O Cross da semana anterior: o formato e os movimentos — o rodízio. */
   semanaPassada?: { formato: FormatoCross | null; ids: ReadonlySet<string> };
+  /**
+   * Formatos que também vão para o fim da fila, além do da semana anterior: o
+   * "sortear de novo" do bloco evita o formato do WOD que está sendo refeito.
+   */
+  formatosEvitados?: readonly FormatoCross[];
   /** Semente do sorteio: `${semanaId}:Cross:${variacao}`. */
   semente: string;
 }
@@ -89,8 +94,9 @@ export function gerarCross(ctx: ContextoCross): CrossGerado {
   const rng = mulberry32(hashSeed(ctx.semente));
   const passada = ctx.semanaPassada ?? { formato: null, ids: new Set<string>() };
 
-  // 1. Formato: sorteio, com o da semana anterior por último.
-  const formato = embaralhar(FORMATOS_CROSS, rng).sort((a, b) => Number(a === passada.formato) - Number(b === passada.formato))[0];
+  // 1. Formato: sorteio, com o da semana anterior (e os evitados) por último.
+  const evita = (f: FormatoCross) => Number(f === passada.formato || !!ctx.formatosEvitados?.includes(f));
+  const formato = embaralhar(FORMATOS_CROSS, rng).sort((a, b) => evita(a) - evita(b))[0];
   const [min, max] = REGRA_FORMATO_CROSS[formato].movimentos;
   const quantos = min + Math.floor(rng() * (max - min + 1));
 

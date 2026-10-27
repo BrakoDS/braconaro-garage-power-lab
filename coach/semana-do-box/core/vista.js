@@ -1050,3 +1050,38 @@ export function diasComAviso(doc, diaId, aviso) {
 export function semanaEmBranco(doc) {
   return !!doc?.dias && DIAS.every((d) => !(doc.dias[d.id]?.treinos ?? []).length && !!doc.dias[d.id]?.aviso);
 }
+
+/* ───────────── Sortear de novo UM bloco (decisão do coach, 27/10/2026) ───────────── */
+
+/**
+ * Os dias em que o bloco está na semana gravada — a mesma regra de
+ * `diasDoBloco` do servidor: o H1 é segunda e terça; o HIIT e o H3, sexta e sábado.
+ * @param {any} doc @param {string} bloco 'H1' | 'H2' | 'H3' | 'HIIT' | 'Cross'
+ */
+export function diasDoBloco(doc, bloco) {
+  return DIAS.filter((d) => {
+    const x = doc?.dias?.[d.id];
+    if (!x) return false;
+    if (bloco === 'HIIT') return Array.isArray(x.hiit?.estacoes) && x.hiit.estacoes.length > 0;
+    if (bloco === 'Cross') return !!x.cross;
+    return x.sessaoForca?.sessao === bloco && (x.blocoPrincipal ?? []).length > 0;
+  });
+}
+
+/**
+ * O texto da confirmação do "sortear de novo" de um bloco: o que muda, em que
+ * dias, e que as trocas manuais DESTE bloco se perdem (as dos outros, não).
+ * @param {any} doc @param {string} bloco
+ */
+export function textoSortearBloco(doc, bloco) {
+  const dias = diasDoBloco(doc, bloco).map((d) => d.nome.toLowerCase());
+  const quando = dias.length > 1 ? `${dias.slice(0, -1).join(', ')} e ${dias[dias.length - 1]}` : dias[0] ?? '';
+  const oQue = bloco === 'Cross' ? 'O WOD da terça (formato, movimentos e a Técnica / Força) é sorteado de novo, em outro formato'
+    : bloco === 'HIIT' ? `As 4 estações do HIIT são sorteadas de novo (${quando})`
+    : `Os exercícios do ${bloco} são sorteados de novo, em 3 × 8–12 · RIR 0–3 · 90 s (${quando})`;
+  return {
+    titulo: `Sortear de novo o ${bloco === 'Cross' ? 'WOD' : bloco}?`,
+    texto: `${oQue}. As suas trocas neste bloco se perdem; o resto da semana fica como está, com as suas edições. `
+      + 'O rodízio com a semana anterior vale primeiro: o que não tiver outra opção continua.',
+  };
+}

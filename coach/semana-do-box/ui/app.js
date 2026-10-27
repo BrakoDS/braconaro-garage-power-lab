@@ -17,8 +17,8 @@
 import { usuario } from '../../../compartilhado/firebase/cloud.js';
 import { confirmar } from '../../../compartilhado/ui/dialogo.js';
 import { chaveMes, chaveSemana, rotuloMes, semanasDoMes } from '../../montador-hibrido/core/periodos.js';
-import { DIAS, diasComAviso, segundaDaChave, tituloAviso, variacaoSeguinte } from '../core/vista.js';
-import { gerarMatriz, programarDia, publicar, lerSemanas, salvarSemana } from '../cloud/semana.js';
+import { DIAS, diasComAviso, segundaDaChave, textoSortearBloco, tituloAviso, variacaoSeguinte } from '../core/vista.js';
+import { gerarMatriz, programarDia, publicar, lerSemanas, salvarSemana, sortearBloco } from '../cloud/semana.js';
 import { pedirAviso } from './dia-sem-aula.js';
 import * as catalogo from './catalogo.js';
 import * as inventario from './inventario.js';
@@ -90,7 +90,7 @@ async function reler(chave) {
 /**
  * Executa um pedido com a tela travada, relê a semana e mostra o resultado.
  * Relê também no ERRO: `publicarSemanaBox` grava os alertas de agora antes de recusar.
- * @param {string} chave @param {string} ocupando @param {() => Promise<any>} pedido @param {string} sucesso
+ * @param {string} chave @param {string} ocupando @param {() => Promise<any>} pedido @param {string | (() => string)} sucesso
  */
 async function executar(chave, ocupando, pedido, sucesso) {
   estado.ocupado = true;
@@ -106,12 +106,12 @@ async function executar(chave, ocupando, pedido, sucesso) {
   estado.ocupado = false;
   desenhar();
   if (erro) status(/** @type {any} */ (erro).message || 'Não deu para completar a operação.', 'erro');
-  else status(sucesso, 'ok');
+  else status(typeof sucesso === 'function' ? sucesso() : sucesso, 'ok');
 }
 
 async function aoClicar(ev) {
   const alvo = /** @type {HTMLElement} */ (ev.target)
-    .closest('[data-semana], [data-acao], [data-trocar], [data-trocar-hiit], [data-trocar-cross], [data-trocar-hyrox], [data-trocar-foco]');
+    .closest('[data-semana], [data-acao], [data-trocar], [data-trocar-hiit], [data-trocar-cross], [data-trocar-hyrox], [data-trocar-foco], [data-sortear-bloco]');
   if (!alvo || estado.ocupado) return;
 
   const semana = alvo.getAttribute('data-semana');
@@ -167,6 +167,20 @@ async function aoClicar(ev) {
   const estacaoHyrox = alvo.getAttribute('data-trocar-hyrox');
   if (estacaoHyrox) {
     await trocarEstacaoHyrox({ ...ctxTroca, estacao: estacaoHyrox });
+    return;
+  }
+
+  // "sortear de novo" UM bloco: só ele muda, o resto da semana (e as edições) fica.
+  const bloco = alvo.getAttribute('data-sortear-bloco');
+  if (bloco) {
+    const { titulo, texto } = textoSortearBloco(doc, bloco);
+    const ok = await confirmar({ titulo, texto: esc(texto), ok: 'Sortear de novo' });
+    if (!ok) return;
+    /** @type {string[]} */
+    let avisos = [];
+    await executar(s.chave, `Sorteando de novo o ${bloco === 'Cross' ? 'WOD' : bloco}…`,
+      async () => { avisos = (await sortearBloco(s.chave, bloco))?.avisosSorteio ?? []; },
+      () => `${bloco === 'Cross' ? 'WOD' : bloco} sorteado de novo. ${avisos.length ? avisos.join(' ') : 'Revise o bloco e o equipamento.'}`);
     return;
   }
 

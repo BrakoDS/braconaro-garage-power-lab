@@ -93,6 +93,17 @@ export function programarDia(semanaId, dia) {
   return chamar('programarDiaBox', { semanaId, dia });
 }
 
+/**
+ * Sorteia de novo UM bloco (H1, H2, H3, HIIT ou Cross) e deixa o resto da
+ * semana como está, inclusive as edições manuais. Em semana publicada, dia
+ * que já passou não muda.
+ * @param {string} semanaId @param {string} bloco
+ * @returns {Promise<{avisosSorteio?: string[]}>}
+ */
+export function sortearBloco(semanaId, bloco) {
+  return chamar('sortearBlocoBox', { semanaId, bloco });
+}
+
 /** Publica (ou devolve para rascunho) uma semana já gravada. @param {string} semanaId @param {boolean} publicar */
 export function publicar(semanaId, publicar = true) {
   return chamar('publicarSemanaBox', { semanaId, publicar });

@@ -75,7 +75,10 @@ import {
   diasComConteudoGravado, lerInventario, lerSessaoAluno, reconferirSemana, semanaAnterior,
   semanaDoPedido, semanaEmBrancoNosDias, volumeDaSessao, lerAviso, type ContaDaSemana, type IntervaloSemana, type SessaoLida,
 } from './semana-box';
-import { crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit, programarDia, semanaEmBranco } from './gerador-box';
+import {
+  BLOCOS_SORTEAVEIS, crossDaSemana, gerarSemana, idsDaSemana, idsDoHiit, programarDia, semanaEmBranco, sortearBloco, type BlocoSorteavel,
+} from './gerador-box';
+import { randomUUID } from 'node:crypto';
 import { catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox } from './volume-cross-hyrox';
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, problemasCriadosPelaEdicao, sessoesTravadas } from './edicao-box';
 import { hiitTravado, opcoesDoHiit } from './edicao-hiit';
@@ -2187,6 +2190,57 @@ export const programarDiaBox = onCall(
     const r = await gravarDiasEditados({ db, ref, semanaId, intervalo, gravada, inv, anterior, dias: lido.dias });
     logger.info('Dia da semana do box programado.', { uid, semanaId, dia, treinos: lido.dias[dia].treinos });
     return r;
+  },
+);
+
+/**
+ * Sorteia de novo UM bloco da semana (H1, H2, H3, HIIT ou Cross) e deixa todo o
+ * resto como está, inclusive as edições manuais dos outros blocos
+ * (`sortearBloco` em `gerador-box.ts`). O H1 muda na segunda e na terça; o
+ * HIIT e o H3, na sexta e no sábado. Grava pelo caminho da edição manual
+ * (`gravarDiasEditados`): reconta o equipamento, refaz os avisos e, em semana
+ * publicada, não deixa mudar dia que já passou. Decisão do coach, 27/10/2026.
+ */
+export const sortearBlocoBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; bloco?: unknown };
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W41).');
+    if (!(BLOCOS_SORTEAVEIS as readonly unknown[]).includes(dados.bloco)) {
+      throw new HttpsError('invalid-argument', `Bloco: ${BLOCOS_SORTEAVEIS.join(', ')}. O Hyrox da quinta é sempre a prova completa.`);
+    }
+    const semanaId = dados.semanaId as string;
+    const bloco = dados.bloco as BlocoSorteavel;
+
+    const db = getFirestore();
+    const ref = refSemana(db, uid, semanaId);
+    const anteriorId = semanaAnterior(semanaId);
+    const [gravada, inv, anterior, efetivo] = await Promise.all([
+      ref.get(),
+      refInventario(db, uid).get(),
+      anteriorId ? refSemana(db, uid, anteriorId).get() : Promise.resolve(null),
+      carregarCatalogoInteiro(db),
+    ]);
+    const catalogo = efetivo.itens;
+    if (!gravada.exists) throw new HttpsError('failed-precondition', 'Essa semana ainda não existe: gere a semana antes.');
+    if (!catalogo.size) throw new HttpsError('failed-precondition', 'O catálogo base está vazio — rode o seed do catálogo.');
+    const atual = lerDias(gravada.data()?.dias, catalogo);
+    if ('erro' in atual) throw new HttpsError('failed-precondition', `A semana gravada não passa na validação: ${atual.erro}`);
+
+    const { limitesAtivos, alunosPorAula } = lerInventario(inv.data());
+    // O sorteio só entre os ativos; a semana gravada (que pode ter um desativado) é lida com todos.
+    const r = sortearBloco({
+      atuais: atual.dias, bloco, catalogo: ativosDe(efetivo), limites: limitesAtivos, alunosPorAula,
+      diasDaSemanaAnterior: anterior?.data()?.dias, semente: `${semanaId}:${bloco}:${randomUUID()}`,
+    });
+    if ('erro' in r) throw new HttpsError('failed-precondition', r.erro);
+    const lido = lerDias(r.dias, catalogo);
+    if ('erro' in lido) throw new HttpsError('internal', `O bloco sorteado saiu inválido: ${lido.erro}`);
+    const gravado = await gravarDiasEditados({ db, ref, semanaId, intervalo, gravada, inv, anterior, dias: lido.dias });
+    logger.info('Bloco da semana do box sorteado de novo.', { uid, semanaId, bloco, avisos: r.avisos.length });
+    return { ...gravado, bloco, avisosSorteio: r.avisos };
   },
 );
 
