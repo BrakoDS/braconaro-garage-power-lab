@@ -139,6 +139,15 @@ function avisosEdicao(doc) {
 }
 
 /**
+ * "↻ sortear de novo" de um bloco (H1/H2/H3, HIIT, WOD): refaz só ele.
+ * @param {string} bloco @param {string} rotulo
+ */
+function botaoSortear(bloco, rotulo) {
+  return `<button class="sortear-bloco" type="button" data-sortear-bloco="${esc(bloco)}"
+      aria-label="Sortear de novo o ${esc(rotulo)}">↻ sortear de novo</button>`;
+}
+
+/**
  * Um dia da grade.
  * @param {any} doc @param {{id: string, nome: string}} d @param {string} data @param {string} hoje 'AAAA-MM-DD'
  */
@@ -155,7 +164,7 @@ function cartaoDia(doc, d, data, hoje) {
   const podeTrocar = !!sessao && hoje !== undefined && sessaoEditavel(doc, sessao, hoje);
   const forca = dia.sessaoForca ? `
     <div class="forca">
-      <h4>${esc(tituloForca(dia))}</h4>
+      <div class="bloco-h"><h4>${esc(tituloForca(dia))}</h4>${podeTrocar ? botaoSortear(sessao, sessao) : ''}</div>
       <ol class="exercicios">${bloco.map((e, i) => `
         <li class="exercicio${emAlerta.has(i) ? ' em-alerta' : ''}">
           <span class="ex-inst">${esc(NOME_INSTANCIA[e.instancia] ?? e.instancia ?? '')}</span>
@@ -299,7 +308,7 @@ function blocoWod(doc, dia, b, hoje) {
   const comTecnica = w.tecnica !== undefined;
   return `
     <div class="metabolico wod${b.papel === 'principal' ? ' principal' : ''}">
-      <h4>Cross <span class="mut">· ${comTecnica ? 'Técnica / Força + WOD' : esc(tituloWod(w))}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>
+      <div class="bloco-h"><h4>Cross <span class="mut">· ${comTecnica ? 'Técnica / Força + WOD' : esc(tituloWod(w))}${b.papel === 'alternativa' ? ' · alternativa' : ''}</span></h4>${podeTrocar ? botaoSortear('Cross', 'WOD') : ''}</div>
       ${blocoTecnica(doc, w, podeTrocar)}
       ${blocoEstrategia(w)}
       <section class="cross-bloco">
@@ -412,7 +421,7 @@ function faixaHiit(doc, hoje) {
       <p class="mut">Os slots envolvidos estão marcados. Sorteie de novo ou ajuste o inventário.</p>
     </div>` : '';
   return `<section class="card hiit-semana${lista.length ? ' hiit-estourado' : ''}" id="hiit-da-semana">
-    <header class="hiit-h"><h3>HIIT da semana <span class="mut">· ${esc(rotuloDiasHiit(h.dias))}</span></h3></header>
+    <header class="hiit-h bloco-h"><h3>HIIT da semana <span class="mut">· ${esc(rotuloDiasHiit(h.dias))}</span></h3>${podeTrocar ? botaoSortear('HIIT', 'HIIT') : ''}</header>
     <p class="hiit-protocolo"><b>Cada estação:</b> ${esc(h.protocolo)}<span class="mut">${esc(turma)}</span></p>
     ${alerta}
     <div class="hiit-estacoes">${h.estacoes.map((e) => cartaoEstacao(e, emAlerta, podeTrocar)).join('')}</div>

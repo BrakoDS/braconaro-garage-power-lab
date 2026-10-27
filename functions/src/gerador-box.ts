@@ -427,3 +427,123 @@ export function programarDia(
   }
   return { ...atuais, [dia]: novo };
 }
+
+/* ───────────────────── Sortear de novo UM bloco (decisão do coach, 27/10/2026) ───────────────────── */
+
+/** Os blocos que o coach sorteia de novo, um por vez. O Hyrox da quinta é sempre a prova completa: não há o que sortear. */
+export const BLOCOS_SORTEAVEIS = ['H1', 'H2', 'H3', 'HIIT', 'Cross'] as const;
+export type BlocoSorteavel = (typeof BLOCOS_SORTEAVEIS)[number];
+
+/**
+ * Os avisos de repetição do sorteio de novo. O gerador recebe a semana anterior
+ * e o bloco atual JUNTOS no fim da fila, então o aviso dele ("repete a semana
+ * anterior") não diz qual dos dois: refeito aqui, um por exercício.
+ */
+function avisosDeRepeticao(
+  geradas: string[], novos: string[], anterior: ReadonlySet<string>, atual: ReadonlySet<string>,
+  catalogo: ReadonlyMap<string, ItemCatalogo>, bloco: BlocoSorteavel,
+): string[] {
+  const nome = (id: string) => catalogo.get(id)?.nome ?? id;
+  return [
+    ...geradas.filter((a) => !a.includes(' repete ')),
+    ...[...new Set(novos)].filter((id) => anterior.has(id)).map((id) => `${nome(id)} repete a semana anterior: faltou opção.`),
+    ...[...new Set(novos)].filter((id) => !anterior.has(id) && atual.has(id)).map((id) => `${nome(id)} continua no ${bloco}: faltou outra opção.`),
+  ].map((a) => `${bloco}: ${a}`);
+}
+
+/** Os dias da semana GRAVADA em que o bloco está (o H1 é segunda e terça; o HIIT, sexta e sábado). */
+export function diasDoBloco(dias: Record<DiaSemana, DiaProgramado>, bloco: BlocoSorteavel): DiaSemana[] {
+  return DIAS_SEMANA.filter((d) => {
+    const x = dias[d];
+    if (bloco === 'HIIT') return !!x.hiit?.estacoes.length;
+    if (bloco === 'Cross') return !!x.cross;
+    return x.sessaoForca?.sessao === bloco && x.blocoPrincipal.length > 0;
+  });
+}
+
+/**
+ * A semana `atuais` com UM bloco sorteado de novo — nos dias em que ele está,
+ * e só nele. Tudo o mais fica como está, inclusive as edições manuais dos
+ * outros blocos; as do próprio bloco se perdem (a tela avisa).
+ *
+ * O sorteio é o mesmo do gerador da semana, com o que a semana JÁ TEM:
+ *  - H: evita a semana anterior e o bloco atual (para sair diferente) na mesma
+ *    camada do rodízio, as outras sessões H como estão agora (camada menor) e,
+ *    sem exceção, o HIIT dos dias dele. Sai na prescrição de `PRESCRICAO_FORCA`.
+ *  - HIIT: proibido o bloco de força dos dias dele; o HIIT da semana anterior e
+ *    o atual vão para o fim da fila.
+ *  - Cross: o formato e os movimentos da semana anterior E do WOD atual vão
+ *    para o fim da fila.
+ *
+ * Devolve os dias CRUS para `lerDias` (quem chama grava pelo caminho da edição
+ * manual, que reconta o equipamento e trava dia passado).
+ */
+export function sortearBloco(o: {
+  atuais: Record<DiaSemana, DiaProgramado>;
+  bloco: BlocoSorteavel;
+  catalogo: ReadonlyMap<string, ItemCatalogo>;
+  limites: Record<RecursoInventario, number> & Partial<Record<RecursoBox, number>>;
+  diasDaSemanaAnterior: unknown;
+  alunosPorAula?: number;
+  semente: string;
+}): { dias: Record<DiaSemana, DiaProgramado>; avisos: string[]; trocas: TrocaEquipamento[] } | { erro: string } {
+  const dias = diasDoBloco(o.atuais, o.bloco);
+  if (!dias.length) return { erro: `O ${o.bloco} não está nesta semana.` };
+  const alunosPorAula = o.alunosPorAula ?? ALUNOS_POR_AULA_PADRAO;
+  const limitesBox = { ...PADRAO_BOX, ...o.limites } as Record<RecursoBox, number>;
+  const novos = { ...o.atuais };
+
+  if (o.bloco === 'HIIT') {
+    const atual = new Set(o.atuais[dias[0]].hiit!.estacoes.flatMap((e) => e.slots.map((x) => x.exercicioId)));
+    const anterior = idsDoHiit(o.diasDaSemanaAnterior);
+    const hiit = gerarHiit({
+      catalogo: o.catalogo, limites: limitesBox as Record<RecursoHiit, number>, alunosPorAula,
+      proibidos: new Set(dias.flatMap((d) => o.atuais[d].blocoPrincipal.map((e) => e.exercicioId))),
+      semanaPassada: anterior, evitar: atual,
+      semente: o.semente,
+    });
+    const cru = { estacoes: hiit.estacoes.map((e) => ({ estacao: e.estacao, slots: e.slots.map((x) => ({ exercicioId: x.exercicioId })) })) };
+    for (const d of dias) novos[d] = { ...o.atuais[d], hiit: cru as unknown as DiaProgramado['hiit'] };
+    const ids = hiit.estacoes.flatMap((e) => e.slots.map((x) => x.exercicioId));
+    return { dias: novos, avisos: avisosDeRepeticao(hiit.avisos, ids, anterior, atual, o.catalogo, 'HIIT'), trocas: [] };
+  }
+
+  if (o.bloco === 'Cross') {
+    const atual = o.atuais[dias[0]].cross!;
+    const passada = crossDaSemana(o.diasDaSemanaAnterior);
+    const cross = gerarCross({
+      catalogo: o.catalogo, limites: limitesBox as Record<RecursoCross, number>, alunosPorAula,
+      semanaPassada: { formato: passada.formato, ids: new Set([...passada.ids, ...atual.movimentos.map((m) => m.exercicioId)]) },
+      formatosEvitados: [atual.formato],
+      semente: o.semente,
+    });
+    for (const d of dias) novos[d] = { ...o.atuais[d], cross: cross.cru as unknown as DiaProgramado['cross'] };
+    const ids = cross.cru.movimentos.map((m) => m.exercicioId);
+    return {
+      dias: novos, trocas: [],
+      avisos: avisosDeRepeticao(cross.avisos, ids, passada.ids, new Set(atual.movimentos.map((m) => m.exercicioId)), o.catalogo, 'Cross'),
+    };
+  }
+
+  const sessao = o.bloco;
+  const doHiit = new Set(dias.flatMap((d) => o.atuais[d].hiit?.estacoes.flatMap((e) => e.slots.map((x) => x.exercicioId)) ?? []));
+  const forca = new Map([...o.catalogo].filter((par): par is [string, ExercicioCatalogo] => par[1].instancia !== null && !doHiit.has(par[0])));
+  const atual = o.atuais[dias[0]].blocoPrincipal.map((e) => e.exercicioId);
+  const outras = DIAS_SEMANA.filter((d) => o.atuais[d].sessaoForca && o.atuais[d].sessaoForca!.sessao !== sessao)
+    .flatMap((d) => o.atuais[d].blocoPrincipal.map((e) => e.exercicioId));
+  const anterior = idsDaSemana(o.diasDaSemanaAnterior);
+  const b = montarBloco(MATRIZ_H[sessao].instancias, {
+    catalogo: forca, limites: o.limites, rng: mulberry32(hashSeed(o.semente)),
+    semanaPassada: anterior,
+    usadosNaSemana: new Set([...outras, ...atual]),
+  });
+  const bloco = b.ids.map((exercicioId) => ({
+    exercicioId, series: PRESCRICAO_FORCA.series, repeticoes: PRESCRICAO_FORCA.repeticoes,
+    rir: PRESCRICAO_FORCA.rir, descansoSeg: PRESCRICAO_FORCA.descansos.entreSeriesSeg,
+  }));
+  for (const d of dias) novos[d] = { ...o.atuais[d], blocoPrincipal: bloco as unknown as DiaProgramado['blocoPrincipal'] };
+  return {
+    dias: novos, trocas: b.trocas.map((t) => ({ sessao, ...t })),
+    avisos: avisosDeRepeticao(b.avisos, b.ids, anterior, new Set(atual), o.catalogo, sessao),
+  };
+}

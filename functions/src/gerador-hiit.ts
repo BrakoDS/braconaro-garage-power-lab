@@ -64,6 +64,11 @@ export interface ContextoHiit {
   proibidos?: ReadonlySet<string>;
   /** Ids do HIIT da semana anterior — vão para o fim da fila (rodízio). */
   semanaPassada?: ReadonlySet<string>;
+  /**
+   * Ids a evitar DEPOIS do rodízio: o HIIT que o "sortear de novo" está
+   * refazendo. Só volta se não houver combinação sem ele — mas antes da semana anterior.
+   */
+  evitar?: ReadonlySet<string>;
   /** Semente do sorteio: `${semanaId}:HIIT:${variacao}`. */
   semente: string;
 }
@@ -91,6 +96,8 @@ export function gerarHiit(ctx: ContextoHiit): HiitGerado {
   const porEstacao = alunosPorEstacao(ctx.alunosPorAula);
   const proibidos = ctx.proibidos ?? new Set<string>();
   const passada = ctx.semanaPassada ?? new Set<string>();
+  const evitar = ctx.evitar ?? new Set<string>();
+  const camada = (id: string) => (passada.has(id) ? 2 : 0) + (evitar.has(id) ? 1 : 0);
 
   // Quem nem sozinho cabe sai antes da busca — e fica registrado.
   const foraPorEquipamento: ForaPorEquipamento[] = [];
@@ -111,7 +118,7 @@ export function gerarHiit(ctx: ContextoHiit): HiitGerado {
   const filas = {} as Record<EstacaoHiit, string[]>;
   for (const estacao of ESTACOES_HIIT) {
     const ids = [...demanda.keys()].filter((id) => ctx.catalogo.get(id)!.hiit!.estacoes.includes(estacao) && !proibidos.has(id));
-    filas[estacao] = embaralhar(ids, rng).sort((a, b) => Number(passada.has(a)) - Number(passada.has(b)));
+    filas[estacao] = embaralhar(ids, rng).sort((a, b) => camada(a) - camada(b));
   }
   const ordem = embaralhar(ESTACOES_HIIT, rng);
 
@@ -120,7 +127,8 @@ export function gerarHiit(ctx: ContextoHiit): HiitGerado {
   // Rodízio primeiro como REGRA, e não só como ordem da fila: a busca escolhe
   // slot a slot, e "novo, novo, novo + repetido" sairia antes de "novo, novo,
   // unilateral novo". Só sem combinação nova é que a semana anterior volta.
-  let grade = buscar(filas, demanda, ctx, (id) => !fora.has(id) && !passada.has(id), true)
+  let grade = (evitar.size ? buscar(filas, demanda, ctx, (id) => !fora.has(id) && !passada.has(id) && !evitar.has(id), true) : null)
+    ?? buscar(filas, demanda, ctx, (id) => !fora.has(id) && !passada.has(id), true)
     ?? buscar(filas, demanda, ctx, (id) => !fora.has(id), true);
   if (!grade) {
     // Sem combinação dentro do inventário: monta pela regra dos slots e alerta.

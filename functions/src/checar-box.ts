@@ -21,7 +21,10 @@ import {
   lerExercicioCatalogo, lerInventario, lerItemCatalogo, lerSessaoAluno, problemasParaPublicar, reconferirSemana, recursosDo,
   semanaAnterior, semanaDoPedido, volumeDaSessao,
 } from './semana-box';
-import { gerarSemana, idsDaSemana, montarBloco, programarDia, semanaEmBranco } from './gerador-box';
+import {
+  BLOCOS_SORTEAVEIS, crossDaSemana, diasDoBloco, gerarSemana, idsDaSemana, idsDoHiit, montarBloco, programarDia, semanaEmBranco, sortearBloco,
+  type BlocoSorteavel,
+} from './gerador-box';
 import {
   avisosDeEdicao, blocosDaSemana, conflitosDaTroca, diasDaSessao, diasPassadosAlterados, opcoesDaVaga, problemasCriadosPelaEdicao,
   sessoesTravadas, sugestoesPara,
@@ -704,6 +707,94 @@ console.log('\nHipertrofia 7 × 3: 80 semanas simuladas (catálogo completo, inv
   ok(!volume.length, '80 semanas: cada sessão soma 21 séries (7 × 3) e o volume por músculo é o das séries prescritas', volume.slice(0, 3).join('\n      '));
   ok(!problemas.length, '80 semanas: nenhuma com alerta de equipamento ou problema para publicar', problemas.slice(0, 3).join('\n      '));
   console.log(`    (rodízio: ${repetidasDaAnterior} exercício(s) de força repetido(s) da semana anterior em 79 trocas de semana)`);
+}
+
+console.log('\nSortear de novo UM bloco (27/10/2026): 80 semanas, com uma edição manual no H2');
+{
+  const completo = new Map<string, ItemCatalogo>(Object.entries(CATALOGO_COMPLETO));
+  const conteudo = (d: DiaProgramado, bloco: BlocoSorteavel) =>
+    JSON.stringify(bloco === 'HIIT' ? d.hiit : bloco === 'Cross' ? d.cross : d.sessaoForca?.sessao === bloco ? d.blocoPrincipal : null);
+  const idsDe = (d: DiaProgramado, bloco: BlocoSorteavel): string[] => bloco === 'HIIT'
+    ? d.hiit!.estacoes.flatMap((e) => e.slots.map((x) => x.exercicioId))
+    : bloco === 'Cross' ? d.cross!.movimentos.map((m) => m.exercicioId) : d.blocoPrincipal.map((e) => e.exercicioId);
+  const anteriorDe = (dias: unknown, bloco: BlocoSorteavel) =>
+    bloco === 'HIIT' ? idsDoHiit(dias) : bloco === 'Cross' ? crossDaSemana(dias).ids : idsDaSemana(dias);
+  const falhasDe: Record<string, string[]> = { fora: [], igual: [], edicao: [], problema: [], rodizio: [], presc: [], hiitNoH: [] };
+  let anterior: Record<DiaSemana, DiaProgramado> | null = null;
+  let trocadas = 0;
+  let vagas = 0;
+  for (let i = 0; i < 80; i++) {
+    const semanaId = `2030-W${String((i % 52) + 1).padStart(2, '0')}`;
+    const w = gerarSemana({ semanaId, catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: anterior, alunosPorAula: 6, variacao: i });
+    // A edição manual do coach: a vaga 1 do H2 trocada por outro exercício de estender quadril.
+    const h2 = w.dias.quarta.blocoPrincipal;
+    const outro = [...completo].find(([id, e]) => e.instancia === 'estender_quadril' && !h2.some((x) => x.exercicioId === id)
+      && !Object.values(w.dias).some((d) => d.blocoPrincipal.some((x) => x.exercicioId === id)))![0];
+    const editadoCru = JSON.parse(JSON.stringify(w.dias));
+    editadoCru.quarta.blocoPrincipal[0] = { exercicioId: outro, series: 4, repeticoes: '10', descansoSeg: 75 };
+    const editado = lerDias(editadoCru, completo);
+    if ('erro' in editado) throw new Error(editado.erro);
+    const antes = editado.dias;
+    const problemasAntes = new Set(contaDaSemana(antes, { ...INVENTARIO_PADRAO }, 6).problemasParaPublicar);
+
+    for (const bloco of BLOCOS_SORTEAVEIS) {
+      const r = sortearBloco({
+        atuais: antes, bloco, catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: anterior, alunosPorAula: 6,
+        semente: `${semanaId}:${bloco}:sortear`,
+      });
+      if ('erro' in r) { falhasDe.fora.push(`${semanaId} ${bloco}: ${r.erro}`); continue; }
+      const lido = lerDias(r.dias, completo);
+      if ('erro' in lido) { falhasDe.fora.push(`${semanaId} ${bloco}: ${lido.erro}`); continue; }
+      const depois = lido.dias;
+      const doBloco = diasDoBloco(antes, bloco);
+      // Só o bloco pedido muda, nos dias dele; o resto da semana fica igual, campo a campo.
+      for (const dia of DIAS_SEMANA) {
+        for (const b of BLOCOS_SORTEAVEIS) {
+          const mudou = conteudo(antes[dia], b) !== conteudo(depois[dia], b);
+          if (mudou && !(b === bloco && doBloco.includes(dia))) falhasDe.fora.push(`${semanaId} ${bloco}: mexeu no ${b} de ${dia}`);
+        }
+        if (JSON.stringify(antes[dia].hyrox) !== JSON.stringify(depois[dia].hyrox) || antes[dia].treinos.join() !== depois[dia].treinos.join()) {
+          falhasDe.fora.push(`${semanaId} ${bloco}: mexeu em ${dia}`);
+        }
+      }
+      if (bloco !== 'H2' && depois.quarta.blocoPrincipal[0].exercicioId !== outro) falhasDe.edicao.push(`${semanaId} ${bloco}`);
+      const velho = idsDe(antes[doBloco[0]], bloco);
+      const novo = idsDe(depois[doBloco[0]], bloco);
+      if (velho.join() === novo.join()) falhasDe.igual.push(`${semanaId} ${bloco}`);
+      if (bloco === 'Cross' && depois.terca.cross!.formato === antes.terca.cross!.formato) falhasDe.igual.push(`${semanaId} Cross: mesmo formato`);
+      if (bloco !== 'HIIT' && bloco !== 'Cross') {
+        trocadas += novo.filter((id, k) => id !== velho[k]).length;
+        vagas += novo.length;
+        if (!depois[doBloco[0]].blocoPrincipal.every((e) => e.series === 3 && e.repeticoes === '8-12' && e.rir === '0-3' && e.descansoSeg === 90)) {
+          falhasDe.presc.push(`${semanaId} ${bloco}`);
+        }
+        const hiitDoDia = doBloco.flatMap((d) => (depois[d].hiit ? idsDe(depois[d], 'HIIT') : []));
+        if (novo.some((id) => hiitDoDia.includes(id))) falhasDe.hiitNoH.push(`${semanaId} ${bloco}`);
+      }
+      // O rodízio entre semanas vale mais que sair diferente: não pode repetir mais da semana anterior do que o bloco já repetia.
+      const passada = anteriorDe(anterior, bloco);
+      if (novo.filter((id) => passada.has(id)).length > velho.filter((id) => passada.has(id)).length) falhasDe.rodizio.push(`${semanaId} ${bloco}`);
+      const novos = contaDaSemana(depois, { ...INVENTARIO_PADRAO }, 6).problemasParaPublicar.filter((p) => !problemasAntes.has(p));
+      if (novos.length) falhasDe.problema.push(`${semanaId} ${bloco}: ${novos.join(' | ')}`);
+    }
+    anterior = w.dias;
+  }
+  const mostra = (k: string) => falhasDe[k].slice(0, 3).join('\n      ');
+  ok(!falhasDe.fora.length, '80 semanas × 5 blocos: só o bloco pedido muda, nos dias dele (H1 segunda e terça, HIIT sexta e sábado)', mostra('fora'));
+  ok(!falhasDe.edicao.length, 'a edição manual do H2 sobrevive ao sortear de novo dos outros blocos', mostra('edicao'));
+  ok(!falhasDe.igual.length, 'o bloco sorteado de novo sai diferente (e o WOD, em outro formato)', mostra('igual'));
+  ok(!falhasDe.rodizio.length, 'o rodízio entre semanas não piora: nenhum bloco repete mais da semana anterior do que antes', mostra('rodizio'));
+  ok(!falhasDe.problema.length, 'nenhum problema novo para publicar (equipamento, monocross, H3 × HIIT)', mostra('problema'));
+  ok(!falhasDe.presc.length && !falhasDe.hiitNoH.length, 'o H sai em 3 × 8-12, RIR 0-3, 90 s, sem exercício do HIIT do dia', mostra('presc') || mostra('hiitNoH'));
+  console.log(`    (H: ${trocadas} de ${vagas} vagas trocadas — as outras não tinham opção livre fora da semana anterior e das outras sessões)`);
+
+  const w = gerarSemana({ semanaId: '2030-W10', catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null, alunosPorAula: 6 });
+  const pedido = { atuais: w.dias, bloco: 'H1' as const, catalogo: completo, limites: { ...INVENTARIO_PADRAO }, diasDaSemanaAnterior: null, semente: 's' };
+  ok(igual(sortearBloco(pedido), sortearBloco(pedido)), 'determinístico: mesma semente, mesmo bloco');
+  const branca = semanaEmBranco({ tipo: 'feriado', texto: 'Feriado' });
+  const semH1 = sortearBloco({ ...pedido, atuais: branca.dias });
+  ok('erro' in semH1 && semH1.erro.includes('não está nesta semana'), 'bloco que não está na semana: erro');
+  ok(!(BLOCOS_SORTEAVEIS as readonly string[]).includes('Hyrox'), 'o Hyrox não se sorteia de novo (a quinta é sempre a prova completa)');
 }
 
 console.log('\nSanidade do vocabulário');

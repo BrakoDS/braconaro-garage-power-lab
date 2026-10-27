@@ -257,3 +257,16 @@ test('trocar foco: as alternativas na ordem das categorias', () => {
   assert.ok(h.includes('<span class="troca-inst">Kettlebell</span>'));
   assert.ok(renderOpcoesFoco({ nome: 'X', alternativas: [] }).includes('Nenhum outro movimento do WOD serve de foco.'));
 });
+
+test('sortear de novo UM bloco: botão no H de cada dia, no WOD e no HIIT; travado em dia passado de semana publicada', () => {
+  const h = renderSemana({ ...BASE, doc: W44, hoje: '2026-10-26' });
+  const blocos = [...h.matchAll(/data-sortear-bloco="([^"]+)"/g)].map((m) => m[1]);
+  // H1 na segunda e na terça, H2, H3 na sexta e no sábado, o WOD e a faixa do HIIT.
+  assert.deepEqual([...new Set(blocos)].sort(), ['Cross', 'H1', 'H2', 'H3', 'HIIT']);
+  assert.equal(blocos.filter((b) => b === 'H1').length, 2, 'o H1 aparece nos dois dias dele');
+  assert.ok(!blocos.includes('Hyrox'), 'o Hyrox da quinta não se sorteia de novo');
+  assert.equal((renderSemana({ ...BASE, doc: W44 }).match(/data-sortear-bloco=/g) || []).length, 0, 'sem "hoje", só leitura');
+  // Publicada, na quarta: H1 (segunda/terça) e o WOD (terça) já passaram; H2, H3 e HIIT ainda não.
+  const pub = renderSemana({ ...BASE, doc: { ...W44, status: 'publicado' }, hoje: '2026-10-28' });
+  assert.deepEqual([...new Set([...pub.matchAll(/data-sortear-bloco="([^"]+)"/g)].map((m) => m[1]))].sort(), ['H2', 'H3', 'HIIT']);
+});
