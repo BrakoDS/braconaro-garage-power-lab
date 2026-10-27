@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback } from './eventos.js?v=24';
+import { cortar, resumoFeedback } from './eventos.js?v=25';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -28,6 +28,7 @@ export const TIPOS = {
   // Check-in no app da uGym num dia sem aula do aluno (ugym-merge.js): a
   // presença não entra sozinha — o coach confere.
   'presenca-ugym-fora-da-grade': { icone: '⚠️', categoria: 'presenca' },
+  'presenca-lousa-fora-da-grade': { icone: '⚠️', categoria: 'presenca' },
   'foto-perfil': { icone: '📷', categoria: 'foto' },
   'foto-diario': { icone: '📸', categoria: 'foto' },
   'feedback': { icone: '💬', categoria: 'feedback' },

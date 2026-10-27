@@ -370,6 +370,18 @@ service cloud.firestore {
     // desenho do avisosAusencia: o aluno lê o seu, o coach lê e consome (a
     // Gestão aplica na ficha e tira o item), ninguém cria pelo cliente — senão
     // um aluno daria presença a si mesmo.
+    // A caixa da chamada da Lousa: ao "Fechar chamada", o tablet do coach grava o
+    // check-in de quem veio (`itens["lousa|dia|hora"]`, o mesmo formato da uGym) e
+    // a Gestão aplica na ficha e consome (ugym-merge.js, ORIGENS.lousa). Só o
+    // coach mexe; o aluno lê a sua, como na caixa da uGym.
+    match /checkinsLousa/{email} {
+      allow read: if ehAlunoDono(email) || ehCoach();
+      allow delete: if ehCoach();
+      allow create, update: if ehCoach()
+        && request.resource.data.keys().hasOnly(['itens', 'atualizadoEm'])
+        && request.resource.data.itens is map
+        && request.resource.data.itens.size() <= 200;
+    }
     match /checkinsUgym/{email} {
       allow read: if ehAlunoDono(email) || ehCoach();
       allow update, delete: if ehCoach();
@@ -609,10 +621,14 @@ service cloud.firestore {
     }
     function lousaValida() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'concluidoEm', 'origem', 'variante', 'cronometro', 'iniciadoEm', 'ordem', 'feitos', 'timer', 'atualizadoEm'])
+      return d.keys().hasOnly(['horarioAula', 'aulaSelecionada', 'concluidoEm', 'origem', 'variante', 'cronometro', 'iniciadoEm', 'ordem', 'dispensado', 'feitos', 'timer', 'atualizadoEm'])
         && varianteDaLousaValida(d.get('variante', null))
         && inicioDoTreinoValido(d.get('iniciadoEm', null))
         && ordemDaLousaValida(d.get('ordem', null))
+        // `dispensado`: a turma ('HH:MM') de que o aluno foi tirado hoje — o
+        // matriculado pela grade não volta a ela sozinho na lousa.
+        && (d.get('dispensado', null) == null
+          || (d.dispensado is string && d.dispensado.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))
         && cronometroDaLousaValido(d.get('cronometro', null))
         && (!('origem' in d)
           || d.origem == 'aluno'
@@ -639,6 +655,16 @@ service cloud.firestore {
     // sem ler o documento dos colegas. Só o primeiro nome com a inicial, a aula e
     // a posição de cada estação, por uma chave curta (nunca o e-mail). Qualquer
     // pessoa logada lê (como a Semana do Box publicada); só o coach grava.
+    // A chamada da turma na Lousa: quando o coach fechou e quem veio. Só o coach
+    // (o tablet da lousa) lê e grava — tem e-mails, os colegas não veem.
+    match /lousa/{dia}/chamadas/{horario} {
+      allow read: if ehCoach();
+      allow write: if ehCoach()
+        && request.resource.data.keys().hasOnly(['fechadaEm', 'presentes', 'faltaram', 'atualizadoEm'])
+        && request.resource.data.presentes is list && request.resource.data.presentes.size() <= 80
+        && request.resource.data.faltaram is list && request.resource.data.faltaram.size() <= 80
+        && request.resource.data.atualizadoEm == request.time;
+    }
     match /lousa/{dia}/turmas/{horario} {
       allow read: if request.auth != null;
       allow write: if ehCoach()

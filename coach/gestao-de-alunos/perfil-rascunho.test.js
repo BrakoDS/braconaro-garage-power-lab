@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { criarRascunho, lerCaminho } from './perfil-rascunho.js?v=24';
+import { criarRascunho, lerCaminho } from './perfil-rascunho.js?v=25';
 
 const ficha = () => ({
   id: '007', nome: 'Ana', telefone: '14999990000', diasTreino: ['seg', 'qua'],

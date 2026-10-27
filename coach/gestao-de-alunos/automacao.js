@@ -18,13 +18,13 @@
  * Nada aqui envia mensagem: o envio é o coach tocando "Enviar" na tela
  * (ui-tela-automacao.js), que abre o WhatsApp com o texto pronto.
  */
-import * as db from './db.js?v=24';
-import { hoje } from './util/formato.js?v=24';
-import { estado, on, emit, EVENTOS } from './estado.js?v=24';
+import * as db from './db.js?v=25';
+import { hoje } from './util/formato.js?v=25';
+import { estado, on, emit, EVENTOS } from './estado.js?v=25';
 import {
   filaVazia, normalizarFila, aoAgir, marcar, podar, visiveis, sugestoesDaVarredura, planoDeSync,
-} from './automacao-regras.js?v=24';
-import { lerFeitas, gravarFeitas, apagarFeitas } from './automacao-nuvem.js?v=24';
+} from './automacao-regras.js?v=25';
+import { lerFeitas, gravarFeitas, apagarFeitas } from './automacao-nuvem.js?v=25';
 
 const CHAVE = 'braconaro_automacao_v1';
 
