@@ -371,9 +371,9 @@ export const REGRA_FORMATO_CROSS: Readonly<Record<FormatoCross, {
     movimentos: [3, 4], fator: 1, escalonado: true,
     descricao: 'Complete as rodadas o mais rápido possível, dentro do time cap.',
   },
-  // 2 (e não 2,5) desde 06/10/2026: com a Técnica / Força antes, o cap é 15 min.
+  // 2,5 de novo desde 27/10/2026, com o cap de 20 min (foi 2 com o cap de 15, de 06/10).
   Chipper: {
-    movimentos: [5, 5], fator: 2, escalonado: true,
+    movimentos: [5, 5], fator: 2.5, escalonado: true,
     descricao: 'Uma lista longa, na ordem, cada movimento uma vez só — dentro do time cap.',
   },
 };
@@ -387,10 +387,12 @@ export const MINUTOS_CROSS = { min: 5, max: 60 } as const;
 export const RODADAS_CROSS = { min: 1, max: 10 } as const;
 
 /**
- * Teto do WOD (duração ou time cap). A aula de Cross tem 60 min e o bloco de
- * Técnica / Força (10–12 min) vem antes: o WOD fica em até 15. Decisão do coach, 06/10/2026.
+ * Teto do WOD que o GERADOR sorteia (duração ou time cap). A aula de Cross tem
+ * 60 min: aquecimento de 5 + Técnica / Força de 10–12 + WOD de até 20. Era 15
+ * (06/10/2026); 20 desde 27/10/2026, com o aquecimento encurtado. O WOD editado
+ * à mão segue em `MINUTOS_CROSS`.
  */
-export const MINUTOS_MAX_WOD = 15;
+export const MINUTOS_MAX_WOD = 20;
 
 /* ── Técnica / Força: o bloco ANTES do WOD, no movimento principal do dia ── */
 
