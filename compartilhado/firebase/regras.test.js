@@ -227,3 +227,15 @@ test('avisosAusencia: o aluno só lê o seu; nenhum cliente cria (a hora do avis
   ]);
   assert.doesNotMatch(bloco, /create|write/, 'nenhuma porta de criação pelo cliente');
 });
+
+test('diário: a foto do dia aceita o ângulo opcional, e só as três chaves da avaliação', () => {
+  // O app e o Portal gravam `angulo` quando o aluno marca. Fora da lista do
+  // hasOnly, a foto com ângulo seria recusada inteira; sem a trava do valor,
+  // o aluno gravaria qualquer texto num campo que o coach lê.
+  const valida = codigo(firestore).split('function fotoDiarioValida(dia) {')[1]?.split('\n    }')[0];
+  assert.ok(valida, 'function fotoDiarioValida existe');
+  assert.match(valida, /hasAll\(\['dia', 'em', 'url', 'miniUrl', 'largura', 'altura', 'origem'\]\)/,
+    'o ângulo não é obrigatório: a foto antiga (e a do app desatualizado) continua valendo');
+  assert.match(valida, /hasOnly\(\['dia', 'em', 'url', 'miniUrl', 'largura', 'altura', 'origem', 'nota', 'angulo'\]\)/);
+  assert.match(valida, /!\('angulo' in d\) \|\| d\.angulo in \['frente', 'lado', 'costas'\]/);
+});

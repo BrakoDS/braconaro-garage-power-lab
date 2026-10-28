@@ -18,13 +18,13 @@
  *   'alunos-mudaram'         a ficha mudou: redesenha (o histórico reconstruído
  *                            sai da ficha).
  */
-import * as eventos from './eventos.js?v=25';
-import { CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, anexarFotosDoDiario, fotosDoDiarioPorDia, juntarEventos,
-  linhaDoTempoDoAluno, linhaHTML } from './registros-ui.js?v=25';
-import { carregarFotosDoDiario } from './diario-read.js?v=25';
-import { esc, hoje } from './util/formato.js?v=25';
-import { $, abrirModal } from './util/dom.js?v=25';
-import { estado, on, EVENTOS } from './estado.js?v=25';
+import * as eventos from './eventos.js?v=26';
+import { ANGULOS_DIARIO, CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, anexarFotosDoDiario, fotosDoDiarioPorDia,
+  juntarEventos, linhaDoTempoDoAluno, linhaHTML } from './registros-ui.js?v=26';
+import { carregarFotosDoDiario } from './diario-read.js?v=26';
+import { esc, hoje } from './util/formato.js?v=26';
+import { $, abrirModal } from './util/dom.js?v=26';
+import { estado, on, EVENTOS } from './estado.js?v=26';
 
 const REG_HIST = 60; // linhas do histórico reconstruído por "Carregar mais"
 let regAlunoId = ''; // de quem são os eventos em `regEventos`
@@ -96,13 +96,14 @@ async function atualizarRegistros() {
   desenharRegistros();
 }
 
-/** A foto do Diário em tela cheia. @param {string} url @param {string} dia */
-function abrirFotoDoDiario(url, dia) {
+/** A foto do Diário em tela cheia. @param {string} url @param {string} dia @param {string} [angulo] */
+function abrirFotoDoDiario(url, dia, angulo) {
   const [a, m, d] = String(dia || '').split('-');
-  $('#modal-foto-titulo').textContent = d ? `Diário · ${d}/${m}/${a}` : 'Diário de Evolução';
+  const lado = Object.hasOwn(ANGULOS_DIARIO, angulo || '') ? ` · ${ANGULOS_DIARIO[angulo]}` : '';
+  $('#modal-foto-titulo').textContent = d ? `Diário · ${d}/${m}/${a}${lado}` : 'Diário de Evolução';
   const img = $('#modal-foto-img');
   img.src = url;
-  img.alt = `Foto do Diário de Evolução${d ? ` de ${d}/${m}/${a}` : ''}`;
+  img.alt = `Foto do Diário de Evolução${d ? ` de ${d}/${m}/${a}${lado}` : ''}`;
   abrirModal('modal-foto');
 }
 
@@ -146,7 +147,7 @@ export function iniciarTabRegistros() {
   $('#reg-mais')?.addEventListener('click', () => { regHist += REG_HIST; desenharRegistros(); });
   $('#reg-lista')?.addEventListener('click', (/** @type {any} */ e) => {
     const b = e.target.closest('.reg-thumb'); if (!b) return;
-    abrirFotoDoDiario(b.dataset.foto, b.dataset.dia);
+    abrirFotoDoDiario(b.dataset.foto, b.dataset.dia, b.dataset.angulo);
   });
   $('#reg-filtros')?.addEventListener('click', (/** @type {any} */ e) => {
     const b = e.target.closest('[data-g]'); if (!b) return;

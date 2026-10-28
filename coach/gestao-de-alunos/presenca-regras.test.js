@@ -14,8 +14,8 @@ import {
   concederCredito, concederCreditoReposicao, agendarReposicaoNaTurma, reabrirReposicao,
   adicionarExperimental, statusExperimental, removerExperimental, podarExperimentais, resumoDaTurma,
   PRAZO_DESMARCAR_MIN, VALIDADE_CREDITO_DIAS, CAPACIDADE_PADRAO, STATUS,
-} from './presenca-regras.js?v=25';
-import { checkin, trocarDia, desfazer } from './checkin-regras.js?v=25';
+} from './presenca-regras.js?v=26';
+import { checkin, trocarDia, desfazer } from './checkin-regras.js?v=26';
 import { semanaDoAluno, reposicoesPendentes } from '../../compartilhado/regras/semana.js';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08', SEX = '2026-10-09';

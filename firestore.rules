@@ -318,11 +318,13 @@ service cloud.firestore {
           + dia + sufixo + '[.]webp[?].*');
     }
 
+    // `angulo` é opcional (as fotos de antes dele não o têm): as chaves das fotos
+    // da avaliação física, que o app e o Portal leem como Frente/Perfil/Costas.
     function fotoDiarioValida(dia) {
       let d = request.resource.data;
       return dia.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
         && d.keys().hasAll(['dia', 'em', 'url', 'miniUrl', 'largura', 'altura', 'origem'])
-        && d.keys().hasOnly(['dia', 'em', 'url', 'miniUrl', 'largura', 'altura', 'origem', 'nota'])
+        && d.keys().hasOnly(['dia', 'em', 'url', 'miniUrl', 'largura', 'altura', 'origem', 'nota', 'angulo'])
         && d.dia == dia
         && d.em is number && d.em > 0
         && urlDiarioValida(d.url, dia, '')
@@ -330,7 +332,8 @@ service cloud.firestore {
         && d.largura is number && d.largura > 0 && d.largura <= 4096
         && d.altura is number && d.altura > 0 && d.altura <= 4096
         && d.origem in ['app', 'portal']
-        && (!('nota' in d) || (d.nota is string && d.nota.size() > 0 && d.nota.size() <= 140));
+        && (!('nota' in d) || (d.nota is string && d.nota.size() > 0 && d.nota.size() <= 140))
+        && (!('angulo' in d) || d.angulo in ['frente', 'lado', 'costas']);
     }
 
     match /diario/{email} {
