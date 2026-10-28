@@ -16,11 +16,11 @@
  * deles uma vez, no início). Nada aqui é editável, então nada passa pelo
  * salvar global.
  */
-import { $ } from './util/dom.js?v=26';
-import { on, EVENTOS } from './estado.js?v=26';
-import { abrirLinhaDoTempo } from './ui-tab-registros.js?v=26';
-import { abrirPrevia } from './ui-tab-portal.js?v=26';
-import { abrirUsoDoApp } from './ui-tab-progresso.js?v=26';
+import { $ } from './util/dom.js?v=27';
+import { on, EVENTOS } from './estado.js?v=27';
+import { abrirLinhaDoTempo } from './ui-tab-registros.js?v=27';
+import { abrirPrevia } from './ui-tab-portal.js?v=27';
+import { abrirUsoDoApp } from './ui-tab-progresso.js?v=27';
 
 /** Os segmentos do card Histórico, na ordem do seletor. `id` casa com `#hi-<id>` e `#hi-seg-<id>`. */
 export const SEGMENTOS = Object.freeze([

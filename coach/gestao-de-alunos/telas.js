@@ -11,35 +11,36 @@
  * das abas. Os ouvintes de um evento rodam na ordem em que foram ligados, então
  * a tela (ou o painel da aba) já está visível quando o módulo dela desenha.
  */
-import * as db from './db.js?v=26';
-import { iniciarModais } from './util/dom.js?v=26';
-import { iniciarNavegacao } from './navegacao.js?v=26';
-import { iniciarLista } from './ui-lista.js?v=26';
-import { iniciarPerfil } from './ui-perfil.js?v=26';
-import { iniciarFotoDoPerfil } from './ui-fotos.js?v=26';
-import { iniciarModalAluno } from './ui-modal-aluno.js?v=26';
-import { iniciarAcoesAluno } from './ui-acoes-aluno.js?v=26';
-import { iniciarSalvarGlobal } from './ui-salvar-global.js?v=26';
-import { iniciarTabGeral } from './ui-tab-geral.js?v=26';
-import { iniciarTabSaude } from './ui-tab-saude.js?v=26';
-import { iniciarTabTreino } from './ui-tab-treino.js?v=26';
-import { iniciarTabAvaliacoes } from './ui-tab-avaliacoes.js?v=26';
-import { iniciarTabProgresso } from './ui-tab-progresso.js?v=26';
-import { iniciarTabFinanceiro } from './ui-tab-financeiro.js?v=26';
-import { iniciarTabPortal } from './ui-tab-portal.js?v=26';
-import { iniciarTabRegistros } from './ui-tab-registros.js?v=26';
-import { iniciarTabHistorico } from './ui-tab-historico.js?v=26';
-import { iniciarTelaCheckin } from './ui-tela-checkin.js?v=26';
-import { iniciarTelaTurmas } from './ui-tela-turmas.js?v=26';
-import { iniciarTelaAgenda } from './ui-tela-agenda.js?v=26';
-import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js?v=26';
-import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js?v=26';
-import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=26';
-import { iniciarTelaMural } from './ui-tela-mural.js?v=26';
-import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=26';
-import { iniciarTelaLeads } from './ui-tela-leads.js?v=26';
-import { iniciarAutomacao } from './automacao.js?v=26';
-import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=26';
+import * as db from './db.js?v=27';
+import { iniciarModais } from './util/dom.js?v=27';
+import { iniciarNavegacao } from './navegacao.js?v=27';
+import { iniciarLista } from './ui-lista.js?v=27';
+import { iniciarPerfil } from './ui-perfil.js?v=27';
+import { iniciarFotoDoPerfil } from './ui-fotos.js?v=27';
+import { iniciarModalAluno } from './ui-modal-aluno.js?v=27';
+import { iniciarAcoesAluno } from './ui-acoes-aluno.js?v=27';
+import { iniciarSalvarGlobal } from './ui-salvar-global.js?v=27';
+import { iniciarTabGeral } from './ui-tab-geral.js?v=27';
+import { iniciarTabSaude } from './ui-tab-saude.js?v=27';
+import { iniciarTabTreino } from './ui-tab-treino.js?v=27';
+import { iniciarTabAvaliacoes } from './ui-tab-avaliacoes.js?v=27';
+import { iniciarEvolucaoIA } from './ui-evolucao-ia.js?v=27';
+import { iniciarTabProgresso } from './ui-tab-progresso.js?v=27';
+import { iniciarTabFinanceiro } from './ui-tab-financeiro.js?v=27';
+import { iniciarTabPortal } from './ui-tab-portal.js?v=27';
+import { iniciarTabRegistros } from './ui-tab-registros.js?v=27';
+import { iniciarTabHistorico } from './ui-tab-historico.js?v=27';
+import { iniciarTelaCheckin } from './ui-tela-checkin.js?v=27';
+import { iniciarTelaTurmas } from './ui-tela-turmas.js?v=27';
+import { iniciarTelaAgenda } from './ui-tela-agenda.js?v=27';
+import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js?v=27';
+import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js?v=27';
+import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=27';
+import { iniciarTelaMural } from './ui-tela-mural.js?v=27';
+import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=27';
+import { iniciarTelaLeads } from './ui-tela-leads.js?v=27';
+import { iniciarAutomacao } from './automacao.js?v=27';
+import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=27';
 
 /**
  * @param {{
@@ -70,6 +71,7 @@ export function iniciarTelas(o = {}) {
   iniciarTabSaude();
   iniciarTabTreino();
   iniciarTabAvaliacoes();
+  iniciarEvolucaoIA(); // o card Evolução visual, na mesma aba
   iniciarTabProgresso();
   iniciarTabFinanceiro('#tab-geral'); // os botões de dinheiro do card Financeiro
   iniciarTabPortal(o.urlPrevia ? { urlPrevia: o.urlPrevia } : {});

@@ -11,14 +11,14 @@
  *     Chamada no login, depois do sync (boot.js). Silenciosa em falha: sem
  *     selo, a lista funciona igual.
  */
-import * as db from './db.js?v=26';
-import { carregarTodosGastos } from './nutricao-read.js?v=26';
-import { carregarTodasConclusoes } from './desafios-read.js?v=26';
+import * as db from './db.js?v=27';
+import { carregarTodosGastos } from './nutricao-read.js?v=27';
+import { carregarTodasConclusoes } from './desafios-read.js?v=27';
 import { carregarSemanasPausadas } from '../../compartilhado/firebase/semanas-pausadas.js';
-import { publicarRanking } from './ranking-sync.js?v=26';
-import { medalhasDaFicha } from '../../compartilhado/regras/gamificacao.js?v=26';
-import { isoLocal, semanaSegSab } from './util/formato.js?v=26';
-import { definirKcalDaSemana, definirMedalhas } from './ui-lista.js?v=26';
+import { publicarRanking } from './ranking-sync.js?v=27';
+import { medalhasDaFicha } from '../../compartilhado/regras/gamificacao.js?v=27';
+import { isoLocal, semanaSegSab } from './util/formato.js?v=27';
+import { definirKcalDaSemana, definirMedalhas } from './ui-lista.js?v=27';
 
 /** Calorias como número (aceita vírgula); 0 se não der. @param {unknown} v */
 const kcal = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };

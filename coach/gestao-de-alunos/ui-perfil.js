@@ -31,11 +31,11 @@
  * `#tab-<id>` no index.html. A barra rola de lado no celular e segue o padrão
  * de tablist (setas do teclado trocam de aba).
  */
-import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=26';
-import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=26';
-import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=26';
-import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=26';
-import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=26';
+import { esc, iniciais, hoje, waMsg } from './util/formato.js?v=27';
+import { reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=27';
+import { estado, on, emit, EVENTOS, sairComCuidado } from './estado.js?v=27';
+import { seloStatus, seloNivel, alertaMedico } from './perfil-derivados.js?v=27';
+import { ligarMenu, alternarMenu } from './ui-menu-acoes.js?v=27';
 
 /** As abas da ficha, na ordem da barra. `id` casa com o painel `#tab-<id>`. */
 export const ABAS = Object.freeze([
