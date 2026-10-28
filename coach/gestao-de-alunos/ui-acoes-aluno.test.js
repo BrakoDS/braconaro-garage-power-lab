@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { htmlModalAcesso, faseInicialAcesso, htmlExcluir, confirmaExclusao } from './ui-acoes-aluno.js?v=26';
+import { htmlModalAcesso, faseInicialAcesso, htmlExcluir, confirmaExclusao } from './ui-acoes-aluno.js?v=27';
 
 const ana = { id: 'Ana01', nome: 'Ana Lima', email: 'ana@box.com', telefone: '14999990000' };
 

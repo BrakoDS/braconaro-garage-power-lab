@@ -1242,3 +1242,29 @@ button{font-family:inherit}
   .tur-row .tur-status{grid-area:badge} .tur-row .tur-acoes{grid-area:btn;justify-content:flex-start}
   .tur-abrir{margin-left:0}
 }
+/* Evolução visual (ui-evolucao-ia.js): as fotos que vão para a IA e o relatório. */
+#card-evolucao-ia .card-acoes{align-items:center}
+#btn-evolucao-ia:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.evo-conta{margin:0 0 10px;color:var(--mut);font-size:.86rem}
+.evo-fotos{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.evo-foto{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}
+.evo-foto img{width:100%;aspect-ratio:3/4;object-fit:cover;background:var(--bg-2);border:1px solid var(--line)}
+.evo-leg{font-size:.76rem;color:var(--txt);line-height:1.3}
+.evo-origem{position:absolute;top:4px;left:4px;padding:1px 6px;font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--txt);background:rgba(9,9,11,.78)}
+.evo-nota{margin:10px 0 0;font-size:.78rem;color:var(--mut-2);line-height:1.45}
+#evo-resultado:not(:empty){margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.evo-relatorio{display:flex;flex-direction:column;gap:18px}
+.evo-sec .sa-t label{cursor:inherit}
+.evo-lista{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--txt);font-size:.92rem;line-height:1.5}
+.evo-feedback{width:100%;box-sizing:border-box;resize:vertical;min-height:120px;padding:10px 12px;background:var(--bg-2);color:var(--txt);
+  border:1px solid var(--line-2);font:inherit;font-size:.95rem;line-height:1.5}
+.evo-feedback:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.evo-feedback-acoes{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:8px}
+.evo-feedback-acoes .evo-nota{margin:0}
+.evo-rodape{margin:0;font-size:.78rem;color:var(--mut-2)}
+.evo-erro{margin:0;color:var(--bad);font-size:.92rem}
+@media (max-width:640px){
+  #card-evolucao-ia .card-hd{flex-wrap:wrap}
+  .evo-fotos{grid-template-columns:repeat(3,minmax(0,1fr))}
+}

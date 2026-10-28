@@ -14,7 +14,7 @@
  * Ligar antes das telas (main.js): este ouvinte vem primeiro, então a tela já
  * está visível quando o módulo dela desenha.
  */
-import { on, emit, EVENTOS, sairComCuidado } from './estado.js?v=26';
+import { on, emit, EVENTOS, sairComCuidado } from './estado.js?v=27';
 
 /** As telas que existem, na ordem da barra. */
 export const TELAS = Object.freeze(['lista', 'perfil', 'checkin', 'turmas', 'agenda', 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao']);

@@ -183,7 +183,7 @@ export const ehCategoria = (v: unknown): v is Categoria =>
 export const ANALISE_VAZIA: Analise = { suggestedCategory: 'almoço', items: [] };
 
 /** Junta o texto da resposta, aceitando o atalho e o formato completo. */
-function textoDaResposta(r: Record<string, unknown>): string {
+export function textoDaResposta(r: Record<string, unknown>): string {
   if (typeof r.output_text === 'string' && r.output_text.trim()) return r.output_text;
 
   let texto = '';
@@ -201,7 +201,7 @@ function textoDaResposta(r: Record<string, unknown>): string {
 }
 
 /** Tenta o JSON inteiro; falhando, recorta do primeiro '{' ao último '}'. */
-function lerJson(texto: string): unknown | null {
+export function lerJson(texto: string): unknown | null {
   try {
     return JSON.parse(texto);
   } catch {

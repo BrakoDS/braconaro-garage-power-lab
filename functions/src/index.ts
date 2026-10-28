@@ -27,6 +27,9 @@ import {
   extrairAnalise, limparTexto, INSTRUCOES, INSTRUCOES_TEXTO, SCHEMA, type Analise,
 } from './analise';
 import {
+  INSTRUCOES_EVOLUCAO, SCHEMA_EVOLUCAO, extrairRelatorio, lerPedido, montarConteudo, type RelatorioEvolucao,
+} from './evolucao-ia';
+import {
   decidirRodada, ehLinkMercadoLivre, extrairPreco,
   type ItemFeed, type Leitura, type ResultadoProduto, type Rodada,
 } from './precos';
@@ -311,6 +314,126 @@ export const analisarRefeicao = onCall(
           : porFoto
             ? 'Não deu para analisar a foto agora. Dá para registrar a refeição na mão.'
             : 'Não deu para estimar essa descrição agora. Dá para preencher os números na mão.',
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+);
+
+/* ============================================================
+   AVALIADOR DE EVOLUÇÃO POR FOTOS (só o coach)
+   ============================================================
+
+   O coach manda, da Gestão, as fotos do aluno (Diário e avaliações físicas) com
+   data, ângulo e peso; a função baixa cada uma do NOSSO bucket (`lerPedido` só
+   aceita essas URLs) e pede à OpenAI o relatório em quatro partes. A imagem vai
+   para a OpenAI em base64, nunca a URL com o token do Storage.
+
+   Nada é gravado além do contador da cota: o relatório volta para a tela do
+   coach e some com ela. A parte pura (pedido, conteúdo, leitura da resposta)
+   está em `evolucao-ia.ts`, conferida pelo `npm run checar:evolucao`. */
+
+/**
+ * O modelo da análise de fotos. Mais forte que o da refeição: comparar contorno
+ * de cintura entre duas datas é leitura fina, e o `mini` erra o lado da foto.
+ */
+const MODELO_EVOLUCAO = 'gpt-4o';
+
+/** Análises por coach por dia — freio contra clique duplo e laço de tela, não contra o coach. */
+const LIMITE_EVOLUCAO = 15;
+
+/** A foto do Diário fica em ~200 KB; a da avaliação, em ~300 KB. Acima disto, não é foto nossa. */
+const MAX_BYTES_FOTO = 3 * 1024 * 1024;
+
+/** Oito fotos em alta resolução levam mais que um prato: o teto acompanha. */
+const TIMEOUT_EVOLUCAO_MS = 100_000;
+
+/** Cota em `evolucaoUso/{uid}`, que nenhum cliente escreve (a regra não abre a coleção). */
+async function consumirCotaEvolucao(uid: string): Promise<number> {
+  const db = getFirestore();
+  const ref = db.collection('evolucaoUso').doc(uid);
+  const hoje = diaSaoPaulo();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.exists ? (snap.data() ?? {}) : {};
+    const usadas = d.dia === hoje && typeof d.usadas === 'number' ? d.usadas : 0;
+    if (usadas >= LIMITE_EVOLUCAO) {
+      throw new HttpsError('resource-exhausted', `Você já fez as ${LIMITE_EVOLUCAO} análises de evolução de hoje. Amanhã libera de novo.`);
+    }
+    tx.set(ref, { dia: hoje, usadas: usadas + 1, atualizadoEm: FieldValue.serverTimestamp() }, { merge: true });
+    return LIMITE_EVOLUCAO - (usadas + 1);
+  });
+}
+
+/** Baixa uma foto do bucket e devolve a `data:` URL. `redirect: 'error'`: a URL conferida é a que é lida. */
+async function baixarFotoEvolucao(url: string, sinal: AbortSignal): Promise<string> {
+  const r = await fetch(url, { signal: sinal, redirect: 'error' });
+  if (!r.ok) {
+    throw new HttpsError('failed-precondition', 'Uma das fotos não está mais no Storage (o aluno pode ter apagado). Reabra a ficha e tente de novo.');
+  }
+  const tipo = (r.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+  if (!['image/webp', 'image/jpeg', 'image/png'].includes(tipo)) {
+    throw new HttpsError('failed-precondition', 'Uma das fotos não está num formato de imagem que a análise lê.');
+  }
+  const bytes = Buffer.from(await r.arrayBuffer());
+  if (bytes.length > MAX_BYTES_FOTO) throw new HttpsError('failed-precondition', 'Uma das fotos é grande demais para a análise.');
+  return `data:${tipo};base64,${bytes.toString('base64')}`;
+}
+
+export const analisarEvolucaoFotos = onCall(
+  { secrets: [CHAVE_OPENAI], timeoutSeconds: 120, memory: '512MiB', maxInstances: 2 },
+  async (req): Promise<{ relatorio: RelatorioEvolucao; restantes: number; fotos: number }> => {
+    // Fotos de corpo de aluno: só o coach, pela lista fixa de UID (a mesma do ehCoach() das regras).
+    if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na conta do coach para analisar a evolução.');
+    if (!ehCoachPorUid(req.auth.uid)) throw new HttpsError('permission-denied', 'Só o coach usa o avaliador de evolução.');
+
+    const pedido = lerPedido(req.data);
+    if (typeof pedido === 'string') throw new HttpsError('invalid-argument', pedido);
+
+    const controle = new AbortController();
+    const timer = setTimeout(() => controle.abort(), TIMEOUT_EVOLUCAO_MS);
+    try {
+      // As fotos antes da cota: foto apagada no meio do caminho não gasta análise.
+      const imagens = await Promise.all(pedido.fotos.map((f) => baixarFotoEvolucao(f.url, controle.signal)));
+      const restantes = await consumirCotaEvolucao(req.auth.uid);
+
+      const resposta = await fetch(URL_OPENAI, {
+        method: 'POST',
+        signal: controle.signal,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${CHAVE_OPENAI.value()}` },
+        body: JSON.stringify({
+          model: MODELO_EVOLUCAO,
+          instructions: INSTRUCOES_EVOLUCAO,
+          input: [{ role: 'user', content: montarConteudo(pedido, imagens) }],
+          text: { format: { type: 'json_schema', name: 'relatorio_evolucao', strict: true, schema: SCHEMA_EVOLUCAO } },
+          max_output_tokens: 2000,
+        }),
+      });
+      if (!resposta.ok) {
+        const corpo = await resposta.text().catch(() => '');
+        logger.error('OpenAI recusou a análise de evolução.', { status: resposta.status, corpo: corpo.slice(0, 500) });
+        throw new HttpsError('unavailable', 'A IA está indisponível agora. Tente de novo em alguns minutos.');
+      }
+      const relatorio = extrairRelatorio(await resposta.json());
+      if (!relatorio) {
+        throw new HttpsError('unavailable', 'A IA não conseguiu montar o relatório com estas fotos. Tente outra seleção.');
+      }
+      // Sem nome, e-mail nem URL no log: só o que ajuda a entender custo e qualidade.
+      logger.info('Evolução analisada.', {
+        fotos: pedido.fotos.length,
+        comAngulo: pedido.fotos.filter((f) => f.angulo).length,
+        qualidade: relatorio.qualidade.nivel,
+        restantes,
+      });
+      return { relatorio, restantes, fotos: pedido.fotos.length };
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      const abortou = e instanceof Error && e.name === 'AbortError';
+      logger.error('Falha na análise de evolução.', { erro: String(e) });
+      throw new HttpsError(
+        'unavailable',
+        abortou ? 'A análise demorou demais. Tente com menos fotos.' : 'Não deu para analisar as fotos agora. Tente de novo.',
       );
     } finally {
       clearTimeout(timer);

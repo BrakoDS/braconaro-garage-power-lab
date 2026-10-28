@@ -27,25 +27,25 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js?v=26';
-import * as eventos from './eventos.js?v=26';
-import { publicarPortal } from './portal-sync.js?v=26';
-import { mergarInboxes } from './portal-merge.js?v=26';
-import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=26';
-import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=26';
-import { sincronizarAvisos } from './avisos.js?v=26';
-import { sincronizarDesafios } from './desafios.js?v=26';
-import { estado, emit, EVENTOS } from './estado.js?v=26';
-import { $ } from './util/dom.js?v=26';
-import { renderLista } from './ui-lista.js?v=26';
-import { atualizarSelosDaLista } from './selos-lista.js?v=26';
-import { carregarBadgeLeads } from './ui-tela-leads.js?v=26';
-import { sincronizarAutomacao } from './automacao.js?v=26';
-import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=26';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=26';
-import { aplicarPixPendentes } from './pix-baixa.js?v=26';
-import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=26';
-import { reg } from './registro.js?v=26';
+import * as db from './db.js?v=27';
+import * as eventos from './eventos.js?v=27';
+import { publicarPortal } from './portal-sync.js?v=27';
+import { mergarInboxes } from './portal-merge.js?v=27';
+import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=27';
+import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=27';
+import { sincronizarAvisos } from './avisos.js?v=27';
+import { sincronizarDesafios } from './desafios.js?v=27';
+import { estado, emit, EVENTOS } from './estado.js?v=27';
+import { $ } from './util/dom.js?v=27';
+import { renderLista } from './ui-lista.js?v=27';
+import { atualizarSelosDaLista } from './selos-lista.js?v=27';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=27';
+import { sincronizarAutomacao } from './automacao.js?v=27';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=27';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=27';
+import { aplicarPixPendentes } from './pix-baixa.js?v=27';
+import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=27';
+import { reg } from './registro.js?v=27';
 
 /* ============================================================
    A gravação publica o Portal
