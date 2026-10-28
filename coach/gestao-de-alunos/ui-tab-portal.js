@@ -27,10 +27,10 @@
  * ('alunos-mudaram') reenvia a fatia — a prévia acompanha a ficha. Perfil
  * reaberto: o quadro esvazia (nada do aluno anterior).
  */
-import * as db from './db.js?v=25';
-import { fatia } from './portal-sync.js?v=25';
-import { $ } from './util/dom.js?v=25';
-import { estado, on, EVENTOS } from './estado.js?v=25';
+import * as db from './db.js?v=26';
+import { fatia } from './portal-sync.js?v=26';
+import { $ } from './util/dom.js?v=26';
+import { estado, on, EVENTOS } from './estado.js?v=26';
 
 /** A prévia do Portal novo. Outros dias e semanas o coach abre lá dentro, no cronograma do Treino. */
 export const URL_PREVIA = 'https://portal-garagepowerlab.web.app/previa';

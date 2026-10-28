@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   agruparPorDia, anexarFotosDoDiario, filtrarEventos, fotosDoDiarioPorDia, historicoDasFichas, juntarEventos,
   linhaDoTempoDoAluno, linhaHTML, rotuloDia,
-} from './registros-ui.js?v=25';
+} from './registros-ui.js?v=26';
 
 /** ms de um horário LOCAL — é assim que a tela lê as datas. */
 const local = (iso, hh = 0, mm = 0) => {
@@ -251,6 +251,24 @@ test('linha com foto mostra a miniatura clicável que abre a foto cheia', () => 
   assert.ok(html.includes('class="reg-thumb"'));
   assert.ok(html.includes(`data-foto="${URL_BASE}2026-09-24.webp?alt=media&amp;token=t"`));
   assert.ok(html.includes('2026-09-24_mini.webp'));
+});
+
+test('ângulo do diário: vai da foto para a linha ("Perfil"), e foto sem ângulo continua igual', () => {
+  const porDia = fotosDoDiarioPorDia([
+    docDiario('2026-09-24', 1000, { angulo: 'lado' }),
+    docDiario('2026-09-23', 900),
+    docDiario('2026-09-22', 800, { angulo: '<b>diagonal</b>' }),
+  ]);
+  assert.equal(porDia.get('2026-09-24').angulo, 'lado');
+  assert.equal('angulo' in porDia.get('2026-09-23'), false, 'foto de antes do ângulo não ganha um inventado');
+  assert.equal('angulo' in porDia.get('2026-09-22'), false, 'ângulo fora da lista some, a foto fica');
+
+  const [comAngulo, semAngulo] = anexarFotosDoDiario([evDiario('2026-09-24', 1000), evDiario('2026-09-23', 900)], porDia);
+  const html = linhaHTML(comAngulo);
+  assert.ok(html.includes('Foto do Diário de Evolução · Perfil'));
+  assert.ok(html.includes('data-angulo="lado"'), 'o clique abre a foto com o ângulo no título');
+  const antigo = linhaHTML(semAngulo);
+  assert.ok(antigo.includes('Foto do Diário de Evolução</span>') && antigo.includes('data-angulo=""'));
 });
 
 test('linha de foto apagada ou refeita diz o porquê, sem miniatura', () => {

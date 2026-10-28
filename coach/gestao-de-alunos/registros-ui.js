@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback } from './eventos.js?v=25';
+import { cortar, resumoFeedback } from './eventos.js?v=26';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -239,9 +239,16 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const URL_STORAGE = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/diario%2F/;
 
 /**
+ * O ângulo que o aluno marca no envio (opcional): as chaves das fotos da
+ * avaliação física, com o rótulo do app ("lado" se lê "Perfil").
+ */
+export const ANGULOS_DIARIO = { frente: 'Frente', lado: 'Perfil', costas: 'Costas' };
+
+/**
  * Os documentos de `diario/{email}/fotos` indexados pelo dia, sem confiar neles:
- * sem dia coerente com o id, sem `em` ou com URL de fora, fica de fora.
- * @param {any[]|null} docs @returns {Map<string, { em: number, url: string, mini: string }>|null}
+ * sem dia coerente com o id, sem `em` ou com URL de fora, fica de fora. Ângulo
+ * fora da lista é ignorado (a foto fica, sem ângulo).
+ * @param {any[]|null} docs @returns {Map<string, { em: number, url: string, mini: string, angulo?: string }>|null}
  */
 export function fotosDoDiarioPorDia(docs) {
   if (!Array.isArray(docs)) return null;
@@ -250,7 +257,8 @@ export function fotosDoDiarioPorDia(docs) {
     if (!d || !DATA_ISO.test(d.id) || d.dia !== d.id) continue;
     const em = Number(d.em);
     if (!(em > 0) || !URL_STORAGE.test(d.url) || !URL_STORAGE.test(d.miniUrl)) continue;
-    porDia.set(d.id, { em, url: d.url, mini: d.miniUrl });
+    const angulo = Object.hasOwn(ANGULOS_DIARIO, d.angulo) ? d.angulo : undefined;
+    porDia.set(d.id, { em, url: d.url, mini: d.miniUrl, ...(angulo ? { angulo } : {}) });
   }
   return porDia;
 }
@@ -261,7 +269,7 @@ export function fotosDoDiarioPorDia(docs) {
  * pode mostrar a foto nova — ela diz que foi refeita. Dia sem documento = o
  * aluno apagou. Com `porDia` null (não deu para ler), nada muda.
  *
- * @param {any[]} evs @param {Map<string, { em: number, url: string, mini: string }>|null} porDia
+ * @param {any[]} evs @param {Map<string, { em: number, url: string, mini: string, angulo?: string }>|null} porDia
  */
 export function anexarFotosDoDiario(evs, porDia) {
   if (!porDia) return lista(evs);
@@ -270,7 +278,7 @@ export function anexarFotosDoDiario(evs, porDia) {
     const f = porDia.get(e.dia);
     if (!f) return { ...e, fotoEstado: 'apagada' };
     if (f.em !== e.em) return { ...e, fotoEstado: 'refeita' };
-    return { ...e, foto: { url: f.url, mini: f.mini } };
+    return { ...e, foto: { url: f.url, mini: f.mini, ...(f.angulo ? { angulo: f.angulo } : {}) } };
   });
 }
 
@@ -282,7 +290,8 @@ const AVISO_FOTO = {
 /**
  * Uma linha do feed. Sem nome nem foto do aluno: a aba fica dentro da ficha,
  * então seriam os mesmos em toda linha. A foto do diário, quando há, entra como
- * miniatura clicável (`data-foto`), que a aba (ui-tab-registros.js) abre em tela cheia.
+ * miniatura clicável (`data-foto`), que a aba (ui-tab-registros.js) abre em tela
+ * cheia — e o ângulo, quando o aluno marcou, vai junto do resumo.
  * @param {any} ev
  */
 export function linhaHTML(ev) {
@@ -293,12 +302,13 @@ export function linhaHTML(ev) {
     ? `<span class="reg-origem reg-origem--${esc(ev.origem)}">${esc(ORIGEM_ROTULO[ev.origem])}</span>` : '';
   const fila = ev.pendente ? `<span class="reg-fila" title="Ainda não subiu para a nuvem">na fila</span>` : '';
   const foto = ev.foto
-    ? `<button class="reg-thumb" type="button" data-foto="${esc(ev.foto.url)}" data-dia="${esc(ev.dia || '')}" aria-label="Ver a foto em tela cheia"><img src="${esc(ev.foto.mini)}" alt="" loading="lazy" /></button>`
+    ? `<button class="reg-thumb" type="button" data-foto="${esc(ev.foto.url)}" data-dia="${esc(ev.dia || '')}" data-angulo="${esc(ev.foto.angulo || '')}" aria-label="Ver a foto em tela cheia"><img src="${esc(ev.foto.mini)}" alt="" loading="lazy" /></button>`
     : '';
   const aviso = AVISO_FOTO[ev.fotoEstado] ? `<span class="reg-aviso">${AVISO_FOTO[ev.fotoEstado]}</span>` : '';
+  const angulo = ev.foto && Object.hasOwn(ANGULOS_DIARIO, ev.foto.angulo) ? ` · ${ANGULOS_DIARIO[ev.foto.angulo]}` : '';
   return `<div class="reg-row${ev.derivado ? ' reg-derivado' : ''}${foto ? ' reg-row--foto' : ''}">
     <span class="reg-hora">${hora}</span>${foto}
-    <span class="reg-txt"><span class="reg-res">${icone} ${esc(ev.resumo || '')}</span>${ev.detalhe ? `<span class="reg-det">“${esc(ev.detalhe)}”</span>` : ''}${aviso}</span>
+    <span class="reg-txt"><span class="reg-res">${icone} ${esc(ev.resumo || '')}${angulo}</span>${ev.detalhe ? `<span class="reg-det">“${esc(ev.detalhe)}”</span>` : ''}${aviso}</span>
     <span class="reg-selos">${origem}${fila}</span>
   </div>`;
 }

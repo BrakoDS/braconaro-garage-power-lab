@@ -12,14 +12,14 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=25';
-import * as regras from './presenca-regras.js?v=25';
-import { checkin, desfazer } from './checkin-regras.js?v=25';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=25';
-import { $ } from './util/dom.js?v=25';
-import { on, EVENTOS } from './estado.js?v=25';
-import { reg } from './registro.js?v=25';
-import { telaAtual } from './navegacao.js?v=25';
+import * as db from './db.js?v=26';
+import * as regras from './presenca-regras.js?v=26';
+import { checkin, desfazer } from './checkin-regras.js?v=26';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=26';
+import { $ } from './util/dom.js?v=26';
+import { on, EVENTOS } from './estado.js?v=26';
+import { reg } from './registro.js?v=26';
+import { telaAtual } from './navegacao.js?v=26';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
