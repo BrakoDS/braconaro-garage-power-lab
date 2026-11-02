@@ -116,7 +116,11 @@ export async function mesclarAvisosDeAusencia({ coachUid, alunos, aplicar, regis
     await init();
     const [snapAvisos, snapReservas] = await Promise.all([
       F.getDocs(F.collection(_db, 'avisosAusencia')),
-      F.getDocs(F.collection(_db, 'reposicoesAluno')),
+      // As reservas não podem derrubar os avisos (ex.: regra do Firestore ainda não publicada).
+      F.getDocs(F.collection(_db, 'reposicoesAluno')).catch((/** @type {unknown} */ e) => {
+        console.warn('[ausências] não deu para ler as reservas de reposição agora:', e);
+        return { empty: true, docs: [] };
+      }),
     ]);
     if (snapAvisos.empty && snapReservas.empty) return 0;
     const avisosPorId = new Map(snapAvisos.docs.map((/** @type {any} */ d) => [d.id, d]));
