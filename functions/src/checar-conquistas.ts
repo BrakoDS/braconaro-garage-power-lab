@@ -37,6 +37,27 @@ function ok(condicao: boolean, descricao: string, detalhe = ''): void {
 // ESM do site em todas as versões do Node. Assim o `import()` sobrevive intacto.
 const importarEsm = new Function('url', 'return import(url)') as (url: string) => Promise<unknown>;
 
+/**
+ * Roda `fn` com "hoje" fixo em `instante`: `new Date()` e `Date.now()` devolvem
+ * esse instante; `new Date(x)` e `Date.parse` seguem normais. O motor conta
+ * meses de casa a partir do marco zero com o relógio de verdade — sem isto, a
+ * mesma verificação muda de resultado conforme o dia em que o checar roda.
+ */
+const DataReal = Date;
+function comHojeEm<T>(instante: string, fn: () => T): T {
+  const anterior = globalThis.Date;
+  const hoje = DataReal.parse(instante);
+  globalThis.Date = class extends DataReal {
+    constructor(...a: ConstructorParameters<DateConstructor>) { super(...((a.length ? a : [hoje]) as [number])); }
+    static now() { return hoje; }
+  } as DateConstructor;
+  try {
+    return fn();
+  } finally {
+    globalThis.Date = anterior;
+  }
+}
+
 /* ---------- datas de teste, relativas a hoje ---------- */
 
 const iso = (d: Date) =>
@@ -173,7 +194,7 @@ function logicaDoMotor(): void {
   ok(lixo.total === 0 && lixo.nAvaliacoes === 0 && lixo.feedbacks === 0 && lixo.desafios === 0,
     'documento editado à mão com lixo não quebra');
 
-  // Datas a partir do marco zero (o checar roda depois de 01/10/2026) e de antes dele.
+  // Datas a partir do marco zero e de antes dele; "hoje" é 20/10/2026 (ver o `main`).
   const HOJE = diasAtras(0);
   const DEPOIS = [DATA_DE_CORTE, '2026-10-02', '2026-10-05'];
   const ANTES = ['2026-08-03', '2026-09-15', '2026-09-30'];
@@ -225,28 +246,18 @@ function logicaDoMotor(): void {
   ok(medsAntigo.xpAtual === XP_POR_MEDALHA.aval1, 'XP do aluno antigo = só a 1ª avaliação', String(medsAntigo.xpAtual));
 
   console.log('\nSemana do box em branco pausa a sequência');
-  {
-    // "Hoje" fixo em 18/11/2026 (quarta da W47): o marco zero é recente demais
-    // para montar uma sequência de semanas com a data de verdade.
-    const DataReal = Date;
-    const HOJE_FIXO = DataReal.parse('2026-11-18T12:00:00-03:00');
-    globalThis.Date = class extends DataReal {
-      constructor(...a: ConstructorParameters<DateConstructor>) { super(...((a.length ? a : [HOJE_FIXO]) as [number])); }
-      static now() { return HOJE_FIXO; }
-    } as DateConstructor;
-    try {
-      // Treinos na W43 (20/10), W44 (27/10) e W46 (10/11); a W45 (02/11) foi recesso.
-      const docs = { portal: { presencas: ['2026-10-20', '2026-10-27', '2026-11-10'] } };
-      const semPausa = contextoDoAluno(docs);
-      const comPausa = contextoDoAluno({ ...docs, semanasPausadas: ['2026-11-02'] });
-      ok(semPausa.streak === 1, 'sem a pausa: a W45 sem treino quebra (sequência 1)', String(semPausa.streak));
-      ok(comPausa.streak === 3, 'W45 em branco: pulada, a sequência segue (3)', String(comPausa.streak));
-      ok(contextoDoAluno({ ...docs, semanasPausadas: ['2026-10-13'] }).streak === 1,
-        'pausa fora do buraco não muda nada');
-    } finally {
-      globalThis.Date = DataReal;
-    }
-  }
+  // "Hoje" fixo em 18/11/2026 (quarta da W47): o marco zero é recente demais
+  // para montar uma sequência de semanas com a data de verdade.
+  comHojeEm('2026-11-18T12:00:00-03:00', () => {
+    // Treinos na W43 (20/10), W44 (27/10) e W46 (10/11); a W45 (02/11) foi recesso.
+    const docs = { portal: { presencas: ['2026-10-20', '2026-10-27', '2026-11-10'] } };
+    const semPausa = contextoDoAluno(docs);
+    const comPausa = contextoDoAluno({ ...docs, semanasPausadas: ['2026-11-02'] });
+    ok(semPausa.streak === 1, 'sem a pausa: a W45 sem treino quebra (sequência 1)', String(semPausa.streak));
+    ok(comPausa.streak === 3, 'W45 em branco: pulada, a sequência segue (3)', String(comPausa.streak));
+    ok(contextoDoAluno({ ...docs, semanasPausadas: ['2026-10-13'] }).streak === 1,
+      'pausa fora do buraco não muda nada');
+  });
 
   console.log('\nExceções mantidas');
   const tresAntigas = contextoDoAluno({
@@ -262,15 +273,22 @@ function logicaDoMotor(): void {
     '1º acesso antigo, sem mais nada, também vale');
 
   console.log('\nMeses de casa');
-  const mesesDoCorte = jogo.mesesDesde(INICIO_DO_MARCO_ZERO_MS);
-  ok(contextoDoAluno({ portal: { criadoEm: mesesAtrasMs(7) } }).meses === mesesDoCorte,
-    'veterano: o tempo de casa conta a partir de 01/10/2026, não da entrada', String(mesesDoCorte));
-  ok(contextoDoAluno({ portal: { criadoEm: { toMillis: () => mesesAtrasMs(14) } } }).meses === mesesDoCorte,
-    'criadoEm como Timestamp do Firestore, também recortado');
-  ok(contextoDoAluno({ portal: { criadoEm: Date.now() } }).meses === 0, 'quem entra depois do corte conta da própria entrada');
-  ok(contextoDoAluno({ portal: { pagamentos: { '2026-07': 1, '2026-08': 1, '2026-09': 1 } } }).meses === mesesDoCorte,
-    'meses pagos antes de outubro/2026 não contam');
-  ok(ctx.meses === Math.max(mesesDoCorte, 1), 'outubro/2026 pago conta como o mês 1', String(ctx.meses));
+  ok(ctx.meses === 1, 'outubro/2026 pago conta como o mês 1', String(ctx.meses));
+  // Quatro meses depois do corte: o recorte só aparece com a régua do tempo já andando.
+  // Sem `criadoEm`, o tempo de casa também conta do corte — por isso, de 01/11/2026 em
+  // diante, até o aluno "sem documentos" passa a ter 1 mês.
+  comHojeEm('2027-02-15T12:00:00-03:00', () => {
+    const mesesDoCorte = jogo.mesesDesde(INICIO_DO_MARCO_ZERO_MS);
+    ok(mesesDoCorte === 4, 'de 01/10/2026 a 15/02/2027 são 4 meses', String(mesesDoCorte));
+    ok(contextoDoAluno({ portal: { criadoEm: mesesAtrasMs(7) } }).meses === mesesDoCorte,
+      'veterano: o tempo de casa conta a partir de 01/10/2026, não da entrada');
+    ok(contextoDoAluno({ portal: { criadoEm: { toMillis: () => mesesAtrasMs(14) } } }).meses === mesesDoCorte,
+      'criadoEm como Timestamp do Firestore, também recortado');
+    ok(contextoDoAluno({ portal: { criadoEm: mesesAtrasMs(2) } }).meses === 2, 'quem entra depois do corte conta da própria entrada');
+    ok(contextoDoAluno({ portal: { pagamentos: { '2026-07': 1, '2026-08': 1, '2026-09': 1 } } }).meses === mesesDoCorte,
+      'meses pagos antes de outubro/2026 não contam');
+    ok(contextoDoAluno({}).meses === mesesDoCorte, 'sem criadoEm, o tempo de casa conta do corte');
+  });
 
   console.log('\nAcúmulo e XP');
   const r1 = calcularConquistas(ctx, undefined);
@@ -309,7 +327,9 @@ async function main(): Promise<void> {
   await paridadeComOSite();
   tabelaDeXp();
   corteNoPortal();
-  logicaDoMotor();
+  // Relógio fixo em 20/10/2026: depois do corte, mas antes de completar o 1º mês de casa.
+  // Com a data de verdade, o aluno "sem nada" ganha `mes1` a partir de 01/11/2026.
+  comHojeEm('2026-10-20T12:00:00-03:00', logicaDoMotor);
 
   console.log(falhas === 0 ? '\n✓ Motor de conquistas conferido.\n' : `\n✗ ${falhas} verificação(ões) falharam.\n`);
   process.exitCode = falhas === 0 ? 0 : 1;
