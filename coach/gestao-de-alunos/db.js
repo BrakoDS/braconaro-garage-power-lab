@@ -15,8 +15,9 @@
  * Continua local-first: toda função aqui é síncrona e responde do cache; a
  * nuvem vem atrás.
  */
-import { criarCache } from './db-cache.js?v=27';
-import { criarSync } from './db-sync.js?v=27';
+import { criarCache } from './db-cache.js?v=28';
+import { criarSync } from './db-sync.js?v=28';
+import { horasDaGrade } from './presenca-regras.js?v=28';
 
 const cache = criarCache();
 
@@ -36,7 +37,7 @@ function idDoAparelho() {
 const sync = criarSync({
   cache,
   aparelho: idDoAparelho(),
-  abrirPorta: async (uid) => (await import('./db-firestore.js?v=27')).portaFirestore(uid),
+  abrirPorta: async (uid) => (await import('./db-firestore.js?v=28')).portaFirestore(uid),
 });
 
 let _aoGravar = null;
@@ -69,7 +70,7 @@ export async function enviarAgora() {
  */
 export async function iniciarSync(uid, aoAtualizar) {
   try {
-    const fs = await import('./db-firestore.js?v=27');
+    const fs = await import('./db-firestore.js?v=28');
     if (!fs.cloudAtivo() || !uid) return undefined;
     return await sync.iniciar(uid, aoAtualizar);
   } catch (e) {
@@ -237,6 +238,21 @@ export function salvarVagasDaTurma(hora, n) {
   if (n == null) delete porHorario[hora];
   else porHorario[hora] = n;
   cache.gravarMeta({ turmas: { ...atual, porHorario } });
+  gravou();
+}
+
+/**
+ * Põe ou tira um horário da grade fixa de um dia da semana. A primeira mudança
+ * grava a grade inteira (a padrão, com a mudança), para as outras não sumirem.
+ * @param {string} diaChave 'seg'…'dom' @param {string} hora @param {boolean} naGrade
+ */
+export function salvarHoraNaGrade(diaChave, hora, naGrade) {
+  const atual = configTurmas();
+  const grade = Object.fromEntries(['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'].map((k) => [k, horasDaGrade(atual, k)]));
+  const horas = new Set(grade[diaChave] || []);
+  if (naGrade) horas.add(hora); else horas.delete(hora);
+  grade[diaChave] = [...horas].sort();
+  cache.gravarMeta({ turmas: { ...atual, grade } });
   gravou();
 }
 

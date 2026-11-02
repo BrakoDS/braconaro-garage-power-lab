@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=27';
+import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=28';
 
 const QUA = '2026-10-07', SEX = '2026-10-09', QUI = '2026-10-08';
 const ana = (extra = {}) => ({
@@ -56,4 +56,40 @@ test('reposição: no prazo o crédito volta para a fila; fora do prazo é perdi
   assert.equal(noPrazo.patch.atestados['2026-09-28'].reposicao, null);
   const fora = aplicarAvisosNaFicha(comRep, { 'reposicao|2026-09-28': aviso('reposicao', '2026-09-28', QUI, '17:00', 1) });
   assert.equal(fora.patch.atestados['2026-09-28'].reposicao.foraDoPrazo, true);
+});
+
+/** @param {string} data @param {string} hora @param {number} em */
+const reserva = (data, hora, em) => ({ data, hora, coachUid: 'C', alunoId: 'A1', em });
+
+test('reserva do aluno: o crédito livre ganha a reposição, e a reserva é consumida', () => {
+  const a = ana({ atestados: { '2026-09-28': { em: 1, tipo: 'desmarcacao', expira: '2026-10-28', reposicao: null } } });
+  const r = aplicarAvisosNaFicha(a, {}, { '2026-09-28': reserva(QUI, '18:00', 5) });
+  assert.deepEqual(r.patch.atestados['2026-09-28'].reposicao, { data: QUI, hora: '18:00' });
+  assert.deepEqual(r.reservasConsumidas, ['2026-09-28']);
+  assert.deepEqual(r.consumidos, []);
+  assert.match(r.logs[0].resumo, /^Pelo app: Reposição da aula de 28\/09 marcada para 08\/10 18:00/);
+});
+
+test('reserva com o crédito de um "Não irei" ainda não aplicado: o aviso entra antes, por ordem de chegada', () => {
+  const r = aplicarAvisosNaFicha(ana(), { [`titular|${QUA}`]: aviso('titular', QUA, '2026-10-06', '10:00', 10) }, { [QUA]: reserva(QUI, '18:00', 20) });
+  assert.equal(r.patch.atestados[QUA].tipo, 'desmarcacao');
+  assert.deepEqual(r.patch.atestados[QUA].reposicao, { data: QUI, hora: '18:00' });
+  assert.deepEqual(r.ignorados, []);
+});
+
+test('reserva e depois "Não irei" fora do prazo nela: a reserva entra e a reposição vira falta', () => {
+  const a = ana({ atestados: { '2026-09-28': { em: 1, tipo: 'desmarcacao', expira: '2026-10-28', reposicao: null } } });
+  const r = aplicarAvisosNaFicha(a, { 'reposicao|2026-09-28': aviso('reposicao', '2026-09-28', QUI, '17:00', 30) }, { '2026-09-28': reserva(QUI, '18:00', 20) });
+  assert.equal(r.patch.atestados['2026-09-28'].reposicao.data, QUI);
+  assert.equal(r.patch.atestados['2026-09-28'].reposicao.foraDoPrazo, true);
+});
+
+test('reserva que a ficha recusa (crédito já usado, crédito sumiu, dia com aula) é consumida e ignorada', () => {
+  const usado = ana({ atestados: { '2026-09-28': { em: 1, tipo: 'desmarcacao', reposicao: { data: '2026-10-10', hora: '09:00' } } } });
+  assert.deepEqual(aplicarAvisosNaFicha(usado, {}, { '2026-09-28': reserva(QUI, '18:00', 5) }).ignorados.map((i) => i.motivo), ['o crédito já tem reposição marcada']);
+  const sumiu = aplicarAvisosNaFicha(ana(), {}, { '2026-09-28': reserva(QUI, '18:00', 5) });
+  assert.deepEqual(sumiu.patch, {});
+  assert.deepEqual(sumiu.reservasConsumidas, ['2026-09-28']);
+  const livre = ana({ atestados: { '2026-09-28': { em: 1, tipo: 'desmarcacao', reposicao: null } } });
+  assert.equal(aplicarAvisosNaFicha(livre, {}, { '2026-09-28': reserva(QUA, '18:00', 5) }).ignorados.length, 1);
 });

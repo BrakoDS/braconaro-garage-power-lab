@@ -12,22 +12,30 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=27';
-import * as regras from './presenca-regras.js?v=27';
-import { checkin, desfazer } from './checkin-regras.js?v=27';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=27';
-import { $ } from './util/dom.js?v=27';
-import { on, EVENTOS } from './estado.js?v=27';
-import { reg } from './registro.js?v=27';
-import { telaAtual } from './navegacao.js?v=27';
+import * as db from './db.js?v=28';
+import * as regras from './presenca-regras.js?v=28';
+import { checkin, desfazer } from './checkin-regras.js?v=28';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=28';
+import { $ } from './util/dom.js?v=28';
+import { on, EVENTOS } from './estado.js?v=28';
+import { reg } from './registro.js?v=28';
+import { telaAtual } from './navegacao.js?v=28';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+/** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
+const CHAVE_DIA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+const DIA_PLURAL = /** @type {Record<string, string>} */ ({
+  seg: 'das segundas', ter: 'das terças', qua: 'das quartas', qui: 'das quintas', sex: 'das sextas', sab: 'dos sábados', dom: 'dos domingos',
+});
+const chaveDoDiaNaTela = () => CHAVE_DIA[new Date(dia + 'T00:00:00').getDay()];
 
 /** O dia na tela. */
 let dia = hoje();
 /** O horário escolhido ('' = a turma sem horário; null = escolher sozinho). */
 let horaSel = /** @type {string | null} */ (null);
 /** Horários abertos à mão neste dia (para pôr experimental ou reposição numa turma vazia). */
+/** O bloco da grade fica aberto depois de pôr ou tirar um horário. */
+let gradeAberta = false;
 let horasAbertas = /** @type {string[]} */ ([]);
 /**
  * O painel de desmarcar aberto — um só por vez. `chave` é `${id}|${tipo}|${chave da aula}`;
@@ -103,7 +111,30 @@ function render() {
     </div>
     ${turma ? corpoDaTurma(turma) : `<div class="empty"><b>Sem turma</b>Ninguém da grade fixa treina neste dia. Abra um horário para marcar reposição ou aula experimental.</div>`}
     <p class="tur-regras">Desmarcar com <b>2h ou mais</b> de antecedência libera a vaga e gera <b>+1 crédito de reposição</b> (vale ${regras.VALIDADE_CREDITO_DIAS} dias).
-      Menos de 2h, ou não vir: <b>falta, sem crédito</b>. Reposição: até <b>1h antes</b> da aula, se houver vaga.</p>`;
+      Menos de 2h, ou não vir: <b>falta, sem crédito</b>. Reposição: até <b>1h antes</b> da aula, se houver vaga.</p>
+    ${blocoDaGrade()}`;
+}
+
+/**
+ * A grade fixa do dia da semana na tela: os horários em que o aluno pode marcar
+ * reposição pelo app (aparecem para ele mesmo vazios). Tirar ou pôr um horário
+ * vale para todas as semanas desse dia.
+ */
+function blocoDaGrade() {
+  const diaChave = chaveDoDiaNaTela();
+  const horas = regras.horasDaGrade(db.configTurmas(), diaChave);
+  const chips = horas.map((h) =>
+    `<span class="tur-grade-h">${esc(horaLegivel(h))}<button class="tur-grade-tirar" type="button" data-grade-tirar="${esc(h)}" aria-label="Tirar ${esc(horaLegivel(h))} da grade ${DIA_PLURAL[diaChave]}">×</button></span>`).join('');
+  return `<details class="tur-grade"${gradeAberta ? ' open' : ''}>
+      <summary>Grade ${DIA_PLURAL[diaChave]} · ${horas.length ? `${horas.length} horário${horas.length > 1 ? 's' : ''}` : 'sem aula'}</summary>
+      <p class="tur-regras">Os horários em que o aluno pode marcar reposição pelo app, com a lotação de cada turma (até ${regras.CAPACIDADE_PADRAO} por padrão).</p>
+      <div class="tur-grade-lista">${chips || '<span class="tur-vazio-txt">Nenhum horário.</span>'}
+        <span class="tur-abrir">
+          <input class="chk-hora-inp" type="time" data-grade-nova aria-label="Novo horário da grade" />
+          <button class="btn ghost btn-sm tur-grade-por" type="button">Pôr na grade</button>
+        </span>
+      </div>
+    </details>`;
 }
 
 /** @param {ReturnType<typeof turmasDeHoje>[number]} t */
@@ -379,6 +410,12 @@ export function iniciarTelaTurmas() {
     aviso = null;
 
     if (btn.classList.contains('tur-chip')) { horaSel = btn.dataset.hora; painel = null; render(); return; }
+    if (btn.dataset.gradeTirar) { db.salvarHoraNaGrade(chaveDoDiaNaTela(), btn.dataset.gradeTirar, false); gradeAberta = true; render(); return; }
+    if (btn.classList.contains('tur-grade-por')) {
+      const inp = /** @type {HTMLInputElement|null} */ ($('[data-grade-nova]', corpo));
+      if (inp && /^\d{2}:\d{2}$/.test(inp.value)) db.salvarHoraNaGrade(chaveDoDiaNaTela(), inp.value, true);
+      gradeAberta = true; render(); return;
+    }
     if (btn.classList.contains('tur-abrir-hora')) {
       const inp = /** @type {HTMLInputElement|null} */ ($('[data-nova-hora]', corpo));
       const h = inp && inp.value;
@@ -432,6 +469,9 @@ export function iniciarTelaTurmas() {
     alvo.textContent = p.texto;
     alvo.className = `tur-previa ${p.cls}`;
   });
+
+  // Abrir/fechar a grade à mão também sobrevive ao próximo render (o toggle não borbulha: captura).
+  corpo?.addEventListener('toggle', (/** @type {any} */ e) => { if (e.target.classList?.contains('tur-grade')) gradeAberta = e.target.open; }, true);
 
   // As vagas de um horário: grava ao sair do campo (o "change").
   corpo?.addEventListener('change', (/** @type {any} */ e) => {

@@ -11,13 +11,13 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'agenda'), que volta para o
  * mês atual, a cada troca de mês e depois de cada decisão de feriado.
  */
-import * as db from './db.js?v=27';
-import { feriadosDoMes, feriadoEm } from '../../compartilhado/regras/feriados.js?v=27';
-import { mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=27';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=27';
-import { $ } from './util/dom.js?v=27';
-import { on, EVENTOS } from './estado.js?v=27';
-import { painel as painelReal } from '../../compartilhado/ui/dialogo.js?v=27';
+import * as db from './db.js?v=28';
+import { feriadosDoMes, feriadoEm } from '../../compartilhado/regras/feriados.js?v=28';
+import { mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=28';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=28';
+import { $ } from './util/dom.js?v=28';
+import { on, EVENTOS } from './estado.js?v=28';
+import { painel as painelReal } from '../../compartilhado/ui/dialogo.js?v=28';
 
 let agMes = mesIdAtual();
 

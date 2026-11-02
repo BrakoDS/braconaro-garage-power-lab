@@ -1268,3 +1268,12 @@ button{font-family:inherit}
   #card-evolucao-ia .card-hd{flex-wrap:wrap}
   .evo-fotos{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+/* Grade fixa do dia da semana (Turmas): os horários em que o aluno marca reposição */
+.tur-grade{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.tur-grade summary{cursor:pointer;color:var(--mut);font-size:.85rem;font-weight:600}
+.tur-grade summary:hover{color:var(--txt)}
+.tur-grade-lista{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+.tur-grade-h{display:inline-flex;align-items:center;gap:6px;padding:4px 4px 4px 10px;border:1px solid var(--line-2);border-radius:999px;font-size:.85rem}
+.tur-grade-tirar{border:0;background:transparent;color:var(--mut);cursor:pointer;font-size:1rem;line-height:1;padding:0 6px;border-radius:999px}
+.tur-grade-tirar:hover{color:var(--bad, #ff5b50);background:rgba(255,255,255,.06)}

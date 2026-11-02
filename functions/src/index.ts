@@ -20,7 +20,7 @@ import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/fire
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import {
-  FieldValue, getFirestore, Timestamp, type DocumentReference, type DocumentSnapshot, type Firestore,
+  FieldPath, FieldValue, getFirestore, Timestamp, type DocumentReference, type DocumentSnapshot, type Firestore,
 } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import {
@@ -59,7 +59,10 @@ import { chaveDe, resolver, itemUtil, itemDaIA, limparParaGravar, type ItemCatal
 import { getAuth } from 'firebase-admin/auth';
 import { COACH_UIDS, ehCoachPorUid, normalizarEmail } from './acesso';
 import { acharAlunoDaGestao, fichasDaGestao, fonteFirestore } from './gestao-leitura';
-import { avaliarAusencia, avisosPorAluno, ocupacaoDoDia, relogioDoBox } from './presenca';
+import {
+  avaliarAusencia, avaliarReposicao, avisosPorAluno, comReservas, ocupacaoDoDia, relogioDoBox, reservasPorAluno,
+  type ReservasPendentes,
+} from './presenca';
 import { executarGerarPix, responderWebhook } from './pix-http';
 import { clienteMercadoPago, repoFirestore } from './pix-firestore';
 import { reconciliarCobrancas } from './pix-servico';
@@ -3106,13 +3109,24 @@ export const avisarAusencia = onCall(
     const { email, coachUid, aluno, ficha } = await alunoLogado(db, req.auth, dados.coachUid);
 
     const ref = db.doc(`avisosAusencia/${email}`);
+    const refReservas = db.doc(`reposicoesAluno/${email}`);
     const id = `${tipo}|${chave}`;
     return db.runTransaction(async (tx) => {
-      const ja = (((await tx.get(ref)).data() ?? {}).itens ?? {})[id];
+      const [avisosSnap, reservasSnap] = await Promise.all([tx.get(ref), tx.get(refReservas)]);
+      const ja = ((avisosSnap.data() ?? {}).itens ?? {})[id];
       if (ja) return { ...ja, jaAvisado: true };
       const relogio = relogioDoBox(new Date());
-      const r = avaliarAusencia(ficha, tipo, chave, relogio);
+      // A reposição que o aluno marcou e a Gestão ainda não aplicou também se desmarca.
+      const reservas = (reservasPorAluno([reservasSnap.data() ?? {}], coachUid)[aluno.id] ?? {}) as ReservasPendentes;
+      const pendente = tipo === 'reposicao' && !!reservas[chave];
+      const r = avaliarAusencia(pendente ? comReservas(ficha, reservas, (avisosSnap.data() ?? {}).itens ?? {}) : ficha, tipo, chave, relogio);
       if ('erro' in r) throw new HttpsError('failed-precondition', r.erro);
+      if (pendente && r.noPrazo) {
+        // No prazo, a reserva some antes de chegar na ficha: o crédito fica livre na hora.
+        tx.update(refReservas, new FieldPath('itens', chave), FieldValue.delete(), 'atualizadoEm', FieldValue.serverTimestamp());
+        logger.info('Reserva de reposição desmarcada antes de aplicada.', { email, chave, antecedenciaMin: r.antecedenciaMin });
+        return { tipo, chave, ...r, jaAvisado: false };
+      }
       const item = { tipo, chave, coachUid, alunoId: aluno.id, aviso: relogio, em: Date.now(), ...r };
       tx.set(ref, { itens: { [id]: item }, atualizadoEm: FieldValue.serverTimestamp() }, { merge: true });
       logger.info('Aviso de ausência.', { email, id, noPrazo: r.noPrazo, antecedenciaMin: r.antecedenciaMin });
@@ -3122,9 +3136,30 @@ export const avisarAusencia = onCall(
 );
 
 /**
+ * A ocupação das turmas de `dias`, com o pendente já contado: o aviso de
+ * ausência libera a vaga e a reserva de reposição ocupa a dela. Os documentos
+ * de `avisosAusencia` e `reposicoesAluno` vêm de quem chama (numa transação,
+ * lidos por ela).
+ */
+async function ocupacaoDasTurmas(
+  db: Firestore, coachUid: string, dias: string[], hoje: string,
+  { avisosDocs, reservasDocs }: { avisosDocs: unknown[]; reservasDocs: unknown[] },
+) {
+  const { meta, fichas } = await todasAsFichas(db, coachUid);
+  const ativas = fichas.filter((f) => f && f.status !== 'inativo');
+  const avisos = avisosPorAluno(avisosDocs, coachUid);
+  const reservas = reservasPorAluno(reservasDocs, coachUid);
+  const feriados = (meta.feriados && typeof meta.feriados === 'object') ? meta.feriados as Record<string, unknown> : {};
+  const fechados = Object.entries(feriados).filter(([, abriu]) => abriu === false).map(([d]) => d);
+  return dias.flatMap((dia) =>
+    ocupacaoDoDia(ativas, dia, { hoje, fechados, experimentais: meta.experimentais, config: meta.turmas, avisos, reservas }));
+}
+
+/**
  * A ocupação das turmas dos próximos dias (hoje + 6), em números: horário,
  * vagas, ocupadas. Nenhum nome sai daqui. O aviso de ausência que a Gestão
- * ainda não aplicou já conta como vaga livre.
+ * ainda não aplicou já conta como vaga livre, e a reposição que o aluno
+ * marcou já conta como vaga ocupada.
  *
  *     httpsCallable(getFunctions(app, 'southamerica-east1'), 'ocupacaoDosHorarios')({ coachUid })
  *     // data: { hoje, turmas: [{ dia, hora, capacidade, ocupadas, vagas }] }
@@ -3134,15 +3169,59 @@ export const ocupacaoDosHorarios = onCall(
   async (req) => {
     const db = getFirestore();
     const { coachUid } = await alunoLogado(db, req.auth, (req.data ?? {}).coachUid);
-    const [{ meta, fichas }, avisosSnap] = await Promise.all([todasAsFichas(db, coachUid), db.collection('avisosAusencia').get()]);
-    const ativas = fichas.filter((f) => f && f.status !== 'inativo');
-    const avisos = avisosPorAluno(avisosSnap.docs.map((d) => d.data()), coachUid);
-    const feriados = (meta.feriados && typeof meta.feriados === 'object') ? meta.feriados as Record<string, unknown> : {};
-    const fechados = Object.entries(feriados).filter(([, abriu]) => abriu === false).map(([d]) => d);
+    const [avisosSnap, reservasSnap] = await Promise.all([db.collection('avisosAusencia').get(), db.collection('reposicoesAluno').get()]);
     const { hoje } = relogioDoBox(new Date());
-    const turmas = Array.from({ length: 7 }, (_, i) => somarDias(hoje, i)).flatMap((dia) =>
-      ocupacaoDoDia(ativas, dia, { hoje, fechados, experimentais: meta.experimentais, config: meta.turmas, avisos }));
+    const turmas = await ocupacaoDasTurmas(db, coachUid, Array.from({ length: 7 }, (_, i) => somarDias(hoje, i)), hoje, {
+      avisosDocs: avisosSnap.docs.map((d) => d.data()), reservasDocs: reservasSnap.docs.map((d) => d.data()),
+    });
     return { hoje, turmas };
+  },
+);
+
+/**
+ * O aluno marca a reposição numa turma com um crédito dele. A régua é a do
+ * coach (`agendarReposicaoNaTurma`, presenca.ts): turma existente, 1h ou mais
+ * antes, próximos 7 dias, dia livre, vaga (6 por turma, ou a do horário) e um
+ * crédito que valha até a data — o que vence primeiro.
+ *
+ * A reserva vai para `reposicoesAluno/{email}.itens[origem]` — que só o
+ * servidor escreve — e a Gestão aplica na ficha (`ausencias-merge.js`), na
+ * ordem de chegada junto com os avisos. A transação lê todas as reservas e
+ * avisos pendentes: dois alunos disputando a última vaga não passam os dois.
+ *
+ *     httpsCallable(getFunctions(app, 'southamerica-east1'), 'agendarReposicao')
+ *       ({ coachUid, data: 'AAAA-MM-DD', hora: 'HH:MM' })
+ *     // data: { origem, expira, aula: {data, hora}, antecedenciaMin }
+ */
+export const agendarReposicao = onCall(
+  { timeoutSeconds: 20, memory: '256MiB' },
+  async (req) => {
+    const dados = (req.data ?? {}) as { coachUid?: unknown; data?: unknown; hora?: unknown };
+    if (typeof dados.data !== 'string' || !EH_DATA.test(dados.data)) throw new HttpsError('invalid-argument', 'Dia no formato AAAA-MM-DD.');
+    if (typeof dados.hora !== 'string' || !/^\d{2}:\d{2}$/.test(dados.hora)) throw new HttpsError('invalid-argument', 'Horário no formato HH:MM.');
+    const aula = { data: dados.data, hora: dados.hora };
+    const db = getFirestore();
+    const { email, coachUid, aluno, ficha } = await alunoLogado(db, req.auth, dados.coachUid);
+
+    const ref = db.doc(`reposicoesAluno/${email}`);
+    return db.runTransaction(async (tx) => {
+      const [avisosSnap, reservasSnap] = await Promise.all([tx.get(db.collection('avisosAusencia')), tx.get(db.collection('reposicoesAluno'))]);
+      const relogio = relogioDoBox(new Date());
+      const reservasDocs = reservasSnap.docs.map((d) => d.data());
+      const minhasReservas = reservasPorAluno(reservasDocs, coachUid)[aluno.id] ?? {};
+      const meusAvisos = (avisosSnap.docs.find((d) => d.id === email)?.data() ?? {}).itens ?? {};
+      const doAluno = comReservas(ficha, minhasReservas, Object.fromEntries(
+        Object.entries(meusAvisos as Record<string, { coachUid?: unknown }>).filter(([, v]) => v?.coachUid === coachUid)));
+      const turma = (await ocupacaoDasTurmas(db, coachUid, [aula.data], relogio.hoje, {
+        avisosDocs: avisosSnap.docs.map((d) => d.data()), reservasDocs,
+      })).find((t) => t.hora === aula.hora);
+      const r = avaliarReposicao(doAluno, aula, { relogio, vagas: turma ? turma.vagas : null });
+      if ('erro' in r) throw new HttpsError('failed-precondition', r.erro);
+      const item = { origem: r.origem, data: aula.data, hora: aula.hora, expira: r.expira, coachUid, alunoId: aluno.id, relogio, em: Date.now() };
+      tx.set(ref, { itens: { [r.origem]: item }, atualizadoEm: FieldValue.serverTimestamp() }, { merge: true });
+      logger.info('Reposição marcada pelo aluno.', { email, origem: r.origem, aula, antecedenciaMin: r.antecedenciaMin });
+      return r;
+    });
   },
 );
 

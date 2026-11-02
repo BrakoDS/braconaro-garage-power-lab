@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback } from './eventos.js?v=27';
+import { cortar, resumoFeedback } from './eventos.js?v=28';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
