@@ -41,11 +41,12 @@ function elemento(sel) {
 const el = (s) => (tela[s] ||= elemento(s));
 globalThis.document = /** @type {any} */ ({ querySelector: (s) => el(s), querySelectorAll: () => [] });
 
-const db = await import('./db.js?v=27');
-const { emit, EVENTOS } = await import('./estado.js?v=27');
-const eventos = await import('./eventos.js?v=27');
-const { iniciarTelaTurmas } = await import('./ui-tela-turmas.js?v=27');
-const { hoje, addDias, fmtData } = await import('./util/formato.js?v=27');
+const db = await import('./db.js?v=28');
+const { emit, EVENTOS } = await import('./estado.js?v=28');
+const eventos = await import('./eventos.js?v=28');
+const { iniciarTelaTurmas } = await import('./ui-tela-turmas.js?v=28');
+const { hoje, addDias, fmtData } = await import('./util/formato.js?v=28');
+const regras = await import('./presenca-regras.js?v=28');
 iniciarTelaTurmas();
 
 const TODOS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
@@ -160,4 +161,23 @@ test('abrir outro horário: a turma vazia aparece e já aceita experimental', ()
   clicar({}, 'tur-abrir-hora');
   assert.match(corpo().innerHTML, /tur-chip ativo[^]*6h[^]*0\/6/);
   assert.match(corpo().innerHTML, /Turma vazia/);
+});
+
+test('grade do dia da semana: o coach tira e põe horários, e a mudança vale para todas as semanas', () => {
+  // O dia da semana que está na tela (um teste anterior pode ter trocado o dia).
+  const PLURAL = { segundas: 'seg', 'terças': 'ter', quartas: 'qua', quintas: 'qui', sextas: 'sex', 'sábados': 'sab', domingos: 'dom' };
+  const chave = PLURAL[/** @type {keyof typeof PLURAL} */ (/<summary>Grade d[ao]s (\S+) ·/.exec(corpo().innerHTML)?.[1] ?? '')];
+  assert.ok(chave, 'o bloco diz de qual dia da semana é a grade');
+  const padrao = regras.horasDaGrade({}, chave);
+  assert.match(corpo().innerHTML, /<details class="tur-grade"/);
+  if (padrao.length) {
+    clicar({ gradeTirar: padrao[0] });
+    assert.deepEqual(db.configTurmas().grade[chave], padrao.slice(1), 'o horário saiu só deste dia da semana');
+    assert.match(corpo().innerHTML, /<details class="tur-grade" open>/, 'o bloco continua aberto');
+  }
+  campos['[data-grade-nova]'] = { value: '21:30' };
+  clicar({}, 'tur-grade-por');
+  assert.ok(db.configTurmas().grade[chave].includes('21:30'));
+  const outro = chave === 'seg' ? 'ter' : 'seg';
+  assert.deepEqual(db.configTurmas().grade[outro], regras.horasDaGrade({}, outro), 'os outros dias ficam com a grade padrão');
 });

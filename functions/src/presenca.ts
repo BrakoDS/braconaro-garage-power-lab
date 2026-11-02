@@ -136,17 +136,22 @@ function statusReposicao(a: Dados, rep: Dados, dia: string, hoje: string, fechad
 
 /**
  * Quem tem aula em `dia`: titulares da grade fixa e reposições marcadas. Com
- * `avisos`, o aviso que o coach ainda não aplicou já libera a vaga.
+ * `avisos`, o aviso que o coach ainda não aplicou já libera a vaga; com
+ * `reservas`, a reposição que o aluno marcou e a Gestão ainda não aplicou já
+ * ocupa a dela.
  */
 export function aulasDoDia(
   alunos: Dados[], dia: string,
-  { hoje, fechados = [], avisos = {} }: { hoje: string; fechados?: string[]; avisos?: Record<string, AvisosPendentes> },
+  { hoje, fechados = [], avisos = {}, reservas = {} }: {
+    hoje: string; fechados?: string[]; avisos?: Record<string, AvisosPendentes>; reservas?: Record<string, ReservasPendentes>;
+  },
 ): AulaNaTurma[] {
   const semana = datasDaSemana(dia);
   const fech = new Set(fechados);
   const out: AulaNaTurma[] = [];
-  for (const a of alunos) {
-    const id = String(a.id ?? '');
+  for (const ficha of alunos) {
+    const id = String(ficha.id ?? '');
+    const a = comReservas(ficha, reservas[id]);
     const doAluno = avisos[id] ?? {};
     for (const k of lista(a.diasTreino)) {
       const plan = semana[String(k)];
@@ -172,19 +177,51 @@ export function capacidadeDaTurma(config: unknown, hora: string): number {
   return typeof c.padrao === 'number' && Number.isFinite(c.padrao) && c.padrao >= 0 ? c.padrao : CAPACIDADE_PADRAO;
 }
 
+/**
+ * A grade de horários do box quando o coach ainda não mexeu nela — a MESMA de
+ * `coach/gestao-de-alunos/presenca-regras.js` (o checar-presenca compara).
+ * Seg a sex 6h–10h e 15h–17h; à noite 10 min depois da hora (18:10, 19:10,
+ * 20:10; na sexta a última é 18:10); sábado 8h, 10h e 12:30.
+ */
+const MANHA = ['06:00', '07:00', '08:00', '09:00', '10:00'];
+const TARDE = ['15:00', '16:00', '17:00'];
+export const GRADE_PADRAO: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  seg: [...MANHA, ...TARDE, '18:10', '19:10', '20:10'],
+  ter: [...MANHA, ...TARDE, '18:10', '19:10', '20:10'],
+  qua: [...MANHA, ...TARDE, '18:10', '19:10', '20:10'],
+  qui: [...MANHA, ...TARDE, '18:10', '19:10', '20:10'],
+  sex: [...MANHA, ...TARDE, '18:10'],
+  sab: ['08:00', '10:00', '12:30'],
+  dom: [],
+});
+
+/** Os horários fixos de turma de um dia da semana: a grade salva pelo coach (`meta.turmas.grade`) ou a padrão. */
+export function horasDaGrade(config: unknown, diaChave: string): string[] {
+  const g = mapa(mapa(config).grade);
+  const salva = g[diaChave];
+  const horas = Array.isArray(salva) ? salva : [...(GRADE_PADRAO[diaChave] ?? [])];
+  return horas.filter((h): h is string => typeof h === 'string' && /^\d{2}:\d{2}$/.test(h)).sort();
+}
+
 export interface Ocupacao { dia: string; hora: string; capacidade: number; ocupadas: number; vagas: number }
 
 /**
  * A ocupação das turmas de `dia` — só números, sem nome de ninguém: é isso
- * que o aluno pode ver dos outros. Turma sem horário fica de fora.
+ * que o aluno pode ver dos outros. Entram as turmas da grade do box (mesmo
+ * vazias), as que têm aluno e as de aula experimental; turma sem horário fica
+ * de fora.
  */
 export function ocupacaoDoDia(
   alunos: Dados[], dia: string,
-  o: { hoje: string; fechados?: string[]; experimentais?: unknown; config?: unknown; avisos?: Record<string, AvisosPendentes> },
+  o: {
+    hoje: string; fechados?: string[]; experimentais?: unknown; config?: unknown;
+    avisos?: Record<string, AvisosPendentes>; reservas?: Record<string, ReservasPendentes>;
+  },
 ): Ocupacao[] {
   const aulas = aulasDoDia(alunos, dia, o);
   const exps = lista(mapa(o.experimentais)[dia]).map(mapa).filter((x) => texto(x.hora));
-  const horas = [...new Set([...aulas.map((x) => x.hora), ...exps.map((x) => texto(x.hora))])].filter(Boolean).sort();
+  const horas = [...new Set([...horasDaGrade(o.config, chaveDoDia(dia)), ...aulas.map((x) => x.hora), ...exps.map((x) => texto(x.hora))])]
+    .filter(Boolean).sort();
   return horas.map((hora) => {
     const capacidade = capacidadeDaTurma(o.config, hora);
     const ocupadas = aulas.filter((x) => x.hora === hora && OCUPA.has(x.status)).length
@@ -252,4 +289,114 @@ export function avisosPorAluno(docs: unknown[], coachUid: string): Record<string
     }
   }
   return out;
+}
+
+/* ============================================================
+   Reposição marcada pelo aluno
+   ============================================================ */
+
+/** Até quantos minutos antes da aula o aluno marca a reposição (o mesmo do coach). */
+export const ANTECEDENCIA_REPOSICAO_MIN = 60;
+/** Até quantos dias à frente: o mesmo horizonte da ocupação que ele vê. */
+export const HORIZONTE_REPOSICAO_DIAS = 7;
+
+/**
+ * A reposição que o aluno marcou e a Gestão ainda não aplicou na ficha:
+ * `reposicoesAluno/{email}.itens[origem]`, por aula de origem do crédito.
+ */
+export interface ReservaPendente { origem: string; data: string; hora: string }
+export type ReservasPendentes = Record<string, ReservaPendente>;
+
+const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+const creditoVencido = (v: Dados, hoje: string) => !!texto(v.expira) && texto(v.expira) < hoje;
+const temReposicao = (v: unknown) => !!texto(mapa(mapa(v).reposicao).data);
+
+/**
+ * A ficha como vai ficar quando a Gestão aplicar o que está pendente: a
+ * reserva vira `atestados[origem].reposicao` e, com `avisos` (os itens brutos
+ * de `avisosAusencia/{email}`), o "Não irei" no prazo vira o crédito dele.
+ */
+export function comReservas(a: Dados, reservas: ReservasPendentes = {}, avisos: Dados = {}): Dados {
+  if (!Object.keys(reservas).length && !Object.keys(avisos).length) return a;
+  const atestados: Dados = { ...mapa(a.atestados) };
+  for (const v of Object.values(avisos)) {
+    const i = mapa(v);
+    const chave = texto(i.chave);
+    if (i.tipo !== 'titular' || i.noPrazo !== true || !chave || atestados[chave]) continue;
+    atestados[chave] = { tipo: 'desmarcacao', expira: texto(i.expira) || null, reposicao: null };
+  }
+  for (const r of Object.values(reservas)) {
+    const v = atestados[r.origem];
+    if (temReposicao(v)) continue;
+    // Sem o crédito na ficha: ele ainda é um "Não irei" que a Gestão não aplicou.
+    atestados[r.origem] = { ...(v ? mapa(v) : { tipo: 'desmarcacao', expira: null }), reposicao: { data: r.data, hora: r.hora } };
+  }
+  return { ...a, atestados };
+}
+
+/** As reservas que a Gestão ainda não aplicou, de `reposicoesAluno/*`: só as deste coach, por aluno. */
+export function reservasPorAluno(docs: unknown[], coachUid: string): Record<string, ReservasPendentes> {
+  const out: Record<string, ReservasPendentes> = {};
+  for (const doc of docs) {
+    for (const v of Object.values(mapa(mapa(doc).itens))) {
+      const i = mapa(v);
+      if (i.coachUid !== coachUid || !texto(i.alunoId) || !texto(i.origem) || !EH_DATA.test(texto(i.data))) continue;
+      (out[texto(i.alunoId)] ??= {})[texto(i.origem)] = { origem: texto(i.origem), data: texto(i.data), hora: texto(i.hora) };
+    }
+  }
+  return out;
+}
+
+/** Os créditos livres e no prazo, do que vence primeiro ao que não vence (atestado médico). */
+export function creditosLivres(a: Dados, hoje: string): { origem: string; expira: string | null }[] {
+  return Object.entries(mapa(a.atestados))
+    .filter(([, v]) => v && !temReposicao(v) && !creditoVencido(mapa(v), hoje))
+    .map(([origem, v]) => ({ origem, expira: texto(mapa(v).expira) || null }))
+    .sort((x, y) => ((x.expira ?? '9999') + x.origem < (y.expira ?? '9999') + y.origem ? -1 : 1));
+}
+
+/**
+ * Alguma aula do aluno já usa `dia`? Um dia só fecha UMA aula (a mesma trava
+ * do coach, `donoDoDia` em checkin-regras.js): a da grade que não foi
+ * desmarcada, no dia em que acontece, e as reposições marcadas.
+ */
+export function diaJaTemAula(a: Dados, dia: string): boolean {
+  const atestados = mapa(a.atestados), remarcacoes = mapa(a.remarcacoes);
+  const semana = datasDaSemana(dia);
+  for (const k of lista(a.diasTreino)) {
+    const plan = semana[String(k)];
+    if (!plan || atestados[plan]) continue;
+    const r = remarcacoes[plan];
+    if ((typeof r === 'string' ? r : texto(mapa(r).data) || plan) === dia) return true;
+  }
+  return Object.values(atestados).some((v) => texto(mapa(mapa(v).reposicao).data) === dia);
+}
+
+export interface ResultadoReposicao { origem: string; expira: string | null; aula: Onde; antecedenciaMin: number }
+
+/**
+ * O aluno marca a reposição numa turma. `a` já vem com o pendente
+ * (`comReservas`); `vagas` é a da turma naquele dia e horário, ou null quando
+ * não há turma ali. Confere, como `agendarReposicaoNaTurma` do coach: a turma
+ * existe e não começou, falta 1h ou mais, cai nos próximos 7 dias, o dia está
+ * livre, há vaga e um crédito que vale até a data. O crédito usado é o que
+ * vence primeiro.
+ */
+export function avaliarReposicao(
+  a: Dados, aula: Onde, { relogio, vagas }: { relogio: Relogio; vagas: number | null },
+): ResultadoReposicao | { erro: string } {
+  if (!EH_DATA.test(aula.data) || !/^\d{2}:\d{2}$/.test(aula.hora)) return { erro: 'Turma inválida.' };
+  if (vagas == null) return { erro: 'Não há turma nesse dia e horário.' };
+  const ant = antecedenciaMin(relogio, aula.data, aula.hora);
+  if (ant == null || ant <= 0) return { erro: 'Essa aula já começou.' };
+  if (ant < ANTECEDENCIA_REPOSICAO_MIN) return { erro: 'A reposição só pode ser marcada até 1h antes da aula.' };
+  if (aula.data > somarDias(relogio.hoje, HORIZONTE_REPOSICAO_DIAS - 1)) return { erro: `Dá para marcar só nas aulas dos próximos ${HORIZONTE_REPOSICAO_DIAS} dias.` };
+  if (diaJaTemAula(a, aula.data)) return { erro: 'Você já tem aula nesse dia.' };
+  if (vagas <= 0) return { erro: 'Turma lotada.' };
+  const creditos = creditosLivres(a, relogio.hoje);
+  if (!creditos.length) return { erro: 'Você não tem crédito de reposição.' };
+  const credito = creditos.find((c) => !c.expira || aula.data <= c.expira);
+  // Sem crédito que chegue até a data: todos têm validade, e o último vence antes.
+  if (!credito) return { erro: `O seu crédito vale até ${ddmm(texto(creditos[creditos.length - 1].expira))}. Escolha uma aula até lá.` };
+  return { origem: credito.origem, expira: credito.expira, aula, antecedenciaMin: ant };
 }

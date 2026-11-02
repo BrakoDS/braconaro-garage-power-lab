@@ -14,8 +14,8 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  antecedenciaMin, aulasDoDia, avaliarAusencia, avisosPorAluno, chaveDoDia, datasDaSemana, ocupacaoDoDia,
-  relogioDoBox, somarDias, type Relogio,
+  antecedenciaMin, aulasDoDia, avaliarAusencia, avaliarReposicao, avisosPorAluno, chaveDoDia, comReservas, creditosLivres,
+  datasDaSemana, diaJaTemAula, GRADE_PADRAO, horasDaGrade, ocupacaoDoDia, relogioDoBox, reservasPorAluno, somarDias, type Relogio,
 } from './presenca';
 
 let falhas = 0;
@@ -24,6 +24,7 @@ function ok(condicao: boolean, descricao: string, detalhe = ''): void {
   else { falhas++; console.log(`  ✗ ${descricao}${detalhe ? `\n      ${detalhe}` : ''}`); }
 }
 const igual = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const mapa = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {});
 const importarEsm = new Function('url', 'return import(url)') as (url: string) => Promise<unknown>;
 
 type Dados = Record<string, unknown>;
@@ -59,16 +60,68 @@ ok(igual(no(avaliarAusencia(comRep, 'reposicao', SEG, { hoje: '2026-10-08', agor
 ok(no(avaliarAusencia(ana(), 'reposicao', SEG, { hoje: SEG, agora: '06:00' })) === 'Você não tem reposição marcada para essa aula.', 'reposição inexistente é recusada');
 
 console.log('\nOCUPAÇÃO\n');
+/** Sem turma fixa: aqui só contam as turmas com gente (a grade tem teste próprio). */
+const SEM_GRADE = { qua: [], qui: [] };
 const bia: Dados = { id: 'B2', nome: 'Bia', diasTreino: ['qua'], horarios: { qua: '07:00' } };
 const caio: Dados = { id: 'C3', nome: 'Caio', diasTreino: ['qua'], horarios: { qua: '18:00' } };
 const exps = { [QUA]: [{ hora: '07:00', status: 'confirmado' }, { hora: '07:00', status: 'cancelada' }, { hora: '12:00', status: 'confirmado' }] };
-const occ = ocupacaoDoDia([ana(), bia, caio], QUA, { hoje: QUA, experimentais: exps, config: { porHorario: { '07:00': 3 } } });
+const occ = ocupacaoDoDia([ana(), bia, caio], QUA, { hoje: QUA, experimentais: exps, config: { porHorario: { '07:00': 3 }, grade: SEM_GRADE } });
 ok(igual(occ.map((t) => [t.hora, t.ocupadas, t.capacidade, t.vagas]), [['07:00', 3, 3, 0], ['12:00', 1, 6, 5], ['18:00', 1, 6, 5]]), 'conta titulares e experimentais (a cancelada não), por horário');
 const avisos = avisosPorAluno([{ itens: { [`titular|${QUA}`]: { coachUid: 'X', alunoId: 'B2', noPrazo: false } } }, { itens: { 'titular|2026-10-07': { coachUid: 'outro', alunoId: 'A1', noPrazo: true } } }], 'X');
 ok(igual(avisos, { B2: { [`titular|${QUA}`]: { noPrazo: false } } }), 'avisos pendentes por aluno, só os deste coach');
-const comAviso = ocupacaoDoDia([ana(), bia], QUA, { hoje: QUA, avisos });
+const comAviso = ocupacaoDoDia([ana(), bia], QUA, { hoje: QUA, avisos, config: { grade: SEM_GRADE } });
 ok(comAviso[0].ocupadas === 1, 'o aviso que a Gestão ainda não aplicou já libera a vaga');
 ok(!JSON.stringify(occ).includes('Ana'), 'nenhum nome sai na ocupação');
+
+console.log('\nGRADE DE HORÁRIOS DO BOX\n');
+ok(igual(horasDaGrade({}, 'qua'), ['06:00', '07:00', '08:00', '09:00', '10:00', '15:00', '16:00', '17:00', '18:10', '19:10', '20:10']), 'seg a qui: 6h–10h, 15h–17h e a noite com 10 min a mais');
+ok(horasDaGrade({}, 'sex').at(-1) === '18:10' && horasDaGrade({}, 'sex').length === 9, 'sexta: a última começa 18:10');
+ok(igual(horasDaGrade({}, 'sab'), ['08:00', '10:00', '12:30']) && igual(horasDaGrade({}, 'dom'), []), 'sábado 8h, 10h e 12:30; domingo sem aula');
+ok(igual(horasDaGrade({ grade: { qua: ['19:10', '07:00', 'lixo'] } }, 'qua'), ['07:00', '19:10']) && horasDaGrade({ grade: { qua: [] } }, 'seg').length === 11, 'a grade salva pelo coach vale por dia; dia não salvo fica com a padrão');
+const vazia = ocupacaoDoDia([ana()], QUA, { hoje: QUA });
+ok(vazia.length === 11 && igual(vazia.find((t) => t.hora === '07:00'), { dia: QUA, hora: '07:00', capacidade: 6, ocupadas: 1, vagas: 5 })
+  && igual(vazia.find((t) => t.hora === '15:00'), { dia: QUA, hora: '15:00', capacidade: 6, ocupadas: 0, vagas: 6 }), 'a turma da grade aparece mesmo vazia (0/6)');
+ok(ocupacaoDoDia([], '2026-10-11', { hoje: QUA }).length === 0, 'domingo sem ninguém: nenhuma turma');
+
+console.log('\nREPOSIÇÃO MARCADA PELO ALUNO\n');
+const QUI = '2026-10-08';
+const TER10 = { hoje: TER, agora: '10:00' };
+const credSeg = (extra: Dados = {}) => ({ [SEG]: { tipo: 'desmarcacao', expira: '2026-11-04', reposicao: null, ...extra } });
+const comCredito = (atestados: Dados = credSeg()) => ana({ atestados });
+const rep = (a: Dados, data: string, hora: string, vagas: number | null, relogio: Relogio = TER10) => no2(avaliarReposicao(a, { data, hora }, { relogio, vagas }));
+const no2 = (r: ReturnType<typeof avaliarReposicao>) => ('erro' in r ? r.erro : r);
+
+ok(igual(rep(comCredito(), QUI, '18:00', 3), { origem: SEG, expira: '2026-11-04', aula: { data: QUI, hora: '18:00' }, antecedenciaMin: 3360 }), 'turma com vaga e crédito livre: marca, com o crédito de origem');
+ok(rep(comCredito(), QUI, '18:00', null) === 'Não há turma nesse dia e horário.', 'horário sem turma é recusado');
+ok(rep(comCredito(), QUI, '18:00', 0) === 'Turma lotada.', 'turma lotada é recusada');
+ok(rep(comCredito(), QUA, '18:00', 3) === 'Você já tem aula nesse dia.', 'dia em que ele já treina é recusado (um dia, uma aula)');
+ok(typeof rep(comCredito({ ...credSeg(), [QUA]: { tipo: 'desmarcacao', expira: '2026-11-06' } }), QUA, '18:00', 3) === 'object', 'dia da aula que ele desmarcou fica livre para a reposição');
+ok(rep(comCredito(), TER, '10:59', 3) === 'A reposição só pode ser marcada até 1h antes da aula.', '59 min antes: recusado');
+ok(typeof rep(comCredito(), TER, '11:00', 3) === 'object', 'exatamente 1h antes: vale');
+ok(rep(comCredito(), TER, '09:00', 3) === 'Essa aula já começou.', 'aula que já começou é recusada');
+ok(rep(comCredito(), '2026-10-13', '18:00', 3).toString().includes('próximos 7 dias'), 'além dos 7 dias da ocupação: recusado');
+ok(rep(ana(), QUI, '18:00', 3) === 'Você não tem crédito de reposição.', 'sem crédito: recusado');
+ok(rep(comCredito(credSeg({ expira: '2026-10-05' })), QUI, '18:00', 3) === 'Você não tem crédito de reposição.', 'crédito vencido não conta');
+ok(rep(comCredito(credSeg({ reposicao: { data: '2026-10-10', hora: '09:00' } })), QUI, '18:00', 3) === 'Você não tem crédito de reposição.', 'crédito já usado não conta');
+ok(rep(comCredito(credSeg({ expira: '2026-10-07' })), QUI, '18:00', 3, { hoje: TER, agora: '10:00' }) === 'O seu crédito vale até 07/10. Escolha uma aula até lá.', 'aula depois da validade do crédito: recusada');
+const doisCreditos = comCredito({ '2026-09-28': { tipo: 'desmarcacao', expira: '2026-10-28' }, '2026-09-21': { tipo: 'atestado' }, ...credSeg() });
+ok((rep(doisCreditos, QUI, '18:00', 3) as { origem: string }).origem === '2026-09-28', 'usa o crédito que vence primeiro (atestado médico, que não vence, por último)');
+ok(igual(creditosLivres(doisCreditos, TER).map((c) => c.origem), ['2026-09-28', SEG, '2026-09-21']), 'créditos livres em ordem de vencimento');
+
+const reservas = { [SEG]: { origem: SEG, data: QUI, hora: '18:00' } };
+const avisoNoPrazo = { [`titular|${QUA}`]: { tipo: 'titular', chave: QUA, noPrazo: true, expira: '2026-11-05', coachUid: 'X' } };
+const pendente = comReservas(comCredito(), reservas, avisoNoPrazo);
+ok(igual(mapa(mapa(pendente.atestados)[SEG]).reposicao, { data: QUI, hora: '18:00' }), 'a reserva pendente entra na ficha como a reposição do crédito');
+ok(igual(mapa(pendente.atestados)[QUA], { tipo: 'desmarcacao', expira: '2026-11-05', reposicao: null }), 'o "Não irei" no prazo ainda não aplicado já é crédito');
+ok((rep(pendente, '2026-10-10', '09:00', 3) as { origem: string }).origem === QUA, 'com o crédito de SEG reservado, a próxima reserva usa o do aviso pendente');
+ok(rep(pendente, QUI, '19:30', 3) === 'Você já tem aula nesse dia.', 'a reserva pendente já ocupa o dia');
+ok(igual(reservasPorAluno([{ itens: { [SEG]: { ...reservas[SEG], coachUid: 'X', alunoId: 'A1' } } }, { itens: { [SEG]: { ...reservas[SEG], coachUid: 'outro', alunoId: 'B2' } } }], 'X'), { A1: reservas }), 'reservas pendentes por aluno, só as deste coach');
+const occRes = ocupacaoDoDia([ana({ atestados: { [SEG]: { tipo: 'desmarcacao' } } }), caio], QUI, { hoje: TER, reservas: { A1: reservas }, config: { grade: SEM_GRADE } });
+ok(igual(occRes.map((t) => [t.hora, t.ocupadas]), [['18:00', 1]]), 'a reserva que a Gestão ainda não aplicou já ocupa a vaga');
+const occAvisoPend = ocupacaoDoDia([ana()], QUI, { hoje: TER, reservas: { A1: reservas }, config: { grade: SEM_GRADE } });
+ok(occAvisoPend.length === 1 && occAvisoPend[0].ocupadas === 1, 'reserva de crédito que ainda é aviso pendente também ocupa');
+const desmarcaPend = avaliarAusencia(comReservas(comCredito(), reservas), 'reposicao', SEG, TER10);
+ok(!('erro' in desmarcaPend) && desmarcaPend.noPrazo && desmarcaPend.expira === '2026-11-04', 'a reserva pendente pode ser desmarcada no prazo, e o crédito volta com a validade dele');
 
 async function paridade(): Promise<void> {
   const caminho = resolve(__dirname, '..', '..', 'coach', 'gestao-de-alunos', 'presenca-regras.js');
@@ -77,8 +130,13 @@ async function paridade(): Promise<void> {
     aulasDoDia: (al: unknown[], dia: string, o: unknown) => Array<{ aluno: Dados; tipo: string; chave: string; hora: string; status: string }>;
     previaDesmarcacao: (a: unknown, plan: string, aviso: Relogio) => { noPrazo: boolean; antecedenciaMin: number } | null;
     desmarcar: (a: unknown, plan: string, o: unknown) => { patch?: { atestados: Record<string, { expira: string }> } };
+    GRADE_PADRAO: Record<string, string[]>;
+    horasDaGrade: (config: unknown, diaChave: string) => string[];
   };
-  console.log('\nPARIDADE COM O COACH (presenca-regras.js)\n');
+  const checkin = await importarEsm(pathToFileURL(resolve(caminho, '..', 'checkin-regras.js')).href) as {
+    donoDoDia: (a: unknown, diaPlanejado: string, diaAlvo: string) => string | null;
+  };
+  console.log('\nPARIDADE COM O COACH (presenca-regras.js e checkin-regras.js)\n');
 
   let semente = 20261017;
   const sorteio = () => { semente = (semente * 1103515245 + 12345) % 2147483648; return semente / 2147483648; };
@@ -134,9 +192,21 @@ async function paridade(): Promise<void> {
         const expiraCoach = r.noPrazo ? d.patch?.atestados[plan]?.expira ?? null : null;
         if (expiraCoach !== r.expira) divergentes.push(`validade ${f.id} ${plan}: servidor=${r.expira} coach=${expiraCoach}`);
       }
+      // "Um dia, uma aula" da reposição: com cada crédito livre, cada dia da semana.
+      for (const { origem } of creditosLivres(f, '2026-01-01')) {
+        for (const dia of semana) {
+          const coach = checkin.donoDoDia(f, origem, dia) != null;
+          conferidos++;
+          if (coach !== diaJaTemAula(f, dia)) divergentes.push(`dia ${f.id} ${origem}→${dia}: servidor=${diaJaTemAula(f, dia)} coach=${coach}`);
+        }
+      }
     }
   }
   ok(divergentes.length === 0, `servidor e coach concordam em ${conferidos} turmas e prazos sorteados`, divergentes.slice(0, 3).join('\n      '));
+  ok(igual(site.GRADE_PADRAO, GRADE_PADRAO), 'a grade padrão de horários é a mesma no servidor e no coach');
+  const configs = [{}, { grade: { qua: ['19:10', '07:00', 'x'] } }, { grade: { seg: [] } }, { grade: null }, { grade: ['06:00'] }];
+  ok(configs.every((c) => ['seg', 'qua', 'sex', 'sab', 'dom'].every((k) => igual(site.horasDaGrade(c, k), horasDaGrade(c, k)))),
+    'a grade salva pelo coach é lida igual nos dois lados');
 }
 
 paridade().then(() => {

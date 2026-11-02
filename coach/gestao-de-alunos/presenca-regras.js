@@ -49,7 +49,7 @@
  * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
  */
 import { datasDaSemana, chaveDoDia } from '../../compartilhado/regras/semana.js';
-import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=27';
+import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=28';
 
 /**
  * O mesmo `creditoVencido` do semana.js, de propósito aqui: o semana.js é
@@ -212,6 +212,38 @@ export function capacidadeDaTurma(config, hora) {
   const n = (c.porHorario || {})[hora];
   if (Number.isFinite(n) && n >= 0) return Number(n);
   return Number.isFinite(c.padrao) && Number(c.padrao) >= 0 ? Number(c.padrao) : CAPACIDADE_PADRAO;
+}
+
+/**
+ * A grade de horários do box quando o coach ainda não mexeu nela: seg a sex de
+ * 6h às 10h e de 15h às 17h; à noite começa 10 min depois da hora, para quem
+ * sai do serviço (18:10, 19:10, 20:10 — na sexta, a última é 18:10); sábado
+ * 8h, 10h e 12:30. O servidor tem a mesma (functions/src/presenca.ts,
+ * conferida pelo checar-presenca).
+ */
+const MANHA = ['06:00', '07:00', '08:00', '09:00', '10:00'];
+const TARDE = ['15:00', '16:00', '17:00'];
+export const GRADE_PADRAO = Object.freeze({
+  seg: [...MANHA, ...TARDE, '18:10', '19:10', '20:10'],
+  ter: [...MANHA, ...TARDE, '18:10', '19:10', '20:10'],
+  qua: [...MANHA, ...TARDE, '18:10', '19:10', '20:10'],
+  qui: [...MANHA, ...TARDE, '18:10', '19:10', '20:10'],
+  sex: [...MANHA, ...TARDE, '18:10'],
+  sab: ['08:00', '10:00', '12:30'],
+  dom: [],
+});
+
+/**
+ * Os horários fixos de turma de um dia da semana ('seg'…'dom'): a grade que o
+ * coach salvou (`meta.turmas.grade`) ou a padrão. Para o aluno, turma da grade
+ * existe mesmo vazia — é nela que ele marca reposição pelo app.
+ * @param {any} config @param {string} diaChave @returns {string[]}
+ */
+export function horasDaGrade(config, diaChave) {
+  const g = config && config.grade;
+  const salva = g && typeof g === 'object' && !Array.isArray(g) ? g[diaChave] : undefined;
+  const horas = Array.isArray(salva) ? salva : (GRADE_PADRAO[/** @type {keyof typeof GRADE_PADRAO} */ (diaChave)] || []);
+  return horas.filter((h) => typeof h === 'string' && /^\d{2}:\d{2}$/.test(h)).sort();
 }
 
 /**

@@ -368,6 +368,17 @@ service cloud.firestore {
       allow update, delete: if ehCoach();
     }
 
+    // Reposição marcada pelo aluno — reposicoesAluno/{email}.itens[origem]: quem
+    // grava é SÓ a Cloud Function agendarReposicao (Admin SDK), que confere a
+    // vaga da turma (até 6), o prazo de 1h e o crédito. Mesmo desenho do
+    // avisosAusencia: o aluno lê o seu, o coach lê e consome (a Gestão aplica
+    // na ficha e tira o item), ninguém cria pelo cliente — senão um aluno
+    // passaria por cima da lotação.
+    match /reposicoesAluno/{email} {
+      allow read: if ehAlunoDono(email) || ehCoach();
+      allow update, delete: if ehCoach();
+    }
+
     // Check-in pelo app da uGym — checkinsUgym/{email}.itens: quem grava é SÓ a
     // Cloud Function sincronizarUgym (Admin SDK), que lê o FitControl. Mesmo
     // desenho do avisosAusencia: o aluno lê o seu, o coach lê e consome (a
