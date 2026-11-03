@@ -12,12 +12,12 @@
  *   'perfil-aberto'           outro aluno: esquece fotos e relatório;
  *   'alunos-mudaram'          foto de avaliação nova: redesenha a seleção.
  */
-import { $ } from './util/dom.js?v=28';
-import { esc } from './util/formato.js?v=28';
-import { estado, on, EVENTOS } from './estado.js?v=28';
-import { carregarFotosDoDiario } from './diario-read.js?v=28';
-import { analisarEvolucao } from './evolucao-ia-cloud.js?v=28';
-import { escolherParaIA, fotosDoAluno, htmlFotosParaIA, htmlRelatorio, pedidoParaIA } from './evolucao-fotos.js?v=28';
+import { $ } from './util/dom.js?v=29';
+import { esc } from './util/formato.js?v=29';
+import { estado, on, EVENTOS } from './estado.js?v=29';
+import { carregarFotosDoDiario } from './diario-read.js?v=29';
+import { analisarEvolucao } from './evolucao-ia-cloud.js?v=29';
+import { escolherParaIA, fotosDoAluno, htmlFotosParaIA, htmlRelatorio, pedidoParaIA } from './evolucao-fotos.js?v=29';
 
 let alunoId = '';       // de quem são as fotos e o relatório na tela
 let leitura = 0;        // só a leitura do Diário mais recente vale

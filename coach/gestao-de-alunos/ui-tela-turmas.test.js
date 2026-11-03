@@ -41,12 +41,12 @@ function elemento(sel) {
 const el = (s) => (tela[s] ||= elemento(s));
 globalThis.document = /** @type {any} */ ({ querySelector: (s) => el(s), querySelectorAll: () => [] });
 
-const db = await import('./db.js?v=28');
-const { emit, EVENTOS } = await import('./estado.js?v=28');
-const eventos = await import('./eventos.js?v=28');
-const { iniciarTelaTurmas } = await import('./ui-tela-turmas.js?v=28');
-const { hoje, addDias, fmtData } = await import('./util/formato.js?v=28');
-const regras = await import('./presenca-regras.js?v=28');
+const db = await import('./db.js?v=29');
+const { emit, EVENTOS } = await import('./estado.js?v=29');
+const eventos = await import('./eventos.js?v=29');
+const { iniciarTelaTurmas, pedirTurma } = await import('./ui-tela-turmas.js?v=29');
+const { hoje, addDias, fmtData } = await import('./util/formato.js?v=29');
+const regras = await import('./presenca-regras.js?v=29');
 iniciarTelaTurmas();
 
 const TODOS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
@@ -180,4 +180,13 @@ test('grade do dia da semana: o coach tira e põe horários, e a mudança vale p
   assert.ok(db.configTurmas().grade[chave].includes('21:30'));
   const outro = chave === 'seg' ? 'ter' : 'seg';
   assert.deepEqual(db.configTurmas().grade[outro], regras.horasDaGrade({}, outro), 'os outros dias ficam com a grade padrão');
+});
+
+test('pedirTurma (o atalho do Calendário): o próximo abrir-tela vai ao dia e ao horário pedidos, mesmo vazio — uma vez', () => {
+  pedirTurma(AMANHA, '07:30');
+  emit(EVENTOS.ABRIR_TELA, 'turmas');
+  assert.ok(el('#tur-data-lbl').textContent.includes(fmtData(AMANHA)));
+  assert.match(corpo().innerHTML, /tur-chip ativo[^"]*" data-hora="07:30"/);
+  emit(EVENTOS.ABRIR_TELA, 'turmas');
+  assert.ok(el('#tur-data-lbl').textContent.includes(fmtData(HOJE)), 'o pedido vale uma vez');
 });

@@ -8,12 +8,12 @@
  *
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'aviso') e a cada envio.
  */
-import * as db from './db.js?v=28';
-import { destinatariosDoAviso } from './comunicacao-regras.js?v=28';
-import { esc, waMsg } from './util/formato.js?v=28';
-import { $ } from './util/dom.js?v=28';
-import { on, EVENTOS } from './estado.js?v=28';
-import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=28';
+import * as db from './db.js?v=29';
+import { destinatariosDoAviso } from './comunicacao-regras.js?v=29';
+import { esc, waMsg } from './util/formato.js?v=29';
+import { $ } from './util/dom.js?v=29';
+import { on, EVENTOS } from './estado.js?v=29';
+import { avisar as avisarReal } from '../../compartilhado/ui/dialogo.js?v=29';
 
 const AVISO_TPLS = [
   'Amanhã não tem aula! ⚠️',

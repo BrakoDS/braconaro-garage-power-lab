@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 
 /* ---------- um DOM mínimo: as <section class="screen"> e o clique ---------- */
 
-const telas = ['lista', 'perfil', 'checkin', 'agenda', 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao'].map((n) => {
+const telas = ['lista', 'perfil', 'checkin', 'turmas', 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao'].map((n) => {
   const c = new Set(n === 'lista' ? ['active'] : []);
   return { id: 'tela-' + n, classList: { toggle: (k, on) => (on ? c.add(k) : c.delete(k)), contains: (k) => c.has(k) } };
 });
@@ -24,8 +24,8 @@ globalThis.document = /** @type {any} */ ({
 });
 globalThis.window = /** @type {any} */ ({ scrollTo: () => { rolou++; } });
 
-const { on, emit, EVENTOS } = await import('./estado.js?v=28');
-const { iniciarNavegacao, telaAtual, TELAS } = await import('./navegacao.js?v=28');
+const { on, emit, EVENTOS } = await import('./estado.js?v=29');
+const { iniciarNavegacao, telaAtual, TELAS, lerPedidoDeTela } = await import('./navegacao.js?v=29');
 iniciarNavegacao();
 
 const visiveis = () => telas.filter((t) => t.classList.contains('active')).map((t) => t.id);
@@ -44,10 +44,10 @@ test('roteador: abrir-tela mostra uma tela só e rola para o topo', () => {
 
 test('roteador: a tela já está visível quando o módulo dela desenha', () => {
   let visivelAoDesenhar = null;
-  const parar = on(EVENTOS.ABRIR_TELA, (t) => { if (t === 'agenda') visivelAoDesenhar = visiveis(); });
-  emit(EVENTOS.ABRIR_TELA, 'agenda');
+  const parar = on(EVENTOS.ABRIR_TELA, (t) => { if (t === 'turmas') visivelAoDesenhar = visiveis(); });
+  emit(EVENTOS.ABRIR_TELA, 'turmas');
   parar();
-  assert.deepEqual(visivelAoDesenhar, ['tela-agenda']);
+  assert.deepEqual(visivelAoDesenhar, ['tela-turmas']);
 });
 
 test('roteador: nome desconhecido não esconde a tela atual', () => {
@@ -88,17 +88,31 @@ test('roteador: toda tela tem a sua <section>, botão de entrar e "voltar" com d
   for (const t of TELAS.filter((x) => x !== 'lista' && x !== 'perfil')) {
     assert.match(html, new RegExp(`id="btn-${t}" data-tela="${t}"`), `botão de entrar em ${t}`);
   }
-  assert.equal((html.match(/-voltar" data-tela="lista"/g) || []).length, 10, 'os dez "← Voltar para a listagem"');
+  assert.equal((html.match(/-voltar" data-tela="lista"/g) || []).length, 9, 'os nove "← Voltar para a listagem"');
 });
 
 test('roteador: ninguém navega na mão — nenhuma tela liga o próprio botão de entrar ou voltar', () => {
-  const fontes = ['./boot.js', './telas.js', './main.js', './ui-tela-checkin.js', './ui-tela-turmas.js', './ui-tela-agenda.js', './ui-tela-financeiro.js', './ui-tela-cobrancas.js',
+  const fontes = ['./boot.js', './telas.js', './main.js', './ui-tela-checkin.js', './ui-tela-turmas.js', './ui-tela-financeiro.js', './ui-tela-cobrancas.js',
     './ui-tela-avisos.js', './ui-tela-mural.js', './ui-tela-desafios.js', './ui-tela-leads.js', './ui-tela-automacao.js', './ui-modal-aluno.js'].map(ler).join('\n');
   assert.ok(!fontes.includes('mostrarTela'), 'mostrarTela saiu');
   assert.ok(!/\$\('#[\w]+-voltar'\)/.test(fontes), 'nenhum botão de voltar ligado à mão');
   // (o $('#btn-leads') que sobra é o contador de leads desenhado no botão, não navegação)
-  assert.ok(!/\$\('#btn-(checkin|turmas|agenda|financeiro|cobrancas|aviso|mural|desafios|leads|automacao)'\)\??\.addEventListener/.test(fontes), 'nenhum botão de entrar ligado à mão');
+  assert.ok(!/\$\('#btn-(checkin|turmas|financeiro|cobrancas|aviso|mural|desafios|leads|automacao)'\)\??\.addEventListener/.test(fontes), 'nenhum botão de entrar ligado à mão');
   assert.match(ler('./ui-perfil.js'), /emit\(EVENTOS\.ABRIR_TELA, 'perfil'\)/, 'abrir o perfil pede a tela ao roteador');
   const telas = ler('./telas.js');
   assert.ok(telas.indexOf('iniciarNavegacao();') < telas.indexOf('iniciarLista('), 'o roteador liga antes das telas');
+});
+
+test('endereço: #turmas?dia=…&hora=… abre a tela Turmas naquele dia e horário; o resto é ignorado', () => {
+  assert.deepEqual(lerPedidoDeTela('#turmas?dia=2026-11-04&hora=06%3A00'), { tela: 'turmas', dia: '2026-11-04', hora: '06:00' });
+  assert.deepEqual(lerPedidoDeTela('#turmas?dia=2026-11-04'), { tela: 'turmas', dia: '2026-11-04', hora: '' });
+  assert.equal(lerPedidoDeTela('#turmas?dia=amanha'), null);
+  assert.equal(lerPedidoDeTela('#turmas?dia=2026-11-04&hora=6h'), null);
+  assert.equal(lerPedidoDeTela('#agenda'), null);
+  assert.equal(lerPedidoDeTela(''), null);
+});
+
+test('a Agenda saiu: nenhuma tela, nenhum botão (o Calendário do coach ficou no lugar)', () => {
+  assert.ok(!TELAS.includes('agenda'));
+  assert.doesNotMatch(ler('./index.html'), /tela-agenda|btn-agenda/);
 });

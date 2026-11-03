@@ -14,10 +14,10 @@
  * Ligar antes das telas (main.js): este ouvinte vem primeiro, então a tela já
  * está visível quando o módulo dela desenha.
  */
-import { on, emit, EVENTOS, sairComCuidado } from './estado.js?v=28';
+import { on, emit, EVENTOS, sairComCuidado } from './estado.js?v=29';
 
 /** As telas que existem, na ordem da barra. */
-export const TELAS = Object.freeze(['lista', 'perfil', 'checkin', 'turmas', 'agenda', 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao']);
+export const TELAS = Object.freeze(['lista', 'perfil', 'checkin', 'turmas', 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao']);
 
 /** A tela à mostra agora. */
 let atual = 'lista';
@@ -46,4 +46,20 @@ export function iniciarNavegacao() {
     // Pela guarda de saída: sem nada pendente na ficha, troca na hora.
     if (b && b.dataset && b.dataset.tela) sairComCuidado(() => emit(EVENTOS.ABRIR_TELA, b.dataset.tela));
   });
+}
+
+/**
+ * O atalho que outra ferramenta usa para abrir uma tela no ponto certo — hoje
+ * só o Calendário: `#turmas?dia=AAAA-MM-DD&hora=HH:MM` abre o Painel de
+ * Presença naquela turma. Qualquer outro endereço é ignorado.
+ * @param {string} hash @returns {{ tela: 'turmas', dia: string, hora: string } | null}
+ */
+export function lerPedidoDeTela(hash) {
+  const m = /^#turmas\?(.*)$/.exec(String(hash || ''));
+  if (!m) return null;
+  const q = new URLSearchParams(m[1]);
+  const dia = q.get('dia') || '';
+  const hora = q.get('hora') || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || (hora && !/^\d{2}:\d{2}$/.test(hora))) return null;
+  return { tela: 'turmas', dia, hora };
 }

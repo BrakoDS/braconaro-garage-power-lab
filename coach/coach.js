@@ -11,6 +11,8 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha, sair } from '../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../compartilhado/firebase/coach-guard.js';
+// A próxima reavaliação: a mesma conta do Calendário.
+import { proxReav } from '../compartilhado/regras/agenda.js';
 
 const gate  = document.getElementById('gate');
 const form  = document.getElementById('gate-form');
@@ -107,13 +109,6 @@ const escP = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '
 const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-/** Data da próxima reavaliação (da avaliação mais recente do aluno). */
-function proxReav(a) {
-  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
-  if (!avs.length) return null;
-  const ult = avs.reduce((m, x) => (x.dataRealizada > m.dataRealizada ? x : m), avs[0]);
-  return ult.dataProxima || null;
-}
 const diasAte = (iso) => Math.round((new Date(iso + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 86400000);
 const fmtBr = (iso) => { const [a, m, d] = iso.split('-'); return `${d}/${m}`; };
 
@@ -177,7 +172,7 @@ function renderPainel(alunos) {
 
   $('#painel-cols').innerHTML = `
     <div class="painel-card">
-      <div class="pc-head"><h3>Agenda de reavaliações</h3><a href="./gestao-de-alunos/index.html">ver alunos →</a></div>
+      <div class="pc-head"><h3>Agenda de reavaliações</h3><a href="./calendario/index.html">ver no Calendário →</a></div>
       <ul class="pc-list">${itensAgenda}</ul>
     </div>
     <div class="painel-card">

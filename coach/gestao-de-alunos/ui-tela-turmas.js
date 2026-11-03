@@ -12,14 +12,14 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=28';
-import * as regras from './presenca-regras.js?v=28';
-import { checkin, desfazer } from './checkin-regras.js?v=28';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=28';
-import { $ } from './util/dom.js?v=28';
-import { on, EVENTOS } from './estado.js?v=28';
-import { reg } from './registro.js?v=28';
-import { telaAtual } from './navegacao.js?v=28';
+import * as db from './db.js?v=29';
+import * as regras from './presenca-regras.js?v=29';
+import { checkin, desfazer } from './checkin-regras.js?v=29';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=29';
+import { $ } from './util/dom.js?v=29';
+import { on, EVENTOS } from './estado.js?v=29';
+import { reg } from './registro.js?v=29';
+import { telaAtual } from './navegacao.js?v=29';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
@@ -37,6 +37,11 @@ let horaSel = /** @type {string | null} */ (null);
 /** O bloco da grade fica aberto depois de pôr ou tirar um horário. */
 let gradeAberta = false;
 let horasAbertas = /** @type {string[]} */ ([]);
+/** O dia e o horário que o próximo 'abrir-tela' deve mostrar (o atalho do Calendário). */
+let pedido = /** @type {{ dia: string, hora: string } | null} */ (null);
+
+/** O próximo 'abrir-tela turmas' abre neste dia e horário — uma vez. @param {string} d @param {string} hora */
+export function pedirTurma(d, hora) { pedido = { dia: d, hora }; }
 /**
  * O painel de desmarcar aberto — um só por vez. `chave` é `${id}|${tipo}|${chave da aula}`;
  * data/hora: quando o aluno avisou (o prazo conta dali).
@@ -392,7 +397,11 @@ function lerPainel() {
 export function iniciarTelaTurmas() {
   on(EVENTOS.ABRIR_TELA, (t) => {
     if (t !== 'turmas') return;
-    dia = hoje(); horaSel = null; horasAbertas = []; painel = null; aviso = null;
+    dia = pedido ? pedido.dia : hoje();
+    horaSel = pedido ? pedido.hora : null;
+    // A hora pedida entra como horário aberto: a turma aparece mesmo vazia.
+    horasAbertas = pedido && pedido.hora ? [pedido.hora] : [];
+    painel = null; aviso = null; pedido = null;
     render();
   });
   // Um aviso "Não irei ao treino" aplicado pelo boot (ausencias-merge.js) ou a
