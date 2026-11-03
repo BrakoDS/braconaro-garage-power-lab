@@ -52,7 +52,6 @@
             <span class="eyebrow">Banco de dados de alunos</span>
             <button class="btn ghost btn-sm" id="btn-checkin" data-tela="checkin" type="button">Check-in</button>
             <button class="btn ghost btn-sm" id="btn-turmas" data-tela="turmas" type="button">Turmas</button>
-            <button class="btn ghost btn-sm" id="btn-agenda" data-tela="agenda" type="button">Agenda</button>
             <button class="btn ghost btn-sm" id="btn-financeiro" data-tela="financeiro" type="button">Financeiro</button>
             <button class="btn ghost btn-sm" id="btn-cobrancas" data-tela="cobrancas" type="button">Cobranças</button>
             <button class="btn ghost btn-sm" id="btn-aviso" data-tela="aviso" type="button">Avisar (WhatsApp)</button>
@@ -108,26 +107,6 @@
         <div class="fin-head"><span class="eyebrow">Fila de mensagens</span></div>
         <p class="hint" style="margin:6px 0 14px">Mensagens prontas para o WhatsApp, montadas a partir do que acontece no box. Nada sai sozinho: <b>Enviar</b> abre a conversa com o texto, <b>Descartar</b> tira da fila. Enviada ou descartada, a mensagem não volta.</p>
         <div id="auto-list"></div>
-      </div>
-    </section>
-
-    <!-- ----------- TELA: AGENDA ----------- -->
-    <section id="tela-agenda" class="screen">
-      <div class="wrap">
-        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="ag-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
-        <div class="fin-head">
-          <span class="eyebrow">Agenda</span>
-          <div class="fin-mes">
-            <button class="fin-nav" id="ag-prev" type="button" aria-label="Mês anterior">‹</button>
-            <span id="ag-mes-lbl">—</span>
-            <button class="fin-nav" id="ag-next" type="button" aria-label="Próximo mês">›</button>
-          </div>
-        </div>
-        <div class="ag-legenda">
-          <span class="ag-leg"><span class="ag-dot reav"></span>🔄 Reavaliação</span>
-          <span class="ag-leg"><span class="ag-dot aniv"></span>🎂 Aniversário</span>
-        </div>
-        <div id="ag-cal"></div>
       </div>
     </section>
 
@@ -444,6 +423,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=28"></script>
+  <script type="module" src="./main.js?v=29"></script>
 </body>
 </html>

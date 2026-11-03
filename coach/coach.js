@@ -172,7 +172,7 @@ function renderPainel(alunos) {
 
   $('#painel-cols').innerHTML = `
     <div class="painel-card">
-      <div class="pc-head"><h3>Agenda de reavaliações</h3><a href="./gestao-de-alunos/index.html">ver alunos →</a></div>
+      <div class="pc-head"><h3>Agenda de reavaliações</h3><a href="./calendario/index.html">ver no Calendário →</a></div>
       <ul class="pc-list">${itensAgenda}</ul>
     </div>
     <div class="painel-card">

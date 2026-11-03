@@ -27,25 +27,26 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js?v=28';
-import * as eventos from './eventos.js?v=28';
-import { publicarPortal } from './portal-sync.js?v=28';
-import { mergarInboxes } from './portal-merge.js?v=28';
-import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=28';
-import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=28';
-import { sincronizarAvisos } from './avisos.js?v=28';
-import { sincronizarDesafios } from './desafios.js?v=28';
-import { estado, emit, EVENTOS } from './estado.js?v=28';
-import { $ } from './util/dom.js?v=28';
-import { renderLista } from './ui-lista.js?v=28';
-import { atualizarSelosDaLista } from './selos-lista.js?v=28';
-import { carregarBadgeLeads } from './ui-tela-leads.js?v=28';
-import { sincronizarAutomacao } from './automacao.js?v=28';
-import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=28';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=28';
-import { aplicarPixPendentes } from './pix-baixa.js?v=28';
-import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=28';
-import { reg } from './registro.js?v=28';
+import * as db from './db.js?v=29';
+import * as eventos from './eventos.js?v=29';
+import { publicarPortal } from './portal-sync.js?v=29';
+import { mergarInboxes } from './portal-merge.js?v=29';
+import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=29';
+import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=29';
+import { sincronizarAvisos } from './avisos.js?v=29';
+import { sincronizarDesafios } from './desafios.js?v=29';
+import { estado, emit, EVENTOS } from './estado.js?v=29';
+import { abrirPeloEndereco } from './telas.js?v=29';
+import { $ } from './util/dom.js?v=29';
+import { renderLista } from './ui-lista.js?v=29';
+import { atualizarSelosDaLista } from './selos-lista.js?v=29';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=29';
+import { sincronizarAutomacao } from './automacao.js?v=29';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=29';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=29';
+import { aplicarPixPendentes } from './pix-baixa.js?v=29';
+import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=29';
+import { reg } from './registro.js?v=29';
 
 /* ============================================================
    A gravação publica o Portal
@@ -169,6 +170,11 @@ async function entrar(user) {
   $('#gate').style.display = 'none';
   $('#app').removeAttribute('hidden');
   renderLista();
+  // O atalho do Calendário (#turmas?dia=…&hora=…): abre o Painel de Presença
+  // naquela turma, uma vez, e limpa o endereço.
+  if (abrirPeloEndereco(location.hash)) {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch { /* sem history: o hash fica */ }
+  }
   atualizarFilaDeMensagens(); // o selo da Fila de mensagens, já com o que está neste aparelho
   // Sincroniza com a nuvem (se houver usuário logado). Não bloqueia a UI.
   if (!(user && user.uid)) return;
@@ -202,7 +208,9 @@ async function entrar(user) {
     // 1d) os check-ins feitos no app da uGym viram presença na ficha
     if (nuvemEmDia) { await tratarCheckinsUgym(); ouvirUgymAoVivo(); }
     // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
-    if (nuvemEmDia) publicarPortal(db.listar());
+    // Com os dias fechados: sem eles, o Portal publicado ao abrir mostrava falta
+    // em feriado de porta fechada até a próxima gravação.
+    if (nuvemEmDia) publicarPortal(db.listar(), db.diasFechados());
     // 3) puxa o mural de avisos + desafios da nuvem (para editar no mesmo estado em qualquer aparelho)
     sincronizarAvisos();
     sincronizarDesafios();

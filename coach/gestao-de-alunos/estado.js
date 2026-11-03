@@ -36,7 +36,7 @@ export const EVENTOS = Object.freeze({
   /** Pedido para sair do perfil e voltar à lista (o roteador traduz para abrir-tela 'lista'). */
   VOLTAR_LISTA: 'voltar-lista',
   /**
-   * Pedido para mostrar uma tela ('lista', 'perfil', 'checkin', 'agenda',
+   * Pedido para mostrar uma tela ('lista', 'perfil', 'checkin', 'turmas',
    * 'financeiro', 'cobrancas', 'aviso', 'mural', 'desafios', 'leads', 'automacao').
    * O roteador (navegacao.js) mostra a tela; cada tela ouve o próprio nome
    * para se desenhar. Dado: o nome.

@@ -2,8 +2,8 @@
 /**
  * Rodar: node --test coach/calendario/versao.test.js
  *
- * O Calendário importa módulos da Gestão. Para o navegador, `db.js?v=28` e
- * `db.js?v=29` são DOIS bancos: todo import da Gestão daqui tem de levar a
+ * O Calendário importa módulos da Gestão. Para o navegador, `db.js?v=N` e
+ * `db.js?v=N+1` são DOIS bancos: todo import da Gestão daqui tem de levar a
  * versão que a Gestão usa (a do main.js no index.html dela), e nenhum arquivo
  * pode ser carregado por duas URLs na página do Calendário.
  * Ao subir a Gestão (ferramentas/versionar-gestao.mjs N), troque também aqui:

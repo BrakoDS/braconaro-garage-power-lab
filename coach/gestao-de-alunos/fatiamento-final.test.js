@@ -2,7 +2,7 @@
 /**
  * Rodar: node --test coach/gestao-de-alunos/fatiamento-final.test.js
  *
- * O fim do fatiamento do app.js: a Agenda, o modal de novo aluno, os selos da
+ * O fim do fatiamento do app.js: o modal de novo aluno, os selos da
  * lista, o medidor/backup e o boot em módulo próprio — e o app.js, que não
  * existe mais.
  *
@@ -32,16 +32,15 @@ globalThis.document = /** @type {any} */ ({ querySelector: (s) => el(s), querySe
 // O boot importa o login do Firebase, que pendura um helper em `window` ao carregar.
 globalThis.window = /** @type {any} */ ({});
 
-const db = await import('./db.js?v=28');
-const { estado, on, emit, EVENTOS } = await import('./estado.js?v=28');
-const eventos = await import('./eventos.js?v=28');
-const { kcalDaSemana, medalhasPorAluno } = await import('./selos-lista.js?v=28');
-const { iniciarTelaAgenda } = await import('./ui-tela-agenda.js?v=28');
-const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=28');
-const { medidaDoBanco, TETO_FIRESTORE } = await import('./medidor-banco.js?v=28');
-const { msgAuth } = await import('./boot.js?v=28');
-const { medalhasDaFicha } = await import('../../compartilhado/regras/gamificacao.js?v=28');
-const { mesIdAtual } = await import('./financeiro-aluno.js?v=28');
+const db = await import('./db.js?v=29');
+const { estado, on, emit, EVENTOS } = await import('./estado.js?v=29');
+const eventos = await import('./eventos.js?v=29');
+const { kcalDaSemana, medalhasPorAluno } = await import('./selos-lista.js?v=29');
+const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=29');
+const { medidaDoBanco, TETO_FIRESTORE } = await import('./medidor-banco.js?v=29');
+const { msgAuth } = await import('./boot.js?v=29');
+const { medalhasDaFicha } = await import('../../compartilhado/regras/gamificacao.js?v=29');
+const { mesIdAtual } = await import('./financeiro-aluno.js?v=29');
 
 /* ---------- selos da lista ---------- */
 
@@ -65,32 +64,6 @@ test('selos: medalhas por aluno são a mesma conta da aba Progresso (medalhasDaF
   assert.equal(mm.get('Ana'), conta(ana, gastos.get('ana@x.com'), concl.get('ana@x.com')), 'e-mail normalizado (espaço e maiúscula)');
   assert.equal(mm.get('Nil'), conta(semEmail, [], []) || undefined);
   assert.ok(!mm.has('Zero'), 'sem medalha, sem selo');
-});
-
-/* ---------- Agenda ---------- */
-// A conta (proxReav, eventosDoMes) é testada em compartilhado/regras/agenda.test.js.
-
-test('agenda: abre no mês atual; o feriado pergunta se o box abriu e grava a decisão', async () => {
-  const respostas = ['fechou', null, 'limpar'];
-  const perguntas = [];
-  iniciarTelaAgenda({ painel: async (o) => { perguntas.push(o); return respostas.shift() ?? null; } });
-  emit(EVENTOS.ABRIR_TELA, 'agenda');
-  assert.match(el('#ag-mes-lbl').textContent, new RegExp(String(new Date().getFullYear())));
-  // Navega até dezembro de 2026, que tem o Natal.
-  const [a0, m0] = mesIdAtual().split('-').map(Number);
-  const passos = (2026 - a0) * 12 + (12 - m0);
-  for (let i = 0; i < Math.abs(passos); i++) el(passos > 0 ? '#ag-next' : '#ag-prev').ouvintes.click();
-  assert.match(el('#ag-cal').innerHTML, /data-fer="2026-12-25"[^]*<small>decidir<\/small>/);
-  const clicar = () => el('#ag-cal').ouvintes.click({ target: { closest: () => ({ dataset: { fer: '2026-12-25' } }) } });
-  await clicar();
-  assert.equal(db.feriadosDoBox()['2026-12-25'], false, '"Não abriu" grava a decisão');
-  assert.match(el('#ag-cal').innerHTML, /feriado [^"]* fechado[^]*<small>não abriu<\/small>/);
-  assert.ok(!perguntas[0].acoes.some((x) => x.id === 'limpar'), 'sem decisão ainda: não há o que limpar');
-  await clicar(); // o coach fecha o diálogo sem escolher
-  assert.equal(db.feriadosDoBox()['2026-12-25'], false, 'nada muda');
-  assert.ok(perguntas[1].acoes.some((x) => x.id === 'limpar'), 'com decisão: dá para limpar');
-  await clicar(); // limpar
-  assert.ok(!('2026-12-25' in db.feriadosDoBox()));
 });
 
 /* ---------- modal de novo aluno ---------- */
