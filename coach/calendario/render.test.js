@@ -67,3 +67,37 @@ test('painel da turma: vêm, pedido do app, não vêm e o atalho para o Painel d
   assert.match(html, /Não vêm \(1\)[^]*Fábio[^]*Desmarcou no prazo/);
   assert.match(html, /href="\.\.\/gestao-de-alunos\/index\.html#turmas\?dia=2026-11-02&amp;hora=06%3A00"/);
 });
+
+/* ---------- Mês e Dia ---------- */
+const { htmlMes, htmlListaDoDia } = await import('./render-mes.js');
+const { htmlDia } = await import('./render-dia.js');
+
+test('mês: total por dia, eventos, feriado, dia de fora e dia aberto', () => {
+  const nov = Array.from({ length: 30 }, (_, i) => dia(`2026-11-${String(i + 1).padStart(2, '0')}`, i % 7));
+  nov[1] = { ...nov[1], temTurma: true, total: 38, doDia: [{ data: '2026-11-02', tipo: 'aniversario', titulo: 'Ana · 34' }, { data: '2026-11-02', tipo: 'reavaliacao', titulo: 'Bruno' }, { data: '2026-11-02', tipo: 'reavaliacao', titulo: 'Caio' }] };
+  nov[5] = { ...nov[5], fechado: true };
+  const semanas = [['2026-10-31', ...nov.slice(0, 6).map((d) => d.iso)]];
+  const html = htmlMes(/** @type {any} */ ({ visao: 'mes', dias: nov, semanas, hoje: '2026-11-02' }), { diaAberto: '2026-11-02' });
+  assert.match(html, /mes-dia fora/);
+  assert.match(html, /data-acao="dia" data-iso="2026-11-02"/);
+  assert.match(html, /<b>38<\/b> alunos/);
+  assert.match(html, /🎂 Ana[^]*\+1/);
+  assert.match(html, /mes-dia[^"]*sel/);
+  assert.match(html, /mes-dia[^"]*fechado/);
+});
+
+test('lista do dia: uma linha por turma, com vem/vagas e nomes', () => {
+  const d = dia('2026-11-02', 1, { porHora: { '06:00': [turma('2026-11-02', '06:00', { vem: [p('A', 'Ana')] })] } });
+  const html = htmlListaDoDia(/** @type {any} */ (d));
+  assert.match(html, /data-acao="turma" data-iso="2026-11-02" data-hora="06:00"[^]*1\/6[^]*Ana/);
+});
+
+test('dia: linha do tempo com cartões, mini-mês navegável e próximos dias', () => {
+  const d0 = dia('2026-11-02', 1, { porHora: { '06:00': [turma('2026-11-02', '06:00', { vem: [p('A', 'Ana'), p('I', 'Ivan', { tipo: 'reposicao' })] })] } });
+  const d1 = dia('2026-11-03', 2, { doDia: [{ data: '2026-11-03', tipo: 'aniversario', titulo: 'Bia · 20' }] });
+  const html = htmlDia(/** @type {any} */ ({ visao: 'dia', ancora: '2026-11-02', dias: [d0, d1], horas: [{ hora: '06:00', foraDaGrade: false }], semanas: [['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07']], hoje: '2026-11-02', agora: '05:00' }), { aberta: null });
+  assert.match(html, /data-acao="ir" data-iso="2026-11-03"/);
+  assert.match(html, /mini-d sel[^>]*>2</);
+  assert.match(html, /🎂 Bia · 20/);
+  assert.match(html, /cartao[^]*data-acao="turma"[^]*2 de 6 vagas[^]*Ana[^]*p rep/);
+});
