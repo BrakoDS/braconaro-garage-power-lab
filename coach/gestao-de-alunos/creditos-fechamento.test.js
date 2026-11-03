@@ -2,7 +2,7 @@
 /** Rodar: node --test coach/gestao-de-alunos/creditos-fechamento.test.js */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { creditosDeFechamento } from './creditos-fechamento.js';
+import { creditosDeFechamento } from './creditos-fechamento.js?v=30';
 
 const FINADOS = '2026-11-02'; // segunda
 const base = () => ([

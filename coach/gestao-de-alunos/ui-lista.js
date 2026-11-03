@@ -15,9 +15,9 @@
  * selo — é quase todo mundo, e selo repetido em todo card não informa nada;
  * inativo e pendente ganham, e o card inativo fica apagado.
  */
-import { esc, iniciais, hoje, fmtN, STATUS_LABEL } from './util/formato.js?v=29';
-import { on, emit, EVENTOS } from './estado.js?v=29';
-import { statusAvaliacao, ehInativo, reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=29';
+import { esc, iniciais, hoje, fmtN, STATUS_LABEL } from './util/formato.js?v=30';
+import { on, emit, EVENTOS } from './estado.js?v=30';
+import { statusAvaliacao, ehInativo, reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=30';
 
 // A regra da reavaliação é compartilhada com o perfil; daqui também sai para quem já importava da lista.
 export { statusAvaliacao, ehInativo, reavaliacaoNaLista, seloReavaliacao };

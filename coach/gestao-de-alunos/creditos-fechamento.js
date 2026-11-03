@@ -6,7 +6,7 @@
  * ainda não tem nada registrado nele (nem crédito, nem falta, nem presença).
  * Puro; quem grava é o boot (como o Pix). Idempotente: a trava é `atestados[dia]`.
  */
-import { aulasDoDia } from './presenca-regras.js?v=29';
+import { aulasDoDia } from './presenca-regras.js?v=30';
 import { fimDoMes } from '../../compartilhado/regras/semana.js';
 
 /**
