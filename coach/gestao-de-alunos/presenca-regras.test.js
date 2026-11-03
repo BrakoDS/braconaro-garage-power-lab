@@ -104,22 +104,22 @@ test('turma: aluno sem horário na ficha cai na turma "sem horário", por últim
 
 /* ---------- regra 2: desmarcar com 2h ou mais gera crédito ---------- */
 
-test('desmarcar com exatamente 2h: no prazo, +1 crédito de 30 dias, vaga livre', () => {
+test('desmarcar com exatamente 2h: no prazo, +1 crédito até o fim do mês, vaga livre', () => {
   const aviso = { hoje: QUA, agora: '05:00' };
   assert.deepEqual(previaDesmarcacao(ana(), QUA, aviso), { noPrazo: true, antecedenciaMin: PRAZO_DESMARCAR_MIN });
   const r = desmarcar(ana(), QUA, { aviso, em: 111 });
   assert.ok('patch' in r);
   assert.deepEqual(r.patch.atestados[QUA], {
     em: 111, tipo: 'desmarcacao', aula: { data: QUA, hora: '07:00' }, antecedenciaMin: 120,
-    expira: somarDias(QUA, VALIDADE_CREDITO_DIAS), reposicao: null,
+    expira: '2026-10-31', reposicao: null, // fim do mês do aviso (07/10)
   });
   assert.deepEqual(r.patch.faltas, {});
   assert.equal(r.log.tipo, 'desmarcacao');
-  assert.equal(r.log.resumo, 'Desmarcou no prazo (2h antes · aula de 07/10 07:00) · +1 crédito até 06/11');
+  assert.equal(r.log.resumo, 'Desmarcou no prazo (2h antes · aula de 07/10 07:00) · +1 crédito até 31/10');
   assert.equal(r.log.extra?.chave, `atestado:A1:${QUA}`);
   const a = aplicar(ana(), r);
   assert.equal(aulasDoDia([a], QUA, { hoje: QUA })[0].status, 'desmarcou-no-prazo');
-  assert.deepEqual(creditosDisponiveis(a, QUA), [{ origem: QUA, tipo: 'desmarcacao', expira: '2026-11-06' }]);
+  assert.deepEqual(creditosDisponiveis(a, QUA), [{ origem: QUA, tipo: 'desmarcacao', expira: '2026-10-31' }]);
 });
 
 test('desmarcar: o prazo conta da hora do AVISO, não da hora em que o coach lançou', () => {
@@ -213,11 +213,11 @@ test('check-in, troca e desfazer apagam a falta lançada (as duas telas não div
 
 /* ---------- exceção do coach ---------- */
 
-test('conceder crédito (exceção) a quem desmarcou fora do prazo: vira crédito de 30 dias a partir de hoje', () => {
+test('conceder crédito (exceção) a quem desmarcou fora do prazo: vira crédito até o fim do mês seguinte', () => {
   const a0 = aplicar(ana(), desmarcar(ana(), QUA, { aviso: { hoje: QUA, agora: '06:00' }, em: 1 }));
   const r = concederCredito(a0, QUA, { hoje: QUA, em: 2 });
   assert.ok('patch' in r);
-  assert.deepEqual(r.patch.atestados[QUA], { em: 2, tipo: 'excecao', antes: 'fora-do-prazo', aula: { data: QUA, hora: '07:00' }, expira: '2026-11-06', reposicao: null });
+  assert.deepEqual(r.patch.atestados[QUA], { em: 2, tipo: 'excecao', antes: 'fora-do-prazo', aula: { data: QUA, hora: '07:00' }, expira: '2026-11-30', reposicao: null });
   assert.deepEqual(r.patch.faltas, {});
   assert.equal(r.log.tipo, 'credito');
   const a = aplicar(a0, r);
@@ -235,7 +235,7 @@ test('conceder crédito a falta calculada (sem nada lançado) registra como no-s
 
 /* ---------- regra 4: reposição até 1h antes, com vaga e dentro da validade ---------- */
 
-// Avisou às 04:00 da quarta (3h antes): crédito até 06/11.
+// Avisou às 04:00 da quarta (3h antes): crédito até o fim do mês do aviso (31/10).
 const comCredito = () => aplicar(ana(), desmarcar(ana(), QUA, { aviso: { hoje: QUA, agora: '04:00' }, em: 1 }));
 
 test('reposição: agendada na turma de outro aluno, ocupa vaga e aparece como reposição', () => {
@@ -255,8 +255,8 @@ test('reposição: turma lotada, crédito vencido, fora da validade e sem horár
   const rel = { hoje: QUA, agora: '08:00' };
   const texto = (/** @type {any} */ r) => r && 'recusa' in r ? r.recusa.texto : r;
   assert.equal(texto(agendarReposicaoNaTurma(comCredito(), QUA, { data: QUA, hora: '18:00' }, { relogio: rel, vagas: 0 })), 'Turma lotada');
-  assert.equal(texto(agendarReposicaoNaTurma(comCredito(), QUA, { data: '2026-11-07', hora: '18:00' }, { relogio: rel, vagas: 1 })), 'O crédito vale até 06/11');
-  assert.equal(texto(agendarReposicaoNaTurma(comCredito(), QUA, { data: '2026-11-09', hora: '18:00' }, { relogio: { hoje: '2026-11-07', agora: '08:00' }, vagas: 1 })), 'Crédito vencido em 06/11');
+  assert.equal(texto(agendarReposicaoNaTurma(comCredito(), QUA, { data: '2026-11-07', hora: '18:00' }, { relogio: rel, vagas: 1 })), 'O crédito vale até 31/10');
+  assert.equal(texto(agendarReposicaoNaTurma(comCredito(), QUA, { data: '2026-11-09', hora: '18:00' }, { relogio: { hoje: '2026-11-07', agora: '08:00' }, vagas: 1 })), 'Crédito vencido em 31/10');
   assert.equal(texto(agendarReposicaoNaTurma(comCredito(), QUA, { data: QUA, hora: '' }, { relogio: rel, vagas: 1 })), 'Escolha uma turma com horário');
   assert.equal(texto(agendarReposicaoNaTurma(ana(), QUA, { data: QUA, hora: '18:00' }, { relogio: rel, vagas: 1 })), 'Crédito não encontrado');
 });
@@ -268,9 +268,10 @@ test('reposição: no dia de outra aula dele continua recusada (regra do check-i
 
 test('validade: crédito vencido some dos disponíveis e dos pendentes (o atestado médico não vence)', () => {
   const a = { ...comCredito(), atestados: { ...comCredito().atestados, [SEG]: { em: 1, reposicao: null } } };
-  assert.deepEqual(creditosDisponiveis(a, '2026-11-06').map((c) => c.origem), [QUA, SEG], 'vence primeiro, aparece primeiro');
-  assert.deepEqual(creditosDisponiveis(a, '2026-11-07').map((c) => c.origem), [SEG]);
-  assert.deepEqual(reposicoesPendentes(a.atestados, '2026-11-07'), [SEG]);
+  // O crédito de QUA vence 31/10 (fim do mês); o de SEG é atestado médico, sem expira — não vence.
+  assert.deepEqual(creditosDisponiveis(a, '2026-10-20').map((c) => c.origem), [QUA, SEG], 'vence primeiro, aparece primeiro');
+  assert.deepEqual(creditosDisponiveis(a, '2026-11-01').map((c) => c.origem), [SEG]);
+  assert.deepEqual(reposicoesPendentes(a.atestados, '2026-11-01'), [SEG]);
   assert.deepEqual(reposicoesPendentes(a.atestados), [SEG, QUA], 'sem data: o comportamento de sempre');
 });
 
@@ -303,7 +304,7 @@ test('no-show na reposição, exceção devolvendo o crédito, e reabrir', () =>
   const reaberta = aplicar(a, reabrirReposicao(a, QUA));
   assert.equal(aulasDoDia([reaberta], TER2, { hoje: TER2 }).find((x) => x.tipo === 'reposicao')?.status, 'confirmado');
   const devolvido = aplicar(a, concederCreditoReposicao(a, QUA, { hoje: TER2, em: 4 }));
-  assert.deepEqual(creditosDisponiveis(devolvido, TER2), [{ origem: QUA, tipo: 'desmarcacao', expira: '2026-11-12' }], '30 dias a partir de hoje');
+  assert.deepEqual(creditosDisponiveis(devolvido, TER2), [{ origem: QUA, tipo: 'desmarcacao', expira: '2026-11-30' }], 'crédito devolvido por exceção: fim do mês seguinte');
   assert.equal(noShowReposicao(ana(), QUA, { em: 1 }), null);
 });
 

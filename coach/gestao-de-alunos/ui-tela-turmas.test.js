@@ -47,6 +47,7 @@ const eventos = await import('./eventos.js?v=30');
 const { iniciarTelaTurmas, pedirTurma } = await import('./ui-tela-turmas.js?v=30');
 const { hoje, addDias, fmtData } = await import('./util/formato.js?v=30');
 const regras = await import('./presenca-regras.js?v=30');
+const { fimDoMes } = await import('../../compartilhado/regras/semana.js');
 iniciarTelaTurmas();
 
 const TODOS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
@@ -97,7 +98,7 @@ test('Desmarcou no prazo: o painel pede a hora do aviso; com 2h ou mais, crédit
   agir('confirmar-desmarcar', 'Bia02');
   const credito = db.obter('Bia02').atestados[HOJE];
   assert.equal(credito.tipo, 'desmarcacao');
-  assert.equal(credito.expira, addDias(addDias(HOJE, -1), 30), '30 dias a contar do aviso');
+  assert.equal(credito.expira, fimDoMes(addDias(HOJE, -1)), 'vale até o fim do mês do aviso');
   assert.equal(ultimoLog().tipo, 'desmarcacao');
   assert.match(linha('Bia'), /st-desmarcou-no-prazo">Desmarcou no prazo/);
   assert.match(corpo().innerHTML, /tur-chip ativo[^]*2\/6/, 'a vaga dela ficou livre');
