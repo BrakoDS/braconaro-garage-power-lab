@@ -26,6 +26,17 @@ export type StatusAula = 'confirmado' | 'presente' | 'desmarcou-no-prazo' | 'des
 export const PRAZO_DESMARCAR_MIN = 120;
 export const VALIDADE_CREDITO_DIAS = 30;
 export const CAPACIDADE_PADRAO = 6;
+
+/**
+ * O último dia do mês de `iso`, no fuso local. IGUAL ao fimDoMes de
+ * compartilhado/regras/semana.js (paridade): o crédito de reposição vale até o
+ * fim do mês em que foi gerado.
+ */
+export function fimDoMes(iso: string): string {
+  const [a, m] = iso.split('-').map(Number);
+  const ultimo = new Date(a, m, 0).getDate();
+  return `${a}-${String(m).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+}
 /** Até quantos dias à frente o aluno pode avisar que não vem. */
 export const HORIZONTE_AVISO_DIAS = 14;
 
@@ -271,7 +282,7 @@ export function avaliarAusencia(a: Dados, tipo: TipoAula, chave: string, relogio
   const noPrazo = ant >= PRAZO_DESMARCAR_MIN;
   return {
     aula, noPrazo, antecedenciaMin: ant,
-    expira: !noPrazo ? null : tipo === 'titular' ? somarDias(relogio.hoje, VALIDADE_CREDITO_DIAS) : expiraReposicao,
+    expira: !noPrazo ? null : tipo === 'titular' ? fimDoMes(relogio.hoje) : expiraReposicao,
   };
 }
 
