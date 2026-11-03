@@ -127,6 +127,10 @@ button.c-fer:hover{background:rgba(255,91,80,.24)}
 .cal-dh.hoje .n,.cal-dh.hoje .d{color:var(--accent)}
 .cal-dh.fechado{border-color:var(--bad)}
 .cal-dh.fechado .tot{color:var(--bad)}
+/* Dia "sem aula" (domingo): neutro e apagado — não é alerta, é rotina. */
+.cal-dh.sem-aula{border-bottom-color:var(--line);opacity:.6}
+.cal-dh.sem-aula .tot{color:var(--mut-2)}
+.cel.sem-aula{background:rgba(255,255,255,.015);border:1px solid var(--line);opacity:.5;cursor:default}
 .cal-evs{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 4px;min-height:28px;min-width:0}
 .cal-h{font-family:var(--font-display);color:var(--mut);font-size:.98rem;text-align:right;padding:8px 6px 0 0}
 .cal-h.extra{color:var(--warn)}
@@ -222,7 +226,7 @@ button.cel:hover{border-color:rgba(245,197,24,.5)}
   .lado{position:static}
   .cal-grade{display:flex;flex-direction:column;gap:6px}
   /* Na lista do celular só entra turma com gente: a vazia é ruído numa coluna só. */
-  .cal-canto,.cal-h,.cel.nada,.cel.fech,.cel.vazia,.cal-agora{display:none}
+  .cal-canto,.cal-h,.cel.nada,.cel.fech,.cel.vazia,.cel.sem-aula,.cal-agora{display:none}
   .cal-dh{flex-direction:row;align-items:baseline;gap:10px;text-align:left;margin-top:14px;padding:6px 0}
   .cal-evs{flex-direction:row;flex-wrap:wrap;align-items:flex-start;min-height:0;padding:0}
   .cel{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:4px 10px;min-height:0;padding:9px 12px}

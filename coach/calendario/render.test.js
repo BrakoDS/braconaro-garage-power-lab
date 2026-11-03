@@ -52,6 +52,16 @@ test('semana: nome com HTML é escapado', () => {
   assert.match(html, /&lt;img/);
 });
 
+test('semana: dia "sem aula" (domingo) sai cinza e com o rótulo neutro, não vermelho de feriado', () => {
+  const seg = dia('2026-11-02', 1, { porHora: { '06:00': [turma('2026-11-02', '06:00', { vem: [p('A', 'Ana')] })] } });
+  const dom = dia('2026-11-08', 0, { semAula: true });
+  const html = htmlSemana(/** @type {any} */ ({ visao: 'semana', dias: [seg, dom], horas: [{ hora: '06:00', foraDaGrade: false }], hoje: '2026-11-09', agora: '08:00' }), { aberta: null });
+  assert.match(html, /cal-dh sem-aula[^]*sem aula/);
+  assert.match(html, /class="cel sem-aula"/);
+  assert.doesNotMatch(html, /box fechado/);
+  assert.doesNotMatch(html, /cel fech"/);
+});
+
 test('painel da turma: vêm, pedido do app, não vêm e o atalho para o Painel de Presença', () => {
   const seg = dia('2026-11-02', 1);
   const item = turma('2026-11-02', '06:00', {

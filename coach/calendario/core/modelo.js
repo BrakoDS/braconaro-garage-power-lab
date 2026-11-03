@@ -8,7 +8,7 @@ import { datasDoPeriodo, gradeDoMes, rotuloPeriodo, diaDaSemana, DIAS_CURTO } fr
 
 /**
  * @typedef {import('./camadas.js').Item} Item
- * @typedef {{ iso: string, dow: number, rotulo: string, numero: string, hoje: boolean, fechado: boolean, total: number, temTurma: boolean, doDia: Item[], porHora: Record<string, Item[]>, grade: string[] }} DiaModelo
+ * @typedef {{ iso: string, dow: number, rotulo: string, numero: string, hoje: boolean, fechado: boolean, semAula: boolean, total: number, temTurma: boolean, doDia: Item[], porHora: Record<string, Item[]>, grade: string[] }} DiaModelo
  * @typedef {{ hora: string, foraDaGrade: boolean }} LinhaModelo
  * @typedef {{ visao: import('./periodo.js').Visao, ancora: string, rotulo: string, dias: DiaModelo[], horas: LinhaModelo[], hoje: string, agora: string, semanas: string[][] | null }} Modelo
  */
@@ -26,18 +26,21 @@ export function montarModelo({ camadas, ctx, visao, ancora, ligadas, gradeDoDia 
   const res = rodarCamadas(camadas, ctx, datas, ligadas);
   const fechados = new Set(ctx.fechados);
   /** @type {DiaModelo[]} */
-  let dias = datas.map((iso) => {
+  const dias = datas.map((iso) => {
     const r = res[iso];
     const turmas = Object.values(r.porHora).flat().filter((i) => i.tipo === 'turma');
     const dow = diaDaSemana(iso);
+    const grade = gradeDoDia(iso);
+    const fechado = fechados.has(iso);
     return {
-      iso, dow, rotulo: DIAS_CURTO[dow], numero: iso.slice(8, 10), hoje: iso === ctx.hoje, fechado: fechados.has(iso),
+      iso, dow, rotulo: DIAS_CURTO[dow], numero: iso.slice(8, 10), hoje: iso === ctx.hoje, fechado,
       total: turmas.reduce((s, t) => s + ((t.dados && t.dados.vem) || []).length, 0), temTurma: turmas.length > 0,
-      doDia: r.doDia, porHora: r.porHora, grade: gradeDoDia(iso),
+      // "Sem aula" = o box não abre neste dia (grade vazia, ninguém marcado) e não é feriado
+      // fechado: o domingo, por exemplo. A Semana mostra os 7 dias; o domingo aparece apagado.
+      semAula: !fechado && grade.length === 0 && turmas.length === 0,
+      doDia: r.doDia, porHora: r.porHora, grade,
     };
   });
-  // O box não abre no domingo: a coluna só aparece se alguém tiver aula nele.
-  if (visao === 'semana') dias = dias.filter((d) => d.dow !== 0 || d.temTurma);
   const comLinhas = visao === 'dia' ? dias.slice(0, 1) : dias;
   const vistas = new Set(comLinhas.flatMap((d) => Object.keys(d.porHora)));
   const naGrade = new Set(comLinhas.flatMap((d) => d.grade));
