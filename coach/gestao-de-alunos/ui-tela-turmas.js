@@ -115,7 +115,7 @@ function render() {
       </span>
     </div>
     ${turma ? corpoDaTurma(turma) : `<div class="empty"><b>Sem turma</b>Ninguém da grade fixa treina neste dia. Abra um horário para marcar reposição ou aula experimental.</div>`}
-    <p class="tur-regras">Desmarcar com <b>2h ou mais</b> de antecedência libera a vaga e gera <b>+1 crédito de reposição</b> (vale ${regras.VALIDADE_CREDITO_DIAS} dias).
+    <p class="tur-regras">Desmarcar com <b>2h ou mais</b> de antecedência libera a vaga e gera <b>+1 crédito de reposição</b> (vale até o fim do mês).
       Menos de 2h, ou não vir: <b>falta, sem crédito</b>. Reposição: até <b>1h antes</b> da aula, se houver vaga.</p>
     ${blocoDaGrade()}`;
 }
@@ -263,7 +263,7 @@ function previa(x, quando) {
   if (ant == null) return { cls: 'bad', texto: 'Aula sem horário: não dá para medir o prazo.' };
   if (ant >= regras.PRAZO_DESMARCAR_MIN) {
     return { cls: 'ok', texto: x.tipo === 'titular'
-      ? `Avisou ${regras.textoAntecedencia(ant)}: no prazo — libera a vaga e gera +1 crédito (vale ${regras.VALIDADE_CREDITO_DIAS} dias).`
+      ? `Avisou ${regras.textoAntecedencia(ant)}: no prazo — libera a vaga e gera +1 crédito (vale até o fim do mês).`
       : `Avisou ${regras.textoAntecedencia(ant)}: no prazo — o crédito volta para ser usado em outra data.` };
   }
   return { cls: 'bad', texto: `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 2h — falta, sem crédito.` };
