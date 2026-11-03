@@ -22,7 +22,7 @@ export function htmlDia(modelo, { aberta }) {
     const pessoas = t.vem.map((/** @type {any} */ p, /** @type {number} */ i) => `<span class="p${p.tipo === 'reposicao' ? ' rep' : ''}">${avatar(p.aluno)}${esc(curtos[i])}${p.tipo === 'reposicao' ? ' · reposição' : ''}</span>`).join('');
     const sel = !!aberta && aberta.iso === d.iso && aberta.hora === l.hora;
     return `<div class="linha"><span class="hr${l.foraDaGrade ? ' extra' : ''}">${esc(l.hora || 'Sem horário')}</span>`
-      + `<button class="cartao${t.lotada ? ' cheia' : ''}${sel ? ' sel' : ''}" type="button" data-acao="turma" data-iso="${esc(d.iso)}" data-hora="${esc(l.hora)}">`
+      + `<button class="cartao${t.lotada ? ' cheia' : ''}${t.vem.length ? '' : ' vazio'}${sel ? ' sel' : ''}" type="button" data-acao="turma" data-iso="${esc(d.iso)}" data-hora="${esc(l.hora)}">`
       + `<span class="topo"><span>${t.vem.length} de ${t.capacidade} vagas</span>${t.pendentes ? '<span class="pend" title="Pedido do app ainda não aplicado"></span>' : ''}</span>`
       + `<span class="pessoas">${pessoas || '<span class="vazio">ninguém marcado</span>'}</span></button></div>`;
   }).join('');

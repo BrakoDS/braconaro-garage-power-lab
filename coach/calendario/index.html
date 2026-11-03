@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Calendário — Garage Power Lab</title>
+  <script>
+    // Sem a barra final (`/coach/calendario`), os caminhos relativos apontam
+    // para /coach/ e a página abre sem CSS e sem JS. Volta para a pasta.
+    if (!/\/$|\.html$/.test(location.pathname)) location.replace(location.pathname + '/' + location.hash);
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./calendario.css?v=1" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0a0b" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+  <!-- ============ GATE (login do coach) ============ -->
+  <div id="gate">
+    <form id="gate-form" class="gate-box">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Calendário</div>
+      <p class="gate-sub">Área restrita ao coach.</p>
+      <input id="gate-email" type="email" placeholder="E-mail" autocomplete="username" />
+      <input id="gate-senha" type="password" placeholder="Senha" autocomplete="current-password" />
+      <button class="btn" type="submit">Entrar</button>
+      <div class="gate-links"><a href="#" id="gate-reset">Esqueci a senha</a></div>
+      <div id="gate-erro" class="gate-erro"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><b>GARAGE POWER LAB</b> · Coach</div>
+      <div class="topbar-acoes">
+        <a class="btn ghost btn-sm" href="../gestao-de-alunos/index.html">Gestão</a>
+        <a class="btn ghost btn-sm" href="../index.html">← Painel</a>
+      </div>
+    </header>
+
+    <main class="cal">
+      <span class="eyebrow">Organização do box</span>
+      <h1>Calendário</h1>
+
+      <div class="barra">
+        <button class="btn-i" type="button" data-acao="prev" aria-label="Período anterior">‹</button>
+        <button class="btn-i" type="button" data-acao="hoje">Hoje</button>
+        <button class="btn-i" type="button" data-acao="next" aria-label="Próximo período">›</button>
+        <span class="periodo" id="cal-periodo">—</span>
+        <div class="seg" id="cal-visoes" role="group" aria-label="Visão"></div>
+      </div>
+
+      <div class="barra-2">
+        <div class="camadas" id="cal-camadas" role="group" aria-label="Camadas"></div>
+        <div class="status"><span id="cal-status"></span><button class="btn ghost btn-sm" type="button" data-acao="atualizar">Atualizar</button></div>
+      </div>
+
+      <div class="layout">
+        <section id="cal-corpo" aria-live="polite"></section>
+        <aside id="cal-lado" class="lado"></aside>
+      </div>
+
+      <div class="leg">
+        <span><b class="leg-n">5/6</b> vêm / vagas</span>
+        <span><b class="leg-n cheia">6/6</b> lotada</span>
+        <span><span class="rep">+Nome</span> reposição</span>
+        <span><i class="leg-pend"></i> pedido do app ainda não aplicado</span>
+        <span><i class="leg-q nada"></i> sem turma na grade</span>
+        <span><i class="leg-q fech"></i> box fechado</span>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="./gate.js?v=1"></script>
+</body>
+</html>
