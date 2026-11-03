@@ -18,37 +18,15 @@ import { esc, hoje, fmtDataCurta } from './util/formato.js?v=28';
 import { $ } from './util/dom.js?v=28';
 import { on, EVENTOS } from './estado.js?v=28';
 import { painel as painelReal } from '../../compartilhado/ui/dialogo.js?v=28';
+import { proxReav, eventosDoMes } from '../../compartilhado/regras/agenda.js?v=28';
 
 let agMes = mesIdAtual();
 
 /** @type {{ painel: (o: any) => Promise<string|null> }} */
 let deps = { painel: painelReal };
 
-/** A próxima reavaliação (a `dataProxima` da avaliação mais recente), ou null. @param {any} a */
-export function proxReav(a) {
-  const avs = (a.avaliacoes || []).filter((x) => x.dataRealizada);
-  if (!avs.length) return null;
-  const ult = avs.reduce((m, x) => (x.dataRealizada > m.dataRealizada ? x : m), avs[0]);
-  return ult.dataProxima || null;
-}
-
-/**
- * O que cai em cada dia do mês: a próxima reavaliação (só no mês dela) e o
- * aniversário (todo ano). Aluno inativo fica de fora.
- * @param {any[]} alunos @param {number} ano @param {number} mes 1–12
- * @returns {Record<number, { tipo: 'reav'|'aniv', nome: string }[]>}
- */
-export function eventosDoMes(alunos, ano, mes) {
-  /** @type {Record<number, { tipo: 'reav'|'aniv', nome: string }[]>} */
-  const evs = {};
-  const add = (dia, tipo, nome) => { (evs[dia] = evs[dia] || []).push({ tipo, nome }); };
-  for (const a of alunos.filter((x) => (x.status || 'ativo') !== 'inativo')) {
-    const prox = proxReav(a);
-    if (prox) { const [pa, pm, pd] = prox.split('-').map(Number); if (pa === ano && pm === mes) add(pd, 'reav', a.nome); }
-    if (a.nascimento) { const [, nm, nd] = a.nascimento.split('-').map(Number); if (nm === mes) add(nd, 'aniv', a.nome); }
-  }
-  return evs;
-}
+// A conta mora em compartilhado/regras/agenda.js (o Calendário e o hub usam a mesma).
+export { proxReav, eventosDoMes };
 
 function renderAgenda() {
   $('#ag-mes-lbl').textContent = rotuloMesFin(agMes);

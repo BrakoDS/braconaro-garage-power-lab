@@ -36,7 +36,7 @@ const db = await import('./db.js?v=28');
 const { estado, on, emit, EVENTOS } = await import('./estado.js?v=28');
 const eventos = await import('./eventos.js?v=28');
 const { kcalDaSemana, medalhasPorAluno } = await import('./selos-lista.js?v=28');
-const { eventosDoMes, proxReav, iniciarTelaAgenda } = await import('./ui-tela-agenda.js?v=28');
+const { iniciarTelaAgenda } = await import('./ui-tela-agenda.js?v=28');
 const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=28');
 const { medidaDoBanco, TETO_FIRESTORE } = await import('./medidor-banco.js?v=28');
 const { msgAuth } = await import('./boot.js?v=28');
@@ -68,18 +68,7 @@ test('selos: medalhas por aluno são a mesma conta da aba Progresso (medalhasDaF
 });
 
 /* ---------- Agenda ---------- */
-
-test('agenda: reavaliação só no mês dela (a da avaliação mais recente); aniversário todo ano; inativo fora', () => {
-  const alunos = [
-    { nome: 'Ana Lima', nascimento: '1995-10-12', avaliacoes: [{ dataRealizada: '2026-04-01', dataProxima: '2026-07-01' }, { dataRealizada: '2026-07-01', dataProxima: '2026-10-01' }] }, // a mais recente NÃO é a primeira
-    { nome: 'Bia', avaliacoes: [{ dataProxima: '2026-10-20' }] }, // sem dataRealizada: não conta
-    { nome: 'Caio', nascimento: '2000-10-12', status: 'inativo' },
-  ];
-  assert.equal(proxReav(alunos[0]), '2026-10-01');
-  assert.equal(proxReav(alunos[1]), null);
-  assert.deepEqual(eventosDoMes(alunos, 2026, 10), { 1: [{ tipo: 'reav', nome: 'Ana Lima' }], 12: [{ tipo: 'aniv', nome: 'Ana Lima' }] });
-  assert.deepEqual(eventosDoMes(alunos, 2027, 10), { 12: [{ tipo: 'aniv', nome: 'Ana Lima' }] }, 'a reavaliação não se repete no ano seguinte');
-});
+// A conta (proxReav, eventosDoMes) é testada em compartilhado/regras/agenda.test.js.
 
 test('agenda: abre no mês atual; o feriado pergunta se o box abriu e grava a decisão', async () => {
   const respostas = ['fechou', null, 'limpar'];
