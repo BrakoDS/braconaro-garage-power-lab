@@ -32,6 +32,8 @@ import * as eventos from './eventos.js?v=29';
 import { publicarPortal } from './portal-sync.js?v=29';
 import { mergarInboxes } from './portal-merge.js?v=29';
 import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=29';
+import { creditosDeFechamento } from './creditos-fechamento.js?v=29';
+import { hoje } from './util/formato.js?v=29';
 import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=29';
 import { sincronizarAvisos } from './avisos.js?v=29';
 import { sincronizarDesafios } from './desafios.js?v=29';
@@ -106,6 +108,29 @@ function tratarAusencias() {
   return _ausenciasRodando;
 }
 
+/* ---------- Crédito de fechamento do box (creditos-fechamento.js) ---------- */
+let _fechamentoRodando = /** @type {Promise<void>|null} */ (null);
+/**
+ * Materializa o crédito de reposição dos dias que o box fechou (feriado "não
+ * abriu"), para cada aluno que tinha aula e não tem nada no dia. Uma rodada por
+ * vez, só com a nuvem em dia (v2), como o Pix. A gravação republica o Portal.
+ */
+function tratarCreditosDeFechamento() {
+  const uid = estado.uid;
+  if (!uid || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
+  if (_fechamentoRodando) return _fechamentoRodando;
+  _fechamentoRodando = Promise.resolve().then(() => {
+    const creditos = creditosDeFechamento(db.listar(), db.diasFechados(), hoje());
+    for (const c of creditos) {
+      db.atualizar(c.alunoId, c.patch);
+      const a = db.obter(c.alunoId);
+      if (a) reg(c.log.tipo, a, c.log.resumo, c.log.extra);
+    }
+    if (creditos.length) { renderLista(); recarregarFichaAberta(); emit(EVENTOS.ALUNOS_MUDARAM); }
+  }).finally(() => { _fechamentoRodando = null; });
+  return _fechamentoRodando;
+}
+
 /* ---------- Check-in pelo app da uGym e pela chamada da Lousa (ugym-merge.js) ---------- */
 
 let _ugymRodando = /** @type {Promise<void>|null} */ (null);
@@ -146,7 +171,7 @@ let _pixLigado = false;
 function ligarPixPeriodico() {
   if (_pixLigado) return;
   _pixLigado = true;
-  const rodada = () => { tratarPix(); tratarAusencias(); tratarCheckinsUgym(); };
+  const rodada = () => { tratarPix(); tratarAusencias(); tratarCreditosDeFechamento(); tratarCheckinsUgym(); };
   setInterval(rodada, PIX_INTERVALO_MS);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') rodada(); });
 }
@@ -205,6 +230,8 @@ async function entrar(user) {
     if (nuvemEmDia) { await tratarPix(); recarregarFichaAberta(); ligarPixPeriodico(); }
     // 1c) os avisos "Não irei ao treino" viram desmarcação ou falta na ficha
     if (nuvemEmDia) await tratarAusencias();
+    // 1c-bis) materializa o crédito dos dias que o box fechou (feriado "não abriu")
+    if (nuvemEmDia) await tratarCreditosDeFechamento();
     // 1d) os check-ins feitos no app da uGym viram presença na ficha
     if (nuvemEmDia) { await tratarCheckinsUgym(); ouvirUgymAoVivo(); }
     // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
