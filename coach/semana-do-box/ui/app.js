@@ -22,6 +22,7 @@ import { gerarMatriz, programarDia, publicar, lerSemanas, salvarSemana, sortearB
 import { pedirAviso } from './dia-sem-aula.js';
 import * as catalogo from './catalogo.js';
 import * as inventario from './inventario.js';
+import * as quadro from './quadro.js';
 import { trocarExercicio } from './troca.js';
 import { trocarExercicioHiit } from './troca-hiit.js';
 import { trocarEstacaoHyrox, trocarFocoTecnica, trocarMovimentoCross } from './troca-cross.js';
@@ -286,9 +287,9 @@ $('#view-semanas').addEventListener('click', (ev) => {
   document.getElementById('hiit-da-semana')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
-/* ---------- seções (Semanas | Inventário | Catálogo) ---------- */
+/* ---------- seções (Semanas | Quadro | Inventário | Catálogo) ---------- */
 
-const VISTAS = ['semanas', 'inventario', 'catalogo'];
+const VISTAS = ['semanas', 'quadro', 'inventario', 'catalogo'];
 
 /** @param {string} vista */
 function irPara(vista) {
@@ -343,6 +344,19 @@ try {
   catalogo.montar({ status: statusCatalogo });
 } catch (e) {
   console.error('Falha ao montar o catálogo:', e);
+}
+
+/** @param {string} msg @param {'ok'|'erro'|''} [tipo] */
+function statusQuadro(msg, tipo = '') {
+  const el = $('#quadro-status');
+  el.textContent = msg;
+  el.className = `semana-status ${tipo}`;
+}
+
+try {
+  quadro.montar({ uid, status: statusQuadro });
+} catch (e) {
+  console.error('Falha ao montar o quadro:', e);
 }
 
 carregarMes();
