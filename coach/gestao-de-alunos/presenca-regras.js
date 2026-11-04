@@ -12,7 +12,7 @@
  *      horário automaticamente — a turma é calculada, não cadastrada.
  *   2. Desmarcou com PRAZO_DESMARCAR_MIN (2h) ou mais de antecedência: a vaga
  *      fica livre e ele ganha +1 crédito de reposição, que vale
- *      VALIDADE_CREDITO_DIAS (30 dias).
+ *      até o fim do mês (fimDoMes).
  *   3. Desmarcou com menos de 2h, ou não veio (no-show): falta, sem crédito.
  *      O coach pode abrir uma exceção e conceder o crédito mesmo assim.
  *   4. Reposição só se agenda até ANTECEDENCIA_REPOSICAO_MIN (1h) antes do
@@ -48,8 +48,8 @@
  * @property {string} [horaCheckin]
  * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
  */
-import { datasDaSemana, chaveDoDia } from '../../compartilhado/regras/semana.js';
-import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=29';
+import { datasDaSemana, chaveDoDia, fimDoMes, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js';
+import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=30';
 
 /**
  * O mesmo `creditoVencido` do semana.js, de propósito aqui: o semana.js é
@@ -316,7 +316,7 @@ export function previaDesmarcacao(a, diaPlanejado, aviso) {
  * DESMARCAR — o titular avisou que não vem. O prazo conta da hora em que ele
  * AVISOU (`aviso`), não da hora em que o coach lançou: a mensagem das 5h lida
  * às 8h continua no prazo de uma aula das 9h.
- *   ≥ 2h: a vaga fica livre e nasce o crédito (30 dias, a contar do aviso);
+ *   ≥ 2h: a vaga fica livre e nasce o crédito (vale até o fim do mês do aviso);
  *   < 2h: falta, sem crédito.
  * @param {any} a @param {string} diaPlanejado
  * @param {{ aviso: Relogio, em: number }} o em: o instante do lançamento
@@ -333,7 +333,7 @@ export function desmarcar(a, diaPlanejado, { aviso, em }) {
   const faltas = { ...(a.faltas || {}) };
   const remarcacoes = { ...(a.remarcacoes || {}) };
   delete remarcacoes[diaPlanejado];
-  const expira = somarDias(aviso.hoje, VALIDADE_CREDITO_DIAS);
+  const expira = fimDoMes(aviso.hoje); // vale até o fim do mês do aviso
   if (noPrazo) {
     delete faltas[diaPlanejado];
     atestados[diaPlanejado] = { em, tipo: 'desmarcacao', aula: onde, antecedenciaMin: ant, expira, reposicao: null };
@@ -410,7 +410,7 @@ export function noShowReposicao(a, origem, { em }) {
 
 /**
  * CONCEDER CRÉDITO (exceção) — o coach dá o crédito a quem não teria direito:
- * desmarcou fora do prazo, ou faltou. Vale 30 dias a partir de hoje.
+ * desmarcou fora do prazo, ou faltou. Crédito justificado: vale até o fim do mês seguinte.
  * @param {any} a @param {string} diaPlanejado @param {{ hoje: string, em: number }} o
  * @returns {Mudanca | Recusa}
  */
@@ -418,7 +418,7 @@ export function concederCredito(a, diaPlanejado, { hoje, em }) {
   if ((a.atestados || {})[diaPlanejado]) return recusa(a, diaPlanejado, 'Essa aula já tem crédito de reposição');
   const fa = (a.faltas || {})[diaPlanejado];
   const onde = ondeAcontece(a, diaPlanejado);
-  const expira = somarDias(hoje, VALIDADE_CREDITO_DIAS);
+  const expira = fimDoMesSeguinte(hoje); // crédito justificado pelo coach: passa adiante um mês
   const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em, tipo: 'excecao', antes: fa ? fa.tipo : 'no-show', aula: onde, expira, reposicao: null } };
   const faltas = { ...(a.faltas || {}) };
   delete faltas[diaPlanejado];
@@ -432,7 +432,7 @@ export function concederCredito(a, diaPlanejado, { hoje, em }) {
 
 /**
  * CONCEDER CRÉDITO NA REPOSIÇÃO (exceção) — a reposição perdida (fora do prazo
- * ou no-show) devolve o crédito, com 30 dias a partir de hoje.
+ * ou no-show) devolve o crédito, até o fim do mês seguinte.
  * @param {any} a @param {string} origem @param {{ hoje: string, em: number }} o
  * @returns {Mudanca | null}
  */
@@ -440,7 +440,7 @@ export function concederCreditoReposicao(a, origem, { hoje, em }) {
   const v = (a.atestados || {})[origem];
   const rep = v && v.reposicao;
   if (!rep || !rep.data) return null;
-  const expira = somarDias(hoje, VALIDADE_CREDITO_DIAS);
+  const expira = fimDoMesSeguinte(hoje); // devolução por exceção: passa adiante um mês
   const atestados = { ...(a.atestados || {}), [origem]: { ...v, reposicao: null, expira, excecaoEm: em } };
   return {
     patch: { atestados, ...semPresenca(a, origem, rep.data) },

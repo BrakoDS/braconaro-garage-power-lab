@@ -44,7 +44,7 @@ ok(antecedenciaMin({ hoje: TER, agora: '22:30' }, QUA, '07:00') === 510 && somar
 console.log('\n"NÃO IREI AO TREINO"\n');
 const no = (r: ReturnType<typeof avaliarAusencia>) => ('erro' in r ? r.erro : r);
 const r1 = avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '05:00' });
-ok(igual(no(r1), { aula: { data: QUA, hora: '07:00' }, noPrazo: true, antecedenciaMin: 120, expira: '2026-11-06' }), 'exatamente 2h antes: no prazo, crédito de 30 dias');
+ok(igual(no(r1), { aula: { data: QUA, hora: '07:00' }, noPrazo: true, antecedenciaMin: 120, expira: '2026-10-31' }), 'exatamente 2h antes: no prazo, crédito até o fim do mês');
 const r2 = avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '05:01' });
 ok(igual(no(r2), { aula: { data: QUA, hora: '07:00' }, noPrazo: false, antecedenciaMin: 119, expira: null }), '1h59 antes: fora do prazo, sem crédito');
 ok(no(avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '07:00' })) === 'Essa aula já começou.', 'na hora da aula já não dá para avisar');
@@ -54,7 +54,7 @@ ok(no(avaliarAusencia(ana({ presencas: [QUA] }), 'titular', QUA, { hoje: QUA, ag
 ok(no(avaliarAusencia(ana({ horarios: {} }), 'titular', QUA, { hoje: TER, agora: '07:00' })) === 'Essa aula não tem horário definido — fale com o coach.', 'aula sem horário é recusada');
 ok(no(avaliarAusencia(ana(), 'titular', '2026-10-30', { hoje: QUA, agora: '07:00' })).toString().includes('próximos 14 dias'), 'aula a mais de 14 dias é recusada');
 const remarcada = ana({ remarcacoes: { [SEG]: { data: TER, hora: '18:00' } } });
-ok(igual(no(avaliarAusencia(remarcada, 'titular', SEG, { hoje: TER, agora: '15:00' })), { aula: { data: TER, hora: '18:00' }, noPrazo: true, antecedenciaMin: 180, expira: '2026-11-05' }), 'aula remarcada: o prazo mede a aula nova');
+ok(igual(no(avaliarAusencia(remarcada, 'titular', SEG, { hoje: TER, agora: '15:00' })), { aula: { data: TER, hora: '18:00' }, noPrazo: true, antecedenciaMin: 180, expira: '2026-10-31' }), 'aula remarcada: o prazo mede a aula nova');
 const comRep = ana({ atestados: { [SEG]: { tipo: 'desmarcacao', expira: '2026-11-01', reposicao: { data: '2026-10-08', hora: '18:00' } } } });
 ok(igual(no(avaliarAusencia(comRep, 'reposicao', SEG, { hoje: '2026-10-08', agora: '15:00' })), { aula: { data: '2026-10-08', hora: '18:00' }, noPrazo: true, antecedenciaMin: 180, expira: '2026-11-01' }), 'reposição no prazo: o crédito volta com a validade que tinha');
 ok(no(avaliarAusencia(ana(), 'reposicao', SEG, { hoje: SEG, agora: '06:00' })) === 'Você não tem reposição marcada para essa aula.', 'reposição inexistente é recusada');

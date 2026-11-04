@@ -39,9 +39,9 @@ globalThis.FormData = /** @type {any} */ (class {
   getAll(k) { const v = this.m[k]; return Array.isArray(v) ? v : v == null ? [] : [v]; }
 });
 
-const db = await import('./db.js?v=29');
-const { on, EVENTOS } = await import('./estado.js?v=29');
-const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=29');
+const db = await import('./db.js?v=30');
+const { on, EVENTOS } = await import('./estado.js?v=30');
+const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=30');
 const avisos = /** @type {string[]} */ ([]);
 iniciarModalAluno({ avisar: (o) => avisos.push(o.texto) });
 

@@ -109,6 +109,29 @@ export function creditoVencido(credito, hojeIso) {
 }
 
 /**
+ * O último dia do mês de `iso` ('AAAA-MM-DD'). Fuso LOCAL — `new Date(a, m, 0)`
+ * é o dia 0 do mês seguinte, ou seja, o último do mês `m`.
+ * @param {string} iso
+ */
+export function fimDoMes(iso) {
+  const [a, m] = iso.split('-').map(Number);
+  const ultimo = new Date(a, m, 0).getDate();
+  return `${a}-${String(m).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+}
+
+/**
+ * O último dia do mês SEGUINTE ao de `iso` — a validade do crédito justificado
+ * (atestado/exceção), que "passa adiante" um mês.
+ * @param {string} iso
+ */
+export function fimDoMesSeguinte(iso) {
+  const [a, m] = iso.split('-').map(Number);
+  const an = m === 12 ? a + 1 : a, mn = m === 12 ? 1 : m + 1;
+  const ultimo = new Date(an, mn, 0).getDate();
+  return `${an}-${String(mn).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+}
+
+/**
  * Os créditos de reposição que ainda não foram agendados.
  *
  * Sem `hojeIso`, todos (o comportamento de sempre). Com ele, só os que ainda
