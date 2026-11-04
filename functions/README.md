@@ -545,6 +545,52 @@ Não há API oficial: é a API interna do painel, lida no código dele em 17/10/
 5. **Conferir** no log a linha `Check-in da uGym.` depois do primeiro check-in de uma aula, e
    `integracaoUgym/{uid}.ultimaRodada.erro` vazio.
 
+## Caixas aplicadas pelo servidor (`aplicar*`, Fase 1 · etapa 1, 04/11/2026)
+
+O que chega para a ficha de fora da Gestão — o "Não irei" (`avisosAusencia`), a reposição marcada
+pelo aluno (`reposicoesAluno`), o check-in da uGym (`checkinsUgym`), a chamada da Lousa
+(`checkinsLousa`) e o Pix aprovado (`gestao/{uid}/cobrancasPix`) — era aplicado SÓ pela Gestão
+aberta. Agora o servidor também aplica, a qualquer hora:
+
+| Função | Gatilho |
+| --- | --- |
+| `aplicarAvisosAusencia`, `aplicarReposicoesAluno`, `aplicarCheckinsUgym`, `aplicarCheckinsLousa` | escrita em `{caixa}/{email}` |
+| `aplicarPixAprovado` | escrita em `gestao/{uid}/cobrancasPix/{paymentId}` com `avisarGestao` |
+| `aplicarCaixasPendentes` | a cada 10 minutos (rede de segurança dos gatilhos) |
+
+**A regra é a da Gestão, não um porte.** O `npm run build` copia para `lib/gestao/` os arquivos de
+regra dela (`scripts/copiar-regras-gestao.mjs`, pelo fecho dos imports de `pix-baixa.js`,
+`ugym-merge.js`, `ausencias-merge.js`, `portal-merge.js`, `eventos.js` e `ficha-campos.js`), e
+`src/caixas.ts` os executa. O `checar-caixas` confere que a cópia é byte a byte a original.
+Mudou uma regra na Gestão? Publique o site E as funções acima — senão o servidor segue com a
+regra antiga até o próximo deploy.
+
+**Cada aplicação é uma transação** (`src/caixas-servico.ts`): lê o interruptor, grava na ficha só
+os campos que mudaram (com o carimbo `atualizadoEm`, que as regras exigem do cliente), tira os
+itens consumidos das caixas, grava as linhas dos Registros (`origem: 'servidor'`) e espelha os
+mesmos campos em `portal/{email}`.
+
+**O interruptor** — `gestao/{uid}/sistema/caixas.aplicador`:
+
+- `'gestao'`, ou sem o documento: a Gestão aplica, como antes; estas funções olham e param;
+- `'servidor'`: estas funções aplicam; a Gestão para (ouve o interruptor ao vivo) e sugere o
+  recibo dos Pix que o servidor deu baixa.
+
+Voltar para `'gestao'` é o "desfazer", sem deploy.
+
+### Publicar
+
+1. **Antes**, a simulação (só leitura, só contagens): `npm run build && node scripts/simular-caixas.cjs`.
+2. **As funções** (o interruptor ainda em `'gestao'` — elas sobem e não fazem nada):
+   ```bash
+   firebase deploy --only functions:aplicarAvisosAusencia,functions:aplicarReposicoesAluno,functions:aplicarCheckinsUgym,functions:aplicarCheckinsLousa,functions:aplicarPixAprovado,functions:aplicarCaixasPendentes --project projeto-garage-f0a2f
+   ```
+3. **Ligar**: no console do Firestore, criar `gestao/{uid}/sistema/caixas` com `aplicador: "servidor"`.
+4. **Conferir** no log `Caixas aplicadas pelo servidor.` / `Pix aplicado pelo servidor.` depois do
+   próximo check-in, aviso ou Pix, e a ficha no Painel de Presença.
+5. **Desfazer**: `aplicador: "gestao"` (a Gestão volta a aplicar na hora); se for o caso,
+   `firebase functions:delete` das seis funções.
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro
@@ -566,7 +612,7 @@ as cópias conferidas.
 
 ## Testando o motor nos emuladores
 
-Pré-requisitos: Java 11+ (os emuladores rodam na JVM) e o Firebase CLI (`npm i -g firebase-tools`).
+Pré-requisitos: Java 21 (os emuladores rodam na JVM; o firebase-tools 14 pede a 21) e o Firebase CLI (`npm i -g firebase-tools`). O `npm run checar:emulador:caixas` (regras da ficha e caixas) roda sozinho no CI, no job `emulador`.
 
 1. Segredo falso para a função de IA carregar (o arquivo está no `.gitignore`):
 

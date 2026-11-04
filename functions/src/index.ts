@@ -68,6 +68,8 @@ import { clienteMercadoPago, repoFirestore } from './pix-firestore';
 import { reconciliarCobrancas } from './pix-servico';
 import { clienteFitControl } from './ugym-cliente';
 import { repoUgymFirestore, sincronizarCheckinsUgym } from './ugym-servico';
+import { regrasDaGestao } from './caixas';
+import { aplicarCaixasDoAluno, aplicarPixDaCobranca, aplicarTudoQueEstiverPendente } from './caixas-servico';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
@@ -3266,5 +3268,79 @@ export const sincronizarUgym = onSchedule(
       cliente: clienteUgymDaInstancia, repo: repoUgymFirestore(getFirestore()), coachUid: COACH_UIDS[0],
       agora, relogio: relogioDoBox(new Date(agora)), log: logger,
     });
+  },
+);
+
+/* ================================================================== *
+ * As caixas aplicadas pelo servidor (Fase 1 · etapa 1)
+ * ================================================================== */
+
+/**
+ * O que chega para a ficha de fora da Gestão — o "Não irei", a reposição
+ * marcada pelo aluno, o check-in da uGym e o da chamada da Lousa — passa a ser
+ * aplicado aqui, a qualquer hora, e não só com a Gestão aberta. Com a MESMA
+ * regra da Gestão: o build copia os arquivos dela para lib/gestao/ e
+ * `caixas.ts` os executa. A transação está em `caixas-servico.ts`.
+ *
+ * Só com o interruptor `gestao/{uid}/sistema/caixas` em `aplicador: 'servidor'`.
+ * Sem ele (ou em 'gestao'), estes gatilhos olham o interruptor e param — quem
+ * aplica é a Gestão, como sempre. Voltar para 'gestao' desfaz sem deploy.
+ *
+ * Um gatilho por caixa: o documento é `{colecao}/{email}`, e o próprio consumo
+ * (tirar os itens aplicados) dispara de novo — aí as caixas estão vazias e ele
+ * para na primeira leitura. Sem retry: a varredura de 10 em 10 minutos
+ * (`aplicarCaixasPendentes`) pega o que um gatilho perder.
+ */
+const depsDasCaixas = async () => ({ regras: await regrasDaGestao(), agora: () => Date.now(), log: logger });
+
+const gatilhoDeCaixa = (colecao: string) => onDocumentWritten(
+  { document: `${colecao}/{email}`, timeoutSeconds: 30, memory: '256MiB', maxInstances: 2 },
+  async (evento) => {
+    const itens = evento.data?.after?.data()?.itens;
+    if (!itens || typeof itens !== 'object' || !Object.keys(itens).length) return;
+    await aplicarCaixasDoAluno(getFirestore(), COACH_UIDS[0], evento.params.email, await depsDasCaixas());
+  },
+);
+
+/** "Não irei ao treino" (`avisarAusencia`). */
+export const aplicarAvisosAusencia = gatilhoDeCaixa('avisosAusencia');
+/** A reposição marcada pelo aluno (`agendarReposicao`). */
+export const aplicarReposicoesAluno = gatilhoDeCaixa('reposicoesAluno');
+/** O check-in pelo app da uGym (`sincronizarUgym`). */
+export const aplicarCheckinsUgym = gatilhoDeCaixa('checkinsUgym');
+/** A chamada fechada na Lousa (o tablet do coach). */
+export const aplicarCheckinsLousa = gatilhoDeCaixa('checkinsLousa');
+
+/**
+ * O Pix aprovado (ou divergente, ou estornado) no livro-caixa: o webhook e a
+ * `reconciliarPix` ligam `avisarGestao`, e aqui vira a baixa do mês na ficha —
+ * o `pix-baixa.js` da Gestão — e o aviso nos Registros.
+ */
+export const aplicarPixAprovado = onDocumentWritten(
+  { document: 'gestao/{uid}/cobrancasPix/{paymentId}', timeoutSeconds: 30, memory: '256MiB', maxInstances: 2 },
+  async (evento) => {
+    if (evento.data?.after?.data()?.avisarGestao !== true || !ehCoachPorUid(evento.params.uid)) return;
+    await aplicarPixDaCobranca(getFirestore(), evento.params.uid, evento.params.paymentId, await depsDasCaixas());
+  },
+);
+
+/** A rede de segurança dos gatilhos acima. */
+export const aplicarCaixasPendentes = onSchedule(
+  {
+    schedule: 'every 10 minutes',
+    timeZone: 'America/Sao_Paulo',
+    region: 'southamerica-east1',
+    memory: '256MiB',
+    timeoutSeconds: 120,
+    maxInstances: 1,
+    concurrency: 1,
+    retryCount: 0, // a próxima rodada vem em 10 minutos
+  },
+  async () => {
+    const deps = await depsDasCaixas();
+    for (const uid of COACH_UIDS) {
+      const r = await aplicarTudoQueEstiverPendente(getFirestore(), uid, deps);
+      if (r.alunos || r.pix) logger.info('Varredura das caixas.', r);
+    }
   },
 );

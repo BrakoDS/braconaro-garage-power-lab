@@ -7,14 +7,15 @@
     "node": "22"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node scripts/copiar-regras-gestao.mjs && tsc",
     "watch": "tsc --watch",
-    "checar": "tsc && node lib/checar.js && node lib/checar-conquistas.js && node lib/checar-box.js && node lib/checar-catalogo.js && node lib/checar-hiit.js && node lib/checar-cross.js && node lib/checar-pix.js && node lib/checar-pix-http.js && node lib/checar-presenca.js && node lib/checar-ugym.js && node lib/checar-evolucao-ia.js",
+    "checar": "node scripts/copiar-regras-gestao.mjs && tsc && node lib/checar.js && node lib/checar-conquistas.js && node lib/checar-box.js && node lib/checar-catalogo.js && node lib/checar-hiit.js && node lib/checar-cross.js && node lib/checar-pix.js && node lib/checar-pix-http.js && node lib/checar-presenca.js && node lib/checar-ugym.js && node lib/checar-evolucao-ia.js && node lib/checar-caixas.js",
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
     "checar:emulador": "firebase emulators:exec --only firestore --project fake \"node testes-emulador.cjs\"",
     "checar:conquistas": "tsc && node lib/checar-conquistas.js",
     "checar:emulador:conquistas": "npm run build && firebase emulators:exec --only functions,firestore --project demo-garage \"node testes-conquistas-emulador.cjs\"",
+    "checar:emulador:caixas": "npm run build && firebase emulators:exec --only firestore --project demo-garage \"node testes-caixas-emulador.cjs\"",
     "checar:box": "tsc && node lib/checar-box.js",
     "checar:catalogo": "tsc && node lib/checar-catalogo.js",
     "checar:hiit": "tsc && node lib/checar-hiit.js",
@@ -23,13 +24,16 @@
     "checar:ugym": "tsc && node lib/checar-ugym.js",
     "checar:evolucao": "tsc && node lib/checar-evolucao-ia.js",
     "checar:pix": "tsc && node lib/checar-pix.js && node lib/checar-pix-http.js",
-    "seed:catalogo": "tsc && node lib/seed-catalogo.js"
+    "seed:catalogo": "tsc && node lib/seed-catalogo.js",
+    "checar:caixas": "node scripts/copiar-regras-gestao.mjs && tsc && node lib/checar-caixas.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",
     "firebase-functions": "^6.3.2"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "4.0.1",
+    "firebase": "11.10.0",
     "typescript": "^5.7.3"
   }
 }

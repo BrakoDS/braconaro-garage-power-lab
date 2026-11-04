@@ -195,14 +195,33 @@ test('semanas em branco publicadas: o aluno logado lê (a consulta filtra por st
 
 test('gestao v2: as subcoleções (fichas, avaliações, backup, eventos) são só do coach dono', () => {
   // Passo 1 da migração: o blob alunos[] vira gestao/{uid}/alunos/{id}/…, e a
-  // regra precisa cobrir qualquer profundidade — sem abrir nada para aluno.
+  // regra precisa cobrir as subcoleções — sem abrir nada para aluno.
   const c = codigo(firestore);
   const bloco = c.split('match /gestao/{uid} {')[1]?.split(/\n    match \//)[0] || '';
-  assert.match(bloco, /match \/\{sub=\*\*\} \{\s*allow read, write: if ehCoachDono\(uid\);\s*\}/);
   const allows = (bloco.match(/allow [^;]+;/g) || []).map((a) => a.replace(/\s+/g, ' '));
-  assert.equal(allows.length, 3, 'nenhuma outra porta dentro de gestao/{uid}');
-  assert.equal(allows[0], 'allow read: if ehCoachDono(uid);');
-  assert.equal(allows[2], 'allow read, write: if ehCoachDono(uid);');
+  assert.deepEqual(allows, [
+    'allow read: if ehCoachDono(uid);',
+    allows[1], // a trava do schema 2 (teste abaixo)
+    'allow read, delete: if ehCoachDono(uid);',
+    'allow create, update: if ehCoachDono(uid) && request.resource.data.atualizadoEm == request.time;',
+    'allow read, write: if ehCoachDono(uid);',
+    'allow read: if ehCoachDono(uid);',
+    "allow write: if ehCoachDono(uid) && colecao != 'alunos';",
+  ], 'nenhuma outra porta dentro de gestao/{uid}');
+});
+
+test('gestao: a ficha só se grava com o carimbo do servidor, e nenhum curinga recursivo passa por cima', () => {
+  // Fase 1 · etapa 1: a Gestão grava a ficha por campo, com
+  // `atualizadoEm: serverTimestamp()`. Uma aba antiga regravava a ficha
+  // inteira (apagando o Pix e o check-in que o servidor aplicou): sem o
+  // carimbo de AGORA, a gravação é recusada. Um `{sub=**}` dentro de
+  // gestao/{uid} casaria com a ficha e abriria a porta de novo.
+  const c = codigo(firestore);
+  const bloco = c.split('match /gestao/{uid} {')[1]?.split(/\n    match \//)[0] || '';
+  assert.match(bloco, /match \/alunos\/\{alunoId\} \{\s*allow read, delete: if ehCoachDono\(uid\);\s*allow create, update: if ehCoachDono\(uid\) && request\.resource\.data\.atualizadoEm == request\.time;/);
+  assert.match(bloco, /match \/\{filho\}\/\{filhoId\} \{\s*allow read, write: if ehCoachDono\(uid\);\s*\}/, 'avaliações e feedbacks: um nível só abaixo da ficha');
+  assert.doesNotMatch(bloco, /\{\w+=\*\*\}\s*\{\s*allow read, write/, 'nenhum curinga recursivo com escrita livre');
+  assert.match(bloco, /match \/\{colecao\}\/\{resto=\*\*\} \{\s*allow read: if ehCoachDono\(uid\);\s*allow write: if ehCoachDono\(uid\) && colecao != 'alunos';/);
 });
 
 test('gestao v2: depois da virada, ninguém regrava o blob nem tira o schema', () => {

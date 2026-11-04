@@ -6,8 +6,14 @@
  * Imita o que importa do banco de verdade: cada leitura devolve uma CÓPIA (quem
  * lê não altera o que está guardado), o lote é atômico (falhou no meio, nada
  * entra) e a virada compara o blob atual antes de mexer.
+ *
+ * A ficha se grava como na porta do Firestore (ficha-campos.js): por campo
+ * sobre o que ESTÁ guardado, inteira quando não existe, mesclada quando a
+ * "inteira" chega e ela já existe. `gravarComoServidor` simula o servidor
+ * mexendo numa ficha, e `ouvirFichas` avisa quem ouve, como o onSnapshot.
  */
-import { canonico, decidirTrava } from './db-migracao.js?v=29';
+import { canonico, decidirTrava } from './db-migracao.js?v=30';
+import { escritasDaAtualizacao, aplicarEscritas, mesclarInteira } from './ficha-campos.js?v=30';
 
 const copia = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
 
@@ -27,9 +33,26 @@ export function portaEmMemoria(raizInicial, ganchos = {}) {
   if (raizInicial) docs.set('', copia(raizInicial));
   for (const [k, v] of Object.entries(ganchos.subcolecoes || {})) docs.set(k, copia(v));
   let lotes = 0;
+  /** @type {Set<(fichas: Map<string, any>) => void>} */ const ouvintes = new Set();
+  const fichasAgora = () => new Map([...docs].filter(([k]) => /^alunos\/[^/]+$/.test(k)).map(([k, v]) => [k.slice(7), copia(v)]));
+  const avisarOuvintes = () => { for (const cb of ouvintes) cb(fichasAgora()); };
+  const ehFicha = (/** @type {string[]} */ c) => c.length === 2 && c[0] === 'alunos';
 
   const porta = {
     docs,
+    /** Simula o servidor gravando campos numa ficha (Admin SDK), e avisa quem ouve. @param {string} id @param {Record<string, any>} patch */
+    gravarComoServidor(id, patch) {
+      const k = `alunos/${id}`;
+      docs.set(k, { ...(docs.get(k) || {}), ...copia(patch) });
+      avisarOuvintes();
+    },
+
+    /** O onSnapshot das fichas: avisa já (como o Firestore) e a cada gravação. @param {(f: Map<string, any>) => void} cb */
+    ouvirFichas(cb) {
+      ouvintes.add(cb);
+      cb(fichasAgora());
+      return () => { ouvintes.delete(cb); };
+    },
     /** Simula um aparelho ainda no v1 regravando o documento raiz inteiro. @param {any} blob */
     regravarRaiz(blob) { docs.set('', copia(blob)); },
 
@@ -71,9 +94,14 @@ export function portaEmMemoria(raizInicial, ganchos = {}) {
         // fica (o `mergeFields` do Firestore). Cria a raiz se não existir.
         if (op.tipo === 'meta') { docs.set('', { ...(docs.get('') || {}), ...copia(op.dados) }); continue; }
         const k = op.caminho.join('/');
-        if (op.tipo === 'set') docs.set(k, copia(op.dados));
+        const atual = docs.get(k);
+        if (op.tipo === 'ficha') {
+          if (!atual) docs.set(k, copia(op.dados));
+          else docs.set(k, op.inteira ? mesclarInteira(atual, op.dados) : aplicarEscritas(atual, escritasDaAtualizacao(atual, op.dados, op)));
+        } else if (op.tipo === 'set') docs.set(k, copia(op.dados));
         else docs.delete(k);
       }
+      if (ops.some((/** @type {any} */ op) => op.caminho && ehFicha(op.caminho))) avisarOuvintes();
     },
 
     async virar(/** @type {string} */ alunosEsperados, /** @type {any} */ virada) {

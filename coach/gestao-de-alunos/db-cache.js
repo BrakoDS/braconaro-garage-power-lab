@@ -5,7 +5,8 @@
  * No `localStorage`, normalizado como a nuvem v2:
  *
  *   braconaro_gestao_v2       { meta, alunos: {id: ficha}, avaliacoes: {id: [...]}, feedbacks: {id: [...]} }
- *   braconaro_gestao_v2_fila  { 'alunos/001': {op:'set', t}, 'alunos/001/avaliacoes/2': {op:'delete', t}, 'meta': {...} }
+ *   braconaro_gestao_v2_fila  { 'alunos/001': {op:'set', t, campos: [['telefone']], conjuntos: {}},
+ *                               'alunos/001/avaliacoes/2': {op:'delete', t}, 'meta': {...} }
  *
  * Quem consulta recebe o aluno "gordo" de sempre (ficha + `avaliacoes[]` +
  * `feedbacks[]` dentro), então os consumidores do `db.js` não percebem a troca.
@@ -16,9 +17,18 @@
  * cache na hora do envio, sempre a versão mais nova. O token existe para o
  * envio não limpar uma entrada que mudou enquanto o lote estava no ar.
  *
+ * A FICHA vai por campo (ficha-campos.js): a entrada dela diz QUAIS campos
+ * mudaram (`campos`, `conjuntos`), e só eles sobem — o que o servidor gravou
+ * na ficha (Pix, check-in) não é regravado por cima. Ficha nova sobe inteira
+ * (`inteira`). Entrada sem a lista é da fila antiga (v29): é convertida contra a
+ * nuvem quando ela chega (`adotar`).
+ *
  * Puro: o armazenamento é injetado (testes passam um falso). Nenhum Firebase.
  */
-import { fatiarAluno, idsDosFeedbacks, canonico, CAMPO_EMAIL_NORM, SCHEMA_V2 } from './db-migracao.js?v=29';
+import { fatiarAluno, idsDosFeedbacks, canonico, CAMPO_EMAIL_NORM, SCHEMA_V2 } from './db-migracao.js?v=30';
+import {
+  soDoBox, diferencasDaFicha, temDiferenca, juntarEntrada, sobrepor, converterLegada, ehLegada,
+} from './ficha-campos.js?v=30';
 
 /** Chave do blob v1 — lida uma vez, na primeira abertura do v2 neste aparelho. Nunca mais gravada. */
 export const CHAVE_V1 = 'braconaro_gestao_alunos_v1';
@@ -31,8 +41,18 @@ const META_RESERVADOS = ['schema', 'migradoEm', 'migracao', 'alunos'];
 /**
  * @typedef {Record<string, any>} Dados
  * @typedef {{ meta: Dados, alunos: Record<string, Dados>, avaliacoes: Record<string, any[]>, feedbacks: Record<string, any[]> }} Estado
- * @typedef {Record<string, { op: 'set'|'delete', t: string }>} Fila
- * @typedef {{ tipo: 'set', caminho: string[], dados: Dados } | { tipo: 'delete', caminho: string[] } | { tipo: 'meta', dados: Dados }} Operacao
+ * @typedef {import('./ficha-campos.js').Entrada & { t: string }} EntradaDaFila
+ * @typedef {Record<string, EntradaDaFila>} Fila
+ * @typedef {import('./ficha-campos.js').Escrita} Escrita
+ * @typedef {{ tipo: 'set', caminho: string[], dados: Dados }
+ *   | { tipo: 'ficha', caminho: string[], dados: Dados, inteira?: true, campos: import('./ficha-campos.js').Caminho[], conjuntos: Record<string, import('./ficha-campos.js').Delta> }
+ *   | { tipo: 'delete', caminho: string[] } | { tipo: 'meta', dados: Dados }} Operacao
+ *   ficha: `dados` é a ficha local inteira. Por campo: a porta grava só
+ *   `campos`/`conjuntos` sobre o que está na nuvem (ou cria com `dados`, se a
+ *   ficha sumiu de lá). `inteira`: cria com `dados`, ou mescla se já existir.
+ *   `set` (ficha inteira por cima) fica para a migração do blob v1.
+ * @typedef {[string, 'set'|'delete', ({ inteira?: boolean } & Partial<import('./ficha-campos.js').Diferenca>)?]} Marca
+ *   o caminho, a operação e, na ficha, o que mudou nela
  */
 
 const limpo = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
@@ -92,7 +112,7 @@ export function estadoDeSubcolecoes(raiz, sub) {
   const e = vazio();
   e.meta = { seq: 0, ...metaDoBox(raiz) };
   for (const [id, f] of sub.fichas) {
-    e.alunos[id] = { ...semEmailNorm(f), id };
+    e.alunos[id] = { ...soDoBox(f), id };
     e.avaliacoes[id] = [...(sub.avaliacoes.get(id)?.values() || [])].sort(porNum);
     const fbs = [...(sub.feedbacks.get(id)?.values() || [])];
     if (fbs.length) e.feedbacks[id] = fbs.sort(maisRecente);
@@ -124,8 +144,28 @@ function paresDeFilhos(tipo, lista) {
 }
 
 /**
+ * A ficha depois da mescla: a da nuvem, com o que está pendente aqui por cima.
+ *  - sem pendência: a da nuvem;
+ *  - apagada aqui (pendente): nenhuma;
+ *  - nova aqui, ou sumiu da nuvem com edição pendente aqui: a local inteira
+ *    (o envio a cria de novo — como antes, edição do coach não se perde);
+ *  - edição por campo: a da nuvem com os campos pendentes por cima (o que o
+ *    servidor gravou nos OUTROS campos aparece já).
+ * @param {Dados|undefined} daNuvem @param {Dados|undefined} local @param {EntradaDaFila|undefined} entrada
+ * @returns {Dados|undefined}
+ */
+function fichaMesclada(daNuvem, local, entrada) {
+  if (!entrada) return daNuvem;
+  if (entrada.op === 'delete') return undefined;
+  if (!local) return daNuvem;
+  if (!daNuvem || entrada.inteira || ehLegada(entrada)) return local;
+  return { ...sobrepor(daNuvem, local, entrada), id: local.id };
+}
+
+/**
  * A nuvem vence, menos onde a fila diz que há edição local ainda não enviada.
- * Documento por documento: a ficha, cada avaliação, cada feedback, e o meta.
+ * Documento por documento: a ficha (campo por campo), cada avaliação, cada
+ * feedback, e o meta.
  * @param {Estado} local @param {Estado} nuvem @param {Fila} fila
  * @returns {Estado}
  */
@@ -135,7 +175,7 @@ export function mesclar(local, nuvem, fila) {
   const ids = new Set([...Object.keys(nuvem.alunos), ...Object.keys(local.alunos)]);
   for (const id of ids) {
     const p = `alunos/${id}`;
-    const ficha = p in fila ? local.alunos[id] : nuvem.alunos[id];
+    const ficha = fichaMesclada(nuvem.alunos[id], local.alunos[id], fila[p]);
     if (!ficha) continue; // apagado aqui (pendente) ou apagado na nuvem por outro aparelho
     e.alunos[id] = ficha;
     for (const tipo of /** @type {const} */ (['avaliacoes', 'feedbacks'])) {
@@ -154,6 +194,28 @@ export function mesclar(local, nuvem, fila) {
     }
   }
   return e;
+}
+
+/**
+ * A fila com as entradas antigas (v29, sem a lista de campos) convertidas
+ * contra a nuvem que acabou de chegar. Ficha que a nuvem não tem sobe inteira.
+ * @param {Fila} fila @param {Estado} local @param {Estado} nuvem
+ * @returns {Fila} a MESMA fila quando não há o que converter
+ */
+export function converterFilaAntiga(fila, local, nuvem) {
+  let nova = fila;
+  for (const [caminho, entrada] of Object.entries(fila)) {
+    const p = caminho.split('/');
+    if (p[0] !== 'alunos' || p.length !== 2 || !ehLegada(entrada)) continue;
+    const l = local.alunos[p[1]], n = nuvem.alunos[p[1]];
+    if (!l) continue; // sumiu daqui: o envio vira delete, como sempre
+    if (nova === fila) nova = { ...fila };
+    const conv = n ? converterLegada(l, n) : /** @type {import('./ficha-campos.js').Entrada} */ ({ op: 'set', inteira: true });
+    // O `emailNorm` não mora no cache (sai na fatia): e-mail trocado leva ele junto.
+    if (conv.campos && conv.campos.some((c) => c.length === 1 && c[0] === 'email')) conv.campos.push([CAMPO_EMAIL_NORM]);
+    nova[caminho] = { ...conv, t: entrada.t };
+  }
+  return nova;
 }
 
 /* ============================================================
@@ -194,11 +256,17 @@ export function criarCache({ storage = globalThis.localStorage } = {}) {
     return f && typeof f === 'object' ? f : {};
   }
 
-  /** @param {[string, 'set'|'delete'][]} entradas */
+  /**
+   * Põe na fila. A ficha junta o que mudou agora com o que já esperava
+   * (`juntarEntrada`); os outros documentos são só a operação.
+   * @param {Marca[]} entradas
+   */
   function marcar(entradas) {
     if (!entradas.length) return;
     const f = fila();
-    for (const [caminho, op] of entradas) f[caminho] = { op, t: token() };
+    for (const [caminho, op, dif] of entradas) {
+      f[caminho] = op === 'set' && dif ? { ...juntarEntrada(f[caminho], dif), t: token() } : { op, t: token() };
+    }
     salvarFila(f);
   }
 
@@ -221,20 +289,25 @@ export function criarCache({ storage = globalThis.localStorage } = {}) {
   }
 
   /**
-   * O que mudou entre duas versões de um aluno, em caminhos da fila.
+   * O que mudou entre duas versões de um aluno, em caminhos da fila. A ficha
+   * leva junto QUAIS campos mudaram (ou `inteira`, quando é nova).
    * @param {string} id @param {ReturnType<typeof documentos>} antes @param {ReturnType<typeof documentos>} depois
-   * @returns {[string, 'set'|'delete'][]}
+   * @returns {Marca[]}
    */
   function diferencas(id, antes, depois) {
     const p = `alunos/${id}`;
-    /** @type {[string, 'set'|'delete'][]} */ const out = [];
+    /** @type {Marca[]} */ const out = [];
     if (!depois) {
       if (!antes) return out;
       for (const tipo of /** @type {const} */ (['avaliacoes', 'feedbacks'])) for (const cid of antes[tipo].keys()) out.push([`${p}/${tipo}/${cid}`, 'delete']);
       out.push([p, 'delete']);
       return out;
     }
-    if (!antes || canonico(antes.f.ficha) !== canonico(depois.f.ficha)) out.push([p, 'set']);
+    if (!antes) out.push([p, 'set', { inteira: true }]);
+    else {
+      const dif = diferencasDaFicha(antes.f.ficha, depois.f.ficha);
+      if (temDiferenca(dif)) out.push([p, 'set', dif]);
+    }
     for (const tipo of /** @type {const} */ (['avaliacoes', 'feedbacks'])) {
       for (const [cid, d] of depois[tipo]) {
         const velho = antes && antes[tipo].get(cid);
@@ -311,16 +384,43 @@ export function criarCache({ storage = globalThis.localStorage } = {}) {
     },
 
     /**
-     * Adota o estado da nuvem, preservando o que está pendente na fila.
+     * Adota o estado da nuvem, preservando o que está pendente na fila. A fila
+     * antiga (v29) é convertida aqui, contra esta nuvem.
      * @param {Estado} nuvem
      */
     adotar(nuvem) {
-      salvar(mesclar(estado(), nuvem, fila()));
+      const local = estado();
+      const f0 = fila();
+      const f = converterFilaAntiga(f0, local, nuvem);
+      if (f !== f0) salvarFila(f);
+      salvar(mesclar(local, nuvem, f));
+    },
+
+    /**
+     * Adota as FICHAS que a nuvem mandou ao vivo (o resto — meta, avaliações,
+     * feedbacks — fica como está). Devolve se alguma ficha mudou aqui: a
+     * própria gravação voltando da nuvem não muda nada e não redesenha a tela.
+     * @param {Map<string, Dados>} fichas os documentos `alunos/*` da nuvem, como vieram
+     * @returns {boolean}
+     */
+    adotarFichas(fichas) {
+      const local = estado();
+      const nuvem = { meta: local.meta, alunos: /** @type {Record<string, Dados>} */ ({}), avaliacoes: local.avaliacoes, feedbacks: local.feedbacks };
+      for (const [id, f] of fichas) nuvem.alunos[id] = { ...soDoBox(f), id };
+      const f0 = fila();
+      const f = converterFilaAntiga(f0, local, nuvem);
+      if (f !== f0) salvarFila(f);
+      const m = mesclar(local, nuvem, f);
+      if (canonico(m.alunos) === canonico(local.alunos)) return false;
+      salvar(m);
+      return true;
     },
 
     /**
      * A operação de envio de um caminho da fila, com o dado de AGORA. Documento
      * que não existe mais no cache vira delete, qualquer que seja a op marcada.
+     * A ficha com a lista de campos vira atualização por campo (`ficha`); a
+     * nova (ou da fila antiga ainda não convertida) sobe inteira (`set`).
      * @param {string} caminho
      * @returns {Operacao|null} null = caminho inválido (descartar)
      */
@@ -331,7 +431,15 @@ export function criarCache({ storage = globalThis.localStorage } = {}) {
       if (p[0] !== 'alunos' || !(p.length === 2 || (p.length === 4 && (p[2] === 'avaliacoes' || p[2] === 'feedbacks')))) return null;
       const docs = documentos(e, p[1]);
       const dados = !docs ? null : p.length === 2 ? docs.f.ficha : docs[/** @type {'avaliacoes'|'feedbacks'} */ (p[2])].get(p[3]);
-      return dados ? { tipo: 'set', caminho: p, dados } : { tipo: 'delete', caminho: p };
+      if (!dados) return { tipo: 'delete', caminho: p };
+      if (p.length === 2) {
+        const entrada = fila()[caminho];
+        const porCampo = entrada && entrada.op === 'set' && !entrada.inteira && Array.isArray(entrada.campos);
+        return porCampo
+          ? { tipo: 'ficha', caminho: p, dados, campos: entrada.campos || [], conjuntos: entrada.conjuntos || {} }
+          : { tipo: 'ficha', caminho: p, dados, inteira: true, campos: [], conjuntos: {} };
+      }
+      return { tipo: 'set', caminho: p, dados };
     },
 
     /**

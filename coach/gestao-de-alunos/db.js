@@ -15,9 +15,9 @@
  * Continua local-first: toda função aqui é síncrona e responde do cache; a
  * nuvem vem atrás.
  */
-import { criarCache } from './db-cache.js?v=29';
-import { criarSync } from './db-sync.js?v=29';
-import { horasDaGrade } from './presenca-regras.js?v=29';
+import { criarCache } from './db-cache.js?v=30';
+import { criarSync } from './db-sync.js?v=30';
+import { horasDaGrade } from './presenca-regras.js?v=30';
 
 const cache = criarCache();
 
@@ -34,11 +34,17 @@ function idDoAparelho() {
   } catch { return 'sem-storage'; }
 }
 
+/** @type {((e: any) => void) | null} */ let _aoErro = null;
+
 const sync = criarSync({
   cache,
   aparelho: idDoAparelho(),
-  abrirPorta: async (uid) => (await import('./db-firestore.js?v=29')).portaFirestore(uid),
+  abrirPorta: async (uid) => (await import('./db-firestore.js?v=30')).portaFirestore(uid),
+  aoErro: (e) => { if (_aoErro) _aoErro(e); },
 });
+
+/** Registra quem avisa o coach quando a nuvem recusa (ou não recebe) uma gravação. @param {(e: any) => void} cb */
+export function aoErroDeSync(cb) { _aoErro = cb; }
 
 let _aoGravar = null;
 /** Registra um callback chamado a cada gravação local (ex.: publicar o Portal do Aluno). */
@@ -70,7 +76,7 @@ export async function enviarAgora() {
  */
 export async function iniciarSync(uid, aoAtualizar) {
   try {
-    const fs = await import('./db-firestore.js?v=29');
+    const fs = await import('./db-firestore.js?v=30');
     if (!fs.cloudAtivo() || !uid) return undefined;
     return await sync.iniciar(uid, aoAtualizar);
   } catch (e) {

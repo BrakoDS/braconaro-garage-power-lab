@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { criarCache, mesclar, estadoDeBlobV1, CHAVE, CHAVE_V1, CHAVE_FILA } from './db-cache.js?v=29';
+import { criarCache, mesclar, estadoDeBlobV1, CHAVE, CHAVE_V1, CHAVE_FILA } from './db-cache.js?v=30';
 
 function armazenamento(inicial = {}) {
   const m = new Map(Object.entries(inicial));
@@ -111,7 +111,8 @@ test('operação de envio: ficha com emailNorm, meta com schema 2 e sem campo re
   const meta = c.operacaoDe('meta');
   assert.deepEqual(meta, { tipo: 'meta', dados: { seq: 2, produtos: blob().produtos, feriados: { '2026-10-12': false }, schema: 2 } });
   const ficha = c.operacaoDe('alunos/001');
-  assert.equal(ficha?.tipo, 'set');
+  assert.equal(ficha?.tipo, 'ficha');
+  assert.equal(/** @type {any} */ (ficha).inteira, true, 'sem a lista de campos na fila: sobe inteira (cria, ou mescla se já existir)');
   assert.equal(/** @type {any} */ (ficha).dados.emailNorm, 'ana@box.com');
   assert.ok(!('avaliacoes' in /** @type {any} */ (ficha).dados));
   assert.deepEqual(c.operacaoDe('alunos/001/avaliacoes/2'), { tipo: 'set', caminho: ['alunos', '001', 'avaliacoes', '2'], dados: { num: 2, peso: 69 } });
@@ -190,4 +191,91 @@ test('adotar grava no storage e respeita a fila do próprio cache', () => {
   assert.equal(c.obter('001').nome, 'Pendente');
   assert.equal(c.obter('002').nome, 'Da nuvem');
   assert.ok(s.m.has(CHAVE_FILA));
+});
+
+/* ---------- a ficha por campo (Fase 1 · etapa 1) ---------- */
+
+/** A Ana e a Bia já na nuvem (v2), com o cache em dia e a fila vazia. */
+function emDia() {
+  const { s, c } = comV1();
+  const nuvem = estadoDeBlobV1(blob());
+  nuvem.alunos['001'] = { ...nuvem.alunos['001'], pagamentos: { '2026-10': true }, presencas: ['2026-11-03'] };
+  c.adotar(nuvem);
+  return { s, c, nuvem };
+}
+
+test('editar a ficha marca na fila SÓ os campos que mudaram (o mapa desce até a chave)', () => {
+  const { c } = emDia();
+  c.gravarAluno({ ...c.obter('001'), telefone: '1199', pagamentos: { '2026-10': true, '2026-11': true } });
+  const e = c.fila()['alunos/001'];
+  assert.deepEqual(e.campos, [['pagamentos', '2026-11'], ['telefone']]);
+  assert.deepEqual(e.conjuntos, {});
+  const op = /** @type {any} */ (c.operacaoDe('alunos/001'));
+  assert.equal(op.tipo, 'ficha');
+  assert.ok(!op.inteira);
+  assert.deepEqual(op.campos, [['pagamentos', '2026-11'], ['telefone']]);
+});
+
+test('presença entra e sai como conjunto, e duas edições seguidas se juntam', () => {
+  const { c } = emDia();
+  c.gravarAluno({ ...c.obter('001'), presencas: ['2026-11-03', '2026-11-04'] });
+  assert.deepEqual(c.fila()['alunos/001'].conjuntos, { presencas: { mais: ['2026-11-04'], menos: [] } });
+  c.gravarAluno({ ...c.obter('001'), presencas: ['2026-11-04'] }); // tirou o dia 3
+  assert.deepEqual(c.fila()['alunos/001'].conjuntos, { presencas: { mais: ['2026-11-04'], menos: ['2026-11-03'] } });
+  c.gravarAluno({ ...c.obter('001'), presencas: [] }); // tirou o dia 4 também: o "entrou" some
+  assert.deepEqual(c.fila()['alunos/001'].conjuntos, { presencas: { mais: [], menos: ['2026-11-03', '2026-11-04'] } });
+});
+
+test('ficha nova sobe inteira; apagada e recriada também', () => {
+  const { c } = emDia();
+  c.gravarAluno({ id: '003', nome: 'Caio', avaliacoes: [] });
+  assert.equal(c.fila()['alunos/003'].inteira, true);
+  c.gravarAluno({ ...c.obter('003'), telefone: '1' }); // editou antes de subir: continua inteira
+  assert.equal(c.fila()['alunos/003'].inteira, true);
+  c.removerAluno('002');
+  c.gravarAluno({ id: '002', nome: 'Bia de novo', avaliacoes: [] });
+  assert.equal(c.fila()['alunos/002'].inteira, true);
+});
+
+test('mesclar: o servidor gravou OUTROS campos — aparecem já, e o pendente daqui fica por cima', () => {
+  const { c, nuvem } = emDia();
+  c.gravarAluno({ ...c.obter('001'), telefone: '1199', presencas: ['2026-11-03', '2026-11-04'] });
+  // Enquanto isso, o servidor deu a baixa do Pix e marcou o check-in do dia 5.
+  const depois = structuredClone(nuvem);
+  depois.alunos['001'] = { ...depois.alunos['001'], telefone: 'velho', pagamentos: { '2026-10': true, '2026-11': true }, pixPagos: { '2026-11': 'p1' }, presencas: ['2026-11-03', '2026-11-05'] };
+  c.adotar(depois);
+  const a = c.obter('001');
+  assert.equal(a.telefone, '1199', 'o pendente daqui vence no campo dele');
+  assert.deepEqual(a.pagamentos, { '2026-10': true, '2026-11': true }, 'a baixa do servidor aparece');
+  assert.deepEqual(a.pixPagos, { '2026-11': 'p1' });
+  assert.deepEqual(a.presencas, ['2026-11-03', '2026-11-04', '2026-11-05'], 'o conjunto soma os dois lados');
+});
+
+test('fila antiga (v29, sem a lista de campos): campo do coach sobe; campo do servidor só soma', () => {
+  const { c, s, nuvem } = emDia();
+  // O que uma Gestão v29 deixou: a ficha editada no cache e a entrada sem campos.
+  const est = JSON.parse(s.m.get(CHAVE));
+  est.alunos['001'] = { ...est.alunos['001'], telefone: '1199', pagamentos: { '2026-09': true }, presencas: ['2026-11-02'] };
+  s.m.set(CHAVE, JSON.stringify(est));
+  s.m.set(CHAVE_FILA, JSON.stringify({ 'alunos/001': { op: 'set', t: 'velho' } }));
+  c.adotar(nuvem);
+  const e = c.fila()['alunos/001'];
+  assert.deepEqual(e.campos, [['pagamentos', '2026-09'], ['telefone']], 'o mês que a nuvem não tem entra; o 2026-10 da nuvem não é apagado');
+  assert.deepEqual(e.conjuntos, { presencas: { mais: ['2026-11-02'], menos: [] } }, 'presença só soma');
+  assert.equal(e.t, 'velho', 'o token fica: o envio em voo continua valendo');
+  const a = c.obter('001');
+  assert.deepEqual(a.pagamentos, { '2026-10': true, '2026-09': true });
+  assert.deepEqual(a.presencas, ['2026-11-02', '2026-11-03']);
+});
+
+test('adotarFichas: a própria gravação voltando não muda nada; a do servidor muda', () => {
+  const { c, nuvem } = emDia();
+  const fichas = (/** @type {any} */ e) => new Map(Object.entries(e.alunos).map(([id, f]) => [id, { ...f, emailNorm: 'x', atualizadoEm: { seconds: 1 } }]));
+  assert.equal(c.adotarFichas(fichas(nuvem)), false, 'igual ao cache (emailNorm e atualizadoEm não contam)');
+  const depois = structuredClone(nuvem);
+  depois.alunos['002'].faltas = { '2026-11-04': { tipo: 'sem-aviso' } };
+  assert.equal(c.adotarFichas(fichas(depois)), true);
+  assert.deepEqual(c.obter('002').faltas, { '2026-11-04': { tipo: 'sem-aviso' } });
+  assert.ok(!('atualizadoEm' in c.obter('002')), 'o carimbo do servidor não desce para o cache');
+  assert.equal(c.obter('001').avaliacoes.length, 2, 'avaliações ficam como estavam');
 });

@@ -15,13 +15,18 @@
  *   4. envia a fila.
  *
  * Depois, cada gravação agenda um envio (800 ms, como o v1) que manda SÓ os
- * documentos marcados na fila, em lotes de até 500.
+ * documentos marcados na fila, em lotes de até 500 — a ficha, só os campos
+ * que mudaram (ficha-campos.js).
+ *
+ * E as fichas ficam ao vivo (`porta.ouvirFichas`): o que o servidor grava
+ * nelas (o Pix que deu baixa, o check-in da uGym) chega à tela em segundos,
+ * sem passar por cima do que está pendente aqui.
  *
  * Puro: o Firestore entra pela porta (`db-firestore.js`; nos testes,
  * `db-memoria.js`). O relógio também é injetado.
  */
-import { migrarNuvem, emLotes, SCHEMA_V2 } from './db-migracao.js?v=29';
-import { estadoDeBlobV1, estadoDeSubcolecoes } from './db-cache.js?v=29';
+import { migrarNuvem, emLotes, SCHEMA_V2 } from './db-migracao.js?v=30';
+import { estadoDeBlobV1, estadoDeSubcolecoes } from './db-cache.js?v=30';
 
 const DEBOUNCE_MS = 800;
 const NOVA_TENTATIVA_MS = 30_000;
@@ -42,12 +47,15 @@ const MAX_TENTATIVAS = 20; // ~10 min: o tempo de uma trava de outro aparelho ex
  *   migrar?: typeof migrarNuvem,
  *   relogio?: { agendar: (fn: () => void, ms: number) => any, cancelar: (t: any) => void },
  *   log?: (msg: string, extra?: any) => void,
+ *   aoErro?: (e: any) => void,
  * }} deps
+ *   aoErro: o envio falhou (fica na fila e tenta de novo) — a tela avisa o coach
  */
 export function criarSync({
   cache, abrirPorta, aparelho = 'desconhecido', migrar = migrarNuvem,
   relogio = { agendar: (fn, ms) => setTimeout(fn, ms), cancelar: (t) => clearTimeout(t) },
   log = (msg, extra) => console.info(`[Gestão] ${msg}`, extra ?? ''),
+  aoErro = () => {},
 }) {
   /** @type {Modo} */ let modo = 'desligado';
   /** @type {any} */ let porta = null;
@@ -57,6 +65,7 @@ export function criarSync({
   let deNovo = false;
   let tentativas = 0;
   /** @type {(() => void) | undefined} */ let aoAtualizar;
+  /** @type {(() => void) | null} */ let pararDeOuvir = null;
 
   const avisar = () => { if (aoAtualizar) { try { aoAtualizar(); } catch (e) { console.warn(e); } } };
 
@@ -73,6 +82,19 @@ export function criarSync({
     }
     modo = 'v2';
     avisar();
+    ouvirFichas();
+  }
+
+  /**
+   * As fichas ao vivo. Só redesenha quando alguma mudou de verdade: a própria
+   * gravação voltando da nuvem não muda nada (`adotarFichas` devolve false).
+   */
+  function ouvirFichas() {
+    if (pararDeOuvir || typeof porta.ouvirFichas !== 'function') return;
+    pararDeOuvir = porta.ouvirFichas(
+      (/** @type {Map<string, any>} */ fichas) => { if (cache.adotarFichas(fichas)) avisar(); },
+      (/** @type {any} */ e) => { log('Parei de ouvir as fichas ao vivo.', e?.code || e); pararDeOuvir = null; },
+    );
   }
 
   /**
@@ -161,7 +183,10 @@ export function criarSync({
       if (modo !== 'v2') return;
       relogio.cancelar(timerEnvio);
       timerEnvio = relogio.agendar(() => {
-        enviar().catch((e) => console.warn('Falha ao salvar alunos na nuvem (fica na fila):', e?.code || e));
+        enviar().catch((e) => {
+          console.warn('Falha ao salvar alunos na nuvem (fica na fila):', e?.code || e);
+          try { aoErro(e); } catch { /* o aviso não derruba o envio */ }
+        });
       }, DEBOUNCE_MS);
     },
 
@@ -169,6 +194,11 @@ export function criarSync({
     async enviarAgora() {
       relogio.cancelar(timerEnvio);
       await enviar();
+    },
+
+    /** Para de ouvir as fichas ao vivo (sair, testes). */
+    parar() {
+      if (pararDeOuvir) { pararDeOuvir(); pararDeOuvir = null; }
     },
   };
 }
