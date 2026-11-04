@@ -51,10 +51,10 @@ export const CATEGORIAS = [
   ['todos', 'Tudo'], ['presenca', 'Presença'], ['foto', 'Foto'], ['feedback', 'Feedback'], ['ficha', 'Ficha'], ['financeiro', 'Financeiro'], ['mensagem', 'Mensagens'],
 ];
 
-export const ORIGEM_ROTULO = { app: 'App', portal: 'Portal do aluno', gestao: 'Gestão', aluno: 'Aluno' };
+export const ORIGEM_ROTULO = { app: 'App', portal: 'Portal do aluno', gestao: 'Gestão', servidor: 'Automático', aluno: 'Aluno' };
 
 /** Os filtros de origem: 'aluno' (caixa antiga) só aparece em "Todas". */
-export const FILTROS_ORIGEM = [['todas', 'Todas'], ['app', 'App'], ['portal', 'Portal do aluno'], ['gestao', 'Gestão']];
+export const FILTROS_ORIGEM = [['todas', 'Todas'], ['app', 'App'], ['portal', 'Portal do aluno'], ['gestao', 'Gestão'], ['servidor', 'Automático']];
 
 /** O nome legível dos campos da ficha, para "Ficha editada · Telefone, Plano". */
 const ROTULO_CAMPO = {

@@ -23,6 +23,13 @@
  * depois da caixa dos alunos e ANTES de publicar o Portal (passo 1b), de 2 em 2
  * minutos e ao voltar para a aba, e antes de cada publicação do Portal — senão
  * uma Gestão aberta desde antes do Pix republicaria o Portal sem ele.
+ *
+ * QUEM APLICA AS CAIXAS (caixas-servidor.js): o Pix, os check-ins da uGym e da
+ * Lousa, o "Não irei" e as reservas de reposição. Com o interruptor em
+ * 'servidor', quem aplica é o servidor, a qualquer hora; a Gestão só mostra (as
+ * fichas chegam ao vivo) e sugere o recibo dos Pix que ele deu baixa. Com
+ * 'gestao' (o padrão), tudo como sempre. Nada é aplicado antes de o interruptor
+ * ser lido — senão a Gestão e o servidor aplicariam juntos.
  */
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
@@ -47,6 +54,38 @@ import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=29';
 import { aplicarPixPendentes } from './pix-baixa.js?v=29';
 import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=29';
 import { reg } from './registro.js?v=29';
+import { ouvirAplicador, ouvirPagamentosDoServidor } from './caixas-servidor.js?v=29';
+import { avisarGravacaoRecusada } from './ui-aviso-nuvem.js?v=29';
+
+/* ============================================================
+   Quem aplica as caixas
+   ============================================================ */
+
+/** @type {import('./caixas-servidor.js').Aplicador | null} null = o interruptor ainda não foi lido */
+let _aplicador = null;
+/** A Gestão aplica as caixas agora? Só depois de ler o interruptor, e só com 'gestao'. */
+const gestaoAplica = () => _aplicador === 'gestao';
+
+/**
+ * Lê o interruptor e passa a ouvi-lo. Resolve com o primeiro valor (ou, se a
+ * nuvem não responder em 8 s, com 'gestao' — o comportamento de sempre).
+ * @param {string} uid
+ */
+function lerAplicador(uid) {
+  return new Promise((resolver) => {
+    let lido = false;
+    const pronto = (/** @type {any} */ a) => { if (!lido) { lido = true; _aplicador = _aplicador || a; resolver(_aplicador); } };
+    setTimeout(() => pronto('gestao'), 8000);
+    ouvirAplicador(uid, (a) => {
+      const antes = _aplicador;
+      _aplicador = a;
+      if (!lido) { pronto(a); return; }
+      if (a !== antes) console.info(`[Gestão] Caixas agora aplicadas por: ${a === 'servidor' ? 'servidor' : 'esta Gestão'}.`);
+      // Voltou para a Gestão (o "desfazer"): aplica já o que estiver esperando.
+      if (a === 'gestao' && antes === 'servidor') { tratarPix(); tratarAusencias(); tratarCheckinsUgym(); }
+    });
+  });
+}
 
 /* ============================================================
    A gravação publica o Portal
@@ -76,7 +115,7 @@ let _pixRodando = /** @type {Promise<void>|null} */ (null);
  */
 function tratarPix() {
   const uid = estado.uid;
-  if (!uid || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
+  if (!uid || !gestaoAplica() || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
   if (_pixRodando) return _pixRodando;
   _pixRodando = aplicarPixPendentes({
     listar: () => listarPixParaTratar(uid),
@@ -98,7 +137,7 @@ let _ausenciasRodando = /** @type {Promise<void>|null} */ (null);
  */
 function tratarAusencias() {
   const uid = estado.uid;
-  if (!uid || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
+  if (!uid || !gestaoAplica() || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
   if (_ausenciasRodando) return _ausenciasRodando;
   _ausenciasRodando = mesclarAvisosDeAusencia({ coachUid: uid, alunos: db.listar(), aplicar: db.atualizar, registrar: reg })
     .then((n) => { if (n) { renderLista(); recarregarFichaAberta(); emit(EVENTOS.ALUNOS_MUDARAM); } })
@@ -120,7 +159,7 @@ let _ugymDeNovo = false;
  */
 function tratarCheckinsUgym() {
   const uid = estado.uid;
-  if (!uid || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
+  if (!uid || !gestaoAplica() || (typeof db.modoSync === 'function' && db.modoSync() !== 'v2')) return Promise.resolve();
   if (_ugymRodando) { _ugymDeNovo = true; return _ugymRodando; }
   _ugymRodando = mesclarCheckinsUgym({ coachUid: uid, alunos: db.listar(), aplicar: db.atualizar, registrar: reg })
     .then(async (n) => n + await mesclarCheckinsLousa({ coachUid: uid, alunos: db.listar(), aplicar: db.atualizar, registrar: reg }))
@@ -201,6 +240,17 @@ async function entrar(user) {
       // a linha do tempo e o uso do app (aba Histórico), se abertos, mostram já.
       if (a) emit(EVENTOS.REGISTROS_MUDARAM, a.id);
     }
+    // 1a) quem aplica as caixas (a Gestão ou o servidor) — lido ANTES de aplicar qualquer uma
+    if (nuvemEmDia) {
+      await lerAplicador(user.uid);
+      // O recibo dos Pix que o SERVIDOR deu baixa (os da Gestão já viram ação na hora).
+      ouvirPagamentosDoServidor(user.uid, (evs) => {
+        for (const ev of evs) {
+          const a = db.obter(ev.alunoId);
+          if (a) emit(EVENTOS.ACAO_REGISTRADA, { tipo: 'pagamento', aluno: a, evento: ev, dados: ev.dados });
+        }
+      });
+    }
     // 1b) os Pix aprovados no Mercado Pago viram baixa — antes de publicar o Portal
     if (nuvemEmDia) { await tratarPix(); recarregarFichaAberta(); ligarPixPeriodico(); }
     // 1c) os avisos "Não irei ao treino" viram desmarcação ou falta na ficha
@@ -280,6 +330,7 @@ export function iniciarBoot() {
   // Toda gravação: publica o Portal e avisa as telas que ouvem. É o ÚNICO lugar
   // que agenda a publicação depois de gravar — as telas só gravam.
   db.aoGravar(() => { agendarPublicarPortal(); emit(EVENTOS.ALUNOS_MUDARAM); });
+  db.aoErroDeSync(avisarGravacaoRecusada);
   iniciarBackup();
   medirTamanhoBanco();
   iniciarPortao();

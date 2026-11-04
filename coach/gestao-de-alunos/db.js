@@ -34,11 +34,17 @@ function idDoAparelho() {
   } catch { return 'sem-storage'; }
 }
 
+/** @type {((e: any) => void) | null} */ let _aoErro = null;
+
 const sync = criarSync({
   cache,
   aparelho: idDoAparelho(),
   abrirPorta: async (uid) => (await import('./db-firestore.js?v=29')).portaFirestore(uid),
+  aoErro: (e) => { if (_aoErro) _aoErro(e); },
 });
+
+/** Registra quem avisa o coach quando a nuvem recusa (ou não recebe) uma gravação. @param {(e: any) => void} cb */
+export function aoErroDeSync(cb) { _aoErro = cb; }
 
 let _aoGravar = null;
 /** Registra um callback chamado a cada gravação local (ex.: publicar o Portal do Aluno). */

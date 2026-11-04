@@ -214,3 +214,89 @@ test('box grande: 600 edições pendentes sobem em lotes de no máximo 500', asy
   await sync.enviarAgora();
   assert.deepEqual(tamanhos, [500, 100]);
 });
+
+/* ---------- a ficha por campo e o servidor gravando (Fase 1 · etapa 1) ---------- */
+
+test('o servidor grava na ficha enquanto o coach edita outro campo: nada se perde, e a tela vê na hora', async () => {
+  const porta = portaEmMemoria(blobV1());
+  const { cache, sync, rel } = aparelho(porta);
+  let avisos = 0;
+  await sync.iniciar('uid', () => { avisos++; });
+  const antes = avisos;
+
+  // O servidor dá a baixa do Pix da Ana (Admin SDK): a Gestão aberta vê ao vivo.
+  porta.gravarComoServidor('001', { pagamentos: { '2026-11': true }, pixPagos: { '2026-11': 'p1' } });
+  assert.deepEqual(cache.obter('001').pagamentos, { '2026-11': true });
+  assert.equal(avisos, antes + 1, 'a tela foi avisada');
+
+  // O coach, com a ficha aberta, troca o telefone dela.
+  cache.gravarAluno({ ...cache.obter('001'), telefone: '1199' });
+  sync.agendarEnvio();
+  await rel.rodar();
+  const naNuvem = porta.docs.get('alunos/001');
+  assert.equal(naNuvem.telefone, '1199');
+  assert.deepEqual(naNuvem.pagamentos, { '2026-11': true }, 'a baixa do servidor ficou');
+  assert.deepEqual(naNuvem.pixPagos, { '2026-11': 'p1' });
+  assert.equal(avisos, antes + 1, 'a própria gravação voltando da nuvem não redesenha a tela');
+});
+
+test('mesmo com a edição do coach PENDENTE (cache velho), a gravação por campo não apaga o que o servidor pôs', async () => {
+  const porta = portaEmMemoria(blobV1());
+  const { cache, sync } = aparelho(porta);
+  await sync.iniciar('uid');
+  sync.parar(); // sem ouvir: o cache daqui não fica sabendo do servidor
+  cache.gravarAluno({ ...cache.obter('001'), presencas: ['2026-11-03'], telefone: '1199' });
+  porta.gravarComoServidor('001', { presencas: ['2026-11-04'], presencaHoras: { '2026-11-04': '18:12' } });
+  await sync.enviarAgora();
+  const naNuvem = porta.docs.get('alunos/001');
+  assert.deepEqual(naNuvem.presencas, ['2026-11-03', '2026-11-04'], 'as duas presenças: o conjunto somou');
+  assert.deepEqual(naNuvem.presencaHoras, { '2026-11-04': '18:12' });
+  assert.equal(naNuvem.telefone, '1199');
+});
+
+test('dois aparelhos editando campos diferentes da mesma ficha ao mesmo tempo: os dois ficam', async () => {
+  const porta = portaEmMemoria(blobV1());
+  const pc = aparelho(porta, { nome: 'pc' });
+  await pc.sync.iniciar('uid');
+  pc.sync.parar();
+  const cel = aparelho(porta, { nome: 'cel' });
+  await cel.sync.iniciar('uid');
+  cel.sync.parar();
+  pc.cache.gravarAluno({ ...pc.cache.obter('002'), telefone: 'do pc' });
+  cel.cache.gravarAluno({ ...cel.cache.obter('002'), obs: 'do celular' });
+  await pc.sync.enviarAgora();
+  await cel.sync.enviarAgora();
+  const b = porta.docs.get('alunos/002');
+  assert.equal(b.telefone, 'do pc');
+  assert.equal(b.obs, 'do celular', 'antes, o último a gravar levava a ficha inteira e apagava o outro');
+});
+
+test('ficha apagada em outro aparelho e editada aqui: volta inteira (a edição do coach não se perde)', async () => {
+  const porta = portaEmMemoria(blobV1());
+  const { cache, sync } = aparelho(porta);
+  await sync.iniciar('uid');
+  sync.parar();
+  cache.gravarAluno({ ...cache.obter('002'), telefone: '1' });
+  porta.docs.delete('alunos/002');
+  await sync.enviarAgora();
+  assert.equal(porta.docs.get('alunos/002').telefone, '1');
+  assert.equal(porta.docs.get('alunos/002').nome, 'Bia');
+});
+
+test('a nuvem recusa a gravação: a fila fica e quem avisa o coach é chamado', async () => {
+  const porta = portaEmMemoria(blobV1());
+  const cache = criarCache({ storage: armazenamento() });
+  const rel = relogio();
+  const erros = [];
+  const sync = criarSync({ cache, abrirPorta: async () => porta, relogio: rel, log: () => {}, aoErro: (e) => erros.push(e.code) });
+  await sync.iniciar('uid');
+  porta.gravarLote = async () => { throw Object.assign(new Error('negado'), { code: 'permission-denied' }); };
+  const avisoConsole = console.warn; console.warn = () => {};
+  try {
+    cache.gravarAluno({ ...cache.obter('001'), nome: 'X' });
+    sync.agendarEnvio();
+    await rel.rodar();
+  } finally { console.warn = avisoConsole; }
+  assert.deepEqual(erros, ['permission-denied']);
+  assert.ok('alunos/001' in cache.fila());
+});
