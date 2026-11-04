@@ -98,15 +98,109 @@ async function regras() {
     await assertFails(fs.setDoc(fs.doc(aluno, `gestao/${COACH}/sistema/caixas`), { aplicador: 'gestao' }));
   });
 
+  await env.clearFirestore();
   await env.cleanup();
 }
 
-module.exports = { caso, PROJETO, COACH };
+async function servidor() {
+  console.log('\n2) O servidor aplicando as caixas (lib/caixas-servico.js, Admin SDK)');
+  const { initializeApp } = require('firebase-admin/app');
+  const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+  const { aplicarCaixasDoAluno, aplicarPixDaCobranca, aplicarTudoQueEstiverPendente } = require('./lib/caixas-servico.js');
+  const { regrasDaGestao } = require('./lib/caixas.js');
+  initializeApp({ projectId: PROJETO });
+  const db = getFirestore();
+  // O relógio anda a cada chamada: duas aplicações nunca gerariam o mesmo id de linha por acaso.
+  let relogio = Date.UTC(2026, 10, 4, 21, 15);
+  const deps = { regras: await regrasDaGestao(), agora: () => relogio++, log: { info() {}, warn() {} } };
+  const EMAIL = 'ana@box.com';
+  const ficha = () => db.doc(`gestao/${COACH}/alunos/001`).get().then((s) => s.data());
+  const itemUgym = (id, agora) => ({ [`ugym|${id}`]: { coachUid: COACH, origem: 'ugym', dia: '2026-11-04', hora: '18:10', checkin: { hoje: '2026-11-04', agora }, em: Date.now() } });
+
+  await db.doc(`gestao/${COACH}`).set({ schema: 2, seq: 1 });
+  await db.doc(`gestao/${COACH}/alunos/001`).set({
+    id: '001', nome: 'Ana', email: 'Ana@Box.com', emailNorm: EMAIL, status: 'ativo', telefone: '14999', mensalidade: 130, vencimento: 10,
+    diasTreino: ['seg', 'qua', 'qui'], horarios: { seg: '18:10', qua: '18:10', qui: '19:10' }, presencas: ['2026-11-02'], pagamentos: { '2026-10': true },
+  });
+  await db.doc(`portal/${EMAIL}`).set({ email: EMAIL, presencas: ['2026-11-02'], pagamentos: { '2026-10': true } });
+  await db.doc(`checkinsUgym/${EMAIL}`).set({ itens: itemUgym('r1', '18:12') });
+
+  await caso('interruptor com a Gestão (ou sem documento): o servidor não mexe em nada', async () => {
+    const r = await aplicarCaixasDoAluno(db, COACH, EMAIL, deps);
+    assert.equal(r.aplicou, false);
+    assert.deepEqual((await ficha()).presencas, ['2026-11-02']);
+    assert.ok(Object.keys((await db.doc(`checkinsUgym/${EMAIL}`).get()).data().itens).length === 1, 'o item continua na caixa');
+  });
+
+  await db.doc(`gestao/${COACH}/sistema/caixas`).set({ aplicador: 'servidor' });
+
+  await caso('interruptor no servidor: a presença entra, o item sai, o log e o Portal acompanham', async () => {
+    const r = await aplicarCaixasDoAluno(db, COACH, EMAIL, deps);
+    assert.equal(r.aplicou, true);
+    const f = await ficha();
+    assert.deepEqual(f.presencas, ['2026-11-02', '2026-11-04']);
+    assert.equal(f.presencaHoras['2026-11-04'], '18:12');
+    assert.equal(f.telefone, '14999', 'o resto da ficha fica');
+    assert.ok(f.atualizadoEm && typeof f.atualizadoEm.toMillis === 'function', 'com o carimbo do servidor');
+    assert.deepEqual((await db.doc(`checkinsUgym/${EMAIL}`).get()).data().itens, {});
+    const evs = (await db.collection(`gestao/${COACH}/eventos`).get()).docs.map((d) => d.data());
+    assert.equal(evs.length, 1);
+    assert.equal(evs[0].origem, 'servidor');
+    assert.deepEqual((await db.doc(`portal/${EMAIL}`).get()).data().presencas, ['2026-11-02', '2026-11-04']);
+  });
+
+  await caso('rodar de novo, com a caixa já vazia: nada', async () => {
+    assert.equal((await aplicarCaixasDoAluno(db, COACH, EMAIL, deps)).aplicou, false);
+  });
+
+  await caso('o gatilho e a varredura ao mesmo tempo: aplica uma vez só', async () => {
+    await db.doc(`checkinsLousa/${EMAIL}`).set({ itens: { 'lousa|2026-11-05|19:10': { coachUid: COACH, origem: 'lousa', dia: '2026-11-05', hora: '19:10', checkin: { hoje: '2026-11-05', agora: '19:10' }, em: Date.now() } } });
+    const antes = (await db.collection(`gestao/${COACH}/eventos`).get()).size;
+    await Promise.all([aplicarCaixasDoAluno(db, COACH, EMAIL, deps), aplicarTudoQueEstiverPendente(db, COACH, deps)]);
+    const f = await ficha();
+    assert.deepEqual(f.presencas, ['2026-11-02', '2026-11-04', '2026-11-05']);
+    assert.equal((await db.collection(`gestao/${COACH}/eventos`).get()).size, antes + 1, 'uma linha só nos Registros');
+  });
+
+  await caso('Pix aprovado: a baixa do mês, o rastro, a bandeira desligada e a linha do recibo', async () => {
+    await db.doc(`gestao/${COACH}/cobrancasPix/p1`).set({ paymentId: 'p1', alunoId: '001', mesId: '2026-11', valor: 130, valorPago: 130, status: 'aprovado', soMensalidade: true, avisarGestao: true });
+    const r = await aplicarPixDaCobranca(db, COACH, 'p1', deps);
+    assert.equal(r.aplicou, true);
+    const f = await ficha();
+    assert.deepEqual(f.pagamentos, { '2026-10': true, '2026-11': true });
+    assert.deepEqual(f.pixPagos, { '2026-11': 'p1' });
+    assert.deepEqual(f.presencas, ['2026-11-02', '2026-11-04', '2026-11-05'], 'as presenças não foram tocadas');
+    const c = (await db.doc(`gestao/${COACH}/cobrancasPix/p1`).get()).data();
+    assert.equal(c.avisarGestao, false);
+    assert.ok(c.aplicadaEm > 0);
+    const ev = (await db.doc(`gestao/${COACH}/eventos/pix-p1`).get()).data();
+    assert.equal(ev.tipo, 'pagamento');
+    assert.equal(ev.dados.mesId, '2026-11');
+    assert.deepEqual((await db.doc(`portal/${EMAIL}`).get()).data().pagamentos, { '2026-10': true, '2026-11': true });
+  });
+
+  await caso('caixa de um e-mail sem ficha fica intacta', async () => {
+    await db.doc('checkinsUgym/ninguem@box.com').set({ itens: itemUgym('r7', '18:40') });
+    const r = await aplicarCaixasDoAluno(db, COACH, 'ninguem@box.com', deps);
+    assert.equal(r.aplicou, false);
+    assert.equal(Object.keys((await db.doc('checkinsUgym/ninguem@box.com').get()).data().itens).length, 1);
+  });
+
+  await caso('depois do servidor, a gravação por campo do coach não apaga o que ele pôs', async () => {
+    // A transação da Gestão (db-firestore.js), aqui com o Admin SDK: lê e grava só o telefone.
+    const ref = db.doc(`gestao/${COACH}/alunos/001`);
+    await db.runTransaction(async (tx) => { await tx.get(ref); tx.update(ref, 'telefone', '1199', 'atualizadoEm', FieldValue.serverTimestamp()); });
+    const f = await ficha();
+    assert.equal(f.telefone, '1199');
+    assert.deepEqual(f.pixPagos, { '2026-11': 'p1' });
+    assert.deepEqual(f.presencas, ['2026-11-02', '2026-11-04', '2026-11-05']);
+  });
+}
 
 if (require.main === module) {
   (async () => {
     await regras();
-    if (typeof module.exports.servidor === 'function') await module.exports.servidor();
+    await servidor();
     if (falhas) { console.error(`\n${falhas} caso(s) falharam.`); process.exit(1); }
     console.log('\nTudo certo.');
     process.exit(0);
