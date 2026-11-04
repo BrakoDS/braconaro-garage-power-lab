@@ -59,7 +59,9 @@ async function regras() {
       tx.update(r, new fs.FieldPath('telefone'), '1199', new fs.FieldPath('pagamentos', '2026-11'), true,
         new fs.FieldPath('atualizadoEm'), fs.serverTimestamp());
     }));
-    const d = (await env.withSecurityRulesDisabled(async (ctx) => (await fs.getDoc(fs.doc(ctx.firestore(), ficha))).data()));
+    // withSecurityRulesDisabled não devolve o que a função devolve: a leitura sai por fora.
+    let d;
+    await env.withSecurityRulesDisabled(async (ctx) => { d = (await fs.getDoc(fs.doc(ctx.firestore(), ficha))).data(); });
     assert.deepEqual(d.pagamentos, { '2026-10': true, '2026-11': true }, 'o mês com hífen virou chave do mapa, não caminho');
   });
 
