@@ -15,6 +15,7 @@
     "checar:emulador": "firebase emulators:exec --only firestore --project fake \"node testes-emulador.cjs\"",
     "checar:conquistas": "tsc && node lib/checar-conquistas.js",
     "checar:emulador:conquistas": "npm run build && firebase emulators:exec --only functions,firestore --project demo-garage \"node testes-conquistas-emulador.cjs\"",
+    "checar:emulador:caixas": "npm run build && firebase emulators:exec --only firestore --project demo-garage \"node testes-caixas-emulador.cjs\"",
     "checar:box": "tsc && node lib/checar-box.js",
     "checar:catalogo": "tsc && node lib/checar-catalogo.js",
     "checar:hiit": "tsc && node lib/checar-hiit.js",
@@ -30,6 +31,8 @@
     "firebase-functions": "^6.3.2"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "4.0.1",
+    "firebase": "11.10.0",
     "typescript": "^5.7.3"
   }
 }

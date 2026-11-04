@@ -59,8 +59,37 @@ jobs:
         working-directory: functions
         run: npm run checar
 
+  # O que só um Firestore de verdade prova: a regra da ficha (o carimbo do
+  # servidor), o curinga das regras e o servidor aplicando as caixas numa
+  # transação. O emulador precisa de Java — o executor do GitHub tem; a máquina
+  # do box, não. Fase 1 · etapa 1.
+  emulador:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Instalar
+        working-directory: functions
+        run: npm ci && npm install -g firebase-tools@14.27.0
+
+      - name: Regras da ficha e caixas contra o emulador do Firestore
+        working-directory: functions
+        run: npm run checar:emulador:caixas
+
   deploy:
-    needs: [testes, functions]
+    needs: [testes, functions, emulador]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:

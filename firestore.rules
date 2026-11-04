@@ -108,12 +108,34 @@ service cloud.firestore {
           || resource.data.get('schema', 0) != 2
           || (request.resource.data.get('schema', 0) == 2 && !('alunos' in request.resource.data)));
 
-      // Tudo que mora embaixo: as subcoleções da v2 e o log da tela Registros
-      // (eventos.js). O log é subcoleção, e não campo do doc acima, pelo mesmo
-      // motivo da migração: o documento raiz tem teto de 1 MB. Mesmo dono,
-      // mesmo acesso — só o próprio coach lê e escreve.
-      match /{sub=**} {
-        allow read, write: if ehCoachDono(uid);
+      // A FICHA (alunos/{alunoId}): toda gravação leva o carimbo do servidor
+      // (`atualizadoEm: serverTimestamp()`), que só uma gravação feita AGORA
+      // tem. A Gestão grava por campo, numa transação, com o carimbo
+      // (db-firestore.js). Uma aba antiga (v29) regravava a ficha inteira e
+      // apagaria o que o servidor aplicou nela (Pix, check-in) — sem o carimbo,
+      // ela é recusada. O servidor (Admin SDK) não passa por aqui.
+      match /alunos/{alunoId} {
+        allow read, delete: if ehCoachDono(uid);
+        allow create, update: if ehCoachDono(uid) && request.resource.data.atualizadoEm == request.time;
+        // Avaliações e feedbacks da ficha, um nível abaixo dela.
+        match /{filho}/{filhoId} {
+          allow read, write: if ehCoachDono(uid);
+        }
+      }
+
+      // O resto que mora embaixo: o log da tela Registros (eventos.js), a Fila
+      // de mensagens (automacao), o backup, o livro do Pix (cobrancasPix) e o
+      // interruptor das caixas (sistema/caixas). O log é subcoleção, e não campo
+      // do doc acima, pelo mesmo motivo da migração: o documento raiz tem teto
+      // de 1 MB. Só o próprio coach lê e escreve.
+      //
+      // Não é `{sub=**}`: o curinga recursivo casa também com as fichas (e,
+      // com zero segmentos, com o próprio gestao/{uid}), e a porta dele
+      // valeria por cima da trava do carimbo e da do schema 2. `{colecao}`
+      // exige um segmento, e a coleção das fichas fica de fora da escrita.
+      match /{colecao}/{resto=**} {
+        allow read: if ehCoachDono(uid);
+        allow write: if ehCoachDono(uid) && colecao != 'alunos';
       }
     }
 
