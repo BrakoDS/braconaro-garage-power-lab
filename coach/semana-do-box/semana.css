@@ -322,3 +322,94 @@
   .cat-grade { grid-template-columns: 1fr; }
   .cat-acoes .btn { flex: 1 1 auto; }
 }
+
+/* ============ QUADRO (o coach escreve, o sistema confere) ============ */
+.qs-barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+.qs-salvo { margin-left: auto; font-size: 13px; }
+.qs-salvo.ok { color: var(--ok); }
+.qs-salvo.erro { color: var(--bad); }
+.qs .intro { margin: 0 0 14px; }
+.qs-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 18px; align-items: start; }
+.qs-lista { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.qs-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
+.qs-cab { margin-bottom: 10px; font-size: 15px; }
+.qs-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.qs-coluna { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.qs-rotulo { font-size: 14px; }
+/* O quadro branco do box: fundo branco, caneta preta. */
+.qs-texto {
+  width: 100%; box-sizing: border-box; min-height: 230px; resize: vertical;
+  background: var(--quadro, #fff); color: var(--pen-preto, #1a1a1a);
+  border: 2px solid #d9d9de; border-radius: 10px; padding: 12px 14px;
+  font: 600 16px/1.5 'Barlow Condensed', 'Barlow', system-ui, sans-serif; letter-spacing: .01em;
+}
+.qs-texto:focus { outline: 2px solid var(--acc); outline-offset: 1px; }
+.qs-texto::placeholder { color: #a5a5ad; font-weight: 500; }
+.qs-leitura { font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.qs-dica { margin: 2px 0; }
+.ql-resumo { color: var(--mut); margin-bottom: 2px; }
+.ql-resumo .ok { color: var(--ok); }
+.ql-resumo .warn { color: var(--warn); }
+.ql-secao { margin-top: 6px; color: var(--txt); }
+.ql-secao b { display: inline-block; min-width: 18px; color: var(--acc); }
+.ql-item { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding-left: 18px; }
+.ql-sem-conta { opacity: .7; }
+.ql-chip { border-radius: 999px; padding: 2px 9px; font: inherit; border: 1px solid var(--line2); background: var(--card2); color: var(--txt); }
+button.ql-chip { cursor: pointer; }
+.ql-chip.ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.ql-chip.duvida { border-color: var(--warn); color: var(--warn); background: transparent; }
+.ql-chip.fora { color: var(--mut); border-style: dashed; }
+.ql-sug { font: inherit; font-size: 12px; cursor: pointer; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--acc); color: var(--acc); background: transparent; }
+.ql-sug:hover { background: rgba(255,199,0,.1); }
+.ql-sug.fora { border-color: var(--line2); color: var(--mut); }
+.ql-outro { font: inherit; font-size: 12px; width: 140px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line2); background: var(--bg2); color: var(--txt); }
+.ql-aviso { flex-basis: 100%; font-size: 12px; padding: 2px 0 2px 8px; border-left: 2px solid var(--line2); color: var(--mut); }
+.ql-aviso.ql-erro { border-color: var(--bad); color: var(--bad); }
+.ql-aviso.ql-falta { border-color: var(--warn); color: var(--warn); }
+.ql-aviso.ql-repete { border-color: var(--acc); color: var(--acc2); }
+.qs-extra-campos { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
+.qs-extra-campos select { margin-left: 6px; background: var(--bg2); color: var(--txt); border: 1px solid var(--line2); border-radius: 8px; padding: 6px 8px; font: inherit; }
+.qs-extra .qs-coluna { max-width: 560px; }
+
+.qs-conferencia { position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; font-size: 13px; }
+.qc-contadores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+.qc-n { display: flex; flex-direction: column; align-items: center; text-align: center; font: 700 20px/1.1 'Barlow Condensed', system-ui, sans-serif;
+  padding: 6px 4px; border-radius: 10px; background: var(--card2); }
+.qc-n small { font: 500 11px/1.2 'Barlow', system-ui, sans-serif; color: var(--mut); }
+.qc-n.zero { opacity: .45; }
+.qc-n.qc-erro:not(.zero) { color: var(--bad); }
+.qc-n.qc-falta:not(.zero) { color: var(--warn); }
+.qc-n.qc-repete:not(.zero), .qc-n.qc-duvida:not(.zero) { color: var(--acc); }
+.qc-grupo { margin: 0 0 8px; }
+.qc-grupo summary { cursor: pointer; font-weight: 600; }
+.qc-grupo.qc-erro summary { color: var(--bad); }
+.qc-grupo.qc-falta summary { color: var(--warn); }
+.qc-grupo ul { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
+.qc-ir { font: inherit; font-size: 11px; cursor: pointer; border: 0; background: var(--card2); color: var(--mut); border-radius: 6px; padding: 1px 6px; }
+.qc-ir:hover { color: var(--txt); }
+.qc-tudo-certo { margin: 4px 0 10px; }
+.qc-tabela { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+.qc-tabela caption { text-align: left; font-weight: 600; font-size: 13px; padding-bottom: 6px; }
+.qc-tabela th, .qc-tabela td { border-top: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: top; }
+.qc-tabela thead th { color: var(--mut); font-weight: 600; }
+.qc-tabela tbody th { color: var(--mut); font-weight: 500; white-space: nowrap; }
+.qc-tabela td.falta { color: var(--warn); }
+.qc-tabela td.warn, .qc-tabela .warn { color: var(--warn); }
+.qc-tabela .ok { color: var(--ok); }
+.qc-tabela .bad { color: var(--bad); }
+.qc-volume td { text-align: right; font-variant-numeric: tabular-nums; }
+.qc-volume td.zero { color: var(--mut2); }
+.qc-volume-sec h3 { font-size: 14px; margin: 14px 0 6px; }
+.qc-caminhos { display: flex; flex-wrap: wrap; gap: 4px; }
+.qc-caminho { font: inherit; font-size: 12px; cursor: pointer; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--line2); background: transparent; color: var(--mut); }
+.qc-caminho.ativo { border-color: var(--acc); color: var(--acc); }
+
+@media (max-width: 1100px) {
+  .qs-layout { grid-template-columns: 1fr; }
+  .qs-conferencia { position: static; max-height: none; }
+}
+@media (max-width: 700px) {
+  .qs-colunas { grid-template-columns: 1fr; }
+  .qc-contadores { grid-template-columns: repeat(2, 1fr); }
+}

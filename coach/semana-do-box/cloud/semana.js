@@ -227,3 +227,43 @@ export async function lerSemanas(uid, chaves) {
   docs.forEach((d, i) => { porChave[chaves[i]] = d.exists() ? d.data() : null; });
   return porChave;
 }
+
+/* ───────────── Quadro da Semana (o coach escreve, o sistema confere) ───────────── */
+
+/**
+ * O quadro escrito da semana (`coaches/{uid}/quadros/{AAAA-Www}`), ou `null`.
+ * O navegador grava direto (as regras deixam o coach escrever em qualquer
+ * subcoleção dele, menos `semanas` e `inventario`): é só o texto do coach — a
+ * conferência é refeita na tela a cada leitura, e nada aqui chega ao aluno.
+ * @param {string} uid @param {string} semanaId
+ */
+export async function lerQuadro(uid, semanaId) {
+  const { db, fs } = await firestore();
+  const snap = await fs.getDoc(fs.doc(db, `coaches/${uid}/quadros/${semanaId}`));
+  return snap.exists() ? snap.data() : null;
+}
+
+/**
+ * Grava o texto dos 3 quadros e o extra (GAP/Murph) da semana.
+ * @param {string} uid @param {string} semanaId
+ * @param {{quadros: Record<string, {h: string, metabolico: string}>, extra: {tipo: string|null, dia: string, texto: string}}} dados
+ */
+export async function salvarQuadro(uid, semanaId, dados) {
+  const { db, fs } = await firestore();
+  await fs.setDoc(fs.doc(db, `coaches/${uid}/quadros/${semanaId}`), {
+    semanaId, versao: 1, quadros: dados.quadros, extra: dados.extra, atualizadoEm: fs.serverTimestamp(),
+  });
+}
+
+/** Os nomes que o coach já confirmou ("desenv halter" → desenvolvimento_halter; "-" = fora do catálogo). @param {string} uid */
+export async function lerApelidos(uid) {
+  const { db, fs } = await firestore();
+  const snap = await fs.getDoc(fs.doc(db, `coaches/${uid}/quadroApelidos/atual`));
+  return /** @type {Record<string, string>} */ (snap.exists() ? snap.data()?.apelidos ?? {} : {});
+}
+
+/** @param {string} uid @param {Record<string, string>} apelidos */
+export async function salvarApelidos(uid, apelidos) {
+  const { db, fs } = await firestore();
+  await fs.setDoc(fs.doc(db, `coaches/${uid}/quadroApelidos/atual`), { apelidos, atualizadoEm: fs.serverTimestamp() });
+}

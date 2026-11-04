@@ -6,7 +6,7 @@
   <title>Semana do Box — Garage Power Lab</title>
   <!-- A moldura (cores, login, barra, botões) é a do Montador Híbrido; semana.css só acrescenta a grade. -->
   <link rel="stylesheet" href="../montador-hibrido/app.css?v=1" />
-  <link rel="stylesheet" href="./semana.css?v=12" />
+  <link rel="stylesheet" href="./semana.css?v=13" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0A0A0A" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -28,6 +28,7 @@
     <div class="brand"><b>GARAGE POWER LAB</b> · Semana do Box</div>
     <nav class="tabs" aria-label="Seções">
       <button class="tab active" data-vista="semanas" type="button">Semanas</button>
+      <button class="tab" data-vista="quadro" type="button">Quadro</button>
       <button class="tab" data-vista="inventario" type="button">Inventário</button>
       <button class="tab" data-vista="catalogo" type="button">Catálogo</button>
     </nav>
@@ -55,6 +56,12 @@
     <section id="semana-detalhe" class="semana-detalhe"></section>
     </section>
 
+    <!-- ============ QUADRO (o coach escreve, o sistema confere) ============ -->
+    <section class="view" id="view-quadro">
+      <p id="quadro-status" class="semana-status" role="status" aria-live="polite"></p>
+      <div id="quadro-corpo" class="qs"></div>
+    </section>
+
     <!-- ============ INVENTÁRIO ============ -->
     <section class="view" id="view-inventario">
       <p id="inventario-status" class="semana-status" role="status" aria-live="polite"></p>
@@ -68,6 +75,6 @@
     </section>
   </main>
 
-  <script type="module" src="./ui/gate.js?v=12"></script>
+  <script type="module" src="./ui/gate.js?v=13"></script>
 </body>
 </html>
