@@ -20,6 +20,7 @@
         "colchonete"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -53,6 +54,7 @@
         "colchonete"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -84,6 +86,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -125,6 +128,7 @@
         "colchonete"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -158,6 +162,7 @@
         "colchonete"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -186,6 +191,7 @@
         "halteres"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -232,6 +238,7 @@
         "kettlebell"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -256,6 +263,7 @@
         "trx"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -292,6 +300,7 @@
         "peso_corporal"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -319,6 +328,7 @@
         "halteres"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -362,6 +372,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -400,6 +411,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -456,6 +468,7 @@
         "kettlebell"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -487,6 +500,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -515,6 +529,7 @@
         "smith"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -569,6 +584,7 @@
         "trx"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -608,6 +624,7 @@
         "air_bike"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -640,6 +657,7 @@
         "corda_naval"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -676,6 +694,7 @@
         "caixote"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -710,6 +729,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -735,6 +755,7 @@
         "extensora"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -778,6 +799,7 @@
         "sandbag"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -805,6 +827,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -842,6 +865,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -869,6 +893,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -894,6 +919,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "ombro",
@@ -928,6 +954,7 @@
         "banco"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "ombro",
@@ -966,6 +993,7 @@
         "smith"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -1017,6 +1045,7 @@
         "kettlebell"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1042,6 +1071,7 @@
         "halteres"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "ombro",
@@ -1073,6 +1103,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1101,6 +1132,7 @@
         "halteres"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -1133,6 +1165,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1162,6 +1195,7 @@
         "trx"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -1206,6 +1240,7 @@
         "kettlebell"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1239,6 +1274,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1276,6 +1312,7 @@
         "trx"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1307,6 +1344,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1335,6 +1373,7 @@
         "barra"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -1383,6 +1422,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1419,6 +1459,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1451,6 +1492,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1487,6 +1529,7 @@
         "kettlebell"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1517,6 +1560,7 @@
         "barra"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -1563,6 +1607,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -1602,6 +1647,7 @@
         "halteres"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -1641,6 +1687,7 @@
         "smith"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -1672,6 +1719,7 @@
         "flexora"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -1710,6 +1758,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1735,6 +1784,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1768,6 +1818,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1794,6 +1845,7 @@
         "colchonete"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1831,6 +1883,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1856,6 +1909,7 @@
         "colchonete"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1879,6 +1933,7 @@
         "colchonete"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1910,6 +1965,7 @@
         "corda_pular"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1945,6 +2001,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1972,6 +2029,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -1999,6 +2057,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "ombro",
@@ -2035,6 +2094,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "ombro",
@@ -2068,6 +2128,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2096,6 +2157,7 @@
         "monocross"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2125,6 +2187,7 @@
         "barra"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -2160,6 +2223,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -2195,6 +2259,7 @@
         "barra"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -2233,6 +2298,7 @@
         "trx"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2262,6 +2328,7 @@
         "banco"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2297,6 +2364,7 @@
         "kettlebell"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2334,6 +2402,7 @@
         "colchonete"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "lombar",
@@ -2371,6 +2440,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2397,6 +2467,7 @@
         "peso_corporal"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2433,6 +2504,7 @@
         "caixote"
       ],
       "unilateral": true,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -2475,6 +2547,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2509,6 +2582,7 @@
         "kettlebell"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2538,6 +2612,7 @@
         "banco"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "ombro",
@@ -2573,6 +2648,7 @@
         "banco"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "ombro",
@@ -2608,6 +2684,7 @@
         "banco"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "ombro",
@@ -2650,6 +2727,7 @@
         "anilhas"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2686,6 +2764,7 @@
         "halteres"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2713,6 +2792,7 @@
         "wall_ball"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     },
@@ -2740,6 +2820,7 @@
         "smith"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [
         {
           "adaptacao": "joelho",
@@ -2781,6 +2862,7 @@
         "wall_ball"
       ],
       "unilateral": false,
+      "acessorio": false,
       "adaptacoes": [],
       "original": null
     }
@@ -2802,6 +2884,27 @@
         "ombro",
         "gluteo"
       ],
+      "tipo": "reps",
+      "modelos": {
+        "cardio": {
+          "iniciante": 30,
+          "intermediario": 40,
+          "avancado": 50,
+          "competicao": 60
+        },
+        "strength": {
+          "iniciante": 45,
+          "intermediario": 60,
+          "avancado": 75,
+          "competicao": 100
+        },
+        "dupla": {
+          "iniciante": 60,
+          "intermediario": 80,
+          "avancado": 100,
+          "competicao": 100
+        }
+      },
       "substituta": {
         "nome": "Battle rope (corda naval)",
         "musculoPrincipal": [
@@ -2810,7 +2913,28 @@
         ],
         "musculosSecundarios": [
           "antebraco"
-        ]
+        ],
+        "tipo": "segundos",
+        "modelos": {
+          "cardio": {
+            "iniciante": 45,
+            "intermediario": 60,
+            "avancado": 75,
+            "competicao": 150
+          },
+          "strength": {
+            "iniciante": 45,
+            "intermediario": 60,
+            "avancado": 75,
+            "competicao": 150
+          },
+          "dupla": {
+            "iniciante": 45,
+            "intermediario": 60,
+            "avancado": 75,
+            "competicao": 150
+          }
+        }
       }
     },
     {
@@ -2830,6 +2954,27 @@
         "triceps",
         "core"
       ],
+      "tipo": "metros",
+      "modelos": {
+        "cardio": {
+          "iniciante": 12.5,
+          "intermediario": 25,
+          "avancado": 25,
+          "competicao": 37.5
+        },
+        "strength": {
+          "iniciante": 25,
+          "intermediario": 50,
+          "avancado": 50,
+          "competicao": 50
+        },
+        "dupla": {
+          "iniciante": 25,
+          "intermediario": 50,
+          "avancado": 50,
+          "competicao": 50
+        }
+      },
       "substituta": {
         "nome": "Plate push (anilha no turf)",
         "musculoPrincipal": [
@@ -2841,7 +2986,28 @@
           "ombro",
           "triceps",
           "core"
-        ]
+        ],
+        "tipo": "metros",
+        "modelos": {
+          "cardio": {
+            "iniciante": 12.5,
+            "intermediario": 25,
+            "avancado": 25,
+            "competicao": 37.5
+          },
+          "strength": {
+            "iniciante": 25,
+            "intermediario": 50,
+            "avancado": 50,
+            "competicao": 50
+          },
+          "dupla": {
+            "iniciante": 25,
+            "intermediario": 50,
+            "avancado": 50,
+            "competicao": 50
+          }
+        }
       }
     },
     {
@@ -2862,6 +3028,27 @@
         "gluteo",
         "core"
       ],
+      "tipo": "metros",
+      "modelos": {
+        "cardio": {
+          "iniciante": 12.5,
+          "intermediario": 25,
+          "avancado": 25,
+          "competicao": 37.5
+        },
+        "strength": {
+          "iniciante": 25,
+          "intermediario": 50,
+          "avancado": 50,
+          "competicao": 50
+        },
+        "dupla": {
+          "iniciante": 25,
+          "intermediario": 50,
+          "avancado": 50,
+          "competicao": 50
+        }
+      },
       "substituta": {
         "nome": "Remada no TRX",
         "musculoPrincipal": [
@@ -2870,7 +3057,28 @@
         "musculosSecundarios": [
           "biceps",
           "core"
-        ]
+        ],
+        "tipo": "reps",
+        "modelos": {
+          "cardio": {
+            "iniciante": 15,
+            "intermediario": 20,
+            "avancado": 25,
+            "competicao": 50
+          },
+          "strength": {
+            "iniciante": 15,
+            "intermediario": 20,
+            "avancado": 25,
+            "competicao": 50
+          },
+          "dupla": {
+            "iniciante": 15,
+            "intermediario": 20,
+            "avancado": 25,
+            "competicao": 50
+          }
+        }
       }
     },
     {
@@ -2889,6 +3097,27 @@
         "core",
         "panturrilha"
       ],
+      "tipo": "metros",
+      "modelos": {
+        "cardio": {
+          "iniciante": 20,
+          "intermediario": 30,
+          "avancado": 40,
+          "competicao": 50
+        },
+        "strength": {
+          "iniciante": 40,
+          "intermediario": 60,
+          "avancado": 80,
+          "competicao": 80
+        },
+        "dupla": {
+          "iniciante": 40,
+          "intermediario": 60,
+          "avancado": 80,
+          "competicao": 80
+        }
+      },
       "substituta": null
     },
     {
@@ -2908,6 +3137,27 @@
         "biceps",
         "core"
       ],
+      "tipo": "metros",
+      "modelos": {
+        "cardio": {
+          "iniciante": 300,
+          "intermediario": 400,
+          "avancado": 500,
+          "competicao": 600
+        },
+        "strength": {
+          "iniciante": 450,
+          "intermediario": 600,
+          "avancado": 750,
+          "competicao": 1000
+        },
+        "dupla": {
+          "iniciante": 600,
+          "intermediario": 800,
+          "avancado": 1000,
+          "competicao": 1000
+        }
+      },
       "substituta": null
     },
     {
@@ -2922,6 +3172,27 @@
       "musculosSecundarios": [
         "core"
       ],
+      "tipo": "metros",
+      "modelos": {
+        "cardio": {
+          "iniciante": 62.5,
+          "intermediario": 75,
+          "avancado": 100,
+          "competicao": 125
+        },
+        "strength": {
+          "iniciante": 100,
+          "intermediario": 150,
+          "avancado": 200,
+          "competicao": 200
+        },
+        "dupla": {
+          "iniciante": 100,
+          "intermediario": 150,
+          "avancado": 200,
+          "competicao": 200
+        }
+      },
       "substituta": {
         "nome": "Farmer’s carry com kettlebells",
         "musculoPrincipal": [
@@ -2930,7 +3201,28 @@
         ],
         "musculosSecundarios": [
           "core"
-        ]
+        ],
+        "tipo": "metros",
+        "modelos": {
+          "cardio": {
+            "iniciante": 62.5,
+            "intermediario": 75,
+            "avancado": 100,
+            "competicao": 125
+          },
+          "strength": {
+            "iniciante": 100,
+            "intermediario": 150,
+            "avancado": 200,
+            "competicao": 200
+          },
+          "dupla": {
+            "iniciante": 100,
+            "intermediario": 150,
+            "avancado": 200,
+            "competicao": 200
+          }
+        }
       }
     },
     {
@@ -2949,6 +3241,27 @@
         "core",
         "trapezio"
       ],
+      "tipo": "metros",
+      "modelos": {
+        "cardio": {
+          "iniciante": 25,
+          "intermediario": 37.5,
+          "avancado": 50,
+          "competicao": 62.5
+        },
+        "strength": {
+          "iniciante": 50,
+          "intermediario": 75,
+          "avancado": 100,
+          "competicao": 100
+        },
+        "dupla": {
+          "iniciante": 50,
+          "intermediario": 75,
+          "avancado": 100,
+          "competicao": 100
+        }
+      },
       "substituta": {
         "nome": "Afundo andando com kettlebell (goblet)",
         "musculoPrincipal": [
@@ -2957,7 +3270,28 @@
         ],
         "musculosSecundarios": [
           "core"
-        ]
+        ],
+        "tipo": "metros",
+        "modelos": {
+          "cardio": {
+            "iniciante": 25,
+            "intermediario": 37.5,
+            "avancado": 50,
+            "competicao": 62.5
+          },
+          "strength": {
+            "iniciante": 50,
+            "intermediario": 75,
+            "avancado": 100,
+            "competicao": 100
+          },
+          "dupla": {
+            "iniciante": 50,
+            "intermediario": 75,
+            "avancado": 100,
+            "competicao": 100
+          }
+        }
       }
     },
     {
@@ -2974,6 +3308,27 @@
       "musculosSecundarios": [
         "gluteo"
       ],
+      "tipo": "reps",
+      "modelos": {
+        "cardio": {
+          "iniciante": 30,
+          "intermediario": 40,
+          "avancado": 50,
+          "competicao": 60
+        },
+        "strength": {
+          "iniciante": 50,
+          "intermediario": 75,
+          "avancado": 100,
+          "competicao": 100
+        },
+        "dupla": {
+          "iniciante": 50,
+          "intermediario": 75,
+          "avancado": 100,
+          "competicao": 100
+        }
+      },
       "substituta": {
         "nome": "Thruster com halteres",
         "musculoPrincipal": [
@@ -2983,10 +3338,51 @@
         "musculosSecundarios": [
           "gluteo",
           "triceps"
-        ]
+        ],
+        "tipo": "reps",
+        "modelos": {
+          "cardio": {
+            "iniciante": 30,
+            "intermediario": 40,
+            "avancado": 50,
+            "competicao": 60
+          },
+          "strength": {
+            "iniciante": 50,
+            "intermediario": 75,
+            "avancado": 100,
+            "competicao": 100
+          },
+          "dupla": {
+            "iniciante": 50,
+            "intermediario": 75,
+            "avancado": 100,
+            "competicao": 100
+          }
+        }
       }
     }
   ],
+  "corridaHyrox": {
+    "cardio": {
+      "iniciante": 300,
+      "intermediario": 400,
+      "avancado": 500,
+      "competicao": 600
+    },
+    "strength": {
+      "iniciante": 200,
+      "intermediario": 300,
+      "avancado": 300,
+      "competicao": 400
+    },
+    "dupla": {
+      "iniciante": 200,
+      "intermediario": 300,
+      "avancado": 500,
+      "competicao": 400
+    }
+  },
   "vocabulario": {
     "musculos": [
       "peito",

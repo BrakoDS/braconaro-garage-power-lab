@@ -253,8 +253,10 @@ export function lerItemCatalogo(doc: unknown): ItemCatalogo | null {
     ...(cross ? { cross } : {}),
   };
   if (em(INSTANCIAS, d.instancia)) return { ...base, instancia: d.instancia };
-  // Sem instância só vale se for de HIIT ou de Cross: senão o exercício não serve a nada.
-  return (d.instancia === null || d.instancia === undefined) && (hiit || cross) ? { ...base, instancia: null } : null;
+  if (d.instancia !== null && d.instancia !== undefined) return null;
+  // Sem instância vale se for de HIIT ou de Cross, ou um acessório (só o Quadro da Semana usa).
+  if (hiit || cross) return { ...base, instancia: null };
+  return d.acessorio === true ? { ...base, instancia: null, acessorio: true } : null;
 }
 
 function lerDadosCross(v: unknown): DadosCross | null {
@@ -439,7 +441,8 @@ export function lerDias(
       const item = catalogo.get(id);
       if (!item) return { erro: `${dia}, exercício ${i + 1}: "${id || '(vazio)'}" não está no catálogo.` };
       if (item.instancia === null) {
-        return { erro: `${dia}: ${item.nome} é só de ${item.hiit ? 'HIIT' : 'Cross'} e não entra no bloco de força.` };
+        const de = item.hiit ? 'de HIIT' : item.cross ? 'de Cross' : 'acessório (sem vaga no H)';
+        return { erro: `${dia}: ${item.nome} é só ${de} e não entra no bloco de força.` };
       }
       if (bloco.some((b) => b.exercicioId === id)) return { erro: `${dia}: ${item.nome} aparece duas vezes no bloco.` };
       const series = inteiro(x.series, 1, 10);

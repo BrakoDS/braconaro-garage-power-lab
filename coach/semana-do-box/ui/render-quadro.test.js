@@ -46,3 +46,24 @@ test('conferência: contadores, avisos com o lugar, os 7 padrões e o equipament
   assert.equal(rotuloDeOnde('q2.m', conf), 'Quadro 2 · Hyrox');
   assert.match(renderConferencia(conf, { caminho: 'alterna' }), /qc-caminho ativo" data-caminho="alterna"/);
 });
+
+test('leitura: quantidade do WOD ao lado do exercício; Hyrox com a tabela do nível; HIIT com as vagas; "+ Cadastrar"', () => {
+  const t = vazios();
+  t.quadros.q1.metabolico = 'D) AMRAP 12 min\n12x Burpee\n200m corrida\n1m air bike\nRemada bailarina';
+  t.quadros.q2.metabolico = 'Sled Push\nWall ball 80';
+  t.quadros.q3.metabolico = 'Pernas\nAfundo com kettlebell\nKettlebell swing';
+  const conf = conferirSemana({ ...t, catalogo: CATALOGO, apelidos: { 'remada bailarina': '-' } });
+  const cross = renderLeitura('q1.m', conf);
+  assert.match(cross, /Burpee<\/button> <span class="mut ql-qtd">12×</);
+  assert.match(cross, /ql-qtd">200 m</);
+  assert.match(cross, /ql-qtd">1 min</);
+  assert.match(cross, /data-cadastrar="remada bailarina" data-nome="Remada bailarina"/);
+  const hyrox = renderLeitura('q2.m', conf, { nivelHyrox: 'intermediario' });
+  assert.match(hyrox, /<select data-nivel-hyrox[^>]*>.*<option value="intermediario" selected>Fit</s);
+  assert.match(hyrox, /Corrida antes de cada estação: Cardio 400 m · Strength 300 m · Dupla 300 m/);
+  assert.match(hyrox, /Sled Push \(empurrar trenó\)<\/button> <span class="mut ql-qtd">Cardio 25 m · Strength 50 m · Dupla 50 m</);
+  assert.match(hyrox, /ql-qtd">80× \(escrito\)</, 'o que o coach escreve vale no lugar da tabela');
+  const hiit = renderLeitura('q3.m', conf);
+  assert.match(hiit, /Estação Pernas · 2 músicas de Tabata, 4× cada exercício <span class="warn">3\/4 vagas</);
+  assert.match(hiit, /unilateral: 2 vagas \(D e E\)/);
+});

@@ -12,11 +12,17 @@ import { chaveSemana } from '../../montador-hibrido/core/periodos.js';
 import { conferirSemana, QUADROS } from '../core/quadro.js';
 import { segundaDaChave } from '../core/vista.js';
 import { lerApelidos, lerInventario, lerQuadro, listarCatalogo, salvarApelidos, salvarQuadro } from '../cloud/semana.js';
+import { cadastrarExercicio } from './catalogo.js';
 import { renderConferencia, renderLeitura, renderQuadroBase } from './render-quadro.js';
 
 const $ = (/** @type {string} */ s) => /** @type {any} */ (document.querySelector(s));
 const hoje = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 const ESPERA_GRAVAR_MS = 1500;
+const CHAVE_NIVEL = 'semana-box:quadro-nivel-hyrox';
+/** O nível do Hyrox que a tabela mostra fica no navegador (conveniência; sem ele, Fit). */
+function nivelSalvo() {
+  try { return localStorage.getItem(CHAVE_NIVEL) || 'intermediario'; } catch { return 'intermediario'; }
+}
 
 /** A semana `delta` semanas depois de `chave`. @param {string} chave @param {number} delta */
 function outraSemana(chave, delta) {
@@ -64,8 +70,9 @@ export function montar(ctx) {
   const estado = {
     carregado: false,
     semanaId: chaveSemana(hoje()),
-    /** @type {{exercicios: any[], hyrox: any[]} | null} */
+    /** @type {{exercicios: any[], hyrox: any[], vocabulario: any} | null} */
     catalogo: null,
+    nivelHyrox: nivelSalvo(),
     inventario: /** @type {any} */ (null),
     /** @type {Record<string, string>} */
     apelidos: {},
@@ -74,6 +81,7 @@ export function montar(ctx) {
     /** @type {ReturnType<typeof conferirSemana> | null} */
     conf: null,
     caminho: 'aulas',
+    cadastrando: false,
     /** @type {ReturnType<typeof setTimeout> | null} */
     timer: null,
     sujo: false,
@@ -89,7 +97,7 @@ export function montar(ctx) {
     });
     for (const onde of Object.keys(estado.conf.colunas)) {
       const el = document.getElementById(`leitura-${onde.replace('.', '-')}`);
-      if (el) el.innerHTML = renderLeitura(onde, estado.conf);
+      if (el) el.innerHTML = renderLeitura(onde, estado.conf, { nivelHyrox: estado.nivelHyrox });
     }
     const painel = $('#quadro-conferencia');
     if (painel) {
@@ -183,6 +191,25 @@ export function montar(ctx) {
     }
   }
 
+  /** "+ Cadastrar": o formulário do Catálogo com o nome escrito; criado, o nome passa a apontar para ele. @param {string} k @param {string} nome */
+  async function cadastrar(k, nome) {
+    if (!estado.catalogo) return;
+    await gravar();
+    estado.cadastrando = true;
+    const r = await cadastrarExercicio({ nome, dados: estado.catalogo, status: ctx.status }).finally(() => { estado.cadastrando = false; });
+    if (!r) return;
+    try {
+      estado.catalogo = await listarCatalogo();
+    } catch (e) {
+      console.error(e);
+      ctx.status(`${r.nome} foi criado, mas não deu para reler o catálogo. Recarregue a página.`, 'erro');
+      return;
+    }
+    await confirmarNome(k, r.id);
+    desenhar();
+    ctx.status(`${r.nome} criado no catálogo: já conta no quadro.`, 'ok');
+  }
+
   alvo.addEventListener('input', (/** @type {Event} */ ev) => {
     const t = /** @type {HTMLTextAreaElement} */ (ev.target);
     const col = t.getAttribute?.('data-col');
@@ -211,6 +238,12 @@ export function montar(ctx) {
       agendar();
       return;
     }
+    if (t.hasAttribute?.('data-nivel-hyrox')) {
+      estado.nivelHyrox = t.value;
+      try { localStorage.setItem(CHAVE_NIVEL, t.value); } catch { /* sem armazenamento: só não lembra */ }
+      conferir();
+      return;
+    }
     const k = t.getAttribute?.('data-apelido-input');
     if (k) {
       const nome = t.value.trim();
@@ -232,6 +265,8 @@ export function montar(ctx) {
     }
     const k = b.getAttribute('data-apelido');
     if (k) { confirmarNome(k, b.getAttribute('data-id') || '-'); return; }
+    const novo = b.getAttribute('data-cadastrar');
+    if (novo) { cadastrar(novo, b.getAttribute('data-nome') || ''); return; }
     const trocar = b.getAttribute('data-trocar');
     if (trocar) {
       // Volta a perguntar (só nesta tela, até o coach escolher): útil quando a leitura automática errou.
@@ -261,6 +296,12 @@ export function montar(ctx) {
     if (!estado.sujo) return;
     gravar();
     ev.preventDefault();
+  });
+
+  // Exercício criado ou editado na aba Catálogo: o quadro relê e confere de novo.
+  document.addEventListener('catalogo:mudou', () => {
+    if (!estado.catalogo || estado.cadastrando) return;
+    listarCatalogo().then((cat) => { estado.catalogo = cat; conferir(); }).catch(() => { /* fica o catálogo de antes */ });
   });
 
   document.addEventListener('semana:vista', (ev) => {
