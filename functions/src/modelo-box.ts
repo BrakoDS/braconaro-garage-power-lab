@@ -793,6 +793,12 @@ export interface DadosHiit {
  */
 export interface ExercicioSemForca extends Omit<ExercicioCatalogo, 'instancia'> {
   instancia: null;
+  /**
+   * Acessório (tríceps, rosca, crucifixo invertido…): sem vaga de força, sem
+   * HIIT e sem Cross. Nenhum gerador o sorteia; existe para o Quadro da Semana
+   * reconhecer o nome e somar o volume (decisão do coach, 05/11/2026).
+   */
+  acessorio?: true;
 }
 
 /** Exercício sem força que serve ao HIIT (`catalogo-hiit.ts`). */

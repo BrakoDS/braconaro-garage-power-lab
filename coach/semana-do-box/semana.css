@@ -362,6 +362,10 @@ button.ql-chip { cursor: pointer; }
 .ql-sug { font: inherit; font-size: 12px; cursor: pointer; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--acc); color: var(--acc); background: transparent; }
 .ql-sug:hover { background: rgba(255,199,0,.1); }
 .ql-sug.fora { border-color: var(--line2); color: var(--mut); }
+.ql-sug.cadastrar { border-style: dashed; }
+.ql-qtd { font-size: 12px; }
+.ql-hyrox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; margin: 2px 0 6px 18px; }
+.ql-hyrox select { font: inherit; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line2); background: var(--bg2); color: var(--txt); }
 .ql-outro { font: inherit; font-size: 12px; width: 140px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line2); background: var(--bg2); color: var(--txt); }
 .ql-aviso { flex-basis: 100%; font-size: 12px; padding: 2px 0 2px 8px; border-left: 2px solid var(--line2); color: var(--mut); }
 .ql-aviso.ql-erro { border-color: var(--bad); color: var(--bad); }

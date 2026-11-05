@@ -26,11 +26,11 @@
  * As regras do Firestore dão `write: if false` em `catalogoAjustes`; quem grava
  * é `salvarExercicioCatalogo` e `ativarExercicioCatalogo`, com o Admin SDK.
  */
-import { DADOS_ESTACAO_HYROX, MUSCULOS_HYROX } from './catalogo-hyrox';
+import { CORRIDA_MODELOS_HYROX, DADOS_ESTACAO_HYROX, MUSCULOS_HYROX } from './catalogo-hyrox';
 import {
   ADAPTACOES, EQUIPAMENTOS, ESTACOES_HIIT, ESTACOES_HYROX, INSTANCIAS, MATRIZ_H, MUSCULOS, PADROES_CROSS, SESSOES_H, UNIDADES_CROSS,
   type Adaptacao, type CategoriaFoco, type Equipamento, type EstacaoHiit, type EstacaoHyrox, type Instancia, type ItemCatalogo,
-  type Musculo, type PadraoCross, type RecursoBox, type SessaoH, type UnidadeCross,
+  type Musculo, type PadraoCross, type PrescricaoModelosHyrox, type RecursoBox, type SessaoH, type TipoHyrox, type UnidadeCross,
 } from './modelo-box';
 import { lerItemCatalogo } from './semana-box';
 
@@ -221,8 +221,9 @@ export interface PedidoExercicio {
   equipamentos?: unknown;
   adaptacoes?: unknown;
   unilateral?: unknown;
-  /** Só ao criar: força (`instancia`), HIIT (`hiit.estacoes`) e/ou Cross (`cross`). */
+  /** Só ao criar: força (`instancia`), HIIT (`hiit.estacoes`) e/ou Cross (`cross`), ou acessório (nenhum dos três). */
   instancia?: unknown;
+  acessorio?: unknown;
   hiit?: unknown;
   cross?: unknown;
 }
@@ -320,12 +321,16 @@ export function lerPedidoExercicio(p: PedidoExercicio, c: CatalogoEfetivo): Ajus
       cross.carga = { rx: cargaRx, scaled: cargaScaled };
     }
   }
-  if (!instancia && !hiit && !cross) return { erro: 'Escolha onde o exercício entra: Força (vaga do H), HIIT e/ou Cross.' };
+  const acessorio = p.acessorio === true && !instancia && !hiit && !cross;
+  if (!instancia && !hiit && !cross && !acessorio) {
+    return { erro: 'Escolha onde o exercício entra: Força (vaga do H), HIIT e/ou Cross — ou marque Acessório.' };
+  }
 
   const campos: Record<string, unknown> = {
     ...editaveis, instancia,
     ...(hiit ? { hiit } : {}),
     ...(cross ? { cross } : {}),
+    ...(acessorio ? { acessorio: true } : {}),
   };
   if (!campos.unilateral) delete campos.unilateral;
   const item = lerItemCatalogo(campos);
@@ -333,6 +338,10 @@ export function lerPedidoExercicio(p: PedidoExercicio, c: CatalogoEfetivo): Ajus
   const novoId = idNovo(nome, new Set([...c.itens.keys(), ...c.doSeed.keys()]));
   return { id: novoId, campos: { ...item }, criado: true, item };
 }
+
+/** Cópia da tabela modelo × nível (a resposta não carrega referência das constantes). */
+const copiaModelos = (m: PrescricaoModelosHyrox): PrescricaoModelosHyrox =>
+  Object.fromEntries(Object.entries(m).map(([k, v]) => [k, { ...v }])) as PrescricaoModelosHyrox;
 
 /** Lista em ordem estável e objeto sem chave vazia: `['b','a']` e `['a','b']` não são edição. */
 function normalizado(v: unknown): unknown {
@@ -360,6 +369,8 @@ export interface LinhaCatalogo {
   musculosSecundarios: Musculo[];
   equipamentos: Equipamento[];
   unilateral: boolean;
+  /** Sem vaga de força, sem HIIT e sem Cross: só o Quadro da Semana usa. */
+  acessorio: boolean;
   adaptacoes: { adaptacao: Adaptacao; exercicioId: string; nome: string }[];
   /** O item do seed, quando o coach editou — a tela mostra "era" e oferece restaurar. */
   original: Pick<ItemCatalogo, 'nome' | 'musculoPrincipal' | 'musculosSecundarios' | 'equipamentos'> | null;
@@ -373,12 +384,17 @@ export interface LinhaHyrox {
   recursos: Partial<Record<RecursoBox, number>>;
   musculoPrincipal: Musculo[];
   musculosSecundarios: Musculo[];
-  substituta: { nome: string; musculoPrincipal: Musculo[]; musculosSecundarios: Musculo[] } | null;
+  /** A prescrição da tabela do coach (modelo × nível), na unidade de `tipo` — o Quadro mostra embaixo da estação. */
+  tipo: TipoHyrox;
+  modelos: PrescricaoModelosHyrox;
+  substituta: { nome: string; musculoPrincipal: Musculo[]; musculosSecundarios: Musculo[]; tipo: TipoHyrox; modelos: PrescricaoModelosHyrox } | null;
 }
 
 /** O catálogo inteiro para a tela, em ordem de nome, com o vocabulário que o servidor aceita. */
 export function linhasDoCatalogo(c: CatalogoEfetivo): {
   exercicios: LinhaCatalogo[]; hyrox: LinhaHyrox[];
+  /** A corrida antes de cada estação, em metros (modelo × nível). */
+  corridaHyrox: PrescricaoModelosHyrox;
   vocabulario: {
     musculos: readonly Musculo[]; equipamentos: readonly Equipamento[]; instancias: readonly Instancia[]; adaptacoes: readonly Adaptacao[];
     estacoesHiit: readonly EstacaoHiit[]; padroesCross: readonly PadraoCross[]; unidadesCross: readonly UnidadeCross[];
@@ -398,6 +414,7 @@ export function linhasDoCatalogo(c: CatalogoEfetivo): {
       } : null,
       musculoPrincipal: [...e.musculoPrincipal], musculosSecundarios: [...e.musculosSecundarios],
       equipamentos: [...e.equipamentos], unilateral: e.unilateral === true,
+      acessorio: e.instancia === null && 'acessorio' in e && e.acessorio === true,
       adaptacoes: ADAPTACOES.filter((a) => e.adaptacoes[a]).map((a) => ({
         adaptacao: a, exercicioId: e.adaptacoes[a]!, nome: c.itens.get(e.adaptacoes[a]!)?.nome ?? e.adaptacoes[a]!,
       })),
@@ -414,14 +431,16 @@ export function linhasDoCatalogo(c: CatalogoEfetivo): {
     return {
       estacao, n: d.n, nome: d.nome, recursos: { ...d.recursos },
       musculoPrincipal: [...m.estacao.musculoPrincipal], musculosSecundarios: [...m.estacao.musculosSecundarios],
+      tipo: d.tipo, modelos: copiaModelos(d.modelos),
       substituta: d.substituta && m.substituta ? {
         nome: d.substituta.nome, musculoPrincipal: [...m.substituta.musculoPrincipal], musculosSecundarios: [...m.substituta.musculosSecundarios],
+        tipo: d.substituta.tipo, modelos: copiaModelos(d.substituta.modelos),
       } : null,
     };
   });
 
   return {
-    exercicios, hyrox,
+    exercicios, hyrox, corridaHyrox: copiaModelos(CORRIDA_MODELOS_HYROX),
     vocabulario: {
       musculos: MUSCULOS, equipamentos: EQUIPAMENTOS, instancias: INSTANCIAS, adaptacoes: ADAPTACOES,
       estacoesHiit: ESTACOES_HIIT, padroesCross: PADROES_CROSS, unidadesCross: UNIDADES_CROSS,

@@ -23,6 +23,68 @@ function abaSalva() {
   try { return localStorage.getItem(CHAVE_ABA) || 'forca'; } catch { return 'forca'; }
 }
 
+/** Os campos do formulário do painel como objeto plano (checkbox repetido vira lista). */
+function lerFormulario() {
+  const form = /** @type {HTMLFormElement | null} */ (document.querySelector('#cat-form'));
+  /** @type {Record<string, any>} */
+  const f = {};
+  if (!form) return f;
+  for (const [k, v] of new FormData(form).entries()) {
+    if (k in f) f[k] = [].concat(f[k], /** @type {any} */ (v));
+    else f[k] = ['principal', 'secundario', 'equip', 'estacao'].includes(k) ? [v] : v;
+  }
+  return f;
+}
+
+/**
+ * O formulário de criar ou editar, até o servidor aceitar ou o coach desistir:
+ * o erro do servidor aparece no topo, com o que ele digitou. Serve à aba
+ * Catálogo e ao "Cadastrar" do Quadro da Semana.
+ * @param {{exercicio: any, dados: {exercicios: any[], vocabulario: any}, status: (msg: string, tipo?: 'ok'|'erro'|'') => void}} o
+ * @returns {Promise<{acao: 'salvo', id: string, nome: string, criado: boolean} | {acao: 'restaurar'} | null>}
+ */
+export async function formularioExercicio({ exercicio, dados, status }) {
+  let atual = exercicio;
+  let erro = '';
+  for (;;) {
+    const editando = !!exercicio?.id;
+    const acoes = [
+      ...(editando && exercicio.editado ? [{ id: 'restaurar', label: 'Voltar ao original', secundaria: true }] : []),
+      { id: 'salvar', label: editando ? 'Salvar' : 'Criar exercício' },
+    ];
+    const pronto = painel({
+      titulo: editando ? `Editar · ${exercicio.nome}` : 'Novo exercício',
+      corpoHTML: renderFormExercicio({ exercicio: atual, vocabulario: dados.vocabulario, exercicios: dados.exercicios, erro }),
+      acoes, fechar: 'Cancelar',
+    });
+    /** @type {HTMLInputElement | null} */ (document.querySelector('#cat-nome'))?.focus();
+    const acao = await pronto;
+    if (!acao) return null;
+    if (acao === 'restaurar') return { acao: 'restaurar' };
+
+    const pedido = pedidoDoFormulario(lerFormulario());
+    status(editando ? 'Salvando o exercício…' : 'Criando o exercício…');
+    try {
+      const r = await salvarExercicio(pedido);
+      document.dispatchEvent(new CustomEvent('catalogo:mudou'));
+      return { acao: 'salvo', id: r.id, nome: r.nome, criado: !editando };
+    } catch (e) {
+      erro = /** @type {any} */ (e)?.message || 'Não deu para salvar.';
+      status('');
+      atual = exercicioDoPedido(pedido, exercicio);
+    }
+  }
+}
+
+/**
+ * "Cadastrar" do Quadro: o formulário de novo exercício já com o nome escrito.
+ * @param {{nome: string, dados: {exercicios: any[], vocabulario: any}, status: (msg: string, tipo?: 'ok'|'erro'|'') => void}} o
+ */
+export async function cadastrarExercicio({ nome, dados, status }) {
+  const r = await formularioExercicio({ exercicio: { nome }, dados, status });
+  return r?.acao === 'salvo' ? { id: r.id, nome: r.nome } : null;
+}
+
 /** @param {{status: (msg: string, tipo?: 'ok'|'erro'|'') => void}} ctx */
 export function montar(ctx) {
   const alvo = $('#catalogo-corpo');
@@ -76,45 +138,27 @@ export function montar(ctx) {
     desenhar();
   }
 
-  /** Os campos do formulário do painel como objeto plano (checkbox repetido vira lista). */
-  function lerFormulario() {
-    const form = /** @type {HTMLFormElement | null} */ (document.querySelector('#cat-form'));
-    /** @type {Record<string, any>} */
-    const f = {};
-    if (!form) return f;
-    for (const [k, v] of new FormData(form).entries()) {
-      if (k in f) f[k] = [].concat(f[k], /** @type {any} */ (v));
-      else f[k] = ['principal', 'secundario', 'equip', 'estacao'].includes(k) ? [v] : v;
-    }
-    return f;
-  }
-
   /**
-   * Abre o formulário (criar ou editar) e insiste até o servidor aceitar ou o
-   * coach desistir: o erro do servidor aparece no topo do formulário, com o que
-   * ele digitou.
+   * Abre o formulário (criar ou editar). Depois de salvar, relê o catálogo.
    * @param {any} exercicio `null` = novo
    */
   async function abrirFormulario(exercicio) {
     if (!estado.dados) return;
-    let atual = exercicio;
-    let erro = '';
     for (;;) {
-      const editando = !!exercicio?.id;
-      const acoes = [
-        ...(editando && exercicio.editado ? [{ id: 'restaurar', label: 'Voltar ao original', secundaria: true }] : []),
-        { id: 'salvar', label: editando ? 'Salvar' : 'Criar exercício' },
-      ];
-      const pronto = painel({
-        titulo: editando ? `Editar · ${exercicio.nome}` : 'Novo exercício',
-        corpoHTML: renderFormExercicio({ exercicio: atual, vocabulario: estado.dados.vocabulario, exercicios: estado.dados.exercicios, erro }),
-        acoes, fechar: 'Cancelar',
-      });
-      /** @type {HTMLInputElement | null} */ (document.querySelector('#cat-nome'))?.focus();
-      const acao = await pronto;
-      if (!acao) return;
-
-      if (acao === 'restaurar') {
+      // Ocupado enquanto o painel está aberto: o "catalogo:mudou" do salvar não relê duas vezes.
+      estado.ocupado = true;
+      const r = await formularioExercicio({ exercicio, dados: estado.dados, status: ctx.status });
+      estado.ocupado = false;
+      if (!r) return;
+      if (r.acao === 'salvo') {
+        estado.ocupado = true;
+        try { estado.dados = await listarCatalogo(); } catch { /* fica a lista de antes */ }
+        estado.ocupado = false;
+        desenhar();
+        ctx.status(r.criado ? `${r.nome} criado. Já entra no sorteio da próxima geração.` : `${r.nome} salvo. Vale na próxima geração da semana.`, 'ok');
+        return;
+      }
+      {
         const sim = await confirmar({
           titulo: 'Voltar ao original?',
           texto: `<b>${esc(exercicio.nome)}</b> volta ao que está no catálogo base (nome, músculos, equipamento e adaptações). Ativo/desativado não muda.`,
@@ -126,23 +170,6 @@ export function montar(ctx) {
           return `${exercicio.original?.nome ?? exercicio.nome}: de volta ao catálogo base.`;
         });
         return;
-      }
-
-      const pedido = pedidoDoFormulario(lerFormulario());
-      estado.ocupado = true;
-      ctx.status(editando ? 'Salvando o exercício…' : 'Criando o exercício…');
-      try {
-        const r = await salvarExercicio(pedido);
-        estado.dados = await listarCatalogo();
-        estado.ocupado = false;
-        desenhar();
-        ctx.status(editando ? `${r.nome} salvo. Vale na próxima geração da semana.` : `${r.nome} criado. Já entra no sorteio da próxima geração.`, 'ok');
-        return;
-      } catch (e) {
-        estado.ocupado = false;
-        erro = /** @type {any} */ (e)?.message || 'Não deu para salvar.';
-        ctx.status('');
-        atual = exercicioDoPedido(pedido, exercicio);
       }
     }
   }
@@ -203,5 +230,11 @@ export function montar(ctx) {
 
   document.addEventListener('semana:vista', (ev) => {
     if (/** @type {CustomEvent} */ (ev).detail === 'catalogo' && !estado.carregado) carregar();
+  });
+  // Exercício criado pelo Quadro: a lista daqui relê na próxima ida à aba.
+  document.addEventListener('catalogo:mudou', () => {
+    if (estado.carregado && !estado.ocupado) {
+      listarCatalogo().then((d) => { estado.dados = d; desenhar(); }).catch(() => { /* fica a lista de antes */ });
+    }
   });
 }

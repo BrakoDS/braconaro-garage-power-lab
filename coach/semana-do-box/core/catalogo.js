@@ -13,6 +13,7 @@ export const MODALIDADES_CATALOGO = /** @type {const} */ ([
   { id: 'hiit', nome: 'HIIT' },
   { id: 'cross', nome: 'Cross' },
   { id: 'hyrox', nome: 'Hyrox' },
+  { id: 'acessorio', nome: 'Acessórios' },
   { id: 'todos', nome: 'Todos' },
 ]);
 
@@ -85,6 +86,7 @@ export function daModalidade(e, modalidade) {
   if (modalidade === 'forca') return !!e.instancia;
   if (modalidade === 'hiit') return !!e.hiit?.length;
   if (modalidade === 'cross') return !!e.cross;
+  if (modalidade === 'acessorio') return !!e.acessorio;
   return modalidade === 'todos';
 }
 
@@ -128,6 +130,8 @@ export function gruposDoCatalogo(exercicios, { modalidade, busca = '', mostrarIn
   } else if (modalidade === 'cross') {
     const ordem = vocabulario?.padroesCross ?? Object.keys(ROTULO_PADRAO_CROSS);
     grupos = ordem.map((p) => grupo(p, rotulo(ROTULO_PADRAO_CROSS, p), '', (e) => e.cross?.padrao === p));
+  } else if (modalidade === 'acessorio') {
+    grupos = [grupo('acessorio', 'Acessórios', 'Sem vaga no H: o gerador não sorteia; o Quadro da Semana reconhece e soma o volume.', () => true)];
   } else {
     grupos = [grupo('todos', 'Todos os exercícios', '', () => true)];
   }
@@ -147,6 +151,7 @@ export function ondeEntra(e) {
     partes.push(`Cross: ${rotulo(ROTULO_PADRAO_CROSS, c.padrao)} · ${c.rx} ${rotulo(ROTULO_UNIDADE, c.unidade)}`
       + `${c.carga ? ` · ${c.carga.rx}` : ''}${c.foco ? ` · foco da técnica (${rotulo(ROTULO_FOCO, c.foco)})` : ''}`);
   }
+  if (e.acessorio) partes.push('Acessório (só o Quadro da Semana)');
   return partes;
 }
 
@@ -174,6 +179,7 @@ export function pedidoDoFormulario(f) {
   };
   if (f.id) return { id: String(f.id), ...pedido };
   if (f.instancia) pedido.instancia = String(f.instancia);
+  if (f.acessorio === 'on' || f.acessorio === true) pedido.acessorio = true;
   const estacoes = lista(f.estacao);
   if (estacoes.length) pedido.hiit = { estacoes };
   if (f.cross === 'on' || f.cross === true) {
@@ -204,5 +210,6 @@ export function exercicioDoPedido(pedido, atual = null) {
     instancia: pedido.instancia ?? atual?.instancia ?? null,
     hiit: pedido.hiit?.estacoes ?? atual?.hiit ?? null,
     cross: pedido.cross ? { ...pedido.cross, carga: pedido.cross.carga ?? null } : atual?.cross ?? null,
+    acessorio: pedido.acessorio === true || (!pedido.id && !!atual?.acessorio),
   };
 }

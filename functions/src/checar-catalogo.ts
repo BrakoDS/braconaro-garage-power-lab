@@ -104,6 +104,17 @@ console.log('\nCriar um exercício');
   ok(variacoes.some((w) => idsDaSemana(w.dias).has('coach_agachamento_landmine')), 'o gerador sorteia o exercício novo (em alguma das 30 variações)');
   const colidiu = catalogoEfetivo(SEED, [['goblet_squat', { criado: true, campos: { nome: 'Outro', instancia: 'agachar', musculoPrincipal: ['core'], musculosSecundarios: [], equipamentos: ['peso_corporal'], adaptacoes: {} } }]]);
   ok(igual(colidiu.itens.get('goblet_squat'), lerItemCatalogo(CATALOGO_COMPLETO.goblet_squat)), 'criado com id que o seed tem: vale o seed');
+
+  // Acessório (05/11/2026): sem vaga, sem HIIT, sem Cross — só o Quadro da Semana usa.
+  const triceps = { nome: 'Tríceps no monocross', musculoPrincipal: ['triceps'], musculosSecundarios: [], equipamentos: ['monocross'], adaptacoes: {} };
+  ok(lerItemCatalogo(triceps) === null, 'sem modalidade e sem acessório: o item não fecha');
+  const comAcessorio = efetivo({ coach_triceps_no_monocross: { criado: true, campos: { ...triceps, instancia: null, acessorio: true } } });
+  const acess = comAcessorio.itens.get('coach_triceps_no_monocross');
+  ok(acess?.instancia === null && 'acessorio' in acess && acess.acessorio === true, 'acessório entra no catálogo efetivo');
+  ok(lerItemCatalogo({ ...triceps, instancia: 'agachar', acessorio: true })?.instancia === 'agachar', 'com vaga, a vaga vale');
+  const semAcessorio = Array.from({ length: 10 }, (_, v) => semana(comAcessorio.itens, v));
+  ok(semAcessorio.every((w) => !idsDaSemana(w.dias).has('coach_triceps_no_monocross') && !idsDoHiit(w.dias).has('coach_triceps_no_monocross')),
+    'o gerador nunca sorteia o acessório (10 variações)');
 }
 
 console.log('\nDesativar');
@@ -191,6 +202,12 @@ console.log('\nO pedido da tela');
   ok(!('erro' in cross) && cross.item.instancia === null && cross.item.cross?.rx === 15 && igual(cross.item.hiit?.estacoes, ['pernas']),
     'só Cross + HIIT, sem vaga de força: vale');
   ok(idNovo('Supino', new Set(['coach_supino'])) === 'coach_supino_2', 'id já usado: sufixo _2');
+  const acessorio = lerPedidoExercicio({ ...novo, nome: 'Rosca martelo com halteres', instancia: null, acessorio: true, adaptacoes: {} }, c);
+  ok(!('erro' in acessorio) && acessorio.item.instancia === null && acessorio.campos?.acessorio === true,
+    'acessório (sem vaga, sem HIIT, sem Cross): vale', JSON.stringify(acessorio));
+  const comVaga = lerPedidoExercicio({ ...novo, nome: 'Agachamento sumô 2', acessorio: true }, c);
+  ok(!('erro' in comVaga) && comVaga.item.instancia === 'agachar' && comVaga.campos?.acessorio === undefined,
+    'acessório marcado junto com a vaga: vale a vaga');
 
   // Editar um item do seed: grava SÓ o que difere.
   const s = CATALOGO_COMPLETO.goblet_squat;

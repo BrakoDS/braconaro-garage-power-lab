@@ -22,6 +22,9 @@
  *    0,5 no secundário), rodada de WOD 0,5 (cardio 0,25), estação do Hyrox 1.
  * O HIIT, o GAP e o Murph não têm conta de volume na Semana do Box: usam a do
  * primeiro montador (20 s de Tabata = 0,5 série; 20 repetições = 1 série).
+ * O HIIT é o da Semana do Box: 4 estações (Pernas, Core, Superiores, Cardio),
+ * 4 vagas cada, o unilateral ocupando 2. O aquecimento conta ¼ por rodada e
+ * entra na conferência de repetição (05/11/2026).
  *
  * Módulo puro (o teste roda no Node): recebe o catálogo de `listarCatalogoBox`,
  * o inventário gravado e os apelidos confirmados pelo coach.
@@ -95,6 +98,30 @@ export const ROUNDS_POR_MUSICA = 8;
 /** "4x cada exercício" do HIIT da Semana do Box. */
 export const ROUNDS_HIIT_POR_EXERCICIO = 4;
 
+/** As 4 estações do HIIT (ESTACOES_HIIT), rodando ao mesmo tempo, na mesma música. */
+export const ESTACOES_HIIT = ['pernas', 'core', 'superiores', 'cardio'];
+/** @type {Record<string, string>} */
+export const NOME_ESTACAO_HIIT = { pernas: 'Pernas', core: 'Core', superiores: 'Superiores', cardio: 'Cardio' };
+/** Vagas por estação (SLOTS_POR_ESTACAO). O unilateral ocupa 2: direito, depois esquerdo. */
+export const SLOTS_POR_ESTACAO = 4;
+/** PROTOCOLO_HIIT: "2 Músicas de Tabata (16 rounds no total). 4x cada exercício." */
+export const MUSICAS_POR_ESTACAO = 2;
+export const MINUTOS_POR_MUSICA = 4;
+/** O TRX fica ancorado num canto: serve a UMA estação do HIIT (RECURSOS_FIXOS_HIIT). */
+export const RECURSOS_FIXOS_HIIT = ['trx'];
+
+/** O aquecimento conta pouco no volume: ¼ de série por rodada, como o cardio do WOD (decisão do coach, 05/11/2026). */
+export const FATOR_AQUECIMENTO = 0.25;
+
+/** Os níveis e os modelos da quinta (NIVEIS_HYROX, MODELOS_HYROX); a tabela vem do `listarCatalogoBox`. */
+export const NIVEIS_HYROX = ['iniciante', 'intermediario', 'avancado', 'competicao'];
+/** @type {Record<string, string>} */
+export const NOME_NIVEL_HYROX = { iniciante: 'Start', intermediario: 'Fit', avancado: 'Garage Open', competicao: 'Pro' };
+export const MODELOS_HYROX = ['cardio', 'strength', 'dupla'];
+/** @type {Record<string, string>} */
+export const NOME_MODELO_HYROX = { cardio: 'Cardio', strength: 'Strength', dupla: 'Dupla' };
+export const METROS_POR_CAL_AIRBIKE = 20;
+
 /** Unidades de fábrica (PADRAO_BOX em semana-box.ts), quando o inventário não foi gravado. */
 export const INVENTARIO_PADRAO = {
   smith: 2, banco: 2, monocross: 2, maquinaLegs: 1, cavalinho: 2,
@@ -166,6 +193,19 @@ const chave = (/** @type {string[]} */ t) => [...new Set(t)].sort().join(' ');
 /** A chave de um apelido: o nome escrito, normalizado (é o que o coach confirma uma vez). @param {string} escrito */
 export const chaveApelido = (escrito) => normalizar(escrito);
 
+/** Palavras de equipamento: "Stiff" e "Stiff barra" são o mesmo exercício para a repetição. */
+const PALAVRAS_EQUIPAMENTO = new Set(['barra', 'halter', 'smith', 'kettlebell', 'monocross', 'polia', 'cabo', 'maquina', 'banco',
+  'livre', 'anilha', 'dumbbell', 'barbell', 'crossover', 'trx', 'corda', 'peso', 'corporal']);
+/**
+ * A chave de um nome que o catálogo não reconheceu, para conferir a repetição
+ * pelo texto: sem as palavras de equipamento. @param {string} escrito
+ */
+export function chaveSolta(escrito) {
+  const w = palavras(escrito);
+  const sem = w.filter((t) => !PALAVRAS_EQUIPAMENTO.has(t));
+  return chave(sem.length ? sem : w);
+}
+
 /** Nomes da lousa que já têm uma leitura só (o coach não precisa confirmar). */
 /** @type {Record<string, string>} */
 const NOMES_CONHECIDOS = {
@@ -175,17 +215,20 @@ const NOMES_CONHECIDOS = {
 /** Só valem dentro de uma seção de Hyrox. */
 /** @type {Record<string, string>} */
 const NOMES_HYROX = {
-  'ski': 'hyrox:skierg', 'ski erg': 'hyrox:skierg', 'skierg': 'hyrox:skierg', 'remo': 'hyrox:remo', 'row': 'hyrox:remo',
+  'ski': 'hyrox:skierg', 'ski erg': 'hyrox:skierg', 'skierg': 'hyrox:skierg', 'skyerg': 'hyrox:skierg', 'sky erg': 'hyrox:skierg',
+  'sandbag': 'hyrox:sandbag_lunges', 'sandbag lunge': 'hyrox:sandbag_lunges', 'remo': 'hyrox:remo', 'row': 'hyrox:remo',
   'wall ball': 'hyrox:wall_ball', 'wall balls': 'hyrox:wall_ball', 'burpee': 'hyrox:burpee_broad_jump',
   'farmer': 'hyrox:farmers_carry', 'lunges': 'hyrox:sandbag_lunges', 'lunge': 'hyrox:sandbag_lunges',
 };
 
 /**
  * @typedef {{id: string, nome: string, musculoPrincipal: string[], musculosSecundarios: string[], equipamentos?: string[],
- *   instancia?: string|null, cross?: {padrao: string}|null, hiit?: string[]|null, ativo?: boolean,
- *   estacao?: string, recursos?: Record<string, number>, hyrox?: boolean}} ItemQuadro
+ *   instancia?: string|null, cross?: {padrao: string}|null, hiit?: string[]|null, ativo?: boolean, unilateral?: boolean,
+ *   acessorio?: boolean, estacao?: string, recursos?: Record<string, number>, hyrox?: boolean,
+ *   tipo?: string, modelos?: Record<string, Record<string, number>>}} ItemQuadro
  * @typedef {{item: ItemQuadro, main: string, extras: string[], todas: Set<string>, mainSet: Set<string>}} Entrada
- * @typedef {{porId: Map<string, ItemQuadro>, entradas: Entrada[], hyrox: Entrada[], estacoes: ItemQuadro[]}} Indice
+ * @typedef {{porId: Map<string, ItemQuadro>, entradas: Entrada[], hyrox: Entrada[], estacoes: ItemQuadro[],
+ *   corrida: Record<string, Record<string, number>>|null}} Indice
  */
 
 /** @param {ItemQuadro} item @param {string} nome */
@@ -202,7 +245,7 @@ function entrada(item, nome) {
 /**
  * O índice de nomes do catálogo (`listarCatalogoBox`) e das 8 estações do Hyrox.
  * Exercício desativado continua reconhecido: o coach pode escrever o que quiser.
- * @param {{exercicios?: any[], hyrox?: any[]}} catalogo
+ * @param {{exercicios?: any[], hyrox?: any[], corridaHyrox?: any}} catalogo
  * @returns {Indice}
  */
 export function indiceDoCatalogo(catalogo) {
@@ -222,6 +265,7 @@ export function indiceDoCatalogo(catalogo) {
     const est = {
       id: `hyrox:${h.estacao}`, nome: h.nome, estacao: h.estacao, hyrox: true, recursos: { ...(h.recursos ?? {}) },
       musculoPrincipal: h.musculoPrincipal ?? [], musculosSecundarios: h.musculosSecundarios ?? [],
+      tipo: h.tipo, modelos: h.modelos,
     };
     if (h.estacao === 'skierg') est.recursos = { ...est.recursos, monocross: CAPACIDADE_SKIERG };
     porId.set(est.id, est);
@@ -233,12 +277,39 @@ export function indiceDoCatalogo(catalogo) {
       const sub = {
         id: `hyrox:${h.estacao}:sub`, nome: h.substituta.nome, estacao: h.estacao, hyrox: true, recursos: {},
         musculoPrincipal: h.substituta.musculoPrincipal ?? [], musculosSecundarios: h.substituta.musculosSecundarios ?? [],
+        tipo: h.substituta.tipo, modelos: h.substituta.modelos,
       };
       porId.set(sub.id, sub);
       hyrox.push(entrada(sub, h.substituta.nome));
     }
   }
-  return { porId, entradas, hyrox, estacoes };
+  return { porId, entradas, hyrox, estacoes, corrida: catalogo?.corridaHyrox ?? null };
+}
+
+/** A unidade da tabela de uma estação do Hyrox (o SkiErg da casa conta puxadas). @param {ItemQuadro} it */
+export function unidadeHyrox(it) {
+  if (it.estacao === 'skierg' && !it.id.endsWith(':sub')) return 'puxadas';
+  return /** @type {Record<string, string>} */ ({ reps: 'reps', metros: 'm', calorias: 'cal', segundos: 's' })[it.tipo ?? ''] ?? '';
+}
+
+/**
+ * A quantidade de uma estação pela tabela do coach, nos 3 modelos de um nível.
+ * @param {ItemQuadro|null} it @param {string} nivel
+ * @returns {{modelo: string, n: number, unidade: string}[]}
+ */
+export function quantidadesHyrox(it, nivel) {
+  if (!it?.modelos) return [];
+  const unidade = unidadeHyrox(it);
+  return MODELOS_HYROX.map((modelo) => ({ modelo, n: Number(it.modelos?.[modelo]?.[nivel]), unidade })).filter((x) => Number.isFinite(x.n));
+}
+
+/** A corrida antes de cada estação, nos 3 modelos de um nível (e a air bike em calorias). @param {Indice} indice @param {string} nivel */
+export function corridaHyrox(indice, nivel) {
+  if (!indice.corrida) return [];
+  return MODELOS_HYROX.map((modelo) => {
+    const m = Number(indice.corrida?.[modelo]?.[nivel]);
+    return { modelo, metros: m, cal: Math.max(1, Math.round(m / METROS_POR_CAL_AIRBIKE)) };
+  }).filter((x) => Number.isFinite(x.metros));
 }
 
 /**
@@ -328,17 +399,29 @@ const TIPOS_SECAO = /** @type {[string, RegExp][]} */ ([
   ['gap', /^gap\b/],
   ['murph', /^murph\b/],
 ]);
-/** Seções que não contam volume nem repetição (preparação). */
-export const SECOES_SEM_CONTA = ['mobilidade', 'aquecimento', 'calma'];
+/** Seções que não contam volume nem repetição (preparação). O aquecimento conta pouco: `FATOR_AQUECIMENTO`. */
+export const SECOES_SEM_CONTA = ['mobilidade', 'calma'];
 /** @type {Record<string, string>} */
 export const NOME_TIPO_SECAO = {
   mobilidade: 'Mobilidade', aquecimento: 'Aquecimento', calma: 'Volta à calma', forca: 'Força', wod: 'WOD',
-  tabata: 'Tabata', hyrox: 'Hyrox', gap: 'GAP', murph: 'Murph',
+  tabata: 'Tabata', hyrox: 'Hyrox', gap: 'GAP', murph: 'Murph', hiit: 'Estação',
 };
 
-/** @param {string} titulo */
-function tipoDoTitulo(titulo) {
+const RE_ESTACAO_HIIT = /^(?:estacao\s+)?(membros superiores|pernas?|core|superiores?|cardio)\b/;
+/** A estação do HIIT pelo título ("Pernas", "Estação Core", "Superiores"). @param {string} titulo */
+export function estacaoDoTitulo(titulo) {
+  const m = RE_ESTACAO_HIIT.exec(normalizar(titulo));
+  if (!m) return null;
+  if (m[1].startsWith('pern')) return 'pernas';
+  if (m[1] === 'core') return 'core';
+  if (m[1] === 'cardio') return 'cardio';
+  return 'superiores';
+}
+
+/** @param {string} titulo @param {string} [tipoPadrao] na coluna do HIIT, "Pernas", "Core"… são estações */
+function tipoDoTitulo(titulo, tipoPadrao = '') {
   const n = normalizar(titulo);
+  if (tipoPadrao === 'tabata' && estacaoDoTitulo(titulo)) return 'hiit';
   for (const [tipo, re] of TIPOS_SECAO) if (re.test(n)) return tipo;
   if (/\b(amrap|emom|for time|chipper|rft)\b/.test(n)) return 'wod';
   if (/\btabata\b/.test(n)) return 'tabata';
@@ -398,8 +481,8 @@ function soPrescricao(t) {
 const RE_QTD_INICIO = /^(\d+(?:[.,]\d+)?)\s*(x|×|reps?|m|mts?|metros?|km|cals?|calorias?|s|seg|min|'|"|’)?\s+(?=\S)/i;
 const RE_QTD_FIM = /\s+(?:x\s*)?(\d+(?:[.,]\d+)?)\s*(x|reps?|m|cals?|s|seg)?$/i;
 
-/** @param {string} alt */
-function quantidadeDe(alt) {
+/** @param {string} alt @param {boolean} [numeroSoltoEhReps] fora da força, "Wall ball 80" = 80 repetições */
+function quantidadeDe(alt, numeroSoltoEhReps = false) {
   let texto = alt.trim();
   /** @type {{n: number, unidade: string}|null} */
   let qtd = null;
@@ -409,8 +492,10 @@ function quantidadeDe(alt) {
     texto = texto.slice(ini[0].length);
   } else {
     const fim = RE_QTD_FIM.exec(texto);
-    if (fim && fim[2]) { qtd = { n: Number(fim[1].replace(',', '.')), unidade: unidade(fim[2]) }; texto = texto.slice(0, fim.index); }
+    if (fim && (fim[2] || numeroSoltoEhReps)) { qtd = { n: Number(fim[1].replace(',', '.')), unidade: unidade(fim[2]) }; texto = texto.slice(0, fim.index); }
   }
+  // "1m air bike": ninguém faz 1 metro — é 1 minuto.
+  if (qtd && qtd.unidade === 'm' && qtd.n < 10) qtd = { n: qtd.n, unidade: 'min' };
   return { texto: texto.replace(/^[\s,;:.\-–]+|[\s,;:.\-–]+$/g, '').trim(), qtd };
 }
 /** @param {string|undefined} u */
@@ -449,7 +534,7 @@ function grupoGap(g) {
  *   series: number|null, reps: string|null, grupoLinha: number}} ItemEscrito
  * @typedef {{letra: string, titulo: string, tipo: string, linha: number, formato: string|null, minutos: number|null,
  *   rodadas: number|null, series: number|null, reps: string|null, descansoSeg: number|null, roundsPorMusica: number|null,
- *   itens: ItemEscrito[], musicas: {linha: number, grupo: string, n: number}[]}} Secao
+ *   estacao: string|null, itens: ItemEscrito[], musicas: {linha: number, grupo: string, n: number}[]}} Secao
  * @typedef {{i: number, texto: string, tipo: 'vazia'|'secao'|'prescricao'|'item'|'musicas', secao: number}} LinhaLida
  */
 
@@ -480,12 +565,13 @@ export function lerColuna(texto, tipoPadrao) {
   /** @param {string} letra @param {string} titulo @param {number} i */
   const novaSecao = (letra, titulo, i) => {
     const p = lerPrescricao(titulo);
-    const tipo = tipoDoTitulo(titulo) ?? (p.formato ? 'wod' : tipoPadrao);
+    const tipo = tipoDoTitulo(titulo, tipoPadrao) ?? (p.formato ? 'wod' : tipoPadrao);
     const rpm = /(\d+)\s*rounds?/i.exec(titulo);
     secoes.push({
       letra, titulo: titulo.trim(), tipo, linha: i, formato: p.formato ?? null, minutos: p.minutos ?? null,
       rodadas: p.rodadas ?? null, series: p.series ?? null, reps: p.reps ?? null, descansoSeg: p.descansoSeg ?? null,
-      roundsPorMusica: tipo === 'gap' && rpm ? Number(rpm[1]) : null, itens: [], musicas: [],
+      roundsPorMusica: tipo === 'gap' && rpm ? Number(rpm[1]) : null,
+      estacao: tipo === 'hiit' ? estacaoDoTitulo(titulo) : null, itens: [], musicas: [],
     });
   };
   const atual = () => {
@@ -531,7 +617,7 @@ export function lerColuna(texto, tipoPadrao) {
     for (const { re } of RE_DESCANSO) corpo = corpo.replace(re, ' ');
     grupoLinha += 1;
     for (const parte of corpo.split(/\s*\+\s*/)) {
-      const alts = parte.split(/\s*\/\s*|\s+ou\s+/i).map(quantidadeDe).filter((a) => normalizar(a.texto).length >= 2);
+      const alts = parte.split(/\s*\/\s*|\s+ou\s+/i).map((a) => quantidadeDe(a, sec.tipo !== 'forca')).filter((a) => normalizar(a.texto).length >= 2);
       if (!alts.length) continue;
       sec.itens.push({
         linha: i, escrito: alts[0].texto, alternativas: alts.slice(1).map((a) => a.texto),
@@ -546,17 +632,20 @@ export function lerColuna(texto, tipoPadrao) {
     if (!t) { linhas.push({ i, texto: '', tipo: 'vazia', secao: secoes.length - 1 }); return; }
     const m = RE_CABECALHO.exec(t);
     const antesDoPonto = t.split(':')[0];
-    const soPalavra = !m && !RE_QTD_INICIO.test(t) && !RE_SERIES_REPS.test(antesDoPonto) && !!tipoDoTitulo(antesDoPonto);
+    const soPalavra = !m && !RE_QTD_INICIO.test(t) && !RE_SERIES_REPS.test(antesDoPonto) && !!tipoDoTitulo(antesDoPonto, tipoPadrao);
     if ((m && !/^\d/.test(m[2] ?? '')) || soPalavra) {
       const resto = m ? m[2] : t;
       const dois = resto.indexOf(':');
       const titulo = dois >= 0 ? resto.slice(0, dois) : resto;
       const anterior = secoes[secoes.length - 1];
-      if (soPalavra && anterior && !anterior.itens.length && !anterior.musicas.length) {
+      const tipoNovo = tipoDoTitulo(titulo, tipoPadrao);
+      // Duas estações seguidas são duas seções, mesmo a primeira ainda vazia.
+      if (soPalavra && anterior && !anterior.itens.length && !anterior.musicas.length && !(anterior.tipo === 'hiit' && tipoNovo === 'hiit')) {
         // "D) WOD" e, embaixo, "AMRAP 18 min": é a mesma seção.
         juntarPrescricao(anterior, lerPrescricao(titulo));
-        const tipo = tipoDoTitulo(titulo);
+        const tipo = tipoNovo;
         if (tipo && (anterior.tipo === tipoPadrao || tipo !== 'wod')) anterior.tipo = tipo;
+        if (tipo === 'hiit') anterior.estacao = estacaoDoTitulo(titulo);
         anterior.titulo = (anterior.titulo + ' ' + titulo.trim()).trim();
       } else {
         novaSecao(m ? m[1].toUpperCase() : '', titulo, i);
@@ -696,7 +785,7 @@ function lerColunaInteira(o) {
       if (item && series > 0) seriesPorId[item.id] = (seriesPorId[item.id] ?? 0) + series;
       itens.push({
         escrito: e.escrito, alternativas: e.alternativas, linha: e.linha, secao: s, leitura, item, series, conta,
-        chave: item ? item.id : `txt:${chaveApelido(e.escrito)}`, grupoLinha: e.grupoLinha, qtd: e.qtd,
+        chave: item ? item.id : `txt:${chaveSolta(e.escrito)}`, grupoLinha: e.grupoLinha, qtd: e.qtd,
       });
     }
     if (s.tipo === 'gap') {
@@ -722,6 +811,9 @@ function seriesDoItem(s, e, item, ehH, movimentos) {
   const meio = SEGUNDOS_ROUND_TABATA / SEGUNDOS_POR_SERIE;
   switch (s.tipo) {
     case 'forca': return e.series ?? s.series ?? (ehH ? SERIES_POR_EXERCICIO : SERIES_FORCA_METABOLICO);
+    case 'aquecimento': return (s.rodadas ?? 1) * FATOR_AQUECIMENTO;
+    // Cada vaga do HIIT: 4 rounds de 20 s = 2 séries. O unilateral ocupa 2 vagas, uma por lado: 2 séries por lado.
+    case 'hiit': return (e.qtd?.unidade === 'reps' ? e.qtd.n : ROUNDS_HIIT_POR_EXERCICIO) * meio;
     case 'wod': return blocosDoWod(s, movimentos) * (cardio(item) ? FATOR_VOLUME.cardio : FATOR_VOLUME.wod);
     case 'hyrox': {
       const vezes = s.rodadas ?? 1;
@@ -750,6 +842,7 @@ function minutosDaSecao(s, ehH) {
       return (series * (SEGUNDOS_POR_SERIE + (s.descansoSeg ?? DESCANSO_PADRAO_SEG))) / 60;
     }
     case 'tabata': return Math.ceil(s.itens.length * ROUNDS_HIIT_POR_EXERCICIO / ROUNDS_POR_MUSICA) * 4;
+    case 'hiit': return MUSICAS_POR_ESTACAO * MINUTOS_POR_MUSICA;
     case 'gap': return s.musicas.reduce((a, m) => a + m.n, 0) * 4;
     default: return 0;
   }
@@ -771,7 +864,10 @@ function conferirH(c, problemas) {
     const inst = i.item?.instancia;
     if (inst && porPadrao[inst]) porPadrao[inst].push(i.item?.nome ?? i.escrito);
     else if (i.item && !inst) {
-      problemas.push({ tipo: 'info', onde: c.onde, linha: i.linha, texto: `${i.item.nome} não tem vaga de H no catálogo: não conta padrão.` });
+      problemas.push({
+        tipo: 'info', onde: c.onde, linha: i.linha,
+        texto: i.item.acessorio ? `${i.item.nome} é acessório: conta séries e volume, não ocupa padrão.` : `${i.item.nome} não tem vaga de H no catálogo: não conta padrão.`,
+      });
     }
   }
   if (lista.length !== EXERCICIOS_POR_BLOCO) {
@@ -848,10 +944,57 @@ function conferirHyrox(c, indice, problemas) {
   conferirWods(c, problemas);
 }
 
-/** @param {ColunaLida} c @param {Problema[]} problemas */
+/**
+ * As vagas de uma estação do HIIT, em ordem: o unilateral ocupa duas seguidas.
+ * @param {ColunaLida} c @param {Secao} s @returns {ItemLido[]}
+ */
+export function vagasDaEstacao(c, s) {
+  return c.itens.filter((i) => i.secao === s).flatMap((i) => (i.item?.unilateral ? [i, i] : [i]));
+}
+
+/**
+ * Sábado: o HIIT da Semana do Box — 4 estações, 4 vagas cada, o TRX numa só.
+ * @param {ColunaLida} c @param {Problema[]} problemas
+ */
 function conferirHiit(c, problemas) {
   if (c.vazia) { problemas.push({ tipo: 'falta', onde: c.onde, texto: 'HIIT: o quadro ainda está em branco.' }); return; }
-  conferirWods(c, problemas);
+  const estacoes = c.secoes.filter((s) => s.tipo === 'hiit');
+  if (!estacoes.length) {
+    problemas.push({ tipo: 'falta', onde: c.onde, texto: 'HIIT: escreva as 4 estações (Pernas, Core, Superiores e Cardio), com 4 vagas cada; o unilateral ocupa 2.' });
+    conferirWods(c, problemas);
+    return;
+  }
+  /** @type {Map<string, Secao>} */
+  const vistas = new Map();
+  for (const s of estacoes) {
+    const est = /** @type {string} */ (s.estacao);
+    const nome = NOME_ESTACAO_HIIT[est] ?? est;
+    if (vistas.has(est)) problemas.push({ tipo: 'info', onde: c.onde, linha: s.linha, texto: `HIIT: a estação ${nome} aparece duas vezes.` });
+    vistas.set(est, s);
+    const vagas = vagasDaEstacao(c, s).length;
+    if (vagas !== SLOTS_POR_ESTACAO) {
+      problemas.push({
+        tipo: 'falta', onde: c.onde, linha: s.linha,
+        texto: `HIIT · ${nome}: ${vagas} de ${SLOTS_POR_ESTACAO} vagas${vagas > SLOTS_POR_ESTACAO ? ' (passou)' : ''}; o unilateral ocupa 2.`,
+      });
+    }
+    for (const i of c.itens.filter((x) => x.secao === s && x.item)) {
+      const doCatalogo = i.item?.hiit ?? [];
+      if (doCatalogo.length && !doCatalogo.includes(est)) {
+        problemas.push({ tipo: 'info', onde: c.onde, linha: i.linha, texto: `${i.item?.nome} é da estação ${doCatalogo.map((x) => NOME_ESTACAO_HIIT[x] ?? x).join(' ou ')} no catálogo, não de ${nome}.` });
+      }
+    }
+  }
+  const faltam = ESTACOES_HIIT.filter((e) => !vistas.has(e));
+  if (faltam.length) problemas.push({ tipo: 'falta', onde: c.onde, texto: `HIIT: falta a estação ${faltam.map((e) => NOME_ESTACAO_HIIT[e]).join(', ')}.` });
+  for (const r of RECURSOS_FIXOS_HIIT) {
+    const com = [...new Set(estacoes.filter((s) => c.itens.some((i) => i.secao === s && consumoDoItem(i.item)[r])).map((s) => NOME_ESTACAO_HIIT[s.estacao ?? ''] ?? s.estacao))];
+    if (com.length > 1) {
+      problemas.push({ tipo: 'erro', onde: c.onde, texto: `HIIT: o ${NOME_RECURSO[r] ?? r} está em ${com.join(' e ')}; ele fica ancorado num canto e serve a uma estação só.` });
+    }
+  }
+  const soltos = c.itens.filter((i) => i.conta && i.secao.tipo !== 'hiit' && i.secao.tipo !== 'aquecimento');
+  if (soltos.length) problemas.push({ tipo: 'info', onde: c.onde, linha: soltos[0].linha, texto: `HIIT: ${soltos.map((i) => i.item?.nome ?? i.escrito).join(', ')} fora de uma estação.` });
 }
 
 /** O H2 também é dado na quinta, ao lado do Hyrox. @param {ColunaLida} c @param {Problema[]} problemas */
@@ -882,14 +1025,19 @@ function conferirRepeticoes(colunas, problemas, anterior, indice, apelidos) {
   /** @type {Map<string, {c: ColunaLida, i: ItemLido}[]>} */
   const onde = new Map();
   for (const c of Object.values(colunas)) {
-    const vistos = new Set();
+    /** @type {Map<string, ItemLido>} */
+    const vistos = new Map();
     for (const i of contados(c)) {
-      if (i.leitura.como === 'fora') continue;
-      if (vistos.has(i.chave)) {
-        problemas.push({ tipo: 'repete', onde: c.onde, linha: i.linha, texto: `${c.aula}: ${i.item?.nome ?? i.escrito} aparece duas vezes.` });
+      const antes = vistos.get(i.chave);
+      if (antes) {
+        // Ensaiar no aquecimento o movimento do WOD não é repetir; o mesmo exercício duas vezes na aula é.
+        const daMesmaLinha = antes.linha === i.linha;
+        if (!daMesmaLinha && antes.secao.tipo !== 'aquecimento' && i.secao.tipo !== 'aquecimento' && !(i.secao.tipo === 'hiit' && antes === i)) {
+          problemas.push({ tipo: 'repete', onde: c.onde, linha: i.linha, texto: `${c.aula}: ${i.item?.nome ?? i.escrito} aparece duas vezes.` });
+        }
         continue;
       }
-      vistos.add(i.chave);
+      vistos.set(i.chave, i);
       const l = onde.get(i.chave) ?? [];
       l.push({ c, i });
       onde.set(i.chave, l);
@@ -897,7 +1045,8 @@ function conferirRepeticoes(colunas, problemas, anterior, indice, apelidos) {
   }
   for (const lista of onde.values()) {
     if (lista.length < 2) continue;
-    const nome = lista[0].i.item?.nome ?? lista[0].i.escrito;
+    // Fora do catálogo, o nome escrito pode variar ("Stiff" e "Stiff barra"): mostra os dois.
+    const nome = [...new Set(lista.map((x) => x.i.item?.nome ?? x.i.escrito))].join(' / ');
     const aulas = lista.map((x) => `${x.c.aula} (${x.c.dias.map((d) => NOME_DIA[d].toLowerCase()).join(' e ')})`);
     const soH = lista.every((x) => x.c.onde.endsWith('.h'));
     const texto = soH
@@ -912,7 +1061,7 @@ function conferirRepeticoes(colunas, problemas, anterior, indice, apelidos) {
       if (!txt) continue;
       const tipo = lado === 'h' ? 'forca' : ({ Cross: 'wod', Hyrox: 'hyrox', HIIT: 'tabata' }[q.metabolico] ?? 'wod');
       for (const s of lerColuna(txt, tipo).secoes) {
-        if (SECOES_SEM_CONTA.includes(s.tipo)) continue;
+        if (SECOES_SEM_CONTA.includes(s.tipo) || s.tipo === 'aquecimento') continue;
         for (const e of s.itens) {
           const l = lerNome(e.escrito, indice, apelidos, { hyrox: s.tipo === 'hyrox' });
           if (l.id) antes.add(`${lado}:${l.id}`);
@@ -922,7 +1071,7 @@ function conferirRepeticoes(colunas, problemas, anterior, indice, apelidos) {
     for (const lado of ['h', 'm']) {
       const c = colunas[`${q.id}.${lado}`];
       if (c.aula === 'Hyrox') continue; // a prova repete as estações de propósito
-      for (const i of contados(c)) {
+      for (const i of contados(c).filter((x) => x.secao.tipo !== 'aquecimento')) {
         if (i.item && antes.has(`${lado}:${i.item.id}`)) {
           problemas.push({ tipo: 'info', onde: c.onde, linha: i.linha, texto: `${c.aula}: ${i.item.nome} repete a semana passada.` });
         }
@@ -976,7 +1125,7 @@ const vezes = (c, n) => Object.fromEntries(Object.entries(c).map(([k, v]) => [k,
 export function consumoDoH(c) {
   /** @type {Record<string, number>} */
   let total = {};
-  for (const i of contados(c)) total = juntar(total, consumoDoItem(i.item), 'soma');
+  for (const i of contados(c).filter((x) => x.secao.tipo !== 'aquecimento')) total = juntar(total, consumoDoItem(i.item), 'soma');
   return total;
 }
 
@@ -988,13 +1137,29 @@ export function consumoDoH(c) {
  *  - EMOM, aquecimento, GAP, Murph: todos no mesmo movimento ao mesmo tempo;
  *  - força: duplas revezando (n ÷ 2, para cima), cada linha do quadro com o
  *    maior consumo dos exercícios dela;
- *  - Hyrox: cada estação montada com o que ela pede.
+ *  - Hyrox: cada estação montada com o que ela pede;
+ *  - HIIT: as 4 estações rodam juntas, com n ÷ 4 alunos (para cima) em cada;
+ *    na vaga N toda estação está no mesmo exercício da sua fila, então a vaga
+ *    N das 4 estações soma (`contarHiit`).
  * @param {ColunaLida} c @param {number} n
  */
 export function consumoDoMetabolico(c, n) {
   /** @type {Record<string, number>} */
   let pico = {};
+  const estacoes = c.secoes.filter((s) => s.tipo === 'hiit');
+  if (estacoes.length) {
+    const porEstacao = Math.max(1, Math.ceil(n / ESTACOES_HIIT.length));
+    const filas = estacoes.map((s) => vagasDaEstacao(c, s).filter((i) => i.leitura.como !== 'fora'));
+    const vagas = Math.max(SLOTS_POR_ESTACAO, ...filas.map((f) => f.length));
+    for (let k = 0; k < vagas; k += 1) {
+      /** @type {Record<string, number>} */
+      let naVaga = {};
+      for (const f of filas) if (f[k]) naVaga = juntar(naVaga, vezes(consumoDoItem(f[k].item), porEstacao), 'soma');
+      pico = juntar(pico, naVaga, 'max');
+    }
+  }
   for (const s of c.secoes) {
+    if (s.tipo === 'hiit') continue;
     const itens = c.itens.filter((i) => i.secao === s && i.leitura.como !== 'fora');
     if (!itens.length) continue;
     /** @type {Record<string, number>} */

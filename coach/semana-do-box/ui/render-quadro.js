@@ -9,8 +9,9 @@
  */
 import { ROTULO_MUSCULO } from '../core/catalogo.js';
 import {
-  CAMINHOS, DIAS, EXTRAS, NOME_DIA, NOME_PADRAO_H, NOME_RECURSO, NOME_TIPO_SECAO, PADROES_H, QUADROS, SECOES_SEM_CONTA,
-  chaveApelido, metasDaSemana, volumeDoCaminho,
+  CAMINHOS, DIAS, EXTRAS, MUSICAS_POR_ESTACAO, NIVEIS_HYROX, NOME_DIA, NOME_ESTACAO_HIIT, NOME_MODELO_HYROX, NOME_NIVEL_HYROX,
+  NOME_PADRAO_H, NOME_RECURSO, NOME_TIPO_SECAO, PADROES_H, QUADROS, SECOES_SEM_CONTA, SLOTS_POR_ESTACAO,
+  chaveApelido, corridaHyrox, metasDaSemana, quantidadesHyrox, vagasDaEstacao, volumeDoCaminho,
 } from '../core/quadro.js';
 import { esc } from './render.js';
 
@@ -36,9 +37,16 @@ D) WOD 18m AMRAP
 1000m SkiErg
 50m Sled Push
 …`,
-  HIIT: `Tabata 2 músicas
-4x Burpee
-4x Kettlebell swing
+  HIIT: `Pernas
+Afundo com kettlebell
+Kettlebell swing
+Core
+Prancha isométrica
+…
+Superiores
+…
+Cardio
+Burpee
 …`,
 };
 const EXEMPLO_EXTRA = { GAP: 'GAP Tabata 20/10\n1 música aquecimento, 3 perna, 4 glúteo, 3 abs\ncada música 8 rounds', Murph: 'Murph\n1600m corrida\n100x Puxada aberta pronada\n200x Flexão\n300x Air squat\n1600m corrida' };
@@ -114,13 +122,22 @@ function coluna(id, aula, dias, texto, exemplo) {
 
 /* ───────────────────────── a leitura de uma coluna ───────────────────────── */
 
+/** "12×", "200 m", "1 min". @param {{n: number, unidade: string}|null|undefined} q */
+export function textoQtd(q) {
+  if (!q) return '';
+  const n = q.n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  if (q.unidade === 'reps') return `${n}×`;
+  return `${n} ${q.unidade}`;
+}
+
 /**
  * O que o sistema entendeu de uma coluna, linha a linha: as seções, cada
  * exercício reconhecido (ou a pergunta, quando não reconheceu) e os avisos
  * daquela linha.
- * @param {string} onde @param {Conferencia} conf
+ * @param {string} onde @param {Conferencia} conf @param {{nivelHyrox?: string}} [vista]
  */
-export function renderLeitura(onde, conf) {
+export function renderLeitura(onde, conf, vista = {}) {
+  const nivel = NIVEIS_HYROX.includes(vista.nivelHyrox ?? '') ? /** @type {string} */ (vista.nivelHyrox) : 'intermediario';
   const c = conf.colunas[onde];
   if (!c) return '';
   if (c.vazia) return '<p class="mut qs-dica">A leitura aparece aqui enquanto você escreve.</p>';
@@ -130,14 +147,21 @@ export function renderLeitura(onde, conf) {
   for (const s of c.secoes) {
     const itens = c.itens.filter((i) => i.secao === s);
     if (!s.titulo && !itens.length && !s.musicas.length) continue;
-    const detalhe = [
-      NOME_TIPO_SECAO[s.tipo] ?? s.tipo,
-      s.formato, s.minutos ? `${s.minutos} min` : '', s.rodadas ? `${s.rodadas} rodadas` : '',
-      s.series ? `${s.series}×${s.reps ?? ''}` : '', s.descansoSeg ? `pausa ${s.descansoSeg} s` : '',
-    ].filter(Boolean).join(' · ');
+    const vagas = s.tipo === 'hiit' ? vagasDaEstacao(c, s).length : 0;
+    const detalhe = s.tipo === 'hiit'
+      ? `Estação ${NOME_ESTACAO_HIIT[s.estacao ?? ''] ?? s.estacao} · ${MUSICAS_POR_ESTACAO} músicas de Tabata, 4× cada exercício`
+      : [
+        NOME_TIPO_SECAO[s.tipo] ?? s.tipo,
+        s.formato, s.minutos ? `${s.minutos} min` : '', s.rodadas ? `${s.rodadas} rodadas` : '',
+        s.series ? `${s.series}×${s.reps ?? ''}` : '', s.descansoSeg ? `pausa ${s.descansoSeg} s` : '',
+      ].filter(Boolean).join(' · ');
     const semConta = SECOES_SEM_CONTA.includes(s.tipo);
-    partes.push(`<div class="ql-secao${semConta ? ' ql-sem-conta' : ''}"><b>${esc(s.letra || '•')}</b> ${esc(detalhe)}${semConta ? ' <span class="mut">(não conta volume)</span>' : ''}</div>`);
-    for (const i of itens) partes.push(renderItem(i, daColuna.filter((p) => p.linha === i.linha && p.tipo !== 'duvida'), conf));
+    const nota = semConta ? ' <span class="mut">(não conta volume)</span>'
+      : s.tipo === 'aquecimento' ? ' <span class="mut">(conta ¼ no volume e entra na repetição)</span>'
+        : s.tipo === 'hiit' ? ` <span class="${vagas === SLOTS_POR_ESTACAO ? 'ok' : 'warn'}">${vagas}/${SLOTS_POR_ESTACAO} vagas</span>` : '';
+    partes.push(`<div class="ql-secao${semConta ? ' ql-sem-conta' : ''}"><b>${esc(s.letra || '•')}</b> ${esc(detalhe)}${nota}</div>`);
+    if (s.tipo === 'hyrox' && itens.length) partes.push(renderNivelHyrox(conf, nivel));
+    for (const i of itens) partes.push(renderItem(i, daColuna.filter((p) => p.linha === i.linha && p.tipo !== 'duvida'), conf, nivel));
     for (const m of s.musicas) {
       partes.push(`<div class="ql-item"><span class="ql-chip ok">${esc(m.n)} × ${esc(m.grupo)}</span></div>`);
     }
@@ -160,19 +184,40 @@ const contador = (n, meta, nome) => `<span class="${n === meta ? 'ok' : 'warn'}"
 /** @param {Record<string, number>} s */
 const somaSeries = (s) => Object.values(s).reduce((a, b) => a + b, 0);
 
-/** @param {any} i @param {import('../core/quadro.js').Problema[]} avisos @param {Conferencia} conf */
-function renderItem(i, avisos, conf) {
+/** O nível que a tabela mostra e a corrida antes de cada estação. @param {Conferencia} conf @param {string} nivel */
+function renderNivelHyrox(conf, nivel) {
+  const opcoes = NIVEIS_HYROX.map((n) => `<option value="${n}"${n === nivel ? ' selected' : ''}>${esc(NOME_NIVEL_HYROX[n])}</option>`).join('');
+  const corrida = corridaHyrox(conf.indice, nivel);
+  const txt = corrida.length
+    ? `Corrida antes de cada estação: ${corrida.map((x) => `${NOME_MODELO_HYROX[x.modelo]} ${x.metros} m`).join(' · ')} `
+      + `<span class="mut">(air bike: ${corrida.map((x) => `${x.cal}`).join(' / ')} cal)</span>`
+    : '';
+  return `<div class="ql-hyrox"><label>Nível <select data-nivel-hyrox aria-label="Nível do Hyrox">${opcoes}</select></label> ${txt}</div>`;
+}
+
+/** Botão de cadastrar o nome escrito no catálogo. @param {string} k @param {string} escrito */
+const botaoCadastrar = (k, escrito) =>
+  `<button class="ql-sug cadastrar" type="button" data-cadastrar="${k}" data-nome="${esc(escrito)}" title="Criar no catálogo (força, HIIT, Cross ou acessório)">+ Cadastrar</button>`;
+
+/** @param {any} i @param {import('../core/quadro.js').Problema[]} avisos @param {Conferencia} conf @param {string} nivel */
+function renderItem(i, avisos, conf, nivel) {
   const k = esc(chaveApelido(i.escrito));
-  const qtd = i.series && i.secao.tipo === 'forca' ? ` <span class="mut">${esc(i.series)} séries</span>` : '';
+  let q = '';
+  if (i.secao.tipo === 'forca') q = i.series ? `${i.series} séries` : '';
+  else if (i.qtd) q = `${textoQtd(i.qtd)}${i.item?.hyrox ? ' (escrito)' : ''}`;
+  else if (i.item?.hyrox) q = quantidadesHyrox(i.item, nivel).map((x) => `${NOME_MODELO_HYROX[x.modelo]} ${textoQtd({ n: x.n, unidade: x.unidade })}`).join(' · ');
+  if (i.secao.tipo === 'hiit' && i.item?.unilateral) q = [q, 'unilateral: 2 vagas (D e E)'].filter(Boolean).join(' · ');
+  const qtd = q ? ` <span class="mut ql-qtd">${esc(q)}</span>` : '';
   let chip;
   if (i.item) {
     chip = `<button class="ql-chip ok" type="button" data-trocar="${k}" title="Trocar o exercício">${esc(i.item.nome)}</button>${qtd}`;
   } else if (i.leitura.como === 'fora') {
-    chip = `<button class="ql-chip fora" type="button" data-trocar="${k}" title="Fora do catálogo: não conta volume. Trocar">${esc(i.escrito)} · fora do catálogo</button>`;
+    chip = `<button class="ql-chip fora" type="button" data-trocar="${k}" title="Fora do catálogo: só a repetição confere pelo nome. Trocar">${esc(i.escrito)} · fora do catálogo</button>${qtd} ${botaoCadastrar(k, i.escrito)}`;
   } else {
     const sug = i.leitura.sugestoes.map((/** @type {{id: string, nome: string}} */ s) => `<button class="ql-sug" type="button" data-apelido="${k}" data-id="${esc(s.id)}">${esc(s.nome)}</button>`).join('');
-    chip = `<span class="ql-chip duvida">“${esc(i.escrito)}” é…</span> ${sug}
+    chip = `<span class="ql-chip duvida">“${esc(i.escrito)}” é…</span>${qtd} ${sug}
       <input class="ql-outro" list="quadro-catalogo" placeholder="outro…" data-apelido-input="${k}" aria-label="Outro exercício para ${esc(i.escrito)}" />
+      ${botaoCadastrar(k, i.escrito)}
       <button class="ql-sug fora" type="button" data-apelido="${k}" data-id="-">não está no catálogo</button>`;
   }
   const alt = i.alternativas.length ? ` <span class="mut">ou ${esc(i.alternativas.join(', '))}</span>` : '';

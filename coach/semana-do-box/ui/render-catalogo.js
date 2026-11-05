@@ -174,6 +174,7 @@ export function renderFormExercicio({ exercicio, vocabulario, exercicios, erro =
         <label class="field"><span class="inv-rotulo">Carga RX</span><input type="text" name="cross_carga_rx" maxlength="60" placeholder="40/30 kg" value="${esc(cross?.carga?.rx ?? '')}" /></label>
         <label class="field"><span class="inv-rotulo">Carga Scaled</span><input type="text" name="cross_carga_scaled" maxlength="60" placeholder="30/20 kg" value="${esc(cross?.carga?.scaled ?? '')}" /></label>
       </div>
+      <label class="cat-check"><input type="checkbox" name="acessorio"${e.acessorio ? ' checked' : ''} /> Acessório (tríceps, rosca, crucifixo invertido…): sem vaga, o gerador não sorteia, o Quadro reconhece e soma o volume</label>
     </fieldset>`
     : `<p class="mut cat-onde">${ondeEntra(e).map((p) => `<span>${esc(p)}</span>`).join('') || 'Sem modalidade.'}</p>`;
 

@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  ESTACOES_HIIT, METROS_POR_CAL_AIRBIKE, MODELOS_HYROX, NIVEIS_HYROX, RECURSOS_FIXOS_HIIT, SLOTS_POR_ESTACAO,
+  corridaHyrox, estacaoDoTitulo, quantidadesHyrox, vagasDaEstacao,
   BLOCOS_CHIPPER, CAMINHOS, CAPACIDADE_SKIERG, EXERCICIOS_POR_BLOCO, FATOR_VOLUME, INVENTARIO_PADRAO, MINUTOS_POR_RODADA_AMRAP,
   MUSCULOS_CORRIDA, PADROES_H, PESO_PRINCIPAL, PESO_SECUNDARIO, RECURSO_DO_EQUIPAMENTO, REGRA_FORMATO, SERIES_POR_EXERCICIO,
   TETO_MINUTOS, conferirSemana, consumoDoMetabolico, lerColuna, lerNome, lerPrescricao, indiceDoCatalogo, metasDaSemana,
@@ -136,7 +138,7 @@ test('Cross: volume do WOD em blocos (AMRAP 18 = 6 rodadas × 0,5; cardio × 0,2
   assert.equal(s.ground_to_overhead, 5);
   assert.equal(s.thruster_halteres, 6 * 0.5);
   assert.equal(s.corrida, 6 * 0.25);
-  assert.equal(s.agachamento_livre, undefined, 'aquecimento não conta volume');
+  assert.equal(s.agachamento_livre, 0.25, 'aquecimento conta ¼ por rodada');
 });
 
 test('Terça: Smith ou monocross no Cross é erro; o banco que falta aparece por divisão da turma', () => {
@@ -216,4 +218,106 @@ test('caminho do aluno: o 6× alternando soma H1, Cross, H2, Hyrox, H3 e HIIT; o
   assert.equal(v.costas, (conf.colunas['q1.h'].volume.costas ?? 0) + (conf.colunas['q1.m'].volume.costas ?? 0));
   const comGap = volumeDoCaminho(conf, alterna, true);
   assert.equal(comGap.gluteo - (v.gluteo ?? 0), 4 * 8 * 0.5, '4 músicas × 8 rounds × 0,5');
+});
+
+/* ── 05/11/2026: HIIT em estações, aquecimento, nome fora do catálogo, Hyrox com a tabela ── */
+
+test('paridade: estações, vagas e TRX do HIIT; níveis, modelos e air bike do Hyrox', () => {
+  const lista = (nome) => {
+    const ini = modelo.indexOf('= [', modelo.indexOf(`export const ${nome}`));
+    return [...modelo.slice(ini, modelo.indexOf(']', ini)).matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  };
+  assert.deepEqual(ESTACOES_HIIT, lista('ESTACOES_HIIT'));
+  assert.deepEqual(RECURSOS_FIXOS_HIIT, lista('RECURSOS_FIXOS_HIIT'));
+  assert.match(modelo, new RegExp(`SLOTS_POR_ESTACAO = ${SLOTS_POR_ESTACAO};`));
+  assert.match(modelo, /PROTOCOLO_HIIT = '2 Músicas de Tabata \(16 rounds no total\)\. 4x cada exercício\.'/);
+  assert.deepEqual(NIVEIS_HYROX, lista('NIVEIS_HYROX'));
+  assert.deepEqual(MODELOS_HYROX, lista('MODELOS_HYROX'));
+  assert.match(modelo, new RegExp(`METROS_POR_CAL_AIRBIKE = ${METROS_POR_CAL_AIRBIKE};`));
+});
+
+const HIIT = `Pernas
+Afundo com kettlebell
+Agachamento goblet com kettlebell
+Kettlebell swing
+Core
+Prancha isométrica
+Russian twist
+Abdominal bicicleta
+Abdominal Infra
+Superiores
+Flexão de braço
+Remada no TRX
+Thruster com halteres
+Flexão pike
+Cardio
+Burpee
+Polichinelo
+Mountain climber
+High knees`;
+
+test('HIIT: "Pernas", "Core"… são estações; o unilateral ocupa 2 vagas', () => {
+  assert.equal(estacaoDoTitulo('Estação Superiores'), 'superiores');
+  assert.equal(estacaoDoTitulo('Perna'), 'pernas');
+  const { secoes } = lerColuna(HIIT, 'tabata');
+  assert.deepEqual(secoes.map((s) => [s.tipo, s.estacao, s.itens.length]), [['hiit', 'pernas', 3], ['hiit', 'core', 4], ['hiit', 'superiores', 4], ['hiit', 'cardio', 4]]);
+  assert.equal(lerColuna('Pernas\nAfundo', 'wod').secoes[0].tipo, 'wod', 'fora da coluna do HIIT, "Pernas" não é estação');
+  const conf = conferirSemana({ quadros: { q3: { metabolico: HIIT } }, catalogo: CATALOGO });
+  const c = conf.colunas['q3.m'];
+  assert.equal(vagasDaEstacao(c, c.secoes[0]).length, 4, 'afundo (unilateral) = 2 vagas + goblet + swing');
+  assert.deepEqual(conf.problemas.filter((p) => p.onde === 'q3.m' && p.tipo !== 'info'), [], 'as 4 estações com 4 vagas: nada falta');
+  assert.equal(c.minutos, 4 * 2 * 4, '4 estações × 2 músicas × 4 min');
+  assert.equal(c.seriesPorId.burpee, 2, 'cada vaga: 4 rounds de 20 s = 2 séries');
+  assert.equal(c.seriesPorId.afundo_kb, 2, 'o unilateral: 2 séries por lado');
+});
+
+test('HIIT: estação faltando, vaga sobrando, TRX em duas estações e o equipamento por vaga', () => {
+  const torto = HIIT.replace('Cardio\nBurpee\nPolichinelo\nMountain climber\nHigh knees', '')
+    .replace('Kettlebell swing', 'Kettlebell swing\nAfundo no TRX');
+  const conf = conferirSemana({ quadros: { q3: { metabolico: torto } }, catalogo: CATALOGO });
+  const t = conf.problemas.filter((p) => p.onde === 'q3.m').map((p) => p.texto);
+  assert.ok(t.includes('HIIT: falta a estação Cardio.'), t.join(' | '));
+  assert.ok(t.some((x) => x.startsWith('HIIT · Pernas: 6 de 4 vagas (passou)')), t.join(' | '));
+  assert.ok(t.some((x) => x.startsWith('HIIT: o TRX está em Pernas e Superiores')), t.join(' | '));
+  const c = conf.colunas['q3.m'];
+  // Vaga 1: afundo com KB em Pernas (1 KB por aluno) — com 5 alunos, 2 por estação.
+  assert.equal(consumoDoMetabolico(c, 5).kettlebell, 2);
+  assert.ok(conferirSemana({ quadros: { q3: { metabolico: 'Tabata\n4x Burpee' } }, catalogo: CATALOGO })
+    .problemas.some((p) => p.texto.startsWith('HIIT: escreva as 4 estações')), 'lista solta pede as estações');
+});
+
+test('aquecimento: entra na repetição da semana (não na da própria aula) e conta ¼', () => {
+  const conf = conferirSemana({
+    quadros: { q1: { h: H1, metabolico: `B) Aquecimento\n10x Air squat\nD) AMRAP 12 min\n10x Air squat\nBurpee\nCorrida` } },
+    catalogo: CATALOGO,
+  });
+  const t = conf.problemas.map((p) => p.texto);
+  assert.ok(!t.some((x) => x.startsWith('Cross: Agachamento livre') && x.includes('duas vezes')), 'ensaiar no aquecimento o movimento do WOD não é repetir');
+  const h = conferirSemana({ quadros: { q1: { h: H1, metabolico: CROSS } }, catalogo: CATALOGO });
+  assert.ok(h.problemas.some((p) => p.tipo === 'repete' && p.texto.startsWith('Abdominal Supra (Crunch) está em H1') && p.texto.includes('Cross')),
+    'o crunch do H1 e o do aquecimento do Cross');
+});
+
+test('fora do catálogo: a repetição confere pelo nome escrito, sem o equipamento', () => {
+  const conf = conferirSemana({
+    quadros: { q1: { metabolico: 'C) Força 5x 8-12\nStiff / RDL' }, q2: { h: 'B) 3x 8-12\nStiff barra' } },
+    catalogo: CATALOGO, apelidos: { stiff: '-', 'stiff barra': '-' },
+  });
+  assert.ok(conf.problemas.some((p) => p.tipo === 'repete' && p.texto.startsWith('Stiff / Stiff barra está em Cross (terça) e H2')),
+    conf.problemas.map((p) => p.texto).join(' | '));
+});
+
+test('Hyrox: a quantidade de cada estação vem da tabela do coach (modelo × nível) e a corrida também', () => {
+  const ind = indiceDoCatalogo(CATALOGO);
+  const sled = /** @type {any} */ (ind.porId.get('hyrox:sled_push'));
+  assert.deepEqual(quantidadesHyrox(sled, 'intermediario').map((q) => [q.modelo, q.n, q.unidade]), [['cardio', 25, 'm'], ['strength', 50, 'm'], ['dupla', 50, 'm']]);
+  assert.equal(quantidadesHyrox(/** @type {any} */ (ind.porId.get('hyrox:skierg')), 'intermediario')[0].unidade, 'puxadas');
+  assert.equal(lerNome('Skyerg', ind, {}, { hyrox: true }).id, 'hyrox:skierg', 'o jeito que o coach escreve');
+  assert.equal(lerNome('Sandbag', ind, {}, { hyrox: true }).id, 'hyrox:sandbag_lunges');
+  assert.deepEqual(corridaHyrox(ind, 'intermediario').map((x) => [x.modelo, x.metros, x.cal]), [['cardio', 400, 20], ['strength', 300, 15], ['dupla', 300, 15]]);
+});
+
+test('quantidade: "1m" no WOD é 1 minuto; "200m" é distância', () => {
+  const { secoes } = lerColuna('D) AMRAP 12 min\n1m air bike\n200m corrida', 'wod');
+  assert.deepEqual(secoes[0].itens.map((i) => i.qtd), [{ n: 1, unidade: 'min' }, { n: 200, unidade: 'm' }]);
 });
