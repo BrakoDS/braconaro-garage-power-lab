@@ -110,6 +110,17 @@ export function publicar(semanaId, publicar = true) {
 }
 
 /**
+ * Publica a semana escrita na aba Quadro (`publicarQuadroBox`): `dias` é o
+ * pedido de `core/publicar-quadro.js`; o servidor confere contra o catálogo e
+ * grava a semana que o Portal, o app e a Lousa leem.
+ * @param {string} semanaId @param {Record<string, any>} dias
+ * @returns {Promise<{semanaId: string, status: 'publicado', mantidos: string[]}>}
+ */
+export function publicarQuadro(semanaId, dias) {
+  return chamar('publicarQuadroBox', { semanaId, dias });
+}
+
+/**
  * As opções para trocar a vaga `posicao` (1 a 6) da `sessao` — o catálogo com
  * os conflitos já calculados pelo servidor, e se a sessão está travada.
  * @param {string} semanaId @param {string} sessao @param {number} posicao
@@ -246,12 +257,16 @@ export async function lerQuadro(uid, semanaId) {
 /**
  * Grava o texto dos 3 quadros e o extra (GAP/Murph) da semana.
  * @param {string} uid @param {string} semanaId
- * @param {{quadros: Record<string, {h: string, metabolico: string}>, extra: {tipo: string|null, dia: string, texto: string}}} dados
+ * `semAula`: os dias marcados sem aula na hora de publicar; `publicacao`: a
+ * assinatura do que foi publicado (para a tela dizer se o quadro mudou depois).
+ * @param {{quadros: Record<string, {h: string, metabolico: string}>, extra: {tipo: string|null, dia: string, texto: string},
+ *   adaptacoes?: Record<string, any>, semAula?: Record<string, {tipo: string, texto: string}>, publicacao?: {assinatura: string, em: number}|null}} dados
  */
 export async function salvarQuadro(uid, semanaId, dados) {
   const { db, fs } = await firestore();
   await fs.setDoc(fs.doc(db, `coaches/${uid}/quadros/${semanaId}`), {
-    semanaId, versao: 1, quadros: dados.quadros, extra: dados.extra, adaptacoes: dados.adaptacoes ?? {}, atualizadoEm: fs.serverTimestamp(),
+    semanaId, versao: 1, quadros: dados.quadros, extra: dados.extra, adaptacoes: dados.adaptacoes ?? {},
+    semAula: dados.semAula ?? {}, publicacao: dados.publicacao ?? null, atualizadoEm: fs.serverTimestamp(),
   });
 }
 

@@ -13,6 +13,7 @@ import {
   NOME_PADRAO_H, NOME_RECURSO, NOME_TIPO_SECAO, PADROES_H, QUADROS, SECOES_SEM_CONTA, SLOTS_POR_ESTACAO,
   chaveApelido, corridaHyrox, metasDaSemana, quantidadesHyrox, vagasDaEstacao, volumeDoCaminho,
 } from '../core/quadro.js';
+import { NOME_SEM_AULA, TIPOS_SEM_AULA } from '../core/publicar-quadro.js';
 import { esc } from './render.js';
 
 /** @typedef {ReturnType<typeof import('../core/quadro.js').conferirSemana>} Conferencia */
@@ -101,8 +102,10 @@ export function renderQuadroBase(e) {
   <button class="btn ghost" type="button" data-quadro-semana="0">Esta semana</button>
   <span id="quadro-salvo" class="qs-salvo mut" role="status" aria-live="polite"></span>
 </div>
+<div class="qs-pub" id="quadro-publicacao" aria-live="polite"></div>
 <p class="mut intro">Escreva como no quadro do box. Ao lado, a conferência da semana: o que não cabe, o que falta
-para fechar 7 × 3 em cada H, o que se repete e os nomes para confirmar. Nada aqui chega ao aluno ainda.</p>
+para fechar 7 × 3 em cada H, o que se repete e os nomes para confirmar. O aluno só vê a semana depois de
+"Publicar para os alunos" — aí ela aparece no Portal, no app e na Lousa.</p>
 <div class="qs-layout">
   <div class="qs-lista">${quadros}${extraHtml}</div>
   <aside id="quadro-conferencia" class="qs-conferencia" aria-label="Conferência da semana"></aside>
@@ -308,4 +311,59 @@ function renderVolume(conf, vista) {
   <div class="qc-caminhos" role="group" aria-label="Volume de quem">${opcoes}</div>
   ${corpo}
 </section>`;
+}
+
+/* ───────────────────────────── publicar para os alunos ───────────────────────────── */
+
+/**
+ * A faixa da publicação: se a semana está no ar, se o quadro mudou depois e os botões.
+ * @param {{status: 'rascunho'|'publicado'|null, origem: string|null, publicadoEm: Date|null, mudou: boolean, publicando: boolean}} p
+ */
+export function renderPublicacao(p) {
+  const quando = p.publicadoEm
+    ? p.publicadoEm.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+  let texto;
+  let cls = 'mut';
+  if (p.status !== 'publicado') texto = 'Ainda não publicada: o aluno não vê esta semana.';
+  else if (p.origem !== 'quadro') { texto = 'No ar: a semana do gerador antigo. Publicar troca pelo que está no quadro.'; cls = 'warn'; }
+  else if (p.mudou) { texto = `No ar desde ${quando}, mas o quadro mudou depois. Publique de novo para o aluno ver.`; cls = 'warn'; }
+  else { texto = `No ar para os alunos desde ${quando}.`; cls = 'ok'; }
+  const rotulo = p.publicando ? 'Publicando…' : p.status === 'publicado' && p.origem === 'quadro' ? 'Publicar de novo' : 'Publicar para os alunos';
+  return `<span class="${cls}">${esc(texto)}</span>
+  <button class="btn" type="button" data-publicar-quadro${p.publicando ? ' disabled' : ''}>${esc(rotulo)}</button>
+  ${p.status === 'publicado' ? '<button class="btn ghost" type="button" data-tirar-do-ar>Tirar do ar</button>' : ''}`;
+}
+
+/**
+ * O que vai mudar na publicação: os impedimentos (a lista do que falta). Redesenhado a cada mudança no diálogo.
+ * @param {{impedimentos: {texto: string}[], resumo: Record<string, string[]>}} r
+ */
+export function renderImpedimentos(r) {
+  const dias = DIAS.map((d) => `<li><b>${esc(NOME_DIA[d])}</b> · ${esc(r.resumo[d]?.length ? r.resumo[d].join(' + ') : '—')}</li>`).join('');
+  const imp = r.impedimentos.length
+    ? `<p class="bad"><b>Antes de publicar:</b></p><ul class="qs-pub-imp">${r.impedimentos.map((i) => `<li>${esc(i.texto)}</li>`).join('')}</ul>`
+    : '<p class="ok">Pronto para publicar. Os avisos de equipamento da conferência não impedem.</p>';
+  return `<ul class="qs-pub-dias">${dias}</ul>${imp}`;
+}
+
+/**
+ * O diálogo "Publicar para os alunos": os dias sem aula (com o motivo) e o que falta.
+ * @param {{rotulo: string, datas: Record<string, string>, semAula: Record<string, {tipo: string, texto: string}>,
+ *   impedimentos: {texto: string}[], resumo: Record<string, string[]>}} e
+ */
+export function renderPublicar(e) {
+  const linhas = DIAS.map((d) => {
+    const s = e.semAula[d];
+    const opcoes = [['', 'Tem aula'], ...TIPOS_SEM_AULA.map((t) => [t, NOME_SEM_AULA[t]])]
+      .map(([v, n]) => `<option value="${v}"${(s?.tipo ?? '') === v ? ' selected' : ''}>${esc(n)}</option>`).join('');
+    return `<div class="qs-pub-linha">
+  <span class="qs-pub-dia">${esc(NOME_DIA[d])} <span class="mut">${esc(e.datas[d] ?? '')}</span></span>
+  <select data-sem-aula="${d}" aria-label="${esc(NOME_DIA[d])}: tem aula?">${opcoes}</select>
+  <input type="text" data-sem-aula-texto="${d}" maxlength="200" value="${esc(s?.texto ?? '')}" placeholder="Motivo para o aluno (opcional)"${s ? '' : ' hidden'} />
+</div>`;
+  }).join('');
+  return `<p class="mut">${esc(e.rotulo)}. Marque os dias sem aula; o aluno vê o motivo no lugar do treino.
+Dia que já passou numa semana publicada fica como estava (o aluno pode ter registrado a aula).</p>
+<div class="qs-pub-grade">${linhas}</div>
+<div id="qs-pub-resumo">${renderImpedimentos(e)}</div>`;
 }

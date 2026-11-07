@@ -10,7 +10,7 @@
  * semana, ele também poderia gravar uma contagem de equipamento inventada.
  *
  *   catalogoExercicios/{exercicioId}           seed (`seed-catalogo.ts`); leitura de qualquer logado
- *   coaches/{uid}/semanas/{AAAA-Www}           `gerarMatrizSemanalBox` / `salvarSemanaBox` / `publicarSemanaBox`
+ *   coaches/{uid}/semanas/{AAAA-Www}           `gerarMatrizSemanalBox` / `salvarSemanaBox` / `publicarSemanaBox` / `publicarQuadroBox`
  *   coaches/{uid}/inventario/atual             `salvarInventarioBox`
  *   treinoAluno/{email}/historico/{AAAA-MM}    `registrarSessaoAluno`
  *
