@@ -67,3 +67,15 @@ test('leitura: quantidade do WOD ao lado do exercício; Hyrox com a tabela do n�
   assert.match(hiit, /Estação Pernas · 2 músicas de Tabata, 4× cada exercício <span class="warn">3\/4 vagas</);
   assert.match(hiit, /unilateral: 2 vagas \(D e E\)/);
 });
+
+test('equipamento: "Marcar como adaptado" na falta; adaptado fica âmbar com "desfazer"', () => {
+  const t = vazios();
+  t.quadros.q1.h = 'B) 3x10\nSupino reto Smith\nDesenvolvimento militar com halteres';
+  t.quadros.q1.metabolico = 'C) Força 5x5\nRemada unilateral com halteres\nD) AMRAP 12 min\n12x Burpee\n10x Thruster com halteres\n200m corrida';
+  const sem = renderConferencia(conferirSemana({ ...t, catalogo: CATALOGO }), { caminho: 'aulas' });
+  assert.match(sem, /data-adaptar="terca" data-recursos="banco">Marcar como adaptado</);
+  assert.match(sem, /os avisos não impedem salvar/);
+  const com = renderConferencia(conferirSemana({ ...t, catalogo: CATALOGO, adaptacoes: { terca: { texto: 'caixa no lugar do banco', recursos: ['banco'] } } }), { caminho: 'aulas' });
+  assert.match(com, /<span class="qc-adaptado">adaptado: caixa no lugar do banco<\/span> <button class="qc-adaptar" type="button" data-desfazer-adaptacao="terca">desfazer</);
+  assert.doesNotMatch(com, /data-adaptar="terca"/);
+});

@@ -12,7 +12,9 @@ import { chaveSemana } from '../../montador-hibrido/core/periodos.js';
 import { conferirSemana, QUADROS } from '../core/quadro.js';
 import { segundaDaChave } from '../core/vista.js';
 import { lerApelidos, lerInventario, lerQuadro, listarCatalogo, salvarApelidos, salvarQuadro } from '../cloud/semana.js';
+import { painel } from '../../../compartilhado/ui/dialogo.js';
 import { cadastrarExercicio } from './catalogo.js';
+import { esc } from './render.js';
 import { renderConferencia, renderLeitura, renderQuadroBase } from './render-quadro.js';
 
 const $ = (/** @type {string} */ s) => /** @type {any} */ (document.querySelector(s));
@@ -43,11 +45,15 @@ function rotuloDaSemana(chave) {
   return `Semana ${Number(chave.slice(6))} · ${dm(d)} a ${dm(fim)}`;
 }
 
-/** @returns {{quadros: Record<string, {h: string, metabolico: string}>, extra: {tipo: string|null, dia: string, texto: string}}} */
+/**
+ * @returns {{quadros: Record<string, {h: string, metabolico: string}>, extra: {tipo: string|null, dia: string, texto: string},
+ *   adaptacoes: Record<string, {texto: string, recursos: string[]}>}}
+ */
 function textosVazios() {
   return {
     quadros: Object.fromEntries(QUADROS.map((q) => [q.id, { h: '', metabolico: '' }])),
     extra: { tipo: null, dia: 'sabado', texto: '' },
+    adaptacoes: {},
   };
 }
 
@@ -59,6 +65,10 @@ function textosDo(doc) {
     if (g) t.quadros[q.id] = { h: String(g.h ?? ''), metabolico: String(g.metabolico ?? '') };
   }
   if (doc?.extra) t.extra = { tipo: doc.extra.tipo ?? null, dia: doc.extra.dia ?? 'sabado', texto: String(doc.extra.texto ?? '') };
+  for (const [dia, a] of Object.entries(doc?.adaptacoes ?? {})) {
+    const recursos = Array.isArray(/** @type {any} */ (a)?.recursos) ? /** @type {any} */ (a).recursos.map(String) : [];
+    if (recursos.length) t.adaptacoes[dia] = { texto: String(/** @type {any} */ (a).texto ?? ''), recursos };
+  }
   return t;
 }
 
@@ -93,7 +103,7 @@ export function montar(ctx) {
     if (!estado.catalogo) return;
     estado.conf = conferirSemana({
       quadros: estado.textos.quadros, extra: estado.textos.extra, catalogo: estado.catalogo,
-      apelidos: estado.apelidos, inventario: estado.inventario, anterior: estado.anterior,
+      apelidos: estado.apelidos, inventario: estado.inventario, anterior: estado.anterior, adaptacoes: estado.textos.adaptacoes,
     });
     for (const onde of Object.keys(estado.conf.colunas)) {
       const el = document.getElementById(`leitura-${onde.replace('.', '-')}`);
@@ -210,6 +220,23 @@ export function montar(ctx) {
     ctx.status(`${r.nome} criado no catálogo: já conta no quadro.`, 'ok');
   }
 
+  /** "Marcar como adaptado": o coach conta como resolveu a falta; grava com a semana. @param {string} dia @param {string[]} recursos */
+  async function adaptar(dia, recursos) {
+    const atual = estado.textos.adaptacoes[dia]?.texto ?? '';
+    const acao = await painel({
+      titulo: 'Marcar como adaptado',
+      corpoHTML: `<label class="field"><span class="inv-rotulo">Como foi adaptado</span>
+        <input type="text" id="qs-adaptacao" maxlength="120" value="${esc(atual)}" placeholder="Ex.: banco substituído por caixa de salto" /></label>`,
+      acoes: [{ id: 'salvar', label: 'Marcar como adaptado' }], fechar: 'Cancelar', largo: false,
+    });
+    const texto = /** @type {HTMLInputElement|null} */ (document.querySelector('#qs-adaptacao'))?.value.trim() ?? '';
+    if (acao !== 'salvar') return;
+    if (!texto) { ctx.status('Escreva em poucas palavras como foi adaptado.', 'erro'); return; }
+    estado.textos.adaptacoes = { ...estado.textos.adaptacoes, [dia]: { texto, recursos } };
+    conferir();
+    agendar();
+  }
+
   alvo.addEventListener('input', (/** @type {Event} */ ev) => {
     const t = /** @type {HTMLTextAreaElement} */ (ev.target);
     const col = t.getAttribute?.('data-col');
@@ -267,6 +294,16 @@ export function montar(ctx) {
     if (k) { confirmarNome(k, b.getAttribute('data-id') || '-'); return; }
     const novo = b.getAttribute('data-cadastrar');
     if (novo) { cadastrar(novo, b.getAttribute('data-nome') || ''); return; }
+    const dia = b.getAttribute('data-adaptar');
+    if (dia) { adaptar(dia, (b.getAttribute('data-recursos') || '').split(',').filter(Boolean)); return; }
+    const desfazer = b.getAttribute('data-desfazer-adaptacao');
+    if (desfazer) {
+      const { [desfazer]: _fora, ...resto } = estado.textos.adaptacoes;
+      estado.textos.adaptacoes = resto;
+      conferir();
+      agendar();
+      return;
+    }
     const trocar = b.getAttribute('data-trocar');
     if (trocar) {
       // Volta a perguntar (só nesta tela, até o coach escolher): útil quando a leitura automática errou.

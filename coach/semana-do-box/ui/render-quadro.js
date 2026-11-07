@@ -256,14 +256,20 @@ export function renderConferencia(conf, vista) {
 </table>`;
 
   const equipamento = `<table class="qc-tabela">
-  <caption>Equipamento de cada dia <span class="mut">(turma de até 6, dividida entre as duas aulas)</span></caption>
+  <caption>Equipamento de cada dia <span class="mut">(turma de até 6, dividida entre as duas aulas · os avisos não impedem salvar)</span></caption>
   <tbody>${conf.equipamento.map((d) => {
+    const falta = esc(d.faltas.map((f) => `${f.precisa - f.tem} ${NOME_RECURSO[f.recurso] ?? f.recurso}`).join(', '));
     let st;
-    if (d.cabeAte === null) st = d.faltas.length ? `<span class="bad">falta ${esc(d.faltas.map((f) => `${f.precisa - f.tem} ${NOME_RECURSO[f.recurso] ?? f.recurso}`).join(', '))}</span>` : '<span class="ok">cabe</span>';
-    else if (!d.faltas.length) st = '<span class="ok">cabe em qualquer divisão</span>';
-    else if (d.cabeAte === 0) st = `<span class="bad">não cabe: falta ${esc(d.faltas.map((f) => `${f.precisa - f.tem} ${NOME_RECURSO[f.recurso] ?? f.recurso}`).join(', '))}</span>`;
+    if (d.cabeAte === null) st = d.faltas.length ? `<span class="bad">falta ${falta}</span>` : (d.adaptado ? '' : '<span class="ok">cabe</span>');
+    else if (!d.faltas.length) st = d.adaptado ? '' : '<span class="ok">cabe em qualquer divisão</span>';
+    else if (d.cabeAte === 0) st = `<span class="bad">não cabe: falta ${falta}</span>`;
     else st = `<span class="warn">até ${d.cabeAte} no ${esc(d.aulas[1])}</span>`;
-    return `<tr><th>${esc(NOME_DIA[d.dia])}</th><td>${esc(d.aulas.join(' + '))}</td><td>${st}</td></tr>`;
+    const recursos = [...new Set([...(d.adaptado?.recursos ?? []), ...d.faltas.map((f) => f.recurso)])].join(',');
+    const adaptar = d.faltas.length
+      ? ` <button class="qc-adaptar" type="button" data-adaptar="${esc(d.dia)}" data-recursos="${esc(recursos)}">Marcar como adaptado</button>` : '';
+    const adaptado = d.adaptado
+      ? `<span class="qc-adaptado">adaptado: ${esc(d.adaptado.texto)}</span> <button class="qc-adaptar" type="button" data-desfazer-adaptacao="${esc(d.dia)}">desfazer</button>` : '';
+    return `<tr><th>${esc(NOME_DIA[d.dia])}</th><td>${esc(d.aulas.join(' + '))}</td><td>${[st, adaptado].filter(Boolean).join('<br>')}${adaptar}</td></tr>`;
   }).join('')}</tbody>
 </table>`;
 

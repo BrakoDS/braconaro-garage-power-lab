@@ -321,3 +321,52 @@ test('quantidade: "1m" no WOD é 1 minuto; "200m" é distância', () => {
   const { secoes } = lerColuna('D) AMRAP 12 min\n1m air bike\n200m corrida', 'wod');
   assert.deepEqual(secoes[0].itens.map((i) => i.qtd), [{ n: 1, unidade: 'min' }, { n: 200, unidade: 'm' }]);
 });
+
+/* ── 07/11/2026: trenó, adaptado e o HIIT da semana 45 ── */
+
+const HYROX_W45 = 'Skyerg\nSled Push\nSled Pull\nBurpee Broad jump\nRowing\nFarmer´s Carry\nSandbag\nWall Ball\n';
+
+test('trenó: Sled Push e Sled Pull dividem o mesmo trenó — a quinta cabe', () => {
+  const conf = conferirSemana({ quadros: { q2: { h: 'B) 3x 8-12\nAfundo com halteres\nAbdominal Remador', metabolico: HYROX_W45 } }, catalogo: CATALOGO });
+  assert.equal(consumoDoMetabolico(conf.colunas['q2.m'], 5).sled, 1, 'um trenó para as duas estações');
+  const quinta = conf.equipamento.find((d) => d.dia === 'quinta');
+  assert.ok(!quinta?.faltas.some((f) => f.recurso === 'sled'), JSON.stringify(quinta?.faltas));
+  assert.ok(!conf.problemas.some((p) => p.texto.includes('trenó')));
+});
+
+test('adaptado: a falta adaptada sai do vermelho e vira aviso; falta de outro recurso continua', () => {
+  const sem = conferirSemana({ quadros: { q1: { h: H1, metabolico: CROSS } }, catalogo: CATALOGO });
+  assert.ok(sem.problemas.some((p) => p.tipo === 'erro' && p.texto.startsWith('Terça') && p.texto.includes('banco')), 'sem adaptar: falta banco');
+  const com = conferirSemana({
+    quadros: { q1: { h: H1, metabolico: CROSS } }, catalogo: CATALOGO,
+    adaptacoes: { terca: { texto: 'banco substituído por caixa de salto', recursos: ['banco'] } },
+  });
+  assert.ok(!com.problemas.some((p) => p.tipo === 'erro' && p.texto.startsWith('Terça') && p.texto.includes('banco')), com.problemas.filter((p) => p.tipo === 'erro').map((p) => p.texto).join(' | '));
+  assert.ok(com.problemas.some((p) => p.tipo === 'erro' && p.texto.includes('com 5, falta 1 par de halteres')), 'sem o banco, aparece o próximo limite: halteres com 5 alunos');
+  assert.ok(com.problemas.some((p) => p.tipo === 'info' && p.texto === 'Terça: adaptado — banco substituído por caixa de salto'));
+  const terca = com.equipamento.find((d) => d.dia === 'terca');
+  assert.deepEqual([terca?.cabeAte, terca?.faltas.map((f) => f.recurso), terca?.adaptado?.texto], [4, ['halteres'], 'banco substituído por caixa de salto']);
+  const outro = conferirSemana({
+    quadros: { q1: { h: H1, metabolico: CROSS } }, catalogo: CATALOGO,
+    adaptacoes: { terca: { texto: 'faltou smith', recursos: ['smith'] } },
+  });
+  assert.ok(outro.problemas.some((p) => p.tipo === 'erro' && p.texto.startsWith('Terça') && p.texto.includes('banco')), 'adaptar o Smith não esconde o banco');
+  assert.equal(outro.equipamento.find((d) => d.dia === 'terca')?.adaptado, null, 'adaptação de um recurso que não falta não aparece');
+});
+
+test('HIIT da semana 45: "A)Estação 1 - Pernas", o afundo escrito duas vezes e os halteres por vaga', () => {
+  const hiit = 'A)Estação 1 - Pernas\nAfundo reverso\nAfundo reverso\nAgachamento Livre\nAgachamento goblet com kettlebell\n\n'
+    + 'B)Estação 2 - Superior\nRemada no TRX\nFlexão de braço\nElevação lateral halteres\nThruster com halteres\n\n'
+    + 'C)Estação 3 - Cardio\nAir Bike\nPolichinelo\nMountain climber\nBurpee';
+  const conf = conferirSemana({ quadros: { q3: { metabolico: hiit } }, catalogo: CATALOGO });
+  const c = conf.colunas['q3.m'];
+  assert.deepEqual(c.secoes.map((s) => [s.tipo, s.estacao]), [['hiit', 'pernas'], ['hiit', 'superiores'], ['hiit', 'cardio']]);
+  assert.equal(vagasDaEstacao(c, c.secoes[0]).length, 4, 'afundo D + afundo E + agachamento + goblet');
+  assert.equal(c.seriesPorId.afundo_reverso, 2, 'os dois lados: 2 séries por lado, não 4');
+  assert.ok(!conf.problemas.some((p) => p.texto.includes('aparece duas vezes')), 'o outro lado não é repetição');
+  // 5 alunos em 3 estações: 2 por estação. Elevação (vaga 3) e thruster (vaga 4) não são ao mesmo tempo.
+  assert.equal(consumoDoMetabolico(c, 5).halteres, 2);
+  assert.ok(conf.problemas.some((p) => p.texto === 'HIIT: falta a estação Core.'));
+  assert.equal(estacaoDoTitulo('Abs crunch'), null, '"Abs crunch" continua exercício');
+  assert.equal(estacaoDoTitulo('Estação 4 - Abdômen'), 'core');
+});
