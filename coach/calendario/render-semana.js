@@ -21,6 +21,7 @@ function nomesDaCelula(vem) {
  */
 function celula(d, l, it, pos, aberta) {
   if (d.fechado) return `<div class="cel fech" style="${pos}" aria-hidden="true"></div>`;
+  if (d.semAula) return `<div class="cel sem-aula" style="${pos}" aria-hidden="true"></div>`;
   if (!it) return `<div class="cel nada" style="${pos}" aria-hidden="true"></div>`;
   const t = it.dados;
   const sel = !!aberta && aberta.iso === d.iso && aberta.hora === l.hora;
@@ -45,8 +46,8 @@ export function htmlSemana(modelo, { aberta }) {
   h += '<div class="cal-canto" style="grid-column:1;grid-row:1 / 3"></div>';
   modelo.dias.forEach((d, i) => {
     const c = i + 2;
-    const tot = d.fechado ? 'box fechado' : `${d.total} aluno${d.total === 1 ? '' : 's'}`;
-    h += `<div class="cal-dh${d.hoje ? ' hoje' : ''}${d.fechado ? ' fechado' : ''}" style="grid-column:${c};grid-row:1;order:${i * 1000}">`
+    const tot = d.fechado ? 'box fechado' : d.semAula ? 'sem aula' : `${d.total} aluno${d.total === 1 ? '' : 's'}`;
+    h += `<div class="cal-dh${d.hoje ? ' hoje' : ''}${d.fechado ? ' fechado' : ''}${d.semAula ? ' sem-aula' : ''}" style="grid-column:${c};grid-row:1;order:${i * 1000}">`
       + `<span class="d">${esc(d.rotulo)}</span><span class="n">${esc(d.numero)}</span><span class="tot">${esc(tot)}</span></div>`;
     h += `<div class="cal-evs" style="grid-column:${c};grid-row:2;order:${i * 1000 + 1}">${d.doDia.map(chipDoDia).join('')}</div>`;
   });
