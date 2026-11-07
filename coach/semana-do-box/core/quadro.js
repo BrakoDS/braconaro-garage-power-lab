@@ -110,6 +110,14 @@ export const MINUTOS_POR_MUSICA = 4;
 /** O TRX fica ancorado num canto: serve a UMA estação do HIIT (RECURSOS_FIXOS_HIIT). */
 export const RECURSOS_FIXOS_HIIT = ['trx'];
 
+/**
+ * Estações do Hyrox que dividem o MESMO aparelho: o aluno empurra o trenó e
+ * puxa de volta o mesmo trenó (decisão do coach, 07/11/2026). Contam 1 unidade
+ * do recurso para o grupo, não 1 por estação.
+ * @type {Record<string, string[]>}
+ */
+export const MESMO_APARELHO_HYROX = { sled: ['sled_push', 'sled_pull'] };
+
 /** O aquecimento conta pouco no volume: ¼ de série por rodada, como o cardio do WOD (decisão do coach, 05/11/2026). */
 export const FATOR_AQUECIMENTO = 0.25;
 
@@ -407,13 +415,14 @@ export const NOME_TIPO_SECAO = {
   tabata: 'Tabata', hyrox: 'Hyrox', gap: 'GAP', murph: 'Murph', hiit: 'Estação',
 };
 
-const RE_ESTACAO_HIIT = /^(?:estacao\s+)?(membros superiores|pernas?|core|superiores?|cardio)\b/;
-/** A estação do HIIT pelo título ("Pernas", "Estação Core", "Superiores"). @param {string} titulo */
+// A linha INTEIRA é o nome da estação ("Estação 1 - Pernas"): "Abs crunch" continua exercício.
+const RE_ESTACAO_HIIT = /^(?:estacao\s*)?(?:\d+\s*)?(membros superiores|membros inferiores|pernas?|core|abdomen|abdominal|abs|superior(?:es)?|cardio)$/;
+/** A estação do HIIT pelo título ("Pernas", "Estação Core", "Estação 2 - Superior"). @param {string} titulo */
 export function estacaoDoTitulo(titulo) {
   const m = RE_ESTACAO_HIIT.exec(normalizar(titulo));
   if (!m) return null;
-  if (m[1].startsWith('pern')) return 'pernas';
-  if (m[1] === 'core') return 'core';
+  if (m[1].startsWith('pern') || m[1] === 'membros inferiores') return 'pernas';
+  if (['core', 'abdomen', 'abdominal', 'abs'].includes(m[1])) return 'core';
   if (m[1] === 'cardio') return 'cardio';
   return 'superiores';
 }
@@ -665,6 +674,7 @@ export function lerColuna(texto, tipoPadrao) {
 
 /**
  * @typedef {{tipo: 'erro'|'falta'|'repete'|'duvida'|'info', onde: string, linha?: number, texto: string}} Problema
+ * @typedef {{texto: string, recursos: string[]}} Adaptacao o coach já resolveu a falta destes recursos no dia
  * @typedef {{escrito: string, alternativas: string[], linha: number, secao: Secao, leitura: Leitura, item: ItemQuadro|null,
  *   series: number, conta: boolean, chave: string, grupoLinha: number, qtd: {n: number, unidade: string}|null}} ItemLido
  * @typedef {{onde: string, aula: string, quadro: string, dias: string[], secoes: Secao[], linhas: LinhaLida[], itens: ItemLido[],
@@ -707,6 +717,7 @@ export function volumeDasSeries(series, musculos) {
  *   apelidos?: Record<string, string>,
  *   inventario?: any,
  *   anterior?: {quadros?: Record<string, {h?: string, metabolico?: string}>}|null,
+ *   adaptacoes?: Record<string, Adaptacao>,
  * }} entrada
  */
 export function conferirSemana(entrada) {
@@ -755,7 +766,7 @@ export function conferirSemana(entrada) {
   conferirHiit(colunas['q3.m'], problemas);
   conferirQuinta(colunas['q2.h'], problemas);
   conferirRepeticoes(colunas, problemas, entrada.anterior ?? null, indice, apelidos);
-  const equipamento = conferirEquipamento(colunas, limites, problemas);
+  const equipamento = conferirEquipamento(colunas, limites, problemas, entrada.adaptacoes ?? {});
   for (const c of Object.values(colunas)) {
     if (!c.vazia && c.minutos > 60) problemas.push({ tipo: 'info', onde: c.onde, texto: `${c.aula}: a aula soma ≈ ${Math.round(c.minutos)} min, passa da hora.` });
   }
@@ -777,11 +788,16 @@ function lerColunaInteira(o) {
   let minutos = 0;
   for (const s of secoes) {
     const doWod = s.itens.length;
+    /** @type {string|null} o unilateral da linha anterior na estação, à espera do outro lado */
+    let ladoAnterior = null;
     for (const e of s.itens) {
       const leitura = lerNome(e.escrito, o.indice, o.apelidos, { hyrox: s.tipo === 'hyrox' });
       const item = leitura.id ? o.indice.porId.get(leitura.id) ?? null : null;
       const conta = !SECOES_SEM_CONTA.includes(s.tipo);
-      const series = conta ? seriesDoItem(s, e, item, ehH, doWod) : 0;
+      // HIIT: o unilateral escrito duas vezes seguidas é o lado direito e o esquerdo — as séries já contaram.
+      const outroLado = s.tipo === 'hiit' && !!item?.unilateral && ladoAnterior === item.id;
+      ladoAnterior = s.tipo === 'hiit' && item?.unilateral && !outroLado ? item.id : null;
+      const series = conta && !outroLado ? seriesDoItem(s, e, item, ehH, doWod) : 0;
       if (item && series > 0) seriesPorId[item.id] = (seriesPorId[item.id] ?? 0) + series;
       itens.push({
         escrito: e.escrito, alternativas: e.alternativas, linha: e.linha, secao: s, leitura, item, series, conta,
@@ -949,7 +965,16 @@ function conferirHyrox(c, indice, problemas) {
  * @param {ColunaLida} c @param {Secao} s @returns {ItemLido[]}
  */
 export function vagasDaEstacao(c, s) {
-  return c.itens.filter((i) => i.secao === s).flatMap((i) => (i.item?.unilateral ? [i, i] : [i]));
+  const itens = c.itens.filter((i) => i.secao === s);
+  /** @type {ItemLido[]} */
+  const vagas = [];
+  for (let k = 0; k < itens.length; k += 1) {
+    const i = itens[k];
+    if (!i.item?.unilateral) { vagas.push(i); continue; }
+    // Escrito duas vezes seguidas ("Afundo reverso" / "Afundo reverso"): é o lado direito e o esquerdo.
+    if (itens[k + 1]?.chave === i.chave) { vagas.push(i, itens[k + 1]); k += 1; } else vagas.push(i, i);
+  }
+  return vagas;
 }
 
 /**
@@ -1032,7 +1057,9 @@ function conferirRepeticoes(colunas, problemas, anterior, indice, apelidos) {
       if (antes) {
         // Ensaiar no aquecimento o movimento do WOD não é repetir; o mesmo exercício duas vezes na aula é.
         const daMesmaLinha = antes.linha === i.linha;
-        if (!daMesmaLinha && antes.secao.tipo !== 'aquecimento' && i.secao.tipo !== 'aquecimento' && !(i.secao.tipo === 'hiit' && antes === i)) {
+        // No HIIT, o unilateral escrito duas vezes na mesma estação é o outro lado.
+        const outroLado = antes.secao === i.secao && i.secao.tipo === 'hiit' && !!i.item?.unilateral;
+        if (!daMesmaLinha && !outroLado && antes.secao.tipo !== 'aquecimento' && i.secao.tipo !== 'aquecimento') {
           problemas.push({ tipo: 'repete', onde: c.onde, linha: i.linha, texto: `${c.aula}: ${i.item?.nome ?? i.escrito} aparece duas vezes.` });
         }
         continue;
@@ -1148,7 +1175,8 @@ export function consumoDoMetabolico(c, n) {
   let pico = {};
   const estacoes = c.secoes.filter((s) => s.tipo === 'hiit');
   if (estacoes.length) {
-    const porEstacao = Math.max(1, Math.ceil(n / ESTACOES_HIIT.length));
+    // A turma do HIIT se divide pelas estações escritas (até as 4).
+    const porEstacao = Math.max(1, Math.ceil(n / Math.min(ESTACOES_HIIT.length, estacoes.length)));
     const filas = estacoes.map((s) => vagasDaEstacao(c, s).filter((i) => i.leitura.como !== 'fora'));
     const vagas = Math.max(SLOTS_POR_ESTACAO, ...filas.map((f) => f.length));
     for (let k = 0; k < vagas; k += 1) {
@@ -1166,7 +1194,17 @@ export function consumoDoMetabolico(c, n) {
     let sec = {};
     if (s.tipo === 'hyrox') {
       const porMov = Math.ceil(n / Math.max(1, itens.length));
-      for (const i of itens) sec = juntar(sec, i.item?.hyrox ? consumoDoItem(i.item) : vezes(consumoDoItem(i.item), porMov), 'soma');
+      /** @type {Record<string, number>} */
+      const doGrupo = {};
+      for (const i of itens) {
+        const c = i.item?.hyrox ? consumoDoItem(i.item) : vezes(consumoDoItem(i.item), porMov);
+        for (const [r, v] of Object.entries(c)) {
+          // Sled Push e Sled Pull: o mesmo trenó, uma unidade para as duas estações.
+          if (i.item?.hyrox && MESMO_APARELHO_HYROX[r]?.includes(i.item.estacao ?? '')) doGrupo[r] = Math.max(doGrupo[r] ?? 0, v);
+          else sec[r] = (sec[r] ?? 0) + v;
+        }
+      }
+      sec = juntar(sec, doGrupo, 'soma');
     } else if ((s.tipo === 'wod' && REGRA_FORMATO[s.formato ?? 'AMRAP']?.escalonado !== false) || s.tipo === 'tabata') {
       const porMov = Math.ceil(n / Math.max(1, itens.length));
       for (const i of itens) sec = juntar(sec, vezes(consumoDoItem(i.item), porMov), 'soma');
@@ -1187,10 +1225,16 @@ export function consumoDoMetabolico(c, n) {
 /**
  * Cada dia: o H (e o metabólico, quando tem) contra o inventário, em cada divisão
  * da turma de 6. `cabeAte` é o maior número de alunos no metabólico que cabe com o H.
+ *
+ * Adaptação (decisão do coach, 07/11/2026): o coach marca o dia como adaptado
+ * para os recursos que faltavam ("banco substituído por caixa"). Esses recursos
+ * saem da conta do dia e o aviso vira informativo; falta de OUTRO recurso
+ * continua vermelha.
  * @param {Record<string, ColunaLida>} colunas @param {Record<string, number>} limites @param {Problema[]} problemas
+ * @param {Record<string, Adaptacao>} [adaptacoes]
  */
-function conferirEquipamento(colunas, limites, problemas) {
-  /** @type {{dia: string, aulas: string[], cabeAte: number|null, faltas: {recurso: string, precisa: number, tem: number}[], consumoH: Record<string, number>}[]} */
+function conferirEquipamento(colunas, limites, problemas, adaptacoes = {}) {
+  /** @type {{dia: string, aulas: string[], cabeAte: number|null, faltas: {recurso: string, precisa: number, tem: number}[], consumoH: Record<string, number>, adaptado: Adaptacao|null}[]} */
   const dias = [];
   for (const q of QUADROS) {
     const h = colunas[`${q.id}.h`];
@@ -1203,18 +1247,26 @@ function conferirEquipamento(colunas, limites, problemas) {
     );
     for (const dia of q.dias) {
       const comMetabolico = dia === q.diaMetabolico && !m.vazia;
-      const faltasCom = (/** @type {number} */ n) => {
+      const adaptacao = adaptacoes[dia]?.recursos?.length ? adaptacoes[dia] : null;
+      const adaptados = new Set(adaptacao?.recursos ?? []);
+      /** @param {number} n @param {boolean} [comAdaptados] */
+      const faltasCom = (n, comAdaptados = false) => {
         const total = comMetabolico ? juntar(consumoH, consumoDoMetabolico(m, n), 'soma') : consumoH;
         return Object.entries(total)
-          .filter(([r, v]) => v > (limites[r] ?? 0) && !(comMetabolico && jaCobrado.has(r)))
+          .filter(([r, v]) => v > (limites[r] ?? 0) && !(comMetabolico && jaCobrado.has(r)) && (comAdaptados || !adaptados.has(r)))
           .map(([r, v]) => ({ recurso: r, precisa: v, tem: limites[r] ?? 0 }));
       };
+      // O dia só fica "adaptado" se ainda faltaria um dos recursos adaptados (com a turma cheia no metabólico).
+      const nCheio = comMetabolico ? ALUNOS_POR_HORA - 1 : 0;
+      const usada = adaptacao && faltasCom(nCheio, true).some((f) => adaptados.has(f.recurso)) ? adaptacao : null;
+      const onde = comMetabolico ? m.onde : h.onde;
+      if (usada) problemas.push({ tipo: 'info', onde, texto: `${NOME_DIA[dia]}: adaptado — ${usada.texto}` });
       if (!comMetabolico) {
         const faltas = h.vazia ? [] : faltasCom(0);
         for (const f of faltas) {
           problemas.push({ tipo: 'erro', onde: h.onde, texto: `${NOME_DIA[dia]}: o ${h.aula} precisa de ${f.precisa} ${NOME_RECURSO[f.recurso] ?? f.recurso}, e o box tem ${f.tem}.` });
         }
-        dias.push({ dia, aulas: [h.aula], cabeAte: null, faltas, consumoH });
+        dias.push({ dia, aulas: [h.aula], cabeAte: null, faltas, consumoH, adaptado: usada });
         continue;
       }
       let cabeAte = 0;
@@ -1235,7 +1287,7 @@ function conferirEquipamento(colunas, limites, problemas) {
             : `${NOME_DIA[dia]}: cabe até ${cabeAte} aluno${cabeAte > 1 ? 's' : ''} no ${m.aula} ao lado do ${h.aula}; com ${cabeAte + 1}, falta ${falta}.`,
         });
       }
-      dias.push({ dia, aulas: [h.aula, m.aula], cabeAte, faltas: primeiraFalta, consumoH });
+      dias.push({ dia, aulas: [h.aula, m.aula], cabeAte, faltas: primeiraFalta, consumoH, adaptado: usada });
     }
   }
   return dias;

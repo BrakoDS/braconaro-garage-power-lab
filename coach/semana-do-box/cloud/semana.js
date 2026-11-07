@@ -251,7 +251,7 @@ export async function lerQuadro(uid, semanaId) {
 export async function salvarQuadro(uid, semanaId, dados) {
   const { db, fs } = await firestore();
   await fs.setDoc(fs.doc(db, `coaches/${uid}/quadros/${semanaId}`), {
-    semanaId, versao: 1, quadros: dados.quadros, extra: dados.extra, atualizadoEm: fs.serverTimestamp(),
+    semanaId, versao: 1, quadros: dados.quadros, extra: dados.extra, adaptacoes: dados.adaptacoes ?? {}, atualizadoEm: fs.serverTimestamp(),
   });
 }
 
