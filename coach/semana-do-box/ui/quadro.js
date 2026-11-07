@@ -7,19 +7,29 @@
  * Carrega na primeira vez que a aba aparece: o catálogo (pelo servidor, com os
  * ajustes do coach), o inventário, os nomes já confirmados e o quadro da semana
  * passada (para o aviso de repetição).
+ *
+ * "Publicar para os alunos" (07/11/2026): `core/publicar-quadro.js` monta o
+ * pedido do texto conferido e `publicarQuadroBox` grava a semana que o Portal,
+ * o app e a Lousa leem. A faixa de cima diz se a semana está no ar e se o
+ * quadro mudou depois da última publicação (assinatura do pedido).
  */
 import { chaveSemana } from '../../montador-hibrido/core/periodos.js';
 import { conferirSemana, QUADROS } from '../core/quadro.js';
 import { segundaDaChave } from '../core/vista.js';
-import { lerApelidos, lerInventario, lerQuadro, listarCatalogo, salvarApelidos, salvarQuadro } from '../cloud/semana.js';
-import { painel } from '../../../compartilhado/ui/dialogo.js';
+import { pedidoDoQuadro } from '../core/publicar-quadro.js';
+import {
+  lerApelidos, lerInventario, lerQuadro, lerSemanas, listarCatalogo, publicar, publicarQuadro, salvarApelidos, salvarQuadro,
+} from '../cloud/semana.js';
+import { confirmar, painel } from '../../../compartilhado/ui/dialogo.js';
 import { cadastrarExercicio } from './catalogo.js';
 import { esc } from './render.js';
-import { renderConferencia, renderLeitura, renderQuadroBase } from './render-quadro.js';
+import { renderConferencia, renderImpedimentos, renderLeitura, renderPublicacao, renderPublicar, renderQuadroBase } from './render-quadro.js';
 
 const $ = (/** @type {string} */ s) => /** @type {any} */ (document.querySelector(s));
 const hoje = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 const ESPERA_GRAVAR_MS = 1500;
+/** @type {Record<string, string>} */
+const NOME_DIA_CURTO = { segunda: 'Segunda', terca: 'Terça', quarta: 'Quarta', quinta: 'Quinta', sexta: 'Sexta', sabado: 'Sábado' };
 const CHAVE_NIVEL = 'semana-box:quadro-nivel-hyrox';
 /** O nível do Hyrox que a tabela mostra fica no navegador (conveniência; sem ele, Fit). */
 function nivelSalvo() {
@@ -45,15 +55,39 @@ function rotuloDaSemana(chave) {
   return `Semana ${Number(chave.slice(6))} · ${dm(d)} a ${dm(fim)}`;
 }
 
+/** As datas da semana ("09/11"), por dia. @param {string} chave */
+function datasDaSemana(chave) {
+  const seg = segundaDaChave(chave);
+  /** @type {Record<string, string>} */
+  const datas = {};
+  if (!seg) return datas;
+  ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'].forEach((d, i) => {
+    const x = new Date(Date.parse(`${seg}T12:00:00Z`) + i * 864e5);
+    datas[d] = `${String(x.getUTCDate()).padStart(2, '0')}/${String(x.getUTCMonth() + 1).padStart(2, '0')}`;
+  });
+  return datas;
+}
+
+/** Assinatura curta do pedido (djb2): muda quando o que iria ao aluno muda. @param {unknown} v */
+function assinatura(v) {
+  const s = JSON.stringify(v);
+  let h = 5381;
+  for (let i = 0; i < s.length; i += 1) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
 /**
  * @returns {{quadros: Record<string, {h: string, metabolico: string}>, extra: {tipo: string|null, dia: string, texto: string},
- *   adaptacoes: Record<string, {texto: string, recursos: string[]}>}}
+ *   adaptacoes: Record<string, {texto: string, recursos: string[]}>, semAula: Record<string, {tipo: string, texto: string}>,
+ *   publicacao: {assinatura: string, em: number}|null}}
  */
 function textosVazios() {
   return {
     quadros: Object.fromEntries(QUADROS.map((q) => [q.id, { h: '', metabolico: '' }])),
     extra: { tipo: null, dia: 'sabado', texto: '' },
     adaptacoes: {},
+    semAula: {},
+    publicacao: null,
   };
 }
 
@@ -69,6 +103,12 @@ function textosDo(doc) {
     const recursos = Array.isArray(/** @type {any} */ (a)?.recursos) ? /** @type {any} */ (a).recursos.map(String) : [];
     if (recursos.length) t.adaptacoes[dia] = { texto: String(/** @type {any} */ (a).texto ?? ''), recursos };
   }
+  for (const [dia, s] of Object.entries(doc?.semAula ?? {})) {
+    const tipo = String(/** @type {any} */ (s)?.tipo ?? '');
+    if (tipo) t.semAula[dia] = { tipo, texto: String(/** @type {any} */ (s).texto ?? '') };
+  }
+  const p = doc?.publicacao;
+  if (p && typeof p.assinatura === 'string') t.publicacao = { assinatura: p.assinatura, em: Number(p.em) || 0 };
   return t;
 }
 
@@ -95,6 +135,9 @@ export function montar(ctx) {
     /** @type {ReturnType<typeof setTimeout> | null} */
     timer: null,
     sujo: false,
+    /** A semana como o aluno lê (`coaches/{uid}/semanas/{id}`): só o que a faixa precisa. */
+    publicada: /** @type {{status: 'rascunho'|'publicado'|null, origem: string|null, publicadoEm: Date|null}} */ ({ status: null, origem: null, publicadoEm: null }),
+    publicando: false,
   };
 
   const salvo = (/** @type {string} */ msg, cls = '') => { const el = $('#quadro-salvo'); if (el) { el.textContent = msg; el.className = `qs-salvo ${cls}`; } };
@@ -121,6 +164,121 @@ export function montar(ctx) {
       }
       painel.scrollTop = rolagem;
     }
+    desenharPublicacao();
+  }
+
+  /** A faixa da publicação: no ar ou não, e se o quadro mudou depois. */
+  function desenharPublicacao() {
+    const el = $('#quadro-publicacao');
+    if (!el || !estado.conf) return;
+    const { dias } = pedidoDoQuadro(estado.conf, estado.textos.semAula);
+    const p = estado.publicada;
+    const mudou = p.status === 'publicado' && p.origem === 'quadro' && estado.textos.publicacao?.assinatura !== assinatura(dias);
+    el.innerHTML = renderPublicacao({ ...p, mudou, publicando: estado.publicando });
+  }
+
+  /** Relê a semana publicada (status, origem, quando). @param {string} semanaId */
+  async function lerPublicada(semanaId) {
+    try {
+      const doc = (await lerSemanas(ctx.uid(), [semanaId]))[semanaId];
+      if (semanaId !== estado.semanaId) return;
+      const em = doc?.publicadoEm?.toDate?.() ?? null;
+      estado.publicada = { status: doc?.status ?? null, origem: doc?.origem ?? null, publicadoEm: em };
+    } catch (e) {
+      console.error(e);
+      estado.publicada = { status: null, origem: null, publicadoEm: null };
+    }
+    desenharPublicacao();
+  }
+
+  /** "Publicar para os alunos": os dias sem aula, o que falta, e o pedido ao servidor. */
+  async function abrirPublicar() {
+    if (!estado.conf || estado.publicando) return;
+    await gravar();
+    /** @type {Record<string, {tipo: string, texto: string}>} */
+    let semAula = { ...estado.textos.semAula };
+    const corpo = () => /** @type {HTMLElement|null} */ (document.querySelector('#modal-app-corpo'));
+    const atualizar = () => {
+      const r = pedidoDoQuadro(/** @type {any} */ (estado.conf), semAula);
+      const el = document.querySelector('#qs-pub-resumo');
+      if (el) el.innerHTML = renderImpedimentos(r);
+      const b = /** @type {HTMLButtonElement|null} */ (document.querySelector('#modal-app-acoes [data-acao="publicar"]'));
+      if (b) b.disabled = r.impedimentos.length > 0;
+    };
+    /** @param {Event} ev */
+    const mudou = (ev) => {
+      const t = /** @type {HTMLInputElement|HTMLSelectElement} */ (ev.target);
+      const dia = t.getAttribute('data-sem-aula');
+      if (dia) {
+        const texto = /** @type {HTMLInputElement|null} */ (corpo()?.querySelector(`[data-sem-aula-texto="${dia}"]`));
+        if (t.value) semAula = { ...semAula, [dia]: { tipo: t.value, texto: texto?.value.trim() ?? '' } };
+        else { const { [dia]: _fora, ...resto } = semAula; semAula = resto; }
+        if (texto) texto.hidden = !t.value;
+        atualizar();
+        return;
+      }
+      const diaTexto = t.getAttribute('data-sem-aula-texto');
+      if (diaTexto && semAula[diaTexto]) semAula = { ...semAula, [diaTexto]: { ...semAula[diaTexto], texto: t.value.trim() } };
+    };
+    const r0 = pedidoDoQuadro(estado.conf, semAula);
+    const promessa = painel({
+      titulo: 'Publicar para os alunos',
+      corpoHTML: renderPublicar({ rotulo: rotuloDaSemana(estado.semanaId), datas: datasDaSemana(estado.semanaId), semAula, ...r0 }),
+      acoes: [{ id: 'publicar', label: 'Publicar' }], fechar: 'Cancelar',
+    });
+    corpo()?.addEventListener('change', mudou);
+    corpo()?.addEventListener('input', mudou);
+    atualizar();
+    const acao = await promessa;
+    corpo()?.removeEventListener('change', mudou);
+    corpo()?.removeEventListener('input', mudou);
+    // O motivo e os dias sem aula ficam lembrados no quadro, publicando ou não.
+    if (JSON.stringify(semAula) !== JSON.stringify(estado.textos.semAula)) {
+      estado.textos.semAula = semAula;
+      agendar();
+    }
+    if (acao !== 'publicar') { desenharPublicacao(); return; }
+    const r = pedidoDoQuadro(estado.conf, semAula);
+    if (r.impedimentos.length) { ctx.status(r.impedimentos[0].texto, 'erro'); return; }
+    const semanaId = estado.semanaId;
+    estado.publicando = true;
+    desenharPublicacao();
+    ctx.status('Publicando a semana…');
+    try {
+      const resp = await publicarQuadro(semanaId, r.dias);
+      if (semanaId === estado.semanaId) {
+        estado.textos.publicacao = { assinatura: assinatura(r.dias), em: Date.now() };
+        estado.sujo = true;
+        await gravar();
+      }
+      const mantidos = (resp?.mantidos ?? []).map((d) => NOME_DIA_CURTO[d] ?? d);
+      ctx.status(`Publicada: os alunos já veem no Portal, no app e na Lousa.${mantidos.length ? ` ${mantidos.join(', ')} já passou e ficou como estava.` : ''}`, 'ok');
+    } catch (e) {
+      console.error(e);
+      ctx.status(/** @type {any} */ (e)?.message || 'Não deu para publicar. Tente de novo.', 'erro');
+    } finally {
+      estado.publicando = false;
+      await lerPublicada(semanaId);
+    }
+  }
+
+  /** "Tirar do ar": a semana volta a rascunho e some do Portal, do app e da Lousa. */
+  async function tirarDoAr() {
+    const ok = await confirmar({
+      titulo: 'Tirar a semana do ar?',
+      texto: 'O aluno deixa de ver esta semana no Portal, no app e na Lousa. O quadro continua aqui, e você pode publicar de novo.',
+      ok: 'Tirar do ar', perigo: true,
+    });
+    if (!ok) return;
+    const semanaId = estado.semanaId;
+    try {
+      await publicar(semanaId, false);
+      ctx.status('A semana saiu do ar.', 'ok');
+    } catch (e) {
+      console.error(e);
+      ctx.status(/** @type {any} */ (e)?.message || 'Não deu para tirar do ar.', 'erro');
+    }
+    await lerPublicada(semanaId);
   }
 
   function desenhar() {
@@ -156,6 +314,8 @@ export function montar(ctx) {
   async function abrirSemana(/** @type {string} */ semanaId) {
     await gravar();
     estado.semanaId = semanaId;
+    estado.publicada = { status: null, origem: null, publicadoEm: null };
+    lerPublicada(semanaId);
     ctx.status('Carregando o quadro…');
     try {
       const [doc, anterior] = await Promise.all([
@@ -290,6 +450,8 @@ export function montar(ctx) {
       abrirSemana(delta === '0' ? chaveSemana(hoje()) : outraSemana(estado.semanaId, Number(delta)));
       return;
     }
+    if (b.hasAttribute('data-publicar-quadro')) { abrirPublicar(); return; }
+    if (b.hasAttribute('data-tirar-do-ar')) { tirarDoAr(); return; }
     const k = b.getAttribute('data-apelido');
     if (k) { confirmarNome(k, b.getAttribute('data-id') || '-'); return; }
     const novo = b.getAttribute('data-cadastrar');

@@ -91,6 +91,7 @@ import { catalogoDoHyrox, lerRegistroCross, lerRegistroHyrox } from './volume-cr
 import { avisosDeEdicao, diasPassadosAlterados, opcoesDaVaga, problemasCriadosPelaEdicao, sessoesTravadas } from './edicao-box';
 import { hiitTravado, opcoesDoHiit } from './edicao-hiit';
 import { conteudoTravado, opcoesDoCross, opcoesDoHyrox } from './edicao-cross';
+import { idsDoPedidoQuadro, lerSemanaQuadro, manterDiasPassados } from './quadro-publicar';
 import {
   ativosDe, catalogoEfetivo, efeitoDeDesativar, lerPedidoExercicio, linhasDoCatalogo, semInativos,
   type CatalogoEfetivo, type PedidoExercicio,
@@ -2616,6 +2617,62 @@ export const publicarSemanaBox = onCall(
       publicadoEm: FieldValue.serverTimestamp(), atualizadoEm: FieldValue.serverTimestamp(),
     });
     return { semanaId, status: 'publicado' as const };
+  },
+);
+
+/**
+ * Publica a semana escrita na aba QUADRO (`quadro-publicar.ts`): o navegador
+ * lê o texto do coach e manda os ids; aqui se confere contra o catálogo, se
+ * calcula o resto e se grava a semana PUBLICADA no mesmo documento que o
+ * Portal, o app e a Lousa já leem. Decisão do coach, 07/11/2026:
+ *  - o que o coach escreveu vale (quantidade do WOD, estações do HIIT, acessório no H);
+ *  - aviso de equipamento NÃO impede (a aba Quadro já mostra, e o coach marca "adaptado");
+ *  - semana JÁ publicada: dia que já passou fica como estava (o aluno pode ter registrado a sessão).
+ * `publicar: false` só tira do ar (`publicarSemanaBox` faz o mesmo).
+ */
+export const publicarQuadroBox = onCall(
+  { timeoutSeconds: 30, memory: '256MiB' },
+  async (req) => {
+    const { uid } = exigirCoach(req);
+    const dados = (req.data ?? {}) as { semanaId?: unknown; dias?: unknown };
+    const intervalo = intervaloDaSemana(dados.semanaId);
+    if (!intervalo) throw new HttpsError('invalid-argument', 'Semana no formato AAAA-Www (ex.: 2026-W45).');
+    const semanaId = dados.semanaId as string;
+
+    const db = getFirestore();
+    const ref = refSemana(db, uid, semanaId);
+    const [catalogo, inv] = await Promise.all([carregarCatalogo(db, idsDoPedidoQuadro(dados.dias)), refInventario(db, uid).get()]);
+    const lido = lerSemanaQuadro(dados.dias, catalogo);
+    if ('erro' in lido) throw new HttpsError('invalid-argument', lido.erro);
+    const { limitesAtivos: limitesUsados, alunosPorAula } = lerInventario(inv.data());
+
+    const r = await db.runTransaction(async (tx) => {
+      const atual = (await tx.get(ref)).data();
+      const jaPublicada = atual?.status === 'publicado' || !!atual?.publicadoEm;
+      const passados = jaPublicada ? diasPassadosAlterados(atual?.dias, lido.dias, intervalo.datas, diaSaoPaulo()) : [];
+      const { dias, mantidos } = manterDiasPassados(lido.dias, atual?.dias, passados);
+      // A conta de equipamento do gerador fica gravada como nota (a tela do gerador lê); não decide nada aqui.
+      let conta: ContaDaSemana | null = null;
+      try { conta = contaDaSemana(dias as Record<DiaSemana, DiaProgramado>, limitesUsados, alunosPorAula); } catch { conta = null; }
+      tx.set(ref, {
+        status: 'publicado',
+        origem: 'quadro',
+        dataInicio: Timestamp.fromMillis(intervalo.inicioMs),
+        dataFim: Timestamp.fromMillis(intervalo.fimMs),
+        anoMes: intervalo.anoMes,
+        dias,
+        emBranco: semanaEmBrancoNosDias(dias as Record<DiaSemana, DiaProgramado>),
+        ...(conta ? camposDaConta(conta) : {}),
+        alunosPorAula,
+        limitesUsados,
+        avisosEdicao: [],
+        atualizadoEm: FieldValue.serverTimestamp(),
+        publicadoEm: atual?.publicadoEm ?? FieldValue.serverTimestamp(),
+      });
+      return { mantidos };
+    });
+    logger.info('Quadro publicado.', { uid, semanaId, mantidos: r.mantidos });
+    return { semanaId, status: 'publicado' as const, mantidos: r.mantidos };
   },
 );
 

@@ -3,7 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { conferirSemana } from '../core/quadro.js';
-import { renderConferencia, renderLeitura, renderQuadroBase, rotuloDeOnde } from './render-quadro.js';
+import {
+  renderConferencia, renderImpedimentos, renderLeitura, renderPublicacao, renderPublicar, renderQuadroBase, rotuloDeOnde,
+} from './render-quadro.js';
 
 const CATALOGO = JSON.parse(readFileSync(new URL('../core/fixtures/catalogo.json', import.meta.url), 'utf8'));
 const vazios = () => ({
@@ -78,4 +80,39 @@ test('equipamento: "Marcar como adaptado" na falta; adaptado fica âmbar com "de
   const com = renderConferencia(conferirSemana({ ...t, catalogo: CATALOGO, adaptacoes: { terca: { texto: 'caixa no lugar do banco', recursos: ['banco'] } } }), { caminho: 'aulas' });
   assert.match(com, /<span class="qc-adaptado">adaptado: caixa no lugar do banco<\/span> <button class="qc-adaptar" type="button" data-desfazer-adaptacao="terca">desfazer</);
   assert.doesNotMatch(com, /data-adaptar="terca"/);
+});
+
+/* ── 07/11/2026: publicar para os alunos ── */
+
+test('faixa da publicação: rascunho, semana do gerador, no ar e quadro mudado depois', () => {
+  const em = new Date('2026-11-07T18:30:00Z');
+  const base = { status: null, origem: null, publicadoEm: null, mudou: false, publicando: false };
+  const rascunho = renderPublicacao(/** @type {any} */ (base));
+  assert.match(rascunho, /Ainda não publicada/);
+  assert.match(rascunho, /data-publicar-quadro[^>]*>Publicar para os alunos/);
+  assert.ok(!rascunho.includes('data-tirar-do-ar'));
+  assert.match(renderPublicacao(/** @type {any} */ ({ ...base, status: 'publicado', origem: null, publicadoEm: em })), /gerador antigo/);
+  const noAr = renderPublicacao(/** @type {any} */ ({ ...base, status: 'publicado', origem: 'quadro', publicadoEm: em }));
+  assert.match(noAr, /class="ok">No ar para os alunos desde/);
+  assert.match(noAr, />Publicar de novo</);
+  assert.ok(noAr.includes('data-tirar-do-ar'));
+  assert.match(renderPublicacao(/** @type {any} */ ({ ...base, status: 'publicado', origem: 'quadro', publicadoEm: em, mudou: true })), /mudou depois/);
+  assert.match(renderPublicacao(/** @type {any} */ ({ ...base, publicando: true })), /disabled>Publicando…/);
+});
+
+test('diálogo de publicar: os 6 dias com o motivo, o resumo e o que falta (escapado)', () => {
+  const resumo = { segunda: ['Feriado'], terca: ['Cross', 'H1'], quarta: ['H2'], quinta: ['Hyrox', 'H2'], sexta: ['H3'], sabado: ['HIIT', 'H3'] };
+  const html = renderPublicar({
+    rotulo: 'Semana 46 · 09/11 a 14/11', datas: { segunda: '09/11' }, semAula: { segunda: { tipo: 'feriado', texto: 'Ponte <b>' } },
+    impedimentos: [], resumo,
+  });
+  for (const d of ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado']) assert.ok(html.includes(`data-sem-aula="${d}"`), d);
+  assert.match(html, /<option value="feriado" selected>Feriado/);
+  assert.ok(html.includes('value="Ponte &lt;b&gt;"'));
+  assert.match(html, /data-sem-aula-texto="terca"[^>]*hidden/, 'dia com aula: o motivo fica escondido');
+  assert.match(html, /<b>Quinta<\/b> · Hyrox \+ H2/);
+  assert.match(html, /Pronto para publicar/);
+  const falta = renderImpedimentos({ impedimentos: [{ texto: 'Cross: escreva o formato <WOD>' }], resumo });
+  assert.match(falta, /Antes de publicar/);
+  assert.ok(falta.includes('escreva o formato &lt;WOD&gt;'));
 });
