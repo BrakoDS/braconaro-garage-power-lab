@@ -75,7 +75,7 @@ const selo = () => el('#btn-automacao').filhos.find((f) => f.className === 'btn-
 const cartoes = () => [...el('#auto-list').innerHTML.matchAll(/class="btn ghost btn-sm auto-descartar" data-chave="([^"]+)"/g)].map((m) => m[1]);
 const logs = () => eventos.pendentes();
 /** A baixa como as telas fazem: a regra, a gravação e o log. @param {string} id */
-const baixa = (id) => { const a = db.obter(id); const r = darBaixa(a, OUT, db.listar()); assert.ok(r); db.atualizar(id, r.patch); if (r.log) regFinanceiro(a, r.log); };
+const baixa = (id) => { const a = db.obter(id); const r = darBaixa(a, OUT, db.listar(), { meio: 'pix-chave', data: '2026-10-08', em: 1 }); assert.ok(r); db.atualizar(id, r.patch); if (r.log) regFinanceiro(a, r.log); };
 
 // O box: Ana venceu dia 5; Gil venceu dia 1 e não tem telefone; Edu vence dia 20; Duda é cortesia.
 db.criar({ id: 'Ana01', nome: 'Ana Lima', telefone: '(14) 99999-0000', mensalidade: '150', vencimento: '5' });

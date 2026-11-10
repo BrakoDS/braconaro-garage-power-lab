@@ -40,7 +40,7 @@ export const PROFUNDIDADE = 2;
  * fila antiga (sem a lista de campos) só SOMA neles — nunca apaga nem troca o
  * que a nuvem tem (`converterLegada`).
  */
-export const CAMPOS_DO_SERVIDOR = Object.freeze(['pagamentos', 'pixPagos', 'presencas', 'presencaHoras', 'atestados', 'faltas', 'remarcacoes']);
+export const CAMPOS_DO_SERVIDOR = Object.freeze(['pagamentos', 'pixPagos', 'recebimentos', 'presencas', 'presencaHoras', 'atestados', 'faltas', 'remarcacoes']);
 
 /**
  * @typedef {string[]} Caminho  o caminho de um campo: ['telefone'] ou ['pagamentos', '2026-11']

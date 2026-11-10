@@ -22,6 +22,8 @@ const NB = (s) => s.replace(/ /g, ' ');
 const DIA = 86400000;
 const HOJE = '2026-10-08', OUT = '2026-10', SET = '2026-09';
 const T0 = Date.UTC(2026, 9, 8, 12);
+/** A janela da baixa: Pix por chave, hoje. */
+const PG = { meio: 'pix-chave', data: HOJE, em: T0 };
 
 /** O box de teste, em 08/10/2026. */
 function box() {
@@ -72,7 +74,7 @@ test('varredura: até o dia do vencimento é LEMBRETE; no dia seguinte vira COBR
 test('varredura: a baixa tira a cobrança E o lembrete da fila — a condição deixou de valer', () => {
   const b = box();
   for (const k of ['ana', 'edu']) {
-    const r = darBaixa(b[k], OUT, todos(b));
+    const r = darBaixa(b[k], OUT, todos(b), PG);
     assert.ok(r);
     b[k] = { ...b[k], ...r.patch };
   }
@@ -94,10 +96,10 @@ test('ação: o pagamento com valor vira recibo; cortesia (R$ 0) e outros tipos 
 
 test('ação: a baixa de verdade (darBaixa) entrega o mês, o valor da fatura e se é só a mensalidade', () => {
   const b = box();
-  const ana = darBaixa(b.ana, OUT, todos(b))?.log;
-  const edu = darBaixa(b.edu, OUT, todos(b))?.log;
-  assert.deepEqual(ana?.dados, { mesId: OUT, valor: 270, soMensalidade: false }, 'com a Bia junto: conta');
-  assert.deepEqual(edu?.dados, { mesId: OUT, valor: 200, soMensalidade: true });
+  const ana = darBaixa(b.ana, OUT, todos(b), PG)?.log;
+  const edu = darBaixa(b.edu, OUT, todos(b), PG)?.log;
+  assert.deepEqual(ana?.dados, { mesId: OUT, valor: 270, soMensalidade: false, meio: 'pix-chave', data: HOJE }, 'com a Bia junto: conta');
+  assert.deepEqual(edu?.dados, { mesId: OUT, valor: 200, soMensalidade: true, meio: 'pix-chave', data: HOJE });
   assert.deepEqual(desfazerBaixa({ ...b.fab }, OUT)?.log?.dados, { mesId: OUT });
 });
 

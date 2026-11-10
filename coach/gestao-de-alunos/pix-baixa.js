@@ -9,7 +9,9 @@
  * da baixa manual (aba Financeiro, tela Financeiro, Cobranças):
  *
  *   - aprovado → a ficha ganha o mês pago (e `pixPagos[mês] = paymentId`, o
- *     rastro de qual Pix pagou), a aba Registros ganha "Pagamento via Pix" e a
+ *     rastro de qual Pix pagou), o registro do pagamento (`recebimentos[mês]`:
+ *     Pix do Portal, o valor pago, o dia da aprovação, o `paymentId`, conferido
+ *     pelo Mercado Pago), a aba Registros ganha "Pagamento via Pix" e a
  *     Fila de mensagens sugere o recibo; a cobrança sai da Fila sozinha;
  *   - aprovado para um mês que JÁ estava pago (baixa manual antes, ou um QR
  *     antigo pago depois do novo) → não paga de novo: aviso na aba Registros
@@ -25,13 +27,14 @@
  * recebe o mundo por parâmetro.
  */
 import { darBaixa } from './financeiro-regras.js?v=31';
-import { brl, rotuloMesFin, contaDoMes } from './financeiro-aluno.js?v=31';
+import { brl, rotuloMesFin, contaDoMes, diaDoBoxEm } from './financeiro-aluno.js?v=31';
 
 const cents = (v) => Math.round((Number(v) || 0) * 100);
 
 /**
  * @typedef {{ paymentId: string, alunoId: string, alunoNome?: string, mesId: string, valor: number,
- *   valorPago?: number, soMensalidade?: boolean, status: string, motivo?: string }} CobrancaPix
+ *   valorPago?: number, soMensalidade?: boolean, status: string, motivo?: string, aprovadoEm?: number }} CobrancaPix
+ *   aprovadoEm: o instante (ms) em que o Mercado Pago aprovou; vira o dia e a hora do registro
  * @typedef {{ tipo: string, resumo: string, extra: Record<string, any>, dados?: Record<string, any> }} LinhaDoLog
  * @typedef {{ acao: 'baixa', patch: Record<string, any>, log: LinhaDoLog }
  *   | { acao: 'aviso', log: LinhaDoLog }
@@ -62,7 +65,13 @@ export function planoDoPix(c, a, todos) {
   // Este mesmo Pix já pagou o mês (o tratamento está rodando de novo): nada.
   if (a.pixPagos && a.pixPagos[c.mesId] === c.paymentId) return { acao: 'nada', motivo: 'este Pix já deu baixa' };
 
-  const r = darBaixa(a, c.mesId, todos);
+  // O registro do pagamento: o Mercado Pago conferiu. Sem `aprovadoEm` (cobrança
+  // gravada antes do campo), a data fica vazia e o resto do registro vale.
+  const aprovadoEm = Number(c.aprovadoEm) || 0;
+  const r = darBaixa(a, c.mesId, todos, {
+    meio: 'pix-portal', valor: pago, data: aprovadoEm ? diaDoBoxEm(aprovadoEm) : '', em: aprovadoEm,
+    paymentId: String(c.paymentId), conferidoPor: 'mercado-pago', origem: 'pix',
+  });
   if (!r) {
     return aviso(`Pix recebido para um mês que já estava pago · ${mes} · ${brl(pago)} — confira e devolva ao aluno se for o caso`);
   }

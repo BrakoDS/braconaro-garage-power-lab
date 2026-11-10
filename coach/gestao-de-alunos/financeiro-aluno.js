@@ -17,7 +17,12 @@
  *   - o consumo é um item gravado em `consumos[]`, carimbado com a fatura
  *     (`mesId`) e o preço do dia;
  *   - o pagamento é da FATURA do mês inteira: `pagamentos['AAAA-MM'] = true`.
- *     O Portal e o Pix cobram o total do mês, então não existe baixa por item.
+ *     O Portal e o Pix cobram o total do mês, então não existe baixa por item;
+ *   - o REGISTRO do pagamento (Fase 1 · etapa 3, PLANO-FASE1-ETAPA3.md) mora ao
+ *     lado, em `recebimentos['AAAA-MM']`: valor, data, meio, comprovante, quem
+ *     conferiu e o `paymentId` do Mercado Pago. O `true` de `pagamentos` fica
+ *     como está, porque o Portal, o app, as conquistas e o Pix só perguntam se
+ *     ele existe. `recebimentos` não vai para o Portal.
  */
 import { faturaDoMes, faturaComDependentes, mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
 import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=31';
@@ -79,6 +84,66 @@ export function comPagamento(pagamentos, mesId, pago) {
 }
 
 /* ============================================================
+   O registro do pagamento: meio, valor, data, comprovante
+   ============================================================ */
+
+/**
+ * Os meios de pagamento, com o rótulo da tela (decisão 6 do ESCOPO, 10/11/2026).
+ * O Pix do Portal só entra pela baixa automática; 'nao-informado' só no histórico.
+ */
+export const MEIOS_PAGAMENTO = Object.freeze({
+  'pix-chave': 'Pix por chave',
+  'cartao': 'Cartão (Mercado Pago)',
+  'dinheiro': 'Dinheiro',
+  'pix-portal': 'Pix do Portal',
+  'nao-informado': 'meio não informado',
+});
+
+/** O que o coach escolhe na janela da baixa, na ordem da tela: o primeiro já vem marcado (é o mais comum). */
+export const MEIOS_DA_BAIXA_MANUAL = Object.freeze(['pix-chave', 'cartao', 'dinheiro']);
+
+/**
+ * O dia ('AAAA-MM-DD') de um instante no relógio do box: São Paulo, UTC−3, sem
+ * horário de verão desde 2019. É o dia do Pix aprovado (`aprovadoEm`).
+ * @param {number} ms
+ */
+export const diaDoBoxEm = (ms) => new Date(ms - 3 * 3600 * 1000).toISOString().slice(0, 10);
+
+/**
+ * @typedef {{ valor: number, data: string, meio: string, comprovante: string|null,
+ *   conferidoPor: 'coach'|'mercado-pago', paymentId: string|null, registradoEm: number,
+ *   origem: 'gestao'|'pix'|'historico' }} Recebimento
+ *   valor: o que entrou, em reais; data: o dia em que o aluno pagou (no histórico,
+ *   o dia da baixa); comprovante: o caminho da foto no Storage;
+ *   origem: a baixa manual ('gestao'), a automática do Pix do Portal ('pix') ou
+ *   a migração dos meses antigos ('historico').
+ */
+
+/**
+ * O mapa de recebimentos com o mês preenchido, ou sem ele (`r` null).
+ * @param {Record<string, any>|undefined} recebimentos @param {string} mesId @param {Recebimento|null} r
+ */
+export function comRecebimento(recebimentos, mesId, r) {
+  const out = { ...(recebimentos || {}) };
+  if (r) out[mesId] = r; else delete out[mesId];
+  return out;
+}
+
+/** 'AAAA-MM-DD' → 'DD/MM'. @param {string} iso */
+const ddmmFin = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+/**
+ * A frase do registro na tela: "Pago em 10/11 · Pix por chave · R$ 130,00".
+ * O histórico diz que a data é a da baixa (o dia do pagamento não foi guardado).
+ * @param {Recebimento} r
+ */
+export function textoDoRecebimento(r) {
+  const meio = MEIOS_PAGAMENTO[/** @type {keyof typeof MEIOS_PAGAMENTO} */ (r.meio)] || r.meio;
+  const quando = r.origem === 'historico' && r.meio === 'nao-informado' ? `Baixa em ${ddmmFin(r.data)}` : `Pago em ${ddmmFin(r.data)}`;
+  return `${quando} · ${meio} · ${brl(r.valor)}`;
+}
+
+/* ============================================================
    A conta do aluno num mês, e o histórico
    ============================================================ */
 
@@ -126,7 +191,8 @@ export function mesesDoHistorico(a, hojeIso, max = 12) {
  *   detalhe?: string, consumoId?: string, coberto?: boolean }} Item
  * @typedef {{ mesId: string, rotulo: string, vencimento: string, itens: Item[], total: number,
  *   status: 'pago'|'pendente'|'vencido'|'proximo'|'cortesia'|'coberto',
- *   pagavel: boolean, responsavel?: string }} Fatura
+ *   pagavel: boolean, responsavel?: string, recebimento?: Recebimento|null }} Fatura
+ *   recebimento: o registro do pagamento, só na fatura paga (null: paga antes do registro detalhado)
  */
 
 /**
@@ -158,7 +224,9 @@ export function faturaDoAluno(a, mesId, todos, hojeIso) {
     return { ...base, status: 'coberto', pagavel: false, responsavel: resp.nome || resp.id };
   }
   if (conta.total === 0) return { ...base, status: 'cortesia', pagavel: false };
-  return { ...base, status: statusDaCobranca(a, mesId, hojeIso), pagavel: true, ...(resp ? { responsavel: resp.nome || resp.id } : {}) };
+  const status = statusDaCobranca(a, mesId, hojeIso);
+  const recebimento = status === 'pago' ? { recebimento: ((a.recebimentos || {})[mesId]) || null } : {};
+  return { ...base, status, pagavel: true, ...(resp ? { responsavel: resp.nome || resp.id } : {}), ...recebimento };
 }
 
 /**
@@ -202,19 +270,31 @@ export function resumoDoPlano(a, todos, hojeIso) {
 
 /**
  * @typedef {{ tipo: 'pagamento'|'pagamento-desfeito'|'lancamento', resumo: string,
- *   dados?: { mesId: string, valor?: number, soMensalidade?: boolean } }} EventoFinanceiro
+ *   dados?: { mesId: string, valor?: number, soMensalidade?: boolean, meio?: string, data?: string } }} EventoFinanceiro
  *   dados: o fato em campos (o mês, o valor) para quem ouve o barramento — a
  *   automação monta o recibo com eles. Não vai para o log: lá fica o resumo.
  */
 
+/** Centavos, para comparar dinheiro sem o erro do ponto flutuante. @param {any} v */
+const centavos = (v) => Math.round((Number(v) || 0) * 100);
+
 /**
- * Baixa de uma fatura, com o valor que ela tinha na hora.
+ * Baixa de uma fatura, com o valor que ela tinha na hora. Com o registro, o
+ * texto leva o meio, e o valor é o que entrou: se for diferente da conta, avisa.
  * @param {string} mesId @param {number} total
  * @param {boolean} [soMensalidade] a fatura é só a mensalidade (sem consumo nem dependente)
+ * @param {Recebimento|null} [rec] o registro do pagamento
  * @returns {EventoFinanceiro}
  */
-export function eventoPagamento(mesId, total, soMensalidade = true) {
-  return { tipo: 'pagamento', resumo: `Pagamento registrado · ${rotuloMesFin(mesId)} · ${brl(total)}`, dados: { mesId, valor: total, soMensalidade } };
+export function eventoPagamento(mesId, total, soMensalidade = true, rec = null) {
+  if (!rec) return { tipo: 'pagamento', resumo: `Pagamento registrado · ${rotuloMesFin(mesId)} · ${brl(total)}`, dados: { mesId, valor: total, soMensalidade } };
+  const meio = MEIOS_PAGAMENTO[/** @type {keyof typeof MEIOS_PAGAMENTO} */ (rec.meio)] || rec.meio;
+  const diferente = centavos(rec.valor) !== centavos(total) ? ` · valor diferente da conta (${brl(total)})` : '';
+  return {
+    tipo: 'pagamento',
+    resumo: `Pagamento registrado · ${rotuloMesFin(mesId)} · ${brl(rec.valor)} · ${meio}${diferente}`,
+    dados: { mesId, valor: rec.valor, soMensalidade, meio: rec.meio, data: rec.data },
+  };
 }
 
 /** Baixa desfeita. @param {string} mesId @returns {EventoFinanceiro} */
