@@ -296,7 +296,7 @@ function painelAdicionar(t) {
     .flatMap((a) => regras.creditosDisponiveis(a, h).map((c) => ({ a, c })))
     .sort((x, y) => String(x.a.nome).localeCompare(String(y.a.nome), 'pt-BR'))
     .map(({ a, c }) => {
-      const tipo = c.tipo === 'desmarcacao' ? 'desmarcou no prazo' : c.tipo === 'excecao' ? 'exceção' : 'atestado';
+      const tipo = c.tipo === 'desmarcacao' ? 'desmarcou no prazo' : c.tipo === 'excecao' ? 'exceção' : c.tipo === 'fechado' ? 'box fechado' : 'atestado';
       const vence = c.expira ? ` · vence ${fmtDataCurta(c.expira)}` : '';
       return `<option value="${esc(a.id)}|${esc(c.origem)}">${esc(a.nome)} — aula de ${fmtDataCurta(c.origem)} (${tipo}${vence})</option>`;
     }).join('');

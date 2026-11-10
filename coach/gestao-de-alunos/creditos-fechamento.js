@@ -7,7 +7,7 @@
  * (`aplicarCaixasPendentes`). Idempotente: a trava é `atestados[dia]`.
  */
 import { aulasDoDia } from './presenca-regras.js?v=31';
-import { validadeDoCredito } from '../../compartilhado/regras/semana.js';
+import { validadeDoCredito } from '../../compartilhado/regras/semana.js?v=31';
 
 /**
  * @param {any[]} alunos @param {string[]} diasSemAula @param {string} hoje

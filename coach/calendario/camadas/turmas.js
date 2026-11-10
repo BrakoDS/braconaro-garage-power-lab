@@ -10,7 +10,7 @@
  * "não vêm", com o motivo.
  */
 import { turmasDoDia, horasDaGrade } from '../../gestao-de-alunos/presenca-regras.js?v=31';
-import { chaveDoDia } from '../../../compartilhado/regras/semana.js';
+import { chaveDoDia } from '../../../compartilhado/regras/semana.js?v=31';
 
 /** Os status de quem vem à aula. */
 export const VEM = new Set(['confirmado', 'presente']);

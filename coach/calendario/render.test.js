@@ -68,6 +68,18 @@ test('painel da turma: vêm, pedido do app, não vêm e o atalho para o Painel d
   assert.match(html, /href="\.\.\/gestao-de-alunos\/index\.html#turmas\?dia=2026-11-02&amp;hora=06%3A00"/);
 });
 
+test('painel da turma: "sem chamada" tem grupo próprio e não entra em "Não vêm"', () => {
+  const seg = dia('2026-11-02', 1);
+  const item = turma('2026-11-02', '06:00', {
+    naoVem: [p('F', 'Fábio', { status: 'desmarcou-no-prazo' }), p('G', 'Gil', { status: 'sem-chamada' })],
+  });
+  const html = htmlTurma(/** @type {any} */ (seg), item, { agoraMs: 1, voltarDia: false });
+  assert.match(html, /Não vêm \(1\)[^]*Fábio/);
+  assert.doesNotMatch(html, /Não vêm \(1\)[^]*Gil[^]*Sem chamada \(1\)/);
+  assert.match(html, /Sem chamada \(1\)[^]*Gil[^]*Sem chamada/);
+  assert.match(html, /1 sem chamada: falta fechar a chamada/);
+});
+
 /* ---------- Mês e Dia ---------- */
 const { htmlMes, htmlListaDoDia } = await import('./render-mes.js');
 const { htmlDia } = await import('./render-dia.js');

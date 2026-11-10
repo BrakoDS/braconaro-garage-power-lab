@@ -234,10 +234,29 @@ test('conceder crédito (exceção) a quem desmarcou fora do prazo: vira crédit
   assert.ok('recusa' in concederCredito(a, QUA, { hoje: QUA, em: 3 }), 'não concede duas vezes');
 });
 
-test('conceder crédito a falta calculada (sem nada lançado) registra como no-show', () => {
+test('conceder crédito a uma aula "sem chamada" registra antes: sem-chamada e NÃO vira falta', () => {
   const r = concederCredito(ana(), SEG, { hoje: QUA, em: 1 });
   assert.ok('patch' in r);
-  assert.equal(r.patch.atestados[SEG].antes, 'no-show');
+  assert.equal(r.patch.atestados[SEG].antes, 'sem-chamada');
+  const x = aulasDoDia([aplicar(ana(), r)], SEG, { hoje: QUA })[0];
+  assert.deepEqual([x.status, x.credito?.tipo], ['sem-chamada', 'excecao']);
+  const [t] = turmasDoDia([aplicar(ana(), r)], SEG, { hoje: QUA });
+  assert.equal(resumoDaTurma(t).faltas, 0);
+  // o no-show gravado pelo coach segue sendo falta
+  const comFalta = aplicar(ana(), marcarNoShow(ana(), SEG, { em: 1 }));
+  assert.equal(concederCredito(comFalta, SEG, { hoje: QUA, em: 2 }).patch.atestados[SEG].antes, 'no-show');
+  assert.equal(aulasDoDia([aplicar(comFalta, concederCredito(comFalta, SEG, { hoje: QUA, em: 2 }))], SEG, { hoje: QUA })[0].status, 'falta');
+});
+
+test('crédito de box fechado (tipo fechado) é "Box fechado" com o crédito, não "Atestado"', () => {
+  const a = ana({ atestados: { [SEG]: { em: 1, tipo: 'fechado', aula: { data: SEG, hora: '07:00' }, expira: '2026-10-31', reposicao: null } } });
+  const x = aulasDoDia([a], SEG, { hoje: QUA, fechados: [SEG] })[0];
+  assert.deepEqual([x.status, x.credito?.expira], ['fechado', '2026-10-31']);
+  assert.equal(aulasDoDia([a], SEG, { hoje: QUA })[0].status, 'fechado', 'mesmo sem o dia na lista de fechados');
+  assert.equal(creditosDisponiveis(a, QUA).length, 1, 'o crédito segue disponível');
+  // semana: o quadrado é o dia fechado, o crédito fica na ficha
+  const sem = semanaDoAluno({ diasTreino: ['seg'], horarios: { seg: '07:00' }, atestados: a.atestados, hoje: new Date('2026-10-07T12:00:00') });
+  assert.equal(sem[0].estado, 'fechado');
 });
 
 /* ---------- regra 4: reposição até 1h antes, com vaga e dentro da validade ---------- */

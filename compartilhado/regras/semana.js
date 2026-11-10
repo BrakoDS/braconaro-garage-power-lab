@@ -215,6 +215,11 @@ export function semanaDoAluno({
 
     // Atestado: falta com direito a repor. Não recebe cobertura automática — o
     // coach já disse o que aconteceu, e o crédito é a compensação.
+    // Box fechado: o dia é 'fechado' (a porta não abriu) e o crédito fica na ficha;
+    // NÃO é atestado — as telas leem o crédito em atestados[iso] (tipo 'fechado').
+    if (atestados[iso] && atestados[iso].tipo === 'fechado') {
+      return { ...base, efetivo: iso, horaPrevista: horarios[k] || '', alterado: true, remarcado: false, estado: /** @type {'fechado'} */ ('fechado') };
+    }
     if (atestados[iso]) {
       return { ...base, efetivo: iso, horaPrevista: horarios[k] || '', alterado: true, remarcado: false, estado: /** @type {'atestado'} */ ('atestado') };
     }

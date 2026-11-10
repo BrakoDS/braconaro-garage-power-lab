@@ -2,7 +2,7 @@
 /** Rodar: node --test coach/gestao-de-alunos/chamada-faltas.test.js */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emailsQueFaltaram, faltaDaChamada, ORIGEM_FALTA } from './chamada-faltas.js';
+import { emailsQueFaltaram, faltaDaChamada, desfazerFaltaDaChamada, ORIGEM_FALTA } from './chamada-faltas.js';
 import { aplicarCheckinsNaFicha, ORIGENS } from './ugym-merge.js';
 import { aulasDoDia, reabrirReposicao } from './presenca-regras.js';
 
@@ -11,7 +11,7 @@ const ana = (extra = {}) => ({
   id: 'A', nome: 'Ana', status: 'ativo', diasTreino: ['qua', 'qui'], horarios: { qua: '18:10', qui: '19:10' },
   presencas: [], atestados: {}, faltas: {}, remarcacoes: {}, ...extra,
 });
-const o = (extra = {}) => ({ dia: QUI, hora: '19:10', em: 1000, hoje: QUI, fechados: [], ...extra });
+const o = (extra = {}) => ({ dia: QUI, hora: '19:10', em: 1000, hoje: QUI, agora: '20:00', fechados: [], ...extra });
 /** @param {any} r */
 const falta = (r) => { assert.equal(r.acao, 'falta', JSON.stringify(r)); return r; };
 /** @param {any} r @param {RegExp} re */
@@ -145,6 +145,45 @@ test('reposição corrigida para "veio": a presença ganha e "reabrir" limpa a m
   const depois = { ...comFalta, ...r.patch };
   assert.deepEqual(depois.presencas, [QUI]);
   assert.equal(aulasDoDia([depois], QUI, { hoje: QUI }).find((x) => x.tipo === 'reposicao')?.status, 'presente');
+  // a marca de no-show sai com a presença: nada de "no-show lançado" na Turmas
+  const rep = depois.atestados['2026-11-02'].reposicao;
+  assert.equal('noShow' in rep, false);
+  assert.equal('noShowEm' in rep, false);
+  assert.equal('noShowOrigem' in rep, false);
+  assert.deepEqual(rep, { data: QUI, hora: '19:10' });
   const reaberta = reabrirReposicao(comFalta, '2026-11-02');
   assert.equal('noShowOrigem' in reaberta.patch.atestados['2026-11-02'].reposicao, false);
+});
+
+test('chamada de HOJE fechada antes da hora da aula não grava falta', () => {
+  nada(faltaDaChamada(ana(), o({ agora: '19:00' })), /ainda não começou/);
+  nada(faltaDaChamada(ana(), o({ agora: undefined })), /ainda não começou/);
+  falta(faltaDaChamada(ana(), o({ agora: '19:10' })));
+  // dia passado: a hora do relógio não importa
+  falta(faltaDaChamada(ana(), o({ hoje: '2026-11-06', agora: '08:00' })));
+});
+
+test('saiu da lista na chamada refeita: a falta da própria Lousa sai, a do coach não', () => {
+  const a = ana();
+  const comFalta = { ...a, ...falta(faltaDaChamada(a, o())).patch };
+  const r = desfazerFaltaDaChamada(comFalta, { dia: QUI, hora: '19:10' });
+  assert.equal(r.acao, 'desfazer');
+  assert.deepEqual(r.patch.faltas, {});
+  assert.match(r.log.resumo, /saiu da lista/);
+  // outra aula (hora) não é tocada
+  assert.equal(desfazerFaltaDaChamada(comFalta, { dia: QUI, hora: '18:10' }).acao, 'nada');
+  // falta do coach (sem origem): nunca
+  const doCoach = ana({ faltas: { [QUI]: { em: 5, tipo: 'no-show', aula: { data: QUI, hora: '19:10' } } } });
+  assert.equal(desfazerFaltaDaChamada(doCoach, { dia: QUI, hora: '19:10' }).acao, 'nada');
+  assert.equal(desfazerFaltaDaChamada(null, { dia: QUI, hora: '19:10' }).acao, 'nada');
+});
+
+test('saiu da lista: o no-show de reposição da Lousa sai, o do coach fica', () => {
+  const a = reposicaoDe({ data: QUI, hora: '19:10' });
+  const comFalta = { ...a, ...falta(faltaDaChamada(a, o())).patch };
+  const r = desfazerFaltaDaChamada(comFalta, { dia: QUI, hora: '19:10' });
+  assert.equal(r.acao, 'desfazer');
+  assert.deepEqual(r.patch.atestados['2026-11-02'].reposicao, { data: QUI, hora: '19:10' });
+  const doCoach = reposicaoDe({ data: QUI, hora: '19:10', noShow: true, noShowEm: 3 });
+  assert.equal(desfazerFaltaDaChamada(doCoach, { dia: QUI, hora: '19:10' }).acao, 'nada');
 });

@@ -161,10 +161,10 @@ async function paridade(): Promise<void> {
       const atestados: Dados = {};
       const faltas: Dados = {};
       for (const iso of alguns(aulas, 0.3)) {
-        const t = um(['desmarcacao', 'excecao', 'atestado', 'falta-fora', 'falta-noshow']);
+        const t = um(['desmarcacao', 'excecao', 'fechado', 'atestado', 'falta-fora', 'falta-noshow']);
         const aula = sorteio() < 0.5 ? { data: um(semana), hora: um(HORAS) } : undefined;
         if (t === 'falta-fora' || t === 'falta-noshow') faltas[iso] = { tipo: t === 'falta-fora' ? 'fora-do-prazo' : 'no-show', aula };
-        else atestados[iso] = { tipo: t === 'atestado' ? undefined : t, antes: um(['fora-do-prazo', 'no-show']), aula, reposicao: null };
+        else atestados[iso] = { tipo: t === 'atestado' ? undefined : t, antes: um(['fora-do-prazo', 'no-show', 'sem-chamada']), aula, reposicao: null };
       }
       for (const origem of alguns(['2026-09-01', '2026-09-08'], 0.4)) {
         atestados[origem] = { tipo: 'desmarcacao', reposicao: { data: um(semana), hora: um(HORAS), ...(sorteio() < 0.2 ? { foraDoPrazo: true } : {}), ...(sorteio() < 0.2 ? { noShow: true } : {}) } };

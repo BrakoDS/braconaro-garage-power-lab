@@ -224,7 +224,7 @@ async function servidor() {
     assert.ok(f.atualizadoEm && typeof f.atualizadoEm.toMillis === 'function', 'com o carimbo do servidor');
     assert.equal((await fichaDe('001')).faltas, undefined, 'a Ana já tinha presença: nenhuma falta');
     const evs = await eventosCom('lousa-falta-003-');
-    assert.deepEqual(evs.map((d) => d.id), [`lousa-falta-003-${DIA}-1910-${versao}`]);
+    assert.deepEqual(evs.map((d) => d.id), [`lousa-falta-003-${DIA}-1910`]);
     assert.equal(evs[0].data().origem, 'servidor');
     assert.equal((await db.doc('portal/caio@box.com').get()).data().faltas[DIA].origem, 'lousa');
   });
@@ -272,6 +272,40 @@ async function servidor() {
     const de_novo = await aplicarTudoQueEstiverPendente(db, COACH, depsQui);
     assert.equal(de_novo.creditos, 0);
     assert.equal((await eventosCom('fechado-004-')).length, 1);
+  });
+
+  await caso('o coach tira a falta à mão e fecha a chamada de novo (outra versão): a falta NÃO volta', async () => {
+    await db.doc(`gestao/${COACH}/alunos/004`).update({ faltas: {} });
+    await db.doc(`lousa/${DIA}/chamadas/20:10`).set(chamadaV(1700000005000, { faltaram: ['bia@box.com'] }));
+    await require('./lib/caixas-servico.js').aplicarFaltasDaChamada(db, COACH, DIA, '20:10', depsQui);
+    assert.deepEqual((await fichaDe('004')).faltas, {});
+    assert.equal((await eventosCom('lousa-falta-004-')).length, 1);
+  });
+
+  await caso('a chamada refeita sem o aluno em nenhuma lista tira a falta que a Lousa gravou (a do coach fica)', async () => {
+    await db.doc(`gestao/${COACH}/alunos/005`).set(novaFicha('005', 'Duda', 'duda@box.com', { diasTreino: ['qui', 'ter'], horarios: { qui: '18:10', ter: '18:10' } }));
+    await db.doc(`gestao/${COACH}/alunos/006`).set(novaFicha('006', 'Eva', 'eva@box.com', { horarios: { qui: '18:10' }, faltas: { [DIA]: { em: 1, tipo: 'no-show', aula: { data: DIA, hora: '18:10' } } } }));
+    await db.doc(`lousa/${DIA}/chamadas/18:10`).set(chamadaV(1700000006000, { faltaram: ['duda@box.com'] }));
+    const sv = require('./lib/caixas-servico.js');
+    assert.equal((await sv.aplicarFaltasDaChamada(db, COACH, DIA, '18:10', depsQui)).faltas, 1);
+    assert.equal((await fichaDe('005')).faltas[DIA].origem, 'lousa');
+    // "Cancelar aula" depois de fechar: a chamada nova não lista mais a Duda
+    await db.doc(`lousa/${DIA}/chamadas/18:10`).set(chamadaV(1700000007000, { presentes: [], faltaram: [] }));
+    const r = await sv.aplicarFaltasDaChamada(db, COACH, DIA, '18:10', depsQui);
+    assert.equal(r.desfeitas, 1);
+    assert.deepEqual((await fichaDe('005')).faltas, {});
+    assert.equal((await eventosCom('lousa-falta-desfeita-005-')).length, 1);
+    assert.equal((await fichaDe('006')).faltas[DIA].tipo, 'no-show', 'a falta do coach não é tocada');
+  });
+
+  await caso('fechamento.desde: dia fechado antes do corte é ignorado (sem deploy)', async () => {
+    await db.doc(`gestao/${COACH}`).set({ feriados: { '2026-11-03': false } }, { merge: true });
+    await db.doc(`gestao/${COACH}/sistema/fechamento`).set({ desde: '2026-11-04' }, { merge: true });
+    assert.equal((await aplicarTudoQueEstiverPendente(db, COACH, depsQui)).creditos, 0);
+    assert.equal((await fichaDe('005')).atestados, undefined);
+    await db.doc(`gestao/${COACH}/sistema/fechamento`).set({ desde: '2026-11-01' }, { merge: true });
+    assert.equal((await aplicarTudoQueEstiverPendente(db, COACH, depsQui)).creditos >= 1, true);
+    assert.equal((await fichaDe('005')).atestados['2026-11-03'].tipo, 'fechado');
   });
 
   await caso('interruptor com a Gestão: a chamada não grava falta', async () => {

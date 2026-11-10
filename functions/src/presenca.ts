@@ -138,7 +138,8 @@ function statusTitular(a: Dados, plan: string, dia: string, hoje: string, fechad
   if (at) {
     const t = mapa(at);
     if (t.tipo === 'desmarcacao') return 'desmarcou-no-prazo';
-    if (t.tipo === 'excecao') return t.antes === 'fora-do-prazo' ? 'desmarcou-fora' : 'falta';
+    if (t.tipo === 'excecao') return t.antes === 'fora-do-prazo' ? 'desmarcou-fora' : t.antes === 'sem-chamada' ? 'sem-chamada' : 'falta';
+    if (t.tipo === 'fechado') return 'fechado'; // box fechou: crédito, não atestado
     return 'atestado';
   }
   if (lista(a.presencas).includes(dia)) return 'presente';

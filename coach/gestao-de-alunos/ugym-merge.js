@@ -30,11 +30,12 @@
  * no tablet, a lousa grava o check-in de quem veio em
  * `checkinsLousa/{email}.itens["lousa|dia|hora"]` (o mesmo formato, com
  * `origem: 'lousa'` e a hora do início do treino) — e esta mesma regra o aplica
- * (`ORIGENS.lousa`). Quem faltou não gera item: a falta é a automática do
- * Painel de Presença quando o dia passa.
+ * (`ORIGENS.lousa`). Quem faltou não gera item de check-in: a falta é gravada
+ * pelo servidor a partir da lista `faltaram` da chamada (chamada-faltas.js, origem
+ * 'lousa'); sem chamada fechada, a aula passada fica "sem chamada", não falta.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { datasDaSemana } from '../../compartilhado/regras/semana.js';
+import { datasDaSemana } from '../../compartilhado/regras/semana.js?v=31';
 import { alternarPresenca, checkin, diasReivindicados } from './checkin-regras.js?v=31';
 import { casarCaixasComFichas } from './portal-merge.js?v=31';
 

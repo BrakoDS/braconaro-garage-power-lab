@@ -14,7 +14,7 @@
 import * as db from './db.js?v=31';
 import * as regras from './checkin-regras.js?v=31';
 import { DIA_EXT } from './checkin-regras.js?v=31';
-import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js';
+import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js?v=31';
 import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=31';
 import { $ } from './util/dom.js?v=31';
 import { on, EVENTOS } from './estado.js?v=31';
@@ -128,6 +128,7 @@ function notaDaAula(q, a) {
     return q.hora ? `chegou ${q.hora}` : 'presente';
   }
   if (q.estado === 'atestado') return 'atestado · a repor';
+  if (q.estado === 'fechado' && credito && credito.tipo === 'fechado') return 'feriado · crédito' + (credito.expira ? ` até ${credito.expira.slice(8, 10)}/${credito.expira.slice(5, 7)}` : '');
   if (q.estado === 'fechado') return 'feriado · box fechado';
   if (q.semChamada) return q.remarcado ? `sem chamada (era ${DIA_MIN[chaveDoDia(q.efetivo)]}) · feche a chamada` : 'sem chamada · feche a chamada';
   if (q.estado === 'falta') return q.remarcado ? `não veio (era ${DIA_MIN[chaveDoDia(q.efetivo)]})` : 'não veio';

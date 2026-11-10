@@ -36,7 +36,7 @@
  * @typedef {{ hoje: string, agora: string }} Relogio
  *   hoje: 'AAAA-MM-DD'; agora: 'HH:MM'
  */
-import { datasDaSemana, chaveDoDia } from '../../compartilhado/regras/semana.js';
+import { datasDaSemana, chaveDoDia } from '../../compartilhado/regras/semana.js?v=31';
 
 /** O nome do dia da semana, por extenso. */
 export const DIA_EXT = Object.freeze({ seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' });
@@ -156,6 +156,16 @@ export function checkin(a, diaPlanejado, { ehReposicao = false, hoje, agora }) {
   if (dia === hoje && !horas[dia]) horas[dia] = agora;
   const atestados = { ...(a.atestados || {}) };
   if (!ehReposicao) delete atestados[diaPlanejado];
+  else {
+    // A presença ganha do no-show também na reposição (o coach corrigiu "Faltou" para
+    // "Veio"): sai a marca de no-show, senão a Turmas segue mostrando "no-show lançado".
+    for (const [origem, v] of Object.entries(atestados)) {
+      const rep = v && v.reposicao;
+      if (!rep || rep.data !== dia || !('noShow' in rep || 'noShowEm' in rep || 'noShowOrigem' in rep)) continue;
+      const { noShow, noShowEm, noShowOrigem, ...limpa } = rep;
+      atestados[origem] = { ...v, reposicao: limpa };
+    }
+  }
   return {
     patch: { presencas: ordenadas(presencas), presencaHoras: horas, atestados, ...(ehReposicao ? {} : semFalta(a, diaPlanejado)) },
     log: {

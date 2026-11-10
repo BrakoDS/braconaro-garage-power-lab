@@ -71,14 +71,17 @@ export function emailsQueFaltaram(chamada) {
 /**
  * O que a chamada faz com UM aluno que ficou em "faltaram".
  * @param {any} a a ficha
- * @param {{ dia: string, hora: string, em: number, hoje: string, fechados?: string[] }} o
- *   dia/hora: da chamada; em: o instante da gravação; hoje: o dia no relógio do box
+ * @param {{ dia: string, hora: string, em: number, hoje: string, agora?: string, fechados?: string[] }} o
+ *   dia/hora: da chamada; em: o instante da gravação; hoje/agora: o dia e a hora ('HH:MM') no relógio do box.
+ *   Hoje, a falta só vale depois que a hora da aula chegou (sem `agora`, não grava).
  * @returns {FaltaDaChamada | SemFalta}
  */
-export function faltaDaChamada(a, { dia, hora, em, hoje, fechados = [] }) {
+export function faltaDaChamada(a, { dia, hora, em, hoje, agora = '', fechados = [] }) {
   if (!a) return { acao: 'nada', motivo: 'sem ficha' };
   if ((a.status || 'ativo') === 'inativo') return { acao: 'nada', motivo: 'ficha inativa' };
   if (dia > hoje) return { acao: 'nada', motivo: 'chamada de um dia que ainda não chegou' };
+  // Chamada fechada antes da aula começar (hoje): ninguém pode ter faltado ainda.
+  if (dia === hoje && agora < hora) return { acao: 'nada', motivo: 'a aula de hoje ainda não começou' };
   if (fechados.includes(dia)) return { acao: 'nada', motivo: 'box fechado nesse dia' };
   if ((a.presencas || []).includes(dia)) return { acao: 'nada', motivo: 'já tem presença nesse dia' };
 
@@ -121,4 +124,43 @@ export function faltaDaChamada(a, { dia, hora, em, hoje, fechados = [] }) {
     };
   }
   return nada;
+}
+
+/**
+ * @typedef {{ acao: 'desfazer', tipo: 'titular' | 'reposicao', chave: string, patch: Record<string, any>,
+ *   log: { tipo: string, resumo: string, extra: Record<string, any> } }} FaltaDesfeita
+ */
+
+/**
+ * A chamada foi fechada de novo e o aluno NÃO está mais em nenhuma das duas
+ * listas (nem `presentes`, nem `faltaram`: o coach o tirou da turma, ou cancelou
+ * a aula depois de fechar). A falta que a própria chamada gravou para aquela aula
+ * perde o sentido e sai. SÓ a que tem `origem: 'lousa'` e é daquele dia e hora:
+ * a falta lançada pelo coach nunca é tocada.
+ * @param {any} a a ficha @param {{ dia: string, hora: string }} o
+ * @returns {FaltaDesfeita | SemFalta}
+ */
+export function desfazerFaltaDaChamada(a, { dia, hora }) {
+  if (!a) return { acao: 'nada', motivo: 'sem ficha' };
+  for (const [chave, f] of Object.entries(a.faltas || {})) {
+    if (!f || f.origem !== ORIGEM_FALTA || !f.aula || f.aula.data !== dia || (f.aula.hora || '') !== hora) continue;
+    const faltas = { ...(a.faltas || {}) };
+    delete faltas[chave];
+    return {
+      acao: 'desfazer', tipo: 'titular', chave,
+      patch: { faltas },
+      log: { tipo: 'falta', resumo: `Chamada da Lousa refeita: saiu da lista · falta de ${ddmm(dia)} ${hora} desfeita`, extra: { dia: chave, origem: ORIGEM_FALTA } },
+    };
+  }
+  for (const [chave, v] of Object.entries(a.atestados || {})) {
+    const rep = v && v.reposicao;
+    if (!rep || rep.data !== dia || (rep.hora || '') !== hora || !rep.noShow || rep.noShowOrigem !== ORIGEM_FALTA) continue;
+    const { noShow, noShowEm, noShowOrigem, ...limpa } = rep;
+    return {
+      acao: 'desfazer', tipo: 'reposicao', chave,
+      patch: { atestados: { ...(a.atestados || {}), [chave]: { ...v, reposicao: limpa } } },
+      log: { tipo: 'falta', resumo: `Chamada da Lousa refeita: saiu da lista · no-show da reposição de ${ddmm(dia)} ${hora} desfeito`, extra: { dia, origem: ORIGEM_FALTA } },
+    };
+  }
+  return { acao: 'nada', motivo: 'nenhuma falta da chamada nessa aula' };
 }

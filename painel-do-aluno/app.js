@@ -10,7 +10,7 @@ import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
-import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from '../compartilhado/regras/semana.js';
+import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from '../compartilhado/regras/semana.js?v=31';
 import { faturaComDependentes, parteCoberta, faturaDoMes } from '../compartilhado/regras/consumo.js';
 import { mesDaCobranca, statusDaCobranca } from '../compartilhado/regras/cobranca.js';
 import { renderTreinoDia } from './treino-dia.js';
@@ -415,6 +415,10 @@ function renderHorarios() {
   const nota = (q) => {
     if (q.veioEm) return `veio ${diaDe(q.veioEm)}${q.hora ? ` · ${q.hora}` : ''}`;
     if (q.estado === 'ok') return q.hora ? `chegou ${q.hora}` : '';
+    if (q.estado === 'fechado' && ((PORTAL.atestados || {})[q.iso] || {}).tipo === 'fechado') {
+      const ex = ((PORTAL.atestados || {})[q.iso] || {}).expira;
+      return 'feriado · crédito de reposição' + (ex ? ` até ${ex.slice(8, 10)}/${ex.slice(5, 7)}` : '');
+    }
     if (q.estado === 'atestado') return 'atestado · você tem reposição';
     // Remarcado: o aluno precisa saber para quando ficou — senão o quadrado da
     // segunda fica mudo num dia em que a segunda já passou, e o vermelho parece
@@ -422,7 +426,7 @@ function renderHorarios() {
     // O aluno precisa saber POR QUE o dia não conta — sem isso o quadrado neutro
     // parece erro do app num dia em que ele lembra de não ter treinado.
     if (q.estado === 'fechado') return 'feriado · não teve treino';
-    if (q.semChamada) return q.remarcado ? `sem chamada (era ${diaDe(q.efetivo)})` : 'sem chamada';
+    if (q.semChamada) return q.remarcado ? `presença não registrada (era ${diaDe(q.efetivo)})` : 'presença não registrada';
     if (q.estado === 'falta') return q.remarcado ? `não veio (era ${diaDe(q.efetivo)})` : 'não veio';
     if (q.remarcado) return `passou para ${diaDe(q.efetivo)}`;
     if (q.alterado) return 'horário alterado';
@@ -440,7 +444,7 @@ function renderHorarios() {
       <span class="hor-dia">${esc(titulo(q))}</span>
       <span class="hor-hora">${esc(valor(q))}</span>
       ${q.tipo === 'fixo' && nota(q) ? `<span class="hor-nota-cel">${esc(nota(q))}</span>` : ''}
-      ${q.tipo === 'reposicao' ? `<span class="hor-nota-cel">${esc(q.estado === 'ok' ? (q.hora ? 'chegou ' + q.hora : 'presente') : q.semChamada ? 'sem chamada' : q.estado === 'falta' ? 'não veio' : 'da aula de ' + fmtDataCurta(q.origem))}</span>` : ''}
+      ${q.tipo === 'reposicao' ? `<span class="hor-nota-cel">${esc(q.estado === 'ok' ? (q.hora ? 'chegou ' + q.hora : 'presente') : q.semChamada ? 'presença não registrada' : q.estado === 'falta' ? 'não veio' : 'da aula de ' + fmtDataCurta(q.origem))}</span>` : ''}
     </div>`).join('');
 
   // Só as aulas DA SEMANA entram no contador: reposição veio de outra semana e

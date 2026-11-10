@@ -47,14 +47,15 @@
  * @property {string} [horaCheckin]
  * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
  */
-import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js';
+import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=31';
 import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=31';
 
 /**
- * O mesmo `creditoVencido` do semana.js, de propósito aqui: o semana.js é
- * carregado SEM versão (o compartilhado também o importa), e um navegador com
- * a cópia antiga em cache derrubaria a Gestão inteira num import que ela não
- * exporta. @param {any} credito @param {string} hojeIso
+ * O mesmo `creditoVencido` do semana.js, de propósito aqui. O semana.js é importado
+ * com `?v=31` (as duas funções novas, validadeDoCredito e fimDoMesSeguinte, só existem
+ * na cópia nova: sem a versão, o GitHub Pages serve .js por 10 minutos e um semana.js
+ * antigo em cache com este arquivo novo é um SyntaxError que derruba a Gestão). A
+ * cópia local de `creditoVencido` é anterior a isso e fica. @param {any} credito @param {string} hojeIso
  */
 const creditoVencido = (credito, hojeIso) => !!(credito && credito.expira && credito.expira < hojeIso);
 
@@ -152,7 +153,8 @@ function statusTitular(a, plan, dia, hoje, fechados) {
   const at = (a.atestados || {})[plan], fa = (a.faltas || {})[plan];
   if (at) {
     if (at.tipo === 'desmarcacao') return { status: 'desmarcou-no-prazo', credito: at };
-    if (at.tipo === 'excecao') return { status: at.antes === 'fora-do-prazo' ? 'desmarcou-fora' : 'falta', credito: at };
+    if (at.tipo === 'excecao') return { status: at.antes === 'fora-do-prazo' ? 'desmarcou-fora' : at.antes === 'sem-chamada' ? 'sem-chamada' : 'falta', credito: at };
+    if (at.tipo === 'fechado') return { status: 'fechado', credito: at }; // box fechou: crédito, não atestado
     return { status: 'atestado', credito: at };
   }
   // A presença ganha da falta lançada: é o coach corrigindo o que marcou.
@@ -426,7 +428,7 @@ export function concederCredito(a, diaPlanejado, { hoje, em }) {
   const fa = (a.faltas || {})[diaPlanejado];
   const onde = ondeAcontece(a, diaPlanejado);
   const expira = fimDoMesSeguinte(hoje); // crédito justificado pelo coach: passa adiante um mês
-  const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em, tipo: 'excecao', antes: fa ? fa.tipo : 'no-show', aula: onde, expira, reposicao: null } };
+  const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em, tipo: 'excecao', antes: fa ? fa.tipo : 'sem-chamada', aula: onde, expira, reposicao: null } };
   const faltas = { ...(a.faltas || {}) };
   delete faltas[diaPlanejado];
   const remarcacoes = { ...(a.remarcacoes || {}) };

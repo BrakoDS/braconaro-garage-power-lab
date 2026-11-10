@@ -20,6 +20,7 @@
  */
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { relogioDoBox } from './presenca';
 
 // A ficha e as caixas são JSON livre, como na Gestão: o formato é o dos arquivos de regra dela.
 type Dados = Record<string, any>;
@@ -40,7 +41,8 @@ export interface RegrasDaGestao {
   escritasDaAtualizacao(atual: Dados, dados: Dados, entrada: Dados): Escrita[];
   soDoBox(f: Dados): Dados;
   emailsQueFaltaram(chamada: Dados | null | undefined): string[];
-  faltaDaChamada(a: Dados | null, o: { dia: string; hora: string; em: number; hoje: string; fechados?: string[] }): { acao: 'falta'; tipo: 'titular' | 'reposicao'; chave: string; patch: Dados; log: Dados } | { acao: 'nada'; motivo: string };
+  faltaDaChamada(a: Dados | null, o: { dia: string; hora: string; em: number; hoje: string; agora?: string; fechados?: string[] }): { acao: 'falta'; tipo: 'titular' | 'reposicao'; chave: string; patch: Dados; log: Dados } | { acao: 'nada'; motivo: string };
+  desfazerFaltaDaChamada(a: Dados | null, o: { dia: string; hora: string }): { acao: 'desfazer'; tipo: 'titular' | 'reposicao'; chave: string; patch: Dados; log: Dados } | { acao: 'nada'; motivo: string };
   creditosDeFechamento(alunos: Dados[], diasSemAula: string[], hoje: string): { alunoId: string; dia: string; patch: Dados; log: Dados }[];
 }
 
@@ -70,6 +72,7 @@ export function regrasDaGestao(base = join(__dirname, 'gestao')): Promise<Regras
     soDoBox: campos.soDoBox,
     emailsQueFaltaram: chamada.emailsQueFaltaram,
     faltaDaChamada: chamada.faltaDaChamada,
+    desfazerFaltaDaChamada: chamada.desfazerFaltaDaChamada,
     creditosDeFechamento: fechamento.creditosDeFechamento,
   }) as RegrasDaGestao);
   _regras.set(base, carga);
@@ -194,9 +197,17 @@ export function planoDoPixNoServidor(
   return { ...fechar(regras, plano, ficha, antes, { ...antes, ...p.patch }), acao: 'baixa' };
 }
 
-/** O id da linha dos Registros da falta da chamada: um por aluno, aula e VERSÃO da chamada (rodar de novo não duplica). */
-export const idDoEventoDaFalta = (alunoId: string, dia: string, hora: string, versao: number) =>
-  `lousa-falta-${alunoId}-${dia}-${hora.replace(/\W/g, '')}-${versao}`;
+/**
+ * O id da linha dos Registros da falta da chamada: um por aluno e aula, SEM a versão da chamada. A
+ * chamada grava a falta no máximo uma vez por aluno e aula: fechar de novo não a repõe se o coach a
+ * tirou à mão ("Veio" corrige pelo check-in, e sair da lista desfaz pelo `planoDeDesfazerFalta`).
+ */
+export const idDoEventoDaFalta = (alunoId: string, dia: string, hora: string) =>
+  `lousa-falta-${alunoId}-${dia}-${hora.replace(/\W/g, '')}`;
+
+/** O id da linha dos Registros de "saiu da lista": um por aluno, aula e versão da chamada que o tirou. */
+export const idDoEventoDaFaltaDesfeita = (alunoId: string, dia: string, hora: string, versao: number) =>
+  `lousa-falta-desfeita-${alunoId}-${dia}-${hora.replace(/\W/g, '')}-${versao}`;
 
 /** O id da linha do crédito de box fechado: um por aluno e dia. */
 export const idDoEventoDoFechamento = (alunoId: string, dia: string) => `fechado-${alunoId}-${dia}`;
@@ -204,20 +215,38 @@ export const idDoEventoDoFechamento = (alunoId: string, dia: string) => `fechado
 /**
  * O que o servidor faz com UM aluno que a chamada da Lousa deixou em "faltaram":
  * a falta "não veio" (`faltaDaChamada` da Gestão), ou nada, com o motivo.
- * @param versao a versão da chamada (`atualizadoEm` em ms): fechar de novo é outra versão
+ * A falta entra no máximo uma vez por aluno e aula (o id do Registro não leva a versão da chamada).
  * @param hoje o dia no relógio do box
  */
 export function planoDaFaltaDaChamada(
   regras: RegrasDaGestao,
-  { ficha, dia, hora, versao, hoje, fechados, agora }: { ficha: Dados; dia: string; hora: string; versao: number; hoje: string; fechados: string[]; agora: number },
+  { ficha, dia, hora, hoje, fechados, agora }: { ficha: Dados; dia: string; hora: string; hoje: string; fechados: string[]; agora: number },
 ): PlanoDoServidor & { acao: 'falta' | 'nada'; motivo?: string } {
   const antes = { ...regras.soDoBox(ficha), id: String(ficha.id) };
-  const r = regras.faltaDaChamada(antes, { dia, hora, em: agora, hoje, fechados });
+  const r = regras.faltaDaChamada(antes, { dia, hora, em: agora, hoje, agora: relogioDoBox(new Date(agora)).agora, fechados });
   if (r.acao === 'nada') return { ...vazio(), acao: 'nada', motivo: r.motivo };
-  const id = idDoEventoDaFalta(antes.id, dia, hora, versao);
+  const id = idDoEventoDaFalta(antes.id, dia, hora);
   const plano = vazio();
   plano.eventos = [evento(regras, antes, { ...r.log, extra: { ...(r.log.extra || {}), id } }, agora, id)];
   return { ...fechar(regras, plano, ficha, antes, { ...antes, ...r.patch }), acao: 'falta' };
+}
+
+/**
+ * A chamada foi refeita e o aluno saiu das duas listas: tira a falta que a própria
+ * Lousa gravou para aquela aula (`desfazerFaltaDaChamada`). A do coach não é tocada.
+ * @param versao a versão da chamada que o tirou (só entra no id do Registro)
+ */
+export function planoDeDesfazerFalta(
+  regras: RegrasDaGestao,
+  { ficha, dia, hora, versao, agora }: { ficha: Dados; dia: string; hora: string; versao: number; agora: number },
+): PlanoDoServidor & { acao: 'desfazer' | 'nada'; motivo?: string } {
+  const antes = { ...regras.soDoBox(ficha), id: String(ficha.id) };
+  const r = regras.desfazerFaltaDaChamada(antes, { dia, hora });
+  if (r.acao === 'nada') return { ...vazio(), acao: 'nada', motivo: r.motivo };
+  const id = idDoEventoDaFaltaDesfeita(antes.id, dia, hora, versao);
+  const plano = vazio();
+  plano.eventos = [evento(regras, antes, { ...r.log, extra: { ...(r.log.extra || {}), id } }, agora, id)];
+  return { ...fechar(regras, plano, ficha, antes, { ...antes, ...r.patch }), acao: 'desfazer' };
 }
 
 /**
@@ -245,8 +274,12 @@ export function planoDoCreditoDeFechamento(
   return { ...fechar(regras, plano, ficha, antes, atual), creditos: logs.length };
 }
 
-/** Os dias em que o box NÃO abriu (`meta.feriados` com `false`) que já chegaram, do mais antigo ao mais novo. */
-export function diasFechadosAteHoje(meta: Dados | null | undefined, hoje: string): string[] {
+/**
+ * Os dias em que o box NÃO abriu (`meta.feriados` com `false`) que já chegaram, do mais antigo ao mais novo.
+ * @param desde 'AAAA-MM-DD' (`sistema/fechamento.desde`): os dias antes dele são ignorados
+ */
+export function diasFechadosAteHoje(meta: Dados | null | undefined, hoje: string, desde?: string | null): string[] {
   const f = meta && meta.feriados && typeof meta.feriados === 'object' ? meta.feriados as Record<string, unknown> : {};
-  return Object.entries(f).filter(([d, abriu]) => abriu === false && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= hoje).map(([d]) => d).sort();
+  const corte = typeof desde === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(desde) ? desde : '';
+  return Object.entries(f).filter(([d, abriu]) => abriu === false && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= hoje && d >= corte).map(([d]) => d).sort();
 }

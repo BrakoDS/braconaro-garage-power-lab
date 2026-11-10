@@ -15,7 +15,7 @@
 import * as db from '../gestao-de-alunos/db.js?v=31';
 import { horasDaGrade } from '../gestao-de-alunos/presenca-regras.js?v=31';
 import { publicarPortal } from '../gestao-de-alunos/portal-sync.js?v=31';
-import { chaveDoDia } from '../../compartilhado/regras/semana.js';
+import { chaveDoDia } from '../../compartilhado/regras/semana.js?v=31';
 import { feriadoEm } from '../../compartilhado/regras/feriados.js';
 import { painel as painelReal } from '../../compartilhado/ui/dialogo.js';
 import { CAMADAS } from './camadas/registro.js';
