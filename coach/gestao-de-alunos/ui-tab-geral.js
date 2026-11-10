@@ -20,20 +20,20 @@
  * pelo ui-tab-financeiro.js e pelo ui-acoes-aluno.js; a situação e as faturas
  * mostram sempre a ficha SALVA.
  */
-import * as db from './db.js?v=32';
-import { esc, hoje, fmtData } from './util/formato.js?v=32';
-import { $ } from './util/dom.js?v=32';
-import { estado, on, emit, EVENTOS } from './estado.js?v=32';
-import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=32';
-import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=32';
-import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=32';
-import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=32';
-import { brl, resumoDoPlano } from './financeiro-aluno.js?v=32';
-import { historicoComFechamentos } from './fechamento-regras.js?v=32';
-import { fechamentos } from './fechamentos-db.js?v=32';
-import { htmlFatura } from './ui-tab-financeiro.js?v=32';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=32';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=32';
+import * as db from './db.js?v=33';
+import { esc, hoje, fmtData } from './util/formato.js?v=33';
+import { $ } from './util/dom.js?v=33';
+import { estado, on, emit, EVENTOS } from './estado.js?v=33';
+import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=33';
+import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=33';
+import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=33';
+import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=33';
+import { brl, resumoDoPlano } from './financeiro-aluno.js?v=33';
+import { historicoComFechamentos } from './fechamento-regras.js?v=33';
+import { fechamentos } from './fechamentos-db.js?v=33';
+import { htmlFatura } from './ui-tab-financeiro.js?v=33';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=33';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=33';
 
 /** Os cards com formulário (os que têm ✎ Editar). */
 export const CARDS_EDITAVEIS = Object.freeze(['contato', 'financeiro', 'acesso']);

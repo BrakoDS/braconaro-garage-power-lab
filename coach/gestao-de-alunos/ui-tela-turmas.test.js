@@ -41,12 +41,12 @@ function elemento(sel) {
 const el = (s) => (tela[s] ||= elemento(s));
 globalThis.document = /** @type {any} */ ({ querySelector: (s) => el(s), querySelectorAll: () => [] });
 
-const db = await import('./db.js?v=32');
-const { emit, EVENTOS } = await import('./estado.js?v=32');
-const eventos = await import('./eventos.js?v=32');
-const { iniciarTelaTurmas, pedirTurma } = await import('./ui-tela-turmas.js?v=32');
-const { hoje, addDias, fmtData } = await import('./util/formato.js?v=32');
-const regras = await import('./presenca-regras.js?v=32');
+const db = await import('./db.js?v=33');
+const { emit, EVENTOS } = await import('./estado.js?v=33');
+const eventos = await import('./eventos.js?v=33');
+const { iniciarTelaTurmas, pedirTurma } = await import('./ui-tela-turmas.js?v=33');
+const { hoje, addDias, fmtData } = await import('./util/formato.js?v=33');
+const regras = await import('./presenca-regras.js?v=33');
 const { fimDoMes } = await import('../../compartilhado/regras/semana.js');
 iniciarTelaTurmas();
 

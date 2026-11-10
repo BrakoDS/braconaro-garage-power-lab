@@ -9,7 +9,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { camposDesconhecidos, casarCaixasComFichas, mesclarPresencas } from './portal-merge.js?v=32';
+import { camposDesconhecidos, casarCaixasComFichas, mesclarPresencas } from './portal-merge.js?v=33';
 
 test('acrescenta o dia novo mantendo os que já existiam, em ordem', () => {
   assert.deepEqual(
