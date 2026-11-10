@@ -1,23 +1,24 @@
 // @ts-check
 /**
  * Tela Cobranças — quem ainda deve a mensalidade do mês, por urgência, com o
- * lembrete pronto para o WhatsApp e a baixa num clique.
+ * lembrete pronto para o WhatsApp e a baixa pela janela de sempre.
  *
  * Saiu do `app.js` no fatiamento. Quem entra na lista, o valor, os prazos e o
  * texto do lembrete moram em financeiro-regras.js (`cobrancasDoMes`,
- * `msgCobranca`); a baixa é a mesma `darBaixa` da tela Financeiro e da aba do
- * aluno. Aqui ficam o desenho e os botões.
+ * `msgCobranca`); a baixa abre a MESMA janela do card Financeiro do aluno
+ * (`abrirPagamento`: meio, valor, data e a foto do comprovante). Aqui ficam o
+ * desenho e os botões.
  *
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'cobrancas') — sempre o mês
  * atual — e depois de cada lembrete ou baixa.
  */
 import * as db from './db.js?v=31';
 import { brl, mesIdAtual, rotuloMesFin } from './financeiro-aluno.js?v=31';
-import { cobrancasDoMes, msgCobranca, darBaixa } from './financeiro-regras.js?v=31';
+import { cobrancasDoMes, msgCobranca } from './financeiro-regras.js?v=31';
+import { abrirPagamento } from './ui-tab-financeiro.js?v=31';
 import { esc, hoje, waMsg } from './util/formato.js?v=31';
 import { $ } from './util/dom.js?v=31';
 import { on, EVENTOS } from './estado.js?v=31';
-import { regFinanceiro } from './registro.js?v=31';
 
 /** Quem já foi lembrado nesta sessão (só para marcar "avisado ✓"). */
 const cobLembrados = new Set();
@@ -63,9 +64,7 @@ export function iniciarTelaCobrancas() {
     if (wa) { cobLembrados.add(wa.dataset.id); setTimeout(renderCobrancas, 100); return; }
     const pg = e.target.closest('.cob-pago');
     if (!pg) return;
-    const a = db.obter(pg.dataset.id); if (!a) return;
-    const r = darBaixa(a, mesIdAtual(), db.listar());
-    if (r) { db.atualizar(a.id, r.patch); if (r.log) regFinanceiro(a, r.log); }
-    renderCobrancas();
+    // A mesma janela da baixa do card Financeiro: meio, valor, data e a foto.
+    abrirPagamento(pg.dataset.id, mesIdAtual(), renderCobrancas);
   });
 }

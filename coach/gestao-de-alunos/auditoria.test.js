@@ -71,15 +71,21 @@ test('auditoria: categoria "Financeiro" nos filtros, com ícone por tipo', () =>
 
 /* ---------- as três telas que dão baixa registram ---------- */
 
-test('auditoria: as três telas que dão baixa usam a MESMA regra, e a trilha sai dela', () => {
+test('auditoria: as três telas que dão baixa usam a MESMA janela e a MESMA regra, e a trilha sai dela', () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
   const telas = { 'aba do aluno': ler('./ui-tab-financeiro.js'), 'Financeiro do box': ler('./ui-tela-financeiro.js'), 'Cobranças': ler('./ui-tela-cobrancas.js') };
   for (const [nome, fonte] of Object.entries(telas)) {
-    assert.match(fonte, /darBaixa\(a, /, `${nome}: dá baixa pela regra`);
     // Ninguém mais monta a gravação nem o texto do log à mão: a regra devolve os dois.
-    assert.ok(!/pagamentos:\s*comPagamento|consumos:\s*\[/.test(fonte), `${nome}: não grava pagamentos/consumos à mão`);
+    assert.ok(!/pagamentos:\s*comPagamento|recebimentos:\s*comRecebimento|consumos:\s*\[/.test(fonte), `${nome}: não grava pagamentos/registro/consumos à mão`);
     assert.ok(!/eventoPagamento|eventoLancamento/.test(fonte), `${nome}: não monta o evento do log`);
-    assert.match(fonte, /if \(r\.log\) regFinanceiro\(a, r\.log\)/, `${nome}: registra o log que a regra devolveu`);
+  }
+  // A baixa tem UMA porta nas telas (etapa 3): a janela do card Financeiro, que
+  // pede meio, valor, data e foto e chama a regra. As outras duas só a abrem.
+  assert.match(telas['aba do aluno'], /darBaixa\(a, /, 'a janela dá baixa pela regra');
+  assert.match(telas['aba do aluno'], /if \(r\.log\) regFinanceiro\(a, r\.log\)/, 'e registra o log que a regra devolveu');
+  for (const nome of ['Financeiro do box', 'Cobranças']) {
+    assert.match(telas[nome], /abrirPagamento\(/, `${nome}: abre a janela da baixa`);
+    assert.ok(!/darBaixa/.test(telas[nome]), `${nome}: não dá baixa por fora da janela`);
   }
   for (const nome of ['aba do aluno', 'Financeiro do box']) {
     assert.match(telas[nome], /desfazerBaixa\(a, /, `${nome}: desfaz pela regra`);
