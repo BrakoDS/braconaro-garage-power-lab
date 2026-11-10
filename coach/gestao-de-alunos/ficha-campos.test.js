@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   diferencasDaFicha, juntarEntrada, sobrepor, converterLegada, escritasDaAtualizacao, aplicarEscritas,
   mesclarInteira, aplicarConjunto, valorEm, colocar, ehLegada, soDoBox,
-} from './ficha-campos.js?v=31';
+} from './ficha-campos.js?v=32';
 
 test('diferença: campo comum inteiro, mapa até a chave, carimbo do servidor de fora', () => {
   const antes = { nome: 'Ana', consumos: [{ id: 'c1' }], pagamentos: { '2026-10': true }, atualizadoEm: 1, anamnese: { sono: { h: 7 } } };

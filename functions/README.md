@@ -625,6 +625,37 @@ sem a versão da chamada): fechar de novo não repõe a que o coach tirou à mã
 não lista mais (nem em `presentes`, nem em `faltaram`) perde a falta que a própria Lousa gravou
 (`origem: 'lousa'`; a do coach nunca). Chamada de hoje fechada antes da hora da aula não grava falta.
 
+### Etapa 3: o registro do pagamento (`recebimentos[mês]`, 10/11/2026)
+
+O `true` de `pagamentos[mês]` continua igual (o Portal, o app, as conquistas e o Pix só perguntam se
+ele existe). Ao lado, na MESMA gravação, a ficha ganha `recebimentos[mês]` = `{ valor, data, meio,
+comprovante, conferidoPor, paymentId, registradoEm, origem }` (ver `financeiro-aluno.js`). Ele NÃO vai
+para `portal/{email}` (fora de `CAMPOS_ESPELHO_PORTAL`) e entra em `CAMPOS_DO_SERVIDOR`.
+
+- **Baixa manual** (Gestão): a janela pede meio (`pix-chave`, `cartao`, `dinheiro`), valor, data e a
+  foto opcional do comprovante (`gestao/{uid}/comprovantes/{aluno}/{mês}_{ms}.webp`; a regra de Storage
+  que já existe cobre). `conferidoPor: 'coach'`, `origem: 'gestao'`.
+- **Pix do Portal** (`planoDoPix`, aqui e na Gestão): `meio: 'pix-portal'`, o valor pago, `data` = o dia
+  de `aprovadoEm` no relógio do box, o `paymentId`, `conferidoPor: 'mercado-pago'`, `origem: 'pix'`.
+
+**Publicar:** a regra mudou em `pix-baixa.js` → `financeiro-regras.js` → `financeiro-aluno.js`, que estão na
+cópia da Gestão (`lib/gestao/`). Publique TODAS as funções das caixas (a lista do "Publicar" acima), no
+mesmo dia do merge. Nenhuma regra do Firestore ou do Storage muda.
+
+**O histórico (migração, só com o ok do dono).** Os meses pagos antes de 10/11 sem registro ganham um, se
+houver de onde tirar: o Pix do Portal (`pixPagos` + `cobrancasPix`) ou a última linha "Pagamento
+registrado" do mês que não foi desfeita depois (valor e o dia da BAIXA, `meio: 'nao-informado'`). Nunca
+sobrescreve; tudo com `origem: 'historico'`. A regra é `coach/gestao-de-alunos/recebimentos-historico.js`.
+
+```bash
+cd functions && npm run build && node scripts/preencher-recebimentos.cjs            # simulação: só contagens
+node scripts/preencher-recebimentos.cjs --aplicar ../../backup-recebimentos.json   # backup, depois grava
+```
+
+A gravação recalcula cada ficha numa transação (o mês que ganhou registro no meio-tempo fica de fora) e
+grava só `recebimentos.<mês>` com o carimbo `atualizadoEm`. Desfazer: o backup tem o `recebimentos`
+anterior de cada ficha tocada.
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro

@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { recebimentosDoHistorico } from './recebimentos-historico.js?v=31';
+import { recebimentosDoHistorico } from './recebimentos-historico.js?v=32';
 
 const NB = ' ';
 // 10/11/2026 às 11:07 no box (14:07 UTC); 09/11 às 20:01 no box (23:01 UTC).

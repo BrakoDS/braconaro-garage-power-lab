@@ -24,16 +24,16 @@
  * registrado (mês e valor), pagamento desfeito, lançamento avulso.
  * As regras (o que é atrasado, em que fatura cai) moram em financeiro-aluno.js.
  */
-import * as db from './db.js?v=31';
-import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=31';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=31';
-import { estado } from './estado.js?v=31';
-import { confirmar } from '../../compartilhado/ui/dialogo.js?v=31';
+import * as db from './db.js?v=32';
+import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=32';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=32';
+import { estado } from './estado.js?v=32';
+import { confirmar } from '../../compartilhado/ui/dialogo.js?v=32';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, faturaDoAluno, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento } from './financeiro-aluno.js?v=31';
-import { darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=31';
-import { regFinanceiro } from './registro.js?v=31';
-import * as storage from '../../compartilhado/regras/storage-alunos.js?v=31';
+import { brl, numMoney, rotuloMesFin, faturaDoAluno, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento } from './financeiro-aluno.js?v=32';
+import { darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=32';
+import { regFinanceiro } from './registro.js?v=32';
+import * as storage from '../../compartilhado/regras/storage-alunos.js?v=32';
 
 /** Rótulo e cor de cada situação. */
 const STATUS = {
@@ -226,7 +226,11 @@ async function subirComprovante(a, mesId, arquivo) {
  */
 async function gravarPagamento(form) {
   if (!modal || modal.modo !== 'pagamento' || !modal.mesId || !modal.alunoId || gravando) return;
-  const { mesId, alunoId, aoGravar } = modal;
+  // A janela desta gravação: se ela fechar, ou outra abrir no lugar, enquanto a
+  // foto sobe, esta gravação não mexe em nada (nem na janela nova).
+  const sessao = modal;
+  const mesmaJanela = () => modal === sessao && !!$('#modal-fin')?.classList.contains('open');
+  const { mesId, alunoId, aoGravar } = sessao;
   const dados = { meio: String(form.meio?.value || ''), valor: numMoney(form.valor?.value), data: String(form.data?.value || '') };
   const erro = erroDaBaixa(dados, hoje());
   if (erro) { erroNaJanela(erro); return; }
@@ -243,8 +247,16 @@ async function gravarPagamento(form) {
     }
   } catch (e) {
     console.warn('[financeiro] o comprovante não subiu.', e);
-    erroNaJanela('Não deu para enviar a foto. Confira a internet e tente de novo, ou tire a foto e confirme sem ela.');
-    gravando = false; ok.disabled = false; ok.textContent = 'Confirmar pagamento';
+    if (mesmaJanela()) {
+      erroNaJanela('Não deu para enviar a foto. Confira a internet e tente de novo, ou tire a foto e confirme sem ela.');
+      gravando = false; ok.disabled = false; ok.textContent = 'Confirmar pagamento';
+    }
+    return;
+  }
+  // A janela foi fechada (Cancelar, ×, Esc) enquanto a foto subia: o coach
+  // desistiu, então não há baixa. A foto que já subiu fica no Storage, solta.
+  if (!mesmaJanela()) {
+    if (modal === sessao) { gravando = false; ok.disabled = false; ok.textContent = 'Confirmar pagamento'; }
     return;
   }
   // Relê a ficha AGORA: a regra calcula o valor da conta e recusa o mês que já

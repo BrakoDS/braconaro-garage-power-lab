@@ -5,11 +5,11 @@
  * Usado pelo cabeçalho do perfil (foto do aluno) e pela aba Avaliações (fotos
  * de progresso). Os caminhos ficam sob `gestao/{uid}/{alunoId}/` (ver storage.rules).
  */
-import * as storage from '../../compartilhado/regras/storage-alunos.js?v=31';
-import { avisar } from '../../compartilhado/ui/dialogo.js?v=31';
-import * as db from './db.js?v=31';
-import { estado, on, EVENTOS } from './estado.js?v=31';
-import { reg } from './registro.js?v=31';
+import * as storage from '../../compartilhado/regras/storage-alunos.js?v=32';
+import { avisar } from '../../compartilhado/ui/dialogo.js?v=32';
+import * as db from './db.js?v=32';
+import { estado, on, EVENTOS } from './estado.js?v=32';
+import { reg } from './registro.js?v=32';
 
 /** Abre o seletor de arquivos de imagem e chama cb(file). @param {(f: File) => void} cb */
 export function escolherFoto(cb) {

@@ -12,14 +12,14 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=31';
-import * as regras from './presenca-regras.js?v=31';
-import { checkin, desfazer } from './checkin-regras.js?v=31';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=31';
-import { $ } from './util/dom.js?v=31';
-import { on, EVENTOS } from './estado.js?v=31';
-import { reg } from './registro.js?v=31';
-import { telaAtual } from './navegacao.js?v=31';
+import * as db from './db.js?v=32';
+import * as regras from './presenca-regras.js?v=32';
+import { checkin, desfazer } from './checkin-regras.js?v=32';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=32';
+import { $ } from './util/dom.js?v=32';
+import { on, EVENTOS } from './estado.js?v=32';
+import { reg } from './registro.js?v=32';
+import { telaAtual } from './navegacao.js?v=32';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */

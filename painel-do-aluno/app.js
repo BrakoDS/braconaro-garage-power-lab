@@ -10,7 +10,7 @@ import { carregarPortal } from './portal-db.js';
 import { enviarFotoPerfil, enviarFeedback } from './portal-inbox.js';
 import { carregarAvisos } from './avisos-db.js';
 import { carregarTreinoDoMes, mesIdHoje, dateIdDe } from './treino-db.js';
-import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from '../compartilhado/regras/semana.js?v=31';
+import { semanaDoAluno, reposicoesPendentes, chaveDoDia } from '../compartilhado/regras/semana.js?v=32';
 import { faturaComDependentes, parteCoberta, faturaDoMes } from '../compartilhado/regras/consumo.js';
 import { mesDaCobranca, statusDaCobranca } from '../compartilhado/regras/cobranca.js';
 import { renderTreinoDia } from './treino-dia.js';

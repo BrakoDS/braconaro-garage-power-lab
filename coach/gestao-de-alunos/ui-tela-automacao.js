@@ -14,15 +14,15 @@
  * aberta — a baixa numa outra tela tira a cobrança daqui. O selo do botão é
  * refeito nos mesmos momentos, com a tela aberta ou não.
  */
-import * as db from './db.js?v=31';
-import { brl, rotuloMesFin } from './financeiro-aluno.js?v=31';
-import { GATILHOS } from './automacao-regras.js?v=31';
-import { mensagens, marcarMensagem } from './automacao.js?v=31';
-import { esc, waMsg } from './util/formato.js?v=31';
-import { $ } from './util/dom.js?v=31';
-import { on, EVENTOS } from './estado.js?v=31';
-import { reg } from './registro.js?v=31';
-import { telaAtual } from './navegacao.js?v=31';
+import * as db from './db.js?v=32';
+import { brl, rotuloMesFin } from './financeiro-aluno.js?v=32';
+import { GATILHOS } from './automacao-regras.js?v=32';
+import { mensagens, marcarMensagem } from './automacao.js?v=32';
+import { esc, waMsg } from './util/formato.js?v=32';
+import { $ } from './util/dom.js?v=32';
+import { on, EVENTOS } from './estado.js?v=32';
+import { reg } from './registro.js?v=32';
+import { telaAtual } from './navegacao.js?v=32';
 
 /** @type {{ abrir: (url: string) => void }} */
 let deps = { abrir: (url) => { window.open(url, '_blank', 'noopener'); } };
