@@ -21,9 +21,11 @@
  *   presencas      ['AAAA-MM-DD', …] — os dias em que ele veio (ordenados);
  *   presencaHoras  { 'AAAA-MM-DD': 'HH:MM' } — a hora do check-in feito no dia;
  *   remarcacoes    { diaPlanejado: { data, hora } } (antigo: só a data, string);
- *   atestados      { diaPlanejado: { em, reposicao: { data, hora } | null } }
- *                  — o crédito de reposição. Além do atestado médico, nasce aqui
- *                  a desmarcação no prazo e o crédito de exceção (ver
+ *   atestados      { diaPlanejado: { em, expira, reposicao: { data, hora } | null } }
+ *                  — o crédito de reposição. O atestado médico (sem `tipo`) vale
+ *                  até o fim do mês seguinte ao lançamento (decisão de 10/11/2026;
+ *                  o antigo, sem `expira`, não vence). Além dele, nasce aqui a
+ *                  desmarcação no prazo e o crédito de exceção (ver
  *                  presenca-regras.js), com `tipo` e `expira`;
  *   faltas         { diaPlanejado: { tipo: 'fora-do-prazo' | 'no-show', em, aula } }
  *                  — falta lançada pelo coach, sem crédito (presenca-regras.js).
@@ -36,7 +38,7 @@
  * @typedef {{ hoje: string, agora: string }} Relogio
  *   hoje: 'AAAA-MM-DD'; agora: 'HH:MM'
  */
-import { datasDaSemana, chaveDoDia } from '../../compartilhado/regras/semana.js?v=31';
+import { datasDaSemana, chaveDoDia, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=31';
 
 /** O nome do dia da semana, por extenso. */
 export const DIA_EXT = Object.freeze({ seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' });
@@ -210,11 +212,14 @@ export function trocarDia(a, diaPlanejado, data, hora) {
  * ATESTADO — falta, com direito a repor a aula em qualquer semana. O atestado é
  * a resolução da aula: a troca de dia que houvesse sai, e a presença que
  * porventura estivesse gravada também (a menos que outra aula use o dia).
- * @param {any} a @param {string} diaPlanejado @param {{ em: number }} o em: o instante do lançamento
+ * O crédito vale até o fim do mês seguinte ao lançamento, como a exceção.
+ * @param {any} a @param {string} diaPlanejado
+ * @param {{ em: number, hoje: string }} o em: o instante do lançamento; hoje: o dia do lançamento ('AAAA-MM-DD')
  * @returns {Mudanca}
  */
-export function atestado(a, diaPlanejado, { em }) {
-  const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em, reposicao: null } };
+export function atestado(a, diaPlanejado, { em, hoje }) {
+  const expira = fimDoMesSeguinte(hoje);
+  const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em, expira, reposicao: null } };
   const efetivo = diaEfetivo(a, diaPlanejado);
   const usaOutra = outraAulaUsa(a, diaPlanejado, efetivo);
   const remarcacoes = { ...(a.remarcacoes || {}) };
@@ -224,7 +229,7 @@ export function atestado(a, diaPlanejado, { em }) {
   if (!usaOutra) { presencas.delete(efetivo); delete horas[efetivo]; }
   return {
     patch: { atestados, remarcacoes, presencas: ordenadas(presencas), presencaHoras: horas, ...semFalta(a, diaPlanejado) },
-    log: { tipo: 'atestado', resumo: `Atestado · aula de ${ddmm(diaPlanejado)}`, extra: { dia: diaPlanejado, chave: `atestado:${a.id}:${diaPlanejado}` } },
+    log: { tipo: 'atestado', resumo: `Atestado · aula de ${ddmm(diaPlanejado)} · reposição até ${ddmm(expira)}`, extra: { dia: diaPlanejado, chave: `atestado:${a.id}:${diaPlanejado}` } },
   };
 }
 

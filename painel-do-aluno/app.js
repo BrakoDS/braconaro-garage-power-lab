@@ -419,7 +419,10 @@ function renderHorarios() {
       const ex = ((PORTAL.atestados || {})[q.iso] || {}).expira;
       return 'feriado · crédito de reposição' + (ex ? ` até ${ex.slice(8, 10)}/${ex.slice(5, 7)}` : '');
     }
-    if (q.estado === 'atestado') return 'atestado · você tem reposição';
+    if (q.estado === 'atestado') {
+      const ex = ((PORTAL.atestados || {})[q.iso] || {}).expira;
+      return ex ? `atestado · reposição até ${ex.slice(8, 10)}/${ex.slice(5, 7)}` : 'atestado · você tem reposição';
+    }
     // Remarcado: o aluno precisa saber para quando ficou — senão o quadrado da
     // segunda fica mudo num dia em que a segunda já passou, e o vermelho parece
     // injusto para quem combinou a troca com o coach.

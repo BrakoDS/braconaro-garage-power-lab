@@ -127,7 +127,7 @@ function notaDaAula(q, a) {
     if (q.veioEm) return `veio ${DIA_MIN[chaveDoDia(q.veioEm)]}${q.hora ? ' · ' + q.hora : ''}`;
     return q.hora ? `chegou ${q.hora}` : 'presente';
   }
-  if (q.estado === 'atestado') return 'atestado · a repor';
+  if (q.estado === 'atestado') return 'atestado · a repor' + (credito && credito.expira ? ` até ${credito.expira.slice(8, 10)}/${credito.expira.slice(5, 7)}` : '');
   if (q.estado === 'fechado' && credito && credito.tipo === 'fechado') return 'feriado · crédito' + (credito.expira ? ` até ${credito.expira.slice(8, 10)}/${credito.expira.slice(5, 7)}` : '');
   if (q.estado === 'fechado') return 'feriado · box fechado';
   if (q.semChamada) return q.remarcado ? `sem chamada (era ${DIA_MIN[chaveDoDia(q.efetivo)]}) · feche a chamada` : 'sem chamada · feche a chamada';
@@ -302,7 +302,7 @@ export function iniciarTelaCheckin() {
       aplicar(btn.dataset.id, (a) => regras.trocarDia(a, btn.dataset.dia, data, hora)); return;
     }
     if (btn.classList.contains('chk-atestado')) {
-      aplicar(btn.dataset.id, (a) => regras.atestado(a, btn.dataset.dia, { em: Date.now() })); return;
+      aplicar(btn.dataset.id, (a) => regras.atestado(a, btn.dataset.dia, { em: Date.now(), hoje: hoje() })); return;
     }
     if (btn.classList.contains('chk-desfazer')) {
       aplicar(btn.dataset.id, (a) => regras.desfazer(a, btn.dataset.dia, { ehReposicao: !!btn.dataset.rep, origem: btn.dataset.origem })); return;

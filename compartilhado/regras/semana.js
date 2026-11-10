@@ -106,7 +106,8 @@ function normalizarRemarcacao(v) {
 
 /**
  * O crédito passou da validade? Só vence o que tem `expira` (a desmarcação no
- * prazo, o crédito de exceção e o de box fechado); o atestado médico não vence.
+ * prazo, o crédito de exceção, o de box fechado e, desde 10/11/2026, o atestado
+ * médico); o atestado antigo, sem `expira`, não vence.
  * @param {any} credito um valor de `atestados` @param {string} hojeIso
  */
 export function creditoVencido(credito, hojeIso) {
