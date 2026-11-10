@@ -14,14 +14,14 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=30';
+import * as db from './db.js?v=31';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=30';
-import { mesDoBox, darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=30';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=30';
-import { $, $$ } from './util/dom.js?v=30';
-import { on, EVENTOS } from './estado.js?v=30';
-import { regFinanceiro } from './registro.js?v=30';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=31';
+import { mesDoBox, darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=31';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=31';
+import { $, $$ } from './util/dom.js?v=31';
+import { on, EVENTOS } from './estado.js?v=31';
+import { regFinanceiro } from './registro.js?v=31';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */

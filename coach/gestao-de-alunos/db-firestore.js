@@ -12,8 +12,8 @@
  * porta para uma aba antiga da Gestão, que regravava a ficha inteira.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { canonico, decidirTrava } from './db-migracao.js?v=30';
-import { escritasDaAtualizacao, CONJUNTOS, aplicarConjunto } from './ficha-campos.js?v=30';
+import { canonico, decidirTrava } from './db-migracao.js?v=31';
+import { escritasDaAtualizacao, CONJUNTOS, aplicarConjunto } from './ficha-campos.js?v=31';
 
 const V = '10.12.2';
 /** @type {any} */ let _db = null;

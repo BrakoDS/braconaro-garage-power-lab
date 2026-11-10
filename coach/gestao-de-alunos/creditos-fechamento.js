@@ -1,12 +1,12 @@
 // @ts-check
 /**
- * Crédito de reposição que nasce quando o BOX FECHA (caminho A: a Gestão
- * materializa). Todo dia que o coach declara fechado — feriado marcado "não
- * abriu" — dá +1 crédito a cada aluno que tinha aula titular naquele dia e
- * ainda não tem nada registrado nele (nem crédito, nem falta, nem presença).
- * Puro; quem grava é o boot (como o Pix). Idempotente: a trava é `atestados[dia]`.
+ * Crédito de reposição que nasce quando o BOX FECHA. Todo dia que o coach
+ * declara fechado — feriado marcado "não abriu" — dá +1 crédito a cada aluno
+ * que tinha aula titular naquele dia e ainda não tem nada registrado nele (nem
+ * crédito, nem falta, nem presença). Puro; quem grava é a varredura do servidor
+ * (`aplicarCaixasPendentes`). Idempotente: a trava é `atestados[dia]`.
  */
-import { aulasDoDia } from './presenca-regras.js?v=30';
+import { aulasDoDia } from './presenca-regras.js?v=31';
 import { validadeDoCredito } from '../../compartilhado/regras/semana.js';
 
 /**
