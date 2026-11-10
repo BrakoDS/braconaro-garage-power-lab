@@ -656,6 +656,22 @@ A gravação recalcula cada ficha numa transação (o mês que ganhou registro n
 grava só `recebimentos.<mês>` com o carimbo `atualizadoEm`. Desfazer: o backup tem o `recebimentos`
 anterior de cada ficha tocada.
 
+### Etapa 4: o fechamento do mês (`gestao/{uid}/fechamentos/{AAAA-MM}`, 10/11/2026)
+
+O coach fecha o mês na tela Financeiro da Gestão; o retrato aprovado (as linhas de cada aluno, os totais e
+as divergências) fica em `gestao/{uid}/fechamentos/{AAAA-MM}`, com `situacao: 'aprovado' | 'reaberto'`. A
+regra é `coach/gestao-de-alunos/fechamento-regras.js`. Não confundir com `sistema/fechamento`, que é a marca
+dos feriados da etapa 2.
+
+**No servidor muda só o `gerarPixCobranca`:** um mês fechado e em aberto cobra o total do retrato
+(`totalDoMesFechado` em `pix.ts`, a mesma regra da Gestão), e não o recalculado da ficha. Reaberto, aluno
+fora do retrato ou mês sem fechamento: a conta de sempre. Nenhuma regra do Firestore muda (a de
+`gestao/{uid}/{colecao}` já cobre a coleção).
+
+```bash
+firebase deploy --only functions:gerarPixCobranca --project projeto-garage-f0a2f
+```
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro
