@@ -198,8 +198,9 @@ async function servidor() {
     assert.deepEqual(f.presencas, ['2026-11-02', '2026-11-04', '2026-11-05']);
   });
 
-  // ---- Etapa 2: a falta da chamada da Lousa e o crédito de box fechado (quinta 05/11/2026, 19:30 em São Paulo) ----
-  let relogioQui = Date.UTC(2026, 10, 5, 22, 30);
+  // ---- Etapa 2: a falta da chamada da Lousa e o crédito de box fechado (quinta 05/11/2026, 20:30 em São Paulo) ----
+  // Depois das três aulas do teste (18:10, 19:10 e 20:10): a falta de HOJE só vale quando a hora da aula chegou.
+  let relogioQui = Date.UTC(2026, 10, 5, 23, 30);
   const depsQui = { ...deps, agora: () => relogioQui++ };
   const DIA = '2026-11-05';
   const fichaDe = (id) => db.doc(`gestao/${COACH}/alunos/${id}`).get().then((s) => s.data());
