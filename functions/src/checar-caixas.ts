@@ -129,17 +129,21 @@ function avisosEReservas(regras: RegrasDaGestao): void {
 
 function pix(regras: RegrasDaGestao): void {
   console.log('\n4) O Pix do livro-caixa');
-  const cob = { paymentId: 'p1', alunoId: '001', mesId: '2026-11', valor: 130, valorPago: 130, status: 'aprovado', soMensalidade: true, avisarGestao: true };
+  // Aprovado às 10:00 de 10/11 no box (13:00 UTC).
+  const aprovadoEm = Date.UTC(2026, 10, 10, 13, 0);
+  const cob = { paymentId: 'p1', alunoId: '001', mesId: '2026-11', valor: 130, valorPago: 130, status: 'aprovado', soMensalidade: true, avisarGestao: true, aprovadoEm };
   const ficha = ana();
   const p = planoDoPixNoServidor(regras, { cobranca: cob, ficha, todos: [ficha], agora: AGORA });
   const depois = depoisDasEscritas(ficha, p.escritas);
   ok(p.acao === 'baixa' && depois.pagamentos['2026-11'] === true && depois.pagamentos['2026-10'] === true, 'aprovado: a baixa do mês (o outro mês fica)', JSON.stringify(depois.pagamentos));
   ok(depois.pixPagos?.['2026-11'] === 'p1', 'e o rastro de qual Pix pagou');
-  ok(igual(p.escritas.map((e) => e.caminho), [['pagamentos', '2026-11'], ['pixPagos']]), 'só o mês e o rastro são gravados', JSON.stringify(p.escritas.map((e) => e.caminho)));
+  ok(igual(depois.recebimentos?.['2026-11'], { valor: 130, data: '2026-11-10', meio: 'pix-portal', comprovante: null, conferidoPor: 'mercado-pago', paymentId: 'p1', registradoEm: aprovadoEm, origem: 'pix' }),
+    'e o registro do pagamento (etapa 3): Pix do Portal, o dia da aprovação, conferido pelo Mercado Pago', JSON.stringify(depois.recebimentos));
+  ok(igual(p.escritas.map((e) => e.caminho).map((c) => c.join('.')).sort(), ['pagamentos.2026-11', 'pixPagos', 'recebimentos']), 'só o mês, o rastro e o registro são gravados', JSON.stringify(p.escritas.map((e) => e.caminho)));
   const ev = p.eventos[0];
   ok(ev && ev.id === 'pix-p1' && ev.tipo === 'pagamento' && ev.origem === 'servidor', 'a linha "Pagamento via Pix" com o id fixo da Gestão', JSON.stringify(ev));
   ok(ev && ev.dados && ev.dados.mesId === '2026-11' && ev.dados.valor === 130, 'com os dados que a Fila usa para sugerir o recibo');
-  ok(igual(p.portal, { pagamentos: { '2026-10': true, '2026-11': true } }), 'o Portal recebe os pagamentos');
+  ok(igual(p.portal, { pagamentos: { '2026-10': true, '2026-11': true } }), 'o Portal recebe os pagamentos (o registro do pagamento não vai para lá)');
 
   const segunda = planoDoPixNoServidor(regras, { cobranca: cob, ficha: depois, todos: [depois], agora: AGORA });
   ok(segunda.acao === 'nada' && !segunda.escritas.length, 'o mesmo Pix de novo: nada (não paga duas vezes)', JSON.stringify(segunda));
