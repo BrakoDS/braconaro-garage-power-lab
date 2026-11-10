@@ -34,6 +34,8 @@ export const ENTRADAS = [
   'coach/gestao-de-alunos/portal-merge.js',
   'coach/gestao-de-alunos/eventos.js',
   'coach/gestao-de-alunos/ficha-campos.js',
+  'coach/gestao-de-alunos/chamada-faltas.js',
+  'coach/gestao-de-alunos/creditos-fechamento.js',
 ];
 
 /** Os especificadores relativos de import/export estático de um arquivo (comentário não conta). */

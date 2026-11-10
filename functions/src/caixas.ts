@@ -39,6 +39,9 @@ export interface RegrasDaGestao {
   diferencasDaFicha(antes: Dados, depois: Dados): { campos: string[][]; conjuntos: Record<string, { mais: string[]; menos: string[] }> };
   escritasDaAtualizacao(atual: Dados, dados: Dados, entrada: Dados): Escrita[];
   soDoBox(f: Dados): Dados;
+  emailsQueFaltaram(chamada: Dados | null | undefined): string[];
+  faltaDaChamada(a: Dados | null, o: { dia: string; hora: string; em: number; hoje: string; fechados?: string[] }): { acao: 'falta'; tipo: 'titular' | 'reposicao'; chave: string; patch: Dados; log: Dados } | { acao: 'nada'; motivo: string };
+  creditosDeFechamento(alunos: Dados[], diasSemAula: string[], hoje: string): { alunoId: string; dia: string; patch: Dados; log: Dados }[];
 }
 
 const _regras = new Map<string, Promise<RegrasDaGestao>>();
@@ -54,7 +57,8 @@ export function regrasDaGestao(base = join(__dirname, 'gestao')): Promise<Regras
   const de = (arquivo: string) => importar(pathToFileURL(join(base, 'coach', 'gestao-de-alunos', arquivo)).href);
   const carga = Promise.all([
     de('ausencias-merge.js'), de('ugym-merge.js'), de('pix-baixa.js'), de('portal-merge.js'), de('eventos.js'), de('ficha-campos.js'),
-  ]).then(([aus, ugym, pix, portal, ev, campos]) => ({
+    de('chamada-faltas.js'), de('creditos-fechamento.js'),
+  ]).then(([aus, ugym, pix, portal, ev, campos, chamada, fechamento]) => ({
     aplicarAvisosNaFicha: aus.aplicarAvisosNaFicha,
     aplicarCheckinsNaFicha: ugym.aplicarCheckinsNaFicha,
     ORIGENS: ugym.ORIGENS,
@@ -64,6 +68,9 @@ export function regrasDaGestao(base = join(__dirname, 'gestao')): Promise<Regras
     diferencasDaFicha: campos.diferencasDaFicha,
     escritasDaAtualizacao: campos.escritasDaAtualizacao,
     soDoBox: campos.soDoBox,
+    emailsQueFaltaram: chamada.emailsQueFaltaram,
+    faltaDaChamada: chamada.faltaDaChamada,
+    creditosDeFechamento: fechamento.creditosDeFechamento,
   }) as RegrasDaGestao);
   _regras.set(base, carga);
   return carga;
@@ -185,4 +192,61 @@ export function planoDoPixNoServidor(
   plano.eventos = [evento(regras, antes, p.log, agora, `pix-${cobranca.paymentId}-${cobranca.status}`)];
   if (p.acao === 'aviso') return { ...plano, acao: 'aviso' };
   return { ...fechar(regras, plano, ficha, antes, { ...antes, ...p.patch }), acao: 'baixa' };
+}
+
+/** O id da linha dos Registros da falta da chamada: um por aluno, aula e VERSÃO da chamada (rodar de novo não duplica). */
+export const idDoEventoDaFalta = (alunoId: string, dia: string, hora: string, versao: number) =>
+  `lousa-falta-${alunoId}-${dia}-${hora.replace(/\W/g, '')}-${versao}`;
+
+/** O id da linha do crédito de box fechado: um por aluno e dia. */
+export const idDoEventoDoFechamento = (alunoId: string, dia: string) => `fechado-${alunoId}-${dia}`;
+
+/**
+ * O que o servidor faz com UM aluno que a chamada da Lousa deixou em "faltaram":
+ * a falta "não veio" (`faltaDaChamada` da Gestão), ou nada, com o motivo.
+ * @param versao a versão da chamada (`atualizadoEm` em ms): fechar de novo é outra versão
+ * @param hoje o dia no relógio do box
+ */
+export function planoDaFaltaDaChamada(
+  regras: RegrasDaGestao,
+  { ficha, dia, hora, versao, hoje, fechados, agora }: { ficha: Dados; dia: string; hora: string; versao: number; hoje: string; fechados: string[]; agora: number },
+): PlanoDoServidor & { acao: 'falta' | 'nada'; motivo?: string } {
+  const antes = { ...regras.soDoBox(ficha), id: String(ficha.id) };
+  const r = regras.faltaDaChamada(antes, { dia, hora, em: agora, hoje, fechados });
+  if (r.acao === 'nada') return { ...vazio(), acao: 'nada', motivo: r.motivo };
+  const id = idDoEventoDaFalta(antes.id, dia, hora, versao);
+  const plano = vazio();
+  plano.eventos = [evento(regras, antes, { ...r.log, extra: { ...(r.log.extra || {}), id } }, agora, id)];
+  return { ...fechar(regras, plano, ficha, antes, { ...antes, ...r.patch }), acao: 'falta' };
+}
+
+/**
+ * O que o servidor faz com UM aluno nos dias em que o box fechou: +1 crédito de
+ * reposição por dia em que ele tinha aula titular (`creditosDeFechamento`). Os
+ * dias entram um de cada vez sobre a ficha já atualizada: dois dias fechados não
+ * se sobrescrevem em `atestados`.
+ * @param dias os dias fechados (só os que já chegaram: ver `diasFechadosAteHoje`)
+ */
+export function planoDoCreditoDeFechamento(
+  regras: RegrasDaGestao,
+  { ficha, dias, hoje, agora }: { ficha: Dados; dias: string[]; hoje: string; agora: number },
+): PlanoDoServidor & { creditos: number } {
+  const antes = { ...regras.soDoBox(ficha), id: String(ficha.id) };
+  let atual = antes;
+  const logs: Dados[] = [];
+  for (const dia of [...dias].sort()) {
+    for (const c of regras.creditosDeFechamento([atual], [dia], hoje)) {
+      atual = { ...atual, ...c.patch };
+      logs.push({ ...c.log, extra: { ...(c.log.extra || {}), id: idDoEventoDoFechamento(antes.id, dia) } });
+    }
+  }
+  const plano = vazio();
+  plano.eventos = logs.map((l) => evento(regras, antes, l, agora, String(l.extra.id)));
+  return { ...fechar(regras, plano, ficha, antes, atual), creditos: logs.length };
+}
+
+/** Os dias em que o box NÃO abriu (`meta.feriados` com `false`) que já chegaram, do mais antigo ao mais novo. */
+export function diasFechadosAteHoje(meta: Dados | null | undefined, hoje: string): string[] {
+  const f = meta && meta.feriados && typeof meta.feriados === 'object' ? meta.feriados as Record<string, unknown> : {};
+  return Object.entries(f).filter(([d, abriu]) => abriu === false && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= hoje).map(([d]) => d).sort();
 }

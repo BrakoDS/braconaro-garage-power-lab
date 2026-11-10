@@ -197,6 +197,90 @@ async function servidor() {
     assert.deepEqual(f.pixPagos, { '2026-11': 'p1' });
     assert.deepEqual(f.presencas, ['2026-11-02', '2026-11-04', '2026-11-05']);
   });
+
+  // ---- Etapa 2: a falta da chamada da Lousa e o crédito de box fechado (quinta 05/11/2026, 19:30 em São Paulo) ----
+  let relogioQui = Date.UTC(2026, 10, 5, 22, 30);
+  const depsQui = { ...deps, agora: () => relogioQui++ };
+  const DIA = '2026-11-05';
+  const fichaDe = (id) => db.doc(`gestao/${COACH}/alunos/${id}`).get().then((s) => s.data());
+  const eventosCom = async (prefixo) => (await db.collection(`gestao/${COACH}/eventos`).get()).docs.filter((d) => d.id.startsWith(prefixo));
+  const novaFicha = (id, nome, email, extra) => ({
+    id, nome, email, emailNorm: email.toLowerCase(), status: 'ativo', diasTreino: ['qui'], horarios: { qui: '19:10' }, presencas: [], pagamentos: {}, ...extra,
+  });
+  await db.doc(`gestao/${COACH}/alunos/003`).set(novaFicha('003', 'Caio', 'Caio@Box.com'));
+  await db.doc('portal/caio@box.com').set({ email: 'caio@box.com', presencas: [], faltas: {} });
+  await db.doc(`gestao/${COACH}/alunos/004`).set(novaFicha('004', 'Bia', 'bia@box.com', { diasTreino: ['seg', 'qui'], horarios: { seg: '18:10', qui: '20:10' } }));
+  const { Timestamp } = require('firebase-admin/firestore');
+  const chamadaV = (ms, extra) => ({ fechadaEm: Timestamp.fromMillis(ms), atualizadoEm: Timestamp.fromMillis(ms), presentes: [], faltaram: [], ...extra });
+
+  await caso('chamada da Lousa: quem faltou ganha a falta com origem lousa; quem já tem presença (a Ana) fica como está', async () => {
+    const versao = 1700000000000;
+    await db.doc(`lousa/${DIA}/chamadas/19:10`).set(chamadaV(versao, { faltaram: ['Caio@Box.com', 'ana@box.com'] }));
+    const r = await require('./lib/caixas-servico.js').aplicarFaltasDaChamada(db, COACH, DIA, '19:10', depsQui);
+    assert.equal(r.faltas, 1);
+    const f = await fichaDe('003');
+    assert.equal(f.faltas[DIA].tipo, 'no-show');
+    assert.equal(f.faltas[DIA].origem, 'lousa');
+    assert.ok(f.atualizadoEm && typeof f.atualizadoEm.toMillis === 'function', 'com o carimbo do servidor');
+    assert.equal((await fichaDe('001')).faltas, undefined, 'a Ana já tinha presença: nenhuma falta');
+    const evs = await eventosCom('lousa-falta-003-');
+    assert.deepEqual(evs.map((d) => d.id), [`lousa-falta-003-${DIA}-1910-${versao}`]);
+    assert.equal(evs[0].data().origem, 'servidor');
+    assert.equal((await db.doc('portal/caio@box.com').get()).data().faltas[DIA].origem, 'lousa');
+  });
+
+  await caso('a mesma chamada de novo (gatilho + varredura): nada, nem linha repetida', async () => {
+    const r = await require('./lib/caixas-servico.js').aplicarFaltasDaChamada(db, COACH, DIA, '19:10', depsQui);
+    assert.equal(r.aplicou, false);
+    await Promise.all([
+      require('./lib/caixas-servico.js').aplicarFaltasDaChamada(db, COACH, DIA, '19:10', depsQui),
+      aplicarTudoQueEstiverPendente(db, COACH, depsQui),
+    ]);
+    assert.equal((await eventosCom('lousa-falta-003-')).length, 1);
+  });
+
+  await caso('fechar de novo com o Caio em "Veio": o check-in tira a falta e a chamada nova não a repõe', async () => {
+    await db.doc(`lousa/${DIA}/chamadas/19:10`).set(chamadaV(1700000001000, { presentes: ['Caio@Box.com'], faltaram: [] }));
+    await db.doc('checkinsLousa/caio@box.com').set({ itens: { [`lousa|${DIA}|19:10`]: { coachUid: COACH, origem: 'lousa', dia: DIA, hora: '19:10', checkin: { hoje: DIA, agora: '19:10' }, em: Date.now() } } });
+    assert.equal((await aplicarCaixasDoAluno(db, COACH, 'caio@box.com', depsQui)).aplicou, true);
+    const f = await fichaDe('003');
+    assert.deepEqual(f.presencas, [DIA]);
+    assert.deepEqual(f.faltas, {}, 'a falta com origem lousa saiu');
+    assert.equal((await require('./lib/caixas-servico.js').aplicarFaltasDaChamada(db, COACH, DIA, '19:10', depsQui)).aplicou, false);
+    assert.deepEqual((await fichaDe('003')).faltas, {});
+    assert.deepEqual((await db.doc('portal/caio@box.com').get()).data().faltas, {});
+  });
+
+  await caso('a varredura pega a chamada que o gatilho perdeu (hoje) e é limitada a ontem e hoje', async () => {
+    await db.doc(`lousa/${DIA}/chamadas/20:10`).set(chamadaV(1700000002000, { faltaram: ['bia@box.com'] }));
+    await db.doc('lousa/2026-11-01/chamadas/20:10').set(chamadaV(1700000003000, { faltaram: ['bia@box.com'] })); // antiga: fora da varredura
+    const r = await aplicarTudoQueEstiverPendente(db, COACH, depsQui);
+    assert.equal(r.faltas, 1);
+    assert.equal((await fichaDe('004')).faltas[DIA].origem, 'lousa');
+    assert.equal((await fichaDe('004')).faltas['2026-11-01'], undefined);
+  });
+
+  await caso('dia de box fechado: a varredura dá +1 crédito a quem tinha aula e não veio, uma vez só', async () => {
+    await db.doc(`gestao/${COACH}`).set({ schema: 2, seq: 1, feriados: { '2026-11-02': false, '2026-11-20': false } }, { merge: true });
+    const r = await aplicarTudoQueEstiverPendente(db, COACH, depsQui);
+    assert.equal(r.creditos, 1, 'só a Bia (a Ana veio nesse dia; o dia 20 ainda não chegou)');
+    const c = (await fichaDe('004')).atestados['2026-11-02'];
+    assert.equal(c.tipo, 'fechado');
+    assert.equal(c.expira, '2026-11-30');
+    assert.equal((await eventosCom('fechado-004-2026-11-02')).length, 1);
+    assert.equal((await db.doc(`gestao/${COACH}/sistema/fechamento`).get()).data().aplicados['2026-11-02'] > 0, true);
+    const de_novo = await aplicarTudoQueEstiverPendente(db, COACH, depsQui);
+    assert.equal(de_novo.creditos, 0);
+    assert.equal((await eventosCom('fechado-004-')).length, 1);
+  });
+
+  await caso('interruptor com a Gestão: a chamada não grava falta', async () => {
+    await db.doc(`gestao/${COACH}/sistema/caixas`).set({ aplicador: 'gestao' });
+    await db.doc(`lousa/${DIA}/chamadas/21:10`).set(chamadaV(1700000004000, { faltaram: ['bia@box.com'] }));
+    const r = await require('./lib/caixas-servico.js').aplicarFaltasDaChamada(db, COACH, DIA, '21:10', depsQui);
+    assert.equal(r.aplicou, false);
+    await db.doc(`gestao/${COACH}/sistema/caixas`).set({ aplicador: 'servidor' });
+  });
 }
 
 if (require.main === module) {

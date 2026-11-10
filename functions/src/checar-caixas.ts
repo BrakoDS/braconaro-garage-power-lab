@@ -13,7 +13,9 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
-import { planoDasCaixas, planoDoPixNoServidor, regrasDaGestao, type RegrasDaGestao } from './caixas';
+import {
+  diasFechadosAteHoje, idDoEventoDaFalta, planoDaFaltaDaChamada, planoDasCaixas, planoDoCreditoDeFechamento, planoDoPixNoServidor, regrasDaGestao, type RegrasDaGestao,
+} from './caixas';
 
 let falhas = 0;
 function ok(condicao: boolean, descricao: string, detalhe = ''): void {
@@ -64,6 +66,8 @@ function aCopiaEAdaGestao(): void {
   andar(base);
   const diferentes = arquivos.filter((rel) => !readFileSync(join(raiz, rel)).equals(readFileSync(join(__dirname, 'gestao', rel))));
   ok(arquivos.length >= 6 && !diferentes.length, `${arquivos.length} arquivos idênticos`, diferentes.join(', '));
+  const novos = ['coach/gestao-de-alunos/chamada-faltas.js', 'coach/gestao-de-alunos/creditos-fechamento.js', 'compartilhado/regras/semana.js'];
+  ok(novos.every((n) => arquivos.includes(n)), 'a falta da chamada, o crédito de fechamento e o semana.js estão na cópia', novos.filter((n) => !arquivos.includes(n)).join(', '));
 }
 
 function checkins(regras: RegrasDaGestao): void {
@@ -150,11 +154,95 @@ function pix(regras: RegrasDaGestao): void {
   ok(semFicha.acao === 'nada' && !semFicha.eventos.length, 'aluno que saiu da Gestão: nada');
 }
 
+// A chamada da Lousa de quinta 05/11 às 19:10 (a turma da Ana), fechada e depois fechada de novo (versão 777).
+const QUINTA = '2026-11-05';
+const AGORA_QUINTA = Date.UTC(2026, 10, 5, 22, 30); // qui 05/11/2026, 19:30 em São Paulo
+const chamada = (extra: Dados = {}) => ({ dia: QUINTA, hora: '19:10', versao: 777, hoje: QUINTA, fechados: [] as string[], agora: AGORA_QUINTA, ...extra });
+
+function chamadaDaLousa(regras: RegrasDaGestao): void {
+  console.log('\n5) A falta da chamada da Lousa');
+  const plano = (ficha: Dados, extra: Dados = {}) => {
+    return planoDaFaltaDaChamada(regras, { ...chamada(extra), ficha });
+  };
+  const ficha = ana();
+  const p = plano(ficha);
+  const depois = depoisDasEscritas(ficha, p.escritas);
+  const falta = depois.faltas?.[QUINTA];
+  ok(p.acao === 'falta' && falta && falta.tipo === 'no-show' && falta.origem === 'lousa' && falta.aula.hora === '19:10', 'quem faltou ganha faltas[dia] tipo no-show, com origem lousa', JSON.stringify(depois.faltas));
+  ok(p.escritas.length === 1 && p.escritas[0].caminho[0] === 'faltas', 'só o campo das faltas é gravado (nenhum outro)', JSON.stringify(p.escritas.map((e) => e.caminho)));
+  ok(depois.telefone === '14999' && igual(depois.presencas, ['2026-11-02']), 'o resto da ficha fica como estava');
+  const ev = p.eventos[0];
+  ok(p.eventos.length === 1 && ev.id === idDoEventoDaFalta('001', QUINTA, '19:10', 777) && ev.id === 'lousa-falta-001-2026-11-05-1910-777', 'uma linha nos Registros, com id fixo (aluno, aula e versão da chamada)', JSON.stringify(ev));
+  ok(ev.tipo === 'falta' && ev.origem === 'servidor' && /Pela chamada da Lousa: não veio/.test(ev.resumo) && ev.chave === `falta:001:${QUINTA}`, 'tipo falta, origem servidor, texto "Pela chamada da Lousa: não veio"', JSON.stringify(ev));
+  ok(igual(Object.keys(p.portal), ['faltas']) && p.portal.faltas[QUINTA]?.origem === 'lousa', 'o Portal recebe só as faltas', JSON.stringify(p.portal));
+  const naGestao = regras.faltaDaChamada({ ...regras.soDoBox(ficha), id: '001' }, { dia: QUINTA, hora: '19:10', em: AGORA_QUINTA, hoje: QUINTA, fechados: [] });
+  ok(naGestao.acao === 'falta' && igual(naGestao.patch.faltas[QUINTA], depois.faltas[QUINTA]), 'a ficha fica igual à que a regra da Gestão devolve');
+
+  const segunda = plano(depois);
+  ok(segunda.acao === 'nada' && !segunda.escritas.length && !segunda.eventos.length, 'a mesma chamada de novo: nada (não repete a falta)', JSON.stringify(segunda));
+
+  const aula = { data: QUINTA, hora: '19:10' };
+  const avisou = plano(ana({ atestados: { [QUINTA]: { tipo: 'desmarcacao', aula, expira: '2026-11-30', reposicao: null } } }));
+  ok(avisou.acao === 'nada' && !avisou.escritas.length, 'avisou ("Não irei" no prazo): nenhuma falta', JSON.stringify(avisou));
+  ok(plano(ana({ presencas: ['2026-11-02', QUINTA] })).acao === 'nada', 'já tem presença no dia (uGym): nenhuma falta');
+  ok(plano(ana(), { hora: '18:10' }).acao === 'nada', 'outra turma (sem aula dele nesse horário): nenhuma falta');
+  ok(plano(ana(), { fechados: [QUINTA] }).acao === 'nada', 'box fechado nesse dia: nenhuma falta');
+  ok(plano(ana({ status: 'inativo' })).acao === 'nada', 'ficha inativa: nenhuma falta');
+
+  // Quem estava de reposição e não veio: o no-show da reposição (crédito perdido).
+  const rep = ana({ diasTreino: ['seg'], horarios: { seg: '18:10' }, atestados: { '2026-11-02': { em: 1, tipo: 'desmarcacao', aula: { data: '2026-11-02', hora: '18:10' }, expira: '2026-11-30', reposicao: { data: QUINTA, hora: '19:10' } } } });
+  const pr = plano(rep);
+  const dr = depoisDasEscritas(rep, pr.escritas);
+  ok(pr.acao === 'falta' && dr.atestados['2026-11-02'].reposicao.noShow === true && dr.atestados['2026-11-02'].reposicao.noShowOrigem === 'lousa', 'reposição não usada: no-show na reposição (o crédito fica gasto)', JSON.stringify(dr.atestados));
+  ok(/crédito perdido/.test(pr.eventos[0]?.resumo || '') && !dr.faltas?.[QUINTA], 'e o Registro diz "crédito perdido", sem falta de titular');
+
+  // Fechar de novo com ela em "Veio": o check-in da Lousa chega pela caixa e a falta sai.
+  const item = { 'lousa|2026-11-05|19:10': { coachUid: COACH, origem: 'lousa', dia: QUINTA, hora: '19:10', checkin: { hoje: QUINTA, agora: '19:10' }, em: AGORA_QUINTA + 5 } };
+  const corrigido = planoDasCaixas(regras, { ficha: depois, coachUid: COACH, agora: AGORA_QUINTA + 10, caixas: { checkinsLousa: { itens: item } } });
+  const dc = depoisDasEscritas(depois, corrigido.escritas);
+  ok(igual(dc.presencas, ['2026-11-02', QUINTA]) && !dc.faltas?.[QUINTA], 'fechar de novo com "Veio": a presença entra e a falta com origem lousa sai', JSON.stringify({ p: dc.presencas, f: dc.faltas }));
+  ok(corrigido.escritas.some((e) => e.apagar && e.caminho[0] === 'faltas' && e.caminho[1] === QUINTA), 'a falta sai como campo apagado (não regrava a ficha)', JSON.stringify(corrigido.escritas.map((e) => e.caminho)));
+  ok(plano(dc).acao === 'nada', 'e uma chamada que ainda liste o aluno em "faltaram" não a repõe (já tem presença)');
+  const reposto = regras.emailsQueFaltaram({ presentes: ['ana@box.com'], faltaram: ['Ana@Box.com'] });
+  ok(!reposto.length, 'quem está em "presentes" não é mandado para falta, mesmo se a lista antiga ainda o trouxer', JSON.stringify(reposto));
+}
+
+function fechamentoDoBox(regras: RegrasDaGestao): void {
+  console.log('\n6) O crédito do dia de box fechado');
+  const hoje = QUINTA;
+  const ficha = ana({ presencas: [] });
+  const p = planoDoCreditoDeFechamento(regras, { ficha, dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA });
+  const depois = depoisDasEscritas(ficha, p.escritas);
+  const cr = depois.atestados?.['2026-11-02'];
+  ok(p.creditos === 1 && cr && cr.tipo === 'fechado' && cr.expira === '2026-11-30' && cr.reposicao === null && cr.aula.hora === '18:10', '+1 crédito para quem tinha aula (válido até o fim do mês)', JSON.stringify(depois.atestados));
+  ok(p.escritas.length === 1 && p.escritas[0].caminho[0] === 'atestados', 'só o campo dos atestados é gravado (nenhum outro)', JSON.stringify(p.escritas.map((e) => e.caminho)));
+  ok(p.eventos.length === 1 && p.eventos[0].id === 'fechado-001-2026-11-02' && p.eventos[0].tipo === 'credito' && p.eventos[0].origem === 'servidor', 'uma linha nos Registros com id fixo', JSON.stringify(p.eventos));
+  ok(igual(Object.keys(p.portal), ['atestados']), 'o Portal recebe os atestados', JSON.stringify(p.portal));
+
+  const de_novo = planoDoCreditoDeFechamento(regras, { ficha: depois, dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA });
+  ok(de_novo.creditos === 0 && !de_novo.escritas.length && !de_novo.eventos.length, 'rodar de novo: nada (a trava é atestados[dia])');
+
+  const dois = planoDoCreditoDeFechamento(regras, { ficha, dias: ['2026-11-04', '2026-11-02'], hoje, agora: AGORA_QUINTA });
+  const d2 = depoisDasEscritas(ficha, dois.escritas);
+  ok(dois.creditos === 2 && d2.atestados['2026-11-02'] && d2.atestados['2026-11-04'], 'dois dias fechados: os dois créditos ficam (um não apaga o outro)', JSON.stringify(Object.keys(d2.atestados || {})));
+
+  ok(planoDoCreditoDeFechamento(regras, { ficha: ana({ presencas: ['2026-11-02'] }), dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA }).creditos === 0, 'quem veio de algum jeito no dia fechado: sem crédito');
+  ok(planoDoCreditoDeFechamento(regras, { ficha: ana({ presencas: [], status: 'inativo' }), dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA }).creditos === 0, 'ficha inativa: sem crédito');
+  ok(planoDoCreditoDeFechamento(regras, { ficha: ana({ presencas: [], atestados: { '2026-11-02': { tipo: 'desmarcacao', expira: '2026-11-30', reposicao: null } } }), dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA }).creditos === 0, 'quem já avisou nesse dia: sem crédito em dobro');
+
+  const meta = { feriados: { '2026-11-02': false, '2026-11-15': false, '2026-11-20': true, 'lixo': false } };
+  ok(igual(diasFechadosAteHoje(meta, hoje), ['2026-11-02']), 'só os dias fechados que já chegaram (o aberto e o futuro ficam de fora)', JSON.stringify(diasFechadosAteHoje(meta, hoje)));
+  ok(!diasFechadosAteHoje(null, hoje).length && !diasFechadosAteHoje({}, hoje).length, 'sem feriados no meta: nenhum dia');
+}
+
+
 regrasDaGestao().then((regras) => {
   aCopiaEAdaGestao();
   checkins(regras);
   avisosEReservas(regras);
   pix(regras);
+  chamadaDaLousa(regras);
+  fechamentoDoBox(regras);
   console.log(falhas ? `\n${falhas} falha(s).` : '\nTudo certo.');
   process.exit(falhas ? 1 : 0);
 }).catch((e) => { console.error(e); process.exit(1); });

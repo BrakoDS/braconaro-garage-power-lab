@@ -480,7 +480,7 @@ export function reabrirReposicao(a, origem) {
   const v = (a.atestados || {})[origem];
   const rep = v && v.reposicao;
   if (!rep || !rep.data) return null;
-  const { foraDoPrazo: _f, desmarcadaEm: _d, antecedenciaMin: _a, noShow: _n, noShowEm: _ne, ...limpa } = rep;
+  const { foraDoPrazo: _f, desmarcadaEm: _d, antecedenciaMin: _a, noShow: _n, noShowEm: _ne, noShowOrigem: _no, ...limpa } = rep;
   const atestados = { ...(a.atestados || {}), [origem]: { ...v, reposicao: limpa } };
   return {
     patch: { atestados, ...semPresenca(a, origem, rep.data) },

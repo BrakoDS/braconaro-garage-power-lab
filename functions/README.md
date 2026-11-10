@@ -556,7 +556,8 @@ aberta. Agora o servidor também aplica, a qualquer hora:
 | --- | --- |
 | `aplicarAvisosAusencia`, `aplicarReposicoesAluno`, `aplicarCheckinsUgym`, `aplicarCheckinsLousa` | escrita em `{caixa}/{email}` |
 | `aplicarPixAprovado` | escrita em `gestao/{uid}/cobrancasPix/{paymentId}` com `avisarGestao` |
-| `aplicarCaixasPendentes` | a cada 10 minutos (rede de segurança dos gatilhos) |
+| `aplicarChamadaDaLousa` | escrita em `lousa/{dia}/chamadas/{hora}` (Fechar chamada): grava a falta "não veio" de quem ficou em `faltaram` (etapa 2) |
+| `aplicarCaixasPendentes` | a cada 10 minutos (rede de segurança dos gatilhos; também as chamadas de ontem e de hoje e o crédito de box fechado) |
 
 **A regra é a da Gestão, não um porte.** O `npm run build` copia para `lib/gestao/` os arquivos de
 regra dela (`scripts/copiar-regras-gestao.mjs`, pelo fecho dos imports de `pix-baixa.js`,
@@ -583,7 +584,7 @@ Voltar para `'gestao'` é o "desfazer", sem deploy.
 1. **Antes**, a simulação (só leitura, só contagens): `npm run build && node scripts/simular-caixas.cjs`.
 2. **As funções** (o interruptor ainda em `'gestao'` — elas sobem e não fazem nada):
    ```bash
-   firebase deploy --only functions:aplicarAvisosAusencia,functions:aplicarReposicoesAluno,functions:aplicarCheckinsUgym,functions:aplicarCheckinsLousa,functions:aplicarPixAprovado,functions:aplicarCaixasPendentes --project projeto-garage-f0a2f
+   firebase deploy --only functions:aplicarAvisosAusencia,functions:aplicarReposicoesAluno,functions:aplicarCheckinsUgym,functions:aplicarCheckinsLousa,functions:aplicarChamadaDaLousa,functions:aplicarPixAprovado,functions:aplicarCaixasPendentes --project projeto-garage-f0a2f
    ```
 3. **Ligar**: no console do Firestore, criar `gestao/{uid}/sistema/caixas` com `aplicador: "servidor"`.
 4. **Conferir** no log `Caixas aplicadas pelo servidor.` / `Pix aplicado pelo servidor.` depois do

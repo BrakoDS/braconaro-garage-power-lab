@@ -20,8 +20,10 @@
 import { FieldPath, FieldValue, type DocumentReference, type Firestore, type Transaction } from 'firebase-admin/firestore';
 import { normalizarEmail } from './acesso';
 import {
-  COLECOES_DO_ALUNO, planoDasCaixas, planoDoPixNoServidor, type ColecaoDoAluno, type Escrita, type PlanoDoServidor, type RegrasDaGestao,
+  COLECOES_DO_ALUNO, diasFechadosAteHoje, idDoEventoDaFalta, idDoEventoDoFechamento, planoDaFaltaDaChamada, planoDasCaixas, planoDoCreditoDeFechamento,
+  planoDoPixNoServidor, type ColecaoDoAluno, type Escrita, type PlanoDoServidor, type RegrasDaGestao,
 } from './caixas';
+import { relogioDoBox, somarDias } from './presenca';
 
 type Dados = Record<string, unknown>;
 
@@ -155,8 +157,8 @@ export async function aplicarPixDaCobranca(
 export async function aplicarTudoQueEstiverPendente(
   db: Firestore, uid: string,
   deps: { regras: RegrasDaGestao; agora: () => number; log: Registro },
-): Promise<{ alunos: number; pix: number }> {
-  if (!servidorAplica((await db.doc(caminhoDoInterruptor(uid)).get()).data())) return { alunos: 0, pix: 0 };
+): Promise<{ alunos: number; pix: number; faltas: number; creditos: number }> {
+  if (!servidorAplica((await db.doc(caminhoDoInterruptor(uid)).get()).data())) return { alunos: 0, pix: 0, faltas: 0, creditos: 0 };
   const ids = new Set<string>();
   for (const c of COLECOES_DO_ALUNO) {
     for (const d of (await db.collection(c).get()).docs) {
@@ -170,5 +172,196 @@ export async function aplicarTudoQueEstiverPendente(
   const pendentes = await db.collection(`gestao/${uid}/cobrancasPix`).where('avisarGestao', '==', true).get();
   let pix = 0;
   for (const d of pendentes.docs) if ((await aplicarPixDaCobranca(db, uid, d.id, deps)).aplicou) pix++;
-  return { alunos, pix };
+
+  // As chamadas da Lousa de ontem e de hoje que o gatilho perdeu. Limitado de propósito: a chamada
+  // fechada (ou refeita) há mais de um dia é com o gatilho, e o custo da varredura não cresce com o histórico.
+  // A marca da versão aplicada deixa as já resolvidas passarem sem reler as fichas.
+  const hoje = relogioDoBox(new Date(deps.agora())).hoje;
+  let faltas = 0;
+  for (const dia of [somarDias(hoje, -1), hoje]) {
+    for (const d of (await db.collection(`lousa/${dia}/chamadas`).get()).docs) {
+      try { faltas += (await aplicarFaltasDaChamada(db, uid, dia, d.id, deps)).faltas ?? 0; }
+      catch (e) { deps.log.warn(`[chamada] ${dia} ${d.id}: não deu para aplicar agora — a próxima varredura tenta de novo.`, e); }
+    }
+  }
+  let creditos = 0;
+  try { creditos = (await aplicarCreditosDeFechamento(db, uid, deps)).creditos; }
+  catch (e) { deps.log.warn('[fechamento] não deu para gerar os créditos agora — a próxima varredura tenta de novo.', e); }
+  return { alunos, pix, faltas, creditos };
+}
+
+/* ================================================================== *
+ * Etapa 2 · a falta da chamada da Lousa e o crédito de box fechado
+ * ================================================================== */
+
+const milis = (t: unknown): number => {
+  const v = t as { toMillis?: () => number } | number | null | undefined;
+  return typeof v === 'number' ? v : v && typeof v.toMillis === 'function' ? v.toMillis() : 0;
+};
+
+/** A versão de uma chamada da Lousa: o `atualizadoEm` dela, em ms. Fechar de novo é outra versão. */
+export const versaoDaChamada = (d: Dados | undefined): number => milis(d?.atualizadoEm) || milis(d?.fechadaEm);
+
+/** O documento de uma chamada da Lousa (`lousa/{dia}/chamadas/{hora}`). */
+export const caminhoDaChamada = (dia: string, hora: string) => `lousa/${dia}/chamadas/${hora}`;
+
+/** A marca "esta versão da chamada já foi aplicada" (a varredura não relê as fichas por ela). */
+const caminhoDaMarcaDaChamada = (uid: string, dia: string, hora: string) => `gestao/${uid}/chamadasAplicadas/${dia}_${hora.replace(/\W/g, '')}`;
+
+/** Os dias de box fechado cujo crédito já foi gerado para todos (a varredura não relê as fichas por eles). */
+const caminhoDaMarcaDoFechamento = (uid: string) => `gestao/${uid}/sistema/fechamento`;
+
+/** As fichas do coach (a subcoleção) e a raiz da Gestão, lidas FORA de transação — só para escolher quem vale a transação. */
+async function fichasEMetaDoCoach(db: Firestore, uid: string): Promise<{ meta: Dados; fichas: Dados[] }> {
+  const meta = ((await db.doc(`gestao/${uid}`).get()).data() ?? {}) as Dados;
+  const fichas = (await db.collection(`gestao/${uid}/alunos`).get()).docs.map((d) => ({ ...d.data(), id: d.id }) as Dados);
+  return { meta, fichas };
+}
+
+export interface ResultadoDaChamada { aplicou: boolean; motivo?: string; faltas?: number }
+
+/**
+ * A falta "não veio" de UM aluno da chamada, numa transação: relê o interruptor,
+ * a chamada (o aluno ainda está em "faltaram"?), a ficha, os dias fechados e o
+ * Registro da falta; grava só os campos que mudaram, o Registro e o Portal.
+ * Devolve se gravou.
+ */
+async function aplicarFaltaDeUm(
+  db: Firestore, uid: string, dia: string, hora: string, alunoId: string, email: string,
+  { regras, agora }: { regras: RegrasDaGestao; agora: () => number },
+): Promise<boolean> {
+  return db.runTransaction(async (tx) => {
+    if (!servidorAplica((await tx.get(db.doc(caminhoDoInterruptor(uid)))).data())) return false;
+    const chamada = (await tx.get(db.doc(caminhoDaChamada(dia, hora)))).data();
+    if (!chamada || !regras.emailsQueFaltaram(chamada).some((e) => normalizarEmail(e) === email)) return false;
+    const fichaSnap = await tx.get(db.doc(`gestao/${uid}/alunos/${alunoId}`));
+    if (!fichaSnap.exists) return false;
+    const ficha = { ...fichaSnap.data(), id: fichaSnap.id } as Dados;
+    const meta = ((await tx.get(db.doc(`gestao/${uid}`))).data() ?? {}) as Dados;
+    const versao = versaoDaChamada(chamada);
+    // O Registro com id fixo é a lembrança de que ESTA versão da chamada já gravou a falta: se o coach a
+    // desfez à mão, a varredura não a põe de volta (só fechar a chamada de novo, que é outra versão).
+    if ((await tx.get(db.doc(`gestao/${uid}/eventos/${idDoEventoDaFalta(alunoId, dia, hora, versao)}`))).exists) return false;
+    const n = agora();
+    const plano = planoDaFaltaDaChamada(regras, {
+      ficha, dia, hora, versao, hoje: relogioDoBox(new Date(n)).hoje, fechados: diasFechadosAteHoje(meta, '9999-12-31'), agora: n,
+    });
+    if (plano.acao === 'nada') return false;
+    const portalRef = email ? db.doc(`portal/${email}`) : null;
+    const portalExiste = portalRef ? (await tx.get(portalRef)).exists : false;
+    gravarPlano(db, tx, uid, { fichaRef: db.doc(`gestao/${uid}/alunos/${alunoId}`), portalRef: portalExiste ? portalRef : null, plano });
+    return true;
+  });
+}
+
+/**
+ * A chamada da Lousa de `dia` e `hora` grava a falta de quem ficou em "faltaram"
+ * (o gatilho chama ao fechar, a varredura chama para as de hoje e ontem).
+ *
+ * Só com o interruptor em 'servidor'. Fora do dia certo não há risco: a regra
+ * (`faltaDaChamada`) recusa quem avisou, quem já tem presença, quem não tinha
+ * aula naquele horário e o dia de box fechado.
+ *
+ * A marca `chamadasAplicadas/{dia}_{hora}` guarda a versão aplicada: a varredura
+ * seguinte pula a chamada sem reler as fichas. Fechar de novo grava outra versão
+ * e a chamada é reavaliada inteira.
+ */
+export async function aplicarFaltasDaChamada(
+  db: Firestore, uid: string, dia: string, hora: string,
+  deps: { regras: RegrasDaGestao; agora: () => number; log: Registro },
+): Promise<ResultadoDaChamada> {
+  const { regras, agora, log } = deps;
+  if (!servidorAplica((await db.doc(caminhoDoInterruptor(uid)).get()).data())) return { aplicou: false, motivo: 'interruptor com a Gestão' };
+  const chamada = (await db.doc(caminhoDaChamada(dia, hora)).get()).data();
+  if (!chamada) return { aplicou: false, motivo: 'sem chamada' };
+  const versao = versaoDaChamada(chamada);
+  const emails = regras.emailsQueFaltaram(chamada).map(normalizarEmail).filter(Boolean);
+  if (!emails.length) return { aplicou: false, motivo: 'ninguém faltou' };
+  const marca = await db.doc(caminhoDaMarcaDaChamada(uid, dia, hora)).get();
+  if (marca.exists && marca.data()?.versao === versao) return { aplicou: false, motivo: 'chamada já aplicada' };
+
+  const { meta, fichas } = await fichasEMetaDoCoach(db, uid);
+  const n = agora();
+  const hoje = relogioDoBox(new Date(n)).hoje;
+  const fechados = diasFechadosAteHoje(meta, '9999-12-31');
+  let faltas = 0;
+  for (const { key, aluno } of regras.casarCaixasComFichas(emails, fichas).pares) {
+    // A prévia sem transação só escolhe quem vale a transação; quem decide é a leitura dentro dela.
+    const previa = planoDaFaltaDaChamada(regras, { ficha: aluno, dia, hora, versao, hoje, fechados, agora: n });
+    if (previa.acao === 'nada') continue;
+    if (await aplicarFaltaDeUm(db, uid, dia, hora, String(aluno.id), normalizarEmail(key), deps)) faltas++;
+  }
+  await db.doc(caminhoDaMarcaDaChamada(uid, dia, hora)).set({ versao, em: n, faltas });
+  if (faltas) log.info('Faltas da chamada da Lousa gravadas pelo servidor.', { dia, hora, faltas });
+  return { aplicou: faltas > 0, faltas };
+}
+
+/**
+ * O crédito de reposição de UM aluno pelos dias de box fechado, numa transação:
+ * relê a ficha e a lista de dias fechados e pula o dia cujo Registro (id fixo)
+ * já existe — se o coach desfez o crédito à mão, ele não volta. Devolve quantos
+ * créditos gravou.
+ */
+async function aplicarCreditosDeUm(
+  db: Firestore, uid: string, alunoId: string,
+  { regras, agora }: { regras: RegrasDaGestao; agora: () => number },
+): Promise<number> {
+  return db.runTransaction(async (tx) => {
+    if (!servidorAplica((await tx.get(db.doc(caminhoDoInterruptor(uid)))).data())) return 0;
+    const fichaSnap = await tx.get(db.doc(`gestao/${uid}/alunos/${alunoId}`));
+    if (!fichaSnap.exists) return 0;
+    const ficha = { ...fichaSnap.data(), id: fichaSnap.id } as Dados;
+    const meta = ((await tx.get(db.doc(`gestao/${uid}`))).data() ?? {}) as Dados;
+    const n = agora();
+    const hoje = relogioDoBox(new Date(n)).hoje;
+    const dias: string[] = [];
+    for (const dia of diasFechadosAteHoje(meta, hoje)) {
+      if (!(await tx.get(db.doc(`gestao/${uid}/eventos/${idDoEventoDoFechamento(alunoId, dia)}`))).exists) dias.push(dia);
+    }
+    if (!dias.length) return 0;
+    const plano = planoDoCreditoDeFechamento(regras, { ficha, dias, hoje, agora: n });
+    if (!plano.creditos) return 0;
+    const email = normalizarEmail(ficha.email);
+    const portalRef = email ? db.doc(`portal/${email}`) : null;
+    const portalExiste = portalRef ? (await tx.get(portalRef)).exists : false;
+    gravarPlano(db, tx, uid, { fichaRef: db.doc(`gestao/${uid}/alunos/${alunoId}`), portalRef: portalExiste ? portalRef : null, plano });
+    return plano.creditos;
+  });
+}
+
+/**
+ * Dia de box fechado: +1 crédito de reposição a quem tinha aula titular
+ * (`creditosDeFechamento` da Gestão), com a validade de sempre. Roda na
+ * varredura, só com o interruptor em 'servidor'. Só os dias que já chegaram:
+ * um fechamento marcado para a semana que vem não dá crédito adiantado.
+ *
+ * A trava da regra é `atestados[dia]`; o Registro de id fixo evita que o crédito
+ * desfeito à mão volte; e a marca `sistema/fechamento` guarda os dias já
+ * resolvidos, para a varredura não reler as fichas todo ciclo. Sem dia fechado
+ * pendente, só o documento da Gestão é lido.
+ */
+export async function aplicarCreditosDeFechamento(
+  db: Firestore, uid: string,
+  deps: { regras: RegrasDaGestao; agora: () => number; log: Registro },
+): Promise<{ alunos: number; creditos: number }> {
+  const { regras, agora, log } = deps;
+  if (!servidorAplica((await db.doc(caminhoDoInterruptor(uid)).get()).data())) return { alunos: 0, creditos: 0 };
+  const n = agora();
+  const hoje = relogioDoBox(new Date(n)).hoje;
+  const meta = ((await db.doc(`gestao/${uid}`).get()).data() ?? {}) as Dados;
+  const resolvidos = ((await db.doc(caminhoDaMarcaDoFechamento(uid)).get()).data()?.aplicados ?? {}) as Record<string, unknown>;
+  const dias = diasFechadosAteHoje(meta, hoje).filter((d) => !(d in resolvidos));
+  if (!dias.length) return { alunos: 0, creditos: 0 };
+
+  const { fichas } = await fichasEMetaDoCoach(db, uid);
+  let alunos = 0, creditos = 0;
+  for (const f of fichas) {
+    // A prévia sem transação só escolhe quem vale a transação.
+    if (!planoDoCreditoDeFechamento(regras, { ficha: f, dias, hoje, agora: n }).creditos) continue;
+    const c = await aplicarCreditosDeUm(db, uid, String(f.id), deps);
+    if (c) { alunos++; creditos += c; }
+  }
+  await db.doc(caminhoDaMarcaDoFechamento(uid)).set({ aplicados: Object.fromEntries(dias.map((d) => [d, n])) }, { merge: true });
+  if (creditos) log.info('Créditos de box fechado gerados pelo servidor.', { dias, alunos, creditos });
+  return { alunos, creditos };
 }
