@@ -101,6 +101,23 @@ export function contaDoMes(a: Ficha, mesId: string, todos: Ficha[]): ContaDoMes 
 }
 
 /** O mês seguinte a 'YYYY-MM'. */
+/**
+ * O total que o Pix cobra de um mês FECHADO (Fase 1 · etapa 4): o do retrato
+ * aprovado pelo coach em `gestao/{uid}/fechamentos/{mesId}`, e não o
+ * recalculado da ficha — mudar a mensalidade depois não muda o mês fechado.
+ * null quando o mês não está fechado (ou foi reaberto), o aluno não está no
+ * retrato ou a linha dele não é pagável: aí vale a conta calculada, como sempre.
+ * A mesma regra de `totalDoMesFechado` (coach/gestao-de-alunos/fechamento-regras.js).
+ */
+export function totalDoMesFechado(doc: unknown, alunoId: string): number | null {
+  const d = doc as { situacao?: unknown; linhas?: Record<string, { pagavel?: unknown; total?: unknown }> } | null | undefined;
+  if (!d || d.situacao !== 'aprovado') return null;
+  const l = d.linhas && d.linhas[String(alunoId)];
+  if (!l || l.pagavel !== true) return null;
+  const total = Number(l.total);
+  return Number.isFinite(total) ? centavos(total) : null;
+}
+
 export function proximoMes(mesId: string): string {
   const [a, m] = mesId.split('-').map(Number);
   const d = new Date(a, m, 1);
