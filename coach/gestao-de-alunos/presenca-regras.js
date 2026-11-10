@@ -34,7 +34,7 @@
  * @typedef {import('./checkin-regras.js').Mudanca} Mudanca
  * @typedef {import('./checkin-regras.js').Recusa} Recusa
  * @typedef {import('./checkin-regras.js').Relogio} Relogio
- * @typedef {'confirmado'|'presente'|'desmarcou-no-prazo'|'desmarcou-fora'|'falta'|'atestado'|'fechado'} StatusAula
+ * @typedef {'confirmado'|'presente'|'desmarcou-no-prazo'|'desmarcou-fora'|'falta'|'sem-chamada'|'atestado'|'fechado'} StatusAula
  * @typedef {{ data: string, hora: string }} Onde
  * @typedef {Object} AulaNaTurma
  * @property {any} aluno                    a ficha
@@ -44,7 +44,6 @@
  * @property {StatusAula} status
  * @property {any} [credito]                a entrada de `atestados`, quando há crédito
  * @property {any} [registro]               a entrada de `faltas`, quando o coach lançou a falta
- * @property {boolean} [automatica]         falta calculada (o dia passou), não lançada
  * @property {string} [horaCheckin]
  * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
  */
@@ -75,12 +74,17 @@ export const STATUS = Object.freeze({
   'desmarcou-no-prazo': 'Desmarcou no prazo',
   'desmarcou-fora': 'Desmarcou fora do prazo',
   'falta': 'Falta',
+  'sem-chamada': 'Sem chamada',
   'atestado': 'Atestado',
   'fechado': 'Box fechado',
 });
 
-/** Quem conta como vaga ocupada. Desmarcou (no prazo ou fora) e atestado liberam. */
-const OCUPA = new Set(['confirmado', 'presente', 'falta']);
+/**
+ * Quem conta como vaga ocupada. Desmarcou (no prazo ou fora) e atestado liberam.
+ * "Sem chamada" (o dia passou e nada foi gravado) segue ocupando, como a falta
+ * deduzida ocupava: muda o nome, não a conta.
+ */
+const OCUPA = new Set(['confirmado', 'presente', 'falta', 'sem-chamada']);
 
 /* ============================================================
    Relógio
@@ -142,7 +146,7 @@ export function ondeAcontece(a, diaPlanejado) {
 /**
  * O status do titular na aula de `dia`.
  * @param {any} a @param {string} plan o dia planejado @param {string} dia @param {string} hoje @param {Set<string>} fechados
- * @returns {Pick<AulaNaTurma, 'status'|'credito'|'registro'|'automatica'|'horaCheckin'>}
+ * @returns {Pick<AulaNaTurma, 'status'|'credito'|'registro'|'horaCheckin'>}
  */
 function statusTitular(a, plan, dia, hoje, fechados) {
   const at = (a.atestados || {})[plan], fa = (a.faltas || {})[plan];
@@ -155,14 +159,17 @@ function statusTitular(a, plan, dia, hoje, fechados) {
   if ((a.presencas || []).includes(dia)) return { status: 'presente', horaCheckin: (a.presencaHoras || {})[dia] };
   if (fa) return { status: fa.tipo === 'fora-do-prazo' ? 'desmarcou-fora' : 'falta', registro: fa };
   if (fechados.has(dia)) return { status: 'fechado' };
-  if (dia < hoje) return { status: 'falta', automatica: true };
+  // Nada gravado e o dia passou: ninguém fechou a chamada. NÃO é falta (a falta só
+  // existe gravada: chamada, "Não irei" fora do prazo ou coach). Segue sendo aula
+  // usada, sem crédito — só o nome muda.
+  if (dia < hoje) return { status: 'sem-chamada' };
   return { status: 'confirmado' };
 }
 
 /**
  * O status de quem veio repor em `dia`.
  * @param {any} a @param {any} credito a entrada de `atestados` @param {string} dia @param {string} hoje @param {Set<string>} fechados
- * @returns {Pick<AulaNaTurma, 'status'|'credito'|'automatica'|'horaCheckin'>}
+ * @returns {Pick<AulaNaTurma, 'status'|'credito'|'horaCheckin'>}
  */
 function statusReposicao(a, credito, dia, hoje, fechados) {
   const rep = credito.reposicao;
@@ -170,7 +177,7 @@ function statusReposicao(a, credito, dia, hoje, fechados) {
   if (rep.foraDoPrazo) return { status: 'desmarcou-fora', credito };
   if (rep.noShow) return { status: 'falta', credito };
   if (fechados.has(dia)) return { status: 'fechado', credito };
-  if (dia < hoje) return { status: 'falta', credito, automatica: true };
+  if (dia < hoje) return { status: 'sem-chamada', credito }; // ver statusTitular
   return { status: 'confirmado', credito };
 }
 
@@ -548,5 +555,7 @@ export function resumoDaTurma({ aulas, experimentais }) {
     presentes: conta('presente') + experimentais.filter((x) => x.status === 'presente').length,
     desmarcaram: conta('desmarcou-no-prazo') + conta('desmarcou-fora') + experimentais.filter((x) => x.status === 'cancelada').length,
     faltas: conta('falta') + experimentais.filter((x) => x.status === 'falta').length,
+    // Aula passada sem chamada e sem registro: não é falta, é chamada por fechar.
+    semChamada: conta('sem-chamada'),
   };
 }

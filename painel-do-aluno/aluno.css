@@ -181,6 +181,7 @@ button{font-family:inherit}
 .hor-cel{display:flex;flex-direction:column;gap:3px;background:var(--card);
   border:1px solid var(--line);border-left:3px solid var(--line-2);padding:14px 16px}
 .hor-cel.ok{border-left-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,var(--card))}
+.hor-cel.sem-chamada{border-left-color:var(--mut-2);background:color-mix(in srgb,var(--mut-2) 8%,var(--card))}
 .hor-cel.falta{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,var(--card))}
 /* Atestado não é o vermelho de quem faltou por faltar: é falta justificada, e
    o aluno precisa ver que ainda tem a aula para repor. */

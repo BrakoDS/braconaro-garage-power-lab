@@ -65,12 +65,12 @@ test('turma: a aula remarcada aparece no dia e na hora para onde foi', () => {
   assert.deepEqual(aulasDoDia([a], SEG, { hoje: QUA }), [], 'saiu da segunda');
 });
 
-test('turma: o status de cada um — presente, falta automática, box fechado', () => {
+test('turma: o status de cada um — presente, sem chamada, box fechado', () => {
   const a = ana({ presencas: [SEG], presencaHoras: { [SEG]: '06:58' } });
   assert.deepEqual(aulasDoDia([a], SEG, { hoje: QUA }).map((x) => [x.status, x.horaCheckin]), [['presente', '06:58']]);
   const faltou = aulasDoDia([ana()], SEG, { hoje: QUA })[0];
-  assert.equal(faltou.status, 'falta');
-  assert.equal(faltou.automatica, true, 'o dia passou: falta calculada, não lançada');
+  assert.equal(faltou.status, 'sem-chamada', 'o dia passou e nada foi gravado: não se deduz falta');
+  assert.equal(faltou.automatica, undefined);
   assert.equal(aulasDoDia([ana()], SEX, { hoje: QUA })[0].status, 'confirmado');
   assert.equal(aulasDoDia([ana()], SEG, { hoje: QUA, fechados: [SEG] })[0].status, 'fechado');
 });
@@ -344,6 +344,65 @@ test('resumo da turma: confirmados, presentes, desmarcações e faltas (alunos +
     { id: 'x2', nome: 'Edu', hora: '07:00', status: /** @type {const} */ ('falta'), em: 1 },
   ];
   const t = turmasDoDia([a, b], QUA, { hoje: QUA, experimentais: exps })[0];
-  assert.deepEqual(resumoDaTurma(t), { confirmados: 1, presentes: 1, desmarcaram: 1, faltas: 1 });
+  assert.deepEqual(resumoDaTurma(t), { confirmados: 1, presentes: 1, desmarcaram: 1, faltas: 1, semChamada: 0 });
   assert.equal(STATUS['desmarcou-no-prazo'], 'Desmarcou no prazo');
+});
+
+/* ---------- Sem chamada: a falta só existe gravada ("Nada de deduzir falta") ---------- */
+
+test('sem chamada: aula passada sem presença e sem registro não é falta nem entra na contagem de faltas', () => {
+  const [aula] = aulasDoDia([ana()], SEG, { hoje: QUA });
+  assert.equal(aula.status, 'sem-chamada');
+  assert.equal(STATUS['sem-chamada'], 'Sem chamada');
+  const [t] = turmasDoDia([ana()], SEG, { hoje: QUA });
+  assert.deepEqual(
+    { faltas: resumoDaTurma(t).faltas, semChamada: resumoDaTurma(t).semChamada, ocupadas: t.ocupadas },
+    { faltas: 0, semChamada: 1, ocupadas: 1 }, 'não conta como falta, mas segue ocupando a vaga como antes');
+  assert.equal(aula.credito, undefined, 'continua usada, sem crédito de volta');
+});
+
+test('sem chamada: a falta GRAVADA (no-show ou fora do prazo) continua falta', () => {
+  const a = aplicar(ana(), marcarNoShow(ana(), SEG, { em: 1 }));
+  const [aula] = aulasDoDia([a], SEG, { hoje: QUA });
+  assert.equal(aula.status, 'falta');
+  assert.equal(resumoDaTurma(turmasDoDia([a], SEG, { hoje: QUA })[0]).faltas, 1);
+  assert.equal(resumoDaTurma(turmasDoDia([a], SEG, { hoje: QUA })[0]).semChamada, 0);
+  const fora = { ...ana(), faltas: { [SEG]: { em: 1, tipo: 'fora-do-prazo' } } };
+  assert.equal(aulasDoDia([fora], SEG, { hoje: QUA })[0].status, 'desmarcou-fora');
+});
+
+test('sem chamada: a presença ganha, e hoje e o futuro seguem como eram', () => {
+  assert.equal(aulasDoDia([ana({ presencas: [SEG] })], SEG, { hoje: QUA })[0].status, 'presente');
+  assert.equal(aulasDoDia([ana()], QUA, { hoje: QUA })[0].status, 'confirmado', 'hoje: ainda confirmado');
+  assert.equal(aulasDoDia([ana()], SEX, { hoje: QUA })[0].status, 'confirmado', 'futuro');
+  assert.equal(aulasDoDia([ana()], SEG, { hoje: QUA, fechados: [SEG] })[0].status, 'fechado');
+});
+
+test('sem chamada: reposição passada sem nada gravado é sem chamada; no-show gravado é falta', () => {
+  const a = ana({ atestados: { [SEG]: { em: 1, tipo: 'desmarcacao', expira: '2026-10-31', reposicao: { data: TER, hora: '19:10' } } } });
+  const rep = (/** @type {any} */ f) => aulasDoDia([f], TER, { hoje: QUA }).find((x) => x.tipo === 'reposicao');
+  assert.equal(rep(a)?.status, 'sem-chamada');
+  const noShow = { ...a, atestados: { [SEG]: { ...a.atestados[SEG], reposicao: { data: TER, hora: '19:10', noShow: true } } } };
+  assert.equal(rep(noShow)?.status, 'falta');
+});
+
+test('sem chamada: a chamada ainda grava a falta numa aula sem chamada (não perde o caminho)', async () => {
+  const { faltaDaChamada } = await import('./chamada-faltas.js?v=30');
+  const r = faltaDaChamada(ana(), { dia: SEG, hora: '07:00', em: 9, hoje: QUA });
+  assert.equal(r.acao, 'falta', JSON.stringify(r));
+  const depois = { ...ana(), ...(r.acao === 'falta' ? r.patch : {}) };
+  assert.equal(aulasDoDia([depois], SEG, { hoje: QUA })[0].status, 'falta', 'gravada: agora sim é falta');
+});
+
+test('semana do aluno: aula passada sem registro leva semChamada (estado segue falta); a gravada, não', () => {
+  const hoje = new Date(2026, 9, 7, 12, 0); // quarta 07/10
+  const base = { diasTreino: ['seg', 'qua', 'sex'], horarios: { seg: '07:00', qua: '07:00', sex: '07:00' }, hoje };
+  const q = semanaDoAluno(base);
+  assert.deepEqual([q[0].estado, q[0].semChamada], ['falta', true]);
+  assert.equal(q[1].semChamada, undefined, 'hoje: aguardando');
+  assert.equal(q[2].semChamada, undefined, 'futuro');
+  const g = semanaDoAluno({ ...base, faltas: { [SEG]: { tipo: 'no-show' } } });
+  assert.deepEqual([g[0].estado, g[0].semChamada], ['falta', undefined]);
+  const ok = semanaDoAluno({ ...base, presencas: [SEG] });
+  assert.deepEqual([ok[0].estado, ok[0].semChamada], ['ok', undefined]);
 });

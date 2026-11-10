@@ -391,6 +391,9 @@ function renderHorarios() {
     horas: PORTAL.presencaHoras || {},
     remarcacoes: PORTAL.remarcacoes || {},
     atestados: PORTAL.atestados || {},
+    // A falta GRAVADA (chamada, "Não irei" fora do prazo, coach). Sem ela, uma falta
+    // lançada apareceria como "sem chamada".
+    faltas: PORTAL.faltas || {},
     // Na prévia o coach navega semanas com as setas; fora dela é sempre hoje.
     ...(_previaHoje ? { hoje: _previaHoje } : {}),
     // Dias em que o box não abriu (feriado confirmado pelo coach). Vem publicado
@@ -419,6 +422,7 @@ function renderHorarios() {
     // O aluno precisa saber POR QUE o dia não conta — sem isso o quadrado neutro
     // parece erro do app num dia em que ele lembra de não ter treinado.
     if (q.estado === 'fechado') return 'feriado · não teve treino';
+    if (q.semChamada) return q.remarcado ? `sem chamada (era ${diaDe(q.efetivo)})` : 'sem chamada';
     if (q.estado === 'falta') return q.remarcado ? `não veio (era ${diaDe(q.efetivo)})` : 'não veio';
     if (q.remarcado) return `passou para ${diaDe(q.efetivo)}`;
     if (q.alterado) return 'horário alterado';
@@ -432,11 +436,11 @@ function renderHorarios() {
       : (hora(q) || '—'));
 
   $('#horarios').innerHTML = quadrados.map((q) => `
-    <div class="hor-cel ${q.estado}">
+    <div class="hor-cel ${q.semChamada ? 'sem-chamada' : q.estado}">
       <span class="hor-dia">${esc(titulo(q))}</span>
       <span class="hor-hora">${esc(valor(q))}</span>
       ${q.tipo === 'fixo' && nota(q) ? `<span class="hor-nota-cel">${esc(nota(q))}</span>` : ''}
-      ${q.tipo === 'reposicao' ? `<span class="hor-nota-cel">${esc(q.estado === 'ok' ? (q.hora ? 'chegou ' + q.hora : 'presente') : q.estado === 'falta' ? 'não veio' : 'da aula de ' + fmtDataCurta(q.origem))}</span>` : ''}
+      ${q.tipo === 'reposicao' ? `<span class="hor-nota-cel">${esc(q.estado === 'ok' ? (q.hora ? 'chegou ' + q.hora : 'presente') : q.semChamada ? 'sem chamada' : q.estado === 'falta' ? 'não veio' : 'da aula de ' + fmtDataCurta(q.origem))}</span>` : ''}
     </div>`).join('');
 
   // Só as aulas DA SEMANA entram no contador: reposição veio de outra semana e

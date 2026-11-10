@@ -27,6 +27,8 @@ export function htmlTurma(dia, item, { agoraMs, voltarDia }) {
   const pedidos = [...t.vem, ...t.naoVem].filter((p) => p.pendente);
   const meta = [`${t.vem.length} de ${t.capacidade} vagas`];
   if (t.pendentes) meta.push(`${t.pendentes} pedido${t.pendentes > 1 ? 's' : ''} do app ainda não aplicado${t.pendentes > 1 ? 's' : ''}`);
+  const semChamada = t.naoVem.filter((/** @type {any} */ p) => p.status === 'sem-chamada').length;
+  if (semChamada) meta.push(`${semChamada} sem chamada: falta fechar a chamada`);
   if (!t.naGrade) meta.push('fora da grade do box');
   const link = `../gestao-de-alunos/index.html#turmas?dia=${encodeURIComponent(dia.iso)}&hora=${encodeURIComponent(t.hora)}`;
   return `<div class="lado-topo">${voltarDia ? `<button class="btn ghost btn-sm" type="button" data-acao="dia" data-iso="${esc(dia.iso)}">← Turmas do dia</button>` : '<span class="k">Turma</span>'}`
@@ -37,6 +39,6 @@ export function htmlTurma(dia, item, { agoraMs, voltarDia }) {
     + (pedidos.length ? `<div class="grupo"><h4>Pedido pelo app · aguardando a Gestão</h4>${pedidos.map((p) =>
       `<div class="pes">${avatar(p.aluno)}<span>${esc(textoDoPedido(p))}</span><span class="tag info">${esc(tempoDesde(agoraMs - p.pendente.em))}</span></div>`).join('')}</div>` : '')
     + (t.naoVem.length ? `<div class="grupo"><h4>Não vêm (${t.naoVem.length})</h4>${t.naoVem.map((/** @type {any} */ p) =>
-      pessoa(p, `<span class="tag bad">${esc(/** @type {Record<string, string>} */ (STATUS)[p.status] || p.status)}</span>`, true)).join('')}</div>` : '')
+      pessoa(p, `<span class="tag${p.status === 'sem-chamada' ? '' : ' bad'}">${esc(/** @type {Record<string, string>} */ (STATUS)[p.status] || p.status)}</span>`, p.status !== 'sem-chamada')).join('')}</div>` : '')
     + `<a class="cal-link" href="${esc(link)}">Abrir no Painel de Presença →</a>`;
 }

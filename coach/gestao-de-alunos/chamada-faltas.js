@@ -88,9 +88,9 @@ export function faltaDaChamada(a, { dia, hora, em, hoje, fechados = [] }) {
   /** @type {SemFalta} */
   let nada = { acao: 'nada', motivo: 'sem aula dele nesse dia e horário' };
   for (const aula of aulas) {
-    // 'confirmado' (a aula é hoje) ou falta calculada (o dia passou): nada lançado ainda.
+    // 'confirmado' (a aula é hoje) ou 'sem-chamada' (o dia passou): nada lançado ainda.
     // Todo o resto é uma resposta que já existe: aviso, crédito, atestado, falta, reposição resolvida.
-    if (aula.status !== 'confirmado' && !aula.automatica) {
+    if (aula.status !== 'confirmado' && aula.status !== 'sem-chamada') {
       nada = { acao: 'nada', motivo: aula.tipo === 'reposicao' ? 'reposição já resolvida (no-show, desmarcada ou fechada)' : aula.status === 'desmarcou-no-prazo' || aula.status === 'atestado' || aula.credito
         ? 'avisou (crédito, atestado ou exceção nessa aula)' : 'já tem resposta registrada nessa aula' };
       continue;

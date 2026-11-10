@@ -21,7 +21,7 @@ type Dados = Record<string, unknown>;
 export interface Relogio { hoje: string; agora: string }
 export interface Onde { data: string; hora: string }
 export type TipoAula = 'titular' | 'reposicao';
-export type StatusAula = 'confirmado' | 'presente' | 'desmarcou-no-prazo' | 'desmarcou-fora' | 'falta' | 'atestado' | 'fechado';
+export type StatusAula = 'confirmado' | 'presente' | 'desmarcou-no-prazo' | 'desmarcou-fora' | 'falta' | 'sem-chamada' | 'atestado' | 'fechado';
 
 export const PRAZO_DESMARCAR_MIN = 120;
 export const VALIDADE_CREDITO_DIAS = 30;
@@ -54,7 +54,8 @@ export function validadeDoCredito(iso: string): string {
 export const HORIZONTE_AVISO_DIAS = 14;
 
 const ORDEM_DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'] as const;
-const OCUPA = new Set<StatusAula>(['confirmado', 'presente', 'falta']);
+// 'sem-chamada' (o dia passou, nada gravado) segue ocupando, como a falta deduzida ocupava.
+const OCUPA = new Set<StatusAula>(['confirmado', 'presente', 'falta', 'sem-chamada']);
 export const EH_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 const mapa = (v: unknown): Dados => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Dados) : {});
@@ -144,7 +145,8 @@ function statusTitular(a: Dados, plan: string, dia: string, hoje: string, fechad
   if (fa) return mapa(fa).tipo === 'fora-do-prazo' ? 'desmarcou-fora' : 'falta';
   if (aviso) return aviso.noPrazo ? 'desmarcou-no-prazo' : 'desmarcou-fora';
   if (fechados.has(dia)) return 'fechado';
-  if (dia < hoje) return 'falta';
+  // Nada gravado e o dia passou: ninguém fechou a chamada. Não é falta (ver presenca-regras.js).
+  if (dia < hoje) return 'sem-chamada';
   return 'confirmado';
 }
 
@@ -154,7 +156,7 @@ function statusReposicao(a: Dados, rep: Dados, dia: string, hoje: string, fechad
   if (rep.noShow) return 'falta';
   if (aviso) return aviso.noPrazo ? 'desmarcou-no-prazo' : 'desmarcou-fora';
   if (fechados.has(dia)) return 'fechado';
-  if (dia < hoje) return 'falta';
+  if (dia < hoje) return 'sem-chamada';
   return 'confirmado';
 }
 

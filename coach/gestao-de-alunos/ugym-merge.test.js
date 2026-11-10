@@ -159,10 +159,9 @@ test('chamada da Lousa fechada duas vezes: a mesma chave, um check-in só', () =
   assert.deepEqual(r.consumidos, [`lousa|${QUA}|07:00`]);
 });
 
-test('quem faltou não gera item: a falta é a automática quando o dia passa (aula usada, sem crédito)', () => {
+test('quem faltou não gera item: quando o dia passa sem chamada fica "sem chamada" (aula usada, sem crédito)', () => {
   const [aula] = aulasDoDia([ana()], QUA, { hoje: QUI });
-  assert.equal(aula.status, 'falta');
-  assert.equal(aula.automatica, true);
+  assert.equal(aula.status, 'sem-chamada');
   assert.equal(aula.credito, undefined);
 });
 

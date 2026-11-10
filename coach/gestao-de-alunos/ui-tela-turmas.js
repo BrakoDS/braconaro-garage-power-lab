@@ -150,7 +150,8 @@ function corpoDaTurma(t) {
     `<div class="fin-card"><span class="fin-card-l">Confirmados</span><span class="fin-card-v">${r.confirmados}</span></div>` +
     `<div class="fin-card"><span class="fin-card-l">Presentes</span><span class="fin-card-v ok">${r.presentes}</span></div>` +
     `<div class="fin-card"><span class="fin-card-l">Desmarcaram</span><span class="fin-card-v">${r.desmarcaram}</span></div>` +
-    `<div class="fin-card"><span class="fin-card-l">Faltas</span><span class="fin-card-v${r.faltas ? ' bad' : ''}">${r.faltas}</span></div>`;
+    `<div class="fin-card"><span class="fin-card-l">Faltas</span><span class="fin-card-v${r.faltas ? ' bad' : ''}">${r.faltas}</span></div>` +
+    `<div class="fin-card"><span class="fin-card-l">Sem chamada</span><span class="fin-card-v">${r.semChamada}</span></div>`;
   const vagas = t.hora
     ? `<label class="tur-vagas">Vagas desta turma <input class="chk-hora-inp" type="number" min="0" max="99" value="${t.capacidade}" data-vagas="${esc(t.hora)}" /></label>`
     : '';
@@ -177,19 +178,19 @@ function notaDaLinha(x) {
     const ant = (c && c.tipo === 'desmarcacao' ? c : x.registro || {}).antecedenciaMin;
     if (Number.isFinite(ant)) partes.push(`avisou ${regras.textoAntecedencia(ant)}`);
     if (x.registro && x.registro.tipo === 'no-show') partes.push('no-show lançado');
-    if (x.automatica) partes.push('o dia passou sem check-in');
+    if (x.status === 'sem-chamada') partes.push('chamada não fechada');
     if (c) {
       if (c.tipo === 'excecao') partes.push('crédito concedido (exceção)');
       if (c.reposicao && c.reposicao.data) partes.push(`reposição em ${fmtDataCurta(c.reposicao.data)}${c.reposicao.hora ? ' ' + horaLegivel(c.reposicao.hora) : ''}`);
       else if (c.expira) partes.push(c.expira < hoje() ? `crédito venceu em ${fmtDataCurta(c.expira)}` : `crédito até ${fmtDataCurta(c.expira)}`);
       else partes.push('crédito a agendar');
-    } else if (x.status === 'desmarcou-fora' || x.status === 'falta') partes.push('sem crédito');
+    } else if (x.status === 'desmarcou-fora' || x.status === 'falta' || x.status === 'sem-chamada') partes.push('sem crédito');
   } else {
     const rep = c && c.reposicao;
     if (rep && Number.isFinite(rep.antecedenciaMin)) partes.push(`avisou ${regras.textoAntecedencia(rep.antecedenciaMin)}`);
     if (rep && rep.noShow) partes.push('no-show lançado');
-    if (x.automatica) partes.push('o dia passou sem check-in');
-    if (x.status === 'desmarcou-fora' || x.status === 'falta') partes.push('crédito perdido');
+    if (x.status === 'sem-chamada') partes.push('chamada não fechada');
+    if (x.status === 'desmarcou-fora' || x.status === 'falta' || x.status === 'sem-chamada') partes.push('crédito perdido');
   }
   return partes.join(' · ');
 }
@@ -209,8 +210,10 @@ function acoesDaLinha(x) {
       return x.credito && x.credito.reposicao && x.credito.reposicao.data ? '' : b('desfazer', 'Desfazer');
     case 'desmarcou-fora':
     case 'falta':
+    case 'sem-chamada':
       if (x.tipo === 'titular' && x.credito) return x.credito.reposicao && x.credito.reposicao.data ? '' : b('desfazer', 'Desfazer');
       return (lancada ? '' : b('presente', '✓ Presente', false))
+        + (x.status === 'sem-chamada' ? b('noshow', 'No-show') : '')
         + (semCredito ? b('credito', 'Conceder crédito') : '')
         + (lancada ? b('desfazer', 'Desfazer') : '');
     default: return '';

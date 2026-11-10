@@ -129,6 +129,7 @@ function notaDaAula(q, a) {
   }
   if (q.estado === 'atestado') return 'atestado · a repor';
   if (q.estado === 'fechado') return 'feriado · box fechado';
+  if (q.semChamada) return q.remarcado ? `sem chamada (era ${DIA_MIN[chaveDoDia(q.efetivo)]}) · feche a chamada` : 'sem chamada · feche a chamada';
   if (q.estado === 'falta') return q.remarcado ? `não veio (era ${DIA_MIN[chaveDoDia(q.efetivo)]})` : 'não veio';
   if (q.remarcado) return `passou para ${DIA_MIN[chaveDoDia(q.efetivo)]}`;
   if (q.alterado) return 'horário alterado';
@@ -157,8 +158,8 @@ function quadrado(a, q, semana) {
       : `<button class="btn btn-sm chk-checkin" ${alvo} data-rep="1" type="button">Check-in</button>
          <button class="btn ghost btn-sm chk-desmarcar" data-id="${esc(a.id)}" data-origem="${q.origem}" type="button">Desmarcar</button>`;
     const notaRep = q.estado === 'ok' ? (q.hora ? `chegou ${q.hora}` : 'presente')
-      : q.estado === 'falta' ? 'não veio' : `da aula de ${fmtDataCurta(q.origem)}`;
-    return `<div class="chk-cel ${q.estado} reposicao">
+      : q.semChamada ? 'sem chamada · feche a chamada' : q.estado === 'falta' ? 'não veio' : `da aula de ${fmtDataCurta(q.origem)}`;
+    return `<div class="chk-cel ${q.semChamada ? 'sem-chamada' : q.estado} reposicao">
       <span class="chk-cel-dia">Reposição</span>
       <span class="chk-cel-h">${esc(DIA_EXT[q.chave])}${q.horaPrevista ? ' · ' + horaLegivel(q.horaPrevista) : ''}</span>
       <span class="chk-cel-nota">${esc(notaRep)}</span>
@@ -178,7 +179,7 @@ function quadrado(a, q, semana) {
   const aviso = chkAviso && chkAviso.chave === `${a.id}|${q.iso}` ? chkAviso.texto : '';
   const nota = notaDaAula(q, a);
 
-  return `<div class="chk-cel ${q.estado}${aberto ? ' aberto' : ''}">
+  return `<div class="chk-cel ${q.semChamada ? 'sem-chamada' : q.estado}${aberto ? ' aberto' : ''}">
     <span class="chk-cel-dia">${esc(DIA_EXT[q.chave])}</span>
     <span class="chk-cel-h">${esc(horaLegivel(q.horaPrevista) || fmtDataCurta(q.iso))}</span>
     ${nota ? `<span class="chk-cel-nota">${esc(nota)}</span>` : ''}

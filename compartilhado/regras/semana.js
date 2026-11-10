@@ -20,7 +20,11 @@
  *    como crédito pendente; agendada, vira um quadrado a mais na semana em que
  *    caiu, com check-in próprio.
  *
- * 4. FALTA — o prazo passou e nada aconteceu.
+ * 4. SEM CHAMADA — a aula passou e nada foi gravado (nem presença, nem falta).
+ *    NÃO é falta: a falta só existe gravada (chamada, "Não irei" fora do prazo
+ *    ou coach). O quadrado segue com `estado: 'falta'` (a lógica que o lê não
+ *    muda: a aula conta como usada, sem crédito), mas leva `semChamada: true`, e
+ *    as telas mostram "Sem chamada", em cinza, em vez de "não veio".
  *
  * COBERTURA AUTOMÁTICA é a rede para o dia em que ninguém marcou nada: uma
  * presença fora da grade cobre uma aula sem resolução, da mais antiga para a
@@ -85,6 +89,7 @@ function normalizarRemarcacao(v) {
  * @property {string} [origem]      nas reposições, a data da aula perdida que gerou o crédito
  * @property {string} [veioEm]      data em que ele veio, quando é diferente da planejada
  * @property {string} [hora]        hora do check-in de verdade
+ * @property {boolean} [semChamada] a aula passou sem presença e sem falta gravada (estado fica 'falta'; as telas dizem "sem chamada")
  */
 
 /**
@@ -229,13 +234,13 @@ export function semanaDoAluno({
     if (faltas[iso]) return { ...b, alterado: true, estado: /** @type {'falta'} */ ('falta') };
     if (semAula.has(efetivo)) return { ...b, estado: /** @type {'fechado'} */ ('fechado') };
     if (r) {
-      return { ...b, estado: /** @type {'falta'|'aguardando'} */ (efetivo < hojeIso ? 'falta' : 'aguardando') };
+      return { ...b, estado: /** @type {'falta'|'aguardando'} */ (efetivo < hojeIso ? 'falta' : 'aguardando'), ...(efetivo < hojeIso ? { semChamada: true } : {}) };
     }
     if (sobrando.length) {
       const veioEm = sobrando.shift();
       return { ...b, estado: /** @type {'ok'} */ ('ok'), veioEm, hora: horas[veioEm] };
     }
-    return { ...b, estado: /** @type {'falta'|'aguardando'} */ (iso < hojeIso ? 'falta' : 'aguardando') };
+    return { ...b, estado: /** @type {'falta'|'aguardando'} */ (iso < hojeIso ? 'falta' : 'aguardando'), ...(iso < hojeIso ? { semChamada: true } : {}) };
   });
 
   const quadradosReposicao = reposicoes.map(({ origem, rep }) => ({
@@ -244,6 +249,8 @@ export function semanaDoAluno({
     estado: /** @type {'ok'|'falta'|'aguardando'|'fechado'} */ (
       presentes.has(rep.data) ? 'ok' : semAula.has(rep.data) ? 'fechado' : rep.data < hojeIso ? 'falta' : 'aguardando'),
     hora: horas[rep.data],
+    // Reposição passada, sem presença: só é falta se o no-show / desmarcou fora do prazo foi gravado.
+    ...(!presentes.has(rep.data) && !semAula.has(rep.data) && rep.data < hojeIso && !rep.noShow && !rep.foraDoPrazo ? { semChamada: true } : {}),
   }));
 
   // O que sobrou depois de cobrir todas as aulas é treino a mais na semana.
