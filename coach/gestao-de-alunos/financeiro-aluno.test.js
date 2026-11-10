@@ -188,6 +188,7 @@ test('registro: o texto da tela diz quando, como e quanto; o histórico sem meio
   assert.equal(textoDoRecebimento(REC).replace(/ /g, ' '), 'Pago em 10/11 · Pix por chave · R$ 130,00');
   assert.equal(textoDoRecebimento({ ...REC, meio: 'pix-portal', conferidoPor: 'mercado-pago', origem: 'pix' }).replace(/ /g, ' '), 'Pago em 10/11 · Pix do Portal · R$ 130,00');
   assert.equal(textoDoRecebimento({ ...REC, meio: 'nao-informado', origem: 'historico' }).replace(/ /g, ' '), 'Baixa em 10/11 · meio não informado · R$ 130,00');
+  assert.equal(textoDoRecebimento({ ...REC, meio: 'pix-portal', data: '' }).replace(/ /g, ' '), 'Pago · Pix do Portal · R$ 130,00', 'Pix antigo sem a hora da aprovação: sem data');
 });
 
 test('registro: a fatura paga traz o registro; paga antes dele, null; em aberto, nem a chave', () => {

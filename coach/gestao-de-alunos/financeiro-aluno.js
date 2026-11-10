@@ -139,7 +139,9 @@ const ddmmFin = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
  */
 export function textoDoRecebimento(r) {
   const meio = MEIOS_PAGAMENTO[/** @type {keyof typeof MEIOS_PAGAMENTO} */ (r.meio)] || r.meio;
-  const quando = r.origem === 'historico' && r.meio === 'nao-informado' ? `Baixa em ${ddmmFin(r.data)}` : `Pago em ${ddmmFin(r.data)}`;
+  // Sem data (Pix antigo, gravado antes de `aprovadoEm`): só "Pago".
+  const quando = !/^\d{4}-\d{2}-\d{2}$/.test(String(r.data || '')) ? 'Pago'
+    : r.origem === 'historico' && r.meio === 'nao-informado' ? `Baixa em ${ddmmFin(r.data)}` : `Pago em ${ddmmFin(r.data)}`;
   return `${quando} · ${meio} · ${brl(r.valor)}`;
 }
 
