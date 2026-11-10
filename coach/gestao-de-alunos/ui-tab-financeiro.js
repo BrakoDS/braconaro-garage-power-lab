@@ -30,8 +30,10 @@ import { $, abrirModal, fecharModal } from './util/dom.js?v=32';
 import { estado } from './estado.js?v=32';
 import { confirmar } from '../../compartilhado/ui/dialogo.js?v=32';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, faturaDoAluno, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento } from './financeiro-aluno.js?v=32';
+import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento } from './financeiro-aluno.js?v=32';
 import { darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=32';
+import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=32';
+import { fechamentos } from './fechamentos-db.js?v=32';
 import { regFinanceiro } from './registro.js?v=32';
 import * as storage from '../../compartilhado/regras/storage-alunos.js?v=32';
 
@@ -58,7 +60,9 @@ export function htmlFatura(f) {
   const chip = f.status === 'coberto' && f.responsavel
     ? `<span class="ac-chip ac-chip-coberto">Na conta de ${esc(f.responsavel)}</span>`
     : `<span class="ac-chip ac-chip-${cor}">${rotulo}</span>`;
-  const removivel = f.status !== 'pago' && f.status !== 'coberto';
+  // Fatura de mês FECHADO (etapa 4) é o retrato: nada sai dela.
+  const fechadoEm = Number(/** @type {any} */ (f).fechadoEm) || 0;
+  const removivel = f.status !== 'pago' && f.status !== 'coberto' && !fechadoEm;
   const itens = f.itens.map((i) => {
     const sub = i.tipo === 'consumo' && i.detalhe ? fmtDataCurta(i.detalhe) : (i.detalhe || '');
     const valor = i.coberto ? `<span class="fa-item-v fa-coberto">na conta de ${esc(f.responsavel || 'outro aluno')}</span>` : `<span class="fa-item-v">${brl(i.valor)}</span>`;
@@ -73,7 +77,7 @@ export function htmlFatura(f) {
   return `
     <article class="fa-fatura st-${f.status}" aria-label="Fatura de ${esc(f.rotulo)}">
       <header class="fa-fatura-hd">
-        <div><span class="fa-mes">${esc(f.rotulo)}</span><span class="fa-venc">vence ${fmtData(f.vencimento)}</span></div>
+        <div><span class="fa-mes">${esc(f.rotulo)}</span><span class="fa-venc">vence ${fmtData(f.vencimento)}</span>${fechadoEm ? `<span class="fa-fechado">🔒 fechado em ${fmtDataCurta(diaLocal(fechadoEm))}</span>` : ''}</div>
         ${chip}
       </header>
       <ul class="fa-itens">${itens}</ul>
@@ -90,10 +94,18 @@ export function htmlFatura(f) {
 export function htmlRecebimento(f) {
   if (f.status !== 'pago' || !('recebimento' in f)) return '';
   const r = f.recebimento;
-  if (!r) return '<p class="fa-recebido fa-recebido-antigo">Pago (antes do registro detalhado)</p>';
+  // Pago depois que o mês foi fechado: o retrato guardou "em aberto", a ficha diz que entrou.
+  const depois = /** @type {any} */ (f).pagoDepois ? ' · pago depois do fechamento' : '';
+  if (!r) return `<p class="fa-recebido fa-recebido-antigo">Pago (antes do registro detalhado)${depois}</p>`;
   const foto = r.comprovante
     ? ` <button class="fa-comprovante" data-fin="comprovante" data-caminho="${esc(r.comprovante)}" type="button" aria-label="Abrir o comprovante">📎 comprovante</button>` : '';
-  return `<p class="fa-recebido">${esc(textoDoRecebimento(r))}${foto}</p>`;
+  return `<p class="fa-recebido">${esc(textoDoRecebimento(r))}${depois}${foto}</p>`;
+}
+
+/** O dia ('AAAA-MM-DD') de um instante, no relógio deste aparelho (o do coach). @param {number} ms */
+function diaLocal(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -154,7 +166,7 @@ const alunoAberto = () => (estado.alunoAtual ? db.obter(estado.alunoAtual.id) : 
  * O que o modal está fazendo agora. Na baixa, de QUAL aluno (a janela também
  * abre pela tela Financeiro do box e pelas Cobranças, fora da ficha) e quem
  * redesenhar depois de gravar.
- * @type {{ modo: 'lancamento'|'pagamento', mesId?: string, alunoId?: string, aoGravar?: () => void } | null}
+ * @type {{ modo: 'lancamento'|'pagamento', mesId?: string, alunoId?: string, aoGravar?: () => void, totalDaConta?: number } | null}
  */
 let modal = null;
 /** A baixa está gravando (a foto subindo): um segundo clique não grava de novo. */
@@ -178,7 +190,7 @@ function atualizarDestino() {
   const tipo = form.tipo.value;
   for (const c of form.querySelectorAll('[data-campo]')) c.hidden = c.dataset.campo !== tipo;
   const data = form.data.value || hoje();
-  el.textContent = `Entra na fatura de ${rotuloMesFin(mesIdParaLancar(data, a.vencimento, a.pagamentos || {}))}.`;
+  el.textContent = `Entra na fatura de ${rotuloMesFin(mesIdParaLancar(data, a.vencimento, pagamentosParaLancar(a, fechamentos())))}.`;
 }
 
 /**
@@ -190,9 +202,10 @@ function atualizarDestino() {
 export function abrirPagamento(alunoId, mesId, aoGravar) {
   const a = db.obter(alunoId); if (!a) return;
   // Direto pelo mês: a tela Financeiro do box navega para meses fora do histórico da ficha.
-  const f = faturaDoAluno(a, mesId, db.listar(), hoje());
+  // Mês FECHADO (etapa 4): a fatura é a do retrato, e o valor também.
+  const f = faturaComFechamento(a, mesId, db.listar(), hoje(), fechamentos());
   if (!f || f.status === 'pago' || !f.pagavel) return;
-  modal = { modo: 'pagamento', mesId, alunoId, aoGravar };
+  modal = { modo: 'pagamento', mesId, alunoId, aoGravar, totalDaConta: f.total };
   gravando = false;
   $('#modal-fin-titulo').textContent = 'Registrar pagamento';
   $('#modal-fin-ok').textContent = 'Confirmar pagamento';
@@ -262,7 +275,7 @@ async function gravarPagamento(form) {
   // Relê a ficha AGORA: a regra calcula o valor da conta e recusa o mês que já
   // ficou pago (pelo Pix, enquanto a foto subia).
   const a = db.obter(alunoId);
-  if (a) aplicar(a, darBaixa(a, mesId, db.listar(), { ...dados, em: Date.now(), comprovante }));
+  if (a) aplicar(a, darBaixa(a, mesId, db.listar(), { ...dados, em: Date.now(), comprovante, totalDaConta: sessao.totalDaConta }));
   modal = null; gravando = false;
   fecharModal('modal-fin');
   aoGravar?.();
@@ -320,7 +333,8 @@ function salvarModal(e) {
     item = { nome, preco };
   }
   // Do catálogo, o produto e o preço já dizem tudo; o avulso é o que deixa trilha.
-  aplicar(a, lancarConsumo(a, item, data));
+  // Data dentro de um mês FECHADO: o consumo vai para a próxima fatura aberta, como na fatura paga.
+  aplicar(a, lancarConsumo({ ...a, pagamentos: pagamentosParaLancar(a, fechamentos()) }, item, data));
   modal = null;
   fecharModal('modal-fin');
 }

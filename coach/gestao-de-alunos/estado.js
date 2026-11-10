@@ -61,6 +61,8 @@ export const EVENTOS = Object.freeze({
   ACAO_REGISTRADA: 'acao-registrada',
   /** A Fila de mensagens mudou (sugestão nova, enviada, descartada, sincronizada). */
   AUTOMACAO_MUDOU: 'automacao-mudou',
+  /** Os fechamentos do mês mudaram (um mês fechado, reaberto, ou vindo da nuvem). fechamentos-db.js. */
+  FECHAMENTOS_MUDARAM: 'fechamentos-mudaram',
 });
 
 /** @type {Map<string, Set<(dados?: any) => void>>} */

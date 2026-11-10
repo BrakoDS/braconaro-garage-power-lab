@@ -53,6 +53,7 @@ import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=32';
 import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=32';
 import { aplicarPixPendentes } from './pix-baixa.js?v=32';
 import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=32';
+import { ouvirFechamentos } from './fechamentos-db.js?v=32';
 import { reg } from './registro.js?v=32';
 import { ouvirAplicador, ouvirPagamentosDoServidor } from './caixas-servidor.js?v=32';
 import { avisarGravacaoRecusada } from './ui-aviso-nuvem.js?v=32';
@@ -206,6 +207,8 @@ function recarregarFichaAberta() {
 async function entrar(user) {
   if (user && cloudAtivo() && await bloquearSeNaoCoach(user)) return; // barra contas de aluno
   estado.uid = user?.uid || null;
+  // Os fechamentos do mês (etapa 4): ao vivo da nuvem, ou do navegador sem ela.
+  void ouvirFechamentos(estado.uid);
   $('#gate').style.display = 'none';
   $('#app').removeAttribute('hidden');
   renderLista();

@@ -89,7 +89,8 @@ test('auditoria: as três telas que dão baixa usam a MESMA janela e a MESMA reg
   }
   for (const nome of ['aba do aluno', 'Financeiro do box']) {
     assert.match(telas[nome], /desfazerBaixa\(a, /, `${nome}: desfaz pela regra`);
-    assert.match(telas[nome], /lancarConsumo\(a, /, `${nome}: lança pela regra`);
+    // A aba do aluno passa a ficha com os meses FECHADOS como pagos (etapa 4): `lancarConsumo({ ...a, … }`.
+    assert.match(telas[nome], /lancarConsumo\((a, |\{ \.\.\.a, )/, `${nome}: lança pela regra`);
     assert.match(telas[nome], /removerConsumo\(a, /, `${nome}: remove pela regra`);
   }
   assert.ok(!/darBaixa|comPagamento|regFinanceiro/.test(ler('./boot.js')), 'o app.js não mexe mais em dinheiro');

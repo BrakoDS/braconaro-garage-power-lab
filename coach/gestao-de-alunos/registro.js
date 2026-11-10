@@ -38,6 +38,22 @@ export function regFinanceiro(a, ev) {
   reg(ev.tipo, a, ev.resumo, {}, ev.dados);
 }
 
+/** O "aluno" das ações do box inteiro no log: o log é por aluno, e esta linha é de todos. */
+export const ALUNO_BOX = Object.freeze({ id: 'box', nome: 'Box (todos os alunos)' });
+
+/**
+ * Registra uma ação do BOX INTEIRO (o fechamento do mês, etapa 4) no log
+ * (`gestao/{uid}/eventos`), sob o "aluno" `box`. A aba Registros é por aluno,
+ * então quem mostra essa trilha é a própria tela Financeiro (o documento do
+ * fechamento guarda quando foi aprovado e reaberto, e por quê). Não passa pela
+ * automação, que trabalha por aluno.
+ * @param {string} tipo @param {string} resumo @param {any} [extra]
+ */
+export function regDoBox(tipo, resumo, extra = {}) {
+  const ev = eventos.novoEvento({ tipo, origem: 'gestao', aluno: ALUNO_BOX, em: Date.now(), resumo, ...extra });
+  eventos.registrar(ev);
+}
+
 /** "Ficha editada · Telefone, Plano" — só quando algo mudou de verdade. @param {any} antes @param {any} depois */
 export function regFicha(antes, depois) {
   const campos = eventos.camposAlterados(antes, depois);

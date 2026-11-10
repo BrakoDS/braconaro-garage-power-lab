@@ -12,7 +12,8 @@
  * Puro: sem DOM, sem banco, e o "hoje" entra por parâmetro.
  */
 import { STATUS_LABEL, numf } from './util/formato.js?v=32';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=32';
+import { resumoDoPlano } from './financeiro-aluno.js?v=32';
+import { historicoComFechamentos } from './fechamento-regras.js?v=32';
 import { triagemParq } from './saude.js?v=32';
 import { matrizDe, rotulo, OPCOES_NIVEL, REGIOES_LESAO, GRAVIDADES } from '../../compartilhado/regras/matriz-individualizacao.js?v=32';
 
@@ -122,8 +123,9 @@ export function alertaMedico(a) {
  * @param {any} a @param {any[]} todos @param {string} hojeIso
  * @returns {{ tipo: 'atrasado'|'a-vencer'|'coberto'|'sem-plano'|'em-dia', rotulo: string, emAberto: number, atrasado: number }}
  */
-export function situacaoFinanceira(a, todos, hojeIso) {
-  const h = historicoFinanceiro(a, todos, hojeIso);
+export function situacaoFinanceira(a, todos, hojeIso, fechamentos = {}) {
+  // Os meses FECHADOS (etapa 4) entram pelo retrato: o atrasado de outubro é o que foi fechado.
+  const h = historicoComFechamentos(a, todos, hojeIso, fechamentos);
   const r = resumoDoPlano(a, todos, hojeIso);
   const base = { emAberto: h.emAberto, atrasado: h.atrasado };
   if (h.atrasado > 0) return { tipo: 'atrasado', rotulo: 'Atrasado', ...base };
