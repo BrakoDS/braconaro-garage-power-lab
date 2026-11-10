@@ -21,8 +21,12 @@ import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financ
 import { abrirPagamento } from './ui-tab-financeiro.js?v=32';
 import { esc, hoje, fmtDataCurta } from './util/formato.js?v=32';
 import { $, $$ } from './util/dom.js?v=32';
-import { on, EVENTOS } from './estado.js?v=32';
-import { regFinanceiro } from './registro.js?v=32';
+import { estado, on, EVENTOS } from './estado.js?v=32';
+import { regFinanceiro, regDoBox } from './registro.js?v=32';
+import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=32';
+import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=32';
+import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=32';
+import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=32';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */
@@ -131,6 +135,19 @@ function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, r
 
 function renderFinanceiro() {
   $('#fin-mes-lbl').textContent = rotuloMesFin(finMes);
+  // O fechamento do mês (etapa 4): a barra no topo e, num mês FECHADO, a tela
+  // inteira pelo retrato — os totais "ao fechar" e cada linha com o pagamento de agora.
+  const doc = fechamentoDe(finMes);
+  const barra = htmlBarraFechamento(doc, finMes, hoje());
+  if (estaFechado(doc)) {
+    $('#fin-tot').innerHTML = htmlTotaisFechados(doc.totais);
+    const linhasFechadas = Object.entries(doc.linhas || {})
+      .sort(([, x], [, y]) => String(x.nome).localeCompare(String(y.nome), 'pt-BR'))
+      .map(([id, l]) => linhaFechadaHTML(id, l, db.obter(id), doc)).join('');
+    $('#fin-list').innerHTML = barra + (finEditandoProdutos ? painelProdutos() : '') + linhasFechadas;
+    $('#fin-produtos').textContent = finEditandoProdutos ? 'Fechar produtos' : 'Produtos';
+    return;
+  }
   const { linhas, totais } = mesDoBox(db.listar(), finMes, hoje());
   const { previsto, recebido, extras, investido } = totais;
   const html = linhas.map(linhaHTML).join('');
@@ -141,7 +158,7 @@ function renderFinanceiro() {
     <div class="fin-card"><span class="fin-card-l">Previsto no mês</span><span class="fin-card-v">${brl(previsto)}</span></div>
     <div class="fin-card"><span class="fin-card-l">Consumíveis</span><span class="fin-card-v">${brl(extras)}</span></div>
     <div class="fin-card"><span class="fin-card-l">Investido em parcerias</span><span class="fin-card-v${investido > 0 ? ' parceria' : ''}">${brl(investido)}</span></div>`;
-  $('#fin-list').innerHTML = (finEditandoProdutos ? painelProdutos() : '')
+  $('#fin-list').innerHTML = barra + (finEditandoProdutos ? painelProdutos() : '')
     + (html || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade na ficha do aluno (aba Geral → card Financeiro).</div>`);
   $('#fin-produtos').textContent = finEditandoProdutos ? 'Fechar produtos' : 'Produtos';
 }
@@ -157,6 +174,67 @@ function aplicar(id, regra) {
   if (!r) return;
   db.atualizar(id, r.patch);
   if (r.log) regFinanceiro(a, r.log);
+  renderFinanceiro();
+}
+
+/* ============================================================
+   O fechamento do mês (etapa 4)
+   ============================================================ */
+
+/** Avisa que a gravação na nuvem falhou: nada muda até gravar. @param {any} e */
+async function falhouGravar(e) {
+  console.warn('[fechamento] não gravou.', e);
+  await avisar({ titulo: 'Não gravou', texto: 'Não deu para gravar o fechamento agora. Confira a internet e tente de novo: nada mudou.' });
+}
+
+/**
+ * FECHAR O MÊS: a prévia do retrato (totais, o que conferir, a lista) e, no
+ * "Aprovar fechamento", o retrato que o coach VIU é o gravado.
+ */
+async function fecharMes() {
+  const mes = finMes;
+  const retrato = retratoDoMes(db.listar(), mes, hoje());
+  const r = await painel({
+    titulo: `Fechar ${rotuloMesFin(mes)}`,
+    corpoHTML: htmlRetrato(retrato) + '<p class="hint">Depois de aprovado, este mês passa a ser mostrado por este retrato: mudar a mensalidade ou a parceria de alguém não mexe mais nele. Dá para reabrir, com motivo.</p>',
+    acoes: [{ id: 'aprovar', label: 'Aprovar fechamento' }],
+    fechar: 'Agora não',
+  });
+  if (r !== 'aprovar') return;
+  const { doc, log } = aprovarFechamento(retrato, fechamentoDe(mes), Date.now());
+  try {
+    await gravarFechamento(estado.uid, mes, doc);
+    regDoBox(log.tipo, log.resumo, { chave: `fechamento:${mes}:${doc.aprovadoEm}` });
+  } catch (e) { await falhouGravar(e); }
+  renderFinanceiro();
+}
+
+/** VER O RETRATO aprovado (e as reaberturas anteriores, se houver). */
+async function verRetrato() {
+  const doc = fechamentoDe(finMes);
+  if (!estaFechado(doc)) return;
+  await painel({ titulo: `Retrato de ${rotuloMesFin(finMes)}`, corpoHTML: htmlRetrato(doc), acoes: [], fechar: 'Fechar' });
+}
+
+/** REABRIR, com motivo: a aprovação de agora fica guardada em `versoes`. */
+async function reabrirMes() {
+  const mes = finMes;
+  const r = await painel({
+    titulo: `Reabrir ${rotuloMesFin(mes)}?`,
+    corpoHTML: `<p class="dlg-texto">O mês volta a ser calculado pela ficha até você aprovar de novo. A aprovação de agora fica guardada.</p>
+      <div class="field full"><label for="fin-reabrir-motivo">Motivo</label><textarea id="fin-reabrir-motivo" rows="3" maxlength="300" placeholder="Ex.: consumo lançado no mês errado"></textarea></div>`,
+    acoes: [{ id: 'reabrir', label: 'Reabrir', perigo: true }],
+    largo: false,
+    fechar: 'Cancelar',
+  });
+  if (r !== 'reabrir') return;
+  const motivo = /** @type {any} */ (document.querySelector('#fin-reabrir-motivo'))?.value || '';
+  const res = reabrirFechamento(fechamentoDe(mes), motivo, Date.now());
+  if (!res) { await avisar({ titulo: 'Falta o motivo', texto: 'Escreva por que o mês está sendo reaberto: ele fica guardado junto com a aprovação anterior.' }); return; }
+  try {
+    await gravarFechamento(estado.uid, mes, res.doc);
+    regDoBox(res.log.tipo, res.log.resumo, { chave: `fechamento-reaberto:${mes}:${res.doc.reabertoEm}` });
+  } catch (e) { await falhouGravar(e); }
   renderFinanceiro();
 }
 
@@ -181,9 +259,15 @@ export function iniciarTelaFinanceiro() {
   $('#fin-next')?.addEventListener('click', () => { finMes = addMesFin(finMes, 1); renderFinanceiro(); });
   $('#fin-produtos')?.addEventListener('click', () => { finEditandoProdutos = !finEditandoProdutos; renderFinanceiro(); });
 
+  // Um mês fechado ou reaberto (aqui ou noutro aparelho): a tela aberta se redesenha.
+  on(EVENTOS.FECHAMENTOS_MUDARAM, () => { if ($('#tela-financeiro')?.classList.contains('active')) renderFinanceiro(); });
+
   $('#fin-list')?.addEventListener('click', (/** @type {any} */ e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
+    if (btn.dataset.fech === 'fechar') { void fecharMes(); return; }
+    if (btn.dataset.fech === 'ver') { void verRetrato(); return; }
+    if (btn.dataset.fech === 'reabrir') { void reabrirMes(); return; }
     if (btn.classList.contains('fin-toggle')) {
       const mes = finMes;
       // Marcar pago abre a janela da baixa (meio, valor, data, foto); desfazer continua num clique.
