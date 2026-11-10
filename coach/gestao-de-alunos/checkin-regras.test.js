@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   checkin, trocarDia, atestado, desfazer, agendarReposicao, desmarcarReposicao, alternarPresenca,
   diaEfetivo, diasReivindicados, outraAulaUsa, donoDoDia, quemSumiu, ultimaPresenca, diasDesde, DIA_EXT,
-} from './checkin-regras.js?v=30';
+} from './checkin-regras.js?v=31';
 import { datasDaSemana } from '../../compartilhado/regras/semana.js';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08', SEX = '2026-10-09';
@@ -99,20 +99,25 @@ test('alterar dia: voltar ao dia e à hora originais desfaz a troca; só a hora 
 
 /* ---------- ATESTADO ---------- */
 
-test('atestado: abre o crédito, tira a troca e a presença daquela aula', () => {
+test('atestado: abre o crédito até o fim do mês seguinte, tira a troca e a presença daquela aula', () => {
   const a = aluno({ presencas: [TER, QUA], presencaHoras: { [TER]: '18:05' }, remarcacoes: { [SEG]: { data: TER, hora: '18:00' } } });
-  const r = atestado(a, SEG, { em: 1234 });
+  const r = atestado(a, SEG, { em: 1234, hoje: QUA });
   assert.deepEqual(r.patch, {
-    atestados: { [SEG]: { em: 1234, reposicao: null } }, remarcacoes: {}, presencas: [QUA], presencaHoras: {},
+    atestados: { [SEG]: { em: 1234, expira: '2026-11-30', reposicao: null } }, remarcacoes: {}, presencas: [QUA], presencaHoras: {},
   });
-  assert.deepEqual(r.log, { tipo: 'atestado', resumo: 'Atestado · aula de 05/10', extra: { dia: SEG, chave: `atestado:A1:${SEG}` } });
+  assert.deepEqual(r.log, { tipo: 'atestado', resumo: 'Atestado · aula de 05/10 · reposição até 30/11', extra: { dia: SEG, chave: `atestado:A1:${SEG}` } });
+});
+
+test('atestado: a validade conta do dia do lançamento, não da aula, e vira o ano', () => {
+  // Atestado de uma aula de outubro lançado em dezembro: vale até o fim de janeiro.
+  assert.equal(atestado(aluno(), SEG, { em: 1, hoje: '2026-12-03' }).patch.atestados[SEG].expira, '2027-01-31');
 });
 
 test('atestado: a presença fica se outra aula também acontece naquele dia', () => {
   // Ficha antiga: a segunda foi trocada para a quarta, que já tinha aula.
   const a = aluno({ presencas: [QUA], remarcacoes: { [SEG]: QUA } });
   assert.equal(outraAulaUsa(a, SEG, QUA), true);
-  assert.deepEqual(atestado(a, SEG, { em: 1 }).patch.presencas, [QUA]);
+  assert.deepEqual(atestado(a, SEG, { em: 1, hoje: QUA }).patch.presencas, [QUA]);
 });
 
 /* ---------- DESFAZER ---------- */
@@ -207,7 +212,7 @@ test('puro: nenhuma regra altera a ficha que recebe', () => {
   // Em módulo ES (modo estrito), escrever num objeto congelado lança erro.
   checkin(a, SEG, relogio); checkin(a, TER2, { ...relogio, ehReposicao: true });
   trocarDia(a, SEG, TER, '18:00'); trocarDia(a, SEG, QUI, '');
-  atestado(a, SEG, { em: 1 }); desfazer(a, QUA); desfazer(a, TER2, { ehReposicao: true, origem: SEX });
+  atestado(a, SEG, { em: 1, hoje: QUA }); desfazer(a, QUA); desfazer(a, TER2, { ehReposicao: true, origem: SEX });
   agendarReposicao(a, SEX, '2026-10-15', ''); desmarcarReposicao(a, SEX); alternarPresenca(a, SEG, relogio);
   assert.equal(JSON.stringify(a), copia);
 });

@@ -15,7 +15,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   antecedenciaMin, aulasDoDia, avaliarAusencia, avaliarReposicao, avisosPorAluno, chaveDoDia, comReservas, creditosLivres,
-  datasDaSemana, diaJaTemAula, GRADE_PADRAO, horasDaGrade, ocupacaoDoDia, relogioDoBox, reservasPorAluno, somarDias, type Relogio,
+  datasDaSemana, diaJaTemAula, GRADE_PADRAO, horasDaGrade, ocupacaoDoDia, relogioDoBox, reservasPorAluno, somarDias, validadeDoCredito, type Relogio,
 } from './presenca';
 
 let falhas = 0;
@@ -44,7 +44,10 @@ ok(antecedenciaMin({ hoje: TER, agora: '22:30' }, QUA, '07:00') === 510 && somar
 console.log('\n"NÃO IREI AO TREINO"\n');
 const no = (r: ReturnType<typeof avaliarAusencia>) => ('erro' in r ? r.erro : r);
 const r1 = avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '05:00' });
-ok(igual(no(r1), { aula: { data: QUA, hora: '07:00' }, noPrazo: true, antecedenciaMin: 120, expira: '2026-11-06' }), 'exatamente 2h antes: no prazo, crédito de 30 dias');
+ok(igual(no(r1), { aula: { data: QUA, hora: '07:00' }, noPrazo: true, antecedenciaMin: 120, expira: '2026-10-31' }), 'exatamente 2h antes: no prazo, crédito até o fim do mês');
+const rFim = avaliarAusencia(ana(), 'titular', '2026-10-28', { hoje: '2026-10-28', agora: '05:00' });
+ok(!('erro' in rFim) && rFim.expira === '2026-11-04', 'aviso no fim do mês (28/10): o crédito vale no mínimo 7 dias');
+ok(validadeDoCredito('2026-11-30') === '2026-12-07' && validadeDoCredito('2026-11-03') === '2026-11-30' && validadeDoCredito('2026-12-28') === '2027-01-04', 'validade: fim do mês, nunca menos de 7 dias');
 const r2 = avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '05:01' });
 ok(igual(no(r2), { aula: { data: QUA, hora: '07:00' }, noPrazo: false, antecedenciaMin: 119, expira: null }), '1h59 antes: fora do prazo, sem crédito');
 ok(no(avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '07:00' })) === 'Essa aula já começou.', 'na hora da aula já não dá para avisar');
@@ -54,7 +57,7 @@ ok(no(avaliarAusencia(ana({ presencas: [QUA] }), 'titular', QUA, { hoje: QUA, ag
 ok(no(avaliarAusencia(ana({ horarios: {} }), 'titular', QUA, { hoje: TER, agora: '07:00' })) === 'Essa aula não tem horário definido — fale com o coach.', 'aula sem horário é recusada');
 ok(no(avaliarAusencia(ana(), 'titular', '2026-10-30', { hoje: QUA, agora: '07:00' })).toString().includes('próximos 14 dias'), 'aula a mais de 14 dias é recusada');
 const remarcada = ana({ remarcacoes: { [SEG]: { data: TER, hora: '18:00' } } });
-ok(igual(no(avaliarAusencia(remarcada, 'titular', SEG, { hoje: TER, agora: '15:00' })), { aula: { data: TER, hora: '18:00' }, noPrazo: true, antecedenciaMin: 180, expira: '2026-11-05' }), 'aula remarcada: o prazo mede a aula nova');
+ok(igual(no(avaliarAusencia(remarcada, 'titular', SEG, { hoje: TER, agora: '15:00' })), { aula: { data: TER, hora: '18:00' }, noPrazo: true, antecedenciaMin: 180, expira: '2026-10-31' }), 'aula remarcada: o prazo mede a aula nova');
 const comRep = ana({ atestados: { [SEG]: { tipo: 'desmarcacao', expira: '2026-11-01', reposicao: { data: '2026-10-08', hora: '18:00' } } } });
 ok(igual(no(avaliarAusencia(comRep, 'reposicao', SEG, { hoje: '2026-10-08', agora: '15:00' })), { aula: { data: '2026-10-08', hora: '18:00' }, noPrazo: true, antecedenciaMin: 180, expira: '2026-11-01' }), 'reposição no prazo: o crédito volta com a validade que tinha');
 ok(no(avaliarAusencia(ana(), 'reposicao', SEG, { hoje: SEG, agora: '06:00' })) === 'Você não tem reposição marcada para essa aula.', 'reposição inexistente é recusada');
@@ -158,10 +161,10 @@ async function paridade(): Promise<void> {
       const atestados: Dados = {};
       const faltas: Dados = {};
       for (const iso of alguns(aulas, 0.3)) {
-        const t = um(['desmarcacao', 'excecao', 'atestado', 'falta-fora', 'falta-noshow']);
+        const t = um(['desmarcacao', 'excecao', 'fechado', 'atestado', 'falta-fora', 'falta-noshow']);
         const aula = sorteio() < 0.5 ? { data: um(semana), hora: um(HORAS) } : undefined;
         if (t === 'falta-fora' || t === 'falta-noshow') faltas[iso] = { tipo: t === 'falta-fora' ? 'fora-do-prazo' : 'no-show', aula };
-        else atestados[iso] = { tipo: t === 'atestado' ? undefined : t, antes: um(['fora-do-prazo', 'no-show']), aula, reposicao: null };
+        else atestados[iso] = { tipo: t === 'atestado' ? undefined : t, antes: um(['fora-do-prazo', 'no-show', 'sem-chamada']), aula, reposicao: null };
       }
       for (const origem of alguns(['2026-09-01', '2026-09-08'], 0.4)) {
         atestados[origem] = { tipo: 'desmarcacao', reposicao: { data: um(semana), hora: um(HORAS), ...(sorteio() < 0.2 ? { foraDoPrazo: true } : {}), ...(sorteio() < 0.2 ? { noShow: true } : {}) } };

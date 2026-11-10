@@ -12,14 +12,14 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=30';
-import * as regras from './presenca-regras.js?v=30';
-import { checkin, desfazer } from './checkin-regras.js?v=30';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=30';
-import { $ } from './util/dom.js?v=30';
-import { on, EVENTOS } from './estado.js?v=30';
-import { reg } from './registro.js?v=30';
-import { telaAtual } from './navegacao.js?v=30';
+import * as db from './db.js?v=31';
+import * as regras from './presenca-regras.js?v=31';
+import { checkin, desfazer } from './checkin-regras.js?v=31';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=31';
+import { $ } from './util/dom.js?v=31';
+import { on, EVENTOS } from './estado.js?v=31';
+import { reg } from './registro.js?v=31';
+import { telaAtual } from './navegacao.js?v=31';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
@@ -115,7 +115,7 @@ function render() {
       </span>
     </div>
     ${turma ? corpoDaTurma(turma) : `<div class="empty"><b>Sem turma</b>Ninguém da grade fixa treina neste dia. Abra um horário para marcar reposição ou aula experimental.</div>`}
-    <p class="tur-regras">Desmarcar com <b>2h ou mais</b> de antecedência libera a vaga e gera <b>+1 crédito de reposição</b> (vale ${regras.VALIDADE_CREDITO_DIAS} dias).
+    <p class="tur-regras">Desmarcar com <b>2h ou mais</b> de antecedência libera a vaga e gera <b>+1 crédito de reposição</b> (vale até o fim do mês, no mínimo 7 dias).
       Menos de 2h, ou não vir: <b>falta, sem crédito</b>. Reposição: até <b>1h antes</b> da aula, se houver vaga.</p>
     ${blocoDaGrade()}`;
 }
@@ -150,7 +150,8 @@ function corpoDaTurma(t) {
     `<div class="fin-card"><span class="fin-card-l">Confirmados</span><span class="fin-card-v">${r.confirmados}</span></div>` +
     `<div class="fin-card"><span class="fin-card-l">Presentes</span><span class="fin-card-v ok">${r.presentes}</span></div>` +
     `<div class="fin-card"><span class="fin-card-l">Desmarcaram</span><span class="fin-card-v">${r.desmarcaram}</span></div>` +
-    `<div class="fin-card"><span class="fin-card-l">Faltas</span><span class="fin-card-v${r.faltas ? ' bad' : ''}">${r.faltas}</span></div>`;
+    `<div class="fin-card"><span class="fin-card-l">Faltas</span><span class="fin-card-v${r.faltas ? ' bad' : ''}">${r.faltas}</span></div>` +
+    `<div class="fin-card"><span class="fin-card-l">Sem chamada</span><span class="fin-card-v">${r.semChamada}</span></div>`;
   const vagas = t.hora
     ? `<label class="tur-vagas">Vagas desta turma <input class="chk-hora-inp" type="number" min="0" max="99" value="${t.capacidade}" data-vagas="${esc(t.hora)}" /></label>`
     : '';
@@ -177,19 +178,19 @@ function notaDaLinha(x) {
     const ant = (c && c.tipo === 'desmarcacao' ? c : x.registro || {}).antecedenciaMin;
     if (Number.isFinite(ant)) partes.push(`avisou ${regras.textoAntecedencia(ant)}`);
     if (x.registro && x.registro.tipo === 'no-show') partes.push('no-show lançado');
-    if (x.automatica) partes.push('o dia passou sem check-in');
+    if (x.status === 'sem-chamada') partes.push('chamada não fechada');
     if (c) {
       if (c.tipo === 'excecao') partes.push('crédito concedido (exceção)');
       if (c.reposicao && c.reposicao.data) partes.push(`reposição em ${fmtDataCurta(c.reposicao.data)}${c.reposicao.hora ? ' ' + horaLegivel(c.reposicao.hora) : ''}`);
       else if (c.expira) partes.push(c.expira < hoje() ? `crédito venceu em ${fmtDataCurta(c.expira)}` : `crédito até ${fmtDataCurta(c.expira)}`);
       else partes.push('crédito a agendar');
-    } else if (x.status === 'desmarcou-fora' || x.status === 'falta') partes.push('sem crédito');
+    } else if (x.status === 'desmarcou-fora' || x.status === 'falta' || x.status === 'sem-chamada') partes.push('sem crédito');
   } else {
     const rep = c && c.reposicao;
     if (rep && Number.isFinite(rep.antecedenciaMin)) partes.push(`avisou ${regras.textoAntecedencia(rep.antecedenciaMin)}`);
     if (rep && rep.noShow) partes.push('no-show lançado');
-    if (x.automatica) partes.push('o dia passou sem check-in');
-    if (x.status === 'desmarcou-fora' || x.status === 'falta') partes.push('crédito perdido');
+    if (x.status === 'sem-chamada') partes.push('chamada não fechada');
+    if (x.status === 'desmarcou-fora' || x.status === 'falta' || x.status === 'sem-chamada') partes.push('crédito perdido');
   }
   return partes.join(' · ');
 }
@@ -209,8 +210,10 @@ function acoesDaLinha(x) {
       return x.credito && x.credito.reposicao && x.credito.reposicao.data ? '' : b('desfazer', 'Desfazer');
     case 'desmarcou-fora':
     case 'falta':
+    case 'sem-chamada':
       if (x.tipo === 'titular' && x.credito) return x.credito.reposicao && x.credito.reposicao.data ? '' : b('desfazer', 'Desfazer');
       return (lancada ? '' : b('presente', '✓ Presente', false))
+        + (x.status === 'sem-chamada' ? b('noshow', 'No-show') : '')
         + (semCredito ? b('credito', 'Conceder crédito') : '')
         + (lancada ? b('desfazer', 'Desfazer') : '');
     default: return '';
@@ -263,7 +266,7 @@ function previa(x, quando) {
   if (ant == null) return { cls: 'bad', texto: 'Aula sem horário: não dá para medir o prazo.' };
   if (ant >= regras.PRAZO_DESMARCAR_MIN) {
     return { cls: 'ok', texto: x.tipo === 'titular'
-      ? `Avisou ${regras.textoAntecedencia(ant)}: no prazo — libera a vaga e gera +1 crédito (vale ${regras.VALIDADE_CREDITO_DIAS} dias).`
+      ? `Avisou ${regras.textoAntecedencia(ant)}: no prazo — libera a vaga e gera +1 crédito (vale até o fim do mês, no mínimo 7 dias).`
       : `Avisou ${regras.textoAntecedencia(ant)}: no prazo — o crédito volta para ser usado em outra data.` };
   }
   return { cls: 'bad', texto: `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 2h — falta, sem crédito.` };
@@ -293,7 +296,7 @@ function painelAdicionar(t) {
     .flatMap((a) => regras.creditosDisponiveis(a, h).map((c) => ({ a, c })))
     .sort((x, y) => String(x.a.nome).localeCompare(String(y.a.nome), 'pt-BR'))
     .map(({ a, c }) => {
-      const tipo = c.tipo === 'desmarcacao' ? 'desmarcou no prazo' : c.tipo === 'excecao' ? 'exceção' : 'atestado';
+      const tipo = c.tipo === 'desmarcacao' ? 'desmarcou no prazo' : c.tipo === 'excecao' ? 'exceção' : c.tipo === 'fechado' ? 'box fechado' : 'atestado';
       const vence = c.expira ? ` · vence ${fmtDataCurta(c.expira)}` : '';
       return `<option value="${esc(a.id)}|${esc(c.origem)}">${esc(a.nome)} — aula de ${fmtDataCurta(c.origem)} (${tipo}${vence})</option>`;
     }).join('');

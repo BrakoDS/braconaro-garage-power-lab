@@ -11,8 +11,8 @@
  *   1. Quem tem grade fixa (`diasTreino` + `horarios`) está na turma do seu
  *      horário automaticamente — a turma é calculada, não cadastrada.
  *   2. Desmarcou com PRAZO_DESMARCAR_MIN (2h) ou mais de antecedência: a vaga
- *      fica livre e ele ganha +1 crédito de reposição, que vale
- *      VALIDADE_CREDITO_DIAS (30 dias).
+ *      fica livre e ele ganha +1 crédito de reposição, que vale até o fim
+ *      do mês, com no mínimo 7 dias (validadeDoCredito).
  *   3. Desmarcou com menos de 2h, ou não veio (no-show): falta, sem crédito.
  *      O coach pode abrir uma exceção e conceder o crédito mesmo assim.
  *   4. Reposição só se agenda até ANTECEDENCIA_REPOSICAO_MIN (1h) antes do
@@ -34,7 +34,7 @@
  * @typedef {import('./checkin-regras.js').Mudanca} Mudanca
  * @typedef {import('./checkin-regras.js').Recusa} Recusa
  * @typedef {import('./checkin-regras.js').Relogio} Relogio
- * @typedef {'confirmado'|'presente'|'desmarcou-no-prazo'|'desmarcou-fora'|'falta'|'atestado'|'fechado'} StatusAula
+ * @typedef {'confirmado'|'presente'|'desmarcou-no-prazo'|'desmarcou-fora'|'falta'|'sem-chamada'|'atestado'|'fechado'} StatusAula
  * @typedef {{ data: string, hora: string }} Onde
  * @typedef {Object} AulaNaTurma
  * @property {any} aluno                    a ficha
@@ -44,18 +44,18 @@
  * @property {StatusAula} status
  * @property {any} [credito]                a entrada de `atestados`, quando há crédito
  * @property {any} [registro]               a entrada de `faltas`, quando o coach lançou a falta
- * @property {boolean} [automatica]         falta calculada (o dia passou), não lançada
  * @property {string} [horaCheckin]
  * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
  */
-import { datasDaSemana, chaveDoDia } from '../../compartilhado/regras/semana.js';
-import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=30';
+import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=31';
+import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=31';
 
 /**
- * O mesmo `creditoVencido` do semana.js, de propósito aqui: o semana.js é
- * carregado SEM versão (o compartilhado também o importa), e um navegador com
- * a cópia antiga em cache derrubaria a Gestão inteira num import que ela não
- * exporta. @param {any} credito @param {string} hojeIso
+ * O mesmo `creditoVencido` do semana.js, de propósito aqui. O semana.js é importado
+ * com `?v=31` (as duas funções novas, validadeDoCredito e fimDoMesSeguinte, só existem
+ * na cópia nova: sem a versão, o GitHub Pages serve .js por 10 minutos e um semana.js
+ * antigo em cache com este arquivo novo é um SyntaxError que derruba a Gestão). A
+ * cópia local de `creditoVencido` é anterior a isso e fica. @param {any} credito @param {string} hojeIso
  */
 const creditoVencido = (credito, hojeIso) => !!(credito && credito.expira && credito.expira < hojeIso);
 
@@ -75,12 +75,17 @@ export const STATUS = Object.freeze({
   'desmarcou-no-prazo': 'Desmarcou no prazo',
   'desmarcou-fora': 'Desmarcou fora do prazo',
   'falta': 'Falta',
+  'sem-chamada': 'Sem chamada',
   'atestado': 'Atestado',
   'fechado': 'Box fechado',
 });
 
-/** Quem conta como vaga ocupada. Desmarcou (no prazo ou fora) e atestado liberam. */
-const OCUPA = new Set(['confirmado', 'presente', 'falta']);
+/**
+ * Quem conta como vaga ocupada. Desmarcou (no prazo ou fora) e atestado liberam.
+ * "Sem chamada" (o dia passou e nada foi gravado) segue ocupando, como a falta
+ * deduzida ocupava: muda o nome, não a conta.
+ */
+const OCUPA = new Set(['confirmado', 'presente', 'falta', 'sem-chamada']);
 
 /* ============================================================
    Relógio
@@ -142,27 +147,31 @@ export function ondeAcontece(a, diaPlanejado) {
 /**
  * O status do titular na aula de `dia`.
  * @param {any} a @param {string} plan o dia planejado @param {string} dia @param {string} hoje @param {Set<string>} fechados
- * @returns {Pick<AulaNaTurma, 'status'|'credito'|'registro'|'automatica'|'horaCheckin'>}
+ * @returns {Pick<AulaNaTurma, 'status'|'credito'|'registro'|'horaCheckin'>}
  */
 function statusTitular(a, plan, dia, hoje, fechados) {
   const at = (a.atestados || {})[plan], fa = (a.faltas || {})[plan];
   if (at) {
     if (at.tipo === 'desmarcacao') return { status: 'desmarcou-no-prazo', credito: at };
-    if (at.tipo === 'excecao') return { status: at.antes === 'fora-do-prazo' ? 'desmarcou-fora' : 'falta', credito: at };
+    if (at.tipo === 'excecao') return { status: at.antes === 'fora-do-prazo' ? 'desmarcou-fora' : at.antes === 'sem-chamada' ? 'sem-chamada' : 'falta', credito: at };
+    if (at.tipo === 'fechado') return { status: 'fechado', credito: at }; // box fechou: crédito, não atestado
     return { status: 'atestado', credito: at };
   }
   // A presença ganha da falta lançada: é o coach corrigindo o que marcou.
   if ((a.presencas || []).includes(dia)) return { status: 'presente', horaCheckin: (a.presencaHoras || {})[dia] };
   if (fa) return { status: fa.tipo === 'fora-do-prazo' ? 'desmarcou-fora' : 'falta', registro: fa };
   if (fechados.has(dia)) return { status: 'fechado' };
-  if (dia < hoje) return { status: 'falta', automatica: true };
+  // Nada gravado e o dia passou: ninguém fechou a chamada. NÃO é falta (a falta só
+  // existe gravada: chamada, "Não irei" fora do prazo ou coach). Segue sendo aula
+  // usada, sem crédito — só o nome muda.
+  if (dia < hoje) return { status: 'sem-chamada' };
   return { status: 'confirmado' };
 }
 
 /**
  * O status de quem veio repor em `dia`.
  * @param {any} a @param {any} credito a entrada de `atestados` @param {string} dia @param {string} hoje @param {Set<string>} fechados
- * @returns {Pick<AulaNaTurma, 'status'|'credito'|'automatica'|'horaCheckin'>}
+ * @returns {Pick<AulaNaTurma, 'status'|'credito'|'horaCheckin'>}
  */
 function statusReposicao(a, credito, dia, hoje, fechados) {
   const rep = credito.reposicao;
@@ -170,7 +179,7 @@ function statusReposicao(a, credito, dia, hoje, fechados) {
   if (rep.foraDoPrazo) return { status: 'desmarcou-fora', credito };
   if (rep.noShow) return { status: 'falta', credito };
   if (fechados.has(dia)) return { status: 'fechado', credito };
-  if (dia < hoje) return { status: 'falta', credito, automatica: true };
+  if (dia < hoje) return { status: 'sem-chamada', credito }; // ver statusTitular
   return { status: 'confirmado', credito };
 }
 
@@ -316,7 +325,7 @@ export function previaDesmarcacao(a, diaPlanejado, aviso) {
  * DESMARCAR — o titular avisou que não vem. O prazo conta da hora em que ele
  * AVISOU (`aviso`), não da hora em que o coach lançou: a mensagem das 5h lida
  * às 8h continua no prazo de uma aula das 9h.
- *   ≥ 2h: a vaga fica livre e nasce o crédito (30 dias, a contar do aviso);
+ *   ≥ 2h: a vaga fica livre e nasce o crédito (vale até o fim do mês do aviso);
  *   < 2h: falta, sem crédito.
  * @param {any} a @param {string} diaPlanejado
  * @param {{ aviso: Relogio, em: number }} o em: o instante do lançamento
@@ -333,7 +342,7 @@ export function desmarcar(a, diaPlanejado, { aviso, em }) {
   const faltas = { ...(a.faltas || {}) };
   const remarcacoes = { ...(a.remarcacoes || {}) };
   delete remarcacoes[diaPlanejado];
-  const expira = somarDias(aviso.hoje, VALIDADE_CREDITO_DIAS);
+  const expira = validadeDoCredito(aviso.hoje); // até o fim do mês do aviso, com no mínimo 7 dias
   if (noPrazo) {
     delete faltas[diaPlanejado];
     atestados[diaPlanejado] = { em, tipo: 'desmarcacao', aula: onde, antecedenciaMin: ant, expira, reposicao: null };
@@ -410,7 +419,7 @@ export function noShowReposicao(a, origem, { em }) {
 
 /**
  * CONCEDER CRÉDITO (exceção) — o coach dá o crédito a quem não teria direito:
- * desmarcou fora do prazo, ou faltou. Vale 30 dias a partir de hoje.
+ * desmarcou fora do prazo, ou faltou. Crédito justificado: vale até o fim do mês seguinte.
  * @param {any} a @param {string} diaPlanejado @param {{ hoje: string, em: number }} o
  * @returns {Mudanca | Recusa}
  */
@@ -418,8 +427,8 @@ export function concederCredito(a, diaPlanejado, { hoje, em }) {
   if ((a.atestados || {})[diaPlanejado]) return recusa(a, diaPlanejado, 'Essa aula já tem crédito de reposição');
   const fa = (a.faltas || {})[diaPlanejado];
   const onde = ondeAcontece(a, diaPlanejado);
-  const expira = somarDias(hoje, VALIDADE_CREDITO_DIAS);
-  const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em, tipo: 'excecao', antes: fa ? fa.tipo : 'no-show', aula: onde, expira, reposicao: null } };
+  const expira = fimDoMesSeguinte(hoje); // crédito justificado pelo coach: passa adiante um mês
+  const atestados = { ...(a.atestados || {}), [diaPlanejado]: { em, tipo: 'excecao', antes: fa ? fa.tipo : 'sem-chamada', aula: onde, expira, reposicao: null } };
   const faltas = { ...(a.faltas || {}) };
   delete faltas[diaPlanejado];
   const remarcacoes = { ...(a.remarcacoes || {}) };
@@ -432,7 +441,7 @@ export function concederCredito(a, diaPlanejado, { hoje, em }) {
 
 /**
  * CONCEDER CRÉDITO NA REPOSIÇÃO (exceção) — a reposição perdida (fora do prazo
- * ou no-show) devolve o crédito, com 30 dias a partir de hoje.
+ * ou no-show) devolve o crédito, até o fim do mês seguinte.
  * @param {any} a @param {string} origem @param {{ hoje: string, em: number }} o
  * @returns {Mudanca | null}
  */
@@ -440,7 +449,7 @@ export function concederCreditoReposicao(a, origem, { hoje, em }) {
   const v = (a.atestados || {})[origem];
   const rep = v && v.reposicao;
   if (!rep || !rep.data) return null;
-  const expira = somarDias(hoje, VALIDADE_CREDITO_DIAS);
+  const expira = fimDoMesSeguinte(hoje); // devolução por exceção: passa adiante um mês
   const atestados = { ...(a.atestados || {}), [origem]: { ...v, reposicao: null, expira, excecaoEm: em } };
   return {
     patch: { atestados, ...semPresenca(a, origem, rep.data) },
@@ -480,7 +489,7 @@ export function reabrirReposicao(a, origem) {
   const v = (a.atestados || {})[origem];
   const rep = v && v.reposicao;
   if (!rep || !rep.data) return null;
-  const { foraDoPrazo: _f, desmarcadaEm: _d, antecedenciaMin: _a, noShow: _n, noShowEm: _ne, ...limpa } = rep;
+  const { foraDoPrazo: _f, desmarcadaEm: _d, antecedenciaMin: _a, noShow: _n, noShowEm: _ne, noShowOrigem: _no, ...limpa } = rep;
   const atestados = { ...(a.atestados || {}), [origem]: { ...v, reposicao: limpa } };
   return {
     patch: { atestados, ...semPresenca(a, origem, rep.data) },
@@ -548,5 +557,7 @@ export function resumoDaTurma({ aulas, experimentais }) {
     presentes: conta('presente') + experimentais.filter((x) => x.status === 'presente').length,
     desmarcaram: conta('desmarcou-no-prazo') + conta('desmarcou-fora') + experimentais.filter((x) => x.status === 'cancelada').length,
     faltas: conta('falta') + experimentais.filter((x) => x.status === 'falta').length,
+    // Aula passada sem chamada e sem registro: não é falta, é chamada por fechar.
+    semChamada: conta('sem-chamada'),
   };
 }

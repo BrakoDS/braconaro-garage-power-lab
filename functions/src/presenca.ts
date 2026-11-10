@@ -21,16 +21,41 @@ type Dados = Record<string, unknown>;
 export interface Relogio { hoje: string; agora: string }
 export interface Onde { data: string; hora: string }
 export type TipoAula = 'titular' | 'reposicao';
-export type StatusAula = 'confirmado' | 'presente' | 'desmarcou-no-prazo' | 'desmarcou-fora' | 'falta' | 'atestado' | 'fechado';
+export type StatusAula = 'confirmado' | 'presente' | 'desmarcou-no-prazo' | 'desmarcou-fora' | 'falta' | 'sem-chamada' | 'atestado' | 'fechado';
 
 export const PRAZO_DESMARCAR_MIN = 120;
 export const VALIDADE_CREDITO_DIAS = 30;
 export const CAPACIDADE_PADRAO = 6;
+
+/**
+ * O último dia do mês de `iso`, no fuso local. IGUAL ao fimDoMes de
+ * compartilhado/regras/semana.js (paridade): o crédito de reposição vale até o
+ * fim do mês em que foi gerado.
+ */
+export function fimDoMes(iso: string): string {
+  const [a, m] = iso.split('-').map(Number);
+  const ultimo = new Date(a, m, 0).getDate();
+  return `${a}-${String(m).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+}
+
+/** O crédito nunca vale menos que isso (o mesmo prazo para marcar a reposição). IGUAL ao semana.js. */
+export const VALIDADE_MINIMA_DIAS = 7;
+
+/**
+ * A validade do crédito que nasce em `iso`: até o fim do mês, nunca menos de 7
+ * dias. IGUAL ao validadeDoCredito de compartilhado/regras/semana.js (paridade).
+ */
+export function validadeDoCredito(iso: string): string {
+  const minimo = somarDias(iso, VALIDADE_MINIMA_DIAS);
+  const fim = fimDoMes(iso);
+  return minimo > fim ? minimo : fim;
+}
 /** Até quantos dias à frente o aluno pode avisar que não vem. */
 export const HORIZONTE_AVISO_DIAS = 14;
 
 const ORDEM_DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'] as const;
-const OCUPA = new Set<StatusAula>(['confirmado', 'presente', 'falta']);
+// 'sem-chamada' (o dia passou, nada gravado) segue ocupando, como a falta deduzida ocupava.
+const OCUPA = new Set<StatusAula>(['confirmado', 'presente', 'falta', 'sem-chamada']);
 export const EH_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 const mapa = (v: unknown): Dados => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Dados) : {});
@@ -113,14 +138,16 @@ function statusTitular(a: Dados, plan: string, dia: string, hoje: string, fechad
   if (at) {
     const t = mapa(at);
     if (t.tipo === 'desmarcacao') return 'desmarcou-no-prazo';
-    if (t.tipo === 'excecao') return t.antes === 'fora-do-prazo' ? 'desmarcou-fora' : 'falta';
+    if (t.tipo === 'excecao') return t.antes === 'fora-do-prazo' ? 'desmarcou-fora' : t.antes === 'sem-chamada' ? 'sem-chamada' : 'falta';
+    if (t.tipo === 'fechado') return 'fechado'; // box fechou: crédito, não atestado
     return 'atestado';
   }
   if (lista(a.presencas).includes(dia)) return 'presente';
   if (fa) return mapa(fa).tipo === 'fora-do-prazo' ? 'desmarcou-fora' : 'falta';
   if (aviso) return aviso.noPrazo ? 'desmarcou-no-prazo' : 'desmarcou-fora';
   if (fechados.has(dia)) return 'fechado';
-  if (dia < hoje) return 'falta';
+  // Nada gravado e o dia passou: ninguém fechou a chamada. Não é falta (ver presenca-regras.js).
+  if (dia < hoje) return 'sem-chamada';
   return 'confirmado';
 }
 
@@ -130,7 +157,7 @@ function statusReposicao(a: Dados, rep: Dados, dia: string, hoje: string, fechad
   if (rep.noShow) return 'falta';
   if (aviso) return aviso.noPrazo ? 'desmarcou-no-prazo' : 'desmarcou-fora';
   if (fechados.has(dia)) return 'fechado';
-  if (dia < hoje) return 'falta';
+  if (dia < hoje) return 'sem-chamada';
   return 'confirmado';
 }
 
@@ -271,7 +298,7 @@ export function avaliarAusencia(a: Dados, tipo: TipoAula, chave: string, relogio
   const noPrazo = ant >= PRAZO_DESMARCAR_MIN;
   return {
     aula, noPrazo, antecedenciaMin: ant,
-    expira: !noPrazo ? null : tipo === 'titular' ? somarDias(relogio.hoje, VALIDADE_CREDITO_DIAS) : expiraReposicao,
+    expira: !noPrazo ? null : tipo === 'titular' ? validadeDoCredito(relogio.hoje) : expiraReposicao,
   };
 }
 

@@ -69,7 +69,7 @@ import { reconciliarCobrancas } from './pix-servico';
 import { clienteFitControl } from './ugym-cliente';
 import { repoUgymFirestore, sincronizarCheckinsUgym } from './ugym-servico';
 import { regrasDaGestao } from './caixas';
-import { aplicarCaixasDoAluno, aplicarPixDaCobranca, aplicarTudoQueEstiverPendente } from './caixas-servico';
+import { aplicarCaixasDoAluno, aplicarFaltasDaChamada, aplicarPixDaCobranca, aplicarTudoQueEstiverPendente } from './caixas-servico';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
 import {
@@ -3369,6 +3369,23 @@ export const aplicarCheckinsUgym = gatilhoDeCaixa('checkinsUgym');
 export const aplicarCheckinsLousa = gatilhoDeCaixa('checkinsLousa');
 
 /**
+ * A chamada da Lousa grava a falta (Fase 1 · etapa 2): ao "Fechar chamada" (e ao
+ * fechar de novo), quem ficou em `faltaram` ganha na ficha a falta "não veio"
+ * (`faltas[dia]`, tipo no-show, origem lousa). A regra é a `chamada-faltas.js` da
+ * Gestão, copiada no build. Quem avisou, já tem presença, não tinha aula nesse
+ * horário ou estava num dia de box fechado não ganha falta. Só com o interruptor
+ * em 'servidor'; a varredura pega as chamadas de ontem e de hoje que este
+ * gatilho perder.
+ */
+export const aplicarChamadaDaLousa = onDocumentWritten(
+  { document: 'lousa/{dia}/chamadas/{hora}', timeoutSeconds: 60, memory: '256MiB', maxInstances: 2 },
+  async (evento) => {
+    if (!evento.data?.after?.exists) return;
+    await aplicarFaltasDaChamada(getFirestore(), COACH_UIDS[0], evento.params.dia, evento.params.hora, await depsDasCaixas());
+  },
+);
+
+/**
  * O Pix aprovado (ou divergente, ou estornado) no livro-caixa: o webhook e a
  * `reconciliarPix` ligam `avisarGestao`, e aqui vira a baixa do mês na ficha —
  * o `pix-baixa.js` da Gestão — e o aviso nos Registros.
@@ -3397,7 +3414,7 @@ export const aplicarCaixasPendentes = onSchedule(
     const deps = await depsDasCaixas();
     for (const uid of COACH_UIDS) {
       const r = await aplicarTudoQueEstiverPendente(getFirestore(), uid, deps);
-      if (r.alunos || r.pix) logger.info('Varredura das caixas.', r);
+      if (r.alunos || r.pix || r.faltas || r.creditos) logger.info('Varredura das caixas.', r);
     }
   },
 );

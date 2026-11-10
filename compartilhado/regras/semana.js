@@ -20,7 +20,11 @@
  *    como crédito pendente; agendada, vira um quadrado a mais na semana em que
  *    caiu, com check-in próprio.
  *
- * 4. FALTA — o prazo passou e nada aconteceu.
+ * 4. SEM CHAMADA — a aula passou e nada foi gravado (nem presença, nem falta).
+ *    NÃO é falta: a falta só existe gravada (chamada, "Não irei" fora do prazo
+ *    ou coach). O quadrado segue com `estado: 'falta'` (a lógica que o lê não
+ *    muda: a aula conta como usada, sem crédito), mas leva `semChamada: true`, e
+ *    as telas mostram "Sem chamada", em cinza, em vez de "não veio".
  *
  * COBERTURA AUTOMÁTICA é a rede para o dia em que ninguém marcou nada: uma
  * presença fora da grade cobre uma aula sem resolução, da mais antiga para a
@@ -85,6 +89,7 @@ function normalizarRemarcacao(v) {
  * @property {string} [origem]      nas reposições, a data da aula perdida que gerou o crédito
  * @property {string} [veioEm]      data em que ele veio, quando é diferente da planejada
  * @property {string} [hora]        hora do check-in de verdade
+ * @property {boolean} [semChamada] a aula passou sem presença e sem falta gravada (estado fica 'falta'; as telas dizem "sem chamada")
  */
 
 /**
@@ -101,11 +106,51 @@ function normalizarRemarcacao(v) {
 
 /**
  * O crédito passou da validade? Só vence o que tem `expira` (a desmarcação no
- * prazo e o crédito de exceção, 30 dias); o atestado médico não vence.
+ * prazo, o crédito de exceção, o de box fechado e, desde 10/11/2026, o atestado
+ * médico); o atestado antigo, sem `expira`, não vence.
  * @param {any} credito um valor de `atestados` @param {string} hojeIso
  */
 export function creditoVencido(credito, hojeIso) {
   return !!(credito && credito.expira && credito.expira < hojeIso);
+}
+
+/**
+ * O último dia do mês de `iso` ('AAAA-MM-DD'). Fuso LOCAL — `new Date(a, m, 0)`
+ * é o dia 0 do mês seguinte, ou seja, o último do mês `m`.
+ * @param {string} iso
+ */
+export function fimDoMes(iso) {
+  const [a, m] = iso.split('-').map(Number);
+  const ultimo = new Date(a, m, 0).getDate();
+  return `${a}-${String(m).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+}
+
+/** O crédito de reposição nunca vale menos que isso: o mesmo prazo em que o aluno consegue marcar a reposição. */
+export const VALIDADE_MINIMA_DIAS = 7;
+
+/**
+ * A validade do crédito de reposição que nasce em `iso` (o dia do aviso): até o
+ * fim do mês, mas nunca menos de 7 dias. Aviso no dia 30 vale até o dia 7.
+ * Decisão do Guilherme em 09/11/2026 (ESCOPO.md, decisão 1).
+ * @param {string} iso
+ */
+export function validadeDoCredito(iso) {
+  const [a, m, d] = iso.split('-').map(Number);
+  const minimo = dataIso(new Date(a, m - 1, d + VALIDADE_MINIMA_DIAS));
+  const fim = fimDoMes(iso);
+  return minimo > fim ? minimo : fim;
+}
+
+/**
+ * O último dia do mês SEGUINTE ao de `iso` — a validade do crédito justificado
+ * (atestado/exceção), que "passa adiante" um mês.
+ * @param {string} iso
+ */
+export function fimDoMesSeguinte(iso) {
+  const [a, m] = iso.split('-').map(Number);
+  const an = m === 12 ? a + 1 : a, mn = m === 12 ? 1 : m + 1;
+  const ultimo = new Date(an, mn, 0).getDate();
+  return `${an}-${String(mn).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
 }
 
 /**
@@ -171,6 +216,11 @@ export function semanaDoAluno({
 
     // Atestado: falta com direito a repor. Não recebe cobertura automática — o
     // coach já disse o que aconteceu, e o crédito é a compensação.
+    // Box fechado: o dia é 'fechado' (a porta não abriu) e o crédito fica na ficha;
+    // NÃO é atestado — as telas leem o crédito em atestados[iso] (tipo 'fechado').
+    if (atestados[iso] && atestados[iso].tipo === 'fechado') {
+      return { ...base, efetivo: iso, horaPrevista: horarios[k] || '', alterado: true, remarcado: false, estado: /** @type {'fechado'} */ ('fechado') };
+    }
     if (atestados[iso]) {
       return { ...base, efetivo: iso, horaPrevista: horarios[k] || '', alterado: true, remarcado: false, estado: /** @type {'atestado'} */ ('atestado') };
     }
@@ -190,13 +240,13 @@ export function semanaDoAluno({
     if (faltas[iso]) return { ...b, alterado: true, estado: /** @type {'falta'} */ ('falta') };
     if (semAula.has(efetivo)) return { ...b, estado: /** @type {'fechado'} */ ('fechado') };
     if (r) {
-      return { ...b, estado: /** @type {'falta'|'aguardando'} */ (efetivo < hojeIso ? 'falta' : 'aguardando') };
+      return { ...b, estado: /** @type {'falta'|'aguardando'} */ (efetivo < hojeIso ? 'falta' : 'aguardando'), ...(efetivo < hojeIso ? { semChamada: true } : {}) };
     }
     if (sobrando.length) {
       const veioEm = sobrando.shift();
       return { ...b, estado: /** @type {'ok'} */ ('ok'), veioEm, hora: horas[veioEm] };
     }
-    return { ...b, estado: /** @type {'falta'|'aguardando'} */ (iso < hojeIso ? 'falta' : 'aguardando') };
+    return { ...b, estado: /** @type {'falta'|'aguardando'} */ (iso < hojeIso ? 'falta' : 'aguardando'), ...(iso < hojeIso ? { semChamada: true } : {}) };
   });
 
   const quadradosReposicao = reposicoes.map(({ origem, rep }) => ({
@@ -205,6 +255,8 @@ export function semanaDoAluno({
     estado: /** @type {'ok'|'falta'|'aguardando'|'fechado'} */ (
       presentes.has(rep.data) ? 'ok' : semAula.has(rep.data) ? 'fechado' : rep.data < hojeIso ? 'falta' : 'aguardando'),
     hora: horas[rep.data],
+    // Reposição passada, sem presença: só é falta se o no-show / desmarcou fora do prazo foi gravado.
+    ...(!presentes.has(rep.data) && !semAula.has(rep.data) && rep.data < hojeIso && !rep.noShow && !rep.foraDoPrazo ? { semChamada: true } : {}),
   }));
 
   // O que sobrou depois de cobrir todas as aulas é treino a mais na semana.

@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=30';
+import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=31';
 
 const QUA = '2026-10-07', SEX = '2026-10-09', QUI = '2026-10-08';
 const ana = (extra = {}) => ({
@@ -18,10 +18,10 @@ const ana = (extra = {}) => ({
 /** @param {'titular'|'reposicao'} tipo @param {string} chave @param {string} hoje @param {string} agora @param {number} em */
 const aviso = (tipo, chave, hoje, agora, em) => ({ tipo, chave, coachUid: 'C', aviso: { hoje, agora }, em });
 
-test('aviso no prazo vira crédito de 30 dias a contar do AVISO, mesmo aplicado dias depois', () => {
+test('aviso no prazo vira crédito até o fim do mês do AVISO, mesmo aplicado dias depois', () => {
   const r = aplicarAvisosNaFicha(ana(), { [`titular|${QUA}`]: aviso('titular', QUA, '2026-10-06', '20:00', 10) });
   assert.equal(r.patch.atestados[QUA].tipo, 'desmarcacao');
-  assert.equal(r.patch.atestados[QUA].expira, '2026-11-05');
+  assert.equal(r.patch.atestados[QUA].expira, '2026-10-31'); // fim do mês do aviso (06/10)
   assert.deepEqual(r.consumidos, [`titular|${QUA}`]);
   assert.equal(r.logs[0].tipo, 'desmarcacao');
   assert.match(r.logs[0].resumo, /^Pelo app: Desmarcou no prazo \(11h antes/);

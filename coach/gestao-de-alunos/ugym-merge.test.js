@@ -8,8 +8,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ORIGENS, aplicarCheckinsNaFicha, temItens } from './ugym-merge.js?v=30';
-import { aulasDoDia } from './presenca-regras.js?v=30';
+import { ORIGENS, aplicarCheckinsNaFicha, temItens } from './ugym-merge.js?v=31';
+import { aulasDoDia } from './presenca-regras.js?v=31';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08';
 const ana = (extra = {}) => ({
@@ -159,10 +159,9 @@ test('chamada da Lousa fechada duas vezes: a mesma chave, um check-in só', () =
   assert.deepEqual(r.consumidos, [`lousa|${QUA}|07:00`]);
 });
 
-test('quem faltou não gera item: a falta é a automática quando o dia passa (aula usada, sem crédito)', () => {
+test('quem faltou não gera item: quando o dia passa sem chamada fica "sem chamada" (aula usada, sem crédito)', () => {
   const [aula] = aulasDoDia([ana()], QUA, { hoje: QUI });
-  assert.equal(aula.status, 'falta');
-  assert.equal(aula.automatica, true);
+  assert.equal(aula.status, 'sem-chamada');
   assert.equal(aula.credito, undefined);
 });
 

@@ -556,7 +556,8 @@ aberta. Agora o servidor também aplica, a qualquer hora:
 | --- | --- |
 | `aplicarAvisosAusencia`, `aplicarReposicoesAluno`, `aplicarCheckinsUgym`, `aplicarCheckinsLousa` | escrita em `{caixa}/{email}` |
 | `aplicarPixAprovado` | escrita em `gestao/{uid}/cobrancasPix/{paymentId}` com `avisarGestao` |
-| `aplicarCaixasPendentes` | a cada 10 minutos (rede de segurança dos gatilhos) |
+| `aplicarChamadaDaLousa` | escrita em `lousa/{dia}/chamadas/{hora}` (Fechar chamada): grava a falta "não veio" de quem ficou em `faltaram` (etapa 2) |
+| `aplicarCaixasPendentes` | a cada 10 minutos (rede de segurança dos gatilhos; também as chamadas de ontem e de hoje e o crédito de box fechado) |
 
 **A regra é a da Gestão, não um porte.** O `npm run build` copia para `lib/gestao/` os arquivos de
 regra dela (`scripts/copiar-regras-gestao.mjs`, pelo fecho dos imports de `pix-baixa.js`,
@@ -580,16 +581,49 @@ Voltar para `'gestao'` é o "desfazer", sem deploy.
 
 ### Publicar
 
-1. **Antes**, a simulação (só leitura, só contagens): `npm run build && node scripts/simular-caixas.cjs`.
+1. **Antes**, a simulação (só leitura, só contagens): `npm run build && node scripts/simular-caixas.cjs` (caixas) e, para a etapa 2, `node scripts/simular-etapa2.cjs` (ver abaixo).
 2. **As funções** (o interruptor ainda em `'gestao'` — elas sobem e não fazem nada):
    ```bash
-   firebase deploy --only functions:aplicarAvisosAusencia,functions:aplicarReposicoesAluno,functions:aplicarCheckinsUgym,functions:aplicarCheckinsLousa,functions:aplicarPixAprovado,functions:aplicarCaixasPendentes --project projeto-garage-f0a2f
+   firebase deploy --only functions:aplicarAvisosAusencia,functions:aplicarReposicoesAluno,functions:aplicarCheckinsUgym,functions:aplicarCheckinsLousa,functions:aplicarChamadaDaLousa,functions:aplicarPixAprovado,functions:aplicarCaixasPendentes,functions:avisarAusencia,functions:agendarReposicao --project projeto-garage-f0a2f
    ```
+   `avisarAusencia` e `agendarReposicao` não carregam a cópia da Gestão, mas usam `src/presenca.ts`
+   (validade do crédito, status `fechado` e `sem-chamada`, conferido com a Gestão pelo `checar-presenca`):
+   a etapa 2 mudou esse arquivo, então sobem junto. Mudou `semana.js`, `presenca-regras.js`,
+   `chamada-faltas.js` ou `creditos-fechamento.js`? Publique TODAS as funções da lista.
 3. **Ligar**: no console do Firestore, criar `gestao/{uid}/sistema/caixas` com `aplicador: "servidor"`.
 4. **Conferir** no log `Caixas aplicadas pelo servidor.` / `Pix aplicado pelo servidor.` depois do
    próximo check-in, aviso ou Pix, e a ficha no Painel de Presença.
 5. **Desfazer**: `aplicador: "gestao"` (a Gestão volta a aplicar na hora); se for o caso,
    `firebase functions:delete` das seis funções.
+
+### Etapa 2: falta da chamada e crédito de box fechado
+
+**Simulação (só leitura, só contagens, nunca grava).** Antes de ligar, e SÓ quando o dono pedir:
+
+```bash
+cd functions && npm run build && node scripts/simular-etapa2.cjs
+```
+
+Imprime, por dia de box fechado ainda sem resolver, quantos créditos a 1ª varredura criaria; por
+chamada da Lousa de ontem e de hoje, quantas faltas gravaria e quantas sairiam; e o corte em vigor.
+Nenhum nome, e-mail ou telefone. Precisa de `gcloud auth application-default login`.
+
+**Corte do crédito de box fechado, sem deploy.** Com `gestao/{uid}/sistema/fechamento.aplicados`
+vazio, todo dia fechado de `meta.feriados` ainda dentro da validade daria crédito a quem é titular
+HOJE daquele dia da semana (inclusive quem se matriculou depois). Para não pagar o retroativo, grave
+no console do Firestore, antes de ligar o interruptor:
+
+```
+gestao/{uid}/sistema/fechamento  →  desde: "AAAA-MM-DD"
+```
+
+Dia fechado ANTES dessa data é ignorado (não gera crédito). Sem o campo, nada é cortado. A varredura
+preserva o campo (grava `aplicados` com merge). A falta da chamada não usa o corte: é só de ontem e de hoje.
+
+**A falta da chamada** é gravada no máximo uma vez por aluno e aula (Registro `lousa-falta-{aluno}-{dia}-{hhmm}`,
+sem a versão da chamada): fechar de novo não repõe a que o coach tirou à mão. Quem a chamada refeita
+não lista mais (nem em `presentes`, nem em `faltaram`) perde a falta que a própria Lousa gravou
+(`origem: 'lousa'`; a do coach nunca). Chamada de hoje fechada antes da hora da aula não grava falta.
 
 ## Código compartilhado
 

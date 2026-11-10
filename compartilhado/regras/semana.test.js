@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { semanaDoAluno, segundaDaSemana, dataIso, reposicoesPendentes } from './semana.js';
+import { semanaDoAluno, segundaDaSemana, dataIso, reposicoesPendentes, fimDoMes, fimDoMesSeguinte, validadeDoCredito } from './semana.js';
 
 // Semana de referência: segunda 03/08/2026 … domingo 09/08/2026.
 const SEG = '2026-08-03', TER = '2026-08-04', QUA = '2026-08-05';
@@ -272,4 +272,29 @@ test('`fechados` torto não quebra a semana', () => {
     const r = semanaDoAluno({ diasTreino: ['seg'], hoje, fechados: /** @type {any} */ (v) });
     assert.equal(r.length, 1, `entrada ${JSON.stringify(v)}`);
   }
+});
+
+test('fimDoMes: último dia do mês de uma data, no fuso local', () => {
+  assert.equal(fimDoMes('2026-11-02'), '2026-11-30');
+  assert.equal(fimDoMes('2026-11-30'), '2026-11-30');
+  assert.equal(fimDoMes('2026-02-10'), '2026-02-28');
+  assert.equal(fimDoMes('2026-12-05'), '2026-12-31');
+});
+
+test('validadeDoCredito: até o fim do mês, nunca menos de 7 dias', () => {
+  assert.equal(validadeDoCredito('2026-11-01'), '2026-11-30');
+  assert.equal(validadeDoCredito('2026-11-03'), '2026-11-30');
+  assert.equal(validadeDoCredito('2026-11-23'), '2026-11-30', 'dia 23 + 7 = dia 30: fica no fim do mês');
+  assert.equal(validadeDoCredito('2026-11-24'), '2026-12-01');
+  assert.equal(validadeDoCredito('2026-11-25'), '2026-12-02');
+  assert.equal(validadeDoCredito('2026-11-30'), '2026-12-07');
+  assert.equal(validadeDoCredito('2026-10-31'), '2026-11-07');
+  assert.equal(validadeDoCredito('2026-12-28'), '2027-01-04', 'vira o ano');
+  assert.equal(validadeDoCredito('2027-02-25'), '2027-03-04', 'fevereiro de 28 dias');
+});
+
+test('fimDoMesSeguinte: último dia do mês seguinte, virando o ano', () => {
+  assert.equal(fimDoMesSeguinte('2026-11-02'), '2026-12-31');
+  assert.equal(fimDoMesSeguinte('2026-12-20'), '2027-01-31');
+  assert.equal(fimDoMesSeguinte('2026-01-15'), '2026-02-28');
 });
