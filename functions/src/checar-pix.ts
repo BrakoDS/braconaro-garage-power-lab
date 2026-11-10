@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   assinaturaValida, contaDoMes, dataMp, decidir, diaSaoPaulo, lerReferencia, mesDaCobranca, montarPedidoPix,
-  PIX_JANELA_MIN, PIX_VALIDADE_MIN, type CobrancaPix, type Ficha, type PedidoPix,
+  PIX_JANELA_MIN, PIX_VALIDADE_MIN, totalDoMesFechado, type CobrancaPix, type Ficha, type PedidoPix,
 } from './pix';
 import {
   ErroPix, FOLGA_VARREDURA_MS, MAXIMO_POR_RODADA, gerarPix, processarWebhook, reconciliarCobrancas, type ClienteMp, type RepoPix,
@@ -186,8 +186,11 @@ function bancoFalso(todos: Ficha[], opcoes: { refazerTransacao?: boolean } = {})
   const doUid = (uid: string) => (uid === UID ? cobrancas : (deOutroUid.get(uid) || new Map<string, CobrancaPix>()));
   const portal = new Map<string, Record<string, boolean>>();
   const escritasPortal: string[] = [];
+  /** Os fechamentos do mês do coach C1 (etapa 4), por mês. */
+  const fechamentos = new Map<string, unknown>();
   let fila: Promise<unknown> = Promise.resolve();
   const repo: RepoPix = {
+    async fechamentoDoMes(uid, mesId) { return uid === UID ? structuredClone(fechamentos.get(mesId) ?? null) : null; },
     async alunoPorEmail(email) {
       const ficha = todos.find((f) => normalizarEmail(f.email) === email);
       return ficha ? { uid: UID, ficha: structuredClone(ficha), todos: structuredClone(todos) } : null;
@@ -223,7 +226,7 @@ function bancoFalso(todos: Ficha[], opcoes: { refazerTransacao?: boolean } = {})
       return [...doUid(uid).values()].filter((c) => c.status === 'pendente' || c.status === 'substituida').map((c) => structuredClone(c));
     },
   };
-  return { repo, cobrancas, deOutroUid, portal, escritasPortal, UID };
+  return { repo, cobrancas, deOutroUid, portal, escritasPortal, fechamentos, UID };
 }
 
 /** O Mercado Pago em memória, com a idempotência pela chave. */
@@ -326,6 +329,20 @@ async function gerar(): Promise<void> {
   ok(/ainda não abriu/.test(await erro(gerarPix(aluno('ana@box.com', { mesId: '2027-01' }), deps()))), 'mês do futuro: recusado');
   const set = await gerarPix(aluno('ana@box.com', { mesId: '2026-09' }), deps());
   ok(set.mesId === '2026-09' && set.valor === 270, `mês anterior em aberto pode ser pago (R$ ${set.valor})`);
+
+  // Etapa 4: setembro do Rui foi FECHADO quando a mensalidade era 80. Hoje ela é 90,
+  // mas o mês fechado cobra o valor do retrato; reaberto, volta a ser calculado.
+  banco.fechamentos.set('2026-09', { mesId: '2026-09', situacao: 'aprovado', linhas: { Rui07: { pagavel: true, total: 80 } } });
+  const fechado = await gerarPix(aluno('rui@box.com', { mesId: '2026-09' }), deps());
+  ok(fechado.valor === 80, `mês fechado em aberto: o Pix cobra o total do retrato (R$ ${fechado.valor}), não o recalculado (R$ 90)`);
+  ok(banco.cobrancas.get(fechado.paymentId)?.valor === 80, 'e o livro-caixa guarda esse valor, para a baixa conferir');
+  banco.fechamentos.set('2026-09', { mesId: '2026-09', situacao: 'reaberto', linhas: { Rui07: { pagavel: true, total: 80 } } });
+  const reaberto = await gerarPix(aluno('rui@box.com', { mesId: '2026-09' }), deps(AGORA + 60_000));
+  ok(reaberto.valor === 90, `mês reaberto: volta a ser calculado pela ficha (R$ ${reaberto.valor})`);
+  ok(totalDoMesFechado({ situacao: 'aprovado', linhas: { A: { pagavel: true, total: 129.999 } } }, 'A') === 130, 'o total do retrato volta ao centavo');
+  ok(totalDoMesFechado({ situacao: 'aprovado', linhas: { A: { pagavel: false, total: 0 } } }, 'A') === null
+    && totalDoMesFechado({ situacao: 'aprovado', linhas: {} }, 'A') === null && totalDoMesFechado(null, 'A') === null,
+  'fora do retrato, linha não pagável ou mês sem fechamento: vale a conta calculada');
 
   // O coach gera para um aluno; e para quem não tem e-mail, o Mercado Pago não aceita.
   const coach = await gerarPix({ uid: 'C1', alunoId: 'Rui07' }, deps());

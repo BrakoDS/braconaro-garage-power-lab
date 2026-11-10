@@ -20,18 +20,20 @@
  * pelo ui-tab-financeiro.js e pelo ui-acoes-aluno.js; a situação e as faturas
  * mostram sempre a ficha SALVA.
  */
-import * as db from './db.js?v=32';
-import { esc, hoje, fmtData } from './util/formato.js?v=32';
-import { $ } from './util/dom.js?v=32';
-import { estado, on, emit, EVENTOS } from './estado.js?v=32';
-import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=32';
-import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=32';
-import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=32';
-import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=32';
-import { brl, historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=32';
-import { htmlFatura } from './ui-tab-financeiro.js?v=32';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=32';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=32';
+import * as db from './db.js?v=33';
+import { esc, hoje, fmtData } from './util/formato.js?v=33';
+import { $ } from './util/dom.js?v=33';
+import { estado, on, emit, EVENTOS } from './estado.js?v=33';
+import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=33';
+import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=33';
+import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=33';
+import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=33';
+import { brl, resumoDoPlano } from './financeiro-aluno.js?v=33';
+import { historicoComFechamentos } from './fechamento-regras.js?v=33';
+import { fechamentos } from './fechamentos-db.js?v=33';
+import { htmlFatura } from './ui-tab-financeiro.js?v=33';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=33';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=33';
 
 /** Os cards com formulário (os que têm ✎ Editar). */
 export const CARDS_EDITAVEIS = Object.freeze(['contato', 'financeiro', 'acesso']);
@@ -100,9 +102,10 @@ export function faturaParaPagar(h) {
  * a situação, os botões e, aberta, a lista de faturas.
  * @param {any} salvo @param {any[]} todos @param {string} hojeIso @param {boolean} faturasAbertas
  */
-export function htmlFinanceiroDinamico(salvo, todos, hojeIso, faturasAbertas) {
-  const s = situacaoFinanceira(salvo, todos, hojeIso);
-  const h = historicoFinanceiro(salvo, todos, hojeIso);
+export function htmlFinanceiroDinamico(salvo, todos, hojeIso, faturasAbertas, fechamentos = {}) {
+  // Os meses FECHADOS (etapa 4) são desenhados pelo retrato.
+  const s = situacaoFinanceira(salvo, todos, hojeIso, fechamentos);
+  const h = historicoComFechamentos(salvo, todos, hojeIso, fechamentos);
   const pagar = faturaParaPagar(h);
   const aberto = s.emAberto > 0
     ? `<span class="fg-aberto">${brl(s.emAberto)} em aberto${s.atrasado > 0 ? ` · ${brl(s.atrasado)} atrasado` : ''}</span>` : '';
@@ -128,7 +131,7 @@ export function htmlFinanceiroDinamico(salvo, todos, hojeIso, faturasAbertas) {
  * @param {any} v a ficha com o rascunho (o plano) @param {any} salvo a ficha salva (o dinheiro)
  * @param {any[]} todos @param {string} hojeIso @param {{ editando: boolean, faturasAbertas: boolean }} o
  */
-export function htmlCardFinanceiro(v, salvo, todos, hojeIso, { editando, faturasAbertas }) {
+export function htmlCardFinanceiro(v, salvo, todos, hojeIso, { editando, faturasAbertas, fechamentos = {} }) {
   let plano;
   if (editando) {
     const c = camposDados(v, { todos });
@@ -152,7 +155,7 @@ export function htmlCardFinanceiro(v, salvo, todos, hojeIso, { editando, faturas
     titulo: 'Financeiro',
     classe: 'card-largo',
     acoes: botaoEditar('financeiro', 'o plano financeiro', editando),
-    corpo: `${plano}<div class="fg-dinamico" id="ger-fin-dinamico">${htmlFinanceiroDinamico(salvo, todos, hojeIso, faturasAbertas)}</div>`,
+    corpo: `${plano}<div class="fg-dinamico" id="ger-fin-dinamico">${htmlFinanceiroDinamico(salvo, todos, hojeIso, faturasAbertas, fechamentos)}</div>`,
   });
 }
 
@@ -188,10 +191,10 @@ export function htmlCardAcesso(v, salvo, editando) {
  * @param {any} v a ficha com o rascunho @param {any} salvo a ficha salva
  * @param {{ todos: any[], hojeIso: string, editando: Set<string>, faturasAbertas: boolean }} o
  */
-export function htmlAbaGeral(v, salvo, { todos, hojeIso, editando, faturasAbertas }) {
+export function htmlAbaGeral(v, salvo, { todos, hojeIso, editando, faturasAbertas, fechamentos = {} }) {
   return `
     <div class="cards-geral">
-      ${htmlCardFinanceiro(v, salvo, todos, hojeIso, { editando: editando.has('financeiro'), faturasAbertas })}
+      ${htmlCardFinanceiro(v, salvo, todos, hojeIso, { editando: editando.has('financeiro'), faturasAbertas, fechamentos })}
       ${htmlCardPerfil(v, hojeIso)}
       ${htmlCardContato(v, editando.has('contato'))}
       ${htmlCardAcesso(v, salvo, editando.has('acesso'))}
@@ -228,7 +231,7 @@ async function carregarLGPD(salvo) {
 function desenhar(v) {
   const painel = $('#tab-geral'); if (!painel) return;
   const salvo = db.obter(v.id) || v;
-  painel.innerHTML = htmlAbaGeral(v, salvo, { todos: db.listar(), hojeIso: hoje(), editando, faturasAbertas });
+  painel.innerHTML = htmlAbaGeral(v, salvo, { todos: db.listar(), hojeIso: hoje(), editando, faturasAbertas, fechamentos: fechamentos() });
   for (const id of ['#form-geral-contato', '#form-geral-plano', '#form-geral-acesso']) { const f = $(id); if (f) wireForm(f); }
   carregarLGPD(salvo);
 }
@@ -245,7 +248,7 @@ function ler() {
 function atualizarPartesSalvas() {
   const salvo = salvoAgora(); if (!salvo) return;
   const fin = $('#ger-fin-dinamico');
-  if (fin) fin.innerHTML = htmlFinanceiroDinamico(salvo, db.listar(), hoje(), faturasAbertas);
+  if (fin) fin.innerHTML = htmlFinanceiroDinamico(salvo, db.listar(), hoje(), faturasAbertas, fechamentos());
   const portal = $('#ger-acesso-portal');
   if (portal) portal.innerHTML = htmlAcessoPortal(salvo);
 }
@@ -258,6 +261,8 @@ export function iniciarTabGeral() {
   // Pagou, lançou, gerou acesso: a situação, as faturas e o link mudam — mesmo
   // com um card em edição (o rascunho dele fica como está).
   on(EVENTOS.ALUNOS_MUDARAM, () => { if ($('#tab-geral')?.classList.contains('active')) atualizarPartesSalvas(); });
+  // Um mês fechado ou reaberto (aqui ou noutro aparelho): as faturas e a situação mudam.
+  on(EVENTOS.FECHAMENTOS_MUDARAM, () => { if ($('#tab-geral')?.classList.contains('active')) atualizarPartesSalvas(); });
 
   $('#tab-geral')?.addEventListener('click', (/** @type {any} */ e) => {
     const alvo = e.target.closest('[data-card], [data-ir-aba], [data-geral]');

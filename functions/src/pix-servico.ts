@@ -32,7 +32,7 @@
  */
 import { normalizarEmail } from './acesso';
 import {
-  contaDoMes, decidir, diaSaoPaulo, ehMesId, lerQr, lerReferencia, mesDaCobranca, montarPedidoPix, proximoMes,
+  contaDoMes, decidir, diaSaoPaulo, ehMesId, lerQr, lerReferencia, mesDaCobranca, montarPedidoPix, proximoMes, totalDoMesFechado,
   assinaturaValida, idDaNotificacao, ehNotificacaoDePagamento,
   PIX_VALOR_MAXIMO, type CobrancaPix, type Ficha, type PedidoPix,
 } from './pix';
@@ -64,6 +64,8 @@ export interface RepoPix {
   marcarPagoNoPortal(email: string, mesId: string): Promise<void>;
   /** As cobranças que ainda podem virar pagamento (`pendente` e `substituida`) — o que a varredura confere. */
   cobrancasAbertas(uid: string): Promise<CobrancaPix[]>;
+  /** O fechamento do mês (`gestao/{uid}/fechamentos/{mesId}`, etapa 4), ou null. Opcional: sem ele, nenhum mês conta como fechado. */
+  fechamentoDoMes?(uid: string, mesId: string): Promise<unknown>;
 }
 
 export interface ClienteMp {
@@ -142,20 +144,24 @@ export async function gerarPix(
     throw new ErroPix('failed-precondition', `Sua conta é acertada por ${conta.responsavel.nome || 'outro aluno'}.`);
   }
   if (ficha.pagamentos && ficha.pagamentos[mesId]) throw new ErroPix('failed-precondition', 'Esta conta já está paga.');
+  // Mês FECHADO pelo coach (etapa 4) que ficou em aberto: cobra o total do retrato,
+  // e não o recalculado da ficha (uma mensalidade mudada depois não muda o mês fechado).
+  const doRetrato = repo.fechamentoDoMes ? totalDoMesFechado(await repo.fechamentoDoMes(uid, mesId), ficha.id) : null;
+  const total = doRetrato ?? conta.total;
   const doMes = (await repo.cobrancasDoAluno(uid, ficha.id)).filter((c) => c.mesId === mesId);
   if (doMes.some((c) => c.status === 'aprovado' || c.status === 'estornado')) {
     throw new ErroPix('failed-precondition', 'Esta conta já foi paga por Pix.');
   }
-  if (!(conta.total > 0)) throw new ErroPix('failed-precondition', 'Não há nada a pagar neste mês.');
-  if (conta.total > PIX_VALOR_MAXIMO) throw new ErroPix('failed-precondition', 'O valor desta conta precisa ser conferido pelo coach.');
+  if (!(total > 0)) throw new ErroPix('failed-precondition', 'Não há nada a pagar neste mês.');
+  if (total > PIX_VALOR_MAXIMO) throw new ErroPix('failed-precondition', 'O valor desta conta precisa ser conferido pelo coach.');
   const email = normalizarEmail(ficha.email);
   if (!email) throw new ErroPix('failed-precondition', 'A ficha não tem e-mail — o Pix precisa de um e-mail de pagador.');
 
   // O QR que ainda vale, para o mesmo valor, volta igual.
-  const vale = doMes.find((c) => c.status === 'pendente' && cents(c.valor) === cents(conta.total) && c.expiraEm - agora >= MARGEM_REUSO_MS);
+  const vale = doMes.find((c) => c.status === 'pendente' && cents(c.valor) === cents(total) && c.expiraEm - agora >= MARGEM_REUSO_MS);
   if (vale) return resposta(vale, true);
 
-  const pedidoMp = montarPedidoPix({ uid, alunoId: ficha.id, mesId, valor: conta.total, email, soMensalidade: conta.soMensalidade, agora });
+  const pedidoMp = montarPedidoPix({ uid, alunoId: ficha.id, mesId, valor: total, email, soMensalidade: conta.soMensalidade, agora });
   let qr;
   try {
     qr = lerQr(await mp.criarPix(pedidoMp));
@@ -171,7 +177,7 @@ export async function gerarPix(
 
   const nova: CobrancaPix = {
     paymentId: qr.paymentId, alunoId: ficha.id, alunoNome: ficha.nome || '', email, mesId,
-    valor: cents(conta.total) / 100, soMensalidade: conta.soMensalidade, status: 'pendente',
+    valor: cents(total) / 100, soMensalidade: conta.soMensalidade, status: 'pendente',
     criadoEm: agora, expiraEm: pedidoMp.expiraEm, qrCode: qr.qrCode, qrCodeBase64: qr.qrCodeBase64, ticketUrl: qr.ticketUrl,
   };
   await repo.salvarCobranca(uid, nova);

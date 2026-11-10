@@ -80,6 +80,11 @@ export function repoFirestore(db: Firestore): RepoPix {
         return { existe: true, mudou: true };
       });
     },
+    async fechamentoDoMes(uid, mesId) {
+      // O retrato aprovado pelo coach (etapa 4); o Pix de um mês fechado cobra o total dele.
+      const s = await db.doc(`gestao/${uid}/fechamentos/${mesId}`).get();
+      return s.exists ? s.data() ?? null : null;
+    },
     async cobrancasAbertas(uid) {
       // `in` num campo só: também não pede índice composto.
       const q = await cobrancas(uid).where('status', 'in', ['pendente', 'substituida']).get();

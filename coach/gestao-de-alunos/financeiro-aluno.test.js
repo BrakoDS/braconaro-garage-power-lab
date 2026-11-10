@@ -12,7 +12,7 @@ import {
   brl, numMoney, rotuloMesFin, addMesFin, statusFin, novoConsumo, comPagamento,
   contaDoMes, mesesDoHistorico, faturaDoAluno, historicoFinanceiro, resumoDoPlano,
   comRecebimento, textoDoRecebimento, diaDoBoxEm, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL,
-} from './financeiro-aluno.js?v=32';
+} from './financeiro-aluno.js?v=33';
 
 const HOJE = '2026-10-07'; // vencimento dia 10: outubro ainda não venceu
 const ana = {

@@ -24,11 +24,11 @@
  * @typedef {{ patch: Record<string, any>, log: EventoFinanceiro | null }} Mudanca
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=32';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=33';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, comRecebimento, contaDoMes,
   eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, MEIOS_DA_BAIXA_MANUAL,
-} from './financeiro-aluno.js?v=32';
+} from './financeiro-aluno.js?v=33';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 /** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */
@@ -40,9 +40,12 @@ const soMensalidadeDa = (conta) => !conta.dependentes.length && !(conta.propria.
 
 /**
  * @typedef {{ meio: string, data: string, em: number, valor?: number|null, comprovante?: string|null,
- *   paymentId?: string|null, conferidoPor?: 'coach'|'mercado-pago', origem?: 'gestao'|'pix'|'historico' }} DadosDaBaixa
+ *   paymentId?: string|null, conferidoPor?: 'coach'|'mercado-pago', origem?: 'gestao'|'pix'|'historico',
+ *   totalDaConta?: number|null }} DadosDaBaixa
  *   meio/data: como e quando o aluno pagou; em: o instante do registro;
- *   valor: o que entrou (sem ele, o total da conta agora).
+ *   valor: o que entrou (sem ele, o total da conta);
+ *   totalDaConta: o total da fatura quando ele não é o calculado agora — o do
+ *   retrato, num mês FECHADO (etapa 4). Sem ele, a conta calculada pela ficha.
  */
 
 /**
@@ -58,7 +61,8 @@ const soMensalidadeDa = (conta) => !conta.dependentes.length && !(conta.propria.
 export function darBaixa(a, mesId, todos, d) {
   if (a.pagamentos && a.pagamentos[mesId]) return null;
   const { conta } = contaDoMes(a, mesId, todos);
-  const valor = d.valor != null && Number.isFinite(Number(d.valor)) ? Math.round(Number(d.valor) * 100) / 100 : conta.total;
+  const totalDaConta = d.totalDaConta != null && Number.isFinite(Number(d.totalDaConta)) ? Number(d.totalDaConta) : conta.total;
+  const valor = d.valor != null && Number.isFinite(Number(d.valor)) ? Math.round(Number(d.valor) * 100) / 100 : totalDaConta;
   /** @type {import('./financeiro-aluno.js').Recebimento} */
   const rec = {
     valor, data: d.data, meio: d.meio, comprovante: d.comprovante || null,
@@ -67,7 +71,7 @@ export function darBaixa(a, mesId, todos, d) {
   };
   return {
     patch: { pagamentos: comPagamento(a.pagamentos, mesId, true), recebimentos: comRecebimento(a.recebimentos, mesId, rec) },
-    log: eventoPagamento(mesId, conta.total, soMensalidadeDa(conta), rec),
+    log: eventoPagamento(mesId, totalDaConta, soMensalidadeDa(conta), rec),
   };
 }
 

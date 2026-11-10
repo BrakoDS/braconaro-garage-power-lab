@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback } from './eventos.js?v=32';
+import { cortar, resumoFeedback } from './eventos.js?v=33';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -43,6 +43,8 @@ export const TIPOS = {
   // Pix do Mercado Pago que precisa do olho do coach (pix-baixa.js): mês já
   // pago, valor divergente, devolução.
   'pix-alerta': { icone: '⚠️', categoria: 'financeiro' },
+  // O fechamento do mês (etapa 4): aprovado ou reaberto, do box inteiro (aluno `box`).
+  'fechamento': { icone: '🔒', categoria: 'financeiro' },
   // O WhatsApp que o coach abriu pela Fila de mensagens (automacao.js).
   'mensagem-enviada': { icone: '📤', categoria: 'mensagem' },
 };
