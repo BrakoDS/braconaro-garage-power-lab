@@ -122,6 +122,13 @@ test('desmarcar com exatamente 2h: no prazo, +1 crédito até o fim do mês, vag
   assert.deepEqual(creditosDisponiveis(a, QUA), [{ origem: QUA, tipo: 'desmarcacao', expira: '2026-10-31' }]);
 });
 
+test('desmarcar no fim do mês: o crédito vale no mínimo 7 dias', () => {
+  const QUA_FIM = '2026-10-28';
+  const r = desmarcar(ana(), QUA_FIM, { aviso: { hoje: QUA_FIM, agora: '05:00' }, em: 112 });
+  assert.ok('patch' in r);
+  assert.equal(r.patch.atestados[QUA_FIM].expira, '2026-11-04', 'aviso em 28/10: vale 7 dias, e não só até 31/10');
+});
+
 test('desmarcar: o prazo conta da hora do AVISO, não da hora em que o coach lançou', () => {
   // Avisou às 04:50 (2h10 antes); o coach só lançou depois da aula.
   const r = desmarcar(ana(), QUA, { aviso: { hoje: QUA, agora: '04:50' }, em: 999 });

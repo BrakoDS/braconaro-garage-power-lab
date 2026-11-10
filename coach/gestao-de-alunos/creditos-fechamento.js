@@ -6,8 +6,8 @@
  * ainda não tem nada registrado nele (nem crédito, nem falta, nem presença).
  * Puro; quem grava é o boot (como o Pix). Idempotente: a trava é `atestados[dia]`.
  */
-import { aulasDoDia } from './presenca-regras.js?v=29';
-import { fimDoMes } from '../../compartilhado/regras/semana.js';
+import { aulasDoDia } from './presenca-regras.js?v=30';
+import { validadeDoCredito } from '../../compartilhado/regras/semana.js';
 
 /**
  * @param {any[]} alunos @param {string[]} diasSemAula @param {string} hoje
@@ -18,7 +18,7 @@ export function creditosDeFechamento(alunos, diasSemAula, hoje) {
   const out = [];
   for (const dia of diasSemAula) {
     // Não gera um crédito que já nasceria vencido (dia de um mês que já passou).
-    if (fimDoMes(dia) < hoje) continue;
+    if (validadeDoCredito(dia) < hoje) continue;
     // Quem tinha aula titular nesse dia — a mesma conta do Painel; o dia fechado
     // não muda quem É titular, só o status da aula.
     const aulas = aulasDoDia(ativos, dia, { hoje, fechados: [dia] });
@@ -29,12 +29,12 @@ export function creditosDeFechamento(alunos, diasSemAula, hoje) {
       if ((a.atestados || {})[chave]) continue;          // já tem crédito/desmarcação/atestado
       if ((a.faltas || {})[chave]) continue;              // já virou falta
       if ((a.presencas || []).includes(dia)) continue;    // veio de algum jeito
-      const expira = fimDoMes(dia);
+      const expira = validadeDoCredito(dia); // a mesma validade do aviso no prazo
       const [, m, d] = dia.split('-');
       out.push({
         alunoId: a.id, dia,
         patch: { atestados: { ...(a.atestados || {}), [chave]: { em: Date.now(), tipo: 'fechado', aula: { data: dia, hora: aula.hora || '' }, expira, reposicao: null } } },
-        log: { tipo: 'credito', resumo: `Box fechou em ${d}/${m} · +1 crédito de reposição até ${expira.slice(8)}/${m}`, extra: { dia } },
+        log: { tipo: 'credito', resumo: `Box fechou em ${d}/${m} · +1 crédito de reposição até ${expira.slice(8)}/${expira.slice(5, 7)}`, extra: { dia } },
       });
     }
   }

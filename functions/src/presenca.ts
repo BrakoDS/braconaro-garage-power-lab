@@ -37,6 +37,19 @@ export function fimDoMes(iso: string): string {
   const ultimo = new Date(a, m, 0).getDate();
   return `${a}-${String(m).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
 }
+
+/** O crédito nunca vale menos que isso (o mesmo prazo para marcar a reposição). IGUAL ao semana.js. */
+export const VALIDADE_MINIMA_DIAS = 7;
+
+/**
+ * A validade do crédito que nasce em `iso`: até o fim do mês, nunca menos de 7
+ * dias. IGUAL ao validadeDoCredito de compartilhado/regras/semana.js (paridade).
+ */
+export function validadeDoCredito(iso: string): string {
+  const minimo = somarDias(iso, VALIDADE_MINIMA_DIAS);
+  const fim = fimDoMes(iso);
+  return minimo > fim ? minimo : fim;
+}
 /** Até quantos dias à frente o aluno pode avisar que não vem. */
 export const HORIZONTE_AVISO_DIAS = 14;
 
@@ -282,7 +295,7 @@ export function avaliarAusencia(a: Dados, tipo: TipoAula, chave: string, relogio
   const noPrazo = ant >= PRAZO_DESMARCAR_MIN;
   return {
     aula, noPrazo, antecedenciaMin: ant,
-    expira: !noPrazo ? null : tipo === 'titular' ? fimDoMes(relogio.hoje) : expiraReposicao,
+    expira: !noPrazo ? null : tipo === 'titular' ? validadeDoCredito(relogio.hoje) : expiraReposicao,
   };
 }
 

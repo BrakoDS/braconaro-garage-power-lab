@@ -101,7 +101,7 @@ function normalizarRemarcacao(v) {
 
 /**
  * O crédito passou da validade? Só vence o que tem `expira` (a desmarcação no
- * prazo e o crédito de exceção, 30 dias); o atestado médico não vence.
+ * prazo, o crédito de exceção e o de box fechado); o atestado médico não vence.
  * @param {any} credito um valor de `atestados` @param {string} hojeIso
  */
 export function creditoVencido(credito, hojeIso) {
@@ -117,6 +117,22 @@ export function fimDoMes(iso) {
   const [a, m] = iso.split('-').map(Number);
   const ultimo = new Date(a, m, 0).getDate();
   return `${a}-${String(m).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+}
+
+/** O crédito de reposição nunca vale menos que isso: o mesmo prazo em que o aluno consegue marcar a reposição. */
+export const VALIDADE_MINIMA_DIAS = 7;
+
+/**
+ * A validade do crédito de reposição que nasce em `iso` (o dia do aviso): até o
+ * fim do mês, mas nunca menos de 7 dias. Aviso no dia 30 vale até o dia 7.
+ * Decisão do Guilherme em 09/11/2026 (ESCOPO.md, decisão 1).
+ * @param {string} iso
+ */
+export function validadeDoCredito(iso) {
+  const [a, m, d] = iso.split('-').map(Number);
+  const minimo = dataIso(new Date(a, m - 1, d + VALIDADE_MINIMA_DIAS));
+  const fim = fimDoMes(iso);
+  return minimo > fim ? minimo : fim;
 }
 
 /**

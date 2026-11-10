@@ -11,8 +11,8 @@
  *   1. Quem tem grade fixa (`diasTreino` + `horarios`) está na turma do seu
  *      horário automaticamente — a turma é calculada, não cadastrada.
  *   2. Desmarcou com PRAZO_DESMARCAR_MIN (2h) ou mais de antecedência: a vaga
- *      fica livre e ele ganha +1 crédito de reposição, que vale
- *      até o fim do mês (fimDoMes).
+ *      fica livre e ele ganha +1 crédito de reposição, que vale até o fim
+ *      do mês, com no mínimo 7 dias (validadeDoCredito).
  *   3. Desmarcou com menos de 2h, ou não veio (no-show): falta, sem crédito.
  *      O coach pode abrir uma exceção e conceder o crédito mesmo assim.
  *   4. Reposição só se agenda até ANTECEDENCIA_REPOSICAO_MIN (1h) antes do
@@ -48,7 +48,7 @@
  * @property {string} [horaCheckin]
  * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
  */
-import { datasDaSemana, chaveDoDia, fimDoMes, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js';
+import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js';
 import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=30';
 
 /**
@@ -333,7 +333,7 @@ export function desmarcar(a, diaPlanejado, { aviso, em }) {
   const faltas = { ...(a.faltas || {}) };
   const remarcacoes = { ...(a.remarcacoes || {}) };
   delete remarcacoes[diaPlanejado];
-  const expira = fimDoMes(aviso.hoje); // vale até o fim do mês do aviso
+  const expira = validadeDoCredito(aviso.hoje); // até o fim do mês do aviso, com no mínimo 7 dias
   if (noPrazo) {
     delete faltas[diaPlanejado];
     atestados[diaPlanejado] = { em, tipo: 'desmarcacao', aula: onde, antecedenciaMin: ant, expira, reposicao: null };
