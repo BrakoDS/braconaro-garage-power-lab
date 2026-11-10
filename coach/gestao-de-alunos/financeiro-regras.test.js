@@ -8,11 +8,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  darBaixa, desfazerBaixa, lancarConsumo, removerConsumo, mesDoBox, cobrancasDoMes, diasAteVencimento, msgCobranca, PIX,
-} from './financeiro-regras.js?v=31';
+  darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo, mesDoBox, cobrancasDoMes, diasAteVencimento, msgCobranca, PIX,
+} from './financeiro-regras.js?v=32';
 
 const OUT = '2026-10', SET = '2026-09', NOV = '2026-11';
 const HOJE = '2026-10-07';
+/** A janela da baixa como ela vem: Pix por chave, hoje, sem foto. */
+const PG = { meio: 'pix-chave', data: HOJE, em: 1760000000000 };
 const NB = (s) => s.replace(/ /g, ' ');
 
 /** O box, novo a cada teste. */
@@ -32,24 +34,58 @@ const todos = (b) => Object.values(b);
 
 /* ---------- dar baixa ---------- */
 
-test('baixa: marca o mês e registra o valor da fatura NA HORA — com consumo e dependente', () => {
+test('baixa: marca o mês e grava o registro NA MESMA mudança, com o valor da fatura NA HORA — com consumo e dependente', () => {
   const b = box();
-  const r = darBaixa(b.ana, OUT, todos(b));
+  const r = darBaixa(b.ana, OUT, todos(b), PG);
   assert.ok(r);
-  assert.deepEqual(r.patch, { pagamentos: { [SET]: true, [OUT]: true } });
   // 150 da Ana + 5 de água + a conta da Bia (120 + 8 de barra).
-  assert.deepEqual({ ...r.log, resumo: NB(r.log?.resumo || '') }, { tipo: 'pagamento', resumo: 'Pagamento registrado · Outubro / 2026 · R$ 283,00', dados: { mesId: OUT, valor: 283, soMensalidade: false } });
+  assert.deepEqual(r.patch, {
+    pagamentos: { [SET]: true, [OUT]: true },
+    recebimentos: { [OUT]: { valor: 283, data: HOJE, meio: 'pix-chave', comprovante: null, conferidoPor: 'coach', paymentId: null, registradoEm: PG.em, origem: 'gestao' } },
+  });
+  assert.deepEqual({ ...r.log, resumo: NB(r.log?.resumo || '') }, {
+    tipo: 'pagamento', resumo: 'Pagamento registrado · Outubro / 2026 · R$ 283,00 · Pix por chave',
+    dados: { mesId: OUT, valor: 283, soMensalidade: false, meio: 'pix-chave', data: HOJE },
+  });
 });
 
 test('baixa: um segundo clique no mês já pago não registra outro pagamento', () => {
   const b = box();
-  assert.equal(darBaixa(b.ana, SET, todos(b)), null);
+  assert.equal(darBaixa(b.ana, SET, todos(b), PG), null);
 });
 
 test('baixa: parceria entra no valor; responsável que saiu devolve a conta ao aluno', () => {
   const b = box();
-  assert.match(NB(darBaixa(b.edu, OUT, todos(b))?.log?.resumo || ''), /R\$ 100,00$/, 'parceria de 50%');
-  assert.match(NB(darBaixa(b.fab, OUT, todos(b))?.log?.resumo || ''), /R\$ 90,00$/, 'vínculo órfão: paga a própria');
+  assert.match(NB(darBaixa(b.edu, OUT, todos(b), PG)?.log?.resumo || ''), /R\$ 100,00 · Pix por chave$/, 'parceria de 50%');
+  assert.match(NB(darBaixa(b.fab, OUT, todos(b), PG)?.log?.resumo || ''), /R\$ 90,00 · Pix por chave$/, 'vínculo órfão: paga a própria');
+});
+
+test('baixa: o meio, a data, o comprovante e o valor que o coach escolheu vão para o registro', () => {
+  const b = box();
+  const foto = 'gestao/G6/comprovantes/Edu/2026-10_1760000000000.webp';
+  const r = darBaixa(b.edu, OUT, todos(b), { meio: 'dinheiro', data: '2026-10-05', em: 5, valor: 100, comprovante: foto });
+  assert.deepEqual(r?.patch.recebimentos[OUT], { valor: 100, data: '2026-10-05', meio: 'dinheiro', comprovante: foto, conferidoPor: 'coach', paymentId: null, registradoEm: 5, origem: 'gestao' });
+  assert.equal(NB(r?.log?.resumo || ''), 'Pagamento registrado · Outubro / 2026 · R$ 100,00 · Dinheiro');
+});
+
+test('baixa: valor diferente da conta paga o mês do mesmo jeito e avisa no Registro', () => {
+  const b = box();
+  const r = darBaixa(b.edu, OUT, todos(b), { ...PG, meio: 'cartao', valor: '95,5'.replace(',', '.') });
+  assert.equal(r?.patch.pagamentos[OUT], true);
+  assert.equal(r?.patch.recebimentos[OUT].valor, 95.5);
+  assert.equal(NB(r?.log?.resumo || ''), 'Pagamento registrado · Outubro / 2026 · R$ 95,50 · Cartão (Mercado Pago) · valor diferente da conta (R$ 100,00)');
+  assert.equal(r?.log?.dados?.valor, 95.5, 'o recibo leva o que entrou');
+});
+
+test('janela da baixa: meio, valor maior que zero e data até hoje', () => {
+  assert.equal(erroDaBaixa({ meio: 'pix-chave', valor: 150, data: HOJE }, HOJE), '');
+  assert.equal(erroDaBaixa({ meio: 'dinheiro', valor: 10, data: '2026-09-30' }, HOJE), '');
+  assert.match(erroDaBaixa({ meio: 'pix-portal', valor: 150, data: HOJE }, HOJE), /meio/, 'o Pix do Portal é só automático');
+  assert.match(erroDaBaixa({ meio: '', valor: 150, data: HOJE }, HOJE), /meio/);
+  assert.match(erroDaBaixa({ meio: 'cartao', valor: 0, data: HOJE }, HOJE), /valor/);
+  assert.match(erroDaBaixa({ meio: 'cartao', valor: NaN, data: HOJE }, HOJE), /valor/);
+  assert.match(erroDaBaixa({ meio: 'cartao', valor: 150, data: '' }, HOJE), /data/);
+  assert.match(erroDaBaixa({ meio: 'cartao', valor: 150, data: '2026-10-08' }, HOJE), /futuro/);
 });
 
 test('desfazer baixa: o mês volta a ficar em aberto; sem baixa, nada a desfazer', () => {
@@ -57,6 +93,13 @@ test('desfazer baixa: o mês volta a ficar em aberto; sem baixa, nada a desfazer
   const r = desfazerBaixa(b.ana, SET);
   assert.deepEqual(r, { patch: { pagamentos: {} }, log: { tipo: 'pagamento-desfeito', resumo: 'Pagamento desfeito · Setembro / 2026', dados: { mesId: SET } } });
   assert.equal(desfazerBaixa(b.ana, OUT), null);
+});
+
+test('desfazer baixa: o registro do pagamento sai junto (os outros meses ficam)', () => {
+  const b = box();
+  const rec = { valor: 150, data: '2026-09-09', meio: 'pix-chave', comprovante: null, conferidoPor: 'coach', paymentId: null, registradoEm: 1, origem: 'gestao' };
+  const ana = { ...b.ana, pagamentos: { [SET]: true, [OUT]: true }, recebimentos: { [SET]: rec, [OUT]: { ...rec, data: '2026-10-07' } } };
+  assert.deepEqual(desfazerBaixa(ana, OUT)?.patch, { pagamentos: { [SET]: true }, recebimentos: { [SET]: rec } });
 });
 
 /* ---------- consumos ---------- */
@@ -225,7 +268,7 @@ test('puro: nenhuma regra altera o que recebe', () => {
   const congelar = (o) => { if (o && typeof o === 'object') { Object.values(o).forEach(congelar); Object.freeze(o); } return o; };
   const b = congelar(box());
   const copia = JSON.stringify(b);
-  darBaixa(b.ana, OUT, todos(b)); desfazerBaixa(b.ana, SET);
+  darBaixa(b.ana, OUT, todos(b), PG); desfazerBaixa(b.ana, SET);
   lancarConsumo(b.ana, { nome: 'X', preco: 1 }, HOJE, 'z'); removerConsumo(b.ana, 'c1');
   mesDoBox(todos(b), OUT, HOJE); cobrancasDoMes(todos(b), OUT, HOJE);
   assert.equal(JSON.stringify(b), copia);

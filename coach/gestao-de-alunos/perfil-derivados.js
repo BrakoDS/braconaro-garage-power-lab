@@ -11,10 +11,10 @@
  *
  * Puro: sem DOM, sem banco, e o "hoje" entra por parâmetro.
  */
-import { STATUS_LABEL, numf } from './util/formato.js?v=31';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=31';
-import { triagemParq } from './saude.js?v=31';
-import { matrizDe, rotulo, OPCOES_NIVEL, REGIOES_LESAO, GRAVIDADES } from '../../compartilhado/regras/matriz-individualizacao.js?v=31';
+import { STATUS_LABEL, numf } from './util/formato.js?v=32';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=32';
+import { triagemParq } from './saude.js?v=32';
+import { matrizDe, rotulo, OPCOES_NIVEL, REGIOES_LESAO, GRAVIDADES } from '../../compartilhado/regras/matriz-individualizacao.js?v=32';
 
 /* ============================================================
    Idade

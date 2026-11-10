@@ -16,11 +16,11 @@ globalThis.localStorage = /** @type {any} */ ({
   getItem: (k) => (memoria.has(k) ? memoria.get(k) : null), setItem: (k, v) => memoria.set(k, String(v)), removeItem: (k) => memoria.delete(k),
 });
 
-const { eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, novoConsumo } = await import('./financeiro-aluno.js?v=31');
-const { regFinanceiro } = await import('./registro.js?v=31');
-const eventos = await import('./eventos.js?v=31');
-const { on, EVENTOS } = await import('./estado.js?v=31');
-const { TIPOS, CATEGORIAS, filtrarEventos, linhaHTML } = await import('./registros-ui.js?v=31');
+const { eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, novoConsumo } = await import('./financeiro-aluno.js?v=32');
+const { regFinanceiro } = await import('./registro.js?v=32');
+const eventos = await import('./eventos.js?v=32');
+const { on, EVENTOS } = await import('./estado.js?v=32');
+const { TIPOS, CATEGORIAS, filtrarEventos, linhaHTML } = await import('./registros-ui.js?v=32');
 
 const NB = (s) => s.replace(/ /g, ' ');
 const ana = { id: 'Ana', nome: 'Ana Lima', vencimento: '10', pagamentos: {} };
@@ -71,15 +71,21 @@ test('auditoria: categoria "Financeiro" nos filtros, com ícone por tipo', () =>
 
 /* ---------- as três telas que dão baixa registram ---------- */
 
-test('auditoria: as três telas que dão baixa usam a MESMA regra, e a trilha sai dela', () => {
+test('auditoria: as três telas que dão baixa usam a MESMA janela e a MESMA regra, e a trilha sai dela', () => {
   const ler = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
   const telas = { 'aba do aluno': ler('./ui-tab-financeiro.js'), 'Financeiro do box': ler('./ui-tela-financeiro.js'), 'Cobranças': ler('./ui-tela-cobrancas.js') };
   for (const [nome, fonte] of Object.entries(telas)) {
-    assert.match(fonte, /darBaixa\(a, /, `${nome}: dá baixa pela regra`);
     // Ninguém mais monta a gravação nem o texto do log à mão: a regra devolve os dois.
-    assert.ok(!/pagamentos:\s*comPagamento|consumos:\s*\[/.test(fonte), `${nome}: não grava pagamentos/consumos à mão`);
+    assert.ok(!/pagamentos:\s*comPagamento|recebimentos:\s*comRecebimento|consumos:\s*\[/.test(fonte), `${nome}: não grava pagamentos/registro/consumos à mão`);
     assert.ok(!/eventoPagamento|eventoLancamento/.test(fonte), `${nome}: não monta o evento do log`);
-    assert.match(fonte, /if \(r\.log\) regFinanceiro\(a, r\.log\)/, `${nome}: registra o log que a regra devolveu`);
+  }
+  // A baixa tem UMA porta nas telas (etapa 3): a janela do card Financeiro, que
+  // pede meio, valor, data e foto e chama a regra. As outras duas só a abrem.
+  assert.match(telas['aba do aluno'], /darBaixa\(a, /, 'a janela dá baixa pela regra');
+  assert.match(telas['aba do aluno'], /if \(r\.log\) regFinanceiro\(a, r\.log\)/, 'e registra o log que a regra devolveu');
+  for (const nome of ['Financeiro do box', 'Cobranças']) {
+    assert.match(telas[nome], /abrirPagamento\(/, `${nome}: abre a janela da baixa`);
+    assert.ok(!/darBaixa/.test(telas[nome]), `${nome}: não dá baixa por fora da janela`);
   }
   for (const nome of ['aba do aluno', 'Financeiro do box']) {
     assert.match(telas[nome], /desfazerBaixa\(a, /, `${nome}: desfaz pela regra`);
@@ -106,8 +112,8 @@ test('fatiamento: Registros e Treino (que absorveu a Matriz) moram nos módulos 
   assert.match(main, /iniciarTabTreino\(\);/);
   assert.match(main, /iniciarTabRegistros\(\);/);
   assert.ok(main.indexOf('iniciarTabRegistros();') < main.length, 'as abas ligam antes do app');
-  const treino = await import('./ui-tab-treino.js?v=31');
-  const registros = await import('./ui-tab-registros.js?v=31');
+  const treino = await import('./ui-tab-treino.js?v=32');
+  const registros = await import('./ui-tab-registros.js?v=32');
   assert.equal(typeof treino.iniciarTabTreino, 'function');
   assert.equal(typeof registros.iniciarTabRegistros, 'function');
 });
@@ -119,6 +125,6 @@ test('log da Matriz: o salvar global compara com a ficha do banco na hora de sal
   const fonte = readFileSync(new URL('./ui-salvar-global.js', import.meta.url), 'utf8');
   assert.match(fonte, /const a = db\.obter\(alunoId\);[^]{0,1600}?db\.atualizar\(alunoId, \{ \.\.\.patch, \.\.\.arrumacao\.patch \}, \{ remover: arrumacao\.remover \}\);\s*\n\s*if \(Object\.keys\(resto\)\.length\) regFicha\(a, resto\);/,
     'a ficha de antes é lida do banco na hora de salvar, e o log compara com ela');
-  const { resumoFicha } = await import('./registros-ui.js?v=31');
+  const { resumoFicha } = await import('./registros-ui.js?v=32');
   assert.equal(resumoFicha(['matrizIndividualizacao', 'nivel']), 'Ficha editada · Matriz, Nível');
 });

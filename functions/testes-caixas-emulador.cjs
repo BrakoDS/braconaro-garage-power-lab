@@ -165,12 +165,15 @@ async function servidor() {
   });
 
   await caso('Pix aprovado: a baixa do mês, o rastro, a bandeira desligada e a linha do recibo', async () => {
-    await db.doc(`gestao/${COACH}/cobrancasPix/p1`).set({ paymentId: 'p1', alunoId: '001', mesId: '2026-11', valor: 130, valorPago: 130, status: 'aprovado', soMensalidade: true, avisarGestao: true });
+    const aprovadoEm = Date.UTC(2026, 10, 4, 21, 0); // 18:00 de 04/11 no box
+    await db.doc(`gestao/${COACH}/cobrancasPix/p1`).set({ paymentId: 'p1', alunoId: '001', mesId: '2026-11', valor: 130, valorPago: 130, status: 'aprovado', soMensalidade: true, avisarGestao: true, aprovadoEm });
     const r = await aplicarPixDaCobranca(db, COACH, 'p1', deps);
     assert.equal(r.aplicou, true);
     const f = await ficha();
     assert.deepEqual(f.pagamentos, { '2026-10': true, '2026-11': true });
     assert.deepEqual(f.pixPagos, { '2026-11': 'p1' });
+    // O registro do pagamento (etapa 3), na mesma gravação; ele não vai para o Portal.
+    assert.deepEqual(f.recebimentos, { '2026-11': { valor: 130, data: '2026-11-04', meio: 'pix-portal', comprovante: null, conferidoPor: 'mercado-pago', paymentId: 'p1', registradoEm: aprovadoEm, origem: 'pix' } });
     assert.deepEqual(f.presencas, ['2026-11-02', '2026-11-04', '2026-11-05'], 'as presenças não foram tocadas');
     const c = (await db.doc(`gestao/${COACH}/cobrancasPix/p1`).get()).data();
     assert.equal(c.avisarGestao, false);
@@ -178,7 +181,9 @@ async function servidor() {
     const ev = (await db.doc(`gestao/${COACH}/eventos/pix-p1`).get()).data();
     assert.equal(ev.tipo, 'pagamento');
     assert.equal(ev.dados.mesId, '2026-11');
-    assert.deepEqual((await db.doc(`portal/${EMAIL}`).get()).data().pagamentos, { '2026-10': true, '2026-11': true });
+    const portal = (await db.doc(`portal/${EMAIL}`).get()).data();
+    assert.deepEqual(portal.pagamentos, { '2026-10': true, '2026-11': true });
+    assert.equal(portal.recebimentos, undefined, 'o registro fica só na Gestão');
   });
 
   await caso('caixa de um e-mail sem ficha fica intacta', async () => {

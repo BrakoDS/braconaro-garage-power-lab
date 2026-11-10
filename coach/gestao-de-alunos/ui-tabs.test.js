@@ -9,13 +9,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './campos-aluno.js?v=31';
-import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=31';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=31';
-import { htmlFatura, htmlFormLancamento, htmlFormPagamento } from './ui-tab-financeiro.js?v=31';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=31';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=31';
-import { EVENTOS } from './estado.js?v=31';
+import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './campos-aluno.js?v=32';
+import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=32';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=32';
+import { htmlFatura, htmlFormLancamento, htmlFormPagamento, htmlRecebimento } from './ui-tab-financeiro.js?v=32';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=32';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=32';
+import { EVENTOS } from './estado.js?v=32';
 
 /* ---------- util/formato.js ---------- */
 
@@ -233,10 +233,32 @@ test('financeiro: lançamento por produto do box ou avulso; sem catálogo, só a
 });
 
 test('financeiro: a confirmação de pagamento mostra o mês, os itens e o total', () => {
-  emOrdem(htmlFormPagamento(faturasFin()[1]), [
+  emOrdem(htmlFormPagamento(faturasFin()[1], HOJE_FIN), [
     'Setembro / 2026 · vence 10/09/2026', '<li><span>Mensalidade</span><span>R$ 150,00</span></li>',
     '<li><span>&lt;b&gt;Energético&lt;/b&gt;</span><span>R$ 10,00</span></li>', 'Total <b>R$ 160,00</b>',
   ]);
+});
+
+test('financeiro: a janela da baixa pede o meio (Pix por chave marcado), o valor da conta, a data até hoje e a foto opcional', () => {
+  const h = htmlFormPagamento(faturasFin()[1], HOJE_FIN);
+  emOrdem(h, [
+    'Total <b>R$ 160,00</b>',
+    'value="pix-chave" checked /> Pix por chave', 'value="cartao" /> Cartão (Mercado Pago)', 'value="dinheiro" /> Dinheiro',
+    'name="valor" type="number"', 'value="160.00"',
+    'name="data" type="date" value="2026-10-07" max="2026-10-07"',
+    'name="comprovante" type="file" accept="image/*"', 'id="fa-erro"',
+  ]);
+  assert.ok(!h.includes('pix-portal'), 'o Pix do Portal só entra pela baixa automática');
+  emOrdem(htmlFormPagamento(faturasFin()[1], HOJE_FIN, '<i>Ana</i>'), ['&lt;i&gt;Ana&lt;/i&gt; · Setembro / 2026']);
+});
+
+test('financeiro: a fatura paga mostra o registro e o clipe da foto; paga antes do registro, diz isso', () => {
+  const rec = { valor: 150, data: '2026-08-09', meio: 'cartao', comprovante: 'gestao/U/comprovantes/Ana/2026-08_1.webp', conferidoPor: 'coach', paymentId: null, registradoEm: 1, origem: 'gestao' };
+  const ago = faturasFin()[2];
+  emOrdem(htmlFatura({ ...ago, recebimento: rec }), ['class="fa-recebido">Pago em 09/08 · Cartão (Mercado Pago) · R$ 150,00', 'data-fin="comprovante" data-caminho="gestao/U/comprovantes/Ana/2026-08_1.webp"', 'data-fin="desfazer"']);
+  assert.ok(!htmlRecebimento({ ...ago, recebimento: { ...rec, comprovante: null } }).includes('comprovante'), 'sem foto, sem clipe');
+  assert.ok(txt(htmlFatura(ago)).includes('Pago (antes do registro detalhado)'));
+  assert.equal(htmlRecebimento(faturasFin()[0]), '', 'fatura em aberto: nada');
 });
 
 test('barramento: as abas avisam quando o perfil abre', () => {

@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 import {
   brl, numMoney, rotuloMesFin, addMesFin, statusFin, novoConsumo, comPagamento,
   contaDoMes, mesesDoHistorico, faturaDoAluno, historicoFinanceiro, resumoDoPlano,
-} from './financeiro-aluno.js?v=31';
+  comRecebimento, textoDoRecebimento, diaDoBoxEm, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL,
+} from './financeiro-aluno.js?v=32';
 
 const HOJE = '2026-10-07'; // vencimento dia 10: outubro ainda não venceu
 const ana = {
@@ -159,4 +160,40 @@ test('resumo do plano: valor, frequência, vencimento e vínculos', () => {
   assert.deepEqual(resumoDoPlano(bia, [ana, bia], HOJE).responsavel, { nome: 'Ana Lima', escopo: 'plano' });
   assert.deepEqual(resumoDoPlano(ana, [ana, bia], HOJE).dependentes, ['Bia']);
   assert.equal(resumoDoPlano({}, [], HOJE).vencimentoDefinido, false);
+});
+
+/* ---------- o registro do pagamento (etapa 3) ---------- */
+
+const REC = { valor: 130, data: '2026-11-10', meio: 'pix-chave', comprovante: null, conferidoPor: 'coach', paymentId: null, registradoEm: 1, origem: 'gestao' };
+
+test('registro: os meios da janela da baixa são os do box, com o Pix por chave primeiro; o Pix do Portal fica de fora', () => {
+  assert.deepEqual([...MEIOS_DA_BAIXA_MANUAL], ['pix-chave', 'cartao', 'dinheiro']);
+  assert.ok(MEIOS_DA_BAIXA_MANUAL.every((m) => MEIOS_PAGAMENTO[m]));
+  assert.ok(!MEIOS_DA_BAIXA_MANUAL.includes('pix-portal'));
+});
+
+test('registro: o dia do box é o de São Paulo (UTC−3), também perto da meia-noite', () => {
+  assert.equal(diaDoBoxEm(Date.UTC(2026, 10, 11, 2, 59)), '2026-11-10', '23:59 de 10/11 no box');
+  assert.equal(diaDoBoxEm(Date.UTC(2026, 10, 11, 3, 0)), '2026-11-11', '00:00 de 11/11 no box');
+});
+
+test('registro: comRecebimento põe e tira o mês sem mexer nos outros (e sem alterar o que recebe)', () => {
+  const antes = Object.freeze({ '2026-10': REC });
+  assert.deepEqual(comRecebimento(antes, '2026-11', REC), { '2026-10': REC, '2026-11': REC });
+  assert.deepEqual(comRecebimento(antes, '2026-10', null), {});
+  assert.deepEqual(comRecebimento(undefined, '2026-11', REC), { '2026-11': REC });
+});
+
+test('registro: o texto da tela diz quando, como e quanto; o histórico sem meio diz que a data é a da baixa', () => {
+  assert.equal(textoDoRecebimento(REC).replace(/ /g, ' '), 'Pago em 10/11 · Pix por chave · R$ 130,00');
+  assert.equal(textoDoRecebimento({ ...REC, meio: 'pix-portal', conferidoPor: 'mercado-pago', origem: 'pix' }).replace(/ /g, ' '), 'Pago em 10/11 · Pix do Portal · R$ 130,00');
+  assert.equal(textoDoRecebimento({ ...REC, meio: 'nao-informado', origem: 'historico' }).replace(/ /g, ' '), 'Baixa em 10/11 · meio não informado · R$ 130,00');
+  assert.equal(textoDoRecebimento({ ...REC, meio: 'pix-portal', data: '' }).replace(/ /g, ' '), 'Pago · Pix do Portal · R$ 130,00', 'Pix antigo sem a hora da aprovação: sem data');
+});
+
+test('registro: a fatura paga traz o registro; paga antes dele, null; em aberto, nem a chave', () => {
+  const a = { id: 'A', mensalidade: '130', vencimento: '10', pagamentos: { '2026-10': true, '2026-09': true }, recebimentos: { '2026-10': REC } };
+  assert.deepEqual(faturaDoAluno(a, '2026-10', [a], '2026-10-20')?.recebimento, REC);
+  assert.equal(faturaDoAluno(a, '2026-09', [a], '2026-10-20')?.recebimento, null);
+  assert.ok(!('recebimento' in (faturaDoAluno(a, '2026-11', [a], '2026-11-02') || {})));
 });

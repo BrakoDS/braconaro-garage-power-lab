@@ -47,12 +47,12 @@
  * @property {string} [horaCheckin]
  * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
  */
-import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=31';
-import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=31';
+import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=32';
+import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=32';
 
 /**
  * O mesmo `creditoVencido` do semana.js, de propósito aqui. O semana.js é importado
- * com `?v=31` (as duas funções novas, validadeDoCredito e fimDoMesSeguinte, só existem
+ * com `?v=32` (as duas funções novas, validadeDoCredito e fimDoMesSeguinte, só existem
  * na cópia nova: sem a versão, o GitHub Pages serve .js por 10 minutos e um semana.js
  * antigo em cache com este arquivo novo é um SyntaxError que derruba a Gestão). A
  * cópia local de `creditoVencido` é anterior a isso e fica. @param {any} credito @param {string} hojeIso

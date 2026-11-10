@@ -24,11 +24,11 @@
  * @typedef {{ patch: Record<string, any>, log: EventoFinanceiro | null }} Mudanca
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=31';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=32';
 import {
-  MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, contaDoMes,
-  eventoPagamento, eventoPagamentoDesfeito, eventoLancamento,
-} from './financeiro-aluno.js?v=31';
+  MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, comRecebimento, contaDoMes,
+  eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, MEIOS_DA_BAIXA_MANUAL,
+} from './financeiro-aluno.js?v=32';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 /** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */
@@ -39,27 +39,64 @@ const soMensalidadeDa = (conta) => !conta.dependentes.length && !(conta.propria.
    ============================================================ */
 
 /**
- * DAR BAIXA — a fatura do mês foi paga. O valor que vai para o log é o da
- * fatura agora (com consumos e dependentes), e não o de quando a tela abriu.
+ * @typedef {{ meio: string, data: string, em: number, valor?: number|null, comprovante?: string|null,
+ *   paymentId?: string|null, conferidoPor?: 'coach'|'mercado-pago', origem?: 'gestao'|'pix'|'historico' }} DadosDaBaixa
+ *   meio/data: como e quando o aluno pagou; em: o instante do registro;
+ *   valor: o que entrou (sem ele, o total da conta agora).
+ */
+
+/**
+ * DAR BAIXA — a fatura do mês foi paga. Grava o `true` de sempre em
+ * `pagamentos` e, na MESMA gravação, o registro em `recebimentos` (meio, valor,
+ * data, comprovante, quem conferiu). O valor padrão é o da fatura agora (com
+ * consumos e dependentes), e não o de quando a tela abriu.
  * null: o mês já está pago (um segundo clique não registra outro pagamento).
  * @param {any} a @param {string} mesId @param {any[]} todos todos os alunos
+ * @param {DadosDaBaixa} d
  * @returns {Mudanca | null}
  */
-export function darBaixa(a, mesId, todos) {
+export function darBaixa(a, mesId, todos, d) {
   if (a.pagamentos && a.pagamentos[mesId]) return null;
   const { conta } = contaDoMes(a, mesId, todos);
-  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, true) }, log: eventoPagamento(mesId, conta.total, soMensalidadeDa(conta)) };
+  const valor = d.valor != null && Number.isFinite(Number(d.valor)) ? Math.round(Number(d.valor) * 100) / 100 : conta.total;
+  /** @type {import('./financeiro-aluno.js').Recebimento} */
+  const rec = {
+    valor, data: d.data, meio: d.meio, comprovante: d.comprovante || null,
+    conferidoPor: d.conferidoPor || 'coach', paymentId: d.paymentId || null,
+    registradoEm: d.em, origem: d.origem || 'gestao',
+  };
+  return {
+    patch: { pagamentos: comPagamento(a.pagamentos, mesId, true), recebimentos: comRecebimento(a.recebimentos, mesId, rec) },
+    log: eventoPagamento(mesId, conta.total, soMensalidadeDa(conta), rec),
+  };
 }
 
 /**
- * DESFAZER A BAIXA — a fatura volta a ficar em aberto (também no Portal).
+ * Confere o que o coach preencheu na janela da baixa. '' quando está tudo certo;
+ * senão, o texto do erro, para a janela mostrar.
+ * @param {{ meio: string, valor: number, data: string }} d @param {string} hojeIso
+ */
+export function erroDaBaixa(d, hojeIso) {
+  if (!MEIOS_DA_BAIXA_MANUAL.includes(d.meio)) return 'Escolha o meio de pagamento.';
+  if (!(Number(d.valor) > 0)) return 'Informe o valor recebido, maior que zero.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.data || ''))) return 'Informe a data do pagamento.';
+  if (d.data > hojeIso) return 'A data do pagamento não pode ser no futuro.';
+  return '';
+}
+
+/**
+ * DESFAZER A BAIXA — a fatura volta a ficar em aberto (também no Portal). O
+ * registro do pagamento sai junto; a foto do comprovante fica no Storage.
  * null: o mês não estava pago.
  * @param {any} a @param {string} mesId
  * @returns {Mudanca | null}
  */
 export function desfazerBaixa(a, mesId) {
   if (!(a.pagamentos && a.pagamentos[mesId])) return null;
-  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, false) }, log: eventoPagamentoDesfeito(mesId) };
+  // Só mexe em `recebimentos` quando há o que tirar: a ficha sem o registro
+  // (paga antes da etapa 3) continua gravando o mesmo de sempre.
+  const semRegistro = a.recebimentos && a.recebimentos[mesId] ? { recebimentos: comRecebimento(a.recebimentos, mesId, null) } : {};
+  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, false), ...semRegistro }, log: eventoPagamentoDesfeito(mesId) };
 }
 
 /**

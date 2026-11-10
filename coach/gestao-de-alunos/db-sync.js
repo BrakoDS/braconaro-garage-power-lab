@@ -25,8 +25,8 @@
  * Puro: o Firestore entra pela porta (`db-firestore.js`; nos testes,
  * `db-memoria.js`). O relógio também é injetado.
  */
-import { migrarNuvem, emLotes, SCHEMA_V2 } from './db-migracao.js?v=31';
-import { estadoDeBlobV1, estadoDeSubcolecoes } from './db-cache.js?v=31';
+import { migrarNuvem, emLotes, SCHEMA_V2 } from './db-migracao.js?v=32';
+import { estadoDeBlobV1, estadoDeSubcolecoes } from './db-cache.js?v=32';
 
 const DEBOUNCE_MS = 800;
 const NOVA_TENTATIVA_MS = 30_000;

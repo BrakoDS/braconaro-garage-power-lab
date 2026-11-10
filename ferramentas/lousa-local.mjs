@@ -530,10 +530,11 @@ function gerarHarnessGestao() {
   return html
     .replace(/<link rel="stylesheet" href="\.\/([^"]+)" \/>/g, '<link rel="stylesheet" href="/coach/gestao-de-alunos/$1" />')
     .replace('<link rel="manifest"', importmap + semente + '  <link rel="manifest"')
-    .replace(/<script type="module" src="\.\/app\.js[^"]*"><\/script>/,
-      `<div style="position:fixed;bottom:10px;right:12px;z-index:99;background:#f5c518;color:#0a0a0b;
+    // A entrada da Gestão foi `app.js` e hoje é `main.js?v=N`: aceita as duas.
+    .replace(/<script type="module" src="\.\/(app|main)\.js[^"]*"><\/script>/,
+      (_, entrada) => `<div style="position:fixed;bottom:10px;right:12px;z-index:99;background:#f5c518;color:#0a0a0b;
         font:600 11px system-ui;padding:5px 10px;border-radius:999px">MODO LOCAL · sem nuvem</div>
-      <script type="module" src="/coach/gestao-de-alunos/app.js"></script>`);
+      <script type="module" src="/coach/gestao-de-alunos/${entrada}.js"></script>`);
 }
 
 const GERADOS = {

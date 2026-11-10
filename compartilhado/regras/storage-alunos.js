@@ -44,6 +44,12 @@ export async function enviar(path, blob) {
   return await _fns.getDownloadURL(r);
 }
 
+/** A URL de download de um arquivo que já está no Storage (o comprovante, aberto na hora do clique). */
+export async function urlDe(path) {
+  await init();
+  return await _fns.getDownloadURL(_fns.ref(_st, path));
+}
+
 /** Remove um arquivo (silencioso se não existir). */
 export async function apagar(path) {
   await init();

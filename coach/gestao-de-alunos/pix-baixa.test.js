@@ -17,12 +17,12 @@ globalThis.localStorage = /** @type {any} */ ({
   getItem: (k) => (memoria.has(k) ? memoria.get(k) : null), setItem: (k, v) => memoria.set(k, String(v)), removeItem: (k) => memoria.delete(k),
 });
 
-const db = await import('./db.js?v=31');
-const eventos = await import('./eventos.js?v=31');
-const { reg } = await import('./registro.js?v=31');
-const { planoDoPix, aplicarPixPendentes } = await import('./pix-baixa.js?v=31');
-const { iniciarAutomacao, mensagens } = await import('./automacao.js?v=31');
-const { TIPOS } = await import('./registros-ui.js?v=31');
+const db = await import('./db.js?v=32');
+const eventos = await import('./eventos.js?v=32');
+const { reg } = await import('./registro.js?v=32');
+const { planoDoPix, aplicarPixPendentes } = await import('./pix-baixa.js?v=32');
+const { iniciarAutomacao, mensagens } = await import('./automacao.js?v=32');
+const { TIPOS } = await import('./registros-ui.js?v=32');
 
 const NB = (s) => String(s).replace(/ /g, ' ');
 const OUT = '2026-10', SET = '2026-09';
@@ -43,14 +43,26 @@ const bia = { id: 'Bia', nome: 'Bia', mensalidade: '120', vencimento: '5', pagoP
 const box = [ana, bia];
 
 test('plano: Pix aprovado vira a baixa do darBaixa, com o rastro do Pix e o log "Pagamento via Pix" (recibo na Fila)', () => {
-  const p = planoDoPix(pix('900', 'Ana', OUT, 280, { soMensalidade: false }), ana, box);
+  // Aprovado às 23:30 de 08/10 em São Paulo (02:30 de 09/10 em UTC): o dia do registro é o do box.
+  const aprovadoEm = Date.UTC(2026, 9, 9, 2, 30);
+  const p = planoDoPix(pix('900', 'Ana', OUT, 280, { soMensalidade: false, aprovadoEm }), ana, box);
   assert.equal(p.acao, 'baixa');
   if (p.acao !== 'baixa') return;
-  assert.deepEqual(p.patch, { pagamentos: { [OUT]: true }, pixPagos: { [OUT]: '900' } });
+  assert.deepEqual(p.patch, {
+    pagamentos: { [OUT]: true }, pixPagos: { [OUT]: '900' },
+    recebimentos: { [OUT]: { valor: 280, data: '2026-10-08', meio: 'pix-portal', comprovante: null, conferidoPor: 'mercado-pago', paymentId: '900', registradoEm: aprovadoEm, origem: 'pix' } },
+  });
   assert.equal(p.log.tipo, 'pagamento');
   assert.equal(NB(p.log.resumo), 'Pagamento via Pix (Mercado Pago) · Outubro / 2026 · R$ 280,00');
   assert.deepEqual(p.log.extra, { id: 'pix-900', chave: 'pix:900' }, 'id fixo: rodar de novo regrava a mesma linha');
   assert.deepEqual(p.log.dados, { mesId: OUT, valor: 280, soMensalidade: false }, 'o fato vai para a Fila (recibo)');
+});
+
+test('plano: cobrança antiga, sem aprovadoEm — o registro entra com a data vazia, o resto vale', () => {
+  const p = planoDoPix(pix('905', 'Ana', OUT, 280), ana, box);
+  assert.equal(p.acao, 'baixa');
+  const rec = p.acao === 'baixa' ? p.patch.recebimentos[OUT] : null;
+  assert.deepEqual({ data: rec.data, meio: rec.meio, paymentId: rec.paymentId, valor: rec.valor }, { data: '', meio: 'pix-portal', paymentId: '905', valor: 280 });
 });
 
 test('plano: a conta mudou depois do QR — a baixa entra, e o log diz quanto a conta é agora', () => {

@@ -14,14 +14,15 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=31';
+import * as db from './db.js?v=32';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin } from './financeiro-aluno.js?v=31';
-import { mesDoBox, darBaixa, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=31';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=31';
-import { $, $$ } from './util/dom.js?v=31';
-import { on, EVENTOS } from './estado.js?v=31';
-import { regFinanceiro } from './registro.js?v=31';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=32';
+import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=32';
+import { abrirPagamento } from './ui-tab-financeiro.js?v=32';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=32';
+import { $, $$ } from './util/dom.js?v=32';
+import { on, EVENTOS } from './estado.js?v=32';
+import { regFinanceiro } from './registro.js?v=32';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */
@@ -96,6 +97,9 @@ function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, r
   const aviso = adiante > 0
     ? ` <span class="fin-adiante">· ${brl(adiante)} em consumo já vai para ${esc(rotuloMesFin(destino))}</span>`
     : '';
+  // Quem pagou: como e quando (o registro da etapa 3), na própria linha.
+  const rec = status === 'pago' ? (a.recebimentos || {})[finMes] : null;
+  const recebido = rec ? ` <span class="fin-recebido">· ${esc(textoDoRecebimento(rec))}</span>` : '';
 
   const btn = conta.total === 0
     ? ''
@@ -115,7 +119,7 @@ function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, r
     : '';
   return `<div class="fin-row fin-row-consumo">
       <div class="fin-info"><div class="fin-nome">${esc(a.nome)}${selo}${marca}</div>
-        <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}${custo}${aviso}</div></div>
+        <div class="fin-sub">vence dia ${esc(a.vencimento || '—')} · ${detalhe}${custo}${aviso}${recebido}</div></div>
       <span class="fin-badge ${cortesia ? 'cortesia' : statusExibido}">${rotulo}</span>
       <div class="fin-acoes">
         <button class="btn ghost btn-sm fin-balcao-btn${aberto ? ' on' : ''}" data-id="${esc(a.id)}" type="button">${aberto ? 'Fechar' : '+ Consumo'}</button>
@@ -182,7 +186,9 @@ export function iniciarTelaFinanceiro() {
     if (!btn) return;
     if (btn.classList.contains('fin-toggle')) {
       const mes = finMes;
-      aplicar(btn.dataset.id, (a) => (btn.dataset.op === '1' ? darBaixa(a, mes, db.listar()) : desfazerBaixa(a, mes)));
+      // Marcar pago abre a janela da baixa (meio, valor, data, foto); desfazer continua num clique.
+      if (btn.dataset.op === '1') abrirPagamento(btn.dataset.id, mes, renderFinanceiro);
+      else aplicar(btn.dataset.id, (a) => desfazerBaixa(a, mes));
       return;
     }
     if (btn.classList.contains('fin-balcao-btn')) {

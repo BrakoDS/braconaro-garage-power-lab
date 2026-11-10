@@ -21,7 +21,7 @@
  *
  * Puro: nada de Firebase, nada de storage.
  */
-import { canonico } from './db-migracao.js?v=31';
+import { canonico } from './db-migracao.js?v=32';
 
 /** Campos da ficha que só o servidor escreve: não descem para o cache nem sobem dele. */
 export const FICHA_RESERVADOS = Object.freeze(['atualizadoEm']);
@@ -40,7 +40,7 @@ export const PROFUNDIDADE = 2;
  * fila antiga (sem a lista de campos) só SOMA neles — nunca apaga nem troca o
  * que a nuvem tem (`converterLegada`).
  */
-export const CAMPOS_DO_SERVIDOR = Object.freeze(['pagamentos', 'pixPagos', 'presencas', 'presencaHoras', 'atestados', 'faltas', 'remarcacoes']);
+export const CAMPOS_DO_SERVIDOR = Object.freeze(['pagamentos', 'pixPagos', 'recebimentos', 'presencas', 'presencaHoras', 'atestados', 'faltas', 'remarcacoes']);
 
 /**
  * @typedef {string[]} Caminho  o caminho de um campo: ['telefone'] ou ['pagamentos', '2026-11']
