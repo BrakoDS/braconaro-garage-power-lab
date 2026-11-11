@@ -9,8 +9,8 @@
  * confirmado ou presente — quem desmarcou, faltou ou está de atestado vai para
  * "não vêm", com o motivo.
  */
-import { turmasDoDia, horasDaGrade } from '../../gestao-de-alunos/presenca-regras.js?v=33';
-import { chaveDoDia } from '../../../compartilhado/regras/semana.js?v=33';
+import { turmasDoDia, horasDaGrade } from '../../gestao-de-alunos/presenca-regras.js?v=34';
+import { chaveDoDia } from '../../../compartilhado/regras/semana.js?v=34';
 
 /** Os status de quem vem à aula. */
 export const VEM = new Set(['confirmado', 'presente']);

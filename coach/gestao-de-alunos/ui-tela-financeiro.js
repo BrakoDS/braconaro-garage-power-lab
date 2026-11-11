@@ -14,19 +14,19 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=33';
+import * as db from './db.js?v=34';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=33';
-import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=33';
-import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=33';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=33';
-import { $, $$ } from './util/dom.js?v=33';
-import { estado, on, EVENTOS } from './estado.js?v=33';
-import { regFinanceiro, regDoBox } from './registro.js?v=33';
-import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=33';
-import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=33';
-import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=33';
-import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=33';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=34';
+import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=34';
+import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=34';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=34';
+import { $, $$ } from './util/dom.js?v=34';
+import { estado, on, EVENTOS } from './estado.js?v=34';
+import { regFinanceiro, regDoBox } from './registro.js?v=34';
+import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=34';
+import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=34';
+import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=34';
+import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=34';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */

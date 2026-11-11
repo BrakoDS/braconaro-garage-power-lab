@@ -15,8 +15,8 @@
  * A IA recebe no máximo 8 (o teto da função): as pontas de cada ângulo — o antes
  * e o depois — e, sobrando lugar, o meio do caminho.
  */
-import { esc, fmtN, numf } from './util/formato.js?v=33';
-import { ANGULOS_DIARIO, fotosDoDiarioPorDia } from './registros-ui.js?v=33';
+import { esc, fmtN, numf } from './util/formato.js?v=34';
+import { ANGULOS_DIARIO, fotosDoDiarioPorDia } from './registros-ui.js?v=34';
 
 /** O teto de `analisarEvolucaoFotos` (MAX_FOTOS em evolucao-ia.ts). */
 export const MAX_FOTOS_IA = 8;

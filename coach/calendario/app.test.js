@@ -23,7 +23,7 @@ const el = (/** @type {string} */ s) => (tela[s] ||= elemento(s));
 globalThis.document = /** @type {any} */ ({ querySelector: (/** @type {string} */ s) => el(s), querySelectorAll: () => [], addEventListener() {}, visibilityState: 'visible' });
 globalThis.window = /** @type {any} */ ({});
 
-const db = await import('../gestao-de-alunos/db.js?v=33');
+const db = await import('../gestao-de-alunos/db.js?v=34');
 const { iniciarCalendario } = await import('./app.js');
 
 db.criar({ id: 'A1', nome: 'Ana Lima', diasTreino: ['seg', 'qua'], horarios: { seg: '06:00', qua: '06:00' } });

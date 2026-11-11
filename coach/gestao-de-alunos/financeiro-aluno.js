@@ -25,7 +25,7 @@
  *     ele existe. `recebimentos` não vai para o Portal.
  */
 import { faturaDoMes, faturaComDependentes, mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=33';
+import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=34';
 
 export const MESES_FIN = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 

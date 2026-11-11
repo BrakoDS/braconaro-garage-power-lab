@@ -6,10 +6,10 @@
  * criar ou apagar avaliação). Depois da gravação, e nunca no lugar dela: o log
  * é testemunha da ação, não condição.
  */
-import * as eventos from './eventos.js?v=33';
-import { resumoFicha } from './registros-ui.js?v=33';
-import { emit, EVENTOS } from './estado.js?v=33';
-import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=33';
+import * as eventos from './eventos.js?v=34';
+import { resumoFicha } from './registros-ui.js?v=34';
+import { emit, EVENTOS } from './estado.js?v=34';
+import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=34';
 
 /** Quem executa o que é feito na Gestão (etapa 5). */
 const AUTOR_COACH = Object.freeze({ tipo: 'coach' });

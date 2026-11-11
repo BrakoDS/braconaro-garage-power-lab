@@ -7,8 +7,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=33';
-import { retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=33';
+import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=34';
+import { retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=34';
 
 const OUT = '2026-10', HOJE = '2026-11-10';
 const AGORA = new Date(2026, 10, 10, 12, 0).getTime(); // 10/11 no relógio local

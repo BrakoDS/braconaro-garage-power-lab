@@ -24,18 +24,18 @@
  * registrado (mês e valor), pagamento desfeito, lançamento avulso.
  * As regras (o que é atrasado, em que fatura cai) moram em financeiro-aluno.js.
  */
-import * as db from './db.js?v=33';
-import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=33';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=33';
-import { estado } from './estado.js?v=33';
-import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=33';
+import * as db from './db.js?v=34';
+import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=34';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=34';
+import { estado } from './estado.js?v=34';
+import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=34';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento } from './financeiro-aluno.js?v=33';
-import { darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=33';
-import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=33';
-import { fechamentos } from './fechamentos-db.js?v=33';
-import { regFinanceiro } from './registro.js?v=33';
-import * as storage from '../../compartilhado/regras/storage-alunos.js?v=33';
+import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento } from './financeiro-aluno.js?v=34';
+import { darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=34';
+import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=34';
+import { fechamentos } from './fechamentos-db.js?v=34';
+import { regFinanceiro } from './registro.js?v=34';
+import * as storage from '../../compartilhado/regras/storage-alunos.js?v=34';
 
 /** Rótulo e cor de cada situação. */
 const STATUS = {
