@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback, autorDoEvento } from './eventos.js?v=34';
+import { cortar, resumoFeedback, autorDoEvento } from './eventos.js?v=35';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -35,6 +35,12 @@ export const TIPOS = {
   'ficha-editada': { icone: '✏️', categoria: 'ficha' },
   'avaliacao': { icone: '📏', categoria: 'ficha' },
   'aluno-criado': { icone: '🆕', categoria: 'ficha' },
+  // Cadastro e planos (etapa 6.1, cadastro-regras.js): a pausa e a volta, os
+  // bônus dados por botão e o ajuste das semanas.
+  'pausa': { icone: '⏸️', categoria: 'ficha' },
+  'volta': { icone: '▶️', categoria: 'ficha' },
+  'bonus': { icone: '🎁', categoria: 'financeiro' },
+  'plano': { icone: '📋', categoria: 'financeiro' },
   // Trilha do dinheiro (financeiro-aluno.js monta o texto): quem deu baixa em
   // qual mês, quem desfez, o que foi lançado fora do catálogo.
   'pagamento': { icone: '💰', categoria: 'financeiro' },
@@ -74,6 +80,9 @@ const ROTULO_CAMPO = {
   freqVezes: 'Frequência', foco: 'Foco', mensalidade: 'Mensalidade', vencimento: 'Vencimento',
   pagoPor: 'Pago por', parceria: 'Parceria', appLiberado: 'Acesso ao app', modoLite: 'Modo Lite', id: 'ID',
   anamnese: 'Anamnese', parq: 'PAR-Q', matriz: 'Matriz', matrizIndividualizacao: 'Matriz',
+  plano: 'Plano', fundador: 'Fundador', inicio: 'Início', cortesia: 'Cortesia', parceriaLocal: 'Parceria local',
+  indicadoPor: 'Indicado por', pausas: 'Pausa', dupla: 'Dupla', instagram: 'Instagram', indicacoes: 'Indicações',
+  semanasAjuste: 'Semanas',
 };
 
 /** "Ficha editada · Telefone, Plano" @param {string[]} campos */

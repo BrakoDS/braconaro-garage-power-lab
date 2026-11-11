@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { statusAvaliacao, reavaliacaoNaLista, ehInativo, filtrarOrdenar, htmlAluno, htmlLista, htmlResumo, seloReavaliacao } from './ui-lista.js?v=34';
+import { statusAvaliacao, reavaliacaoNaLista, ehInativo, filtrarOrdenar, htmlAluno, htmlLista, htmlResumo, seloReavaliacao } from './ui-lista.js?v=35';
 
 const HOJE = '2026-10-07';
 const aval = (realizada, proxima) => ({ num: 1, dataRealizada: realizada, dataProxima: proxima });
@@ -99,6 +99,7 @@ test('lista: kcal pelo e-mail normalizado, medalhas pelo ID; vazio com orientaç
 
 test('resumo: chips só quando há atrasada ou a vencer, com o filtro marcado', () => {
   assert.equal(htmlResumo(0, 0, 'todos'), '');
+  assert.match(htmlResumo(0, 0, 'todos', 2), /data-f="pausado"[^>]*>2 pausados/, 'etapa 6.1: o chip dos pausados');
   const h = htmlResumo(2, 1, 'atrasada');
   assert.match(h, /data-f="atrasada" type="button" aria-pressed="true">2 atrasadas/);
   assert.match(h, /1 a vencer/);
@@ -138,4 +139,14 @@ test('inativo: sem anel e sem selo de reavaliação — só o selo "Inativo"', (
   assert.doesNotMatch(h, /reav-atrasada|Reavaliação atrasada|Reavaliar/);
   assert.match(h, /<span class="ac-chip ac-chip-inativo">Inativo<\/span>/);
   assert.doesNotMatch(htmlAluno(lia, { hojeIso: HOJE }), /Reavaliar/);
+});
+
+test('etapa 6.1: o filtro dos pausados e o pausado fora da cobrança de reavaliação', () => {
+  const p = { id: '009', nome: 'Pat', status: 'pausado', avaliacoes: [] };
+  const lista = [ana, p];
+  const r = filtrarOrdenar(lista, { filtroStatus: 'pausado', hojeIso: HOJE });
+  assert.deepEqual(r.alunos.map((a) => a.id), ['009']);
+  assert.equal(r.nPaus, 1);
+  assert.deepEqual(reavaliacaoNaLista(p, HOJE), { tipo: 'inativo' });
+  assert.match(htmlAluno(p, { hojeIso: HOJE }), /ac-chip-pausado">Pausado/);
 });

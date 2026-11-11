@@ -33,7 +33,7 @@ export function fmtN(v, dec = 1) {
 }
 
 /** Situação da matrícula, como o coach lê. */
-export const STATUS_LABEL = { ativo: 'Ativo', inativo: 'Inativo', pendente: 'Pendente' };
+export const STATUS_LABEL = { ativo: 'Ativo', inativo: 'Inativo', pendente: 'Pendente', pausado: 'Pausado' };
 
 /** Número digitado (aceita vírgula), ou null. @param {unknown} v */
 export const numf = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };

@@ -3143,6 +3143,15 @@ async function alunoLogado(db: Firestore, auth: { token?: { email?: unknown } } 
 }
 
 /**
+ * Plano pausado (etapa 6.1): o aluno não está nas turmas, então não avisa
+ * ausência nem marca reposição. O app e o Portal já escondem os botões; isto é
+ * a trava de verdade, para um app antigo ou um pedido de fora.
+ */
+function recusarSePausado(ficha: { status?: unknown }): void {
+  if (ficha.status === 'pausado') throw new HttpsError('failed-precondition', 'Seu plano está pausado. Fale com o coach para voltar.');
+}
+
+/**
  * "Não irei ao treino". A régua é a do coach (presenca.ts): avisou com 2h ou
  * mais, a vaga fica livre e nasce +1 crédito de reposição (30 dias); com menos,
  * é falta, sem crédito.
@@ -3166,6 +3175,7 @@ export const avisarAusencia = onCall(
     const chave = dados.chave;
     const db = getFirestore();
     const { email, coachUid, aluno, ficha } = await alunoLogado(db, req.auth, dados.coachUid);
+    recusarSePausado(ficha);
 
     const ref = db.doc(`avisosAusencia/${email}`);
     const refReservas = db.doc(`reposicoesAluno/${email}`);
@@ -3205,7 +3215,8 @@ async function ocupacaoDasTurmas(
   { avisosDocs, reservasDocs }: { avisosDocs: unknown[]; reservasDocs: unknown[] },
 ) {
   const { meta, fichas } = await todasAsFichas(db, coachUid);
-  const ativas = fichas.filter((f) => f && f.status !== 'inativo');
+  // Pausado (etapa 6.1) não ocupa vaga, como o inativo.
+  const ativas = fichas.filter((f) => f && f.status !== 'inativo' && f.status !== 'pausado');
   const avisos = avisosPorAluno(avisosDocs, coachUid);
   const reservas = reservasPorAluno(reservasDocs, coachUid);
   const feriados = (meta.feriados && typeof meta.feriados === 'object') ? meta.feriados as Record<string, unknown> : {};
@@ -3261,6 +3272,7 @@ export const agendarReposicao = onCall(
     const aula = { data: dados.data, hora: dados.hora };
     const db = getFirestore();
     const { email, coachUid, aluno, ficha } = await alunoLogado(db, req.auth, dados.coachUid);
+    recusarSePausado(ficha);
 
     const ref = db.doc(`reposicoesAluno/${email}`);
     return db.runTransaction(async (tx) => {

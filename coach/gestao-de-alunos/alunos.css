@@ -79,6 +79,8 @@ button{font-family:inherit}
 .status.inativo::before{background:var(--bad)}
 .status.pendente{color:var(--warn);border-color:rgba(255,158,27,.4)}
 .status.pendente::before{background:var(--warn)}
+.status.pausado{color:var(--mut);border-color:rgba(160,160,160,.45)}
+.status.pausado::before{background:var(--mut)}
 
 /* ============================================================
    TELA 1 — Listagem
@@ -101,6 +103,8 @@ button{font-family:inherit}
 .filtro-chip.atrasada.on{background:var(--bad);color:#fff;border-color:var(--bad)}
 .filtro-chip.avencer{color:var(--warn);border-color:rgba(255,158,27,.45)}
 .filtro-chip.avencer.on{background:var(--warn);color:#111;border-color:var(--warn)}
+.filtro-chip.pausado{color:var(--mut);border-color:var(--line-2)}
+.filtro-chip.pausado.on{background:var(--mut);color:#111;border-color:var(--mut)}
 
 
 /* Dias e horários: cada dia é uma coluna com a caixinha em cima e a hora dele
@@ -155,6 +159,7 @@ button{font-family:inherit}
 .ac-chip-med{color:var(--txt);background:var(--bg-3);border-color:var(--line-2)}
 .ac-chip-inativo{color:var(--mut);border-color:var(--line-2)}
 .ac-chip-pendente{color:var(--warn);border-color:rgba(255,158,27,.45)}
+.ac-chip-pausado{color:var(--mut);border-color:var(--line-2);border-style:dashed}
 .ac-seta{font-family:var(--font-cond);font-size:1.6rem;line-height:1;color:var(--mut-2);transition:color .15s ease,transform .15s ease}
 .aluno-card:hover .ac-seta,.aluno-card:focus-visible .ac-seta{color:var(--accent);transform:translateX(2px)}
 /* Inativo fica apagado: continua na lista (busca acha), mas não disputa atenção. */
@@ -1057,6 +1062,17 @@ button{font-family:inherit}
 .fg-venc{color:var(--mut);font-size:.88rem}
 .fg-notas{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:.84rem}
 .fg-notas b{color:var(--txt);font-weight:600}
+/* O plano no card Financeiro (etapa 6.1). */
+.fg-plano-resumo{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.fg-plano-dl .ac-chip{margin:0 4px 4px 0}
+.fg-exp{display:block;color:var(--mut);font-size:.8rem;margin-top:2px}
+.fg-cheia{color:var(--mut);font-size:.82rem;margin-left:6px}
+.fg-plano-botoes{margin-top:8px}
+.dlg-lista{margin:0 0 10px;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.pl-tabela{width:100%;border-collapse:collapse;margin:6px 0 12px;font-size:.9rem}
+.pl-tabela th,.pl-tabela td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+.pl-tabela th[scope=row],.pl-tabela thead th:first-child{text-align:left;font-weight:500}
+.pl-tabela thead th{color:var(--mut);font-weight:600}
 .fg-dinamico{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .fg-situacao{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
 .fg-chip{font-size:.74rem;padding:4px 10px}

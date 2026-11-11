@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emailsQueFaltaram, faltaDaChamada, desfazerFaltaDaChamada, ORIGEM_FALTA } from './chamada-faltas.js';
-import { aplicarCheckinsNaFicha, ORIGENS } from './ugym-merge.js?v=34';
-import { aulasDoDia, reabrirReposicao } from './presenca-regras.js?v=34';
+import { aplicarCheckinsNaFicha, ORIGENS } from './ugym-merge.js?v=35';
+import { aulasDoDia, reabrirReposicao } from './presenca-regras.js?v=35';
 
 const QUI = '2026-11-05'; // quinta
 const ana = (extra = {}) => ({
@@ -71,6 +71,7 @@ test('box fechado nesse dia: nada', () => {
 
 test('ficha inativa, sem ficha e chamada do futuro: nada', () => {
   nada(faltaDaChamada(ana({ status: 'inativo' }), o()), /inativa/);
+  nada(faltaDaChamada(ana({ status: 'pausado' }), o()), /pausada/);
   nada(faltaDaChamada(null, o()), /sem ficha/);
   nada(faltaDaChamada(ana(), o({ hoje: '2026-11-04' })), /ainda não chegou/);
 });

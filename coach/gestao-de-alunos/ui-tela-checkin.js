@@ -11,15 +11,16 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'checkin'), que sempre volta
  * para hoje, e a cada ação ou troca de dia.
  */
-import * as db from './db.js?v=34';
-import * as regras from './checkin-regras.js?v=34';
-import { DIA_EXT } from './checkin-regras.js?v=34';
-import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=34';
-import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js?v=34';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=34';
-import { $ } from './util/dom.js?v=34';
-import { on, EVENTOS } from './estado.js?v=34';
-import { reg } from './registro.js?v=34';
+import * as db from './db.js?v=35';
+import * as regras from './checkin-regras.js?v=35';
+import { DIA_EXT } from './checkin-regras.js?v=35';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=35';
+import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js?v=35';
+import { foraDoTreino } from '../../compartilhado/regras/planos.js';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=35';
+import { $ } from './util/dom.js?v=35';
+import { on, EVENTOS } from './estado.js?v=35';
+import { reg } from './registro.js?v=35';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIA_MIN = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };
@@ -43,7 +44,7 @@ function labelDia(iso) { const d = new Date(iso + 'T00:00:00'); return `${DIAS_S
 
 function renderCheckin() {
   $('#chk-data-lbl').textContent = labelDia(chkData);
-  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  const alunos = db.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado fora do check-in
   const presentes = alunos.filter((a) => (a.presencas || []).includes(chkData)).length;
   const sumidos = regras.quemSumiu(alunos, hoje());
   $('#chk-resumo').innerHTML =

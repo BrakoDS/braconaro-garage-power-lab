@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MAX_FOTOS_IA, escolherParaIA, fotosDoAluno, htmlFotosParaIA, htmlRelatorio, legendaDaFoto, pedidoParaIA,
-} from './evolucao-fotos.js?v=34';
+} from './evolucao-fotos.js?v=35';
 
 const BUCKET = 'https://firebasestorage.googleapis.com/v0/b/projeto-garage-f0a2f.firebasestorage.app/o/';
 const docDiario = (dia, extra = {}) => ({

@@ -14,19 +14,19 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=34';
+import * as db from './db.js?v=35';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=34';
-import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=34';
-import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=34';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=34';
-import { $, $$ } from './util/dom.js?v=34';
-import { estado, on, EVENTOS } from './estado.js?v=34';
-import { regFinanceiro, regDoBox } from './registro.js?v=34';
-import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=34';
-import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=34';
-import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=34';
-import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=34';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=35';
+import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=35';
+import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=35';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=35';
+import { $, $$ } from './util/dom.js?v=35';
+import { estado, on, EVENTOS } from './estado.js?v=35';
+import { regFinanceiro, regDoBox } from './registro.js?v=35';
+import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=35';
+import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=35';
+import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=35';
+import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=35';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */
@@ -88,7 +88,7 @@ function painelProdutos() {
 }
 
 /** Uma linha do mês. @param {import('./financeiro-regras.js').LinhaDoMes} l */
-function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, rotulo, destino, adiante }) {
+function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, rotulo, destino, adiante, investimento }) {
   const partes = [];
   if (conta.propria.mensalidade > 0) partes.push(brl(conta.propria.mensalidade));
   else if (propria.desconto > 0 && !resp) partes.push(brl(0));
@@ -118,8 +118,8 @@ function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, r
   const selo = propria.parceria
     ? `<span class="fin-parceria">${propria.parceria.percentual}%${propria.parceria.nome ? ' · ' + esc(propria.parceria.nome) : ''}</span>`
     : '';
-  const custo = propria.desconto > 0
-    ? ` <span class="fin-investido">· box banca ${brl(propria.desconto)}</span>`
+  const custo = investimento > 0
+    ? ` <span class="fin-investido">· box banca ${brl(investimento)}</span>`
     : '';
   return `<div class="fin-row fin-row-consumo">
       <div class="fin-info"><div class="fin-nome">${esc(a.nome)}${selo}${marca}</div>

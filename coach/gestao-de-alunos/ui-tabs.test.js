@@ -9,13 +9,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './campos-aluno.js?v=34';
-import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=34';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=34';
-import { htmlFatura, htmlFormLancamento, htmlFormPagamento, htmlRecebimento } from './ui-tab-financeiro.js?v=34';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=34';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=34';
-import { EVENTOS } from './estado.js?v=34';
+import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './campos-aluno.js?v=35';
+import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=35';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=35';
+import { htmlFatura, htmlFormLancamento, htmlFormPagamento, htmlRecebimento } from './ui-tab-financeiro.js?v=35';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=35';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=35';
+import { EVENTOS } from './estado.js?v=35';
 
 /* ---------- util/formato.js ---------- */
 
@@ -65,20 +65,22 @@ test('dados: no cadastro o ID é editável', () => {
   assert.match(todosOsCampos({}, { idEditavel: true, todos: [] }), /<input name="id" type="text"/);
 });
 
-test('cadastro curto: só o essencial — ID, nome, telefone, e-mail, nascimento, sexo, status, mensalidade e vencimento', () => {
+test('cadastro curto: só o essencial — ID, nome, telefone, e-mail, nascimento, sexo, status, plano, início, mensalidade e vencimento', () => {
   const h = formCadastroCurtoHTML({ todos: [] });
   const nomes = [...h.matchAll(/name="([a-zA-Z_]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(nomes, ['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'mensalidade', 'vencimento']);
+  assert.deepEqual(nomes, ['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'planoVezes', 'inicio', 'mensalidade', 'vencimento']);
   assert.match(h, /<input name="id" type="text"/, 'o ID é editável (ou vazio para numerar sozinho)');
   assert.match(h, /name="nome" type="text" required/);
   assert.match(h, /<option value="ativo" selected>/, 'novo aluno nasce ativo');
   assert.match(h, /completa na ficha/);
-  assert.deepEqual([...CAMPOS_CADASTRO], ['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'mensalidade', 'vencimento'], 'a idade não: ela sai do nascimento');
+  assert.deepEqual([...CAMPOS_CADASTRO], ['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'plano', 'inicio', 'mensalidade', 'vencimento'], 'a idade não: ela sai do nascimento');
+  assert.match(h, /name="inicio" type="date" value="\d{4}-\d{2}-\d{2}"/, 'o início já vem com hoje');
 });
 
 test('dados: "quem paga" só oferece ativos que não são ele nem têm responsável', () => {
   const dep = { id: 'Dudu', nome: 'Dudu', pagoPor: { id: 'Bia02', escopo: 'tudo' } };
-  const h = todosOsCampos(ana, { todos: [ana, bia, caio, dep] });
+  // Só o select do responsável: o do "indicado por" (etapa 6.1) lista outros alunos.
+  const h = (todosOsCampos(ana, { todos: [ana, bia, caio, dep] }).match(/<select name="pagoPorId">[\s\S]*?<\/select>/) || [''])[0];
   assert.match(h, /<option value="Bia02">Bia<\/option>/);
   assert.doesNotMatch(h, /value="Caio03"/, 'inativo não é responsável');
   assert.doesNotMatch(h, /value="Dudu"/, 'quem já tem responsável não vira responsável (sem corrente)');

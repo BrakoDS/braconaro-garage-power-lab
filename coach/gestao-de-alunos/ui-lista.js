@@ -15,9 +15,9 @@
  * selo — é quase todo mundo, e selo repetido em todo card não informa nada;
  * inativo e pendente ganham, e o card inativo fica apagado.
  */
-import { esc, iniciais, hoje, fmtN, STATUS_LABEL } from './util/formato.js?v=34';
-import { on, emit, EVENTOS } from './estado.js?v=34';
-import { statusAvaliacao, ehInativo, reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=34';
+import { esc, iniciais, hoje, fmtN, STATUS_LABEL } from './util/formato.js?v=35';
+import { on, emit, EVENTOS } from './estado.js?v=35';
+import { statusAvaliacao, ehInativo, reavaliacaoNaLista, seloReavaliacao } from './util/reavaliacao.js?v=35';
 
 // A regra da reavaliação é compartilhada com o perfil; daqui também sai para quem já importava da lista.
 export { statusAvaliacao, ehInativo, reavaliacaoNaLista, seloReavaliacao };
@@ -35,15 +35,18 @@ export { statusAvaliacao, ehInativo, reavaliacaoNaLista, seloReavaliacao };
  */
 export function filtrarOrdenar(todos, { busca = '', filtroStatus = 'todos', hojeIso = hoje() } = {}) {
   let nAtr = 0, nVenc = 0;
+  // Os pausados (etapa 6.1) ganham um chip próprio, para o coach achar quem falta voltar.
+  const pausado = (/** @type {any} */ a) => (a.status || '') === 'pausado';
+  const nPaus = todos.filter(pausado).length;
   const tipo = new Map(todos.map((a) => [a, reavaliacaoNaLista(a, hojeIso).tipo]));
   for (const t of tipo.values()) { if (t === 'atrasada') nAtr++; else if (t === 'avencer') nVenc++; }
   const q = busca.trim().toLowerCase();
   const prio = (a) => { const t = tipo.get(a); return t === 'atrasada' ? 0 : t === 'avencer' ? 1 : t === 'inativo' ? 3 : 2; };
   const alunos = todos
-    .filter((a) => filtroStatus === 'todos' || tipo.get(a) === filtroStatus)
+    .filter((a) => filtroStatus === 'todos' || (filtroStatus === 'pausado' ? pausado(a) : tipo.get(a) === filtroStatus))
     .filter((a) => !q || (a.nome || '').toLowerCase().includes(q) || String(a.id || '').toLowerCase().includes(q))
     .sort((x, y) => prio(x) - prio(y));
-  return { alunos, nAtr, nVenc };
+  return { alunos, nAtr, nVenc, nPaus };
 }
 
 /**
@@ -93,15 +96,17 @@ export function htmlLista(alunos, total, { kcalPorEmail = new Map(), medalhasPor
 }
 
 /**
- * Os chips de filtro por reavaliação. Sem nenhuma atrasada nem a vencer, nada.
- * @param {number} nAtr @param {number} nVenc @param {string} filtroStatus
+ * Os chips de filtro: reavaliação e, desde a etapa 6.1, os pausados. Sem nada
+ * disso, nenhum chip.
+ * @param {number} nAtr @param {number} nVenc @param {string} filtroStatus @param {number} [nPaus]
  */
-export function htmlResumo(nAtr, nVenc, filtroStatus) {
-  if (!nAtr && !nVenc) return '';
+export function htmlResumo(nAtr, nVenc, filtroStatus, nPaus = 0) {
+  if (!nAtr && !nVenc && !nPaus) return '';
   const chip = (f, cls, txt) => `<button class="filtro-chip ${cls}${filtroStatus === f ? ' on' : ''}" data-f="${f}" type="button" aria-pressed="${filtroStatus === f}">${txt}</button>`;
   return chip('todos', '', 'Todos')
     + (nAtr ? chip('atrasada', 'atrasada', `${nAtr} atrasada${nAtr > 1 ? 's' : ''}`) : '')
-    + (nVenc ? chip('avencer', 'avencer', `${nVenc} a vencer`) : '');
+    + (nVenc ? chip('avencer', 'avencer', `${nVenc} a vencer`) : '')
+    + (nPaus ? chip('pausado', 'pausado', `${nPaus} pausado${nPaus > 1 ? 's' : ''}`) : '');
 }
 
 /* ============================================================
@@ -126,7 +131,7 @@ export function renderLista() {
   const todos = deps.listar();
   const r = filtrarOrdenar(todos, { busca, filtroStatus });
   const elResumo = $('#aval-resumo');
-  if (elResumo) elResumo.innerHTML = htmlResumo(r.nAtr, r.nVenc, filtroStatus);
+  if (elResumo) elResumo.innerHTML = htmlResumo(r.nAtr, r.nVenc, filtroStatus, r.nPaus);
   elLista.innerHTML = htmlLista(r.alunos, todos.length, { kcalPorEmail, medalhasPorId });
 }
 

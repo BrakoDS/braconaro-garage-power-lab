@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import {
   resumoDosDias, htmlCardPerfil, htmlCardContato, htmlCardAcesso, htmlAcessoPortal, htmlCardFinanceiro,
   htmlFinanceiroDinamico, faturaParaPagar, htmlAbaGeral, CARDS_EDITAVEIS,
-} from './ui-tab-geral.js?v=34';
-import { botaoEditar, htmlLinhas } from './ui-card.js?v=34';
-import { camposDados, CAMPOS } from './campos-aluno.js?v=34';
+} from './ui-tab-geral.js?v=35';
+import { botaoEditar, htmlLinhas } from './ui-card.js?v=35';
+import { camposDados, CAMPOS } from './campos-aluno.js?v=35';
 
 const HOJE = '2026-10-11';
 const ana = {
@@ -104,7 +104,9 @@ test('financeiro: o plano mostra a ficha COM o rascunho; o dinheiro, a ficha SAL
   assert.match(h, /class="card card-largo" id="card-financeiro"/);
   const ed = htmlCardFinanceiro(vista, ana, [ana], HOJE, { editando: true, faturasAbertas: false });
   assert.match(ed, /<form id="form-geral-plano"/);
-  for (const n of ['mensalidade', 'vencimento', 'parceriaPct', 'parceriaNome', 'pagoPorId', 'pagoPorEscopo']) assert.match(ed, new RegExp(`name="${n}"`), n);
+  for (const n of ['planoVezes', 'fundador', 'inicio', 'mensalidade', 'vencimento', 'cortesia', 'cortesiaMotivo', 'parceriaLocalNome', 'parceriaLocalDesde', 'indicadoPorId', 'indicadoPorMes', 'pagoPorId', 'pagoPorEscopo']) assert.match(ed, new RegExp(`name="${n}"`), n);
+  // Etapa 6.1: a parceria de 10/25/50% saiu (ninguém usava); a de 100% virou a cortesia.
+  assert.doesNotMatch(ed, /name="parceriaPct"/);
   assert.match(ed, /id="ger-fin-dinamico"/, 'em edição, a situação e os botões de dinheiro continuam ali');
 });
 

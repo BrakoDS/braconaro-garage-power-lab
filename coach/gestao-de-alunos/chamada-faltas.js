@@ -28,7 +28,8 @@
  * falta da chamada NÃO apaga a troca de dia (`remarcacoes`) da aula, ao contrário
  * do no-show do coach: sem a troca, o check-in corrigido não acharia a aula.
  */
-import { aulasDoDia, marcarNoShow, noShowReposicao } from './presenca-regras.js?v=34';
+import { aulasDoDia, marcarNoShow, noShowReposicao } from './presenca-regras.js?v=35';
+import { estaPausado } from '../../compartilhado/regras/planos.js';
 
 /** A marca da falta que nasceu na chamada da Lousa. */
 export const ORIGEM_FALTA = 'lousa';
@@ -79,6 +80,8 @@ export function emailsQueFaltaram(chamada) {
 export function faltaDaChamada(a, { dia, hora, em, hoje, agora = '', fechados = [] }) {
   if (!a) return { acao: 'nada', motivo: 'sem ficha' };
   if ((a.status || 'ativo') === 'inativo') return { acao: 'nada', motivo: 'ficha inativa' };
+  // Pausado (etapa 6.1) não está na turma: nada de falta.
+  if (estaPausado(a)) return { acao: 'nada', motivo: 'ficha pausada' };
   if (dia > hoje) return { acao: 'nada', motivo: 'chamada de um dia que ainda não chegou' };
   // Chamada fechada antes da aula começar (hoje): ninguém pode ter faltado ainda.
   if (dia === hoje && agora < hora) return { acao: 'nada', motivo: 'a aula de hoje ainda não começou' };

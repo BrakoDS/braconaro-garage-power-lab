@@ -53,7 +53,7 @@
  */
 import { GRUPOS, GRUPO_LABEL } from './grupos.js';
 import { NIVEIS, NIVEL_LABEL } from './niveis.js';
-import { dataIso, segundaDaSemana } from './semana.js?v=34';
+import { dataIso, segundaDaSemana } from './semana.js?v=35';
 
 /** A chave do campo novo no documento do aluno. */
 export const CAMPO = 'matrizIndividualizacao';

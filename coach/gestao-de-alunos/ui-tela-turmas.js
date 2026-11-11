@@ -12,15 +12,16 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=34';
-import * as regras from './presenca-regras.js?v=34';
-import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=34';
-import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=34';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=34';
-import { $ } from './util/dom.js?v=34';
-import { on, EVENTOS } from './estado.js?v=34';
-import { reg } from './registro.js?v=34';
-import { telaAtual } from './navegacao.js?v=34';
+import * as db from './db.js?v=35';
+import * as regras from './presenca-regras.js?v=35';
+import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=35';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=35';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=35';
+import { $ } from './util/dom.js?v=35';
+import { on, EVENTOS } from './estado.js?v=35';
+import { reg } from './registro.js?v=35';
+import { telaAtual } from './navegacao.js?v=35';
+import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
@@ -62,7 +63,7 @@ const chaveDaLinha = (x) => `${x.aluno.id}|${x.tipo}|${x.chave}`;
 
 /** As turmas do dia, do jeito que a tela usa. */
 function turmasDeHoje() {
-  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  const alunos = db.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado fora das turmas
   return regras.turmasDoDia(alunos, dia, {
     hoje: hoje(), fechados: db.diasFechados(), experimentais: db.experimentaisDoDia(dia),
     config: db.configTurmas(), horasExtras: horasAbertas,
@@ -293,7 +294,7 @@ function painelDesmarcar(x) {
 function painelAdicionar(t) {
   const h = hoje();
   const opcoes = db.listar()
-    .filter((a) => (a.status || 'ativo') !== 'inativo')
+    .filter((a) => !foraDoTreino(a))
     .flatMap((a) => regras.creditosDisponiveis(a, h).map((c) => ({ a, c })))
     .sort((x, y) => String(x.a.nome).localeCompare(String(y.a.nome), 'pt-BR'))
     .map(({ a, c }) => {

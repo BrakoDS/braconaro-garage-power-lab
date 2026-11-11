@@ -25,7 +25,8 @@
  *     ele existe. `recebimentos` não vai para o Portal.
  */
 import { faturaDoMes, faturaComDependentes, mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=34';
+import { mensalidadeDoMes, explicacaoDoValor } from '../../compartilhado/regras/planos.js';
+import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=35';
 
 export const MESES_FIN = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -198,6 +199,21 @@ export function mesesDoHistorico(a, hojeIso, max = 12) {
  */
 
 /**
+ * O porquê do valor da mensalidade, na linha da fatura: "R$ 150,00 − parceria
+ * 50%" (a parceria antiga, como sempre foi) ou "R$ 190,00 · Dupla com Bia: 10%"
+ * (etapa 6.1: os bônus, a cortesia, a pausa e as semanas). '' sem desconto.
+ * @param {any} a @param {string} mesId @param {any} propria a fatura do mês (faturaDoMes)
+ */
+function detalheDaMensalidade(a, mesId, propria) {
+  if (!(propria.desconto > 0)) return '';
+  const m = mensalidadeDoMes(a, mesId);
+  if (m.parceria && m.pctBonus === 0 && m.semanas >= 4 && (m.zero === '' || m.zero === 'cortesia')) {
+    return `${brl(propria.mensalidadeCheia)} − parceria ${m.parceria.percentual}%`;
+  }
+  return `${brl(propria.mensalidadeCheia)} · ${explicacaoDoValor(m).join(' · ')}`;
+}
+
+/**
  * Uma fatura do aluno, pronta para a tela. null quando o mês não tem nada.
  * @param {any} a @param {string} mesId @param {any[]} todos @param {string} hojeIso
  * @returns {Fatura|null}
@@ -209,7 +225,7 @@ export function faturaDoAluno(a, mesId, todos, hojeIso) {
   if (propria.mensalidadeCheia > 0) {
     itens.push({
       tipo: 'mensalidade', descricao: 'Mensalidade', valor: propria.mensalidade,
-      detalhe: propria.desconto > 0 ? `${brl(propria.mensalidadeCheia)} − parceria ${propria.parceria.percentual}%` : '',
+      detalhe: detalheDaMensalidade(a, mesId, propria),
       coberto: !!escopo,
     });
   }

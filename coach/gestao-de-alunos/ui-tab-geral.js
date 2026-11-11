@@ -20,20 +20,21 @@
  * pelo ui-tab-financeiro.js e pelo ui-acoes-aluno.js; a situação e as faturas
  * mostram sempre a ficha SALVA.
  */
-import * as db from './db.js?v=34';
-import { esc, hoje, fmtData } from './util/formato.js?v=34';
-import { $ } from './util/dom.js?v=34';
-import { estado, on, emit, EVENTOS } from './estado.js?v=34';
-import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=34';
-import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=34';
-import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=34';
-import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=34';
-import { brl, resumoDoPlano } from './financeiro-aluno.js?v=34';
-import { historicoComFechamentos } from './fechamento-regras.js?v=34';
-import { fechamentos } from './fechamentos-db.js?v=34';
-import { htmlFatura } from './ui-tab-financeiro.js?v=34';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=34';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=34';
+import * as db from './db.js?v=35';
+import { esc, hoje, fmtData } from './util/formato.js?v=35';
+import { $ } from './util/dom.js?v=35';
+import { estado, on, emit, EVENTOS } from './estado.js?v=35';
+import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=35';
+import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=35';
+import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=35';
+import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=35';
+import { brl, resumoDoPlano } from './financeiro-aluno.js?v=35';
+import { historicoComFechamentos } from './fechamento-regras.js?v=35';
+import { fechamentos } from './fechamentos-db.js?v=35';
+import { htmlFatura } from './ui-tab-financeiro.js?v=35';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=35';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=35';
+import { htmlPlanoResumo, acaoDoPlano } from './ui-plano.js?v=35';
 
 /** Os cards com formulário (os que têm ✎ Editar). */
 export const CARDS_EDITAVEIS = Object.freeze(['contato', 'financeiro', 'acesso']);
@@ -135,7 +136,7 @@ export function htmlCardFinanceiro(v, salvo, todos, hojeIso, { editando, faturas
   let plano;
   if (editando) {
     const c = camposDados(v, { todos });
-    plano = `<form id="form-geral-plano" class="grid-form" novalidate>${c.mensalidade}${c.vencimento}${c.parceriaPct}${c.parceriaNome}${c.pagoPor}${c.pagoPorEscopo}</form>`;
+    plano = `<form id="form-geral-plano" class="grid-form" novalidate>${c.planoVezes}${c.fundador}${c.inicio}${c.mensalidade}${c.vencimento}${c.cortesia}${c.cortesiaMotivo}${c.parceriaLocal}${c.parceriaLocalDesde}${c.indicadoPor}${c.indicadoPorMes}${c.pagoPor}${c.pagoPorEscopo}</form>`;
   } else {
     const r = resumoDoPlano(v, todos, hojeIso);
     const temPlano = r.mensalidadeCheia > 0;
@@ -148,7 +149,8 @@ export function htmlCardFinanceiro(v, salvo, todos, hojeIso, { editando, faturas
         <span class="fg-valor">${temPlano ? `${brl(r.mensalidade)}<small>/mês</small>` : '<span class="fg-sem">Sem mensalidade</span>'}</span>
         <span class="fg-venc">vence dia ${r.vencimento}${r.vencimentoDefinido ? '' : ' (padrão)'}</span>
       </div>
-      ${notas.length ? `<ul class="fg-notas">${notas.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}`;
+      ${notas.length ? `<ul class="fg-notas">${notas.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
+      <div class="fg-plano-resumo" id="ger-plano-resumo">${htmlPlanoResumo(salvo, todos, hojeIso)}</div>`;
   }
   return htmlCard({
     id: 'financeiro',
@@ -249,6 +251,9 @@ function atualizarPartesSalvas() {
   const salvo = salvoAgora(); if (!salvo) return;
   const fin = $('#ger-fin-dinamico');
   if (fin) fin.innerHTML = htmlFinanceiroDinamico(salvo, db.listar(), hoje(), faturasAbertas, fechamentos());
+  // O plano (pausa, bônus, valor do mês) muda com os botões dele, que gravam na hora.
+  const plano = $('#ger-plano-resumo');
+  if (plano) plano.innerHTML = htmlPlanoResumo(salvo, db.listar(), hoje());
   const portal = $('#ger-acesso-portal');
   if (portal) portal.innerHTML = htmlAcessoPortal(salvo);
 }
@@ -265,9 +270,11 @@ export function iniciarTabGeral() {
   on(EVENTOS.FECHAMENTOS_MUDARAM, () => { if ($('#tab-geral')?.classList.contains('active')) atualizarPartesSalvas(); });
 
   $('#tab-geral')?.addEventListener('click', (/** @type {any} */ e) => {
-    const alvo = e.target.closest('[data-card], [data-ir-aba], [data-geral]');
+    const alvo = e.target.closest('[data-card], [data-ir-aba], [data-geral], [data-plano]');
     if (!alvo) return;
-    if (alvo.dataset.card) {
+    if (alvo.dataset.plano) {
+      if (estado.alunoAtual) acaoDoPlano(alvo.dataset.plano, estado.alunoAtual.id);
+    } else if (alvo.dataset.card) {
       const card = alvo.dataset.card;
       if (alvo.dataset.modo === 'editar') editando.add(card); else editando.delete(card);
       redesenharAberta();

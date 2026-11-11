@@ -195,6 +195,7 @@ function chamadaDaLousa(regras: RegrasDaGestao): void {
   ok(plano(ana(), { hora: '18:10' }).acao === 'nada', 'outra turma (sem aula dele nesse horário): nenhuma falta');
   ok(plano(ana(), { fechados: [QUINTA] }).acao === 'nada', 'box fechado nesse dia: nenhuma falta');
   ok(plano(ana({ status: 'inativo' })).acao === 'nada', 'ficha inativa: nenhuma falta');
+  ok(plano(ana({ status: 'pausado' })).acao === 'nada', 'ficha pausada (etapa 6.1): nenhuma falta');
 
   // Quem estava de reposição e não veio: o no-show da reposição (crédito perdido).
   const rep = ana({ diasTreino: ['seg'], horarios: { seg: '18:10' }, atestados: { '2026-11-02': { em: 1, tipo: 'desmarcacao', aula: { data: '2026-11-02', hora: '18:10' }, expira: '2026-11-30', reposicao: { data: QUINTA, hora: '19:10' } } } });
@@ -254,6 +255,7 @@ function fechamentoDoBox(regras: RegrasDaGestao): void {
 
   ok(planoDoCreditoDeFechamento(regras, { ficha: ana({ presencas: ['2026-11-02'] }), dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA }).creditos === 0, 'quem veio de algum jeito no dia fechado: sem crédito');
   ok(planoDoCreditoDeFechamento(regras, { ficha: ana({ presencas: [], status: 'inativo' }), dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA }).creditos === 0, 'ficha inativa: sem crédito');
+  ok(planoDoCreditoDeFechamento(regras, { ficha: ana({ presencas: [], status: 'pausado' }), dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA }).creditos === 0, 'ficha pausada (etapa 6.1): sem crédito');
   ok(planoDoCreditoDeFechamento(regras, { ficha: ana({ presencas: [], atestados: { '2026-11-02': { tipo: 'desmarcacao', expira: '2026-11-30', reposicao: null } } }), dias: ['2026-11-02'], hoje, agora: AGORA_QUINTA }).creditos === 0, 'quem já avisou nesse dia: sem crédito em dobro');
 
   const meta = { feriados: { '2026-11-02': false, '2026-11-15': false, '2026-11-20': true, 'lixo': false } };

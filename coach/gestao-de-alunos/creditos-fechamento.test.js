@@ -24,6 +24,12 @@ test('feriado fechado: +1 crédito só para quem tinha aula e não tem nada no d
   assert.equal(r[0].log.extra.dia, FINADOS);
 });
 
+test('pausado (etapa 6.1) não ganha crédito de feriado', () => {
+  const alunos = base();
+  alunos[0].status = 'pausado';
+  assert.deepEqual(creditosDeFechamento(alunos, [FINADOS], '2026-11-03'), []);
+});
+
 test('idempotente: rodar de novo com o crédito já aplicado não gera nada', () => {
   const alunos = base();
   const r1 = creditosDeFechamento(alunos, [FINADOS], '2026-11-03');
