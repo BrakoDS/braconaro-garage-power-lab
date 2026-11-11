@@ -33,7 +33,7 @@ test('o preço da tabela só existe de jan/2027 em diante', () => {
   assert.equal(precoDaTabela({ ...fundador3x, fundador: false }, '2027-01'), 260);
   assert.equal(precoDaTabela({ plano: { vezes: 2 }, fundador: true }, '2027-01'), 150, '2x Legado');
   assert.equal(precoDaTabela({ plano: { vezes: 2 } }, '2027-01'), null, 'o 2x não existe na regular');
-  assert.equal(precoDaTabela({ plano: { vezes: 4, prazo: 'trimestral' }, fundador: true }, '2027-01'), null, 'o fundador não tem 4x trimestral');
+  assert.equal(precoDaTabela({ plano: { vezes: 4, prazo: 'trimestral' }, fundador: true }, '2027-01'), 220, 'fora de contrato vale sempre o mensal (6.2)');
   assert.equal(precoDaTabela({ mensalidade: '150' }, '2027-01'), null, 'sem plano, sem tabela');
 });
 
@@ -246,4 +246,83 @@ test('a explicação do valor', () => {
   const volta = { ...fundador3x, pausas: [{ desde: '2026-12-20', ate: '2027-01-11' }] };
   assert.deepEqual(explicacaoDoValor(mensalidadeDoMes(volta, '2027-01')), ['3 de 4 semanas (volta em 11/01)']);
   assert.deepEqual(explicacaoDoValor(mensalidadeDoMes({ ...fundador3x, cortesia: {} }, '2027-01')), ['Cortesia: mensalidade zero']);
+});
+
+/* ---------- Etapa 6.2: o contrato e o Day Pass ---------- */
+
+const { precoDoContrato, contratoNoMes, fimDoContrato, diasTrancados } = await import('./planos.js');
+const tri = { id: 'c1', prazo: 'trimestral', vezes: 3, inicio: '2027-01', valorMensal: 180, pctBonus: 0, total: 540 };
+
+test('o preço do contrato: tabela do prazo, bônus do dia (sem Instagram) e teto', () => {
+  assert.deepEqual(precoDoContrato(fundador3x, 'trimestral', '2027-01'), { valorMensal: 180, pctBonus: 0, total: 540 });
+  assert.deepEqual(precoDoContrato({ ...fundador3x, dupla: { id: 'B' }, instagram: ['2026-12'] }, 'trimestral', '2027-01'), { valorMensal: 180, pctBonus: 10, total: 486 });
+  assert.deepEqual(precoDoContrato({ plano: { vezes: 4 }, fundador: false }, 'semestral', '2027-01'), { valorMensal: 270, pctBonus: 0, total: 1620 });
+  assert.equal(precoDoContrato({ plano: { vezes: 4 }, fundador: true }, 'trimestral', '2027-01'), null, 'o fundador não tem 4x trimestral');
+  assert.equal(precoDoContrato(fundador3x, 'trimestral', '2026-12'), null, 'contrato só a partir de jan/2027');
+});
+
+test('o contrato no valor: 1º mês o total, depois coberto, e o mês seguinte volta ao mensal', () => {
+  const a = { ...fundador3x, contratos: [tri] };
+  const jan = mensalidadeDoMes(a, '2027-01');
+  assert.deepEqual([jan.valor, jan.cheia, jan.origem, jan.contrato.papel], [540, 540, 'contrato', 'inicio']);
+  const fev = mensalidadeDoMes(a, '2027-02');
+  assert.deepEqual([fev.valor, fev.zero, fev.investimento], [0, 'contrato', 0]);
+  assert.equal(mensalidadeDoMes(a, '2027-03').zero, 'contrato');
+  assert.equal(mensalidadeDoMes(a, '2027-04').valor, 190, 'até você decidir, o mês seguinte é o mensal');
+  assert.equal(fimDoContrato(tri), '2027-03');
+});
+
+test('o contrato com bônus: o desconto é investimento do box', () => {
+  const c = { ...tri, pctBonus: 10, total: 486 };
+  const m = mensalidadeDoMes({ ...fundador3x, contratos: [c] }, '2027-01');
+  assert.deepEqual([m.valor, m.desconto, m.investimento], [486, 54, 54]);
+  assert.deepEqual(m.bonus, [{ tipo: 'contrato', rotulo: 'Bônus do contrato', pct: 10 }]);
+});
+
+test('trancamento: estica o contrato e o mês seguinte cobra só as semanas que sobram', () => {
+  const a = { ...fundador3x, contratos: [tri], pausas: [{ desde: '2027-02-01', ate: '2027-02-16', contrato: 'c1' }] };
+  assert.equal(diasTrancados(a, tri), 15);
+  assert.deepEqual(contratoNoMes(a, '2027-04'), { c: tri, papel: 'extensao', voltaEm: '2027-04-16' });
+  const abr = mensalidadeDoMes(a, '2027-04');
+  // Abril/2027: depois de 16/04 (sexta), as segundas 19 e 26.
+  assert.deepEqual([abr.valor, abr.semanas, abr.porque], [95, 2, 'contrato']);
+  assert.deepEqual(explicacaoDoValor(abr), ['2 de 4 semanas (o contrato cobriu até 15/04)']);
+});
+
+test('trancamento: cada período vale até 15 dias, e o trimestral só tem 1', () => {
+  const longo = { ...fundador3x, contratos: [tri], pausas: [{ desde: '2027-02-01', ate: '2027-02-21', contrato: 'c1' }] };
+  assert.equal(diasTrancados(longo, tri), 15, '20 dias trancados: só 15 esticam');
+  const dois = { ...fundador3x, contratos: [tri], pausas: [{ desde: '2027-02-01', ate: '2027-02-06', contrato: 'c1' }, { desde: '2027-03-01', ate: '2027-03-06', contrato: 'c1' }] };
+  assert.equal(diasTrancados(dois, tri), 5, 'o trimestral só tem um período');
+  const sem = { id: 's1', prazo: 'semestral', vezes: 3, inicio: '2027-03', valorMensal: 170, pctBonus: 0, total: 1020 };
+  const a = { ...fundador3x, contratos: [sem], pausas: [{ desde: '2027-04-01', ate: '2027-04-16', contrato: 's1' }, { desde: '2027-06-01', ate: '2027-06-16', contrato: 's1' }] };
+  assert.equal(diasTrancados(a, sem), 30);
+  // Fim em ago/2027 + 30 dias: setembro inteiro coberto, outubro volta ao mensal.
+  assert.equal(mensalidadeDoMes(a, '2027-09').zero, 'contrato');
+  assert.equal(mensalidadeDoMes(a, '2027-10').valor, 190);
+});
+
+test('saída antes do fim: os meses depois do último não são cobertos', () => {
+  const c = { ...tri, saida: { ultimoMes: '2027-01' } };
+  const a = { ...fundador3x, contratos: [c] };
+  assert.equal(fimDoContrato(c), '2027-01');
+  assert.equal(mensalidadeDoMes(a, '2027-02').zero, '');
+});
+
+test('Day Pass: abate na 1ª mensalidade se o início foi até 7 dias depois', () => {
+  const novo = { plano: { vezes: 3 }, fundador: false, inicio: '2027-01-11', dayPass: { dia: '2027-01-06', valor: 50 } };
+  const jan = mensalidadeDoMes(novo, '2027-01');
+  // 260 × 3/4 (começou na segunda 11) = 195, menos o Day Pass.
+  assert.deepEqual([jan.valor, jan.dayPass, jan.investimento], [145, 50, 0]);
+  assert.match(explicacaoDoValor(jan).join(' | '), /Day Pass abatido: R\$ 50,00/);
+  assert.equal(mensalidadeDoMes(novo, '2027-02').dayPass, 0, 'só na 1ª');
+  assert.equal(mensalidadeDoMes({ ...novo, dayPass: { dia: '2027-01-02', valor: 50 } }, '2027-01').dayPass, 0, '9 dias depois: não abate');
+  const comContrato = { ...novo, inicio: '2027-02-01', dayPass: { dia: '2027-01-28', valor: 50 }, contratos: [{ ...tri, inicio: '2027-02', valorMensal: 240, total: 720 }] };
+  assert.equal(mensalidadeDoMes(comContrato, '2027-02').valor, 670, 'abate também do contrato');
+});
+
+test('o contrato coberto explica o porquê', () => {
+  const a = { ...fundador3x, contratos: [tri] };
+  assert.deepEqual(explicacaoDoValor(mensalidadeDoMes(a, '2027-02')), ['Coberto pelo contrato trimestral (jan/2027 a mar/2027)']);
+  assert.deepEqual(explicacaoDoValor(mensalidadeDoMes(a, '2027-01')), ['Contrato trimestral: jan/2027 a mar/2027, pago de uma vez']);
 });
