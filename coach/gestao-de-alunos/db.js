@@ -268,6 +268,28 @@ export function experimentaisDoDia(iso) {
   return (m && typeof m === 'object' && Array.isArray(m[iso])) ? m[iso] : [];
 }
 
+/** Todas as listas do dia guardadas (aula experimental e Day Pass), dia → lista. */
+export function experimentaisDoBox() {
+  const m = cache.meta().experimentais;
+  return (m && typeof m === 'object') ? /** @type {Record<string, any[]>} */ (m) : {};
+}
+
+/**
+ * Os CPFs que já fizeram aula experimental (etapa 6.2): código embaralhado →
+ * dia. Nunca o número (avulsos-regras.js).
+ * @returns {Record<string, string>}
+ */
+export function cpfsExperimentais() {
+  const m = cache.meta().cpfsExperimentais;
+  return (m && typeof m === 'object') ? m : {};
+}
+
+/** Guarda o código do CPF de uma aula experimental marcada. @param {Record<string, string>} registro */
+export function salvarCpfsExperimentais(registro) {
+  cache.gravarMeta({ cpfsExperimentais: registro });
+  gravou();
+}
+
 /**
  * Grava a lista de experimentais de um dia. `podar` tira os dias antigos (o
  * meta tem teto de 1 MB) — presenca-regras.js decide quais.

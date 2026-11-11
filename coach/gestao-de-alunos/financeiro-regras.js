@@ -180,7 +180,7 @@ export function mesDoBox(todos, mesId, hojeIso) {
     const plano = mensalidadeDoMes(a, mesId);
     const cortesia = !resp && conta.total === 0 && propria.desconto > 0;
     // Zerado pela pausa (etapa 6.1) não é cortesia: o selo diz o motivo certo.
-    const rotulo = cortesia ? (plano.zero === 'pausado' ? 'Pausado' : 'Cortesia') : statusExibido === 'pago' ? 'Pago' : statusExibido === 'vencido' ? 'Vencido' : 'Pendente';
+    const rotulo = cortesia ? (plano.zero === 'pausado' ? 'Pausado' : plano.zero === 'contrato' ? 'Contrato' : 'Cortesia') : statusExibido === 'pago' ? 'Pago' : statusExibido === 'vencido' ? 'Vencido' : 'Pendente';
     // Consumo lançado numa fatura à frente não aparece na linha do mês em tela;
     // sem o aviso, o dinheiro fica invisível até alguém navegar de mês.
     const destino = mesIdParaLancar(hojeIso, a.vencimento, a.pagamentos);

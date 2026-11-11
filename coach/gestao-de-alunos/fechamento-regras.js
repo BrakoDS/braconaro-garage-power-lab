@@ -133,15 +133,24 @@ export function divergenciasDoRetrato(linhas) {
 /**
  * O retrato do mês — a prévia que a tela mostra antes da aprovação.
  * @param {any[]} todos @param {string} mesId @param {string} hojeIso
+ * @param {{ avulsos: { itens: any[], total: number }, devolucoes: { itens: any[], total: number } } | null} [extras]
+ *   os avulsos (Day Pass) e as devoluções do mês (avulsos-regras.js), etapa 6.2
  * @returns {Retrato}
  */
-export function retratoDoMes(todos, mesId, hojeIso) {
+export function retratoDoMes(todos, mesId, hojeIso, extras = null) {
   /** @type {Record<string, LinhaDoRetrato>} */ const linhas = {};
   for (const a of todos) {
     const l = linhaDoRetrato(a, mesId, todos, hojeIso);
     if (l) linhas[String(a.id)] = l;
   }
-  return { mesId, linhas, totais: totaisDoRetrato(linhas), divergencias: divergenciasDoRetrato(linhas) };
+  const retrato = { mesId, linhas, totais: totaisDoRetrato(linhas), divergencias: divergenciasDoRetrato(linhas) };
+  // Etapa 6.2: o Day Pass pago (avulsos) e as devoluções de contrato do mês, fora das linhas dos alunos.
+  if (!extras) return retrato;
+  return {
+    ...retrato,
+    avulsos: extras.avulsos.itens, devolucoes: extras.devolucoes.itens,
+    totais: { ...retrato.totais, avulsos: extras.avulsos.total, devolucoes: extras.devolucoes.total },
+  };
 }
 
 /**

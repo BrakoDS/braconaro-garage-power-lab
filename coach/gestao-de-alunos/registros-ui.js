@@ -41,6 +41,9 @@ export const TIPOS = {
   'volta': { icone: '▶️', categoria: 'ficha' },
   'bonus': { icone: '🎁', categoria: 'financeiro' },
   'plano': { icone: '📋', categoria: 'financeiro' },
+  // Contratos trimestral e semestral (etapa 6.2, contratos-regras.js).
+  'contrato': { icone: '📝', categoria: 'financeiro' },
+  'devolucao': { icone: '💸', categoria: 'financeiro' },
   // Trilha do dinheiro (financeiro-aluno.js monta o texto): quem deu baixa em
   // qual mês, quem desfez, o que foi lançado fora do catálogo.
   'pagamento': { icone: '💰', categoria: 'financeiro' },
@@ -82,7 +85,7 @@ const ROTULO_CAMPO = {
   anamnese: 'Anamnese', parq: 'PAR-Q', matriz: 'Matriz', matrizIndividualizacao: 'Matriz',
   plano: 'Plano', fundador: 'Fundador', inicio: 'Início', cortesia: 'Cortesia', parceriaLocal: 'Parceria local',
   indicadoPor: 'Indicado por', pausas: 'Pausa', dupla: 'Dupla', instagram: 'Instagram', indicacoes: 'Indicações',
-  semanasAjuste: 'Semanas',
+  semanasAjuste: 'Semanas', contratos: 'Contratos', dayPass: 'Day Pass',
 };
 
 /** "Ficha editada · Telefone, Plano" @param {string[]} campos */
