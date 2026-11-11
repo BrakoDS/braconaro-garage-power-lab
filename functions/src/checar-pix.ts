@@ -59,8 +59,11 @@ async function conta(): Promise<void> {
   const portal = await js('coach/gestao-de-alunos/portal-sync.js');
   const r = mulberry32(2026);
   const pick = <T>(l: T[]): T => l[Math.floor(r() * l.length)];
-  const MESES = ['2026-09', '2026-10', '2026-11'];
-  let casos = 0, divergencias = 0, comDependente = 0, comParceria = 0, comConsumo = 0, mesesComparados = 0, primeira = '';
+  // Até a etapa 6.1 bastavam 3 meses; agora o valor muda em dez/2026 (semanas)
+  // e em jan/2027 (tabelas e bônus), então a amostra atravessa a virada.
+  const MESES = ['2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03'];
+  const DIAS = ['2026-11-20', '2026-12-01', '2026-12-15', '2026-12-31', '2027-01-04', '2027-01-19', '2027-02-01', '2027-02-10', '2027-03-15', '2027-03-31'];
+  let casos = 0, divergencias = 0, comDependente = 0, comParceria = 0, comConsumo = 0, comPlano = 0, mesesComparados = 0, primeira = '';
   for (let i = 0; i < 3000; i++) {
     const n = 1 + Math.floor(r() * 6);
     const todos: Ficha[] = Array.from({ length: n }, (_, k) => {
@@ -69,6 +72,26 @@ async function conta(): Promise<void> {
       if (r() < 0.3) f.parceria = { nome: 'P', percentual: pick([10, 25, 50, 100, '50', 0]) };
       if (r() < 0.15) f.status = 'inativo';
       if (r() < 0.3) f.pagamentos = { [pick(MESES)]: true };
+      // Etapa 6.1: plano, tabela, início, cortesia, pausa, bônus e semanas.
+      if (r() < 0.6) {
+        f.plano = { vezes: pick([2, 3, 4, 'ilimitado', '3', 5]), prazo: pick(['mensal', 'mensal', 'trimestral', 'semestral']) };
+        if (r() < 0.7) f.fundador = pick([true, true, false, 'sim']);
+      }
+      if (r() < 0.4) f.inicio = pick(DIAS);
+      if (r() < 0.1) f.cortesia = { motivo: 'X' };
+      if (r() < 0.25) {
+        const desde = pick(DIAS);
+        const ate = pick([...DIAS, '', '']);
+        f.pausas = [ate && ate > desde ? { desde, ate } : { desde }];
+      }
+      if (r() < 0.2) f.dupla = { id: 'Z', nome: 'Zé' };
+      if (r() < 0.2) f.instagram = [pick(MESES)];
+      if (r() < 0.15) f.parceriaLocal = { nome: 'Loja', desde: pick(MESES) };
+      if (r() < 0.15) f.indicadoPor = { id: 'Y', nome: 'Yara', mes: pick(MESES) };
+      if (r() < 0.1) f.indicacoes = [{ mes: pick(MESES), id: 'W', nome: 'W' }];
+      if (r() < 0.1) f.semanasAjuste = { [pick(MESES)]: pick([0, 1, 2, 3, 4, 9, '']) };
+      if (r() < 0.4) f.presencas = Array.from({ length: Math.floor(r() * 6) }, () => pick(DIAS));
+      if (r() < 0.3) f.freqVezes = pick(['2', '3', '4', '']);
       f.consumos = Array.from({ length: Math.floor(r() * 4) }, (_, j) => ({ id: 'c' + j, nome: pick(['Gel', 'Água']), preco: pick([9.99, 5, '10', 60, 0]), data: `2026-10-0${1 + j}`, mesId: pick(MESES) }));
       return f;
     });
@@ -83,6 +106,7 @@ async function conta(): Promise<void> {
         if (!igual(obtido, esperado)) { divergencias++; primeira ||= `${JSON.stringify(f)} ${mesId}: ${JSON.stringify(obtido)} ≠ ${JSON.stringify(esperado)}`; }
         if (b.conta.dependentes.length) comDependente++;
         if (f.parceria) comParceria++;
+        if (f.plano) comPlano++;
         if (b.conta.propria.extras > 0) comConsumo++;
       }
       // O mês que o aluno paga: o porte × o Portal, onde os dois veem o mesmo box
@@ -101,8 +125,8 @@ async function conta(): Promise<void> {
     }
   }
   ok(divergencias === 0, `${casos} contas e ${mesesComparados} meses de cobrança idênticos ao código da Gestão e do Portal`, primeira);
-  ok(comDependente > 500 && comParceria > 1000 && comConsumo > 1000 && mesesComparados > 500,
-    `cobertura: ${comDependente} com dependente, ${comParceria} com parceria, ${comConsumo} com consumo`);
+  ok(comDependente > 500 && comParceria > 1000 && comConsumo > 1000 && comPlano > 5000 && mesesComparados > 500,
+    `cobertura: ${comDependente} com dependente, ${comParceria} com parceria, ${comConsumo} com consumo, ${comPlano} com plano`);
   ok(diaSaoPaulo(new Date('2026-10-10T02:30:00Z')) === '2026-10-09', 'o dia é o de São Paulo (02:30 UTC ainda é dia 9 lá)');
 }
 

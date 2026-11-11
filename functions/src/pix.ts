@@ -18,6 +18,7 @@
  * quanto sai daqui.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { mensalidadeDoMes } from './planos';
 
 /* ================================================================== *
  * A conta do mês (porte de consumo.js + financeiro-aluno.js)
@@ -35,13 +36,26 @@ export interface Ficha {
   pagoPor?: { id?: string; escopo?: string } | null;
   pagamentos?: Record<string, unknown>;
   consumos?: Consumo[];
+  // O plano e o cadastro (etapa 6.1): o valor de cada mês sai daí (planos.ts).
+  plano?: { vezes?: unknown; prazo?: unknown } | null;
+  fundador?: unknown;
+  inicio?: unknown;
+  cortesia?: unknown;
+  pausas?: unknown[];
+  dupla?: unknown;
+  instagram?: unknown[];
+  parceriaLocal?: unknown;
+  indicadoPor?: unknown;
+  indicacoes?: unknown[];
+  semanasAjuste?: Record<string, unknown>;
+  presencas?: unknown[];
+  freqVezes?: unknown;
 }
 
 interface Parte { mensalidade: number; consumos: Consumo[]; extras: number; total: number }
 
 /** Arredonda para centavos — 171 × 25% dá 42,75 e não 42,749999. */
 const centavos = (v: number): number => Math.round(v * 100) / 100;
-const dinheiro = (v: unknown): number => Number(String(v ?? '').replace(',', '.')) || 0;
 
 function consumosDoMes(consumos: Consumo[] | undefined, mesId: string): Consumo[] {
   return (consumos || []).filter((c) => c && c.mesId === mesId)
@@ -49,10 +63,9 @@ function consumosDoMes(consumos: Consumo[] | undefined, mesId: string): Consumo[
 }
 
 function faturaDoMes(a: Ficha, mesId: string): Parte {
-  const cheia = dinheiro(a?.mensalidade);
-  const pct = Number(a?.parceria?.percentual) || 0;
-  const desconto = pct ? Math.min(centavos(cheia * pct / 100), cheia) : 0;
-  const mensalidade = centavos(cheia - desconto);
+  // A mensalidade do mês: a tabela de 2027, a parceria antiga, os bônus, a
+  // cortesia, a pausa e a regra das semanas (planos.ts, porte de planos.js).
+  const mensalidade = mensalidadeDoMes(a, mesId).valor;
   const consumos = consumosDoMes(a?.consumos, mesId);
   const extras = centavos(consumos.reduce((s, c) => s + (Number(c.preco) || 0), 0));
   return { mensalidade, consumos, extras, total: centavos(mensalidade + extras) };
