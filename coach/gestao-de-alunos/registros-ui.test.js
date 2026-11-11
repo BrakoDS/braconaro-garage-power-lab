@@ -10,8 +10,40 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   agruparPorDia, anexarFotosDoDiario, filtrarEventos, fotosDoDiarioPorDia, historicoDasFichas, juntarEventos,
-  linhaDoTempoDoAluno, linhaHTML, rotuloDia,
+  linhaDoTempoDoAluno, linhaHTML, rotuloDia, rastroHTML,
 } from './registros-ui.js?v=33';
+
+/* ---------- quem fez, quem pediu, quem aprovou, por quê (etapa 5) ---------- */
+
+test('filtro por quem fez: o autor gravado ou o deduzido pela origem (as linhas antigas)', () => {
+  const evs = [
+    { id: '1', tipo: 'presenca', origem: 'gestao', em: 1 },
+    { id: '2', tipo: 'presenca', origem: 'servidor', em: 2 },
+    { id: '3', tipo: 'feedback', origem: 'app', em: 3 },
+    { id: '4', tipo: 'desmarcacao', origem: 'servidor', autor: { tipo: 'rotina' }, proposta: { por: { tipo: 'aluno' }, via: 'app' }, em: 4 },
+  ];
+  assert.deepEqual(filtrarEventos(evs, { autor: 'coach' }).map((e) => e.id), ['1']);
+  assert.deepEqual(filtrarEventos(evs, { autor: 'rotina' }).map((e) => e.id), ['2', '4']);
+  assert.deepEqual(filtrarEventos(evs, { autor: 'aluno' }).map((e) => e.id), ['3']);
+  assert.equal(filtrarEventos(evs, {}).length, 4, 'sem filtro: todas');
+});
+
+test('a linha mostra o selo de quem fez e o rastro: quem pediu (e por onde), quem aprovou e o motivo', () => {
+  const pedido = linhaHTML({ id: 'a', tipo: 'desmarcacao', origem: 'servidor', em: 1, resumo: 'Desmarcou', autor: { tipo: 'rotina' }, proposta: { por: { tipo: 'aluno' }, via: 'app' } });
+  assert.match(pedido, /class="reg-autor reg-autor--rotina">Rotina</);
+  assert.match(pedido, /Pedido pelo aluno pelo app/);
+  const enviado = rastroHTML({ proposta: { por: { tipo: 'rotina' }, via: 'fila' }, aprovacao: { por: { tipo: 'coach' }, em: 2, decisao: 'aprovada' } });
+  assert.equal(enviado, '<span class="reg-rastro">Proposto pela rotina pela Fila de mensagens · aprovado pelo coach</span>');
+  const desfeito = linhaHTML({ id: 'b', tipo: 'pagamento-desfeito', origem: 'gestao', em: 1, resumo: 'Pagamento desfeito', autor: { tipo: 'coach' }, motivo: 'Pix <devolvido>' });
+  assert.match(desfeito, /reg-autor--coach">Coach</);
+  assert.match(desfeito, /<span class="reg-motivo">Motivo: Pix &lt;devolvido&gt;<\/span>/);
+  const descartada = linhaHTML({ id: 'c', tipo: 'mensagem-descartada', origem: 'gestao', em: 1, resumo: 'Sugestão descartada', situacao: 'recusada', proposta: { por: { tipo: 'rotina' }, via: 'fila' }, aprovacao: { por: { tipo: 'coach' }, em: 2, decisao: 'recusada' } });
+  assert.match(descartada, /reg-row reg-recusada/);
+  assert.match(descartada, /Proposto pela rotina pela Fila de mensagens · recusado pelo coach/);
+  const antiga = linhaHTML({ id: 'd', tipo: 'presenca', origem: 'gestao', em: 1, resumo: 'Check-in' });
+  assert.match(antiga, /reg-autor--coach">Coach</, 'linha antiga: o autor deduzido pela origem');
+  assert.ok(!antiga.includes('reg-rastro') && !antiga.includes('reg-motivo'), 'e sem rastro');
+});
 
 /** ms de um horário LOCAL — é assim que a tela lê as datas. */
 const local = (iso, hh = 0, mm = 0) => {

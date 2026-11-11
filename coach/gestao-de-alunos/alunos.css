@@ -884,6 +884,13 @@ button{font-family:inherit}
 .reg-origem--portal{color:#58a6ff;border-color:rgba(88,166,255,.45)}
 .reg-origem--gestao{color:var(--ok);border-color:rgba(63,185,80,.45)}
 .reg-fila{color:var(--warn);border-color:rgba(255,158,27,.45)}
+/* Quem fez, quem pediu, quem aprovou e o motivo (etapa 5) */
+.reg-autor{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.66rem;
+  padding:3px 8px;border:1px solid var(--line-2);color:var(--txt);white-space:nowrap;background:var(--card)}
+.reg-autor--rotina{color:#a5d6ff} .reg-autor--aluno{color:var(--accent)} .reg-autor--agente{color:#d2a8ff}
+.reg-rastro{display:block;color:var(--mut);font-size:.8rem}
+.reg-motivo{display:block;color:var(--txt);font-size:.82rem}
+.reg-recusada .reg-res{text-decoration:line-through;text-decoration-color:var(--mut-2)}
 .reg-derivado{opacity:.78}
 .reg-aviso{color:var(--mut);font-size:.82rem}
 /* Foto do Diário: miniatura 3:4 (a proporção do diário) que abre em tela cheia */

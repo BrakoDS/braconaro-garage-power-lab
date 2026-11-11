@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback } from './eventos.js?v=33';
+import { cortar, resumoFeedback, autorDoEvento } from './eventos.js?v=33';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -47,6 +47,8 @@ export const TIPOS = {
   'fechamento': { icone: '🔒', categoria: 'financeiro' },
   // O WhatsApp que o coach abriu pela Fila de mensagens (automacao.js).
   'mensagem-enviada': { icone: '📤', categoria: 'mensagem' },
+  // A sugestão da Fila que o coach descartou (etapa 5): proposta e recusada.
+  'mensagem-descartada': { icone: '🗑️', categoria: 'mensagem' },
 };
 
 export const CATEGORIAS = [
@@ -54,6 +56,12 @@ export const CATEGORIAS = [
 ];
 
 export const ORIGEM_ROTULO = { app: 'App', portal: 'Portal do aluno', gestao: 'Gestão', servidor: 'Automático', aluno: 'Aluno' };
+
+/** Quem fez (etapa 5): o autor gravado ou, nas linhas antigas, o deduzido pela origem (`autorDoEvento`). */
+export const AUTOR_ROTULO = { coach: 'Coach', aluno: 'Aluno', rotina: 'Rotina', agente: 'Agente' };
+
+/** Os filtros de quem fez. */
+export const FILTROS_AUTOR = [['todos', 'Todos'], ['coach', 'Coach'], ['aluno', 'Aluno'], ['rotina', 'Rotina'], ['agente', 'Agente']];
 
 /** Os filtros de origem: 'aluno' (caixa antiga) só aparece em "Todas". */
 export const FILTROS_ORIGEM = [['todas', 'Todas'], ['app', 'App'], ['portal', 'Portal do aluno'], ['gestao', 'Gestão'], ['servidor', 'Automático']];
@@ -195,11 +203,13 @@ export function linhaDoTempoDoAluno(gravados, aluno, { categoria, origem } = {})
  * @param {any[]} evs
  * @param {{ categoria?: string, origem?: string, alunoId?: string }} f
  */
-export function filtrarEventos(evs, { categoria = 'todos', origem = 'todas', alunoId = '' } = {}) {
+export function filtrarEventos(evs, { categoria = 'todos', origem = 'todas', alunoId = '', autor = 'todos' } = {}) {
   return lista(evs).filter((e) => {
     if (categoria !== 'todos' && (TIPOS[e.tipo] || {}).categoria !== categoria) return false;
     if (origem !== 'todas' && e.origem !== origem) return false;
     if (alunoId && e.alunoId !== alunoId) return false;
+    // Quem fez (etapa 5): o autor gravado ou o deduzido pela origem.
+    if (autor !== 'todos' && autorDoEvento(e) !== autor) return false;
     return true;
   });
 }
@@ -308,9 +318,37 @@ export function linhaHTML(ev) {
     : '';
   const aviso = AVISO_FOTO[ev.fotoEstado] ? `<span class="reg-aviso">${AVISO_FOTO[ev.fotoEstado]}</span>` : '';
   const angulo = ev.foto && Object.hasOwn(ANGULOS_DIARIO, ev.foto.angulo) ? ` · ${ANGULOS_DIARIO[ev.foto.angulo]}` : '';
-  return `<div class="reg-row${ev.derivado ? ' reg-derivado' : ''}${foto ? ' reg-row--foto' : ''}">
+  // Quem fez (etapa 5): o autor gravado ou, nas linhas antigas, o deduzido pela origem.
+  const autor = autorDoEvento(ev);
+  const seloAutor = autor ? `<span class="reg-autor reg-autor--${autor}">${AUTOR_ROTULO[autor]}</span>` : '';
+  return `<div class="reg-row${ev.derivado ? ' reg-derivado' : ''}${foto ? ' reg-row--foto' : ''}${ev.situacao === 'recusada' ? ' reg-recusada' : ''}">
     <span class="reg-hora">${hora}</span>${foto}
-    <span class="reg-txt"><span class="reg-res">${icone} ${esc(ev.resumo || '')}${angulo}</span>${ev.detalhe ? `<span class="reg-det">“${esc(ev.detalhe)}”</span>` : ''}${aviso}</span>
-    <span class="reg-selos">${origem}${fila}</span>
+    <span class="reg-txt"><span class="reg-res">${icone} ${esc(ev.resumo || '')}${angulo}</span>${ev.detalhe ? `<span class="reg-det">“${esc(ev.detalhe)}”</span>` : ''}${aviso}${rastroHTML(ev)}</span>
+    <span class="reg-selos">${seloAutor}${origem}${fila}</span>
   </div>`;
+}
+
+/** Quem é quem no rastro. */
+const QUEM = { coach: 'pelo coach', aluno: 'pelo aluno', rotina: 'pela rotina', agente: 'por um agente' };
+/** Por onde veio o pedido. */
+const VIA = { app: 'pelo app', portal: 'pelo Portal', ugym: 'pela uGym', lousa: 'pela Lousa', pix: 'pelo Pix', fila: 'pela Fila de mensagens' };
+
+/**
+ * O rastro da linha (etapa 5): quem pediu ou propôs, e por onde; quem aprovou ou
+ * recusou; e o motivo. '' quando a linha não tem nada disso (as antigas).
+ * @param {any} ev
+ */
+export function rastroHTML(ev) {
+  const partes = [];
+  const p = ev && ev.proposta;
+  if (p && p.por && QUEM[p.por.tipo]) {
+    const via = VIA[p.via] ? ` ${VIA[p.via]}` : '';
+    partes.push(`${ev.situacao === 'recusada' || ev.aprovacao ? 'Proposto' : 'Pedido'} ${QUEM[p.por.tipo]}${via}`);
+  }
+  const ap = ev && ev.aprovacao;
+  if (ap && ap.por && QUEM[ap.por.tipo]) partes.push(`${ap.decisao === 'recusada' ? 'recusado' : 'aprovado'} ${QUEM[ap.por.tipo]}`);
+  else if (ev && ev.situacao === 'recusada') partes.push('recusado');
+  const rastro = partes.length ? `<span class="reg-rastro">${esc(partes.join(' · '))}</span>` : '';
+  const motivo = ev && ev.motivo ? `<span class="reg-motivo">Motivo: ${esc(ev.motivo)}</span>` : '';
+  return rastro + motivo;
 }

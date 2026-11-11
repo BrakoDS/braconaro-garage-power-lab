@@ -32,12 +32,63 @@ export function origemDaCaixa(o) {
   return o === 'app' || o === 'portal' ? o : 'aluno';
 }
 
+/* ============================================================
+   Quem fez, quem pediu, quem aprovou, por quê (Fase 1 · etapa 5)
+   ============================================================ */
+
+/** O que o aluno mandou pelo app ou pelo Portal (a caixa dele): foi ele quem fez. */
+const AUTOR_ALUNO = Object.freeze({ tipo: 'aluno' });
+
+/** Quem executa (ou propõe, ou aprova) uma ação no log. */
+export const TIPOS_AUTOR = Object.freeze(['coach', 'aluno', 'rotina', 'agente']);
+
+/** O que aconteceu com a ação: feita (o padrão, não vai para o documento), recusada ou só proposta. */
+export const SITUACOES = Object.freeze(['executada', 'recusada', 'proposta']);
+
 /**
- * Monta um evento. Campo vazio não entra no documento.
- * @param {{ tipo:string, origem:string, aluno:any, em:number, resumo:string,
- *   dia?:string, detalhe?:string, campos?:string[], chave?:string, id?:string }} p
+ * @typedef {{ tipo: 'coach'|'aluno'|'rotina'|'agente', nome?: string }} Autor
+ * @typedef {{ por: Autor, em?: number, via?: string }} Proposta
+ *   quem pediu ou propôs, quando e por onde ('app', 'portal', 'ugym', 'lousa', 'pix', o gatilho da Fila…)
+ * @typedef {{ por: Autor, em: number, decisao: 'aprovada'|'recusada' }} Aprovacao
  */
-export function novoEvento({ tipo, origem, aluno, em, resumo, dia, detalhe, campos, chave, id }) {
+
+/** Um autor válido, ou undefined (campo inválido não entra). @param {any} a @returns {Autor|undefined} */
+function autorValido(a) {
+  if (!a || !TIPOS_AUTOR.includes(a.tipo)) return undefined;
+  const nome = String(a.nome ?? '').trim().slice(0, 80);
+  return /** @type {Autor} */ (nome ? { tipo: a.tipo, nome } : { tipo: a.tipo });
+}
+
+/** @param {any} p @returns {Proposta|undefined} */
+function propostaValida(p) {
+  const por = p && autorValido(p.por);
+  if (!por) return undefined;
+  /** @type {Proposta} */ const out = { por };
+  if (Number(p.em) > 0) out.em = Number(p.em);
+  const via = String(p.via ?? '').trim().slice(0, 40);
+  if (via) out.via = via;
+  return out;
+}
+
+/** @param {any} a @returns {Aprovacao|undefined} */
+function aprovacaoValida(a) {
+  const por = a && autorValido(a.por);
+  if (!por || (a.decisao !== 'aprovada' && a.decisao !== 'recusada') || !(Number(a.em) > 0)) return undefined;
+  return { por, em: Number(a.em), decisao: a.decisao };
+}
+
+/**
+ * Monta um evento. Campo vazio (ou inválido) não entra no documento.
+ *
+ * Desde a etapa 5, a linha diz QUEM EXECUTOU (`autor`), quem PEDIU ou PROPÔS
+ * (`proposta`), quem APROVOU ou recusou (`aprovacao`), o que aconteceu
+ * (`situacao`, quando não é a execução de sempre) e o MOTIVO. As linhas antigas
+ * não têm esses campos: `autorDoEvento` deduz pela origem.
+ * @param {{ tipo:string, origem:string, aluno:any, em:number, resumo:string,
+ *   dia?:string, detalhe?:string, campos?:string[], chave?:string, id?:string,
+ *   autor?:any, proposta?:any, aprovacao?:any, situacao?:string, motivo?:string }} p
+ */
+export function novoEvento({ tipo, origem, aluno, em, resumo, dia, detalhe, campos, chave, id, autor, proposta, aprovacao, situacao, motivo }) {
   const ev = {
     id: id || `${em}-${Math.random().toString(36).slice(2, 10)}`,
     tipo,
@@ -51,9 +102,31 @@ export function novoEvento({ tipo, origem, aluno, em, resumo, dia, detalhe, camp
     detalhe,
     campos: campos && campos.length ? campos : undefined,
     chave,
+    autor: autorValido(autor),
+    proposta: propostaValida(proposta),
+    aprovacao: aprovacaoValida(aprovacao),
+    // 'executada' é o padrão: só o diferente vai para o documento.
+    situacao: SITUACOES.includes(String(situacao)) && situacao !== 'executada' ? situacao : undefined,
+    motivo: String(motivo ?? '').trim().slice(0, 300) || undefined,
   };
   for (const k of Object.keys(ev)) if (ev[k] === undefined || ev[k] === '') delete ev[k];
   return ev;
+}
+
+/**
+ * Quem executou a ação: o `autor` gravado (linhas desde a etapa 5) ou, nas
+ * linhas antigas, deduzido pela origem — Gestão = coach, app/Portal = aluno,
+ * servidor = rotina (decisão 8 do ESCOPO: as 316 linhas antigas não são
+ * regravadas). '' quando não dá para saber (linha derivada da ficha).
+ * @param {any} ev @returns {'coach'|'aluno'|'rotina'|'agente'|''}
+ */
+export function autorDoEvento(ev) {
+  if (ev && ev.autor && TIPOS_AUTOR.includes(ev.autor.tipo)) return ev.autor.tipo;
+  const o = ev && ev.origem;
+  if (o === 'gestao') return 'coach';
+  if (o === 'servidor') return 'rotina';
+  if (o === 'app' || o === 'portal' || o === 'aluno') return 'aluno';
+  return '';
 }
 
 const num = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
@@ -93,7 +166,7 @@ export function eventosDaCaixa(aluno, inbox, patch, agora) {
     const em = num(inbox.fotoEm) || num(inbox.atualizadoEm) || agora;
     evs.push(novoEvento({
       id: `foto-${id}-${em}`, chave: `foto:${id}:${em}`,
-      tipo: 'foto-perfil', origem: origemDaCaixa(inbox.fotoOrigem), aluno, em,
+      tipo: 'foto-perfil', origem: origemDaCaixa(inbox.fotoOrigem), aluno, em, autor: AUTOR_ALUNO,
       resumo: 'Foto de perfil nova',
     }));
   }
@@ -106,7 +179,7 @@ export function eventosDaCaixa(aluno, inbox, patch, agora) {
       const fb = daCaixa.get(f.id) || f;
       evs.push(novoEvento({
         id: `feedback-${id}-${fb.id}`, chave: `feedback:${id}:${fb.id}`,
-        tipo: 'feedback', origem: origemDaCaixa(fb.origem), aluno,
+        tipo: 'feedback', origem: origemDaCaixa(fb.origem), aluno, autor: AUTOR_ALUNO,
         em: num(fb.criadoEm) || agora,
         dia: typeof fb.data === 'string' ? fb.data : undefined,
         resumo: resumoFeedback(fb),
@@ -124,7 +197,7 @@ export function eventosDaCaixa(aluno, inbox, patch, agora) {
       if (tinha.has(dia)) continue;
       evs.push(novoEvento({
         id: `presenca-app-${id}-${dia}`, chave: `presenca:${id}:${dia}`,
-        tipo: 'presenca', origem: 'app', aluno, em, dia,
+        tipo: 'presenca', origem: 'app', aluno, em, dia, autor: AUTOR_ALUNO,
         resumo: 'Check-in pelo app',
       }));
     }
@@ -156,7 +229,7 @@ export function eventosDoDiario(aluno, inbox) {
     if (!em || !DIA_ISO.test(av.dia)) continue;
     evs.push(novoEvento({
       id: `diario-${id}-${av.dia}-${em}`, chave: `diario:${id}:${av.dia}:${em}`,
-      tipo: 'foto-diario', origem: origemDaCaixa(av.origem), aluno, em, dia: av.dia,
+      tipo: 'foto-diario', origem: origemDaCaixa(av.origem), aluno, em, dia: av.dia, autor: AUTOR_ALUNO,
       resumo: 'Foto do Diário de Evolução',
     }));
   }
