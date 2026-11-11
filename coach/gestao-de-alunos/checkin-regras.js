@@ -38,7 +38,7 @@
  * @typedef {{ hoje: string, agora: string }} Relogio
  *   hoje: 'AAAA-MM-DD'; agora: 'HH:MM'
  */
-import { datasDaSemana, chaveDoDia, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=36';
+import { datasDaSemana, chaveDoDia, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=37';
 
 /** O nome do dia da semana, por extenso. */
 export const DIA_EXT = Object.freeze({ seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' });
@@ -76,10 +76,14 @@ export function diaEfetivo(a, diaPlanejado) {
   return (r && r.data) || diaPlanejado;
 }
 
+/** A "aula planejada" de uma marcação do Ilimitado (etapa 6.3): `ilimitado:AAAA-MM-DD`. @param {string} dia */
+export const chaveIlimitado = (dia) => `ilimitado:${dia}`;
+
 /**
  * Em que dia cada aula da semana acontece: Map(dia → aula que o ocupa). Usado
  * para não dar o mesmo dia a duas aulas. Atestado não ocupa dia nenhum; a
- * reposição agendada ocupa o dia dela, em nome da aula que a gerou.
+ * reposição agendada ocupa o dia dela, em nome da aula que a gerou; a aula
+ * marcada do Ilimitado (etapa 6.3) ocupa o dia dela, como `ilimitado:<dia>`.
  * @param {any} a @param {Record<string, string>} semana datasDaSemana(...)
  * @returns {Map<string, string>}
  */
@@ -94,6 +98,9 @@ export function diasReivindicados(a, semana) {
   }
   for (const [origem, v] of Object.entries(atest)) {
     if (v && v.reposicao && v.reposicao.data) mapa.set(v.reposicao.data, origem);
+  }
+  for (const [dia, m] of Object.entries(a.marcacoes || {})) {
+    if (m) mapa.set(dia, chaveIlimitado(dia));
   }
   return mapa;
 }
@@ -130,7 +137,8 @@ export function donoDoDia(a, diaPlanejado, diaAlvo) {
 
 /** @param {any} a @param {string} diaPlanejado @param {string} dono @returns {Recusa} */
 function recusaDiaOcupado(a, diaPlanejado, dono) {
-  return { recusa: { chave: `${a.id}|${diaPlanejado}`, texto: `${DIA_EXT[chaveDoDia(dono)]} já usa esse dia` } };
+  const quem = String(dono).startsWith('ilimitado:') ? 'A aula marcada do Ilimitado' : DIA_EXT[chaveDoDia(dono)];
+  return { recusa: { chave: `${a.id}|${diaPlanejado}`, texto: `${quem} já usa esse dia` } };
 }
 
 /* ============================================================

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   agruparPorDia, anexarFotosDoDiario, filtrarEventos, fotosDoDiarioPorDia, historicoDasFichas, juntarEventos,
   linhaDoTempoDoAluno, linhaHTML, rotuloDia, rastroHTML, linhaDoBoxHTML, htmlFiltrosDoBox, htmlListaDoBox,
-} from './registros-ui.js?v=36';
+} from './registros-ui.js?v=37';
 
 /* ---------- quem fez, quem pediu, quem aprovou, por quê (etapa 5) ---------- */
 

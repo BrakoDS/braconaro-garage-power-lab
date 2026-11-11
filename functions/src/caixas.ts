@@ -31,7 +31,7 @@ const importar = new Function('u', 'return import(u)') as (u: string) => Promise
 export interface Escrita { caminho: string[]; valor?: unknown; apagar?: true }
 
 export interface RegrasDaGestao {
-  aplicarAvisosNaFicha(a: Dados, itens: Dados, reservas: Dados): { patch: Dados; logs: Dados[]; consumidos: string[]; reservasConsumidas: string[]; ignorados: { chave: string; motivo: string }[] };
+  aplicarAvisosNaFicha(a: Dados, itens: Dados, reservas: Dados, marcacoes?: Dados): { patch: Dados; logs: Dados[]; consumidos: string[]; reservasConsumidas: string[]; marcacoesConsumidas?: string[]; ignorados: { chave: string; motivo: string }[] };
   aplicarCheckinsNaFicha(a: Dados, itens: Dados, origem: Dados): { patch: Dados; logs: Dados[]; consumidos: string[]; ignorados: { chave: string; motivo: string }[] };
   ORIGENS: { ugym: Dados; lousa: Dados };
   planoDoPix(c: Dados, a: Dados | null, todos: Dados[]): { acao: 'baixa'; patch: Dados; log: Dados } | { acao: 'aviso'; log: Dados } | { acao: 'nada'; motivo: string };
@@ -80,7 +80,7 @@ export function regrasDaGestao(base = join(__dirname, 'gestao')): Promise<Regras
 }
 
 /** As caixas por aluno, na ordem em que a Gestão as aplica (boot.js: avisos e reservas, uGym, Lousa). */
-export const COLECOES_DO_ALUNO = ['avisosAusencia', 'reposicoesAluno', 'checkinsUgym', 'checkinsLousa'] as const;
+export const COLECOES_DO_ALUNO = ['avisosAusencia', 'reposicoesAluno', 'marcacoesAluno', 'checkinsUgym', 'checkinsLousa'] as const;
 export type ColecaoDoAluno = typeof COLECOES_DO_ALUNO[number];
 
 /**
@@ -92,6 +92,8 @@ export type ColecaoDoAluno = typeof COLECOES_DO_ALUNO[number];
 export const CAMPOS_ESPELHO_PORTAL: Record<string, () => unknown> = {
   pagamentos: () => ({}), presencas: () => [], presencaHoras: () => ({}),
   atestados: () => ({}), faltas: () => ({}), remarcacoes: () => ({}),
+  // A aula marcada do Ilimitado (etapa 6.3): o aluno vê no Portal sem esperar a Gestão.
+  marcacoes: () => ({}),
 };
 
 export interface PlanoDoServidor {
@@ -177,14 +179,15 @@ export function planoDasCaixas(
   const logs: Dados[] = [];
   const meus = (c: ColecaoDoAluno) => itensDoCoach(caixas[c], coachUid);
 
-  const avisos = meus('avisosAusencia'), reservas = meus('reposicoesAluno');
-  if (Object.keys(avisos).length || Object.keys(reservas).length) {
-    const r = regras.aplicarAvisosNaFicha(atual, avisos, reservas);
+  const avisos = meus('avisosAusencia'), reservas = meus('reposicoesAluno'), marcacoes = meus('marcacoesAluno');
+  if (Object.keys(avisos).length || Object.keys(reservas).length || Object.keys(marcacoes).length) {
+    const r = regras.aplicarAvisosNaFicha(atual, avisos, reservas, marcacoes);
     atual = { ...atual, ...r.patch };
     logs.push(...comPedido(r.logs, PEDIDO_POR.aluno));
     if (r.consumidos.length) plano.consumir.avisosAusencia = r.consumidos;
     if (r.reservasConsumidas.length) plano.consumir.reposicoesAluno = r.reservasConsumidas;
-    for (const i of r.ignorados) plano.ignorados.push({ colecao: 'avisosAusencia/reposicoesAluno', ...i });
+    if ((r.marcacoesConsumidas || []).length) plano.consumir.marcacoesAluno = r.marcacoesConsumidas;
+    for (const i of r.ignorados) plano.ignorados.push({ colecao: 'avisosAusencia/reposicoesAluno/marcacoesAluno', ...i });
   }
   for (const [colecao, origem] of [['checkinsUgym', regras.ORIGENS.ugym], ['checkinsLousa', regras.ORIGENS.lousa]] as const) {
     const itens = meus(colecao);

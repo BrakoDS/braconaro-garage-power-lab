@@ -20,7 +20,7 @@ type Dados = Record<string, unknown>;
 
 export interface Relogio { hoje: string; agora: string }
 export interface Onde { data: string; hora: string }
-export type TipoAula = 'titular' | 'reposicao';
+export type TipoAula = 'titular' | 'reposicao' | 'ilimitado';
 export type StatusAula = 'confirmado' | 'presente' | 'desmarcou-no-prazo' | 'desmarcou-fora' | 'falta' | 'sem-chamada' | 'atestado' | 'fechado';
 
 export const PRAZO_DESMARCAR_MIN = 120;
@@ -161,6 +161,17 @@ function statusReposicao(a: Dados, rep: Dados, dia: string, hoje: string, fechad
   return 'confirmado';
 }
 
+/** A aula marcada do Ilimitado (etapa 6.3): a mesma régua da reposição. */
+function statusIlimitado(a: Dados, m: Dados, dia: string, hoje: string, fechados: Set<string>, aviso?: { noPrazo: boolean }): StatusAula {
+  if (lista(a.presencas).includes(dia)) return 'presente';
+  if (m.foraDoPrazo) return 'desmarcou-fora';
+  if (m.noShow) return 'falta';
+  if (aviso) return aviso.noPrazo ? 'desmarcou-no-prazo' : 'desmarcou-fora';
+  if (fechados.has(dia)) return 'fechado';
+  if (dia < hoje) return 'sem-chamada';
+  return 'confirmado';
+}
+
 /**
  * Quem tem aula em `dia`: titulares da grade fixa e reposições marcadas. Com
  * `avisos`, o aviso que o coach ainda não aplicou já libera a vaga; com
@@ -169,8 +180,9 @@ function statusReposicao(a: Dados, rep: Dados, dia: string, hoje: string, fechad
  */
 export function aulasDoDia(
   alunos: Dados[], dia: string,
-  { hoje, fechados = [], avisos = {}, reservas = {} }: {
+  { hoje, fechados = [], avisos = {}, reservas = {}, marcacoes = {} }: {
     hoje: string; fechados?: string[]; avisos?: Record<string, AvisosPendentes>; reservas?: Record<string, ReservasPendentes>;
+    marcacoes?: Record<string, MarcacoesPendentes>;
   },
 ): AulaNaTurma[] {
   const semana = datasDaSemana(dia);
@@ -178,7 +190,7 @@ export function aulasDoDia(
   const out: AulaNaTurma[] = [];
   for (const ficha of alunos) {
     const id = String(ficha.id ?? '');
-    const a = comReservas(ficha, reservas[id]);
+    const a = comMarcacoes(comReservas(ficha, reservas[id]), marcacoes[id]);
     const doAluno = avisos[id] ?? {};
     for (const k of lista(a.diasTreino)) {
       const plan = semana[String(k)];
@@ -192,6 +204,8 @@ export function aulasDoDia(
       if (rep.data !== dia) continue;
       out.push({ alunoId: id, tipo: 'reposicao', chave: origem, hora: texto(rep.hora), status: statusReposicao(a, rep, dia, hoje, fech, doAluno[`reposicao|${origem}`]) });
     }
+    const m = mapa(a.marcacoes)[dia];
+    if (m) out.push({ alunoId: id, tipo: 'ilimitado', chave: dia, hora: texto(mapa(m).hora), status: statusIlimitado(a, mapa(m), dia, hoje, fech, doAluno[`ilimitado|${dia}`]) });
   }
   return out;
 }
@@ -243,6 +257,7 @@ export function ocupacaoDoDia(
   o: {
     hoje: string; fechados?: string[]; experimentais?: unknown; config?: unknown;
     avisos?: Record<string, AvisosPendentes>; reservas?: Record<string, ReservasPendentes>;
+    marcacoes?: Record<string, MarcacoesPendentes>;
   },
 ): Ocupacao[] {
   const aulas = aulasDoDia(alunos, dia, o);
@@ -282,6 +297,12 @@ export function avaliarAusencia(a: Dados, tipo: TipoAula, chave: string, relogio
     if (mapa(a.atestados)[chave]) return { erro: 'Essa aula já foi desmarcada (você tem o crédito de reposição dela).' };
     if (mapa(a.faltas)[chave]) return { erro: 'Essa aula já está registrada como falta.' };
     aula = ondeAcontece(a, chave);
+  } else if (tipo === 'ilimitado') {
+    // A aula marcada do Ilimitado (etapa 6.3): a chave é o dia. Sem crédito para devolver.
+    const m = mapa(mapa(a.marcacoes)[chave]);
+    if (!Object.keys(m).length) return { erro: 'Você não tem aula marcada nesse dia.' };
+    if (m.foraDoPrazo || m.noShow) return { erro: 'Essa aula já está registrada como falta.' };
+    aula = { data: chave, hora: texto(m.hora) };
   } else {
     const credito = mapa(mapa(a.atestados)[chave]);
     const rep = mapa(credito.reposicao);
@@ -298,7 +319,7 @@ export function avaliarAusencia(a: Dados, tipo: TipoAula, chave: string, relogio
   const noPrazo = ant >= PRAZO_DESMARCAR_MIN;
   return {
     aula, noPrazo, antecedenciaMin: ant,
-    expira: !noPrazo ? null : tipo === 'titular' ? validadeDoCredito(relogio.hoje) : expiraReposicao,
+    expira: !noPrazo || tipo === 'ilimitado' ? null : tipo === 'titular' ? validadeDoCredito(relogio.hoje) : expiraReposicao,
   };
 }
 
@@ -396,6 +417,7 @@ export function diaJaTemAula(a: Dados, dia: string): boolean {
     const r = remarcacoes[plan];
     if ((typeof r === 'string' ? r : texto(mapa(r).data) || plan) === dia) return true;
   }
+  if (mapa(a.marcacoes)[dia]) return true; // a aula marcada do Ilimitado (etapa 6.3)
   return Object.values(atestados).some((v) => texto(mapa(mapa(v).reposicao).data) === dia);
 }
 
@@ -426,4 +448,94 @@ export function avaliarReposicao(
   // Sem crédito que chegue até a data: todos têm validade, e o último vence antes.
   if (!credito) return { erro: `O seu crédito vale até ${ddmm(texto(creditos[creditos.length - 1].expira))}. Escolha uma aula até lá.` };
   return { origem: credito.origem, expira: credito.expira, aula, antecedenciaMin: ant };
+}
+
+/* ============================================================
+   O Ilimitado marcando aula por aula (etapa 6.3) — porte de
+   coach/gestao-de-alunos/ilimitado-regras.js (o checar-presenca compara)
+   ============================================================ */
+
+/** As aulas dos próximos quantos dias (contando hoje) o Ilimitado marca. */
+export const HORIZONTE_MARCACAO_DIAS = 7;
+/** No máximo quantas aulas na semana (1 por dia, seg a sáb). */
+export const LIMITE_SEMANA_ILIMITADO = 6;
+/** Até quantos minutos antes da aula. */
+export const ANTECEDENCIA_MARCACAO_MIN = 60;
+
+/** A aula que o aluno marcou e a rotina ainda não aplicou: `marcacoesAluno/{email}.itens[dia]`. */
+export interface MarcacaoPendente { data: string; hora: string }
+export type MarcacoesPendentes = Record<string, MarcacaoPendente>;
+
+/** A ficha com as marcações pendentes já gravadas (sem passar por cima das que já estão). */
+export function comMarcacoes(a: Dados, pendentes: MarcacoesPendentes = {}): Dados {
+  if (!Object.keys(pendentes).length) return a;
+  const marcacoes: Dados = { ...mapa(a.marcacoes) };
+  for (const m of Object.values(pendentes)) if (!marcacoes[m.data]) marcacoes[m.data] = { hora: m.hora };
+  return { ...a, marcacoes };
+}
+
+/** As marcações que a rotina ainda não aplicou, de `marcacoesAluno/*`: só as deste coach, por aluno. */
+export function marcacoesPorAluno(docs: unknown[], coachUid: string): Record<string, MarcacoesPendentes> {
+  const out: Record<string, MarcacoesPendentes> = {};
+  for (const doc of docs) {
+    for (const v of Object.values(mapa(mapa(doc).itens))) {
+      const i = mapa(v);
+      if (i.coachUid !== coachUid || !texto(i.alunoId) || !EH_DATA.test(texto(i.data))) continue;
+      (out[texto(i.alunoId)] ??= {})[texto(i.data)] = { data: texto(i.data), hora: texto(i.hora) };
+    }
+  }
+  return out;
+}
+
+const ehIlimitado = (a: Dados): boolean => mapa(a.plano).vezes === 'ilimitado';
+
+/**
+ * As aulas do aluno na semana do dia: as da grade fixa, as reposições e as
+ * marcações sem falta — a mesma conta de `aulasNaSemana` (ilimitado-regras.js).
+ */
+export function aulasNaSemana(a: Dados, dia: string): number {
+  const semana = datasDaSemana(dia);
+  const datas = new Set(Object.values(semana));
+  const atestados = mapa(a.atestados), remarcacoes = mapa(a.remarcacoes), marcacoes = mapa(a.marcacoes);
+  const dono = new Map<string, string>();
+  for (const k of lista(a.diasTreino)) {
+    const plan = semana[String(k)];
+    if (!plan || atestados[plan]) continue;
+    const r = remarcacoes[plan];
+    dono.set(typeof r === 'string' ? r : texto(mapa(r).data) || plan, plan);
+  }
+  for (const [origem, v] of Object.entries(atestados)) {
+    const d = texto(mapa(mapa(v).reposicao).data);
+    if (d) dono.set(d, origem);
+  }
+  for (const [d, m] of Object.entries(marcacoes)) if (m) dono.set(d, `ilimitado:${d}`);
+  let n = 0;
+  for (const [alvo, quem] of dono) {
+    if (!datas.has(alvo)) continue;
+    const m = mapa(marcacoes[alvo]);
+    if (quem.startsWith('ilimitado:') && (m.foraDoPrazo || m.noShow)) continue;
+    n++;
+  }
+  return n;
+}
+
+/**
+ * O Ilimitado marca uma aula. `a` já vem com o pendente (`comReservas` e
+ * `comMarcacoes`); `vagas` é a da turma, ou null sem turma ali.
+ */
+export function avaliarMarcacao(
+  a: Dados, aula: Onde, { relogio, vagas }: { relogio: Relogio; vagas: number | null },
+): { aula: Onde; antecedenciaMin: number } | { erro: string } {
+  if (!ehIlimitado(a)) return { erro: 'Só o plano Ilimitado marca aula por aula.' };
+  if (a.status === 'pausado') return { erro: 'Seu plano está pausado.' };
+  if (!EH_DATA.test(aula.data) || !/^\d{2}:\d{2}$/.test(aula.hora)) return { erro: 'Turma inválida.' };
+  if (vagas == null) return { erro: 'Não há turma nesse dia e horário.' };
+  if (aula.data < relogio.hoje || aula.data > somarDias(relogio.hoje, HORIZONTE_MARCACAO_DIAS - 1)) return { erro: `Dá para marcar só nas aulas dos próximos ${HORIZONTE_MARCACAO_DIAS} dias.` };
+  const ant = antecedenciaMin(relogio, aula.data, aula.hora);
+  if (ant == null || ant <= 0) return { erro: 'Essa aula já começou.' };
+  if (ant < ANTECEDENCIA_MARCACAO_MIN) return { erro: 'A aula só pode ser marcada até 1h antes.' };
+  if (diaJaTemAula(a, aula.data)) return { erro: `Já há uma aula em ${ddmm(aula.data)} (uma por dia).` };
+  if (aulasNaSemana(a, aula.data) >= LIMITE_SEMANA_ILIMITADO) return { erro: `A semana de ${ddmm(aula.data)} já tem ${LIMITE_SEMANA_ILIMITADO} aulas.` };
+  if (vagas <= 0) return { erro: 'Turma lotada.' };
+  return { aula, antecedenciaMin: ant };
 }

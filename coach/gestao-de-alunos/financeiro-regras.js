@@ -25,11 +25,11 @@
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=36';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=37';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, comRecebimento, contaDoMes,
   eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, MEIOS_DA_BAIXA_MANUAL,
-} from './financeiro-aluno.js?v=36';
+} from './financeiro-aluno.js?v=37';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 /** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */

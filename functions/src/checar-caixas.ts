@@ -126,6 +126,17 @@ function avisosEReservas(regras: RegrasDaGestao): void {
 
   const vazio = planoDasCaixas(regras, { ficha, coachUid: COACH, agora: AGORA, caixas: { avisosAusencia: { itens: {} } } });
   ok(!vazio.escritas.length && !vazio.eventos.length && !Object.keys(vazio.consumir).length, 'caixa vazia: nada a fazer');
+
+  // Etapa 6.3: a aula do Ilimitado marcada pelo aluno.
+  const ivo = { ...ana(), plano: { vezes: 'ilimitado' }, diasTreino: [], horarios: {} };
+  const MARCA = { data: '2026-11-07', hora: '09:00', coachUid: COACH, alunoId: '001', em: AGORA - 1000 };
+  const m = planoDasCaixas(regras, { ficha: ivo, coachUid: COACH, agora: AGORA, caixas: { marcacoesAluno: { itens: { '2026-11-07': MARCA } } } });
+  const depoisM = depoisDasEscritas(ivo, m.escritas);
+  ok(igual(depoisM.marcacoes, { '2026-11-07': { hora: '09:00', em: AGORA - 1000 } }), 'a aula marcada do Ilimitado entra na ficha', JSON.stringify(depoisM.marcacoes));
+  ok(igual(m.consumir, { marcacoesAluno: ['2026-11-07'] }) && 'marcacoes' in m.portal, 'o item sai da caixa, e o Portal recebe a marcação');
+  ok(m.eventos.length === 1 && m.eventos[0].tipo === 'marcacao' && m.eventos[0].proposta?.por?.tipo === 'aluno', 'a linha nos Registros, pedida pelo aluno', JSON.stringify(m.eventos));
+  const naoIlim = planoDasCaixas(regras, { ficha, coachUid: COACH, agora: AGORA, caixas: { marcacoesAluno: { itens: { '2026-11-07': MARCA } } } });
+  ok(!naoIlim.escritas.length && igual(naoIlim.consumir, { marcacoesAluno: ['2026-11-07'] }), 'ficha que não é Ilimitado: nada muda, o item sai');
 }
 
 function pix(regras: RegrasDaGestao): void {

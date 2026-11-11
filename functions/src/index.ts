@@ -61,6 +61,7 @@ import { COACH_UIDS, ehCoachPorUid, normalizarEmail } from './acesso';
 import { acharAlunoDaGestao, fichasDaGestao, fonteFirestore } from './gestao-leitura';
 import {
   avaliarAusencia, avaliarReposicao, avisosPorAluno, comReservas, ocupacaoDoDia, relogioDoBox, reservasPorAluno,
+  avaliarMarcacao, comMarcacoes, marcacoesPorAluno, type MarcacoesPendentes,
   type ReservasPendentes,
 } from './presenca';
 import { executarGerarPix, responderWebhook } from './pix-http';
@@ -3169,8 +3170,8 @@ export const avisarAusencia = onCall(
   { timeoutSeconds: 20, memory: '256MiB' },
   async (req) => {
     const dados = (req.data ?? {}) as { coachUid?: unknown; tipo?: unknown; chave?: unknown };
-    const tipo = dados.tipo === 'reposicao' ? 'reposicao' : dados.tipo === 'titular' ? 'titular' : null;
-    if (!tipo) throw new HttpsError('invalid-argument', 'Tipo de aula: titular ou reposicao.');
+    const tipo = dados.tipo === 'reposicao' ? 'reposicao' : dados.tipo === 'titular' ? 'titular' : dados.tipo === 'ilimitado' ? 'ilimitado' : null;
+    if (!tipo) throw new HttpsError('invalid-argument', 'Tipo de aula: titular, reposicao ou ilimitado.');
     if (typeof dados.chave !== 'string' || !EH_DATA.test(dados.chave)) throw new HttpsError('invalid-argument', 'Aula no formato AAAA-MM-DD.');
     const chave = dados.chave;
     const db = getFirestore();
@@ -3179,12 +3180,29 @@ export const avisarAusencia = onCall(
 
     const ref = db.doc(`avisosAusencia/${email}`);
     const refReservas = db.doc(`reposicoesAluno/${email}`);
+    const refMarcacoes = db.doc(`marcacoesAluno/${email}`);
     const id = `${tipo}|${chave}`;
     return db.runTransaction(async (tx) => {
-      const [avisosSnap, reservasSnap] = await Promise.all([tx.get(ref), tx.get(refReservas)]);
+      const [avisosSnap, reservasSnap, marcacoesSnap] = await Promise.all([tx.get(ref), tx.get(refReservas), tx.get(refMarcacoes)]);
       const ja = ((avisosSnap.data() ?? {}).itens ?? {})[id];
       if (ja) return { ...ja, jaAvisado: true };
       const relogio = relogioDoBox(new Date());
+      if (tipo === 'ilimitado') {
+        // A aula do Ilimitado (etapa 6.3) que o aluno marcou e a rotina ainda não aplicou também se desmarca.
+        const pendentes = (marcacoesPorAluno([marcacoesSnap.data() ?? {}], coachUid)[aluno.id] ?? {}) as MarcacoesPendentes;
+        const pendenteM = !!pendentes[chave];
+        const rm = avaliarAusencia(pendenteM ? comMarcacoes(ficha, pendentes) : ficha, tipo, chave, relogio);
+        if ('erro' in rm) throw new HttpsError('failed-precondition', rm.erro);
+        if (pendenteM && rm.noPrazo) {
+          tx.update(refMarcacoes, new FieldPath('itens', chave), FieldValue.delete(), 'atualizadoEm', FieldValue.serverTimestamp());
+          logger.info('Aula do Ilimitado desmarcada antes de aplicada.', { email, chave, antecedenciaMin: rm.antecedenciaMin });
+          return { tipo, chave, ...rm, jaAvisado: false };
+        }
+        const itemM = { tipo, chave, coachUid, alunoId: aluno.id, aviso: relogio, em: Date.now(), ...rm };
+        tx.set(ref, { itens: { [id]: itemM }, atualizadoEm: FieldValue.serverTimestamp() }, { merge: true });
+        logger.info('Aviso de ausência (Ilimitado).', { email, id, noPrazo: rm.noPrazo, antecedenciaMin: rm.antecedenciaMin });
+        return { ...itemM, jaAvisado: false };
+      }
       // A reposição que o aluno marcou e a Gestão ainda não aplicou também se desmarca.
       const reservas = (reservasPorAluno([reservasSnap.data() ?? {}], coachUid)[aluno.id] ?? {}) as ReservasPendentes;
       const pendente = tipo === 'reposicao' && !!reservas[chave];
@@ -3212,17 +3230,19 @@ export const avisarAusencia = onCall(
  */
 async function ocupacaoDasTurmas(
   db: Firestore, coachUid: string, dias: string[], hoje: string,
-  { avisosDocs, reservasDocs }: { avisosDocs: unknown[]; reservasDocs: unknown[] },
+  { avisosDocs, reservasDocs, marcacoesDocs = [] }: { avisosDocs: unknown[]; reservasDocs: unknown[]; marcacoesDocs?: unknown[] },
 ) {
   const { meta, fichas } = await todasAsFichas(db, coachUid);
   // Pausado (etapa 6.1) não ocupa vaga, como o inativo.
   const ativas = fichas.filter((f) => f && f.status !== 'inativo' && f.status !== 'pausado');
   const avisos = avisosPorAluno(avisosDocs, coachUid);
   const reservas = reservasPorAluno(reservasDocs, coachUid);
+  // A aula do Ilimitado marcada e ainda não aplicada já ocupa a vaga (etapa 6.3).
+  const marcacoes = marcacoesPorAluno(marcacoesDocs, coachUid);
   const feriados = (meta.feriados && typeof meta.feriados === 'object') ? meta.feriados as Record<string, unknown> : {};
   const fechados = Object.entries(feriados).filter(([, abriu]) => abriu === false).map(([d]) => d);
   return dias.flatMap((dia) =>
-    ocupacaoDoDia(ativas, dia, { hoje, fechados, experimentais: meta.experimentais, config: meta.turmas, avisos, reservas }));
+    ocupacaoDoDia(ativas, dia, { hoje, fechados, experimentais: meta.experimentais, config: meta.turmas, avisos, reservas, marcacoes }));
 }
 
 /**
@@ -3239,10 +3259,13 @@ export const ocupacaoDosHorarios = onCall(
   async (req) => {
     const db = getFirestore();
     const { coachUid } = await alunoLogado(db, req.auth, (req.data ?? {}).coachUid);
-    const [avisosSnap, reservasSnap] = await Promise.all([db.collection('avisosAusencia').get(), db.collection('reposicoesAluno').get()]);
+    const [avisosSnap, reservasSnap, marcacoesSnap] = await Promise.all([
+      db.collection('avisosAusencia').get(), db.collection('reposicoesAluno').get(), db.collection('marcacoesAluno').get(),
+    ]);
     const { hoje } = relogioDoBox(new Date());
     const turmas = await ocupacaoDasTurmas(db, coachUid, Array.from({ length: 7 }, (_, i) => somarDias(hoje, i)), hoje, {
       avisosDocs: avisosSnap.docs.map((d) => d.data()), reservasDocs: reservasSnap.docs.map((d) => d.data()),
+      marcacoesDocs: marcacoesSnap.docs.map((d) => d.data()),
     });
     return { hoje, turmas };
   },
@@ -3276,21 +3299,76 @@ export const agendarReposicao = onCall(
 
     const ref = db.doc(`reposicoesAluno/${email}`);
     return db.runTransaction(async (tx) => {
-      const [avisosSnap, reservasSnap] = await Promise.all([tx.get(db.collection('avisosAusencia')), tx.get(db.collection('reposicoesAluno'))]);
+      const [avisosSnap, reservasSnap, marcacoesSnap] = await Promise.all([
+        tx.get(db.collection('avisosAusencia')), tx.get(db.collection('reposicoesAluno')), tx.get(db.collection('marcacoesAluno')),
+      ]);
       const relogio = relogioDoBox(new Date());
       const reservasDocs = reservasSnap.docs.map((d) => d.data());
+      const marcacoesDocs = marcacoesSnap.docs.map((d) => d.data());
       const minhasReservas = reservasPorAluno(reservasDocs, coachUid)[aluno.id] ?? {};
       const meusAvisos = (avisosSnap.docs.find((d) => d.id === email)?.data() ?? {}).itens ?? {};
       const doAluno = comReservas(ficha, minhasReservas, Object.fromEntries(
         Object.entries(meusAvisos as Record<string, { coachUid?: unknown }>).filter(([, v]) => v?.coachUid === coachUid)));
       const turma = (await ocupacaoDasTurmas(db, coachUid, [aula.data], relogio.hoje, {
-        avisosDocs: avisosSnap.docs.map((d) => d.data()), reservasDocs,
+        avisosDocs: avisosSnap.docs.map((d) => d.data()), reservasDocs, marcacoesDocs,
       })).find((t) => t.hora === aula.hora);
-      const r = avaliarReposicao(doAluno, aula, { relogio, vagas: turma ? turma.vagas : null });
+      // Uma aula por dia: a do Ilimitado marcada e ainda não aplicada também ocupa o dia (etapa 6.3).
+      const minhasMarcacoes = marcacoesPorAluno(marcacoesDocs, coachUid)[aluno.id] ?? {};
+      const r = avaliarReposicao(comMarcacoes(doAluno, minhasMarcacoes), aula, { relogio, vagas: turma ? turma.vagas : null });
       if ('erro' in r) throw new HttpsError('failed-precondition', r.erro);
       const item = { origem: r.origem, data: aula.data, hora: aula.hora, expira: r.expira, coachUid, alunoId: aluno.id, relogio, em: Date.now() };
       tx.set(ref, { itens: { [r.origem]: item }, atualizadoEm: FieldValue.serverTimestamp() }, { merge: true });
       logger.info('Reposição marcada pelo aluno.', { email, origem: r.origem, aula, antecedenciaMin: r.antecedenciaMin });
+      return r;
+    });
+  },
+);
+
+/**
+ * O aluno do Ilimitado marca uma aula (Fase 1 · etapa 6.3, decisão 11). A régua
+ * é a da Gestão (`avaliarMarcacao`, presenca.ts): plano Ilimitado, próximos 7
+ * dias, até 1h antes, uma aula por dia, 6 na semana, e vaga — a grade fixa é
+ * garantida, o Ilimitado pega o que sobra ou o que o "Não irei" liberou.
+ *
+ * A marcação vai para `marcacoesAluno/{email}.itens[dia]` — que só o servidor
+ * escreve — e a rotina aplica na ficha (`ausencias-merge.js`, `marcacoes[dia]`).
+ * A transação lê todos os pendentes: dois alunos disputando a última vaga não
+ * passam os dois. Desmarcar é o `avisarAusencia` com o tipo `ilimitado`.
+ *
+ *     httpsCallable(getFunctions(app, 'southamerica-east1'), 'marcarAulaIlimitado')
+ *       ({ coachUid, data: 'AAAA-MM-DD', hora: 'HH:MM' })
+ *     // data: { aula: {data, hora}, antecedenciaMin }
+ */
+export const marcarAulaIlimitado = onCall(
+  { timeoutSeconds: 20, memory: '256MiB' },
+  async (req) => {
+    const dados = (req.data ?? {}) as { coachUid?: unknown; data?: unknown; hora?: unknown };
+    if (typeof dados.data !== 'string' || !EH_DATA.test(dados.data)) throw new HttpsError('invalid-argument', 'Dia no formato AAAA-MM-DD.');
+    if (typeof dados.hora !== 'string' || !/^\d{2}:\d{2}$/.test(dados.hora)) throw new HttpsError('invalid-argument', 'Horário no formato HH:MM.');
+    const aula = { data: dados.data, hora: dados.hora };
+    const db = getFirestore();
+    const { email, coachUid, aluno, ficha } = await alunoLogado(db, req.auth, dados.coachUid);
+    recusarSePausado(ficha);
+
+    const ref = db.doc(`marcacoesAluno/${email}`);
+    return db.runTransaction(async (tx) => {
+      const [avisosSnap, reservasSnap, marcacoesSnap] = await Promise.all([
+        tx.get(db.collection('avisosAusencia')), tx.get(db.collection('reposicoesAluno')), tx.get(db.collection('marcacoesAluno')),
+      ]);
+      const relogio = relogioDoBox(new Date());
+      const reservasDocs = reservasSnap.docs.map((d) => d.data());
+      const marcacoesDocs = marcacoesSnap.docs.map((d) => d.data());
+      const minhasReservas = reservasPorAluno(reservasDocs, coachUid)[aluno.id] ?? {};
+      const minhasMarcacoes = marcacoesPorAluno(marcacoesDocs, coachUid)[aluno.id] ?? {};
+      const doAluno = comMarcacoes(comReservas(ficha, minhasReservas), minhasMarcacoes);
+      const turma = (await ocupacaoDasTurmas(db, coachUid, [aula.data], relogio.hoje, {
+        avisosDocs: avisosSnap.docs.map((d) => d.data()), reservasDocs, marcacoesDocs,
+      })).find((t) => t.hora === aula.hora);
+      const r = avaliarMarcacao(doAluno, aula, { relogio, vagas: turma ? turma.vagas : null });
+      if ('erro' in r) throw new HttpsError('failed-precondition', r.erro);
+      const item = { data: aula.data, hora: aula.hora, coachUid, alunoId: aluno.id, relogio, em: Date.now() };
+      tx.set(ref, { itens: { [aula.data]: item }, atualizadoEm: FieldValue.serverTimestamp() }, { merge: true });
+      logger.info('Aula do Ilimitado marcada pelo aluno.', { email, aula, antecedenciaMin: r.antecedenciaMin });
       return r;
     });
   },
@@ -3375,6 +3453,8 @@ const gatilhoDeCaixa = (colecao: string) => onDocumentWritten(
 export const aplicarAvisosAusencia = gatilhoDeCaixa('avisosAusencia');
 /** A reposição marcada pelo aluno (`agendarReposicao`). */
 export const aplicarReposicoesAluno = gatilhoDeCaixa('reposicoesAluno');
+/** A aula do Ilimitado marcada pelo aluno (`marcarAulaIlimitado`, etapa 6.3). */
+export const aplicarMarcacoesAluno = gatilhoDeCaixa('marcacoesAluno');
 /** O check-in pelo app da uGym (`sincronizarUgym`). */
 export const aplicarCheckinsUgym = gatilhoDeCaixa('checkinsUgym');
 /** A chamada fechada na Lousa (o tablet do coach). */
