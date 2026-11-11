@@ -23,6 +23,10 @@ import { reg } from './registro.js?v=36';
 import { telaAtual } from './navegacao.js?v=36';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=36';
+import {
+  ehIlimitado, gravarMarcacao, desmarcarIlimitadoComAviso, noShowIlimitado, reabrirIlimitado, tirarMarcacao, previaDesmarcacaoIlimitado,
+} from './ilimitado-regras.js?v=36';
+import { chaveIlimitado } from './checkin-regras.js?v=36';
 import { pedirMotivo } from '../../compartilhado/ui/dialogo.js?v=36';
 import {
   MEIOS_DAYPASS, dadosDoDayPass, dayPassDaFicha, cpfValido, digitosDoCpf, codigoDoCpf, experimentalJaFeita, comCpf,
@@ -177,6 +181,16 @@ function corpoDaTurma(t) {
 function notaDaLinha(x) {
   const partes = [];
   const c = x.credito;
+  if (x.tipo === 'ilimitado') {
+    // A aula marcada do Ilimitado (etapa 6.3): sem crédito, só a falta.
+    const m = (x.aluno.marcacoes || {})[x.chave] || {};
+    partes.push('aula marcada (Ilimitado)');
+    if (x.status === 'presente' && x.horaCheckin) partes.push(`chegou ${x.horaCheckin}`);
+    if (Number.isFinite(m.antecedenciaMin)) partes.push(`avisou ${regras.textoAntecedencia(m.antecedenciaMin)}`);
+    if (m.noShow) partes.push('no-show lançado');
+    if (x.status === 'sem-chamada') partes.push('chamada não fechada');
+    return partes.join(' · ');
+  }
   if (x.tipo === 'reposicao') partes.push(`repõe a aula de ${fmtDataCurta(x.chave)}`);
   else if (x.aluno.remarcacoes && x.aluno.remarcacoes[x.chave] && x.chave !== dia) partes.push(`aula de ${fmtDataCurta(x.chave)} remarcada para cá`);
   else partes.push('grade fixa');
@@ -207,6 +221,14 @@ function acoesDaLinha(x) {
   const alvo = `data-k="${esc(chaveDaLinha(x))}"`;
   const b = (/** @type {string} */ acao, /** @type {string} */ txt, ghost = true) =>
     `<button class="btn${ghost ? ' ghost' : ''} btn-sm" data-acao="${acao}" ${alvo} type="button">${txt}</button>`;
+  if (x.tipo === 'ilimitado') {
+    // Etapa 6.3: o Ilimitado não tem crédito — a falta se reabre, a marcação errada se tira.
+    if (x.status === 'confirmado') return b('presente', '✓ Presente', false) + b('desmarcar', 'Desmarcou') + b('noshow', 'No-show') + b('tirar', 'Tirar');
+    if (x.status === 'presente') return b('desfazer', 'Desfazer');
+    if (x.status === 'sem-chamada') return b('presente', '✓ Presente', false) + b('noshow', 'No-show') + b('tirar', 'Tirar');
+    if (x.status === 'falta' || x.status === 'desmarcou-fora') return b('desfazer', 'Desfazer');
+    return '';
+  }
   const lancada = x.tipo === 'titular' ? !!x.registro : !!(x.credito && x.credito.reposicao && (x.credito.reposicao.noShow || x.credito.reposicao.foraDoPrazo));
   const semCredito = x.tipo === 'titular' ? !x.credito : true;
   switch (x.status) {
@@ -234,7 +256,7 @@ function linhaAula(x) {
   const recado = aviso && aviso.chave === k ? `<span class="chk-cel-aviso">${esc(aviso.texto)}</span>` : '';
   return `<div class="fin-row tur-row st-${x.status}">
     <div class="fin-info">
-      <div class="fin-nome">${esc(x.aluno.nome)} <span class="tur-tag ${x.tipo}">${x.tipo === 'reposicao' ? 'Reposição' : 'Titular'}</span></div>
+      <div class="fin-nome">${esc(x.aluno.nome)} <span class="tur-tag ${x.tipo}">${x.tipo === 'reposicao' ? 'Reposição' : x.tipo === 'ilimitado' ? 'Ilimitado' : 'Titular'}</span></div>
       <div class="fin-sub">${esc(notaDaLinha(x))}</div>
       ${recado}
       ${aberto ? painelDesmarcar(x) : ''}
@@ -275,6 +297,7 @@ function linhaExperimental(e) {
 function previa(x, quando) {
   let ant = null;
   if (x.tipo === 'titular') { const p = regras.previaDesmarcacao(x.aluno, x.chave, quando); ant = p && p.antecedenciaMin; }
+  else if (x.tipo === 'ilimitado') { const p = previaDesmarcacaoIlimitado(x.aluno, x.chave, quando); ant = p && p.antecedenciaMin; }
   else { const rep = x.credito && x.credito.reposicao; ant = rep ? regras.antecedenciaMin(quando, rep.data, rep.hora) : null; }
   if (ant == null) return { cls: 'bad', texto: 'Aula sem horário: não dá para medir o prazo.' };
   if (ant >= regras.PRAZO_DESMARCAR_MIN) {
@@ -323,6 +346,16 @@ function painelAdicionar(t) {
       </select>
       <button class="btn btn-sm" data-acao="add-rep" type="button"${opcoes ? '' : ' disabled'}>Agendar reposição</button>
     </div>
+    ${(() => {
+      // Etapa 6.3: o coach marca a aula de um aluno do Ilimitado (a mesma trava: 1 por dia, 6 na semana, vaga).
+      const ilims = db.listar().filter((a) => ehIlimitado(a) && !foraDoTreino(a))
+        .sort((x, y) => String(x.nome).localeCompare(String(y.nome), 'pt-BR'));
+      if (!ilims.length) return '';
+      return `<div class="tur-add-linha">
+      <select class="tur-sel" data-ilim-sel aria-label="Aluno do Ilimitado"><option value="">Ilimitado: escolha o aluno…</option>${ilims.map((a) => `<option value="${esc(a.id)}">${esc(a.nome)}</option>`).join('')}</select>
+      <button class="btn btn-sm" data-acao="add-ilim" type="button">Marcar Ilimitado</button>
+    </div>`;
+    })()}
     <div class="tur-add-linha">
       <input class="tur-inp" type="text" data-exp-nome placeholder="Nome (aula experimental)" maxlength="60" />
       <input class="tur-inp" type="tel" data-exp-tel placeholder="WhatsApp (opcional)" maxlength="20" />
@@ -373,6 +406,7 @@ function agirNaLinha(acao, k) {
   const id = String(x.aluno.id);
   const rep = x.tipo === 'reposicao';
   const em = Date.now();
+  if (x.tipo === 'ilimitado') { void agirNaAulaIlimitado(acao, x, id, k, em); return; }
   if (acao === 'presente') {
     // Check-in da reposição grava no dia dela; o do titular, no dia em que a aula acontece.
     aplicar(id, (a) => checkin(a, rep ? dia : x.chave, { ehReposicao: rep, ...relogio() }), k); return;
@@ -396,6 +430,32 @@ function agirNaLinha(acao, k) {
     aplicar(id, (a) => rep ? regras.concederCreditoReposicao(a, x.chave, { hoje: hoje(), em }) : regras.concederCredito(a, x.chave, { hoje: hoje(), em }), k); return;
   }
   if (acao === 'desfazer') void desfazerNaLinha(x, id, rep, k);
+}
+
+/**
+ * As ações na aula marcada do Ilimitado (etapa 6.3). A presença é do dia dela;
+ * tirar a falta pede o motivo (etapa 5), como na reposição.
+ * @param {string} acao @param {any} x @param {string} id @param {string} k @param {number} em
+ */
+async function agirNaAulaIlimitado(acao, x, id, k, em) {
+  if (acao === 'presente') { aplicar(id, (a) => checkin(a, x.chave, { ehReposicao: true, ...relogio() }), k); return; }
+  if (acao === 'desmarcar') {
+    const r = relogio();
+    painel = painel && painel.chave === k ? null : { chave: k, data: r.hoje, hora: r.agora };
+    render(); return;
+  }
+  if (acao === 'confirmar-desmarcar' && painel) {
+    const quando = { hoje: painel.data, agora: painel.hora };
+    aplicar(id, (a) => desmarcarIlimitadoComAviso(a, x.chave, { aviso: quando, em }), k); return;
+  }
+  if (acao === 'noshow') { aplicar(id, (a) => noShowIlimitado(a, x.chave, { em }), k); return; }
+  if (acao === 'tirar') { aplicar(id, (a) => tirarMarcacao(a, x.chave), k); return; }
+  if (acao === 'desfazer') {
+    if (x.status === 'presente') { aplicar(id, (a) => desfazer(a, x.chave, { ehReposicao: true, origem: chaveIlimitado(x.chave) }), k); return; }
+    const motivo = await pedirMotivoDoDesfazerAula(x.chave);
+    if (!motivo) return;
+    aplicar(id, (a) => comMotivo(reabrirIlimitado(a, x.chave), motivo), k);
+  }
 }
 
 /**
@@ -522,6 +582,19 @@ export function iniciarTelaTurmas() {
       return;
     }
     if (acao === 'add-exp') { void adicionarExperimentalComCpf(corpo); return; }
+    if (acao === 'add-ilim') {
+      const sel = /** @type {HTMLSelectElement|null} */ ($('[data-ilim-sel]', corpo));
+      const id = sel ? sel.value : '';
+      if (!id) { aviso = { chave: 'adicionar', texto: 'Escolha o aluno do Ilimitado' }; render(); return; }
+      const turma = turmasDeHoje().find((t) => t.hora === horaSel);
+      if (!turma || turma.vagas <= 0) { aviso = { chave: 'adicionar', texto: 'Turma lotada' }; render(); return; }
+      const a = db.obter(id); if (!a) return;
+      const r = gravarMarcacao(a, dia, horaSel || '', Date.now());
+      if ('recusa' in r) { aviso = { chave: 'adicionar', texto: r.recusa.texto }; render(); return; }
+      db.atualizar(id, r.patch);
+      reg(r.log.tipo, a, r.log.resumo, r.log.extra);
+      render(); return;
+    }
     if (acao === 'add-daypass') {
       const nome = /** @type {HTMLInputElement|null} */ ($('[data-dp-nome]', corpo));
       const tel = /** @type {HTMLInputElement|null} */ ($('[data-dp-tel]', corpo));

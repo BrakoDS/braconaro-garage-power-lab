@@ -20,6 +20,8 @@ export const TIPOS = {
   'atestado': { icone: '🩺', categoria: 'presenca' },
   'troca-aula': { icone: '🔁', categoria: 'presenca' },
   'reposicao': { icone: '📅', categoria: 'presenca' },
+  // A aula marcada do Ilimitado (etapa 6.3, ilimitado-regras.js).
+  'marcacao': { icone: '📌', categoria: 'presenca' },
   // Painel de Presença (presenca-regras.js): desmarcou no prazo (+1 crédito),
   // falta sem crédito (fora do prazo, no-show) e o crédito de exceção.
   'desmarcacao': { icone: '📵', categoria: 'presenca' },
@@ -85,7 +87,7 @@ const ROTULO_CAMPO = {
   anamnese: 'Anamnese', parq: 'PAR-Q', matriz: 'Matriz', matrizIndividualizacao: 'Matriz',
   plano: 'Plano', fundador: 'Fundador', inicio: 'Início', cortesia: 'Cortesia', parceriaLocal: 'Parceria local',
   indicadoPor: 'Indicado por', pausas: 'Pausa', dupla: 'Dupla', instagram: 'Instagram', indicacoes: 'Indicações',
-  semanasAjuste: 'Semanas', contratos: 'Contratos', dayPass: 'Day Pass',
+  semanasAjuste: 'Semanas', contratos: 'Contratos', dayPass: 'Day Pass', marcacoes: 'Aulas do Ilimitado',
 };
 
 /** "Ficha editada · Telefone, Plano" @param {string[]} campos */

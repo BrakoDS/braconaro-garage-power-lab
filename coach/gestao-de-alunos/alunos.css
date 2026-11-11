@@ -1247,6 +1247,7 @@ button{font-family:inherit}
 .tur-tag{display:inline-block;margin-left:6px;padding:1px 7px;border:1px solid var(--line-2);vertical-align:middle;
   font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.66rem;color:var(--mut)}
 .tur-tag.reposicao{border-color:rgba(255,158,27,.5);color:var(--warn)}
+.tur-tag.ilimitado{border-color:rgba(96,165,250,.55);color:#93c5fd}
 .tur-tag.experimental{border-color:rgba(245,197,24,.5);color:var(--accent)}
 .tur-status{font-family:var(--font-cond);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:.76rem;
   padding:4px 10px;border:1px solid var(--line-2);color:var(--mut);white-space:nowrap}
