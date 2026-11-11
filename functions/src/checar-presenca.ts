@@ -16,6 +16,7 @@ import { pathToFileURL } from 'node:url';
 import {
   antecedenciaMin, aulasDoDia, avaliarAusencia, avaliarReposicao, avisosPorAluno, chaveDoDia, comReservas, creditosLivres,
   datasDaSemana, diaJaTemAula, GRADE_PADRAO, horasDaGrade, ocupacaoDoDia, relogioDoBox, reservasPorAluno, somarDias, validadeDoCredito, type Relogio,
+  avaliarMarcacao, aulasNaSemana, comMarcacoes, marcacoesPorAluno,
 } from './presenca';
 
 let falhas = 0;
@@ -126,6 +127,34 @@ ok(occAvisoPend.length === 1 && occAvisoPend[0].ocupadas === 1, 'reserva de cré
 const desmarcaPend = avaliarAusencia(comReservas(comCredito(), reservas), 'reposicao', SEG, TER10);
 ok(!('erro' in desmarcaPend) && desmarcaPend.noPrazo && desmarcaPend.expira === '2026-11-04', 'a reserva pendente pode ser desmarcada no prazo, e o crédito volta com a validade dele');
 
+console.log('\nO ILIMITADO MARCANDO AULA (etapa 6.3)\n');
+const ivo = (extra: Dados = {}): Dados => ({ id: 'I9', nome: 'Ivo', plano: { vezes: 'ilimitado' }, presencas: [], atestados: {}, ...extra });
+const marca = (a: Dados, data: string, hora: string, vagas: number | null, relogio: Relogio = TER10) => {
+  const r = avaliarMarcacao(a, { data, hora }, { relogio, vagas });
+  return 'erro' in r ? r.erro : r;
+};
+ok(igual(marca(ivo(), QUI, '18:00', 2), { aula: { data: QUI, hora: '18:00' }, antecedenciaMin: 3360 }), 'Ilimitado com vaga: marca');
+ok(marca(ana(), QUI, '18:00', 2) === 'Só o plano Ilimitado marca aula por aula.', 'quem não é Ilimitado não marca');
+ok(marca(ivo({ status: 'pausado' }), QUI, '18:00', 2) === 'Seu plano está pausado.', 'pausado não marca');
+ok(marca(ivo(), QUI, '18:00', null) === 'Não há turma nesse dia e horário.', 'sem turma: recusado');
+ok(marca(ivo(), QUI, '18:00', 0) === 'Turma lotada.', 'lotada: recusado');
+ok(marca(ivo(), TER, '10:59', 2) === 'A aula só pode ser marcada até 1h antes.', '59 min antes: recusado');
+ok(String(marca(ivo(), '2026-10-13', '18:00', 2)).includes('próximos 7 dias'), 'além dos 7 dias: recusado');
+ok(String(marca(ivo({ marcacoes: { [QUI]: { hora: '07:00' } } }), QUI, '18:00', 2)).includes('uma por dia'), 'uma aula por dia');
+const seis = ivo({ marcacoes: Object.fromEntries(['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10'].map((d) => [d, { hora: '07:00' }])) });
+ok(aulasNaSemana(seis, QUA) === 6 && String(marca(seis, '2026-10-11', '18:00', 2, { hoje: SEG, agora: '06:00' })).includes('6 aulas'), 'no máximo 6 na semana');
+const comFaltaI = ivo({ marcacoes: { ...mapa(seis.marcacoes), '2026-10-05': { hora: '07:00', noShow: true } } });
+ok(aulasNaSemana(comFaltaI, QUA) === 5, 'a falta não conta no limite');
+const ivoMarcado = ivo({ marcacoes: { [QUI]: { hora: '18:00' } } });
+ok(igual(no(avaliarAusencia(ivoMarcado, 'ilimitado', QUI, TER10)), { aula: { data: QUI, hora: '18:00' }, noPrazo: true, antecedenciaMin: 3360, expira: null }), 'Não irei do Ilimitado: no prazo, sem crédito');
+ok(no(avaliarAusencia(ivo(), 'ilimitado', QUI, TER10)) === 'Você não tem aula marcada nesse dia.', 'Não irei sem aula marcada: recusado');
+const pendM = marcacoesPorAluno([{ itens: { [QUI]: { data: QUI, hora: '18:00', coachUid: 'X', alunoId: 'I9' } } }, { itens: { [QUI]: { data: QUI, hora: '18:00', coachUid: 'outro', alunoId: 'B2' } } }], 'X');
+ok(igual(pendM, { I9: { [QUI]: { data: QUI, hora: '18:00' } } }), 'marcações pendentes por aluno, só as deste coach');
+ok(igual(mapa(comMarcacoes(ivo(), pendM.I9).marcacoes), { [QUI]: { hora: '18:00' } }), 'a marcação pendente entra na ficha');
+const occM = ocupacaoDoDia([ivo(), caio], QUI, { hoje: TER, marcacoes: pendM, config: { grade: SEM_GRADE } });
+ok(igual(occM.map((t) => [t.hora, t.ocupadas]), [['18:00', 1]]), 'a marcação que a rotina ainda não aplicou já ocupa a vaga');
+ok(rep(comMarcacoes(comCredito(), { [QUI]: { data: QUI, hora: '07:00' } }), QUI, '18:00', 3) === 'Você já tem aula nesse dia.', 'a reposição não cai no dia da aula marcada');
+
 async function paridade(): Promise<void> {
   const caminho = resolve(__dirname, '..', '..', 'coach', 'gestao-de-alunos', 'presenca-regras.js');
   if (!existsSync(caminho)) { console.log(`\n  ⚠ ${caminho} não encontrado — paridade com o coach PULADA.`); return; }
@@ -138,6 +167,10 @@ async function paridade(): Promise<void> {
   };
   const checkin = await importarEsm(pathToFileURL(resolve(caminho, '..', 'checkin-regras.js')).href) as {
     donoDoDia: (a: unknown, diaPlanejado: string, diaAlvo: string) => string | null;
+  };
+  const ilim = await importarEsm(pathToFileURL(resolve(caminho, '..', 'ilimitado-regras.js')).href) as {
+    avaliarMarcacao: (a: unknown, aula: unknown, o: unknown) => { ok: true } | { erro: string };
+    aulasNaSemana: (a: unknown, dia: string) => number;
   };
   console.log('\nPARIDADE COM O COACH (presenca-regras.js e checkin-regras.js)\n');
 
@@ -170,7 +203,13 @@ async function paridade(): Promise<void> {
         atestados[origem] = { tipo: 'desmarcacao', reposicao: { data: um(semana), hora: um(HORAS), ...(sorteio() < 0.2 ? { foraDoPrazo: true } : {}), ...(sorteio() < 0.2 ? { noShow: true } : {}) } };
       }
       const remarcacoes = Object.fromEntries(alguns(aulas, 0.2).map((iso) => [iso, sorteio() < 0.3 ? um(semana) : { data: um(semana), hora: um(HORAS) }]));
-      return { id: `F${i}`, nome: `F${i}`, diasTreino, horarios, presencas: alguns(semana, 0.3), presencaHoras: {}, remarcacoes, atestados, faltas };
+      // Etapa 6.3: o Ilimitado, com aulas marcadas (algumas com falta).
+      const ilimitado = sorteio() < 0.5;
+      const marcacoes = ilimitado ? Object.fromEntries(alguns(semana, 0.35).map((d) => [d, { hora: um(HORAS), ...(sorteio() < 0.15 ? { noShow: true } : {}), ...(sorteio() < 0.15 ? { foraDoPrazo: true } : {}) }])) : {};
+      return {
+        id: `F${i}`, nome: `F${i}`, diasTreino, horarios, presencas: alguns(semana, 0.3), presencaHoras: {}, remarcacoes, atestados, faltas,
+        ...(ilimitado ? { plano: { vezes: 'ilimitado' }, marcacoes } : {}), ...(sorteio() < 0.1 ? { status: 'pausado' } : {}),
+      };
     });
     const fechados = alguns(semana, 0.1);
     for (const dia of semana) {
@@ -194,6 +233,20 @@ async function paridade(): Promise<void> {
         const d = site.desmarcar(f, plan, { aviso: relogio, em: 1 });
         const expiraCoach = r.noPrazo ? d.patch?.atestados[plan]?.expira ?? null : null;
         if (expiraCoach !== r.expira) divergentes.push(`validade ${f.id} ${plan}: servidor=${r.expira} coach=${expiraCoach}`);
+      }
+      // O Ilimitado marcando (etapa 6.3): o mesmo veredito nos dois lados, em turmas e relógios sorteados.
+      for (const dia of semana) {
+        const relogio = { hoje: um(HOJES), agora: um(['06:00', '10:00', '17:00', '23:30']) };
+        const aula = { data: dia, hora: um(HORAS) };
+        const vagas = um([0, 1, 3]);
+        const s = avaliarMarcacao(f, aula, { relogio, vagas });
+        const c = ilim.avaliarMarcacao(f, aula, { relogio, vagas });
+        conferidos++;
+        if (('erro' in s) !== ('erro' in c)) divergentes.push(`marcar ${f.id} ${dia} ${aula.hora} vagas=${vagas} ${relogio.hoje} ${relogio.agora}: servidor=${JSON.stringify(s)} coach=${JSON.stringify(c)}`);
+        if (aulasNaSemana(f, dia) !== ilim.aulasNaSemana(f, dia)) divergentes.push(`semana ${f.id} ${dia}: servidor=${aulasNaSemana(f, dia)} coach=${ilim.aulasNaSemana(f, dia)}`);
+        // Um dia, uma aula: a marcação também ocupa o dia.
+        const coachDia = checkin.donoDoDia(f, `ilimitado:${dia}`, dia) != null || !!mapa(f.marcacoes)[dia];
+        if (coachDia !== diaJaTemAula(f, dia)) divergentes.push(`dia (Ilimitado) ${f.id} ${dia}: servidor=${diaJaTemAula(f, dia)} coach=${coachDia}`);
       }
       // "Um dia, uma aula" da reposição: com cada crédito livre, cada dia da semana.
       for (const { origem } of creditosLivres(f, '2026-01-01')) {

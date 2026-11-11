@@ -159,6 +159,8 @@ export function fatia(a, todos, fechadosDoBox = [], hojeIso = hojeLocal()) {
     // Faltas lançadas pelo coach (desmarcou fora do prazo, no-show): falta já,
     // sem crédito, e que a cobertura automática não resgata (semana.js).
     faltas: a.faltas || {},
+    // As aulas marcadas do Ilimitado (etapa 6.3): o Portal mostra e desmarca.
+    marcacoes: a.marcacoes || {},
     avaliacoes: a.avaliacoes || [],
     // Só as metas corporais (lista). O mapa antigo por grupo saía aqui também,
     // como objeto; ele já vai em `metasGrupo`.

@@ -401,6 +401,15 @@ service cloud.firestore {
       allow update, delete: if ehCoach();
     }
 
+    // A aula do Ilimitado marcada pelo aluno (Fase 1 · etapa 6.3) —
+    // marcacoesAluno/{email}.itens[dia]: quem grava é SÓ a Cloud Function
+    // marcarAulaIlimitado (Admin SDK), que confere a vaga, o prazo de 1h, uma
+    // aula por dia e 6 na semana. O mesmo desenho do reposicoesAluno.
+    match /marcacoesAluno/{email} {
+      allow read: if ehAlunoDono(email) || ehCoach();
+      allow update, delete: if ehCoach();
+    }
+
     // Check-in pelo app da uGym — checkinsUgym/{email}.itens: quem grava é SÓ a
     // Cloud Function sincronizarUgym (Admin SDK), que lê o FitControl. Mesmo
     // desenho do avisosAusencia: o aluno lê o seu, o coach lê e consome (a

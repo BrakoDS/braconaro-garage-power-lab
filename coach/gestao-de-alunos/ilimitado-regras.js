@@ -26,7 +26,7 @@ import { donoDoDia, outraAulaUsa, diasReivindicados, chaveIlimitado } from './ch
 import { datasDaSemana } from '../../compartilhado/regras/semana.js?v=36';
 import { estaPausado } from '../../compartilhado/regras/planos.js';
 
-/** Até quantos dias à frente o aluno marca. */
+/** As aulas dos próximos quantos dias (contando hoje) ele marca — o mesmo horizonte da reposição. */
 export const JANELA_MARCACAO_DIAS = 7;
 /** No máximo quantas aulas na semana (1 por dia, seg a sáb). */
 export const LIMITE_SEMANA_ILIMITADO = 6;
@@ -73,7 +73,7 @@ export function avaliarMarcacao(a, { data, hora }, { relogio, vagas }) {
   if (!ehIlimitado(a)) return { erro: 'Só o plano Ilimitado marca aula por aula.' };
   if (estaPausado(a)) return { erro: 'Seu plano está pausado.' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data || ''))) return { erro: 'Escolha o dia da aula.' };
-  if (data < relogio.hoje || data > somarDias(relogio.hoje, JANELA_MARCACAO_DIAS)) return { erro: `Dá para marcar de hoje até ${JANELA_MARCACAO_DIAS} dias à frente.` };
+  if (data < relogio.hoje || data > somarDias(relogio.hoje, JANELA_MARCACAO_DIAS - 1)) return { erro: `Dá para marcar só nas aulas dos próximos ${JANELA_MARCACAO_DIAS} dias.` };
   const ant = antecedenciaMin(relogio, data, hora);
   if (ant == null) return { erro: 'Escolha uma turma com horário.' };
   if (ant < ANTECEDENCIA_MARCACAO_MIN) return { erro: 'A aula só pode ser marcada até 1h antes.' };

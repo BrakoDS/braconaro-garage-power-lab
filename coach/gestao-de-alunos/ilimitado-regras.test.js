@@ -25,9 +25,9 @@ test('só o Ilimitado marca; pausado não', () => {
 
 test('janela de 7 dias, 1h antes, turma com vaga', () => {
   assert.deepEqual(avaliarMarcacao(ilim, { data: TER, hora: '18:10' }, { relogio, vagas: 1 }), { ok: true, antecedenciaMin: 2050 });
-  assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: '2026-11-15', hora: '18:10' }, { relogio, vagas: 1 })).erro, /de hoje até 7 dias/);
-  assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: '2026-11-24', hora: '18:10' }, { relogio, vagas: 1 })).erro, /de hoje até 7 dias/);
-  assert.equal('ok' in avaliarMarcacao(ilim, { data: '2026-11-23', hora: '18:10' }, { relogio, vagas: 1 }), true, '7 dias à frente ainda vale');
+  assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: '2026-11-15', hora: '18:10' }, { relogio, vagas: 1 })).erro, /próximos 7 dias/);
+  assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: '2026-11-23', hora: '18:10' }, { relogio, vagas: 1 })).erro, /próximos 7 dias/);
+  assert.equal('ok' in avaliarMarcacao(ilim, { data: '2026-11-22', hora: '09:00' }, { relogio, vagas: 1 }), true, 'o 7º dia (contando hoje) ainda vale');
   assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: SEG, hora: '08:30' }, { relogio, vagas: 1 })).erro, /até 1h antes/);
   assert.equal('ok' in avaliarMarcacao(ilim, { data: SEG, hora: '09:00' }, { relogio, vagas: 1 }), true, 'exatamente 1h antes vale');
   assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: TER, hora: '18:10' }, { relogio, vagas: 0 })).erro, /lotada/);
