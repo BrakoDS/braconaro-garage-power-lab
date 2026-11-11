@@ -19,6 +19,7 @@
  * produto vai junto — energético que custava 10 continua valendo 10 na notinha
  * de agosto depois de virar 12.
  */
+import { mensalidadeDoMes } from './planos.js';
 
 /** O dia de vencimento válido para um mês (fevereiro não tem dia 31). */
 function diaVencimentoNoMes(ano, mes, dia) {
@@ -106,26 +107,28 @@ export function descontoParceria(aluno) {
 }
 
 /**
- * A conta fechada de uma fatura: mensalidade (já com o desconto da parceria)
- * mais os consumíveis.
+ * A conta fechada de uma fatura: a mensalidade do mês mais os consumíveis.
+ *
+ * O valor da mensalidade sai do plano (`mensalidadeDoMes`, planos.js): a tabela
+ * de 2027, a parceria antiga, os bônus, a cortesia, a pausa e a regra das
+ * semanas. Ficha sem nada disso dá o mesmo de sempre: a mensalidade dela, menos
+ * a parceria. `mensalidadeCheia` é o preço do plano no mês; `desconto`, a
+ * diferença até o que ele paga.
  *
  * O desconto vale só sobre o PLANO. Consumível é mercadoria comprada no balcão —
  * a parceria dá acesso ao treino, não energético de graça.
  *
- * @param {{mensalidade?:any, consumos?:any[], parceria?:any}} aluno @param {string} mesId
+ * @param {any} aluno a ficha (ou a fatia do Portal) @param {string} mesId
  * @returns {{mensalidadeCheia:number, desconto:number, parceria:any, mensalidade:number,
  *            consumos:any[], extras:number, total:number}}
  */
 export function faturaDoMes(aluno, mesId) {
-  const mensalidadeCheia = Number(String(aluno?.mensalidade ?? '').replace(',', '.')) || 0;
-  const parc = descontoParceria(aluno);
-  const desconto = parc ? Math.min(parc.valor, mensalidadeCheia) : 0;
-  const mensalidade = centavos(mensalidadeCheia - desconto);
+  const m = mensalidadeDoMes(aluno, mesId);
   const consumos = consumosDoMes(aluno?.consumos, mesId);
   const extras = centavos(consumos.reduce((s, c) => s + (Number(c.preco) || 0), 0));
   return {
-    mensalidadeCheia, desconto, parceria: parc, mensalidade,
-    consumos, extras, total: centavos(mensalidade + extras),
+    mensalidadeCheia: m.cheia, desconto: m.desconto, parceria: m.parceria, mensalidade: m.valor,
+    consumos, extras, total: centavos(m.valor + extras),
   };
 }
 
