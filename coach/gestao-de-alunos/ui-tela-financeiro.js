@@ -14,19 +14,23 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=35';
+import * as db from './db.js?v=36';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=35';
-import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=35';
-import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=35';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=35';
-import { $, $$ } from './util/dom.js?v=35';
-import { estado, on, EVENTOS } from './estado.js?v=35';
-import { regFinanceiro, regDoBox } from './registro.js?v=35';
-import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=35';
-import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=35';
-import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=35';
-import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=35';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=36';
+import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=36';
+import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=36';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=36';
+import { $, $$ } from './util/dom.js?v=36';
+import { estado, on, EVENTOS } from './estado.js?v=36';
+import { regFinanceiro, regDoBox } from './registro.js?v=36';
+import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=36';
+import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=36';
+import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados, htmlAvulsosEDevolucoes } from './fechamento-html.js?v=36';
+import { avulsosDoMes, devolucoesDoMes } from './avulsos-regras.js?v=36';
+
+/** O Day Pass pago e as devoluções de contrato de um mês (etapa 6.2). @param {string} mes */
+const extrasDoMes = (mes) => ({ avulsos: avulsosDoMes(db.experimentaisDoBox(), mes), devolucoes: devolucoesDoMes(db.listar(), mes) });
+import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=36';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */
@@ -157,7 +161,7 @@ function renderFinanceiro() {
     <div class="fin-card"><span class="fin-card-l">A receber</span><span class="fin-card-v${previsto - recebido > 0 ? ' bad' : ''}">${brl(previsto - recebido)}</span></div>
     <div class="fin-card"><span class="fin-card-l">Previsto no mês</span><span class="fin-card-v">${brl(previsto)}</span></div>
     <div class="fin-card"><span class="fin-card-l">Consumíveis</span><span class="fin-card-v">${brl(extras)}</span></div>
-    <div class="fin-card"><span class="fin-card-l">Investido em parcerias</span><span class="fin-card-v${investido > 0 ? ' parceria' : ''}">${brl(investido)}</span></div>`;
+    <div class="fin-card"><span class="fin-card-l">Investido em parcerias</span><span class="fin-card-v${investido > 0 ? ' parceria' : ''}">${brl(investido)}</span></div>${(() => { const x = extrasDoMes(finMes); return htmlAvulsosEDevolucoes(x.avulsos.total, x.devolucoes.total); })()}`;
   $('#fin-list').innerHTML = barra + (finEditandoProdutos ? painelProdutos() : '')
     + (html || `<div class="empty"><b>Nenhuma mensalidade cadastrada</b>Defina o valor da mensalidade na ficha do aluno (aba Geral → card Financeiro).</div>`);
   $('#fin-produtos').textContent = finEditandoProdutos ? 'Fechar produtos' : 'Produtos';
@@ -193,7 +197,7 @@ async function falhouGravar(e) {
  */
 async function fecharMes() {
   const mes = finMes;
-  const retrato = retratoDoMes(db.listar(), mes, hoje());
+  const retrato = retratoDoMes(db.listar(), mes, hoje(), extrasDoMes(mes));
   const r = await painel({
     titulo: `Fechar ${rotuloMesFin(mes)}`,
     corpoHTML: htmlRetrato(retrato) + '<p class="hint">Depois de aprovado, este mês passa a ser mostrado por este retrato: mudar a mensalidade ou a parceria de alguém não mexe mais nele. Dá para reabrir, com motivo.</p>',

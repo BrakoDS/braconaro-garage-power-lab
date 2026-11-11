@@ -12,9 +12,9 @@
  *     conferir e a lista, aluno por aluno;
  *   - a LINHA de um aluno num mês fechado: pelo retrato, com o pagamento de agora.
  */
-import { brl, rotuloMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=35';
-import { esc } from './util/formato.js?v=35';
-import { estaFechado, podeFechar, faturaFechada } from './fechamento-regras.js?v=35';
+import { brl, rotuloMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=36';
+import { esc } from './util/formato.js?v=36';
+import { estaFechado, podeFechar, faturaFechada } from './fechamento-regras.js?v=36';
 
 /** 'DD/MM' de um instante, no relógio deste aparelho (o do coach). @param {number} ms */
 function ddmmDe(ms) {
@@ -71,6 +71,8 @@ export function htmlRetrato(retrato) {
   const t = retrato.totais;
   const cartoes = [
     ['Previsto', t.previsto], ['Recebido', t.recebido], ['Em aberto', t.emAberto], ['Consumo', t.consumo], ['Bancado pelo box', t.bancadoPeloBox],
+    // Etapa 6.2: o Day Pass pago e as devoluções de contrato do mês (só quando houver).
+    ...(t.avulsos > 0 ? [['Avulsos (Day Pass)', t.avulsos]] : []), ...(t.devolucoes > 0 ? [['Devoluções', t.devolucoes]] : []),
   ].map(([rot, v]) => `<div class="ret-total"><span>${rot}</span><b>${brl(/** @type {number} */ (v))}</b></div>`).join('');
   const div = retrato.divergencias.length
     ? `<ul class="ret-div">${retrato.divergencias.map((d) => `<li class="ret-div-${d.tipo}">${textoDaDivergencia(d)}</li>`).join('')}</ul>`
@@ -127,5 +129,17 @@ export function htmlTotaisFechados(t) {
     <div class="fin-card"><span class="fin-card-l">Em aberto ao fechar</span><span class="fin-card-v${t.emAberto > 0 ? ' bad' : ''}">${brl(t.emAberto)}</span></div>
     <div class="fin-card"><span class="fin-card-l">Previsto no mês</span><span class="fin-card-v">${brl(t.previsto)}</span></div>
     <div class="fin-card"><span class="fin-card-l">Consumíveis</span><span class="fin-card-v">${brl(t.consumo)}</span></div>
-    <div class="fin-card"><span class="fin-card-l">Investido em parcerias</span><span class="fin-card-v${t.bancadoPeloBox > 0 ? ' parceria' : ''}">${brl(t.bancadoPeloBox)}</span></div>`;
+    <div class="fin-card"><span class="fin-card-l">Investido em parcerias</span><span class="fin-card-v${t.bancadoPeloBox > 0 ? ' parceria' : ''}">${brl(t.bancadoPeloBox)}</span></div>${htmlAvulsosEDevolucoes(t.avulsos, t.devolucoes)}`;
+}
+
+/**
+ * Os cartões de Day Pass pago (avulsos) e de devoluções de contrato do mês,
+ * só quando há (etapa 6.2).
+ * @param {number|undefined} avulsos @param {number|undefined} devolucoes
+ */
+export function htmlAvulsosEDevolucoes(avulsos, devolucoes) {
+  return (avulsos > 0 ? `
+    <div class="fin-card"><span class="fin-card-l">Avulsos (Day Pass)</span><span class="fin-card-v ok">${brl(avulsos)}</span></div>` : '')
+    + (devolucoes > 0 ? `
+    <div class="fin-card"><span class="fin-card-l">Devoluções</span><span class="fin-card-v bad">${brl(devolucoes)}</span></div>` : '');
 }

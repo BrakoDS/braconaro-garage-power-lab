@@ -50,6 +50,9 @@ export interface Ficha {
   semanasAjuste?: Record<string, unknown>;
   presencas?: unknown[];
   freqVezes?: unknown;
+  // Etapa 6.2: o contrato pago de uma vez e o Day Pass que abate na 1ª mensalidade.
+  contratos?: unknown[];
+  dayPass?: unknown;
 }
 
 interface Parte { mensalidade: number; consumos: Consumo[]; extras: number; total: number }

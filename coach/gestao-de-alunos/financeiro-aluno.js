@@ -25,8 +25,8 @@
  *     ele existe. `recebimentos` não vai para o Portal.
  */
 import { faturaDoMes, faturaComDependentes, mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { mensalidadeDoMes, explicacaoDoValor } from '../../compartilhado/regras/planos.js';
-import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=35';
+import { mensalidadeDoMes, explicacaoDoValor, mesCurto } from '../../compartilhado/regras/planos.js';
+import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=36';
 
 export const MESES_FIN = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -222,9 +222,15 @@ export function faturaDoAluno(a, mesId, todos, hojeIso) {
   const { resp, conta, propria } = contaDoMes(a, mesId, todos);
   const escopo = resp ? (a.pagoPor.escopo === 'plano' ? 'plano' : 'tudo') : '';
   /** @type {Item[]} */ const itens = [];
-  if (propria.mensalidadeCheia > 0) {
+  // Etapa 6.2: o mês coberto por um contrato não tem linha de mensalidade (já foi
+  // paga no 1º mês, que mostra o contrato inteiro).
+  const plano = mensalidadeDoMes(a, mesId);
+  if (propria.mensalidadeCheia > 0 && plano.zero !== 'contrato') {
+    const c = plano.contrato;
     itens.push({
-      tipo: 'mensalidade', descricao: 'Mensalidade', valor: propria.mensalidade,
+      tipo: 'mensalidade',
+      descricao: c && c.papel === 'inicio' ? `Contrato ${c.prazo} (${mesCurto(c.inicio)} a ${mesCurto(c.fim)})` : 'Mensalidade',
+      valor: propria.mensalidade,
       detalhe: detalheDaMensalidade(a, mesId, propria),
       coberto: !!escopo,
     });

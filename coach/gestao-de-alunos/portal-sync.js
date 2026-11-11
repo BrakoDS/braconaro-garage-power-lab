@@ -8,9 +8,9 @@
  * de leitura para o aluno. Reaproveita o app Firebase já inicializado.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=35';
-import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=35';
-import { semanasDoMes } from '../../compartilhado/regras/planos.js';
+import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=36';
+import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=36';
+import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -58,6 +58,12 @@ export function camposDoPlano(a) {
     plano: a.plano || null, fundador: a.fundador === true, inicio: a.inicio || '', cortesia: a.cortesia || null,
     pausas: a.pausas || [], dupla: a.dupla || null, instagram: a.instagram || [], parceriaLocal: a.parceriaLocal || null,
     indicadoPor: a.indicadoPor || null, indicacoes: a.indicacoes || [], semanasAjuste: a.semanasAjuste || {},
+    // Etapa 6.2: os contratos (só o que a conta usa) e o Day Pass que abate na 1ª mensalidade.
+    contratos: (Array.isArray(a.contratos) ? a.contratos : []).map((/** @type {any} */ c) => ({
+      id: c.id, prazo: c.prazo, vezes: c.vezes, inicio: c.inicio, valorMensal: c.valorMensal, pctBonus: c.pctBonus || 0, total: c.total,
+      ...(c.saida ? { saida: { ultimoMes: c.saida.ultimoMes } } : {}),
+    })),
+    dayPass: a.dayPass || null,
   };
 }
 
@@ -74,8 +80,10 @@ export function semanasPublicadas(x, hojeIso) {
   for (let i = -12; i <= 1; i++) {
     const mes = somarMes(atual, i);
     if (out[mes] != null) continue;
-    const s = semanasDoMes(x, mes);
-    if (s.porque && !s.ajuste) out[mes] = s.semanas;
+    // A volta da pausa, o início no meio do mês e o mês que o trancamento do
+    // contrato cobriu em parte (etapa 6.2): os que dependem da presença.
+    const m = mensalidadeDoMes(x, mes);
+    if (m.porque && !m.ajuste) out[mes] = m.semanas;
   }
   return out;
 }

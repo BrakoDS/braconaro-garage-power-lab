@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { idadeDoAluno, biometriaAtual, alertaMedico, situacaoFinanceira, seloStatus, seloNivel } from './perfil-derivados.js?v=35';
+import { idadeDoAluno, biometriaAtual, alertaMedico, situacaoFinanceira, seloStatus, seloNivel } from './perfil-derivados.js?v=36';
 
 const HOJE = '2026-10-11';
 

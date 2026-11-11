@@ -714,6 +714,27 @@ firebase deploy --only functions:gerarPixCobranca,functions:webhookMercadoPago,f
 `--aplicar <backup-novo.json>` grava só o que falta (`inicio`, `plano`, `fundador`, `cortesia`), com backup antes.
 Rodar **depois** das funções publicadas, para o Pix já conhecer a cortesia.
 
+### Etapa 6.2: contratos, Day Pass e aula experimental (11/11/2026)
+
+O contrato trimestral ou semestral mora na ficha (`contratos`, regras em `coach/gestao-de-alunos/contratos-regras.js`).
+No valor do mês (`planos.js` e o porte `planos.ts`):
+- o 1º mês do contrato cobra o total, pago de uma vez;
+- os outros meses ficam cobertos (zero);
+- o trancamento é uma pausa com `contrato: id`, que estica o fim em até 15 dias por período (1 no trimestral, 2 no
+  semestral); o mês seguinte cobra só as semanas que sobram;
+- o Day Pass da ficha (`dayPass`) abate até R$ 50 na 1ª mensalidade, se o início foi até 7 dias depois do treino.
+
+**No servidor muda só o Pix** (`planos.ts`, conferido pelo `checar-pix` com contratos sorteados). O aluno trancado
+já é recusado por `avisarAusencia` e `agendarReposicao`, porque o status dele é `pausado`.
+
+**Publicar, no mesmo dia do merge (com o aviso ao dono):**
+
+```bash
+firebase deploy --only functions:gerarPixCobranca,functions:webhookMercadoPago,functions:reconciliarPix --project projeto-garage-f0a2f
+```
+
+Nada é migrado (hoje nenhum aluno tem contrato).
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro

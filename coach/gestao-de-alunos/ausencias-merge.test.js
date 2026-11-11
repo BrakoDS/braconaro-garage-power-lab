@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=35';
+import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=36';
 
 const QUA = '2026-10-07', SEX = '2026-10-09', QUI = '2026-10-08';
 const ana = (extra = {}) => ({

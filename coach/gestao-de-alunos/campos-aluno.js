@@ -13,10 +13,10 @@
  * nunca tem duas marcações diferentes. `lerForm` lê qualquer um deles;
  * `lerCampos` fica só com os campos de um card (ou do cadastro).
  */
-import * as db from './db.js?v=35';
-import { esc, opt, horaParaInput, STATUS_LABEL, hoje } from './util/formato.js?v=35';
-import { $, $$ } from './util/dom.js?v=35';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=35';
+import * as db from './db.js?v=36';
+import { esc, opt, horaParaInput, STATUS_LABEL, hoje } from './util/formato.js?v=36';
+import { $, $$ } from './util/dom.js?v=36';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=36';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
 import { FUNDADOR_ATE } from '../../compartilhado/regras/planos.js';
 

@@ -25,11 +25,11 @@
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=35';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=36';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, comRecebimento, contaDoMes,
   eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, MEIOS_DA_BAIXA_MANUAL,
-} from './financeiro-aluno.js?v=35';
+} from './financeiro-aluno.js?v=36';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 /** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */
@@ -180,7 +180,7 @@ export function mesDoBox(todos, mesId, hojeIso) {
     const plano = mensalidadeDoMes(a, mesId);
     const cortesia = !resp && conta.total === 0 && propria.desconto > 0;
     // Zerado pela pausa (etapa 6.1) não é cortesia: o selo diz o motivo certo.
-    const rotulo = cortesia ? (plano.zero === 'pausado' ? 'Pausado' : 'Cortesia') : statusExibido === 'pago' ? 'Pago' : statusExibido === 'vencido' ? 'Vencido' : 'Pendente';
+    const rotulo = cortesia ? (plano.zero === 'pausado' ? 'Pausado' : plano.zero === 'contrato' ? 'Contrato' : 'Cortesia') : statusExibido === 'pago' ? 'Pago' : statusExibido === 'vencido' ? 'Vencido' : 'Pendente';
     // Consumo lançado numa fatura à frente não aparece na linha do mês em tela;
     // sem o aviso, o dinheiro fica invisível até alguém navegar de mês.
     const destino = mesIdParaLancar(hojeIso, a.vencimento, a.pagamentos);

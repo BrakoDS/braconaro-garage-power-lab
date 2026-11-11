@@ -15,9 +15,9 @@
  * Continua local-first: toda função aqui é síncrona e responde do cache; a
  * nuvem vem atrás.
  */
-import { criarCache } from './db-cache.js?v=35';
-import { criarSync } from './db-sync.js?v=35';
-import { horasDaGrade } from './presenca-regras.js?v=35';
+import { criarCache } from './db-cache.js?v=36';
+import { criarSync } from './db-sync.js?v=36';
+import { horasDaGrade } from './presenca-regras.js?v=36';
 
 const cache = criarCache();
 
@@ -39,7 +39,7 @@ function idDoAparelho() {
 const sync = criarSync({
   cache,
   aparelho: idDoAparelho(),
-  abrirPorta: async (uid) => (await import('./db-firestore.js?v=35')).portaFirestore(uid),
+  abrirPorta: async (uid) => (await import('./db-firestore.js?v=36')).portaFirestore(uid),
   aoErro: (e) => { if (_aoErro) _aoErro(e); },
 });
 
@@ -76,7 +76,7 @@ export async function enviarAgora() {
  */
 export async function iniciarSync(uid, aoAtualizar) {
   try {
-    const fs = await import('./db-firestore.js?v=35');
+    const fs = await import('./db-firestore.js?v=36');
     if (!fs.cloudAtivo() || !uid) return undefined;
     return await sync.iniciar(uid, aoAtualizar);
   } catch (e) {
@@ -266,6 +266,28 @@ export function salvarHoraNaGrade(diaChave, hora, naGrade) {
 export function experimentaisDoDia(iso) {
   const m = cache.meta().experimentais;
   return (m && typeof m === 'object' && Array.isArray(m[iso])) ? m[iso] : [];
+}
+
+/** Todas as listas do dia guardadas (aula experimental e Day Pass), dia → lista. */
+export function experimentaisDoBox() {
+  const m = cache.meta().experimentais;
+  return (m && typeof m === 'object') ? /** @type {Record<string, any[]>} */ (m) : {};
+}
+
+/**
+ * Os CPFs que já fizeram aula experimental (etapa 6.2): código embaralhado →
+ * dia. Nunca o número (avulsos-regras.js).
+ * @returns {Record<string, string>}
+ */
+export function cpfsExperimentais() {
+  const m = cache.meta().cpfsExperimentais;
+  return (m && typeof m === 'object') ? m : {};
+}
+
+/** Guarda o código do CPF de uma aula experimental marcada. @param {Record<string, string>} registro */
+export function salvarCpfsExperimentais(registro) {
+  cache.gravarMeta({ cpfsExperimentais: registro });
+  gravou();
 }
 
 /**

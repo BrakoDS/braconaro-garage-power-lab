@@ -45,14 +45,17 @@
  * @property {any} [credito]                a entrada de `atestados`, quando há crédito
  * @property {any} [registro]               a entrada de `faltas`, quando o coach lançou a falta
  * @property {string} [horaCheckin]
- * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number }} Experimental
+ * @typedef {{ id: string, nome: string, telefone?: string, hora: string, status: 'confirmado'|'presente'|'falta'|'cancelada', em: number,
+ *   tipo?: 'experimental'|'daypass', pagamento?: { meio: string, valor: number, em: number }, cpf?: string, alunoId?: string }} Experimental
+ *   tipo: 'daypass' é o visitante pagante (etapa 6.2); sem tipo, aula experimental.
+ *   cpf: o código embaralhado do CPF (avulsos-regras.js), nunca o número; alunoId: virou aluno.
  */
-import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=35';
-import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=35';
+import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=36';
+import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=36';
 
 /**
  * O mesmo `creditoVencido` do semana.js, de propósito aqui. O semana.js é importado
- * com `?v=35` (as duas funções novas, validadeDoCredito e fimDoMesSeguinte, só existem
+ * com `?v=36` (as duas funções novas, validadeDoCredito e fimDoMesSeguinte, só existem
  * na cópia nova: sem a versão, o GitHub Pages serve .js por 10 minutos e um semana.js
  * antigo em cache com este arquivo novo é um SyntaxError que derruba a Gestão). A
  * cópia local de `creditoVencido` é anterior a isso e fica. @param {any} credito @param {string} hojeIso
@@ -504,16 +507,21 @@ export function reabrirReposicao(a, origem) {
 /**
  * Põe uma aula experimental na turma. Precisa de nome e de vaga.
  * @param {Experimental[]} lista as do dia
- * @param {{ nome: string, telefone?: string, hora: string }} dados
+ * O Day Pass (etapa 6.2) entra pela mesma porta, com `tipo: 'daypass'` e o pagamento.
+ * @param {{ nome: string, telefone?: string, hora: string, tipo?: 'experimental'|'daypass', pagamento?: Experimental['pagamento'], cpf?: string }} dados
  * @param {{ id: string, em: number, vagas: number }} o
  * @returns {{ lista: Experimental[] } | { recusa: string }}
  */
-export function adicionarExperimental(lista, { nome, telefone = '', hora }, { id, em, vagas }) {
+export function adicionarExperimental(lista, { nome, telefone = '', hora, tipo, pagamento, cpf }, { id, em, vagas }) {
   const n = String(nome || '').trim();
-  if (!n) return { recusa: 'Escreva o nome de quem vem experimentar' };
+  if (!n) return { recusa: tipo === 'daypass' ? 'Escreva o nome do visitante' : 'Escreva o nome de quem vem experimentar' };
   if (!hora) return { recusa: 'Escolha uma turma com horário' };
   if (vagas <= 0) return { recusa: 'Turma lotada' };
-  return { lista: [...lista, { id, nome: n, telefone: String(telefone || '').trim(), hora, status: 'confirmado', em }] };
+  /** @type {Experimental} */
+  const x = { id, nome: n, telefone: String(telefone || '').trim(), hora, status: 'confirmado', em };
+  if (tipo === 'daypass') { x.tipo = 'daypass'; if (pagamento) x.pagamento = pagamento; }
+  if (cpf) x.cpf = cpf;
+  return { lista: [...lista, x] };
 }
 
 /**
