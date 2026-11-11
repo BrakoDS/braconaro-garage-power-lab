@@ -63,7 +63,7 @@ async function conta(): Promise<void> {
   // e em jan/2027 (tabelas e bônus), então a amostra atravessa a virada.
   const MESES = ['2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03'];
   const DIAS = ['2026-11-20', '2026-12-01', '2026-12-15', '2026-12-31', '2027-01-04', '2027-01-19', '2027-02-01', '2027-02-10', '2027-03-15', '2027-03-31'];
-  let casos = 0, divergencias = 0, comDependente = 0, comParceria = 0, comConsumo = 0, comPlano = 0, mesesComparados = 0, primeira = '';
+  let casos = 0, divergencias = 0, comDependente = 0, comParceria = 0, comConsumo = 0, comPlano = 0, comContrato = 0, mesesComparados = 0, primeira = '';
   for (let i = 0; i < 3000; i++) {
     const n = 1 + Math.floor(r() * 6);
     const todos: Ficha[] = Array.from({ length: n }, (_, k) => {
@@ -92,6 +92,15 @@ async function conta(): Promise<void> {
       if (r() < 0.1) f.semanasAjuste = { [pick(MESES)]: pick([0, 1, 2, 3, 4, 9, '']) };
       if (r() < 0.4) f.presencas = Array.from({ length: Math.floor(r() * 6) }, () => pick(DIAS));
       if (r() < 0.3) f.freqVezes = pick(['2', '3', '4', '']);
+      // Etapa 6.2: o contrato (com trancamento e saída) e o Day Pass.
+      if (r() < 0.25) {
+        const prazo = pick(['trimestral', 'semestral']);
+        const c: Record<string, unknown> = { id: 'k1', prazo, vezes: 3, inicio: pick(['2027-01', '2027-02', '2026-12']), valorMensal: pick([180, 240, 170]), pctBonus: pick([0, 10]), total: pick([540, 486, 1020, 720]) };
+        if (r() < 0.2) c.saida = { ultimoMes: pick(MESES) };
+        f.contratos = [c];
+        if (r() < 0.5) f.pausas = [{ desde: pick(DIAS), ate: pick(DIAS), contrato: 'k1' }, ...(r() < 0.4 ? [{ desde: pick(DIAS), ate: pick(DIAS), contrato: 'k1' }] : [])];
+      }
+      if (r() < 0.15) f.dayPass = { dia: pick(DIAS), valor: pick([50, 30]) };
       f.consumos = Array.from({ length: Math.floor(r() * 4) }, (_, j) => ({ id: 'c' + j, nome: pick(['Gel', 'Água']), preco: pick([9.99, 5, '10', 60, 0]), data: `2026-10-0${1 + j}`, mesId: pick(MESES) }));
       return f;
     });
@@ -107,6 +116,7 @@ async function conta(): Promise<void> {
         if (b.conta.dependentes.length) comDependente++;
         if (f.parceria) comParceria++;
         if (f.plano) comPlano++;
+        if (f.contratos) comContrato++;
         if (b.conta.propria.extras > 0) comConsumo++;
       }
       // O mês que o aluno paga: o porte × o Portal, onde os dois veem o mesmo box
@@ -125,8 +135,8 @@ async function conta(): Promise<void> {
     }
   }
   ok(divergencias === 0, `${casos} contas e ${mesesComparados} meses de cobrança idênticos ao código da Gestão e do Portal`, primeira);
-  ok(comDependente > 500 && comParceria > 1000 && comConsumo > 1000 && comPlano > 5000 && mesesComparados > 500,
-    `cobertura: ${comDependente} com dependente, ${comParceria} com parceria, ${comConsumo} com consumo, ${comPlano} com plano`);
+  ok(comDependente > 500 && comParceria > 1000 && comConsumo > 1000 && comPlano > 5000 && comContrato > 2000 && mesesComparados > 500,
+    `cobertura: ${comDependente} com dependente, ${comParceria} com parceria, ${comConsumo} com consumo, ${comPlano} com plano, ${comContrato} com contrato`);
   ok(diaSaoPaulo(new Date('2026-10-10T02:30:00Z')) === '2026-10-09', 'o dia é o de São Paulo (02:30 UTC ainda é dia 9 lá)');
 }
 

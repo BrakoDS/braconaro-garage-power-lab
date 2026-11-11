@@ -59,7 +59,8 @@ const tabelaDoAluno = (a: FichaPlano): 'fundador' | 'regular' => (ehFundador(a) 
 
 function precoDaTabela(a: FichaPlano, mesId: string): number | null {
   if (mesId < VIGENCIA_2027) return null;
-  const p = TABELAS[tabelaDoAluno(a)][chaveDoPlano(a && a.plano)];
+  // O mês avulso usa sempre o preço mensal; o trimestral e o semestral só valem dentro de um contrato (6.2).
+  const p = TABELAS[tabelaDoAluno(a)][chaveDoPlano(a && a.plano ? { vezes: a.plano.vezes, prazo: 'mensal' } : null)];
   return typeof p === 'number' ? p : null;
 }
 
@@ -106,12 +107,68 @@ function semanasDoMes(a: FichaPlano, mesId: string): { semanas: number; zero: ''
     if (inicio > ult) zero = 'antes-do-inicio';
     else if (inicio > d1 && inicio > desde) desde = inicio;
   }
-  const aj = a && a.semanasAjuste ? a.semanasAjuste[mesId] : undefined;
-  const n = aj === '' || aj == null ? NaN : Number(aj);
-  if (Number.isInteger(n) && n >= 0 && n <= 4) return { semanas: n, zero: '' };
+  const n = ajusteDoMes(a, mesId);
+  if (n != null) return { semanas: n, zero: '' };
   if (zero) return { semanas: 0, zero };
   if (!desde) return { semanas: 4, zero: '' };
   return { semanas: semanasDesde(mesId, desde, vezesDoPlano(a), a && a.presencas).semanas, zero: '' };
+}
+
+function ajusteDoMes(a: FichaPlano, mesId: string): number | null {
+  const aj = a && a.semanasAjuste ? a.semanasAjuste[mesId] : undefined;
+  const n = aj === '' || aj == null ? NaN : Number(aj);
+  return Number.isInteger(n) && n >= 0 && n <= 4 ? n : null;
+}
+
+/* ---------- o contrato e o Day Pass (etapa 6.2) ---------- */
+
+const PRAZO_MESES: Record<string, number> = { trimestral: 3, semestral: 6 };
+const LIMITE_TRANCAMENTO: Record<string, { periodos: number; dias: number }> = { trimestral: { periodos: 1, dias: 15 }, semestral: { periodos: 2, dias: 15 } };
+const DAYPASS_VALOR = 50;
+const DAYPASS_JANELA_DIAS = 7;
+
+function somarMeses(mesId: string, n: number): string {
+  const [a, m] = mesId.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1 + n, 1)).toISOString().slice(0, 7);
+}
+const diasEntre = (de: string, ate: string): number => Math.round((utc(ate) - utc(de)) / 86400000);
+const ehContrato = (c: any): boolean => !!c && typeof c.inicio === 'string' && /^\d{4}-\d{2}$/.test(c.inicio) && !!PRAZO_MESES[c.prazo];
+const contratosDe = (a: FichaPlano): any[] => ((a && Array.isArray(a.contratos)) ? a.contratos.filter(ehContrato) : []);
+
+function fimDoContrato(c: any): string {
+  const nominal = somarMeses(c.inicio, PRAZO_MESES[c.prazo] - 1);
+  const saiu = c.saida && typeof c.saida.ultimoMes === 'string' ? c.saida.ultimoMes : '';
+  return saiu && saiu < nominal ? saiu : nominal;
+}
+
+function diasTrancados(a: FichaPlano, c: any): number {
+  const lim = LIMITE_TRANCAMENTO[c.prazo];
+  const pausas = ((a && a.pausas) || []).filter((p: any) => p && p.contrato === c.id && p.desde && p.ate);
+  return pausas.slice(0, lim.periodos).reduce((t: number, p: any) => t + Math.max(0, Math.min(lim.dias, diasEntre(p.desde, p.ate))), 0);
+}
+
+function contratoNoMes(a: FichaPlano, mesId: string): { c: any; papel: 'inicio' | 'coberto' | 'extensao'; voltaEm?: string } | null {
+  for (const c of contratosDe(a)) {
+    if (mesId === c.inicio) return { c, papel: 'inicio' };
+    const fim = fimDoContrato(c);
+    if (mesId > c.inicio && mesId <= fim) return { c, papel: 'coberto' };
+    if (c.saida || mesId <= fim) continue;
+    const dias = diasTrancados(a, c);
+    if (!dias) continue;
+    const ultimoCoberto = somarDiasIso(ultimoDiaDoMes(fim), dias);
+    if (ultimoCoberto >= ultimoDiaDoMes(mesId)) return { c, papel: 'coberto' };
+    if (ultimoCoberto >= `${mesId}-01`) return { c, papel: 'extensao', voltaEm: somarDiasIso(ultimoCoberto, 1) };
+  }
+  return null;
+}
+
+function abateDayPass(a: FichaPlano, mesId: string, valor: number): number {
+  const dp = a && a.dayPass;
+  const inicio = a && typeof a.inicio === 'string' ? a.inicio : '';
+  if (!dp || typeof dp.dia !== 'string' || !inicio || inicio.slice(0, 7) !== mesId) return 0;
+  const dias = diasEntre(dp.dia, inicio);
+  if (dias < 0 || dias > DAYPASS_JANELA_DIAS) return 0;
+  return Math.min(valor, Number(dp.valor) || DAYPASS_VALOR);
 }
 
 function pctDosBonus(a: FichaPlano, mesId: string): number {
@@ -135,6 +192,17 @@ export interface MensalidadeDoMes {
 
 /** O valor da mensalidade de um mês — o mesmo de `mensalidadeDoMes` (planos.js). */
 export function mensalidadeDoMes(a: FichaPlano, mesId: string): MensalidadeDoMes {
+  const cm = contratoNoMes(a, mesId);
+  if (cm && cm.papel === 'inicio') {
+    const cheiaC = centavos((Number(cm.c.valorMensal) || 0) * PRAZO_MESES[cm.c.prazo]);
+    const total = centavos(Number(cm.c.total) || 0);
+    const valorC = centavos(total - abateDayPass(a, mesId, total));
+    return { cheia: cheiaC, desconto: centavos(cheiaC - valorC), valor: valorC, parceria: null };
+  }
+  if (cm && cm.papel === 'coberto') {
+    const cheiaC = centavos(Number(cm.c.valorMensal) || 0);
+    return { cheia: cheiaC, desconto: cheiaC, valor: 0, parceria: null };
+  }
   const tabelado = precoDaTabela(a, mesId);
   const cheia = tabelado != null ? tabelado : dinheiro(a && a.mensalidade);
   const pctLegado = Number(a && a.parceria && a.parceria.percentual) || 0;
@@ -143,12 +211,17 @@ export function mensalidadeDoMes(a: FichaPlano, mesId: string): MensalidadeDoMes
     ? { nome: String((a as any).parceria.nome || '').trim(), percentual: pctLegado, valor: centavos(cheia * pctLegado / 100) }
     : null;
   if (cortesia) return { cheia, desconto: cheia, valor: 0, parceria };
-  const s = semanasDoMes(a, mesId);
+  let s: { semanas: number; zero: string };
+  if (cm && cm.papel === 'extensao' && cm.voltaEm) {
+    const n = ajusteDoMes(a, mesId);
+    s = { semanas: n != null ? n : semanasDesde(mesId, cm.voltaEm, vezesDoPlano(a), a && a.presencas).semanas, zero: '' };
+  } else s = semanasDoMes(a, mesId);
   if (s.zero) return { cheia, desconto: cheia, valor: 0, parceria };
   const pctBonus = Math.min(pctDosBonus(a, mesId), TETO_BONUS);
   const descontoPlano = parceria ? Math.min(parceria.valor, cheia) : Math.min(centavos(cheia * pctBonus / 100), cheia);
   const liquido = centavos(cheia - descontoPlano);
-  if (s.semanas >= 4) return { cheia, desconto: descontoPlano, valor: liquido, parceria };
-  const valor = centavos(liquido * s.semanas / 4);
-  return { cheia, desconto: centavos(cheia - valor), valor, parceria };
+  const semanal = s.semanas >= 4 ? liquido : centavos(liquido * s.semanas / 4);
+  const dp = abateDayPass(a, mesId, semanal);
+  const valor = centavos(semanal - dp);
+  return { cheia, desconto: s.semanas >= 4 && !dp ? descontoPlano : centavos(cheia - valor), valor, parceria };
 }
