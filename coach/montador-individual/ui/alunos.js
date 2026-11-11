@@ -16,7 +16,7 @@ import { foraDoTreino } from '../../../compartilhado/regras/planos.js';
 
 /** Alunos da Gestão que treinam hoje no box (inativo não entra na turma). */
 export function listarAlunos() {
-  return gestaoDb.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado nÃ£o treinam
+  return gestaoDb.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado não treinam
 }
 
 /** Puxa os alunos da nuvem para o cache local. @param {string} [uid] */

@@ -1,0 +1,73 @@
+// @ts-check
+/**
+ * Rodar: node --test coach/gestao-de-alunos/ui-plano.test.js
+ *
+ * O plano no card Financeiro (etapa 6.1): o resumo, o valor deste mês e o de
+ * jan/2027, os botões certos para cada situação e as tabelas de preço.
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+const memoria = new Map();
+globalThis.localStorage = /** @type {any} */ ({
+  getItem: (k) => (memoria.has(k) ? memoria.get(k) : null), setItem: (k, v) => memoria.set(k, String(v)), removeItem: (k) => memoria.delete(k),
+});
+
+const { htmlPlanoResumo, htmlTabelas } = await import('./ui-plano.js?v=35');
+
+const HOJE = '2026-11-20';
+const ana = { id: 'Ana01', nome: 'Ana', status: 'ativo', mensalidade: '130', vencimento: '10', plano: { vezes: 3, prazo: 'mensal' }, fundador: true, inicio: '2026-07-01' };
+
+test('resumo: plano, tabela, início, o valor de hoje e o de jan/2027', () => {
+  const h = htmlPlanoResumo(ana, [ana], HOJE);
+  assert.match(h, /3x por semana <span class="ac-chip fg-ok">Fundador<\/span>/);
+  assert.match(h, /01\/07\/2026/);
+  assert.match(h, /Mensalidade de nov\/2026<\/dt><dd><b>R\$\s?130,00<\/b>/);
+  assert.match(h, /A partir de jan\/2027<\/dt><dd><b>R\$\s?190,00<\/b>/);
+  assert.match(h, /data-plano="pausar"/);
+  assert.match(h, /data-plano="dupla"/);
+  assert.match(h, /data-plano="instagram" aria-pressed="false">Instagram de nov\/2026/);
+  assert.doesNotMatch(h, /data-plano="voltar"|data-plano="indicacoes"|data-plano="semanas"/);
+  assert.match(h, /data-plano="tabelas"/);
+});
+
+test('resumo: sem plano, vale o valor da ficha e não mostra jan/2027', () => {
+  const h = htmlPlanoResumo({ id: 'X', mensalidade: '150' }, [], HOJE);
+  assert.match(h, /Sem plano: vale o valor da ficha/);
+  assert.doesNotMatch(h, /A partir de jan\/2027/);
+});
+
+test('resumo: pausado mostra a pausa e o botão de voltar', () => {
+  const p = { ...ana, status: 'pausado', pausas: [{ desde: '2026-11-05', motivo: 'Viagem' }] };
+  const h = htmlPlanoResumo(p, [p], '2026-12-02');
+  assert.match(h, /Pausa<\/dt><dd>desde 05\/11\/2026 · Viagem/);
+  assert.match(h, /Plano pausado: mensalidade zero/);
+  assert.match(h, /data-plano="voltar"/);
+  assert.doesNotMatch(h, /data-plano="pausar"/);
+});
+
+test('resumo: bônus, cortesia, indicações e o botão das semanas', () => {
+  const novo = { id: 'N1', nome: 'Nina', indicadoPor: { id: 'Ana01', nome: 'Ana', mes: '2026-12' }, pagamentos: {}, recebimentos: {} };
+  const a = { ...ana, dupla: { id: 'B', nome: 'Bia' }, instagram: ['2026-11'], cortesia: { motivo: 'Parceria Clínica' } };
+  const h = htmlPlanoResumo(a, [a, novo], HOJE);
+  assert.match(h, /Dupla com Bia · 10%/);
+  assert.match(h, /Instagram: nov\/2026/);
+  assert.match(h, /Cortesia<\/dt><dd>Parceria Clínica/);
+  assert.match(h, /data-plano="indicacoes">Indicações \(1\)/);
+  assert.match(h, /aria-pressed="true">✓ Instagram/);
+  const volta = { ...ana, status: 'ativo', pausas: [{ desde: '2026-11-03', ate: '2026-12-15' }] };
+  assert.match(htmlPlanoResumo(volta, [volta], '2026-12-16'), /data-plano="semanas"/, 'voltou no meio do mês: dá para corrigir as semanas');
+});
+
+test('resumo: o texto da ficha é escapado', () => {
+  const h = htmlPlanoResumo({ ...ana, cortesia: { motivo: '<script>x</script>' } }, [], HOJE);
+  assert.doesNotMatch(h, /<script>/);
+});
+
+test('as tabelas de preço', () => {
+  const h = htmlTabelas();
+  assert.match(h, /3x mensal<\/th><td>R\$\s?190,00<\/td><td>R\$\s?260,00/);
+  assert.match(h, /2x mensal \(Legado\)<\/th><td>R\$\s?150,00<\/td><td><span class="card-vazio">—/);
+  assert.match(h, /Ilimitado \(5–6x\)<\/th><td>R\$\s?250,00<\/td><td>R\$\s?350,00/);
+  assert.match(h, /somados até 30%/);
+});

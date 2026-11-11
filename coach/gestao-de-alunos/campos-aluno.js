@@ -13,10 +13,10 @@
  * nunca tem duas marcações diferentes. `lerForm` lê qualquer um deles;
  * `lerCampos` fica só com os campos de um card (ou do cadastro).
  */
-import * as db from './db.js?v=34';
-import { esc, opt, horaParaInput, STATUS_LABEL, hoje } from './util/formato.js?v=34';
-import { $, $$ } from './util/dom.js?v=34';
-import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=34';
+import * as db from './db.js?v=35';
+import { esc, opt, horaParaInput, STATUS_LABEL, hoje } from './util/formato.js?v=35';
+import { $, $$ } from './util/dom.js?v=35';
+import { OBJETIVO_LABELS } from '../../compartilhado/config/objetivos.js?v=35';
 import { PERCENTUAIS_PARCERIA } from '../../compartilhado/regras/consumo.js';
 import { FUNDADOR_ATE } from '../../compartilhado/regras/planos.js';
 
@@ -35,7 +35,7 @@ export const DIAS_FORM = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui'
 /** Os campos da ficha que cada grupo grava (o que `lerCampos` devolve). */
 export const CAMPOS = Object.freeze({
   contato: ['nome', 'telefone', 'email', 'endereco', 'status'],
-  // Etapa 6.1: o plano, a tabela (fundador), o inÃ­cio, a cortesia e os bÃ´nus do card.
+  // Etapa 6.1: o plano, a tabela (fundador), o início, a cortesia e os bônus do card.
   plano: ['mensalidade', 'vencimento', 'parceria', 'pagoPor', 'plano', 'fundador', 'inicio', 'cortesia', 'parceriaLocal', 'indicadoPor'],
   acesso: ['appLiberado', 'modoLite'],
   biometria: ['nascimento', 'sexo', 'altura', 'peso'],
@@ -74,7 +74,7 @@ export function camposDados(a = {}, opts = {}) {
       <label class="dia-check"><input type="checkbox" name="diasTreino" value="${v}"${diasSel.has(v) ? ' checked' : ''}/><span>${l}</span></label>
       <input class="dia-hora" type="time" name="hora_${v}" value="${esc(horas[v] || horaAntiga)}"${diasSel.has(v) ? '' : ' disabled'} />
     </div>`).join('');
-  // "Pausado" sÃ³ aparece na ficha pausada: quem pausa e volta sÃ£o os botÃµes do
+  // "Pausado" só aparece na ficha pausada: quem pausa e volta são os botões do
   // card Financeiro, que gravam a data (a pausa muda a mensalidade).
   const stLista = ['ativo', 'inativo', 'pendente', ...(a.status === 'pausado' ? ['pausado'] : [])];
   const stOpts = stLista.map((s) => `<option value="${s}"${(a.status || 'ativo') === s ? ' selected' : ''}>${STATUS_LABEL[s]}</option>`).join('');
@@ -93,17 +93,17 @@ export function camposDados(a = {}, opts = {}) {
   const pctAtual = String((a.parceria && a.parceria.percentual) || '');
   const parceriaOpts = `<option value="">Sem parceria</option>`
     + PERCENTUAIS_PARCERIA.map((n) => `<option value="${n}"${String(n) === pctAtual ? ' selected' : ''}>${n}% de desconto${n === 100 ? ' (cortesia)' : ''}</option>`).join('');
-  // Etapa 6.1. O 2x (Legado) sÃ³ aparece para quem jÃ¡ faz 2x: o plano nÃ£o existe
+  // Etapa 6.1. O 2x (Legado) só aparece para quem já faz 2x: o plano não existe
   // mais para quem entra.
   const vezesAtual = a.plano ? String(a.plano.vezes) : '';
   const fazDois = vezesAtual === '2' || (!a.plano && String(a.freqVezes) === '2');
-  const vezesOpts = [['', 'â€” sem plano (vale o valor da ficha) â€”'], ...(fazDois ? [['2', '2x por semana (Legado)']] : []), ['3', '3x por semana'], ['4', '4x por semana'], ['ilimitado', 'Ilimitado (5â€“6x)']]
+  const vezesOpts = [['', '— sem plano (vale o valor da ficha) —'], ...(fazDois ? [['2', '2x por semana (Legado)']] : []), ['3', '3x por semana'], ['4', '4x por semana'], ['ilimitado', 'Ilimitado (5–6x)']]
     .map(([v, l]) => `<option value="${v}"${v === vezesAtual ? ' selected' : ''}>${l}</option>`).join('');
   const temCortesia = !!a.cortesia || Number(a.parceria && a.parceria.percentual) >= 100;
   const motivoCortesia = (a.cortesia && a.cortesia.motivo) || (a.parceria && a.parceria.nome) || '';
   const pl = a.parceriaLocal || {};
   const ind = a.indicadoPor || {};
-  const indicadorOpts = `<option value="">NinguÃ©m</option>`
+  const indicadorOpts = `<option value="">Ninguém</option>`
     + todos.filter((x) => x.id !== a.id && ((x.status || 'ativo') !== 'inativo' || x.id === ind.id)).map((x) => `<option value="${esc(x.id)}"${x.id === ind.id ? ' selected' : ''}>${esc(x.nome || x.id)}</option>`).join('');
   const [fAno, fMes, fDia] = FUNDADOR_ATE.split('-');
   return {
@@ -126,16 +126,16 @@ export function camposDados(a = {}, opts = {}) {
     freqVezes: `<div class="field"><label>Frequência semanal</label><select name="freqVezes">${freqOpts}</select><span class="hint">O que ele contratou. Os dias abaixo é que valem no check-in.</span></div>`,
     dias: `<div class="field full"><label>Dias e horários de treino</label><div class="dias-treino">${diasHTML}</div><span class="hint">Marque os dias e a hora de cada um — eles podem ser diferentes. Usados no check-in, no Portal do Aluno e no acumulado mensal do Montador.</span></div>`,
     obs: `<div class="field full"><label>Nota clínica do coach</label><textarea name="obs" placeholder="Lesões, restrições, condições de saúde, observações relevantes…">${esc(a.obs)}</textarea></div>`,
-    mensalidade: `<div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /><span class="hint">O valor de hoje: vale atÃ© dez/2026 e para quem nÃ£o tem plano. De jan/2027, o plano usa a tabela.</span></div>`,
-    planoVezes: `<div class="field"><label>Plano</label><select name="planoVezes">${vezesOpts}</select><span class="hint">Mensal. Trimestral e semestral chegam na prÃ³xima parte.</span></div>`,
-    fundador: `<div class="field"><label>Tabela</label><input type="hidden" name="fundadorCampo" value="1" /><label class="chk-app"><input type="checkbox" name="fundador" value="1"${a.fundador === true ? ' checked' : ''} /><span>Fundador (comeÃ§ou atÃ© ${fDia}/${fMes}/${fAno})</span></label><span class="hint">Desmarcado, vale a tabela regular a partir de jan/2027.</span></div>`,
-    inicio: `<div class="field"><label>InÃ­cio no box</label><input name="inicio" type="date" value="${esc(a.inicio || (opts.idEditavel ? hoje() : ''))}" /><span class="hint">Quem comeÃ§a no meio do mÃªs paga por semana (de dez/2026 em diante).</span></div>`,
-    cortesia: `<div class="field"><label>Cortesia</label><input type="hidden" name="cortesiaCampo" value="1" /><input type="hidden" name="cortesiaDesde" value="${esc((a.cortesia && a.cortesia.desde) || a.inicio || '')}" /><label class="chk-app"><input type="checkbox" name="cortesia" value="1"${temCortesia ? ' checked' : ''} /><span>Mensalidade zero (o consumo Ã© cobrado)</span></label></div>`,
-    cortesiaMotivo: `<div class="field"><label>Motivo da cortesia</label><input name="cortesiaMotivo" type="text" value="${esc(motivoCortesia)}" placeholder="Ex.: parceria com a ClÃ­nica SÃ£o Jorge"${temCortesia ? '' : ' disabled'} /><span class="hint">O preÃ§o do plano continua aparecendo, como investimento do box.</span></div>`,
-    parceriaLocal: `<div class="field"><label>BÃ´nus: parceria local</label><input name="parceriaLocalNome" type="text" value="${esc(pl.nome || '')}" placeholder="Nome da empresa parceira" /><span class="hint">10% na primeira fatura e 5% nas seguintes (de jan/2027).</span></div>`,
+    mensalidade: `<div class="field"><label>Mensalidade (R$)</label><input name="mensalidade" type="number" min="0" step="0.01" value="${esc(a.mensalidade)}" placeholder="150" /><span class="hint">O valor de hoje: vale até dez/2026 e para quem não tem plano. De jan/2027, o plano usa a tabela.</span></div>`,
+    planoVezes: `<div class="field"><label>Plano</label><select name="planoVezes">${vezesOpts}</select><span class="hint">Mensal. Trimestral e semestral chegam na próxima parte.</span></div>`,
+    fundador: `<div class="field"><label>Tabela</label><input type="hidden" name="fundadorCampo" value="1" /><label class="chk-app"><input type="checkbox" name="fundador" value="1"${a.fundador === true ? ' checked' : ''} /><span>Fundador (começou até ${fDia}/${fMes}/${fAno})</span></label><span class="hint">Desmarcado, vale a tabela regular a partir de jan/2027.</span></div>`,
+    inicio: `<div class="field"><label>Início no box</label><input name="inicio" type="date" value="${esc(a.inicio || (opts.idEditavel ? hoje() : ''))}" /><span class="hint">Quem começa no meio do mês paga por semana (de dez/2026 em diante).</span></div>`,
+    cortesia: `<div class="field"><label>Cortesia</label><input type="hidden" name="cortesiaCampo" value="1" /><input type="hidden" name="cortesiaDesde" value="${esc((a.cortesia && a.cortesia.desde) || a.inicio || '')}" /><label class="chk-app"><input type="checkbox" name="cortesia" value="1"${temCortesia ? ' checked' : ''} /><span>Mensalidade zero (o consumo é cobrado)</span></label></div>`,
+    cortesiaMotivo: `<div class="field"><label>Motivo da cortesia</label><input name="cortesiaMotivo" type="text" value="${esc(motivoCortesia)}" placeholder="Ex.: parceria com a Clínica São Jorge"${temCortesia ? '' : ' disabled'} /><span class="hint">O preço do plano continua aparecendo, como investimento do box.</span></div>`,
+    parceriaLocal: `<div class="field"><label>Bônus: parceria local</label><input name="parceriaLocalNome" type="text" value="${esc(pl.nome || '')}" placeholder="Nome da empresa parceira" /><span class="hint">10% na primeira fatura e 5% nas seguintes (de jan/2027).</span></div>`,
     parceriaLocalDesde: `<div class="field"><label>Parceria a partir da fatura de</label><input name="parceriaLocalDesde" type="month" value="${esc(pl.desde || '')}" /></div>`,
-    indicadoPor: `<div class="field"><label>BÃ´nus: indicado por</label><select name="indicadoPorId">${indicadorOpts}</select><span class="hint">O indicado ganha 30% na 1Âª mensalidade. Os 30% de quem indicou vocÃª dÃ¡ no card dele.</span></div>`,
-    indicadoPorMes: `<div class="field"><label>1Âª mensalidade (30%)</label><input name="indicadoPorMes" type="month" value="${esc(ind.mes || (a.inicio ? String(a.inicio).slice(0, 7) : ''))}" /></div>`,
+    indicadoPor: `<div class="field"><label>Bônus: indicado por</label><select name="indicadoPorId">${indicadorOpts}</select><span class="hint">O indicado ganha 30% na 1ª mensalidade. Os 30% de quem indicou você dá no card dele.</span></div>`,
+    indicadoPorMes: `<div class="field"><label>1ª mensalidade (30%)</label><input name="indicadoPorMes" type="month" value="${esc(ind.mes || (a.inicio ? String(a.inicio).slice(0, 7) : ''))}" /></div>`,
     vencimento: `<div class="field"><label>Dia de vencimento</label><input name="vencimento" type="number" min="1" max="31" value="${esc(a.vencimento)}" placeholder="10" /><span class="hint">Dia do mês (1–31) em que a mensalidade vence.</span></div>`,
     parceriaPct: `<div class="field"><label>Parceria (desconto)</label><select name="parceriaPct">${parceriaOpts}</select><span class="hint">A mensalidade cheia continua acima. O desconto entra como investimento do box, não como preço menor.</span></div>`,
     parceriaNome: `<div class="field"><label>Nome da parceria</label><input name="parceriaNome" type="text" value="${esc((a.parceria && a.parceria.nome) || '')}" placeholder="Ex.: Clínica São Jorge"${a.parceria && a.parceria.percentual ? '' : ' disabled'} /><span class="hint">Para saber quanto o box investe em cada uma.</span></div>`,
@@ -235,9 +235,9 @@ export function lerForm(form) {
     o.parceria = pct ? { nome: (o.parceriaNome || '').trim(), percentual: pct } : null;
   }
   delete o.parceriaPct; delete o.parceriaNome;
-  // Plano e cadastro (etapa 6.1). Cada um sÃ³ entra quando o campo estÃ¡ no
-  // formulÃ¡rio: os outros cards nÃ£o mexem neles. As caixas desmarcadas nÃ£o vÃ£o
-  // no FormData, por isso o campo oculto `â€¦Campo` diz que a caixa estava lÃ¡.
+  // Plano e cadastro (etapa 6.1). Cada um só entra quando o campo está no
+  // formulário: os outros cards não mexem neles. As caixas desmarcadas não vão
+  // no FormData, por isso o campo oculto `…Campo` diz que a caixa estava lá.
   if (fd.get('planoVezes') !== null) {
     const v = String(o.planoVezes || '');
     o.plano = v === 'ilimitado' ? { vezes: 'ilimitado', prazo: 'mensal' } : ['2', '3', '4'].includes(v) ? { vezes: Number(v), prazo: 'mensal' } : null;
@@ -248,7 +248,7 @@ export function lerForm(form) {
   delete o.fundadorCampo;
   if (fd.get('cortesiaCampo') !== null) {
     o.cortesia = fd.get('cortesia') === '1' ? { motivo: String(o.cortesiaMotivo || '').trim(), desde: String(o.cortesiaDesde || '') } : null;
-    // A cortesia Ã© o que a parceria de 100% era: marcar ou desmarcar a caixa
+    // A cortesia é o que a parceria de 100% era: marcar ou desmarcar a caixa
     // aposenta a parceria antiga.
     o.parceria = null;
   } else delete o.cortesia;

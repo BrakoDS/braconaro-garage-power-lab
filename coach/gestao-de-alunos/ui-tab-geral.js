@@ -20,21 +20,21 @@
  * pelo ui-tab-financeiro.js e pelo ui-acoes-aluno.js; a situação e as faturas
  * mostram sempre a ficha SALVA.
  */
-import * as db from './db.js?v=34';
-import { esc, hoje, fmtData } from './util/formato.js?v=34';
-import { $ } from './util/dom.js?v=34';
-import { estado, on, emit, EVENTOS } from './estado.js?v=34';
-import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=34';
-import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=34';
-import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=34';
-import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=34';
-import { brl, resumoDoPlano } from './financeiro-aluno.js?v=34';
-import { historicoComFechamentos } from './fechamento-regras.js?v=34';
-import { fechamentos } from './fechamentos-db.js?v=34';
-import { htmlFatura } from './ui-tab-financeiro.js?v=34';
-import { carregarConsentimentoLGPD } from './consentimento-read.js?v=34';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=34';
-import { htmlPlanoResumo, acaoDoPlano } from './ui-plano.js?v=34';
+import * as db from './db.js?v=35';
+import { esc, hoje, fmtData } from './util/formato.js?v=35';
+import { $ } from './util/dom.js?v=35';
+import { estado, on, emit, EVENTOS } from './estado.js?v=35';
+import { registrarFormulario, redesenharAberta } from './ui-salvar-global.js?v=35';
+import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=35';
+import { resumoDosDias, editarNaAbaTreino } from './ui-tab-treino.js?v=35';
+import { idadeDoAluno, situacaoFinanceira, seloStatus } from './perfil-derivados.js?v=35';
+import { brl, resumoDoPlano } from './financeiro-aluno.js?v=35';
+import { historicoComFechamentos } from './fechamento-regras.js?v=35';
+import { fechamentos } from './fechamentos-db.js?v=35';
+import { htmlFatura } from './ui-tab-financeiro.js?v=35';
+import { carregarConsentimentoLGPD } from './consentimento-read.js?v=35';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=35';
+import { htmlPlanoResumo, acaoDoPlano } from './ui-plano.js?v=35';
 
 /** Os cards com formulário (os que têm ✎ Editar). */
 export const CARDS_EDITAVEIS = Object.freeze(['contato', 'financeiro', 'acesso']);

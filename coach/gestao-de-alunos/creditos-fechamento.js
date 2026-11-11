@@ -6,8 +6,8 @@
  * crédito, nem falta, nem presença). Puro; quem grava é a varredura do servidor
  * (`aplicarCaixasPendentes`). Idempotente: a trava é `atestados[dia]`.
  */
-import { aulasDoDia } from './presenca-regras.js?v=34';
-import { validadeDoCredito } from '../../compartilhado/regras/semana.js?v=34';
+import { aulasDoDia } from './presenca-regras.js?v=35';
+import { validadeDoCredito } from '../../compartilhado/regras/semana.js?v=35';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 
 /**
@@ -15,7 +15,7 @@ import { foraDoTreino } from '../../compartilhado/regras/planos.js';
  * @returns {{ alunoId: string, dia: string, patch: { atestados: Record<string, any> }, log: { tipo: string, resumo: string, extra: any } }[]}
  */
 export function creditosDeFechamento(alunos, diasSemAula, hoje) {
-  // Inativo e pausado (etapa 6.1) nÃ£o tinham aula: o feriado nÃ£o dÃ¡ crÃ©dito a eles.
+  // Inativo e pausado (etapa 6.1) não tinham aula: o feriado não dá crédito a eles.
   const ativos = alunos.filter((a) => !foraDoTreino(a));
   const out = [];
   for (const dia of diasSemAula) {

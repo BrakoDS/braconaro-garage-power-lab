@@ -10,17 +10,18 @@
  * (plano, fundador, início, cortesia, parceria local, indicado por) se edita no
  * ✎ do card, pelo salvar global.
  */
-import * as db from './db.js?v=34';
-import { esc, fmtData, hoje } from './util/formato.js?v=34';
-import { painel, confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=34';
-import { brl } from './financeiro-aluno.js?v=34';
-import { reg } from './registro.js?v=34';
+import * as db from './db.js?v=35';
+import { esc, fmtData, hoje } from './util/formato.js?v=35';
+import { painel, confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=35';
+import { brl } from './financeiro-aluno.js?v=35';
+import { reg } from './registro.js?v=35';
 import {
   mensalidadeDoMes, explicacaoDoValor, rotuloDoPlano, ehFundador, pausaAtual, estaPausado, mesCurto, VIGENCIA_2027,
+  TABELAS, TETO_BONUS, BONUS_PCT, FUNDADOR_ATE,
 } from '../../compartilhado/regras/planos.js';
 import {
   pausar, voltar, ligarDupla, desligarDupla, alternarInstagram, indicacoesDe, darIndicacao, tirarIndicacao, ajustarSemanas,
-} from './cadastro-regras.js?v=34';
+} from './cadastro-regras.js?v=35';
 
 /* ============================================================
    HTML (puro)
@@ -81,11 +82,28 @@ export function htmlPlanoResumo(v, todos, hojeIso) {
     `<button class="btn ghost btn-sm" type="button" data-plano="instagram" aria-pressed="${instaMarcado}">${instaMarcado ? '✓ ' : ''}Instagram de ${mesCurto(mesAtual)}</button>`,
     nIndic ? `<button class="btn ghost btn-sm" type="button" data-plano="indicacoes">Indicações (${nIndic})</button>` : '',
     m.porque || m.ajuste ? '<button class="btn ghost btn-sm" type="button" data-plano="semanas">Semanas do mês</button>' : '',
+    '<button class="btn ghost btn-sm" type="button" data-plano="tabelas">Tabelas de preço</button>',
   ].filter(Boolean).join('');
   return `<dl class="card-dl fg-plano-dl">${linhas.map(([r, val]) => `
       <div class="card-linha"><dt>${esc(r)}</dt><dd>${val === '' || val == null ? '<span class="card-vazio">—</span>' : val}</dd></div>`).join('')}
     </dl>
     <div class="fg-botoes fg-plano-botoes">${botoes}</div>`;
+}
+
+/** As linhas das tabelas, na ordem do PDF. */
+const LINHAS_DA_TABELA = [
+  ['2x-mensal', '2x mensal (Legado)'], ['3x-mensal', '3x mensal'], ['3x-trimestral', '3x trimestral'], ['3x-semestral', '3x semestral'],
+  ['4x-mensal', '4x mensal'], ['4x-trimestral', '4x trimestral'], ['4x-semestral', '4x semestral'], ['ilimitado-mensal', 'Ilimitado (5–6x)'],
+];
+
+/** As tabelas de 2027, o teto e os bônus (só leitura). */
+export function htmlTabelas() {
+  const celula = (/** @type {number|undefined} */ v) => (typeof v === 'number' ? brl(v) : '<span class="card-vazio">—</span>');
+  const [ano, mes, dia] = FUNDADOR_ATE.split('-');
+  const linhas = LINHAS_DA_TABELA.map(([k, rot]) => `<tr><th scope="row">${rot}</th><td>${celula(/** @type {any} */ (TABELAS.fundador)[k])}</td><td>${celula(/** @type {any} */ (TABELAS.regular)[k])}</td></tr>`).join('');
+  return `<p class="dlg-texto">Valem da fatura de ${mesCurto(VIGENCIA_2027)} em diante. Até lá, cada aluno paga o valor de hoje, que está na ficha. Fundador é quem começou até ${dia}/${mes}/${ano}. Trimestral e semestral entram na próxima parte da etapa.</p>
+    <table class="pl-tabela"><thead><tr><th>Plano (por mês)</th><th>Fundadores</th><th>Regular</th></tr></thead><tbody>${linhas}</tbody></table>
+    <p class="dlg-texto"><b>Bônus</b> (de ${mesCurto(VIGENCIA_2027)} em diante, somados até ${TETO_BONUS}%): dupla/casal ${BONUS_PCT.dupla}%, Instagram ${BONUS_PCT.instagram}% no mês seguinte, parceria local ${BONUS_PCT.parceriaInicio}% na 1ª fatura e ${BONUS_PCT.parceria}% depois, indicação ${BONUS_PCT.indicacao}%.</p>`;
 }
 
 /* ============================================================
@@ -224,4 +242,5 @@ export async function acaoDoPlano(acao, alunoId) {
   }
   if (acao === 'indicacoes') return acaoIndicacoes(a);
   if (acao === 'semanas') return acaoSemanas(a);
+  if (acao === 'tabelas') { await painel({ titulo: 'Tabelas de preço de 2027', corpoHTML: htmlTabelas(), largo: true }); }
 }

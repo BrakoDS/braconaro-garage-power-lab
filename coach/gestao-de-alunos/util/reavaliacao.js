@@ -6,7 +6,7 @@
  * (anel na foto grande) precisam dizer a MESMA coisa sobre o mesmo aluno —
  * duas cópias da regra divergiriam no primeiro ajuste. Puro.
  */
-import { hoje } from './formato.js?v=34';
+import { hoje } from './formato.js?v=35';
 
 /**
  * Situação da próxima avaliação do aluno (pela avaliação mais recente).
@@ -35,7 +35,8 @@ export const ehInativo = (a) => String(a.status || 'ativo').toLowerCase() === 'i
  * @returns {{ tipo: 'inativo'|'sem'|'atrasada'|'avencer'|'emdia', dias?: number }}
  */
 export function reavaliacaoNaLista(a, hojeIso = hoje()) {
-  return ehInativo(a) ? { tipo: 'inativo' } : statusAvaliacao(a, hojeIso);
+  // O pausado (etapa 6.1) também fica fora da cobrança de reavaliação até voltar.
+  return ehInativo(a) || String(a.status || '').toLowerCase() === 'pausado' ? { tipo: 'inativo' } : statusAvaliacao(a, hojeIso);
 }
 
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;

@@ -12,15 +12,15 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=34';
-import * as regras from './presenca-regras.js?v=34';
-import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=34';
-import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=34';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=34';
-import { $ } from './util/dom.js?v=34';
-import { on, EVENTOS } from './estado.js?v=34';
-import { reg } from './registro.js?v=34';
-import { telaAtual } from './navegacao.js?v=34';
+import * as db from './db.js?v=35';
+import * as regras from './presenca-regras.js?v=35';
+import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=35';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=35';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=35';
+import { $ } from './util/dom.js?v=35';
+import { on, EVENTOS } from './estado.js?v=35';
+import { reg } from './registro.js?v=35';
+import { telaAtual } from './navegacao.js?v=35';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];

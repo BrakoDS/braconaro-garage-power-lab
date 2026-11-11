@@ -26,7 +26,7 @@
  */
 import { faturaDoMes, faturaComDependentes, mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
 import { mensalidadeDoMes, explicacaoDoValor } from '../../compartilhado/regras/planos.js';
-import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=34';
+import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=35';
 
 export const MESES_FIN = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 

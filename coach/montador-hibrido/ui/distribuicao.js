@@ -119,7 +119,7 @@ export function montar(ctx) {
 /** Alunos ativos da Gestão. Inativo não entra na turma. */
 function alunosAtivos() {
   try {
-    return gestaoDb.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado nÃ£o treinam
+    return gestaoDb.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado não treinam
   } catch (e) {
     console.warn('Lista de alunos indisponível:', e);
     return [];

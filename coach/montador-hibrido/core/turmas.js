@@ -75,7 +75,7 @@ export function treinaNoDia(aluno, diaChave) {
   return dias.includes(diaChave);
 }
 
-const ativo = (a) => !foraDoTreino(a); // inativo e pausado (etapa 6.1) nÃ£o estÃ£o na turma
+const ativo = (a) => !foraDoTreino(a); // inativo e pausado (etapa 6.1) não estão na turma
 
 /**
  * As turmas do dia, montadas a partir das fichas.

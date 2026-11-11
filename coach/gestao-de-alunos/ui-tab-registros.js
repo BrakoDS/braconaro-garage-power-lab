@@ -18,13 +18,13 @@
  *   'alunos-mudaram'         a ficha mudou: redesenha (o histórico reconstruído
  *                            sai da ficha).
  */
-import * as eventos from './eventos.js?v=34';
+import * as eventos from './eventos.js?v=35';
 import { ANGULOS_DIARIO, CATEGORIAS, FILTROS_ORIGEM, agruparPorDia, anexarFotosDoDiario, fotosDoDiarioPorDia,
-  juntarEventos, linhaDoTempoDoAluno, linhaHTML } from './registros-ui.js?v=34';
-import { carregarFotosDoDiario } from './diario-read.js?v=34';
-import { esc, hoje } from './util/formato.js?v=34';
-import { $, abrirModal } from './util/dom.js?v=34';
-import { estado, on, EVENTOS } from './estado.js?v=34';
+  juntarEventos, linhaDoTempoDoAluno, linhaHTML } from './registros-ui.js?v=35';
+import { carregarFotosDoDiario } from './diario-read.js?v=35';
+import { esc, hoje } from './util/formato.js?v=35';
+import { $, abrirModal } from './util/dom.js?v=35';
+import { estado, on, EVENTOS } from './estado.js?v=35';
 
 const REG_HIST = 60; // linhas do histórico reconstruído por "Carregar mais"
 let regAlunoId = ''; // de quem são os eventos em `regEventos`
