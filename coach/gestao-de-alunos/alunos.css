@@ -79,6 +79,8 @@ button{font-family:inherit}
 .status.inativo::before{background:var(--bad)}
 .status.pendente{color:var(--warn);border-color:rgba(255,158,27,.4)}
 .status.pendente::before{background:var(--warn)}
+.status.pausado{color:var(--mut);border-color:rgba(160,160,160,.45)}
+.status.pausado::before{background:var(--mut)}
 
 /* ============================================================
    TELA 1 — Listagem
@@ -1057,6 +1059,13 @@ button{font-family:inherit}
 .fg-venc{color:var(--mut);font-size:.88rem}
 .fg-notas{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:.84rem}
 .fg-notas b{color:var(--txt);font-weight:600}
+/* O plano no card Financeiro (etapa 6.1). */
+.fg-plano-resumo{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.fg-plano-dl .ac-chip{margin:0 4px 4px 0}
+.fg-exp{display:block;color:var(--mut);font-size:.8rem;margin-top:2px}
+.fg-cheia{color:var(--mut);font-size:.82rem;margin-left:6px}
+.fg-plano-botoes{margin-top:8px}
+.dlg-lista{margin:0 0 10px;padding-left:18px;display:flex;flex-direction:column;gap:6px}
 .fg-dinamico{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .fg-situacao{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
 .fg-chip{font-size:.74rem;padding:4px 10px}

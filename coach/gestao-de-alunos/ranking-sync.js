@@ -7,6 +7,7 @@
  * id + contagem, para o Portal exibir a competição sem expor e-mail.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
+import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -35,7 +36,7 @@ export async function publicarRanking(alunos, mapaGastos) {
   const d = new Date();
   const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const itens = (alunos || [])
-    .filter((a) => (a.status || 'ativo') !== 'inativo')
+    .filter((a) => !foraDoTreino(a)) // inativo e pausado fora do ranking
     .map((a) => {
       const set = new Set();
       (a.presencas || []).forEach((dt) => { if (dt && dt.slice(0, 7) === mes) set.add(dt); });

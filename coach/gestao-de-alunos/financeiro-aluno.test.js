@@ -197,3 +197,20 @@ test('registro: a fatura paga traz o registro; paga antes dele, null; em aberto,
   assert.equal(faturaDoAluno(a, '2026-09', [a], '2026-10-20')?.recebimento, null);
   assert.ok(!('recebimento' in (faturaDoAluno(a, '2026-11', [a], '2026-11-02') || {})));
 });
+
+/* ---------- Etapa 6.1: o plano na fatura ---------- */
+
+test('fatura de jan/2027: o preço da tabela e o porquê do desconto', async () => {
+  const { faturaDoAluno: fatura } = await import('./financeiro-aluno.js?v=34');
+  const bia = { id: 'Bia', nome: 'Bia', mensalidade: '130', vencimento: '10', plano: { vezes: 3, prazo: 'mensal' }, fundador: true, dupla: { id: 'Caio', nome: 'Caio' } };
+  const f = fatura(bia, '2027-01', [bia], '2027-01-05');
+  assert.equal(f.total, 171);
+  assert.equal(f.itens[0].detalhe, 'R$ 190,00 · Dupla com Caio: 10%');
+  const dez = fatura(bia, '2026-12', [bia], '2026-12-05');
+  assert.equal(dez.total, 130, 'até dezembro, o valor da ficha');
+  assert.equal(dez.itens[0].detalhe, '');
+  const pausada = { ...bia, dupla: null, status: 'pausado', pausas: [{ desde: '2027-01-15' }] };
+  const fev = fatura(pausada, '2027-02', [pausada], '2027-02-05');
+  assert.equal(fev.total, 0);
+  assert.equal(fev.itens[0].detalhe, 'R$ 190,00 · Plano pausado: mensalidade zero');
+});

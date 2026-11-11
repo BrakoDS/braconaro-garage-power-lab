@@ -26,6 +26,7 @@
  * @typedef {{horario: string, rotulo: string, alunos: Aluno[], excede: boolean}} Turma
  */
 import { diaSemanaDe } from '../../../compartilhado/regras/datas-treino.js';
+import { foraDoTreino } from '../../../compartilhado/regras/planos.js';
 import { normalizar } from './lousa-modelo.js';
 
 /** O mesmo teto do servidor e de `ALUNOS_POR_SESSAO` no inventário do box. */
@@ -74,7 +75,7 @@ export function treinaNoDia(aluno, diaChave) {
   return dias.includes(diaChave);
 }
 
-const ativo = (a) => (a?.status || 'ativo') !== 'inativo';
+const ativo = (a) => !foraDoTreino(a); // inativo e pausado (etapa 6.1) nÃ£o estÃ£o na turma
 
 /**
  * As turmas do dia, montadas a partir das fichas.

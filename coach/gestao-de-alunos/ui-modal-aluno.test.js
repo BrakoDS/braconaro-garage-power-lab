@@ -52,11 +52,11 @@ function enviar(campos) {
   form.ouvintes.submit({ preventDefault() {}, target: form });
 }
 
-test('cadastro curto: o "+" abre o modal com os nove campos essenciais', () => {
+test('cadastro curto: o "+" abre o modal com os campos essenciais (plano e início desde a etapa 6.1)', () => {
   el('#fab-novo').ouvintes.click();
   const h = el('#modal-aluno-body').innerHTML;
   const nomes = [...h.matchAll(/name="([a-zA-Z_]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(nomes, ['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'mensalidade', 'vencimento']);
+  assert.deepEqual(nomes, ['id', 'nome', 'telefone', 'email', 'nascimento', 'sexo', 'status', 'planoVezes', 'inicio', 'mensalidade', 'vencimento']);
   assert.ok(el('#modal-aluno').classList.contains('open'));
 });
 
@@ -74,6 +74,18 @@ test('cadastro curto: grava só o que o modal tem e abre a ficha do aluno novo',
   }
   assert.deepEqual(abertos, ['Lia01'], 'a ficha abre (o perfil abre na aba Geral)');
   assert.ok(!el('#modal-aluno').classList.contains('open'), 'o modal fecha');
+});
+
+test('cadastro curto: o plano e o início entram, e quem começa até 31/12/2026 é fundador', () => {
+  enviar({ id: 'Mel02', nome: 'Mel', status: 'ativo', planoVezes: '3', inicio: '2026-12-02', mensalidade: '130', vencimento: '10' });
+  const a = db.obter('Mel02');
+  assert.deepEqual(a.plano, { vezes: 3, prazo: 'mensal' });
+  assert.equal(a.inicio, '2026-12-02');
+  assert.equal(a.fundador, true);
+  enviar({ id: 'Nina03', nome: 'Nina', status: 'ativo', planoVezes: '', inicio: '2027-01-05' });
+  const b = db.obter('Nina03');
+  assert.equal(b.plano, null);
+  assert.equal(b.fundador, false);
 });
 
 test('cadastro curto: sem nome não grava; ID repetido avisa', () => {

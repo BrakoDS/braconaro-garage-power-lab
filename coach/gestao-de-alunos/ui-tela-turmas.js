@@ -21,6 +21,7 @@ import { $ } from './util/dom.js?v=34';
 import { on, EVENTOS } from './estado.js?v=34';
 import { reg } from './registro.js?v=34';
 import { telaAtual } from './navegacao.js?v=34';
+import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
@@ -62,7 +63,7 @@ const chaveDaLinha = (x) => `${x.aluno.id}|${x.tipo}|${x.chave}`;
 
 /** As turmas do dia, do jeito que a tela usa. */
 function turmasDeHoje() {
-  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  const alunos = db.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado fora das turmas
   return regras.turmasDoDia(alunos, dia, {
     hoje: hoje(), fechados: db.diasFechados(), experimentais: db.experimentaisDoDia(dia),
     config: db.configTurmas(), horasExtras: horasAbertas,
@@ -293,7 +294,7 @@ function painelDesmarcar(x) {
 function painelAdicionar(t) {
   const h = hoje();
   const opcoes = db.listar()
-    .filter((a) => (a.status || 'ativo') !== 'inativo')
+    .filter((a) => !foraDoTreino(a))
     .flatMap((a) => regras.creditosDisponiveis(a, h).map((c) => ({ a, c })))
     .sort((x, y) => String(x.a.nome).localeCompare(String(y.a.nome), 'pt-BR'))
     .map(({ a, c }) => {

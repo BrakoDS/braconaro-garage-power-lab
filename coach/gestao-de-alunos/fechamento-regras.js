@@ -22,6 +22,7 @@
  */
 import { contaDoMes, faturaDoAluno, rotuloMesFin, brl, mesesDoHistorico } from './financeiro-aluno.js?v=34';
 import { parteCoberta } from '../../compartilhado/regras/consumo.js';
+import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
 
 /** O primeiro mês que pode ser fechado (julho a setembro ficam de fora: sem data de início, apareceriam dívidas que não existem). */
 export const FECHAMENTO_DESDE = '2026-10';
@@ -38,8 +39,9 @@ const ativo = (/** @type {any} */ a) => (a.status || 'ativo') !== 'inativo';
  *   situacao: Fatura['status'], pagavel: boolean, responsavel: { alunoId: string, nome: string } | null,
  *   mensalidadeCheia: number, desconto: number, parceria: { nome: string, percentual: number } | null,
  *   consumo: number, dependentes: { alunoId: string, nome: string, total: number }[],
- *   recebimento: Recebimento | null,
+ *   recebimento: Recebimento | null, investimento?: number,
  * }} LinhaDoRetrato
+ *   investimento: o que o box banca (etapa 6.1); retrato antigo não tem e usa o `desconto`
  * @typedef {{ previsto: number, recebido: number, emAberto: number, consumo: number, bancadoPeloBox: number }} TotaisDoRetrato
  * @typedef {{ tipo: 'em-aberto'|'valor-diferente'|'sem-registro', alunoId: string, nome: string, total: number, valor?: number }} Divergencia
  * @typedef {{ mesId: string, linhas: Record<string, LinhaDoRetrato>, totais: TotaisDoRetrato, divergencias: Divergencia[] }} Retrato
@@ -90,6 +92,7 @@ export function linhaDoRetrato(a, mesId, todos, hojeIso) {
     responsavel: resp ? { alunoId: String(resp.id), nome: String(resp.nome || resp.id) } : null,
     mensalidadeCheia: propria.mensalidadeCheia,
     desconto: propria.desconto,
+    investimento: mensalidadeDoMes(a, mesId).investimento,
     parceria: propria.parceria ? { nome: propria.parceria.nome, percentual: propria.parceria.percentual } : null,
     consumo: propria.extras,
     dependentes,
@@ -104,7 +107,8 @@ export function totaisDoRetrato(linhas) {
     if (l.pagavel) previsto += centavos(l.total);
     if (l.pagavel && l.situacao === 'pago') recebido += centavos(l.total);
     consumo += centavos(l.consumo);
-    banca += centavos(l.desconto);
+    // Retrato aprovado antes da etapa 6.1 não tem `investimento`: o desconto era só a parceria.
+    banca += centavos(typeof l.investimento === 'number' ? l.investimento : l.desconto);
   }
   return { previsto: reais(previsto), recebido: reais(recebido), emAberto: reais(previsto - recebido), consumo: reais(consumo), bancadoPeloBox: reais(banca) };
 }

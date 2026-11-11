@@ -10,6 +10,7 @@
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
 import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=34';
 import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=34';
+import { semanasDoMes } from '../../compartilhado/regras/planos.js';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -37,12 +38,55 @@ function vinculoPagador(a, todos) {
   return { nome: (resp && resp.nome) || '', escopo: a.pagoPor.escopo === 'plano' ? 'plano' : 'tudo' };
 }
 
+/** 'AAAA-MM' somado de n meses. @param {string} mesId @param {number} n */
+function somarMes(mesId, n) {
+  const [a, m] = mesId.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1 + n, 1)).toISOString().slice(0, 7);
+}
+
+/** Hoje, 'AAAA-MM-DD', no relógio do aparelho. */
+const hojeLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+/**
+ * O plano e o cadastro de uma ficha (etapa 6.1): com eles, o Portal e o app
+ * calculam a mensalidade de cada mês com o mesmo `planos.js` da Gestão — a
+ * tabela de 2027, a cortesia, os bônus, a pausa e a regra das semanas.
+ * @param {any} a
+ */
+export function camposDoPlano(a) {
+  return {
+    plano: a.plano || null, fundador: a.fundador === true, inicio: a.inicio || '', cortesia: a.cortesia || null,
+    pausas: a.pausas || [], dupla: a.dupla || null, instagram: a.instagram || [], parceriaLocal: a.parceriaLocal || null,
+    indicadoPor: a.indicadoPor || null, indicacoes: a.indicacoes || [], semanasAjuste: a.semanasAjuste || {},
+  };
+}
+
+/**
+ * As semanas de cada mês já resolvidas, para o DEPENDENTE: a semana quebrada da
+ * regra das semanas depende da presença, e a presença de um aluno não vai na
+ * fatia de outro. Então a Gestão faz a conta e publica o resultado, do ano que
+ * passou até o mês que vem, por cima do ajuste do coach.
+ * @param {any} x @param {string} hojeIso
+ */
+export function semanasPublicadas(x, hojeIso) {
+  /** @type {Record<string, number>} */ const out = { ...(x.semanasAjuste || {}) };
+  const atual = hojeIso.slice(0, 7);
+  for (let i = -12; i <= 1; i++) {
+    const mes = somarMes(atual, i);
+    if (out[mes] != null) continue;
+    const s = semanasDoMes(x, mes);
+    if (s.porque && !s.ajuste) out[mes] = s.semanas;
+  }
+  return out;
+}
+
 /**
  * A fatia publicada de um aluno (o que o portal precisa mostrar).
  * @param {any} a @param {any[]} todos a lista inteira, para resolver os vínculos
  * @param {string[]} fechadosDoBox dias em que o box não abriu (feriado confirmado)
+ * @param {string} [hojeIso] o dia de hoje (as semanas publicadas dos dependentes)
  */
-export function fatia(a, todos, fechadosDoBox = []) {
+export function fatia(a, todos, fechadosDoBox = [], hojeIso = hojeLocal()) {
   return {
     id: a.id, nome: a.nome || '', email: emailKey(a.email), fotoUrl: a.fotoUrl || '',
     status: a.status || 'ativo', objetivo: a.objetivo || '', nivel: a.nivel || '',
@@ -88,10 +132,13 @@ export function fatia(a, todos, fechadosDoBox = []) {
     // A parceria vai junto para o Portal mostrar a mensalidade cheia e o desconto
     // na notinha — o aluno enxerga o benefício, e não um preço que sobe e desce.
     parceria: a.parceria || null,
+    // O plano, o cadastro e os bônus (etapa 6.1): a mensalidade de cada mês.
+    ...camposDoPlano(a),
     pagoPor: vinculoPagador(a, todos),
     dependentes: (todos || []).filter((x) => x.pagoPor && x.pagoPor.id === a.id).map((x) => ({
       nome: x.nome || '', escopo: x.pagoPor.escopo === 'plano' ? 'plano' : 'tudo',
       mensalidade: x.mensalidade || '', consumos: x.consumos || [], parceria: x.parceria || null,
+      ...camposDoPlano(x), semanasAjuste: semanasPublicadas(x, hojeIso),
     })),
     presencas: a.presencas || [],
     presencaHoras: a.presencaHoras || {},

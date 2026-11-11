@@ -42,6 +42,7 @@ import {
 } from '../core/turmas.js';
 import { escolherAluno } from './buscar-aluno.js';
 import { diaSemanaDe } from '../../../compartilhado/regras/datas-treino.js';
+import { foraDoTreino } from '../../../compartilhado/regras/planos.js';
 import { distributeWorkoutToStudents } from '../cloud/chamadas.js';
 import { esc } from './render-treino.js';
 import { resumo } from '../core/lousa-modelo.js';
@@ -118,7 +119,7 @@ export function montar(ctx) {
 /** Alunos ativos da Gestão. Inativo não entra na turma. */
 function alunosAtivos() {
   try {
-    return gestaoDb.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+    return gestaoDb.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado nÃ£o treinam
   } catch (e) {
     console.warn('Lista de alunos indisponível:', e);
     return [];

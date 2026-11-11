@@ -12,10 +12,11 @@
  */
 import * as gestaoDb from '../../gestao-de-alunos/db.js';
 import { metasGrupoDe } from '../../gestao-de-alunos/metas-grupo.js';
+import { foraDoTreino } from '../../../compartilhado/regras/planos.js';
 
 /** Alunos da Gestão que treinam hoje no box (inativo não entra na turma). */
 export function listarAlunos() {
-  return gestaoDb.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  return gestaoDb.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado nÃ£o treinam
 }
 
 /** Puxa os alunos da nuvem para o cache local. @param {string} [uid] */

@@ -8,13 +8,15 @@
  */
 import { aulasDoDia } from './presenca-regras.js?v=34';
 import { validadeDoCredito } from '../../compartilhado/regras/semana.js?v=34';
+import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 
 /**
  * @param {any[]} alunos @param {string[]} diasSemAula @param {string} hoje
  * @returns {{ alunoId: string, dia: string, patch: { atestados: Record<string, any> }, log: { tipo: string, resumo: string, extra: any } }[]}
  */
 export function creditosDeFechamento(alunos, diasSemAula, hoje) {
-  const ativos = alunos.filter((a) => (a.status || 'ativo') !== 'inativo');
+  // Inativo e pausado (etapa 6.1) nÃ£o tinham aula: o feriado nÃ£o dÃ¡ crÃ©dito a eles.
+  const ativos = alunos.filter((a) => !foraDoTreino(a));
   const out = [];
   for (const dia of diasSemAula) {
     // Não gera um crédito que já nasceria vencido (dia de um mês que já passou).

@@ -11,6 +11,7 @@
  */
 import * as db from './db.js?v=34';
 import { formCadastroCurtoHTML, CAMPOS_CADASTRO, wireForm, lerCampos } from './campos-aluno.js?v=34';
+import { fundadorPeloInicio } from './cadastro-regras.js?v=34';
 import { $, abrirModal, fecharModal } from './util/dom.js?v=34';
 import { emit, EVENTOS } from './estado.js?v=34';
 import { reg } from './registro.js?v=34';
@@ -35,6 +36,8 @@ export function iniciarModalAluno(d = {}) {
     e.preventDefault();
     const dados = lerCampos(e.target, CAMPOS_CADASTRO);
     if (!dados.nome) { deps.avisar({ texto: 'Informe o nome do aluno.' }); return; }
+    // Quem começa até 31/12/2026 é fundador, sozinho (decisão 9); o coach tira no card.
+    if (dados.inicio) dados.fundador = fundadorPeloInicio(dados.inicio);
     const novo = db.criar(dados);
     if (!novo) { deps.avisar({ texto: 'Já existe um aluno com esse ID. Escolha outro.' }); return; }
     reg('aluno-criado', novo, 'Aluno cadastrado', { chave: `aluno-criado:${novo.id}` });

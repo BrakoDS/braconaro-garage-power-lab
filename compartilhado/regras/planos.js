@@ -221,18 +221,24 @@ export function semanasDoMes(a, mesId) {
 /* ---------- os bônus ---------- */
 
 /**
- * Os bônus que valem no mês (só de jan/2027 em diante).
- *   bonus.dupla        { id, nome }       10% enquanto a dupla estiver ligada
- *   bonus.instagram    ['AAAA-MM', …]     5% na fatura do mês seguinte a cada mês marcado
- *   bonus.parceria     { nome, desde }    10% na 1ª fatura (desde), 5% nas seguintes
- *   bonus.indicadoPor  { id, nome, mes }  30% na 1ª mensalidade do indicado
- *   bonus.indicacoes   [{ mes, nome }]    30% para quem indicou, no mês que o coach deu
+ * Os bônus que valem no mês (só de jan/2027 em diante). Cada um é um campo da
+ * ficha, e não um objeto só: o card grava a parceria e a indicação, e os botões
+ * gravam a dupla, o Instagram e as indicações dadas — gravando por campo, um
+ * não apaga o outro.
+ *   dupla          { id, nome }          10% enquanto a dupla estiver ligada
+ *   instagram      ['AAAA-MM', …]        5% na fatura do mês seguinte a cada mês marcado
+ *   parceriaLocal  { nome, desde }       10% na 1ª fatura (desde), 5% nas seguintes
+ *   indicadoPor    { id, nome, mes }     30% na 1ª mensalidade do indicado
+ *   indicacoes     [{ mes, id, nome }]   30% para quem indicou, no mês que o coach deu
  * @param {any} a @param {string} mesId
  * @returns {{ tipo: string, rotulo: string, pct: number }[]}
  */
 export function bonusDoMes(a, mesId) {
   if (mesId < VIGENCIA_2027) return [];
-  const b = (a && a.bonus) || {};
+  const b = {
+    dupla: a && a.dupla, instagram: a && a.instagram, parceria: a && a.parceriaLocal,
+    indicadoPor: a && a.indicadoPor, indicacoes: a && a.indicacoes,
+  };
   const out = [];
   if (b.dupla && b.dupla.id) out.push({ tipo: 'dupla', rotulo: `Dupla com ${b.dupla.nome || 'parceiro'}`, pct: BONUS_PCT.dupla });
   if (Array.isArray(b.instagram) && b.instagram.includes(mesAnterior(mesId))) out.push({ tipo: 'instagram', rotulo: 'Instagram (4 stories)', pct: BONUS_PCT.instagram });
@@ -266,6 +272,8 @@ export function bonusDoMes(a, mesId) {
  * @property {boolean} ajuste    as semanas foram corrigidas pelo coach
  * @property {''|'cortesia'|'pausado'|'antes-do-inicio'} zero  por que o mês é zero
  * @property {number} desconto   cheia − valor
+ * @property {number} investimento  o que o box banca: a cortesia, a parceria e os bônus
+ *                    (proporcionais às semanas). A pausa e o início no meio do mês não contam.
  * @property {number} valor      o que o aluno paga de mensalidade no mês
  */
 
@@ -293,13 +301,13 @@ export function mensalidadeDoMes(a, mesId) {
     bonus, pctBonus, teto: soma > TETO_BONUS,
     semanas: s.semanas, desde: s.desde, porque: s.porque, quebrada: s.quebrada, ajuste: s.ajuste,
   };
-  if (cortesia) return { ...base, zero: 'cortesia', desconto: cheia, valor: 0 };
-  if (s.zero) return { ...base, zero: s.zero, desconto: cheia, valor: 0 };
+  if (cortesia) return { ...base, zero: 'cortesia', desconto: cheia, investimento: cheia, valor: 0 };
+  if (s.zero) return { ...base, zero: s.zero, desconto: cheia, investimento: 0, valor: 0 };
   const descontoPlano = parceria ? Math.min(parceria.valor, cheia) : Math.min(centavos(cheia * pctBonus / 100), cheia);
   const liquido = centavos(cheia - descontoPlano);
-  if (s.semanas >= 4) return { ...base, zero: '', desconto: descontoPlano, valor: liquido };
+  if (s.semanas >= 4) return { ...base, zero: '', desconto: descontoPlano, investimento: descontoPlano, valor: liquido };
   const valor = centavos(liquido * s.semanas / 4);
-  return { ...base, zero: '', desconto: centavos(cheia - valor), valor };
+  return { ...base, zero: '', desconto: centavos(cheia - valor), investimento: centavos(descontoPlano * s.semanas / 4), valor };
 }
 
 /* ---------- textos ---------- */

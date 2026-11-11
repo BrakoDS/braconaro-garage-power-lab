@@ -88,7 +88,7 @@ function painelProdutos() {
 }
 
 /** Uma linha do mês. @param {import('./financeiro-regras.js').LinhaDoMes} l */
-function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, rotulo, destino, adiante }) {
+function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, rotulo, destino, adiante, investimento }) {
   const partes = [];
   if (conta.propria.mensalidade > 0) partes.push(brl(conta.propria.mensalidade));
   else if (propria.desconto > 0 && !resp) partes.push(brl(0));
@@ -118,8 +118,8 @@ function linhaHTML({ a, resp, conta, propria, status, statusExibido, cortesia, r
   const selo = propria.parceria
     ? `<span class="fin-parceria">${propria.parceria.percentual}%${propria.parceria.nome ? ' · ' + esc(propria.parceria.nome) : ''}</span>`
     : '';
-  const custo = propria.desconto > 0
-    ? ` <span class="fin-investido">· box banca ${brl(propria.desconto)}</span>`
+  const custo = investimento > 0
+    ? ` <span class="fin-investido">· box banca ${brl(investimento)}</span>`
     : '';
   return `<div class="fin-row fin-row-consumo">
       <div class="fin-info"><div class="fin-nome">${esc(a.nome)}${selo}${marca}</div>

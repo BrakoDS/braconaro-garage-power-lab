@@ -97,3 +97,37 @@ test('as faltas lançadas no Painel de Presença vão na fatia, junto com os cr�
   assert.equal(f.atestados['2026-10-05'].expira, '2026-11-03');
   assert.deepEqual(fatia({ id: '009', nome: 'Sem', email: 's@e.com' }, []).faltas, {}, 'ficha antiga publica vazio');
 });
+
+/* ---------- Etapa 6.1: o plano na fatia ---------- */
+
+test('o plano, a tabela, o início, a cortesia, a pausa e os bônus vão na fatia', async () => {
+  const { faturaComDependentes } = await import('../../compartilhado/regras/consumo.js');
+  const ana = {
+    id: 'A', email: 'a@b.com', mensalidade: '130', plano: { vezes: 3, prazo: 'mensal' }, fundador: true, inicio: '2026-07-01',
+    dupla: { id: 'B', nome: 'Bia' }, instagram: ['2026-12'], pausas: [{ desde: '2027-02-10', ate: '2027-03-15' }],
+  };
+  const f = JSON.parse(JSON.stringify(fatia(ana, [ana], [], '2026-11-11')));
+  assert.deepEqual(f.plano, { vezes: 3, prazo: 'mensal' });
+  assert.equal(f.fundador, true);
+  assert.equal(f.inicio, '2026-07-01');
+  assert.deepEqual(f.dupla, { id: 'B', nome: 'Bia' });
+  // O Portal calcula com a fatia o mesmo que a Gestão com a ficha.
+  assert.equal(faturaComDependentes(f, '2026-12', []).total, 130);
+  assert.equal(faturaComDependentes(f, '2027-01', []).total, 161.5, 'dupla 10% + Instagram 5%');
+  assert.equal(faturaComDependentes(f, '2027-03', []).total, 128.25, 'volta em 15/03: 3 de 4 semanas com a dupla');
+  const vazia = fatia({ id: 'X', email: 'x@y.com' }, [], [], '2026-11-11');
+  assert.deepEqual([vazia.plano, vazia.fundador, vazia.cortesia, vazia.pausas], [null, false, null, []]);
+});
+
+test('dependente: as semanas vão resolvidas, sem a presença dele na fatia de outro', () => {
+  const resp = { id: 'R', email: 'r@b.com', mensalidade: '150' };
+  const dep = {
+    id: 'D', nome: 'Duda', mensalidade: '130', pagoPor: { id: 'R', escopo: 'tudo' }, plano: { vezes: 3 }, fundador: true,
+    pausas: [{ desde: '2026-12-20', ate: '2027-01-19' }], presencas: ['2027-01-19', '2027-01-21', '2027-01-23'],
+  };
+  const f = JSON.parse(JSON.stringify(fatia(resp, [resp, dep], [], '2027-01-25')));
+  const d = f.dependentes[0];
+  assert.equal('presencas' in d, false, 'a presença do dependente não vai');
+  assert.equal(d.semanasAjuste['2027-01'], 2, 'a semana quebrada contou (treinou 3x), e vai pronta');
+  assert.equal(d.fundador, true);
+});

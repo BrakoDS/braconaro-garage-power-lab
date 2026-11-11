@@ -16,6 +16,7 @@ import * as regras from './checkin-regras.js?v=34';
 import { DIA_EXT } from './checkin-regras.js?v=34';
 import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=34';
 import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js?v=34';
+import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=34';
 import { $ } from './util/dom.js?v=34';
 import { on, EVENTOS } from './estado.js?v=34';
@@ -43,7 +44,7 @@ function labelDia(iso) { const d = new Date(iso + 'T00:00:00'); return `${DIAS_S
 
 function renderCheckin() {
   $('#chk-data-lbl').textContent = labelDia(chkData);
-  const alunos = db.listar().filter((a) => (a.status || 'ativo') !== 'inativo');
+  const alunos = db.listar().filter((a) => !foraDoTreino(a)); // inativo e pausado fora do check-in
   const presentes = alunos.filter((a) => (a.presencas || []).includes(chkData)).length;
   const sumidos = regras.quemSumiu(alunos, hoje());
   $('#chk-resumo').innerHTML =

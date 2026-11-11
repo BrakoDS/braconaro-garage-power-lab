@@ -24,6 +24,7 @@
  * @typedef {{ patch: Record<string, any>, log: EventoFinanceiro | null }} Mudanca
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
+import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
 import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=34';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, comRecebimento, contaDoMes,
@@ -144,8 +145,9 @@ export function removerConsumo(a, consumoId) {
  * @typedef {{
  *   a: any, deps: any[], resp: any, conta: any, propria: any,
  *   status: 'pago'|'vencido'|'pendente', statusExibido: 'pago'|'vencido'|'pendente',
- *   cortesia: boolean, rotulo: string, destino: string, adiante: number,
+ *   cortesia: boolean, rotulo: string, destino: string, adiante: number, investimento: number,
  * }} LinhaDoMes
+ *   investimento: o que o box banca na linha (cortesia, parceria e bônus — a pausa não conta)
  */
 
 /**
@@ -175,17 +177,19 @@ export function mesDoBox(todos, mesId, hojeIso) {
     const statusExibido = (resp && conta.total === 0) ? /** @type {any} */ (statusFin(resp, mesId, hojeIso)) : status;
     // Quem não deve nada não pode aparecer vencido. Sem responsável e sem conta,
     // o motivo é a parceria — e é isso que o selo tem que dizer.
+    const plano = mensalidadeDoMes(a, mesId);
     const cortesia = !resp && conta.total === 0 && propria.desconto > 0;
-    const rotulo = cortesia ? 'Cortesia' : statusExibido === 'pago' ? 'Pago' : statusExibido === 'vencido' ? 'Vencido' : 'Pendente';
+    // Zerado pela pausa (etapa 6.1) não é cortesia: o selo diz o motivo certo.
+    const rotulo = cortesia ? (plano.zero === 'pausado' ? 'Pausado' : 'Cortesia') : statusExibido === 'pago' ? 'Pago' : statusExibido === 'vencido' ? 'Vencido' : 'Pendente';
     // Consumo lançado numa fatura à frente não aparece na linha do mês em tela;
     // sem o aviso, o dinheiro fica invisível até alguém navegar de mês.
     const destino = mesIdParaLancar(hojeIso, a.vencimento, a.pagamentos);
     const adiante = destino !== mesId ? totalConsumos(a.consumos, destino) : 0;
-    return { a, deps, resp, conta, propria, status, statusExibido, cortesia, rotulo, destino, adiante };
+    return { a, deps, resp, conta, propria, status, statusExibido, cortesia, rotulo, destino, adiante, investimento: plano.investimento };
   }).filter((l) => l.conta.total > 0 || l.resp || numMoney(l.a.mensalidade) > 0);
   for (const l of linhas) {
     totais.extras += l.propria.extras;
-    totais.investido += l.propria.desconto;
+    totais.investido += l.investimento;
     if (l.conta.total > 0) {
       totais.previsto += l.conta.total;
       if (l.status === 'pago') totais.recebido += l.conta.total;

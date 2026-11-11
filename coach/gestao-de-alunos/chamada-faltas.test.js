@@ -71,6 +71,7 @@ test('box fechado nesse dia: nada', () => {
 
 test('ficha inativa, sem ficha e chamada do futuro: nada', () => {
   nada(faltaDaChamada(ana({ status: 'inativo' }), o()), /inativa/);
+  nada(faltaDaChamada(ana({ status: 'pausado' }), o()), /pausada/);
   nada(faltaDaChamada(null, o()), /sem ficha/);
   nada(faltaDaChamada(ana(), o({ hoje: '2026-11-04' })), /ainda não chegou/);
 });

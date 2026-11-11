@@ -11,6 +11,7 @@
  */
 import { turmasDoDia, horasDaGrade } from '../../gestao-de-alunos/presenca-regras.js?v=34';
 import { chaveDoDia } from '../../../compartilhado/regras/semana.js?v=34';
+import { foraDoTreino } from '../../../compartilhado/regras/planos.js';
 
 /** Os status de quem vem à aula. */
 export const VEM = new Set(['confirmado', 'presente']);
@@ -36,7 +37,7 @@ export function pendenteDe(pendentes, x) {
 export const camadaTurmas = {
   id: 'turmas', nome: 'Turmas', cor: '--accent',
   itens(ctx, datas) {
-    const ativos = ctx.fichas.filter((a) => (a.status || 'ativo') !== 'inativo');
+    const ativos = ctx.fichas.filter((a) => !foraDoTreino(a)); // inativo e pausado nÃ£o estÃ£o na turma
     const fechados = new Set(ctx.fechados);
     const out = [];
     for (const data of datas) {

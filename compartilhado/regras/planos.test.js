@@ -142,16 +142,16 @@ test('o ajuste do coach manda nas semanas', () => {
 /* ---------- bônus ---------- */
 
 test('os bônus só valem de jan/2027 em diante', () => {
-  const a = { bonus: { dupla: { id: 'B', nome: 'Bia' } } };
+  const a = { dupla: { id: 'B', nome: 'Bia' } };
   assert.deepEqual(bonusDoMes(a, '2026-12'), []);
   assert.deepEqual(bonusDoMes(a, '2027-01'), [{ tipo: 'dupla', rotulo: 'Dupla com Bia', pct: 10 }]);
 });
 
 test('Instagram vale no mês seguinte; parceria 10% na 1ª e 5% depois; indicação', () => {
-  const a = { bonus: {
-    instagram: ['2027-01'], parceria: { nome: 'Clínica', desde: '2027-02' },
-    indicadoPor: { id: 'X', nome: 'Xavier', mes: '2027-02' }, indicacoes: [{ mes: '2027-03', nome: 'Yara' }],
-  } };
+  const a = {
+    instagram: ['2027-01'], parceriaLocal: { nome: 'Clínica', desde: '2027-02' },
+    indicadoPor: { id: 'X', nome: 'Xavier', mes: '2027-02' }, indicacoes: [{ mes: '2027-03', id: 'Y', nome: 'Yara' }],
+  };
   assert.deepEqual(bonusDoMes(a, '2027-01').map((b) => b.tipo), []);
   assert.deepEqual(bonusDoMes(a, '2027-02').map((b) => [b.tipo, b.pct]), [['instagram', 5], ['parceria', 10], ['indicado', 30]]);
   assert.deepEqual(bonusDoMes(a, '2027-03').map((b) => [b.tipo, b.pct]), [['parceria', 5], ['indicacao', 30]]);
@@ -178,14 +178,26 @@ test('sem plano, a ficha continua valendo, inclusive em 2027', () => {
 
 test('os exemplos do plano: 190, casal 171, casal + indicação no teto 133', () => {
   assert.equal(mensalidadeDoMes(fundador3x, '2027-01').valor, 190);
-  const casal = { ...fundador3x, bonus: { dupla: { id: 'B', nome: 'Bia' } } };
+  const casal = { ...fundador3x, dupla: { id: 'B', nome: 'Bia' } };
   assert.equal(mensalidadeDoMes(casal, '2027-01').valor, 171);
-  const tudo = { ...fundador3x, bonus: { dupla: { id: 'B' }, indicadoPor: { id: 'C', nome: 'Caio', mes: '2027-01' } } };
+  const tudo = { ...fundador3x, dupla: { id: 'B' }, indicadoPor: { id: 'C', nome: 'Caio', mes: '2027-01' } };
   const m = mensalidadeDoMes(tudo, '2027-01');
   assert.equal(m.valor, 133);
   assert.equal(m.pctBonus, 30);
   assert.equal(m.teto, true);
   assert.equal(m.desconto, 57);
+  assert.equal(m.investimento, 57, 'o bônus é investimento do box');
+});
+
+test('investimento: cortesia é o preço todo; pausa e semanas não contam; bônus proporcional', () => {
+  assert.equal(mensalidadeDoMes({ ...fundador3x, cortesia: {} }, '2027-01').investimento, 190);
+  assert.equal(mensalidadeDoMes({ ...fundador3x, pausas: [{ desde: '2027-01-01' }] }, '2027-02').investimento, 0);
+  const volta = { ...fundador3x, pausas: [{ desde: '2026-12-20', ate: '2027-01-11' }] };
+  const m = mensalidadeDoMes(volta, '2027-01');
+  assert.deepEqual([m.valor, m.desconto, m.investimento], [142.5, 47.5, 0], 'a volta no meio não é investimento');
+  const casal = mensalidadeDoMes({ ...volta, dupla: { id: 'B' } }, '2027-01');
+  assert.deepEqual([casal.valor, casal.investimento], [128.25, 14.25], '19 × 3/4');
+  assert.equal(mensalidadeDoMes({ mensalidade: '150', parceria: { percentual: 25 } }, '2026-11').investimento, 37.5, 'a parceria antiga continua sendo investimento');
 });
 
 test('a regra das semanas no valor (jan/2027, 3x fundador)', () => {
@@ -194,7 +206,7 @@ test('a regra das semanas no valor (jan/2027, 3x fundador)', () => {
   assert.equal(mensalidadeDoMes(volta('2027-01-19', ['2027-01-19', '2027-01-21', '2027-01-23']), '2027-01').valor, 95);
   assert.equal(mensalidadeDoMes(volta('2027-01-19', ['2027-01-19']), '2027-01').valor, 47.5);
   // Os bônus entram antes das semanas: 171 × 3/4.
-  const casal = { ...volta('2027-01-11'), bonus: { dupla: { id: 'B' } } };
+  const casal = { ...volta('2027-01-11'), dupla: { id: 'B' } };
   assert.equal(mensalidadeDoMes(casal, '2027-01').valor, 128.25);
 });
 
@@ -229,7 +241,7 @@ test('ficha antiga sem nada novo: o mesmo valor de sempre', () => {
 
 test('a explicação do valor', () => {
   assert.deepEqual(explicacaoDoValor(mensalidadeDoMes(fundador3x, '2027-01')), []);
-  const tudo = { ...fundador3x, bonus: { dupla: { id: 'B', nome: 'Bia' }, indicadoPor: { nome: 'Caio', mes: '2027-01' } } };
+  const tudo = { ...fundador3x, dupla: { id: 'B', nome: 'Bia' }, indicadoPor: { nome: 'Caio', mes: '2027-01' } };
   assert.deepEqual(explicacaoDoValor(mensalidadeDoMes(tudo, '2027-01')), ['Dupla com Bia: 10%', 'Indicado por Caio: 30%', 'Bônus limitados a 30%']);
   const volta = { ...fundador3x, pausas: [{ desde: '2026-12-20', ate: '2027-01-11' }] };
   assert.deepEqual(explicacaoDoValor(mensalidadeDoMes(volta, '2027-01')), ['3 de 4 semanas (volta em 11/01)']);
