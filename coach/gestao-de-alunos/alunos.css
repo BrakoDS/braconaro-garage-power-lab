@@ -892,6 +892,14 @@ button{font-family:inherit}
 .reg-motivo{display:block;color:var(--txt);font-size:.82rem}
 .reg-recusada .reg-res{text-decoration:line-through;text-decoration-color:var(--mut-2)}
 .reg-derivado{opacity:.78}
+/* A tela Registros do box (etapa 5): filtros e o nome do aluno em cada linha */
+.rb-filtros{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.rb-filtros label{display:flex;flex-direction:column;gap:4px;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.7rem;color:var(--mut)}
+.rb-filtros select{min-width:150px;padding:8px 10px;background:var(--card);color:var(--txt);border:1px solid var(--line-2);font:inherit;text-transform:none;letter-spacing:0;font-size:.9rem}
+.rb-linha{border-top:1px solid var(--line)}
+.rb-aluno{display:block;padding:8px 0 0;font-family:var(--font-cond);font-weight:700;font-size:.92rem}
+.rb-linha .reg-row{border-top:0}
+.rb-mais{margin-top:14px}
 /* A janela que pede o motivo (compartilhado/ui/dialogo.js, pedirMotivo) */
 .dlg-motivo-l{display:block;margin:12px 0 6px;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.72rem;color:var(--mut)}
 .dlg-motivo{width:100%;box-sizing:border-box;resize:vertical;min-height:70px;padding:10px 12px;background:var(--card);color:var(--txt);border:1px solid var(--line-2);font:inherit}

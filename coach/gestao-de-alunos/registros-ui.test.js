@@ -10,7 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   agruparPorDia, anexarFotosDoDiario, filtrarEventos, fotosDoDiarioPorDia, historicoDasFichas, juntarEventos,
-  linhaDoTempoDoAluno, linhaHTML, rotuloDia, rastroHTML,
+  linhaDoTempoDoAluno, linhaHTML, rotuloDia, rastroHTML, linhaDoBoxHTML, htmlFiltrosDoBox, htmlListaDoBox,
 } from './registros-ui.js?v=33';
 
 /* ---------- quem fez, quem pediu, quem aprovou, por quê (etapa 5) ---------- */
@@ -330,4 +330,27 @@ test('créditos e faltas do Painel de Presença: cada um com o seu tipo, e a mes
     ['desmarcacao', 'Desmarcou no prazo · aula de 05/10', 'atestado:013:2026-10-05'],
   ]);
   assert.deepEqual(filtrarEventos(evs, { categoria: 'presenca' }).length, 4, 'os três tipos novos são do filtro Presença');
+});
+
+/* ---------- a tela Registros do box (etapa 5) ---------- */
+
+test('tela do box: a linha leva o nome do aluno (ou "Box" no fechamento) e os filtros listam quem fez, tipo e aluno', () => {
+  const html = linhaDoBoxHTML({ id: 'x', tipo: 'presenca', origem: 'gestao', alunoId: '001', alunoNome: 'Ana <Lima>', em: 1, resumo: 'Check-in' });
+  assert.match(html, /<span class="rb-aluno">Ana &lt;Lima&gt;<\/span>/);
+  assert.match(linhaDoBoxHTML({ id: 'y', tipo: 'fechamento', origem: 'gestao', alunoId: 'box', alunoNome: 'Box (todos os alunos)', em: 1, resumo: 'Fechamento' }), /rb-aluno">Box</);
+  const f = htmlFiltrosDoBox({ autor: 'rotina', categoria: 'todos', alunoId: '' }, [{ id: 'B', nome: 'Bia' }, { id: 'A', nome: 'Ana' }]);
+  assert.match(f, /<option value="rotina" selected>Rotina<\/option>/);
+  assert.match(f, /data-rb="categoria"/);
+  const alunos = [...f.matchAll(/data-rb="alunoId">([\s\S]*?)<\/select>/g)][0][1];
+  assert.deepEqual([...alunos.matchAll(/<option value="([^"]*)"/g)].map((m) => m[1]), ['', 'box', 'A', 'B'], 'Todos, Box e os alunos em ordem de nome');
+});
+
+test('tela do box: a lista agrupa por dia, avisa quando está vazia e oferece "Carregar mais" enquanto houver', () => {
+  const evs = [{ id: '1', tipo: 'presenca', origem: 'gestao', alunoId: '001', alunoNome: 'Ana', em: Date.now(), resumo: 'Check-in' }];
+  const cheia = htmlListaDoBox(evs, { fim: false, carregando: false, erro: '', hojeIso: '2000-01-01' });
+  assert.match(cheia, /class="reg-dia"/);
+  assert.match(cheia, /data-rb-mais[^>]*>Carregar mais</);
+  assert.match(htmlListaDoBox([], { fim: true, carregando: false, erro: '', hojeIso: '2000-01-01' }), /Nada por aqui/);
+  assert.ok(!htmlListaDoBox(evs, { fim: true, carregando: false, erro: '', hojeIso: '2000-01-01' }).includes('data-rb-mais'), 'acabou: sem "Carregar mais"');
+  assert.match(htmlListaDoBox([], { fim: false, carregando: true, erro: '', hojeIso: '2000-01-01' }), /disabled>Carregando…/);
 });

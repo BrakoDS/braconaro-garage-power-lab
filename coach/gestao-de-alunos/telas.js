@@ -41,6 +41,7 @@ import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=33';
 import { iniciarTelaLeads } from './ui-tela-leads.js?v=33';
 import { iniciarAutomacao } from './automacao.js?v=33';
 import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=33';
+import { iniciarTelaRegistros } from './ui-tela-registros.js?v=33';
 
 /**
  * @param {{
@@ -86,6 +87,7 @@ export function iniciarTelas(o = {}) {
   iniciarTelaMural();
   iniciarTelaDesafios();
   iniciarTelaLeads();
+  iniciarTelaRegistros(); // Registros do box (etapa 5): todas as ações, de todos os alunos
   // O motor de automação (ouve as ações do log) e a Fila de mensagens.
   iniciarAutomacao();
   iniciarTelaAutomacao(o.automacao);

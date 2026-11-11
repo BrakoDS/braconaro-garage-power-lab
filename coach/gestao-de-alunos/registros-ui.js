@@ -352,3 +352,50 @@ export function rastroHTML(ev) {
   const motivo = ev && ev.motivo ? `<span class="reg-motivo">Motivo: ${esc(ev.motivo)}</span>` : '';
   return rastro + motivo;
 }
+
+/* ============================================================
+   A tela "Registros do box" (etapa 5): todas as linhas, de todos
+   os alunos (ui-tela-registros.js liga os botões)
+   ============================================================ */
+
+/** O "aluno" das ações do box inteiro no log (registro.js, `ALUNO_BOX`). */
+const ID_DO_BOX = 'box';
+
+/**
+ * Uma linha da tela do box: a de sempre, com o nome do aluno na frente (ou
+ * "Box", nas ações do box inteiro — o fechamento do mês).
+ * @param {any} ev
+ */
+export function linhaDoBoxHTML(ev) {
+  const quem = String(ev && ev.alunoId) === ID_DO_BOX ? 'Box' : (ev && ev.alunoNome) || 'Aluno';
+  return `<div class="rb-linha"><span class="rb-aluno">${esc(quem)}</span>${linhaHTML(ev)}</div>`;
+}
+
+/**
+ * Os filtros da tela do box: quem fez, categoria e aluno (os alunos em ordem de
+ * nome; "Box" para as ações do box inteiro).
+ * @param {{ autor: string, categoria: string, alunoId: string }} f @param {{ id: any, nome?: string }[]} alunos
+ */
+export function htmlFiltrosDoBox(f, alunos) {
+  const opcao = (/** @type {string} */ v, /** @type {string} */ r, /** @type {string} */ atual) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(r)}</option>`;
+  const ordenados = [...(alunos || [])].sort((x, y) => String(x.nome || '').localeCompare(String(y.nome || ''), 'pt-BR'));
+  return `<div class="rb-filtros">
+    <label>Quem fez <select data-rb="autor">${FILTROS_AUTOR.map(([v, r]) => opcao(v, r, f.autor)).join('')}</select></label>
+    <label>Tipo <select data-rb="categoria">${CATEGORIAS.map(([v, r]) => opcao(v, r, f.categoria)).join('')}</select></label>
+    <label>Aluno <select data-rb="alunoId">${opcao('', 'Todos', f.alunoId)}${opcao(ID_DO_BOX, 'Box (todos os alunos)', f.alunoId)}${ordenados.map((a) => opcao(String(a.id), String(a.nome || a.id), f.alunoId)).join('')}</select></label>
+  </div>`;
+}
+
+/**
+ * A lista da tela do box, agrupada por dia, com o aviso do que falta carregar.
+ * @param {any[]} evs já filtrados, do mais novo ao mais antigo
+ * @param {{ fim: boolean, carregando: boolean, erro: string, hojeIso: string }} o
+ */
+export function htmlListaDoBox(evs, { fim, carregando, erro, hojeIso }) {
+  const grupos = agruparPorDia(evs, hojeIso).map((g) =>
+    `<div class="reg-dia">${esc(g.rotulo)}</div>` + g.itens.map(linhaDoBoxHTML).join('')).join('');
+  const vazio = !evs.length && !carregando ? '<div class="empty"><b>Nada por aqui</b>Nenhuma linha com estes filtros nas que já carregaram.</div>' : '';
+  const mais = !fim ? `<button class="btn ghost btn-sm rb-mais" data-rb-mais type="button"${carregando ? ' disabled' : ''}>${carregando ? 'Carregando…' : 'Carregar mais'}</button>` : '';
+  const aviso = erro ? `<p class="reg-aviso">${esc(erro)}</p>` : '';
+  return `${aviso}${grupos}${vazio}${mais}`;
+}
