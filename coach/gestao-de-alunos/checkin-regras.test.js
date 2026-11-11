@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  checkin, trocarDia, atestado, desfazer, agendarReposicao, desmarcarReposicao, alternarPresenca,
+  checkin, trocarDia, atestado, desfazer, desfazerPedeMotivo, comMotivo, agendarReposicao, desmarcarReposicao, alternarPresenca,
   diaEfetivo, diasReivindicados, outraAulaUsa, donoDoDia, quemSumiu, ultimaPresenca, diasDesde, DIA_EXT,
 } from './checkin-regras.js?v=33';
 import { datasDaSemana } from '../../compartilhado/regras/semana.js';
@@ -215,4 +215,29 @@ test('puro: nenhuma regra altera a ficha que recebe', () => {
   atestado(a, SEG, { em: 1, hoje: QUA }); desfazer(a, QUA); desfazer(a, TER2, { ehReposicao: true, origem: SEX });
   agendarReposicao(a, SEX, '2026-10-15', ''); desmarcarReposicao(a, SEX); alternarPresenca(a, SEG, relogio);
   assert.equal(JSON.stringify(a), copia);
+});
+
+/* ---------- o motivo ao desfazer (etapa 5) ---------- */
+
+test('desfazer pede motivo só quando apaga falta, crédito ou atestado; tirar só a presença, não', () => {
+  const comFalta = aluno({ faltas: { [SEG]: { tipo: 'no-show', em: 1 } } });
+  const comCredito = aluno({ atestados: { [SEG]: { em: 1, tipo: 'desmarcacao', expira: '2026-10-31', reposicao: null } } });
+  const comAtestado = aluno({ atestados: { [SEG]: { em: 1, reposicao: null } } });
+  const soPresenca = aluno({ presencas: [SEG] });
+  assert.equal(desfazerPedeMotivo(comFalta, SEG), true);
+  assert.equal(desfazerPedeMotivo(comCredito, SEG), true);
+  assert.equal(desfazerPedeMotivo(comAtestado, SEG), true);
+  assert.equal(desfazerPedeMotivo(soPresenca, SEG), false);
+  assert.equal(desfazerPedeMotivo(comCredito, TER2, { ehReposicao: true }), false, 'a presença da reposição sai num clique');
+});
+
+test('comMotivo põe o motivo na linha dos Registros; recusa, null e motivo em branco passam como vieram', () => {
+  const r = desfazer(aluno({ faltas: { [SEG]: { tipo: 'no-show', em: 1 } } }), SEG);
+  const c = comMotivo(r, ' ele veio ');
+  assert.equal(c.log.extra.motivo, 'ele veio');
+  assert.deepEqual(c.patch, r.patch, 'a mudança na ficha é a mesma');
+  assert.equal(comMotivo(r, '  '), r);
+  assert.equal(comMotivo(null, 'x'), null);
+  const recusa = { recusa: { chave: 'k', texto: 't' } };
+  assert.equal(comMotivo(recusa, 'x'), recusa);
 });

@@ -91,16 +91,19 @@ export function erroDaBaixa(d, hojeIso) {
 /**
  * DESFAZER A BAIXA — a fatura volta a ficar em aberto (também no Portal). O
  * registro do pagamento sai junto; a foto do comprovante fica no Storage.
- * null: o mês não estava pago.
- * @param {any} a @param {string} mesId
+ * O MOTIVO é obrigatório (decisão 8 do ESCOPO, etapa 5) e vai para o Registro.
+ * null: o mês não estava pago, ou falta o motivo.
+ * @param {any} a @param {string} mesId @param {string} motivo
  * @returns {Mudanca | null}
  */
-export function desfazerBaixa(a, mesId) {
+export function desfazerBaixa(a, mesId, motivo) {
   if (!(a.pagamentos && a.pagamentos[mesId])) return null;
+  const porque = String(motivo || '').trim();
+  if (!porque) return null;
   // Só mexe em `recebimentos` quando há o que tirar: a ficha sem o registro
   // (paga antes da etapa 3) continua gravando o mesmo de sempre.
   const semRegistro = a.recebimentos && a.recebimentos[mesId] ? { recebimentos: comRecebimento(a.recebimentos, mesId, null) } : {};
-  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, false), ...semRegistro }, log: eventoPagamentoDesfeito(mesId) };
+  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, false), ...semRegistro }, log: eventoPagamentoDesfeito(mesId, porque) };
 }
 
 /**

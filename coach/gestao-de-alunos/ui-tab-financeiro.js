@@ -28,7 +28,7 @@ import * as db from './db.js?v=33';
 import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=33';
 import { $, abrirModal, fecharModal } from './util/dom.js?v=33';
 import { estado } from './estado.js?v=33';
-import { confirmar } from '../../compartilhado/ui/dialogo.js?v=33';
+import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=33';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
 import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento } from './financeiro-aluno.js?v=33';
 import { darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=33';
@@ -281,6 +281,23 @@ async function gravarPagamento(form) {
   aoGravar?.();
 }
 
+/**
+ * DESFAZER PAGAMENTO pede o motivo (decisão 8 do ESCOPO, etapa 5) — o mesmo no
+ * card Financeiro do aluno e na tela Financeiro do box. Resolve com o motivo, ou
+ * null (cancelou, ou deixou em branco: aí avisa que é obrigatório).
+ * @param {string} mesId
+ */
+export async function pedirMotivoDoDesfazerPagamento(mesId) {
+  const motivo = await pedirMotivo({
+    titulo: 'Desfazer pagamento?',
+    texto: `A fatura de <b>${esc(rotuloMesFin(mesId))}</b> volta a ficar em aberto, também no Portal do aluno. Por que está desfazendo?`,
+    ok: 'Desfazer', placeholder: 'Ex.: Pix devolvido; dei baixa no aluno errado', perigo: true,
+  });
+  if (motivo === null) return null;
+  if (!motivo) { await avisar({ titulo: 'Falta o motivo', texto: 'Para desfazer um pagamento, escreva o motivo: ele fica nos Registros. Nada foi desfeito.' }); return null; }
+  return motivo;
+}
+
 /** Abre a foto do comprovante numa aba nova. @param {string} caminho */
 async function abrirComprovante(caminho) {
   // A aba abre já, no clique (senão o navegador bloqueia), e recebe o endereço quando ele chega.
@@ -353,9 +370,8 @@ export function iniciarTabFinanceiro(painel = '#tab-geral') {
     else if (b.dataset.fin === 'pagar') abrirPagamento(a.id, b.dataset.mes);
     else if (b.dataset.fin === 'comprovante') void abrirComprovante(b.dataset.caminho);
     else if (b.dataset.fin === 'desfazer') {
-      if (await confirmar({ titulo: 'Desfazer pagamento?', texto: `A fatura de <b>${esc(rotuloMesFin(b.dataset.mes))}</b> volta a ficar em aberto, também no Portal do aluno.`, ok: 'Desfazer', perigo: true })) {
-        aplicar(a, desfazerBaixa(a, b.dataset.mes));
-      }
+      const motivo = await pedirMotivoDoDesfazerPagamento(b.dataset.mes);
+      if (motivo) aplicar(a, desfazerBaixa(a, b.dataset.mes, motivo));
     } else if (b.dataset.fin === 'remover') {
       const c = (a.consumos || []).find((x) => x.id === b.dataset.consumo); if (!c) return;
       if (await confirmar({ titulo: 'Remover lançamento?', texto: `Tirar <b>${esc(c.nome)}</b> (${brl(c.preco)}) da fatura de ${esc(rotuloMesFin(c.mesId))}?`, ok: 'Remover', perigo: true })) {

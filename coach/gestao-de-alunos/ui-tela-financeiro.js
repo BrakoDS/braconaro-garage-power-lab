@@ -18,7 +18,7 @@ import * as db from './db.js?v=33';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
 import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=33';
 import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=33';
-import { abrirPagamento } from './ui-tab-financeiro.js?v=33';
+import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=33';
 import { esc, hoje, fmtDataCurta } from './util/formato.js?v=33';
 import { $, $$ } from './util/dom.js?v=33';
 import { estado, on, EVENTOS } from './estado.js?v=33';
@@ -233,7 +233,7 @@ async function reabrirMes() {
   if (!res) { await avisar({ titulo: 'Falta o motivo', texto: 'Escreva por que o mês está sendo reaberto: ele fica guardado junto com a aprovação anterior.' }); return; }
   try {
     await gravarFechamento(estado.uid, mes, res.doc);
-    regDoBox(res.log.tipo, res.log.resumo, { chave: `fechamento-reaberto:${mes}:${res.doc.reabertoEm}` });
+    regDoBox(res.log.tipo, res.log.resumo, { chave: `fechamento-reaberto:${mes}:${res.doc.reabertoEm}`, motivo: res.doc.motivoReabertura });
   } catch (e) { await falhouGravar(e); }
   renderFinanceiro();
 }
@@ -270,9 +270,10 @@ export function iniciarTelaFinanceiro() {
     if (btn.dataset.fech === 'reabrir') { void reabrirMes(); return; }
     if (btn.classList.contains('fin-toggle')) {
       const mes = finMes;
-      // Marcar pago abre a janela da baixa (meio, valor, data, foto); desfazer continua num clique.
+      // Marcar pago abre a janela da baixa (meio, valor, data, foto); desfazer pede o motivo.
       if (btn.dataset.op === '1') abrirPagamento(btn.dataset.id, mes, renderFinanceiro);
-      else aplicar(btn.dataset.id, (a) => desfazerBaixa(a, mes));
+      // Desfazer pede o motivo (etapa 5): sem ele, nada muda.
+      else void pedirMotivoDoDesfazerPagamento(mes).then((motivo) => { if (motivo) aplicar(btn.dataset.id, (a) => desfazerBaixa(a, mes, motivo)); });
       return;
     }
     if (btn.classList.contains('fin-balcao-btn')) {

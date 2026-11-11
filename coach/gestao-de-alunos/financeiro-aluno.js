@@ -272,7 +272,8 @@ export function resumoDoPlano(a, todos, hojeIso) {
 
 /**
  * @typedef {{ tipo: 'pagamento'|'pagamento-desfeito'|'lancamento', resumo: string,
- *   dados?: { mesId: string, valor?: number, soMensalidade?: boolean, meio?: string, data?: string } }} EventoFinanceiro
+ *   dados?: { mesId: string, valor?: number, soMensalidade?: boolean, meio?: string, data?: string }, motivo?: string }} EventoFinanceiro
+ *   motivo: o porquê do coach (desfazer pagamento, etapa 5) — vai para a linha do log.
  *   dados: o fato em campos (o mês, o valor) para quem ouve o barramento — a
  *   automação monta o recibo com eles. Não vai para o log: lá fica o resumo.
  */
@@ -300,8 +301,9 @@ export function eventoPagamento(mesId, total, soMensalidade = true, rec = null) 
 }
 
 /** Baixa desfeita. @param {string} mesId @returns {EventoFinanceiro} */
-export function eventoPagamentoDesfeito(mesId) {
-  return { tipo: 'pagamento-desfeito', resumo: `Pagamento desfeito · ${rotuloMesFin(mesId)}`, dados: { mesId } };
+export function eventoPagamentoDesfeito(mesId, motivo = '') {
+  const m = String(motivo || '').trim();
+  return { tipo: 'pagamento-desfeito', resumo: `Pagamento desfeito · ${rotuloMesFin(mesId)}`, dados: { mesId }, ...(m ? { motivo: m } : {}) };
 }
 
 /**

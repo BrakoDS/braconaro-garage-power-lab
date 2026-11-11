@@ -40,7 +40,8 @@ export function reg(tipo, a, resumo, extra = {}, dados) {
  * @param {any} a @param {import('./financeiro-aluno.js').EventoFinanceiro} ev
  */
 export function regFinanceiro(a, ev) {
-  reg(ev.tipo, a, ev.resumo, {}, ev.dados);
+  // O motivo (desfazer pagamento, etapa 5) vai para a linha do log.
+  reg(ev.tipo, a, ev.resumo, ev.motivo ? { motivo: ev.motivo } : {}, ev.dados);
 }
 
 /** O "aluno" das ações do box inteiro no log: o log é por aluno, e esta linha é de todos. */

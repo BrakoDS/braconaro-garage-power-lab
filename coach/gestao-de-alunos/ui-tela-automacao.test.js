@@ -166,7 +166,7 @@ test('recibo: a baixa (o mesmo caminho das telas) põe o recibo na fila; desfaze
   assert.match(el('#auto-list').innerHTML, /Recibos de pagamento[\s\S]*Edu Prado[\s\S]*R\$\s200,00 · Outubro \/ 2026/);
   assert.match(el('#auto-list').innerHTML, /Recebi o pagamento da mensalidade de Outubro \(R\$\s200,00\)/);
   assert.equal(selo(), '1');
-  const a = db.obter('Edu03'); const r = desfazerBaixa(a, OUT); assert.ok(r);
+  const a = db.obter('Edu03'); const r = desfazerBaixa(a, OUT, 'teste'); assert.ok(r);
   db.atualizar('Edu03', r.patch); if (r.log) regFinanceiro(a, r.log);
   assert.deepEqual(cartoes(), []);
   assert.equal(selo(), null);
@@ -182,7 +182,7 @@ test('recibo: a baixa de quem estava na fila de cobrança troca a cobrança pelo
 
 test('c) descartar o recibo e refazer a baixa do mês não traz outro recibo', () => {
   clicar('auto-descartar', 'recibo:Bia05:2026-10');
-  const a = db.obter('Bia05'); const r = desfazerBaixa(a, OUT); assert.ok(r);
+  const a = db.obter('Bia05'); const r = desfazerBaixa(a, OUT, 'teste'); assert.ok(r);
   db.atualizar('Bia05', r.patch); regFinanceiro(a, r.log);
   // Desfeita a baixa, a Bia volta a dever: a cobrança volta (outra chave) — o recibo não.
   assert.deepEqual(cartoes(), ['cobranca-vencida:Bia05:2026-10']);

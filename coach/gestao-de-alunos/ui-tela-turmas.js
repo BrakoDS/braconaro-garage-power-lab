@@ -14,7 +14,8 @@
  */
 import * as db from './db.js?v=33';
 import * as regras from './presenca-regras.js?v=33';
-import { checkin, desfazer } from './checkin-regras.js?v=33';
+import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=33';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=33';
 import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=33';
 import { $ } from './util/dom.js?v=33';
 import { on, EVENTOS } from './estado.js?v=33';
@@ -375,11 +376,29 @@ function agirNaLinha(acao, k) {
   if (acao === 'credito') {
     aplicar(id, (a) => rep ? regras.concederCreditoReposicao(a, x.chave, { hoje: hoje(), em }) : regras.concederCredito(a, x.chave, { hoje: hoje(), em }), k); return;
   }
-  if (acao === 'desfazer') {
-    if (!rep) { aplicar(id, (a) => desfazer(a, x.chave), k); return; }
-    // Reposição: com presença, tira a presença; com falta lançada, reabre.
-    aplicar(id, (a) => (x.status === 'presente' ? desfazer(a, dia, { ehReposicao: true, origem: x.chave }) : regras.reabrirReposicao(a, x.chave)), k);
+  if (acao === 'desfazer') void desfazerNaLinha(x, id, rep, k);
+}
+
+/**
+ * O DESFAZER do painel. Apagar uma falta, um crédito ou um atestado pede o
+ * motivo (etapa 5), que vai para a linha dos Registros; tirar só uma presença
+ * continua num clique. Na reposição: com presença, tira a presença; com falta
+ * lançada (no-show), reabre — e reabrir apaga a falta, então pede o motivo.
+ * @param {any} x a linha @param {string} id @param {boolean} rep @param {string} k
+ */
+async function desfazerNaLinha(x, id, rep, k) {
+  const a0 = db.obter(id); if (!a0) return;
+  if (!rep) {
+    const pede = desfazerPedeMotivo(a0, x.chave);
+    const motivo = pede ? await pedirMotivoDoDesfazerAula(x.chave) : '';
+    if (pede && !motivo) return;
+    aplicar(id, (a) => comMotivo(desfazer(a, x.chave), motivo || ''), k);
+    return;
   }
+  if (x.status === 'presente') { aplicar(id, (a) => desfazer(a, dia, { ehReposicao: true, origem: x.chave }), k); return; }
+  const motivo = await pedirMotivoDoDesfazerAula(dia);
+  if (!motivo) return;
+  aplicar(id, (a) => comMotivo(regras.reabrirReposicao(a, x.chave), motivo), k);
 }
 
 /** Grava a lista de experimentais do dia, já podada. @param {regras.Experimental[]} lista */

@@ -14,6 +14,7 @@
 import * as db from './db.js?v=33';
 import * as regras from './checkin-regras.js?v=33';
 import { DIA_EXT } from './checkin-regras.js?v=33';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=33';
 import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js?v=33';
 import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=33';
 import { $ } from './util/dom.js?v=33';
@@ -305,7 +306,14 @@ export function iniciarTelaCheckin() {
       aplicar(btn.dataset.id, (a) => regras.atestado(a, btn.dataset.dia, { em: Date.now(), hoje: hoje() })); return;
     }
     if (btn.classList.contains('chk-desfazer')) {
-      aplicar(btn.dataset.id, (a) => regras.desfazer(a, btn.dataset.dia, { ehReposicao: !!btn.dataset.rep, origem: btn.dataset.origem })); return;
+      // Apagar falta, crédito ou atestado pede o motivo (etapa 5); tirar só a presença, não.
+      const id = btn.dataset.id, dia = btn.dataset.dia, opts = { ehReposicao: !!btn.dataset.rep, origem: btn.dataset.origem };
+      const a0 = db.obter(id);
+      if (a0 && regras.desfazerPedeMotivo(a0, dia, opts)) {
+        void pedirMotivoDoDesfazerAula(dia).then((motivo) => { if (motivo) aplicar(id, (a) => regras.comMotivo(regras.desfazer(a, dia, opts), motivo)); });
+        return;
+      }
+      aplicar(id, (a) => regras.desfazer(a, dia, opts)); return;
     }
     // Abre o painel de agendar reposição, já sugerindo o dia seguinte.
     if (btn.classList.contains('chk-chip')) {

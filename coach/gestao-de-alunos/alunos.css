@@ -892,6 +892,9 @@ button{font-family:inherit}
 .reg-motivo{display:block;color:var(--txt);font-size:.82rem}
 .reg-recusada .reg-res{text-decoration:line-through;text-decoration-color:var(--mut-2)}
 .reg-derivado{opacity:.78}
+/* A janela que pede o motivo (compartilhado/ui/dialogo.js, pedirMotivo) */
+.dlg-motivo-l{display:block;margin:12px 0 6px;font-family:var(--font-cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.72rem;color:var(--mut)}
+.dlg-motivo{width:100%;box-sizing:border-box;resize:vertical;min-height:70px;padding:10px 12px;background:var(--card);color:var(--txt);border:1px solid var(--line-2);font:inherit}
 .reg-aviso{color:var(--mut);font-size:.82rem}
 /* Foto do Diário: miniatura 3:4 (a proporção do diário) que abre em tela cheia */
 .reg-row--foto{grid-template-columns:48px 54px 1fr auto}

@@ -262,6 +262,28 @@ export function desfazer(a, diaPlanejado, { ehReposicao = false, origem } = {}) 
 }
 
 /**
+ * O DESFAZER vai apagar uma falta, um crédito de reposição ou um atestado?
+ * Então pede o motivo (decisão 8 do ESCOPO, etapa 5). Tirar só uma presença (ou a
+ * presença de uma reposição) não pede: continua num clique.
+ * @param {any} a @param {string} diaPlanejado @param {{ ehReposicao?: boolean }} [o]
+ */
+export function desfazerPedeMotivo(a, diaPlanejado, { ehReposicao = false } = {}) {
+  if (ehReposicao || !a) return false;
+  return !!(((a.faltas || {})[diaPlanejado]) || ((a.atestados || {})[diaPlanejado]));
+}
+
+/**
+ * A mudança com o motivo do coach na linha dos Registros (`log.extra.motivo`).
+ * Recusa e null passam como vieram.
+ * @template T @param {T} r @param {string} motivo @returns {T}
+ */
+export function comMotivo(r, motivo) {
+  const m = /** @type {any} */ (r);
+  if (!m || 'recusa' in m || !m.log || !String(motivo || '').trim()) return r;
+  return /** @type {T} */ ({ ...m, log: { ...m.log, extra: { ...(m.log.extra || {}), motivo: String(motivo).trim() } } });
+}
+
+/**
  * Agenda a reposição de um atestado numa data qualquer (pode ser outra semana).
  * null: faltou a data, ou não há atestado nessa aula.
  * @param {any} a @param {string} origem a aula do atestado @param {string} data @param {string} [hora]

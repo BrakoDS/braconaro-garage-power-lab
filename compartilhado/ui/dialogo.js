@@ -121,6 +121,28 @@ export async function confirmar({ titulo, texto, ok = 'Confirmar', cancelar = 'C
 }
 
 /**
+ * Pede o MOTIVO antes de uma ação (etapa 5): o texto, um campo de uma ou duas
+ * frases e os botões. Resolve com o motivo aparado ('' se veio em branco), ou
+ * `null` se cancelou (fundo, ×, Esc ou Cancelar).
+ * @param {{titulo: string, texto: string, ok?: string, placeholder?: string, perigo?: boolean}} o
+ * @returns {Promise<string|null>}
+ */
+export async function pedirMotivo({ titulo, texto, ok = 'Confirmar', placeholder = '', perigo = false }) {
+  const resposta = abrir({
+    titulo,
+    corpoHTML: `<p class="dlg-texto">${texto}</p>
+      <label class="dlg-motivo-l" for="dlg-motivo">Motivo</label>
+      <textarea id="dlg-motivo" class="dlg-motivo" rows="3" maxlength="300" placeholder="${esc(placeholder)}"></textarea>`,
+    acoesHTML: `<button class="btn ghost" data-fechar type="button">Cancelar</button>
+      <button class="btn${perigo ? ' danger' : ''}" data-acao="ok" type="button">${esc(ok)}</button>`,
+  });
+  /** @type {HTMLElement|null} */ (document.querySelector('#dlg-motivo'))?.focus();
+  const r = await resposta;
+  if (r !== 'ok') return null;
+  return String(/** @type {any} */ (document.querySelector('#dlg-motivo'))?.value || '').trim();
+}
+
+/**
  * Painel de conteúdo com botões de ação. Resolve com o `id` da ação clicada, ou
  * `null` se foi fechado sem escolher.
  *

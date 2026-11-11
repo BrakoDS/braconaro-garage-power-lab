@@ -100,7 +100,7 @@ test('ação: a baixa de verdade (darBaixa) entrega o mês, o valor da fatura e 
   const edu = darBaixa(b.edu, OUT, todos(b), PG)?.log;
   assert.deepEqual(ana?.dados, { mesId: OUT, valor: 270, soMensalidade: false, meio: 'pix-chave', data: HOJE }, 'com a Bia junto: conta');
   assert.deepEqual(edu?.dados, { mesId: OUT, valor: 200, soMensalidade: true, meio: 'pix-chave', data: HOJE });
-  assert.deepEqual(desfazerBaixa({ ...b.fab }, OUT)?.log?.dados, { mesId: OUT });
+  assert.deepEqual(desfazerBaixa({ ...b.fab }, OUT, 'teste')?.log?.dados, { mesId: OUT });
 });
 
 /* ---------- o texto ---------- */
