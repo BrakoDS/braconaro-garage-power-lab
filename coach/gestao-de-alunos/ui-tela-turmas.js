@@ -303,9 +303,13 @@ function previa(x, quando) {
   if (ant >= regras.PRAZO_DESMARCAR_MIN) {
     return { cls: 'ok', texto: x.tipo === 'titular'
       ? `Avisou ${regras.textoAntecedencia(ant)}: no prazo — libera a vaga e gera +1 crédito (vale até o fim do mês, no mínimo 7 dias).`
-      : `Avisou ${regras.textoAntecedencia(ant)}: no prazo — o crédito volta para ser usado em outra data.` };
+      : x.tipo === 'ilimitado'
+        ? `Avisou ${regras.textoAntecedencia(ant)}: no prazo — a aula sai e a vaga fica livre, sem falta.`
+        : `Avisou ${regras.textoAntecedencia(ant)}: no prazo — o crédito volta para ser usado em outra data.` };
   }
-  return { cls: 'bad', texto: `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 2h — falta, sem crédito.` };
+  return { cls: 'bad', texto: x.tipo === 'ilimitado'
+    ? `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 2h — falta.`
+    : `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 2h — falta, sem crédito.` };
 }
 
 /** O painel de desmarcar: quando o aluno avisou, e o que isso dá. @param {regras.AulaNaTurma} x */
