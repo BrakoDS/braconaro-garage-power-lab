@@ -6,10 +6,13 @@
  * criar ou apagar avaliação). Depois da gravação, e nunca no lugar dela: o log
  * é testemunha da ação, não condição.
  */
-import * as eventos from './eventos.js?v=33';
-import { resumoFicha } from './registros-ui.js?v=33';
-import { emit, EVENTOS } from './estado.js?v=33';
-import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=33';
+import * as eventos from './eventos.js?v=34';
+import { resumoFicha } from './registros-ui.js?v=34';
+import { emit, EVENTOS } from './estado.js?v=34';
+import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=34';
+
+/** Quem executa o que é feito na Gestão (etapa 5). */
+const AUTOR_COACH = Object.freeze({ tipo: 'coach' });
 
 /**
  * Registra o que o coach acabou de fazer — e avisa o barramento.
@@ -22,7 +25,9 @@ import { resumoAnamnese, resumoParq, parqRaso } from './saude.js?v=33';
  */
 export function reg(tipo, a, resumo, extra = {}, dados) {
   if (!a) return;
-  const ev = eventos.novoEvento({ tipo, origem: 'gestao', aluno: a, em: Date.now(), resumo, ...extra });
+  // Etapa 5: a ação feita na Gestão é do coach (o `extra` pode trazer quem pediu,
+  // quem aprovou e o motivo — ou outro autor, como a rotina que aplicou uma caixa).
+  const ev = eventos.novoEvento({ tipo, origem: 'gestao', aluno: a, em: Date.now(), resumo, autor: AUTOR_COACH, ...extra });
   eventos.registrar(ev);
   // A linha do tempo aberta (aba Histórico) mostra a linha na hora, sem reabrir.
   emit(EVENTOS.REGISTROS_MUDARAM, String(a.id));
@@ -35,7 +40,8 @@ export function reg(tipo, a, resumo, extra = {}, dados) {
  * @param {any} a @param {import('./financeiro-aluno.js').EventoFinanceiro} ev
  */
 export function regFinanceiro(a, ev) {
-  reg(ev.tipo, a, ev.resumo, {}, ev.dados);
+  // O motivo (desfazer pagamento, etapa 5) vai para a linha do log.
+  reg(ev.tipo, a, ev.resumo, ev.motivo ? { motivo: ev.motivo } : {}, ev.dados);
 }
 
 /** O "aluno" das ações do box inteiro no log: o log é por aluno, e esta linha é de todos. */
@@ -50,7 +56,7 @@ export const ALUNO_BOX = Object.freeze({ id: 'box', nome: 'Box (todos os alunos)
  * @param {string} tipo @param {string} resumo @param {any} [extra]
  */
 export function regDoBox(tipo, resumo, extra = {}) {
-  const ev = eventos.novoEvento({ tipo, origem: 'gestao', aluno: ALUNO_BOX, em: Date.now(), resumo, ...extra });
+  const ev = eventos.novoEvento({ tipo, origem: 'gestao', aluno: ALUNO_BOX, em: Date.now(), resumo, autor: AUTOR_COACH, ...extra });
   eventos.registrar(ev);
 }
 

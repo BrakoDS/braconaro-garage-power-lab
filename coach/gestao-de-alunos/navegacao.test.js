@@ -24,8 +24,8 @@ globalThis.document = /** @type {any} */ ({
 });
 globalThis.window = /** @type {any} */ ({ scrollTo: () => { rolou++; } });
 
-const { on, emit, EVENTOS } = await import('./estado.js?v=33');
-const { iniciarNavegacao, telaAtual, TELAS, lerPedidoDeTela } = await import('./navegacao.js?v=33');
+const { on, emit, EVENTOS } = await import('./estado.js?v=34');
+const { iniciarNavegacao, telaAtual, TELAS, lerPedidoDeTela } = await import('./navegacao.js?v=34');
 iniciarNavegacao();
 
 const visiveis = () => telas.filter((t) => t.classList.contains('active')).map((t) => t.id);
@@ -88,12 +88,12 @@ test('roteador: toda tela tem a sua <section>, botão de entrar e "voltar" com d
   for (const t of TELAS.filter((x) => x !== 'lista' && x !== 'perfil')) {
     assert.match(html, new RegExp(`id="btn-${t}" data-tela="${t}"`), `botão de entrar em ${t}`);
   }
-  assert.equal((html.match(/-voltar" data-tela="lista"/g) || []).length, 9, 'os nove "← Voltar para a listagem"');
+  assert.equal((html.match(/-voltar" data-tela="lista"/g) || []).length, 10, 'os dez "← Voltar para a listagem" (Registros do box, etapa 5)');
 });
 
 test('roteador: ninguém navega na mão — nenhuma tela liga o próprio botão de entrar ou voltar', () => {
   const fontes = ['./boot.js', './telas.js', './main.js', './ui-tela-checkin.js', './ui-tela-turmas.js', './ui-tela-financeiro.js', './ui-tela-cobrancas.js',
-    './ui-tela-avisos.js', './ui-tela-mural.js', './ui-tela-desafios.js', './ui-tela-leads.js', './ui-tela-automacao.js', './ui-modal-aluno.js'].map(ler).join('\n');
+    './ui-tela-avisos.js', './ui-tela-mural.js', './ui-tela-desafios.js', './ui-tela-leads.js', './ui-tela-automacao.js', './ui-tela-registros.js', './ui-modal-aluno.js'].map(ler).join('\n');
   assert.ok(!fontes.includes('mostrarTela'), 'mostrarTela saiu');
   assert.ok(!/\$\('#[\w]+-voltar'\)/.test(fontes), 'nenhum botão de voltar ligado à mão');
   // (o $('#btn-leads') que sobra é o contador de leads desenhado no botão, não navegação)

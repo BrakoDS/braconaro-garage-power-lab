@@ -10,8 +10,40 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   agruparPorDia, anexarFotosDoDiario, filtrarEventos, fotosDoDiarioPorDia, historicoDasFichas, juntarEventos,
-  linhaDoTempoDoAluno, linhaHTML, rotuloDia,
-} from './registros-ui.js?v=33';
+  linhaDoTempoDoAluno, linhaHTML, rotuloDia, rastroHTML, linhaDoBoxHTML, htmlFiltrosDoBox, htmlListaDoBox,
+} from './registros-ui.js?v=34';
+
+/* ---------- quem fez, quem pediu, quem aprovou, por quê (etapa 5) ---------- */
+
+test('filtro por quem fez: o autor gravado ou o deduzido pela origem (as linhas antigas)', () => {
+  const evs = [
+    { id: '1', tipo: 'presenca', origem: 'gestao', em: 1 },
+    { id: '2', tipo: 'presenca', origem: 'servidor', em: 2 },
+    { id: '3', tipo: 'feedback', origem: 'app', em: 3 },
+    { id: '4', tipo: 'desmarcacao', origem: 'servidor', autor: { tipo: 'rotina' }, proposta: { por: { tipo: 'aluno' }, via: 'app' }, em: 4 },
+  ];
+  assert.deepEqual(filtrarEventos(evs, { autor: 'coach' }).map((e) => e.id), ['1']);
+  assert.deepEqual(filtrarEventos(evs, { autor: 'rotina' }).map((e) => e.id), ['2', '4']);
+  assert.deepEqual(filtrarEventos(evs, { autor: 'aluno' }).map((e) => e.id), ['3']);
+  assert.equal(filtrarEventos(evs, {}).length, 4, 'sem filtro: todas');
+});
+
+test('a linha mostra o selo de quem fez e o rastro: quem pediu (e por onde), quem aprovou e o motivo', () => {
+  const pedido = linhaHTML({ id: 'a', tipo: 'desmarcacao', origem: 'servidor', em: 1, resumo: 'Desmarcou', autor: { tipo: 'rotina' }, proposta: { por: { tipo: 'aluno' }, via: 'app' } });
+  assert.match(pedido, /class="reg-autor reg-autor--rotina">Rotina</);
+  assert.match(pedido, /Pedido pelo aluno pelo app/);
+  const enviado = rastroHTML({ proposta: { por: { tipo: 'rotina' }, via: 'fila' }, aprovacao: { por: { tipo: 'coach' }, em: 2, decisao: 'aprovada' } });
+  assert.equal(enviado, '<span class="reg-rastro">Proposto pela rotina pela Fila de mensagens · aprovado pelo coach</span>');
+  const desfeito = linhaHTML({ id: 'b', tipo: 'pagamento-desfeito', origem: 'gestao', em: 1, resumo: 'Pagamento desfeito', autor: { tipo: 'coach' }, motivo: 'Pix <devolvido>' });
+  assert.match(desfeito, /reg-autor--coach">Coach</);
+  assert.match(desfeito, /<span class="reg-motivo">Motivo: Pix &lt;devolvido&gt;<\/span>/);
+  const descartada = linhaHTML({ id: 'c', tipo: 'mensagem-descartada', origem: 'gestao', em: 1, resumo: 'Sugestão descartada', situacao: 'recusada', proposta: { por: { tipo: 'rotina' }, via: 'fila' }, aprovacao: { por: { tipo: 'coach' }, em: 2, decisao: 'recusada' } });
+  assert.match(descartada, /reg-row reg-recusada/);
+  assert.match(descartada, /Proposto pela rotina pela Fila de mensagens · recusado pelo coach/);
+  const antiga = linhaHTML({ id: 'd', tipo: 'presenca', origem: 'gestao', em: 1, resumo: 'Check-in' });
+  assert.match(antiga, /reg-autor--coach">Coach</, 'linha antiga: o autor deduzido pela origem');
+  assert.ok(!antiga.includes('reg-rastro') && !antiga.includes('reg-motivo'), 'e sem rastro');
+});
 
 /** ms de um horário LOCAL — é assim que a tela lê as datas. */
 const local = (iso, hh = 0, mm = 0) => {
@@ -298,4 +330,27 @@ test('créditos e faltas do Painel de Presença: cada um com o seu tipo, e a mes
     ['desmarcacao', 'Desmarcou no prazo · aula de 05/10', 'atestado:013:2026-10-05'],
   ]);
   assert.deepEqual(filtrarEventos(evs, { categoria: 'presenca' }).length, 4, 'os três tipos novos são do filtro Presença');
+});
+
+/* ---------- a tela Registros do box (etapa 5) ---------- */
+
+test('tela do box: a linha leva o nome do aluno (ou "Box" no fechamento) e os filtros listam quem fez, tipo e aluno', () => {
+  const html = linhaDoBoxHTML({ id: 'x', tipo: 'presenca', origem: 'gestao', alunoId: '001', alunoNome: 'Ana <Lima>', em: 1, resumo: 'Check-in' });
+  assert.match(html, /<span class="rb-aluno">Ana &lt;Lima&gt;<\/span>/);
+  assert.match(linhaDoBoxHTML({ id: 'y', tipo: 'fechamento', origem: 'gestao', alunoId: 'box', alunoNome: 'Box (todos os alunos)', em: 1, resumo: 'Fechamento' }), /rb-aluno">Box</);
+  const f = htmlFiltrosDoBox({ autor: 'rotina', categoria: 'todos', alunoId: '' }, [{ id: 'B', nome: 'Bia' }, { id: 'A', nome: 'Ana' }]);
+  assert.match(f, /<option value="rotina" selected>Rotina<\/option>/);
+  assert.match(f, /data-rb="categoria"/);
+  const alunos = [...f.matchAll(/data-rb="alunoId">([\s\S]*?)<\/select>/g)][0][1];
+  assert.deepEqual([...alunos.matchAll(/<option value="([^"]*)"/g)].map((m) => m[1]), ['', 'box', 'A', 'B'], 'Todos, Box e os alunos em ordem de nome');
+});
+
+test('tela do box: a lista agrupa por dia, avisa quando está vazia e oferece "Carregar mais" enquanto houver', () => {
+  const evs = [{ id: '1', tipo: 'presenca', origem: 'gestao', alunoId: '001', alunoNome: 'Ana', em: Date.now(), resumo: 'Check-in' }];
+  const cheia = htmlListaDoBox(evs, { fim: false, carregando: false, erro: '', hojeIso: '2000-01-01' });
+  assert.match(cheia, /class="reg-dia"/);
+  assert.match(cheia, /data-rb-mais[^>]*>Carregar mais</);
+  assert.match(htmlListaDoBox([], { fim: true, carregando: false, erro: '', hojeIso: '2000-01-01' }), /Nada por aqui/);
+  assert.ok(!htmlListaDoBox(evs, { fim: true, carregando: false, erro: '', hojeIso: '2000-01-01' }).includes('data-rb-mais'), 'acabou: sem "Carregar mais"');
+  assert.match(htmlListaDoBox([], { fim: false, carregando: true, erro: '', hojeIso: '2000-01-01' }), /disabled>Carregando…/);
 });

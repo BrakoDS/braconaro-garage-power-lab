@@ -181,6 +181,8 @@ async function servidor() {
     const ev = (await db.doc(`gestao/${COACH}/eventos/pix-p1`).get()).data();
     assert.equal(ev.tipo, 'pagamento');
     assert.equal(ev.dados.mesId, '2026-11');
+    // Etapa 5: quem fez e quem pediu, gravados de verdade.
+    assert.deepEqual([ev.autor, ev.proposta], [{ tipo: 'rotina' }, { por: { tipo: 'aluno' }, via: 'pix' }]);
     const portal = (await db.doc(`portal/${EMAIL}`).get()).data();
     assert.deepEqual(portal.pagamentos, { '2026-10': true, '2026-11': true });
     assert.equal(portal.recebimentos, undefined, 'o registro fica só na Gestão');
@@ -232,6 +234,7 @@ async function servidor() {
     const evs = await eventosCom('lousa-falta-003-');
     assert.deepEqual(evs.map((d) => d.id), [`lousa-falta-003-${DIA}-1910`]);
     assert.equal(evs[0].data().origem, 'servidor');
+    assert.deepEqual([evs[0].data().autor, evs[0].data().proposta], [{ tipo: 'rotina' }, { por: { tipo: 'coach' }, via: 'lousa' }], 'etapa 5: o coach fechou a chamada, a rotina gravou');
     assert.equal((await db.doc('portal/caio@box.com').get()).data().faltas[DIA].origem, 'lousa');
   });
 

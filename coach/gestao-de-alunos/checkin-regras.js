@@ -38,7 +38,7 @@
  * @typedef {{ hoje: string, agora: string }} Relogio
  *   hoje: 'AAAA-MM-DD'; agora: 'HH:MM'
  */
-import { datasDaSemana, chaveDoDia, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=33';
+import { datasDaSemana, chaveDoDia, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=34';
 
 /** O nome do dia da semana, por extenso. */
 export const DIA_EXT = Object.freeze({ seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' });
@@ -259,6 +259,28 @@ export function desfazer(a, diaPlanejado, { ehReposicao = false, origem } = {}) 
     patch: { remarcacoes, atestados, presencas: ordenadas(presencas), presencaHoras: horas, ...(ehReposicao ? {} : semFalta(a, diaPlanejado)) },
     log: { tipo: 'presenca-removida', resumo: `Aula de ${ddmm(efetivo)} desfeita`, extra: { dia: efetivo } },
   };
+}
+
+/**
+ * O DESFAZER vai apagar uma falta, um crédito de reposição ou um atestado?
+ * Então pede o motivo (decisão 8 do ESCOPO, etapa 5). Tirar só uma presença (ou a
+ * presença de uma reposição) não pede: continua num clique.
+ * @param {any} a @param {string} diaPlanejado @param {{ ehReposicao?: boolean }} [o]
+ */
+export function desfazerPedeMotivo(a, diaPlanejado, { ehReposicao = false } = {}) {
+  if (ehReposicao || !a) return false;
+  return !!(((a.faltas || {})[diaPlanejado]) || ((a.atestados || {})[diaPlanejado]));
+}
+
+/**
+ * A mudança com o motivo do coach na linha dos Registros (`log.extra.motivo`).
+ * Recusa e null passam como vieram.
+ * @template T @param {T} r @param {string} motivo @returns {T}
+ */
+export function comMotivo(r, motivo) {
+  const m = /** @type {any} */ (r);
+  if (!m || 'recusa' in m || !m.log || !String(motivo || '').trim()) return r;
+  return /** @type {T} */ ({ ...m, log: { ...m.log, extra: { ...(m.log.extra || {}), motivo: String(motivo).trim() } } });
 }
 
 /**

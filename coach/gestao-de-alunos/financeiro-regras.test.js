@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo, mesDoBox, cobrancasDoMes, diasAteVencimento, msgCobranca, PIX,
-} from './financeiro-regras.js?v=33';
+} from './financeiro-regras.js?v=34';
 
 const OUT = '2026-10', SET = '2026-09', NOV = '2026-11';
 const HOJE = '2026-10-07';
@@ -90,16 +90,18 @@ test('janela da baixa: meio, valor maior que zero e data até hoje', () => {
 
 test('desfazer baixa: o mês volta a ficar em aberto; sem baixa, nada a desfazer', () => {
   const b = box();
-  const r = desfazerBaixa(b.ana, SET);
-  assert.deepEqual(r, { patch: { pagamentos: {} }, log: { tipo: 'pagamento-desfeito', resumo: 'Pagamento desfeito · Setembro / 2026', dados: { mesId: SET } } });
-  assert.equal(desfazerBaixa(b.ana, OUT), null);
+  const r = desfazerBaixa(b.ana, SET, 'Pix devolvido');
+  assert.deepEqual(r, { patch: { pagamentos: {} }, log: { tipo: 'pagamento-desfeito', resumo: 'Pagamento desfeito · Setembro / 2026', dados: { mesId: SET }, motivo: 'Pix devolvido' } });
+  assert.equal(desfazerBaixa(b.ana, OUT, 'x'), null);
+  assert.equal(desfazerBaixa(b.ana, SET, '   '), null, 'sem motivo, nada muda (decisão 8)');
+  assert.equal(desfazerBaixa(b.ana, SET), null);
 });
 
 test('desfazer baixa: o registro do pagamento sai junto (os outros meses ficam)', () => {
   const b = box();
   const rec = { valor: 150, data: '2026-09-09', meio: 'pix-chave', comprovante: null, conferidoPor: 'coach', paymentId: null, registradoEm: 1, origem: 'gestao' };
   const ana = { ...b.ana, pagamentos: { [SET]: true, [OUT]: true }, recebimentos: { [SET]: rec, [OUT]: { ...rec, data: '2026-10-07' } } };
-  assert.deepEqual(desfazerBaixa(ana, OUT)?.patch, { pagamentos: { [SET]: true }, recebimentos: { [SET]: rec } });
+  assert.deepEqual(desfazerBaixa(ana, OUT, 'x')?.patch, { pagamentos: { [SET]: true }, recebimentos: { [SET]: rec } });
 });
 
 /* ---------- consumos ---------- */
@@ -268,7 +270,7 @@ test('puro: nenhuma regra altera o que recebe', () => {
   const congelar = (o) => { if (o && typeof o === 'object') { Object.values(o).forEach(congelar); Object.freeze(o); } return o; };
   const b = congelar(box());
   const copia = JSON.stringify(b);
-  darBaixa(b.ana, OUT, todos(b), PG); desfazerBaixa(b.ana, SET);
+  darBaixa(b.ana, OUT, todos(b), PG); desfazerBaixa(b.ana, SET, 'x');
   lancarConsumo(b.ana, { nome: 'X', preco: 1 }, HOJE, 'z'); removerConsumo(b.ana, 'c1');
   mesDoBox(todos(b), OUT, HOJE); cobrancasDoMes(todos(b), OUT, HOJE);
   assert.equal(JSON.stringify(b), copia);

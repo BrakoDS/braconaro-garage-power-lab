@@ -24,11 +24,11 @@
  * @typedef {{ patch: Record<string, any>, log: EventoFinanceiro | null }} Mudanca
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=33';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=34';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, comRecebimento, contaDoMes,
   eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, MEIOS_DA_BAIXA_MANUAL,
-} from './financeiro-aluno.js?v=33';
+} from './financeiro-aluno.js?v=34';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 /** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */
@@ -91,16 +91,19 @@ export function erroDaBaixa(d, hojeIso) {
 /**
  * DESFAZER A BAIXA — a fatura volta a ficar em aberto (também no Portal). O
  * registro do pagamento sai junto; a foto do comprovante fica no Storage.
- * null: o mês não estava pago.
- * @param {any} a @param {string} mesId
+ * O MOTIVO é obrigatório (decisão 8 do ESCOPO, etapa 5) e vai para o Registro.
+ * null: o mês não estava pago, ou falta o motivo.
+ * @param {any} a @param {string} mesId @param {string} motivo
  * @returns {Mudanca | null}
  */
-export function desfazerBaixa(a, mesId) {
+export function desfazerBaixa(a, mesId, motivo) {
   if (!(a.pagamentos && a.pagamentos[mesId])) return null;
+  const porque = String(motivo || '').trim();
+  if (!porque) return null;
   // Só mexe em `recebimentos` quando há o que tirar: a ficha sem o registro
   // (paga antes da etapa 3) continua gravando o mesmo de sempre.
   const semRegistro = a.recebimentos && a.recebimentos[mesId] ? { recebimentos: comRecebimento(a.recebimentos, mesId, null) } : {};
-  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, false), ...semRegistro }, log: eventoPagamentoDesfeito(mesId) };
+  return { patch: { pagamentos: comPagamento(a.pagamentos, mesId, false), ...semRegistro }, log: eventoPagamentoDesfeito(mesId, porque) };
 }
 
 /**

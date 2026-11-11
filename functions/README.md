@@ -672,6 +672,20 @@ fora do retrato ou mês sem fechamento: a conta de sempre. Nenhuma regra do Fire
 firebase deploy --only functions:gerarPixCobranca --project projeto-garage-f0a2f
 ```
 
+### Etapa 5: o log de ações completo (10/11/2026)
+
+Cada linha de `gestao/{uid}/eventos` pode dizer quem EXECUTOU (`autor: { tipo: 'coach' | 'aluno' | 'rotina' |
+'agente' }`), quem PEDIU (`proposta: { por, em?, via? }`), quem APROVOU (`aprovacao: { por, em, decisao }`), a
+`situacao` (só quando não é 'executada') e o `motivo`. Quem monta é `novoEvento` (coach/gestao-de-alunos/eventos.js,
+na cópia da Gestão). As linhas antigas não são regravadas: `autorDoEvento` deduz pela origem.
+
+**No servidor** (`caixas.ts`, `evento`): toda linha leva `autor: rotina`, e `PEDIDO_POR` põe em `proposta` quem pediu
+— o aluno (aviso e reserva), o aluno pela uGym, o coach pela Lousa (check-in e falta da chamada) e o aluno pelo Pix.
+O crédito de box fechado é só da rotina.
+
+**Publicar:** o `eventos.js` está na cópia da Gestão (`lib/gestao/`), então publique as funções das caixas (a lista do
+"Publicar" acima), no mesmo dia do merge. Nenhuma regra muda.
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro

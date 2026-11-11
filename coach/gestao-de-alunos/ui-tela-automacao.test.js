@@ -38,14 +38,14 @@ globalThis.document = /** @type {any} */ ({
 });
 globalThis.window = /** @type {any} */ ({ scrollTo() {} });
 
-const db = await import('./db.js?v=33');
-const eventos = await import('./eventos.js?v=33');
-const { estado, on, emit, EVENTOS } = await import('./estado.js?v=33');
-const { iniciarNavegacao } = await import('./navegacao.js?v=33');
-const { iniciarAutomacao, mensagens, sincronizarAutomacao } = await import('./automacao.js?v=33');
-const { iniciarTelaAutomacao } = await import('./ui-tela-automacao.js?v=33');
-const { darBaixa, desfazerBaixa } = await import('./financeiro-regras.js?v=33');
-const { regFinanceiro } = await import('./registro.js?v=33');
+const db = await import('./db.js?v=34');
+const eventos = await import('./eventos.js?v=34');
+const { estado, on, emit, EVENTOS } = await import('./estado.js?v=34');
+const { iniciarNavegacao } = await import('./navegacao.js?v=34');
+const { iniciarAutomacao, mensagens, sincronizarAutomacao } = await import('./automacao.js?v=34');
+const { iniciarTelaAutomacao } = await import('./ui-tela-automacao.js?v=34');
+const { darBaixa, desfazerBaixa } = await import('./financeiro-regras.js?v=34');
+const { regFinanceiro } = await import('./registro.js?v=34');
 
 /* ---------- o que vem de fora ---------- */
 const OUT = '2026-10';
@@ -107,7 +107,14 @@ test('lembrete: a conta a vencer aparece com "vence em N dias" e o texto "vence 
   assert.match(html, /Olá, Edu! 😊 Passando pra lembrar da sua mensalidade de Outubro \(R\$\s200,00\), que vence dia 20\. Pra facilitar/);
   const antes = logs().length;
   clicar('auto-descartar', 'cobranca-a-vencer:Edu03:2026-10');
-  assert.equal(logs().length, antes);
+  // Etapa 5: o descarte deixa o rastro — a rotina propôs, o coach recusou.
+  const novos = logs().slice(antes);
+  assert.equal(novos.length, 1);
+  assert.equal(novos[0].tipo, 'mensagem-descartada');
+  assert.equal(novos[0].situacao, 'recusada');
+  assert.deepEqual([novos[0].proposta.por, novos[0].proposta.via, novos[0].aprovacao.por, novos[0].aprovacao.decisao], [{ tipo: 'rotina' }, 'fila', { tipo: 'coach' }, 'recusada']);
+  clicar('auto-descartar', 'cobranca-a-vencer:Edu03:2026-10');
+  assert.equal(logs().length, antes + 1, 'o segundo toque não registra de novo');
   assert.deepEqual(cartoes(), ['cobranca-vencida:Gil02:2026-10', 'cobranca-vencida:Ana01:2026-10']);
   assert.equal(selo(), '2');
 });
@@ -148,11 +155,11 @@ test('b) a enviada não volta: nem na próxima varredura, nem com a ficha mudand
 
 /* ---------- c) Descartar ---------- */
 
-test('c) Descartar: some da fila e do selo, sem abrir WhatsApp e sem registrar envio', () => {
+test('c) Descartar: some da fila e do selo, sem abrir WhatsApp e sem registrar envio (só o descarte, etapa 5)', () => {
   const antes = logs().length;
   clicar('auto-descartar', 'cobranca-vencida:Gil02:2026-10');
   assert.equal(abertos.length, 1, 'nada aberto');
-  assert.equal(logs().length, antes, 'nada registrado');
+  assert.deepEqual(logs().slice(antes).map((e) => e.tipo), ['mensagem-descartada'], 'nenhum envio registrado; só o descarte');
   assert.deepEqual(cartoes(), []);
   assert.match(el('#auto-list').innerHTML, /Nenhuma mensagem na fila/);
   assert.equal(selo(), null, 'fila vazia: sem selo');
@@ -166,7 +173,7 @@ test('recibo: a baixa (o mesmo caminho das telas) põe o recibo na fila; desfaze
   assert.match(el('#auto-list').innerHTML, /Recibos de pagamento[\s\S]*Edu Prado[\s\S]*R\$\s200,00 · Outubro \/ 2026/);
   assert.match(el('#auto-list').innerHTML, /Recebi o pagamento da mensalidade de Outubro \(R\$\s200,00\)/);
   assert.equal(selo(), '1');
-  const a = db.obter('Edu03'); const r = desfazerBaixa(a, OUT); assert.ok(r);
+  const a = db.obter('Edu03'); const r = desfazerBaixa(a, OUT, 'teste'); assert.ok(r);
   db.atualizar('Edu03', r.patch); if (r.log) regFinanceiro(a, r.log);
   assert.deepEqual(cartoes(), []);
   assert.equal(selo(), null);
@@ -182,7 +189,7 @@ test('recibo: a baixa de quem estava na fila de cobrança troca a cobrança pelo
 
 test('c) descartar o recibo e refazer a baixa do mês não traz outro recibo', () => {
   clicar('auto-descartar', 'recibo:Bia05:2026-10');
-  const a = db.obter('Bia05'); const r = desfazerBaixa(a, OUT); assert.ok(r);
+  const a = db.obter('Bia05'); const r = desfazerBaixa(a, OUT, 'teste'); assert.ok(r);
   db.atualizar('Bia05', r.patch); regFinanceiro(a, r.log);
   // Desfeita a baixa, a Bia volta a dever: a cobrança volta (outra chave) — o recibo não.
   assert.deepEqual(cartoes(), ['cobranca-vencida:Bia05:2026-10']);
@@ -300,8 +307,8 @@ test('d) selo: a virada do dia conta sem nenhum dado mudar — voltar para a lis
 });
 
 test('consistência: o botão WhatsApp da tela Cobranças abre o MESMO texto da Fila (com o extrato dos consumos)', async () => {
-  const { iniciarTelaCobrancas } = await import('./ui-tela-cobrancas.js?v=33');
-  const { mesIdAtual } = await import('./financeiro-aluno.js?v=33');
+  const { iniciarTelaCobrancas } = await import('./ui-tela-cobrancas.js?v=34');
+  const { mesIdAtual } = await import('./financeiro-aluno.js?v=34');
   iniciarTelaCobrancas();
   // A tela Cobranças olha o mês do relógio; a Fila, o mesmo dia.
   HOJE = new Date().toISOString().slice(0, 10);

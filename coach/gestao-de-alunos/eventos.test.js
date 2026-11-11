@@ -8,7 +8,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { camposAlterados, eventosDaCaixa, eventosDoDiario, novoEvento, origemDaCaixa } from './eventos.js?v=33';
+import { autorDoEvento, camposAlterados, eventosDaCaixa, eventosDoDiario, novoEvento, origemDaCaixa } from './eventos.js?v=34';
 
 const aluno = { id: '012', nome: 'Fulano de Tal', presencas: ['2026-09-20'], feedbacks: [{ id: 'fb-velho', criadoEm: 1 }] };
 
@@ -22,6 +22,35 @@ test('novoEvento copia o nome do aluno e descarta campo vazio', () => {
 test('novoEvento sem id gera um id que começa pelo instante', () => {
   const ev = novoEvento({ tipo: 'presenca', origem: 'gestao', aluno, em: 1234, resumo: 'Check-in' });
   assert.match(ev.id, /^1234-[a-z0-9]+$/);
+});
+
+/* ---------- quem fez, quem pediu, quem aprovou, por quê (etapa 5) ---------- */
+
+test('novoEvento leva autor, proposta, aprovação, situação e motivo — e só o que é válido', () => {
+  const ev = novoEvento({
+    tipo: 'mensagem-enviada', origem: 'gestao', aluno, em: 2000, resumo: 'WhatsApp · Recibo', id: 'm1',
+    autor: { tipo: 'coach' }, proposta: { por: { tipo: 'rotina' }, em: 1500, via: 'recibo' },
+    aprovacao: { por: { tipo: 'coach' }, em: 2000, decisao: 'aprovada' }, motivo: '  ',
+  });
+  assert.deepEqual(ev.autor, { tipo: 'coach' });
+  assert.deepEqual(ev.proposta, { por: { tipo: 'rotina' }, em: 1500, via: 'recibo' });
+  assert.deepEqual(ev.aprovacao, { por: { tipo: 'coach' }, em: 2000, decisao: 'aprovada' });
+  assert.ok(!('motivo' in ev), 'motivo em branco não entra');
+  assert.ok(!('situacao' in ev), 'executada é o padrão: não vai para o documento');
+  const recusada = novoEvento({ tipo: 'mensagem-descartada', origem: 'gestao', aluno, em: 3000, resumo: 'x', situacao: 'recusada', motivo: ' Pix devolvido ' });
+  assert.equal(recusada.situacao, 'recusada');
+  assert.equal(recusada.motivo, 'Pix devolvido');
+  const lixo = novoEvento({ tipo: 'x', origem: 'gestao', aluno, em: 1, resumo: 'x', autor: { tipo: 'hacker' }, proposta: { por: {} }, aprovacao: { por: { tipo: 'coach' }, em: 1, decisao: 'talvez' }, situacao: 'qualquer' });
+  for (const k of ['autor', 'proposta', 'aprovacao', 'situacao']) assert.ok(!(k in lixo), `${k} inválido não entra`);
+  assert.equal(novoEvento({ tipo: 'x', origem: 'gestao', aluno, em: 1, resumo: 'x', motivo: 'a'.repeat(400) }).motivo.length, 300, 'motivo cortado em 300');
+});
+
+test('autorDoEvento: o autor gravado; nas linhas antigas, deduzido pela origem', () => {
+  assert.equal(autorDoEvento({ origem: 'servidor', autor: { tipo: 'agente' } }), 'agente');
+  assert.equal(autorDoEvento({ origem: 'gestao' }), 'coach');
+  assert.equal(autorDoEvento({ origem: 'servidor' }), 'rotina');
+  for (const o of ['app', 'portal', 'aluno']) assert.equal(autorDoEvento({ origem: o }), 'aluno');
+  assert.equal(autorDoEvento({ origem: null, derivado: true }), '', 'linha derivada da ficha: não dá para saber');
 });
 
 /* ---------- origemDaCaixa ---------- */

@@ -35,9 +35,9 @@
  * 'lousa'); sem chamada fechada, a aula passada fica "sem chamada", não falta.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { datasDaSemana } from '../../compartilhado/regras/semana.js?v=33';
-import { alternarPresenca, checkin, diasReivindicados } from './checkin-regras.js?v=33';
-import { casarCaixasComFichas } from './portal-merge.js?v=33';
+import { datasDaSemana } from '../../compartilhado/regras/semana.js?v=34';
+import { alternarPresenca, checkin, diasReivindicados } from './checkin-regras.js?v=34';
+import { casarCaixasComFichas } from './portal-merge.js?v=34';
 
 /**
  * @typedef {{ coachUid: string, origem: 'ugym' | 'lousa', dia: string, hora: string,

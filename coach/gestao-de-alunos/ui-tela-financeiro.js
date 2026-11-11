@@ -14,19 +14,19 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=33';
+import * as db from './db.js?v=34';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=33';
-import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=33';
-import { abrirPagamento } from './ui-tab-financeiro.js?v=33';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=33';
-import { $, $$ } from './util/dom.js?v=33';
-import { estado, on, EVENTOS } from './estado.js?v=33';
-import { regFinanceiro, regDoBox } from './registro.js?v=33';
-import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=33';
-import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=33';
-import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=33';
-import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=33';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=34';
+import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=34';
+import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=34';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=34';
+import { $, $$ } from './util/dom.js?v=34';
+import { estado, on, EVENTOS } from './estado.js?v=34';
+import { regFinanceiro, regDoBox } from './registro.js?v=34';
+import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=34';
+import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=34';
+import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados } from './fechamento-html.js?v=34';
+import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=34';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */
@@ -233,7 +233,7 @@ async function reabrirMes() {
   if (!res) { await avisar({ titulo: 'Falta o motivo', texto: 'Escreva por que o mês está sendo reaberto: ele fica guardado junto com a aprovação anterior.' }); return; }
   try {
     await gravarFechamento(estado.uid, mes, res.doc);
-    regDoBox(res.log.tipo, res.log.resumo, { chave: `fechamento-reaberto:${mes}:${res.doc.reabertoEm}` });
+    regDoBox(res.log.tipo, res.log.resumo, { chave: `fechamento-reaberto:${mes}:${res.doc.reabertoEm}`, motivo: res.doc.motivoReabertura });
   } catch (e) { await falhouGravar(e); }
   renderFinanceiro();
 }
@@ -270,9 +270,10 @@ export function iniciarTelaFinanceiro() {
     if (btn.dataset.fech === 'reabrir') { void reabrirMes(); return; }
     if (btn.classList.contains('fin-toggle')) {
       const mes = finMes;
-      // Marcar pago abre a janela da baixa (meio, valor, data, foto); desfazer continua num clique.
+      // Marcar pago abre a janela da baixa (meio, valor, data, foto); desfazer pede o motivo.
       if (btn.dataset.op === '1') abrirPagamento(btn.dataset.id, mes, renderFinanceiro);
-      else aplicar(btn.dataset.id, (a) => desfazerBaixa(a, mes));
+      // Desfazer pede o motivo (etapa 5): sem ele, nada muda.
+      else void pedirMotivoDoDesfazerPagamento(mes).then((motivo) => { if (motivo) aplicar(btn.dataset.id, (a) => desfazerBaixa(a, mes, motivo)); });
       return;
     }
     if (btn.classList.contains('fin-balcao-btn')) {
