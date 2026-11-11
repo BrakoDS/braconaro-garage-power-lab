@@ -133,9 +133,31 @@ function fechar(regras: RegrasDaGestao, plano: PlanoDoServidor, ficha: Dados, an
 }
 
 /** Uma linha dos Registros como a Gestão grava (`reg` de registro.js), com a origem 'servidor'. */
+/** Quem executa o que o servidor aplica (Fase 1 · etapa 5): a rotina. */
+const AUTOR_ROTINA = Object.freeze({ tipo: 'rotina' });
+
+/**
+ * Quem PEDIU o que o servidor aplicou (etapa 5): vai em `proposta` na linha do log.
+ * O aviso e a reserva vêm do aluno; o check-in da uGym, do aluno pela uGym; a
+ * chamada da Lousa, do coach pela Lousa; o Pix, do aluno pelo Pix. O crédito de
+ * box fechado nasce do feriado: só a rotina.
+ */
+export const PEDIDO_POR = Object.freeze({
+  aluno: Object.freeze({ por: { tipo: 'aluno' } }),
+  ugym: Object.freeze({ por: { tipo: 'aluno' }, via: 'ugym' }),
+  lousa: Object.freeze({ por: { tipo: 'coach' }, via: 'lousa' }),
+  pix: Object.freeze({ por: { tipo: 'aluno' }, via: 'pix' }),
+});
+
+/** As linhas com quem pediu (em `extra.proposta`, que o `evento` lê). */
+const comPedido = (logs: Dados[], proposta: Dados): Dados[] => logs.map((l) => ({ ...l, extra: { ...((l.extra || {}) as Dados), proposta } }));
+
 function evento(regras: RegrasDaGestao, aluno: Dados, log: Dados, agora: number, reserva: string): Dados {
   const extra = (log.extra || {}) as Dados;
-  const ev = regras.novoEvento({ ...extra, tipo: log.tipo, origem: 'servidor', aluno, em: agora, resumo: log.resumo, id: extra.id || reserva });
+  const ev = regras.novoEvento({
+    ...extra, tipo: log.tipo, origem: 'servidor', aluno, em: agora, resumo: log.resumo, id: extra.id || reserva,
+    autor: extra.autor || AUTOR_ROTINA,
+  });
   return comoJson(log.dados ? { ...ev, dados: log.dados } : ev);
 }
 
@@ -159,7 +181,7 @@ export function planoDasCaixas(
   if (Object.keys(avisos).length || Object.keys(reservas).length) {
     const r = regras.aplicarAvisosNaFicha(atual, avisos, reservas);
     atual = { ...atual, ...r.patch };
-    logs.push(...r.logs);
+    logs.push(...comPedido(r.logs, PEDIDO_POR.aluno));
     if (r.consumidos.length) plano.consumir.avisosAusencia = r.consumidos;
     if (r.reservasConsumidas.length) plano.consumir.reposicoesAluno = r.reservasConsumidas;
     for (const i of r.ignorados) plano.ignorados.push({ colecao: 'avisosAusencia/reposicoesAluno', ...i });
@@ -169,7 +191,7 @@ export function planoDasCaixas(
     if (!Object.keys(itens).length) continue;
     const r = regras.aplicarCheckinsNaFicha(atual, itens, origem);
     atual = { ...atual, ...r.patch };
-    logs.push(...r.logs);
+    logs.push(...comPedido(r.logs, colecao === 'checkinsUgym' ? PEDIDO_POR.ugym : PEDIDO_POR.lousa));
     if (r.consumidos.length) plano.consumir[colecao] = r.consumidos;
     for (const i of r.ignorados) plano.ignorados.push({ colecao, ...i });
   }
@@ -192,7 +214,7 @@ export function planoDoPixNoServidor(
   const p = regras.planoDoPix(cobranca, antes, todos.map(doBox));
   if (p.acao === 'nada' || !ficha || !antes) return { ...vazio(), acao: 'nada', motivo: p.acao === 'nada' ? p.motivo : 'sem ficha' };
   const plano = vazio();
-  plano.eventos = [evento(regras, antes, p.log, agora, `pix-${cobranca.paymentId}-${cobranca.status}`)];
+  plano.eventos = [evento(regras, antes, comPedido([p.log], PEDIDO_POR.pix)[0], agora, `pix-${cobranca.paymentId}-${cobranca.status}`)];
   if (p.acao === 'aviso') return { ...plano, acao: 'aviso' };
   return { ...fechar(regras, plano, ficha, antes, { ...antes, ...p.patch }), acao: 'baixa' };
 }
@@ -227,7 +249,7 @@ export function planoDaFaltaDaChamada(
   if (r.acao === 'nada') return { ...vazio(), acao: 'nada', motivo: r.motivo };
   const id = idDoEventoDaFalta(antes.id, dia, hora);
   const plano = vazio();
-  plano.eventos = [evento(regras, antes, { ...r.log, extra: { ...(r.log.extra || {}), id } }, agora, id)];
+  plano.eventos = [evento(regras, antes, { ...r.log, extra: { ...(r.log.extra || {}), id, proposta: PEDIDO_POR.lousa } }, agora, id)];
   return { ...fechar(regras, plano, ficha, antes, { ...antes, ...r.patch }), acao: 'falta' };
 }
 
@@ -245,7 +267,7 @@ export function planoDeDesfazerFalta(
   if (r.acao === 'nada') return { ...vazio(), acao: 'nada', motivo: r.motivo };
   const id = idDoEventoDaFaltaDesfeita(antes.id, dia, hora, versao);
   const plano = vazio();
-  plano.eventos = [evento(regras, antes, { ...r.log, extra: { ...(r.log.extra || {}), id } }, agora, id)];
+  plano.eventos = [evento(regras, antes, { ...r.log, extra: { ...(r.log.extra || {}), id, proposta: PEDIDO_POR.lousa } }, agora, id)];
   return { ...fechar(regras, plano, ficha, antes, { ...antes, ...r.patch }), acao: 'desfazer' };
 }
 

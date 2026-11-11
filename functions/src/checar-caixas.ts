@@ -119,6 +119,7 @@ function avisosEReservas(regras: RegrasDaGestao): void {
   ok(credito && credito.reposicao && credito.reposicao.data === '2026-11-07', 'e a reserva (que chegou depois) usa o crédito', JSON.stringify(credito));
   ok(igual(Object.keys(p.consumir).sort(), ['avisosAusencia', 'reposicoesAluno']), 'os dois itens saem das caixas');
   ok(p.eventos.length === 2 && p.eventos.every((e) => e.origem === 'servidor' && /^Pelo app/.test(e.resumo)), 'duas linhas nos Registros ("Pelo app: …")', JSON.stringify(p.eventos.map((e) => e.resumo)));
+  ok(p.eventos.every((e) => e.autor?.tipo === 'rotina' && e.proposta?.por?.tipo === 'aluno'), 'etapa 5: a rotina executou o que o aluno pediu', JSON.stringify(p.eventos.map((e) => [e.autor, e.proposta])));
   ok('atestados' in p.portal, 'o Portal recebe o crédito');
   const naGestao = regras.aplicarAvisosNaFicha({ ...regras.soDoBox(ficha), id: '001' }, { 'titular|2026-11-05': AVISO }, { '2026-11-05': RESERVA });
   ok(Object.entries(naGestao.patch).every(([k, v]) => igual(depois[k], v)), 'a ficha fica igual à que a Gestão gravaria');
@@ -142,6 +143,7 @@ function pix(regras: RegrasDaGestao): void {
   ok(igual(p.escritas.map((e) => e.caminho).map((c) => c.join('.')).sort(), ['pagamentos.2026-11', 'pixPagos', 'recebimentos']), 'só o mês, o rastro e o registro são gravados', JSON.stringify(p.escritas.map((e) => e.caminho)));
   const ev = p.eventos[0];
   ok(ev && ev.id === 'pix-p1' && ev.tipo === 'pagamento' && ev.origem === 'servidor', 'a linha "Pagamento via Pix" com o id fixo da Gestão', JSON.stringify(ev));
+  ok(ev?.autor?.tipo === 'rotina' && ev?.proposta?.por?.tipo === 'aluno' && ev?.proposta?.via === 'pix', 'etapa 5: o aluno pagou pelo Pix, a rotina deu a baixa', JSON.stringify([ev?.autor, ev?.proposta]));
   ok(ev && ev.dados && ev.dados.mesId === '2026-11' && ev.dados.valor === 130, 'com os dados que a Fila usa para sugerir o recibo');
   ok(igual(p.portal, { pagamentos: { '2026-10': true, '2026-11': true } }), 'o Portal recebe os pagamentos (o registro do pagamento não vai para lá)');
 
@@ -178,6 +180,7 @@ function chamadaDaLousa(regras: RegrasDaGestao): void {
   const ev = p.eventos[0];
   ok(p.eventos.length === 1 && ev.id === idDoEventoDaFalta('001', QUINTA, '19:10') && ev.id === 'lousa-falta-001-2026-11-05-1910', 'uma linha nos Registros, com id fixo (aluno e aula, SEM a versão da chamada)', JSON.stringify(ev));
   ok(ev.tipo === 'falta' && ev.origem === 'servidor' && /Pela chamada da Lousa: não veio/.test(ev.resumo) && ev.chave === `falta:001:${QUINTA}`, 'tipo falta, origem servidor, texto "Pela chamada da Lousa: não veio"', JSON.stringify(ev));
+  ok(ev.autor?.tipo === 'rotina' && ev.proposta?.por?.tipo === 'coach' && ev.proposta?.via === 'lousa', 'etapa 5: o coach fechou a chamada pela Lousa, a rotina gravou a falta', JSON.stringify([ev.autor, ev.proposta]));
   ok(igual(Object.keys(p.portal), ['faltas']) && p.portal.faltas[QUINTA]?.origem === 'lousa', 'o Portal recebe só as faltas', JSON.stringify(p.portal));
   const naGestao = regras.faltaDaChamada({ ...regras.soDoBox(ficha), id: '001' }, { dia: QUINTA, hora: '19:10', em: AGORA_QUINTA, hoje: QUINTA, agora: '19:30', fechados: [] });
   ok(naGestao.acao === 'falta' && igual(naGestao.patch.faltas[QUINTA], depois.faltas[QUINTA]), 'a ficha fica igual à que a regra da Gestão devolve');
@@ -238,6 +241,7 @@ function fechamentoDoBox(regras: RegrasDaGestao): void {
   const cr = depois.atestados?.['2026-11-02'];
   ok(p.creditos === 1 && cr && cr.tipo === 'fechado' && cr.expira === '2026-11-30' && cr.reposicao === null && cr.aula.hora === '18:10', '+1 crédito para quem tinha aula (válido até o fim do mês)', JSON.stringify(depois.atestados));
   ok(p.escritas.length === 1 && p.escritas[0].caminho[0] === 'atestados', 'só o campo dos atestados é gravado (nenhum outro)', JSON.stringify(p.escritas.map((e) => e.caminho)));
+  ok(p.eventos.every((e) => e.autor?.tipo === 'rotina' && !e.proposta), 'etapa 5: o crédito do feriado é só da rotina (ninguém pediu)', JSON.stringify(p.eventos.map((e) => [e.autor, e.proposta])));
   ok(p.eventos.length === 1 && p.eventos[0].id === 'fechado-001-2026-11-02' && p.eventos[0].tipo === 'credito' && p.eventos[0].origem === 'servidor', 'uma linha nos Registros com id fixo', JSON.stringify(p.eventos));
   ok(igual(Object.keys(p.portal), ['atestados']), 'o Portal recebe os atestados', JSON.stringify(p.portal));
 
