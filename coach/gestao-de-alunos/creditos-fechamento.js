@@ -6,8 +6,8 @@
  * crédito, nem falta, nem presença). Puro; quem grava é a varredura do servidor
  * (`aplicarCaixasPendentes`). Idempotente: a trava é `atestados[dia]`.
  */
-import { aulasDoDia } from './presenca-regras.js?v=35';
-import { validadeDoCredito } from '../../compartilhado/regras/semana.js?v=35';
+import { aulasDoDia } from './presenca-regras.js?v=36';
+import { validadeDoCredito } from '../../compartilhado/regras/semana.js?v=36';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
 
 /**

@@ -13,7 +13,7 @@ globalThis.localStorage = /** @type {any} */ ({
   getItem: (k) => (memoria.has(k) ? memoria.get(k) : null), setItem: (k, v) => memoria.set(k, String(v)), removeItem: (k) => memoria.delete(k),
 });
 
-const { htmlPlanoResumo, htmlTabelas } = await import('./ui-plano.js?v=35');
+const { htmlPlanoResumo, htmlTabelas } = await import('./ui-plano.js?v=36');
 
 const HOJE = '2026-11-20';
 const ana = { id: 'Ana01', nome: 'Ana', status: 'ativo', mensalidade: '130', vencimento: '10', plano: { vezes: 3, prazo: 'mensal' }, fundador: true, inicio: '2026-07-01' };

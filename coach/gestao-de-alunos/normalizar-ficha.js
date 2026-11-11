@@ -19,7 +19,7 @@
  *
  * Puro.
  */
-import { horaParaInput } from './util/formato.js?v=35';
+import { horaParaInput } from './util/formato.js?v=36';
 
 /**
  * O que arrumar numa ficha.

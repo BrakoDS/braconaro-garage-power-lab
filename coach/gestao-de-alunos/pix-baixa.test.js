@@ -17,12 +17,12 @@ globalThis.localStorage = /** @type {any} */ ({
   getItem: (k) => (memoria.has(k) ? memoria.get(k) : null), setItem: (k, v) => memoria.set(k, String(v)), removeItem: (k) => memoria.delete(k),
 });
 
-const db = await import('./db.js?v=35');
-const eventos = await import('./eventos.js?v=35');
-const { reg } = await import('./registro.js?v=35');
-const { planoDoPix, aplicarPixPendentes } = await import('./pix-baixa.js?v=35');
-const { iniciarAutomacao, mensagens } = await import('./automacao.js?v=35');
-const { TIPOS } = await import('./registros-ui.js?v=35');
+const db = await import('./db.js?v=36');
+const eventos = await import('./eventos.js?v=36');
+const { reg } = await import('./registro.js?v=36');
+const { planoDoPix, aplicarPixPendentes } = await import('./pix-baixa.js?v=36');
+const { iniciarAutomacao, mensagens } = await import('./automacao.js?v=36');
+const { TIPOS } = await import('./registros-ui.js?v=36');
 
 const NB = (s) => String(s).replace(/ /g, ' ');
 const OUT = '2026-10', SET = '2026-09';

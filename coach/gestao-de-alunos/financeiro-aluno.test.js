@@ -12,7 +12,7 @@ import {
   brl, numMoney, rotuloMesFin, addMesFin, statusFin, novoConsumo, comPagamento,
   contaDoMes, mesesDoHistorico, faturaDoAluno, historicoFinanceiro, resumoDoPlano,
   comRecebimento, textoDoRecebimento, diaDoBoxEm, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL,
-} from './financeiro-aluno.js?v=35';
+} from './financeiro-aluno.js?v=36';
 
 const HOJE = '2026-10-07'; // vencimento dia 10: outubro ainda não venceu
 const ana = {
@@ -201,7 +201,7 @@ test('registro: a fatura paga traz o registro; paga antes dele, null; em aberto,
 /* ---------- Etapa 6.1: o plano na fatura ---------- */
 
 test('fatura de jan/2027: o preço da tabela e o porquê do desconto', async () => {
-  const { faturaDoAluno: fatura } = await import('./financeiro-aluno.js?v=35');
+  const { faturaDoAluno: fatura } = await import('./financeiro-aluno.js?v=36');
   const bia = { id: 'Bia', nome: 'Bia', mensalidade: '130', vencimento: '10', plano: { vezes: 3, prazo: 'mensal' }, fundador: true, dupla: { id: 'Caio', nome: 'Caio' } };
   const f = fatura(bia, '2027-01', [bia], '2027-01-05');
   assert.equal(f.total, 171);

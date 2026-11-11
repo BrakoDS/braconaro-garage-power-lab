@@ -5,7 +5,7 @@
  * de Presença. O Calendário só mostra.
  */
 import { esc, avatar, tempoDesde } from './render-comum.js';
-import { STATUS } from '../gestao-de-alunos/presenca-regras.js?v=35';
+import { STATUS } from '../gestao-de-alunos/presenca-regras.js?v=36';
 
 /** @param {import('./camadas/turmas.js').Pessoa} p */
 const tagDe = (p) => (p.status === 'presente' ? '<span class="tag ok">presente</span>'

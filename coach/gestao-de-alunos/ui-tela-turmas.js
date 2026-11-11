@@ -12,21 +12,21 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=35';
-import * as regras from './presenca-regras.js?v=35';
-import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=35';
-import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=35';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=35';
-import { $ } from './util/dom.js?v=35';
-import { on, EVENTOS } from './estado.js?v=35';
-import { reg } from './registro.js?v=35';
-import { telaAtual } from './navegacao.js?v=35';
+import * as db from './db.js?v=36';
+import * as regras from './presenca-regras.js?v=36';
+import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=36';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=36';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=36';
+import { $ } from './util/dom.js?v=36';
+import { on, EVENTOS } from './estado.js?v=36';
+import { reg } from './registro.js?v=36';
+import { telaAtual } from './navegacao.js?v=36';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
-import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=35';
-import { pedirMotivo } from '../../compartilhado/ui/dialogo.js?v=35';
+import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=36';
+import { pedirMotivo } from '../../compartilhado/ui/dialogo.js?v=36';
 import {
   MEIOS_DAYPASS, dadosDoDayPass, dayPassDaFicha, cpfValido, digitosDoCpf, codigoDoCpf, experimentalJaFeita, comCpf,
-} from './avulsos-regras.js?v=35';
+} from './avulsos-regras.js?v=36';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
