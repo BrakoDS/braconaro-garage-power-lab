@@ -22,6 +22,11 @@ import { on, EVENTOS } from './estado.js?v=35';
 import { reg } from './registro.js?v=35';
 import { telaAtual } from './navegacao.js?v=35';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
+import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=35';
+import { pedirMotivo } from '../../compartilhado/ui/dialogo.js?v=35';
+import {
+  MEIOS_DAYPASS, dadosDoDayPass, dayPassDaFicha, cpfValido, digitosDoCpf, codigoDoCpf, experimentalJaFeita, comCpf,
+} from './avulsos-regras.js?v=35';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
@@ -250,13 +255,19 @@ function linhaExperimental(e) {
   const acoes = e.status === 'confirmado'
     ? b('exp-presente', '✓ Presente', false) + b('exp-falta', 'No-show') + b('exp-cancelada', 'Cancelou')
     : b('exp-confirmado', 'Desfazer');
+  // Etapa 6.2: o Day Pass (visitante pagante) e o "Virar aluno" de quem veio.
+  const dayPass = e.tipo === 'daypass';
+  const tag = dayPass
+    ? `<span class="tur-tag daypass">Day Pass${e.pagamento ? ` · pago (${esc(MEIOS_DAYPASS[/** @type {'pix-chave'} */ (e.pagamento.meio)] || e.pagamento.meio)})` : ''}</span>`
+    : `<span class="tur-tag experimental">Experimental${e.cpf ? ' · CPF conferido' : ''}</span>`;
+  const virar = e.alunoId ? '<span class="tur-virou">virou aluno</span>' : b('exp-aluno', 'Virar aluno');
   return `<div class="fin-row tur-row st-${CLASSE_EXP[e.status]}">
     <div class="fin-info">
-      <div class="fin-nome">${esc(e.nome)} <span class="tur-tag experimental">Experimental</span></div>
-      <div class="fin-sub">${esc(e.telefone ? 'WhatsApp ' + e.telefone : 'aula experimental')}</div>
+      <div class="fin-nome">${esc(e.nome)} ${tag}</div>
+      <div class="fin-sub">${esc(e.telefone ? 'WhatsApp ' + e.telefone : dayPass ? 'Day Pass' : 'aula experimental')}</div>
     </div>
     <span class="tur-status st-${CLASSE_EXP[e.status]}">${STATUS_EXP[e.status]}</span>
-    <div class="tur-acoes">${acoes}${b('exp-remover', 'Remover')}</div>
+    <div class="tur-acoes">${acoes}${virar}${b('exp-remover', 'Remover')}</div>
   </div>`;
 }
 
@@ -315,7 +326,14 @@ function painelAdicionar(t) {
     <div class="tur-add-linha">
       <input class="tur-inp" type="text" data-exp-nome placeholder="Nome (aula experimental)" maxlength="60" />
       <input class="tur-inp" type="tel" data-exp-tel placeholder="WhatsApp (opcional)" maxlength="20" />
+      <input class="tur-inp" type="text" inputmode="numeric" data-exp-cpf placeholder="CPF (1 aula por CPF)" maxlength="14" autocomplete="off" />
       <button class="btn btn-sm" data-acao="add-exp" type="button">Adicionar experimental</button>
+    </div>
+    <div class="tur-add-linha">
+      <input class="tur-inp" type="text" data-dp-nome placeholder="Nome (Day Pass, R$ 50)" maxlength="60" />
+      <input class="tur-inp" type="tel" data-dp-tel placeholder="WhatsApp (opcional)" maxlength="20" />
+      <select class="tur-sel" data-dp-meio aria-label="Como pagou o Day Pass">${Object.entries(MEIOS_DAYPASS).map(([k, rot]) => `<option value="${k}">Pagou com ${rot}</option>`).join('')}</select>
+      <button class="btn btn-sm" data-acao="add-daypass" type="button">Adicionar Day Pass</button>
     </div>
   </div>`;
 }
@@ -407,6 +425,41 @@ function gravarExperimentais(lista) {
   db.salvarExperimentais(dia, lista, (m) => regras.podarExperimentais(m, hoje()));
 }
 
+/**
+ * Adiciona a aula experimental, conferindo o CPF (etapa 6.2): 1 por CPF. CPF já
+ * usado só passa com o motivo. O CPF não é guardado, só o código embaralhado.
+ * @param {any} corpo
+ */
+async function adicionarExperimentalComCpf(corpo) {
+  const nome = /** @type {HTMLInputElement|null} */ ($('[data-exp-nome]', corpo));
+  const tel = /** @type {HTMLInputElement|null} */ ($('[data-exp-tel]', corpo));
+  const cpfInp = /** @type {HTMLInputElement|null} */ ($('[data-exp-cpf]', corpo));
+  const cpf = cpfInp ? cpfInp.value : '';
+  const valores = { nome: nome ? nome.value : '', telefone: tel ? tel.value : '' };
+  let codigo = '';
+  if (digitosDoCpf(cpf)) {
+    if (!cpfValido(cpf)) { aviso = { chave: 'adicionar', texto: 'CPF inválido: confira os números' }; render(); return; }
+    codigo = await codigoDoCpf(cpf);
+    const ja = experimentalJaFeita(db.cpfsExperimentais(), codigo);
+    if (ja) {
+      const motivo = await pedirMotivo({
+        titulo: 'Esse CPF já fez aula experimental',
+        texto: `A aula experimental é 1 por CPF, e esse já fez em <b>${fmtDataCurta(ja)}</b>. Para marcar de novo, escreva o motivo.`,
+        ok: 'Marcar mesmo assim', placeholder: 'Ex.: a primeira foi cancelada pela chuva',
+      });
+      if (!motivo) { aviso = { chave: 'adicionar', texto: 'Aula experimental não marcada: esse CPF já fez uma.' }; render(); return; }
+    }
+  }
+  const turma = turmasDeHoje().find((t) => t.hora === horaSel);
+  const r = regras.adicionarExperimental(db.experimentaisDoDia(dia), { ...valores, hora: horaSel || '', cpf: codigo }, {
+    id: `exp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, em: Date.now(), vagas: turma ? turma.vagas : 0,
+  });
+  if ('recusa' in r) { aviso = { chave: 'adicionar', texto: r.recusa }; render(); return; }
+  gravarExperimentais(r.lista);
+  if (codigo) db.salvarCpfsExperimentais(comCpf(db.cpfsExperimentais(), codigo, dia));
+  render();
+}
+
 /** Lê o que está digitado no painel antes de um redesenho apagá-lo. */
 function lerPainel() {
   if (!painel) return;
@@ -468,16 +521,36 @@ export function iniciarTelaTurmas() {
       aplicar(id, (a) => regras.agendarReposicaoNaTurma(a, origem, { data: dia, hora: horaSel || '' }, { relogio: relogio(), vagas: turma ? turma.vagas : 0 }), 'adicionar');
       return;
     }
-    if (acao === 'add-exp') {
-      const nome = /** @type {HTMLInputElement|null} */ ($('[data-exp-nome]', corpo));
-      const tel = /** @type {HTMLInputElement|null} */ ($('[data-exp-tel]', corpo));
+    if (acao === 'add-exp') { void adicionarExperimentalComCpf(corpo); return; }
+    if (acao === 'add-daypass') {
+      const nome = /** @type {HTMLInputElement|null} */ ($('[data-dp-nome]', corpo));
+      const tel = /** @type {HTMLInputElement|null} */ ($('[data-dp-tel]', corpo));
+      const meio = /** @type {HTMLSelectElement|null} */ ($('[data-dp-meio]', corpo));
+      const d = dadosDoDayPass({ nome: nome ? nome.value : '', telefone: tel ? tel.value : '', meio: meio ? meio.value : '', em: Date.now() });
+      if ('recusa' in d) { aviso = { chave: 'adicionar', texto: d.recusa }; render(); return; }
       const turma = turmasDeHoje().find((t) => t.hora === horaSel);
-      const r = regras.adicionarExperimental(db.experimentaisDoDia(dia), { nome: nome ? nome.value : '', telefone: tel ? tel.value : '', hora: horaSel || '' }, {
-        id: `exp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, em: Date.now(), vagas: turma ? turma.vagas : 0,
+      const r = regras.adicionarExperimental(db.experimentaisDoDia(dia), { ...d.dados, hora: horaSel || '' }, {
+        id: `dp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, em: Date.now(), vagas: turma ? turma.vagas : 0,
       });
       if ('recusa' in r) { aviso = { chave: 'adicionar', texto: r.recusa }; render(); return; }
       gravarExperimentais(r.lista);
       render(); return;
+    }
+    if (acao === 'exp-aluno') {
+      const id = btn.dataset.exp;
+      const x = db.experimentaisDoDia(dia).find((e) => e.id === id);
+      if (!x) return;
+      const diaDaLista = dia;
+      abrirCadastroDaLista({
+        nome: x.nome, telefone: x.telefone || '',
+        dayPass: x.tipo === 'daypass' ? dayPassDaFicha(x, diaDaLista) : null,
+        // Depois de criar: a linha mostra "virou aluno".
+        aoCriar: (novo) => {
+          const lista = db.experimentaisDoDia(diaDaLista).map((e) => (e.id === id ? { ...e, alunoId: String(novo.id) } : e));
+          db.salvarExperimentais(diaDaLista, lista, (m) => regras.podarExperimentais(m, hoje()));
+        },
+      });
+      return;
     }
     if (acao.startsWith('exp-')) {
       const id = btn.dataset.exp;

@@ -97,3 +97,17 @@ test('cadastro curto: sem nome não grava; ID repetido avisa', () => {
   assert.equal(avisos.at(-1), 'Já existe um aluno com esse ID. Escolha outro.');
   assert.equal(db.obter('Lia01').nome, 'Lia Rocha');
 });
+
+test('cadastro vindo do Day Pass (etapa 6.2): a ficha guarda o Day Pass e avisa quem abriu', async () => {
+  const { abrirCadastroDaLista } = await import('./ui-modal-aluno.js?v=35');
+  const criados = /** @type {any[]} */ ([]);
+  abrirCadastroDaLista({ nome: 'Vi', telefone: '149', dayPass: { dia: '2027-01-06', valor: 50 }, aoCriar: (novo) => criados.push(novo.id) });
+  enviar({ id: 'Vi09', nome: 'Vi', status: 'ativo', planoVezes: '3', inicio: '2027-01-11', mensalidade: '', vencimento: '10' });
+  const a = db.obter('Vi09');
+  assert.deepEqual(a.dayPass, { dia: '2027-01-06', valor: 50 });
+  assert.deepEqual(criados, ['Vi09']);
+  // O "+" depois disso abre vazio: o Day Pass não vaza para o próximo cadastro.
+  el('#fab-novo').ouvintes.click();
+  enviar({ id: 'Zeca10', nome: 'Zeca', status: 'ativo', planoVezes: '3', inicio: '2027-01-11' });
+  assert.equal('dayPass' in db.obter('Zeca10'), false);
+});

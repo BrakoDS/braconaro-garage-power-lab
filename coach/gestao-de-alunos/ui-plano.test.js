@@ -71,3 +71,35 @@ test('as tabelas de preço', () => {
   assert.match(h, /Ilimitado \(5–6x\)<\/th><td>R\$\s?250,00<\/td><td>R\$\s?350,00/);
   assert.match(h, /somados até 30%/);
 });
+
+/* ---------- Etapa 6.2: o contrato no card ---------- */
+
+const tri = { id: 'c1', prazo: 'trimestral', vezes: 3, inicio: '2027-01', valorMensal: 180, pctBonus: 0, total: 540 };
+
+test('contrato em curso: a linha, Trancar no lugar de Pausar, e Encerrar antes', () => {
+  const a = { ...ana, plano: { vezes: 3, prazo: 'trimestral' }, contratos: [tri] };
+  const h = htmlPlanoResumo(a, [a], '2027-02-10');
+  assert.match(h, /Contrato<\/dt><dd>trimestral, jan\/2027 a mar\/2027 · R\$\s?540,00 de uma vez · trancamento: 0 de 1/);
+  assert.match(h, /data-plano="trancar"/);
+  assert.doesNotMatch(h, /data-plano="pausar"|data-plano="fechar-contrato"/);
+  assert.match(h, /data-plano="encerrar"/);
+  assert.match(h, /Coberto pelo contrato trimestral/);
+});
+
+test('sem contrato: Fechar contrato; perto do fim: o aviso com Renovar e Passar para mensal', () => {
+  assert.match(htmlPlanoResumo(ana, [ana], '2026-12-10'), /data-plano="fechar-contrato"/);
+  const a = { ...ana, contratos: [tri] };
+  const h = htmlPlanoResumo(a, [a], '2027-03-10');
+  assert.match(h, /Fim do contrato<\/dt><dd><b>termina em 31\/03\/2027<\/b>/);
+  assert.match(h, /data-plano="renovar"/);
+  assert.match(h, /data-plano="mensal"/);
+});
+
+test('contrato encerrado sem devolução: o botão Registrar devolução', () => {
+  const a = { ...ana, contratos: [{ ...tri, saida: { ultimoMes: '2027-01', mesesQueFaltam: 2, valorQueFalta: 360, multa: 72, devolucao: 288 } }] };
+  const h = htmlPlanoResumo(a, [a], '2027-02-10');
+  assert.match(h, /encerrado em jan\/2027 · devolver R\$\s?288,00/);
+  assert.match(h, /data-plano="devolucao"/);
+  const devolvido = { ...a, contratos: [{ ...a.contratos[0], devolucao: { valor: 288, data: '2027-02-05', meio: 'pix-chave' } }] };
+  assert.doesNotMatch(htmlPlanoResumo(devolvido, [devolvido], '2027-02-10'), /data-plano="devolucao"/);
+});

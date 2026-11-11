@@ -190,6 +190,16 @@ export function semanasDesde(mesId, desde, vezes, presencas = []) {
 }
 
 /**
+ * A correção do coach nas semanas de um mês (0 a 4), ou null.
+ * @param {any} a @param {string} mesId
+ */
+export function ajusteDoMes(a, mesId) {
+  const aj = a && a.semanasAjuste ? a.semanasAjuste[mesId] : undefined;
+  const n = aj === '' || aj == null ? NaN : Number(aj);
+  return Number.isInteger(n) && n >= 0 && n <= 4 ? n : null;
+}
+
+/**
  * Quantas semanas do mês a ficha paga, e por quê.
  * `semanasAjuste[mesId]` (0 a 4), quando o coach corrige à mão, manda.
  * @param {any} a @param {string} mesId
@@ -211,9 +221,8 @@ export function semanasDoMes(a, mesId) {
     if (inicio > ult) zero = 'antes-do-inicio';
     else if (inicio > d1 && inicio > desde) { desde = inicio; porque = 'inicio'; }
   }
-  const aj = a && a.semanasAjuste ? a.semanasAjuste[mesId] : undefined;
-  const n = aj === '' || aj == null ? NaN : Number(aj);
-  if (Number.isInteger(n) && n >= 0 && n <= 4) return { semanas: n, desde, porque, quebrada: false, ajuste: true, zero: '' };
+  const n = ajusteDoMes(a, mesId);
+  if (n != null) return { semanas: n, desde, porque, quebrada: false, ajuste: true, zero: '' };
   if (zero) return { semanas: 0, desde: '', porque: '', quebrada: false, ajuste: false, zero };
   if (!desde) return { semanas: 4, desde: '', porque: '', quebrada: false, ajuste: false, zero: '' };
   const r = semanasDesde(mesId, desde, vezesDoPlano(a), a && a.presencas);
@@ -342,6 +351,18 @@ export function precoDoContrato(a, prazo, inicio) {
   return { valorMensal, pctBonus, total: centavos(valorMensal * meses * (1 - pctBonus / 100)) };
 }
 
+/**
+ * As semanas do mês depois do fim esticado do contrato: a "volta" é o 1º dia
+ * fora dele. A correção do coach manda, como na regra das semanas.
+ * @param {any} a @param {string} mesId @param {string} voltaEm
+ */
+function semanasDaExtensao(a, mesId, voltaEm) {
+  const n = ajusteDoMes(a, mesId);
+  if (n != null) return { semanas: n, desde: voltaEm, porque: /** @type {'contrato'} */ ('contrato'), quebrada: false, ajuste: true, zero: /** @type {''} */ ('') };
+  const r = semanasDesde(mesId, voltaEm, vezesDoPlano(a), a && a.presencas);
+  return { semanas: r.semanas, desde: voltaEm, porque: /** @type {'contrato'} */ ('contrato'), quebrada: r.quebrada, ajuste: false, zero: /** @type {''} */ ('') };
+}
+
 /* ---------- o Day Pass (etapa 6.2) ---------- */
 
 /**
@@ -428,9 +449,7 @@ export function mensalidadeDoMes(a, mesId) {
     : null;
   // O mês depois do fim de um contrato que o trancamento esticou: a "volta" é o
   // 1º dia fora do contrato, e vale a regra das semanas.
-  const s = cm && cm.papel === 'extensao' && cm.voltaEm
-    ? (() => { const r = semanasDesde(mesId, cm.voltaEm, vezesDoPlano(a), a && a.presencas); return { semanas: r.semanas, desde: cm.voltaEm, porque: /** @type {'contrato'} */ ('contrato'), quebrada: r.quebrada, ajuste: false, zero: /** @type {''} */ ('') }; })()
-    : semanasDoMes(a, mesId);
+  const s = cm && cm.papel === 'extensao' && cm.voltaEm ? semanasDaExtensao(a, mesId, cm.voltaEm) : semanasDoMes(a, mesId);
   const bonus = cortesia ? [] : bonusDoMes(a, mesId);
   const soma = bonus.reduce((t, b) => t + b.pct, 0);
   const pctBonus = Math.min(soma, TETO_BONUS);
