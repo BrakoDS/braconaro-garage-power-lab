@@ -30,6 +30,7 @@
  */
 import { aulasDoDia, marcarNoShow, noShowReposicao } from './presenca-regras.js?v=36';
 import { estaPausado } from '../../compartilhado/regras/planos.js';
+import { noShowIlimitado } from './ilimitado-regras.js?v=36';
 
 /** A marca da falta que nasceu na chamada da Lousa. */
 export const ORIGEM_FALTA = 'lousa';
@@ -64,7 +65,7 @@ export function emailsQueFaltaram(chamada) {
 }
 
 /**
- * @typedef {{ acao: 'falta', tipo: 'titular' | 'reposicao', chave: string, patch: Record<string, any>,
+ * @typedef {{ acao: 'falta', tipo: 'titular' | 'reposicao' | 'ilimitado', chave: string, patch: Record<string, any>,
  *   log: { tipo: string, resumo: string, extra: Record<string, any> } }} FaltaDaChamada
  * @typedef {{ acao: 'nada', motivo: string }} SemFalta
  */
@@ -101,6 +102,16 @@ export function faltaDaChamada(a, { dia, hora, em, hoje, agora = '', fechados = 
         ? 'avisou (crédito, atestado ou exceção nessa aula)' : 'já tem resposta registrada nessa aula' };
       continue;
     }
+    if (aula.tipo === 'ilimitado') {
+      // A aula marcada do Ilimitado (etapa 6.3): a falta fica na marcação, com a origem da chamada.
+      const r = noShowIlimitado(a, aula.chave, { em, origem: ORIGEM_FALTA });
+      if (!r) continue;
+      return {
+        acao: 'falta', tipo: 'ilimitado', chave: aula.chave,
+        patch: { marcacoes: r.patch.marcacoes },
+        log: { tipo: r.log.tipo, resumo: `Pela chamada da Lousa: ${r.log.resumo}`, extra: { ...(r.log.extra || {}), dia, chave: `falta:${a.id}:${dia}`, origem: ORIGEM_FALTA } },
+      };
+    }
     if (aula.tipo === 'reposicao') {
       const r = noShowReposicao(a, aula.chave, { em });
       if (!r) continue;
@@ -130,7 +141,7 @@ export function faltaDaChamada(a, { dia, hora, em, hoje, agora = '', fechados = 
 }
 
 /**
- * @typedef {{ acao: 'desfazer', tipo: 'titular' | 'reposicao', chave: string, patch: Record<string, any>,
+ * @typedef {{ acao: 'desfazer', tipo: 'titular' | 'reposicao' | 'ilimitado', chave: string, patch: Record<string, any>,
  *   log: { tipo: string, resumo: string, extra: Record<string, any> } }} FaltaDesfeita
  */
 
@@ -163,6 +174,15 @@ export function desfazerFaltaDaChamada(a, { dia, hora }) {
       acao: 'desfazer', tipo: 'reposicao', chave,
       patch: { atestados: { ...(a.atestados || {}), [chave]: { ...v, reposicao: limpa } } },
       log: { tipo: 'falta', resumo: `Chamada da Lousa refeita: saiu da lista · no-show da reposição de ${ddmm(dia)} ${hora} desfeito`, extra: { dia, origem: ORIGEM_FALTA } },
+    };
+  }
+  const m = (a.marcacoes || {})[dia];
+  if (m && (m.hora || '') === hora && m.noShow && m.noShowOrigem === ORIGEM_FALTA) {
+    const { noShow, noShowEm, noShowOrigem, ...limpa } = m;
+    return {
+      acao: 'desfazer', tipo: 'ilimitado', chave: dia,
+      patch: { marcacoes: { ...(a.marcacoes || {}), [dia]: limpa } },
+      log: { tipo: 'falta', resumo: `Chamada da Lousa refeita: saiu da lista · no-show da aula do Ilimitado de ${ddmm(dia)} ${hora} desfeito`, extra: { dia, origem: ORIGEM_FALTA } },
     };
   }
   return { acao: 'nada', motivo: 'nenhuma falta da chamada nessa aula' };

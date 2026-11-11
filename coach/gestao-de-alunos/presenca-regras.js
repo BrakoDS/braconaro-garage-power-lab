@@ -38,8 +38,8 @@
  * @typedef {{ data: string, hora: string }} Onde
  * @typedef {Object} AulaNaTurma
  * @property {any} aluno                    a ficha
- * @property {'titular'|'reposicao'} tipo
- * @property {string} chave                 titular: o dia planejado; reposição: a aula que gerou o crédito
+ * @property {'titular'|'reposicao'|'ilimitado'} tipo
+ * @property {string} chave                 titular: o dia planejado; reposição: a aula que gerou o crédito; ilimitado: o dia (etapa 6.3)
  * @property {string} hora                  'HH:MM' da turma ('' = sem horário na ficha)
  * @property {StatusAula} status
  * @property {any} [credito]                a entrada de `atestados`, quando há crédito
@@ -187,8 +187,23 @@ function statusReposicao(a, credito, dia, hoje, fechados) {
 }
 
 /**
+ * O status da aula marcada do Ilimitado em `dia` (etapa 6.3): a mesma régua da reposição.
+ * @param {any} a @param {any} m a marcação @param {string} dia @param {string} hoje @param {Set<string>} fechados
+ * @returns {Pick<AulaNaTurma, 'status'|'horaCheckin'>}
+ */
+function statusIlimitado(a, m, dia, hoje, fechados) {
+  if ((a.presencas || []).includes(dia)) return { status: 'presente', horaCheckin: (a.presencaHoras || {})[dia] };
+  if (m.foraDoPrazo) return { status: 'desmarcou-fora' };
+  if (m.noShow) return { status: 'falta' };
+  if (fechados.has(dia)) return { status: 'fechado' };
+  if (dia < hoje) return { status: 'sem-chamada' };
+  return { status: 'confirmado' };
+}
+
+/**
  * Todo mundo que tem aula em `dia`: os titulares da grade fixa (no dia em que a
- * aula acontece de fato) e quem marcou reposição para o dia.
+ * aula acontece de fato), quem marcou reposição para o dia e quem marcou a aula
+ * do Ilimitado (etapa 6.3).
  * @param {any[]} alunos os ativos @param {string} dia
  * @param {{ hoje: string, fechados?: string[] }} o
  * @returns {AulaNaTurma[]}
@@ -211,6 +226,8 @@ export function aulasDoDia(alunos, dia, { hoje, fechados = [] }) {
       if (!rep || rep.data !== dia) continue;
       out.push({ aluno: a, tipo: 'reposicao', chave: origem, hora: rep.hora || '', ...statusReposicao(a, v, dia, hoje, fech) });
     }
+    const m = (a.marcacoes || {})[dia];
+    if (m) out.push({ aluno: a, tipo: 'ilimitado', chave: dia, hora: m.hora || '', ...statusIlimitado(a, m, dia, hoje, fech) });
   }
   return out;
 }

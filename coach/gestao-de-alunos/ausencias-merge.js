@@ -22,9 +22,10 @@ import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config
 import { agendarReposicao } from './checkin-regras.js?v=36';
 import { desmarcar, desmarcarReposicaoComAviso } from './presenca-regras.js?v=36';
 import { casarCaixasComFichas } from './portal-merge.js?v=36';
+import { gravarMarcacao, desmarcarIlimitadoComAviso } from './ilimitado-regras.js?v=36';
 
 /**
- * @typedef {{ tipo: 'titular'|'reposicao', chave: string, coachUid: string, alunoId?: string,
+ * @typedef {{ tipo: 'titular'|'reposicao'|'ilimitado', chave: string, coachUid: string, alunoId?: string,
  *   aviso: { hoje: string, agora: string }, em: number, noPrazo?: boolean }} Aviso
  */
 
@@ -46,26 +47,46 @@ function aplicarReserva(a, r) {
 }
 
 /**
+ * @typedef {{ data: string, hora: string, coachUid: string, alunoId?: string, em: number }} Marcacao
+ *   a aula do Ilimitado marcada pelo aluno (`marcacoesAluno/{email}.itens[dia]`, etapa 6.3)
+ */
+
+/**
  * Aplica, em ordem de chegada, os avisos e as reservas de um aluno na ficha.
+ * As marcações do Ilimitado (etapa 6.3) entram na mesma fila: a marcação vem
+ * antes do "Não irei" que a desmarca.
  * Todo item é consumido: o que a regra recusa (a aula já tinha crédito, o coach
  * já lançou a falta, o crédito já foi usado) vira só uma linha de "ignorado",
  * para não ficar voltando.
  * @param {any} a a ficha @param {Record<string, Aviso>} itens @param {Record<string, Reserva>} [reservas]
- * @returns {{ patch: Record<string, any>, logs: Array<{ tipo: string, resumo: string, extra?: any }>, consumidos: string[], reservasConsumidas: string[], ignorados: Array<{ chave: string, motivo: string }> }}
+ * @param {Record<string, Marcacao>} [marcacoes]
+ * @returns {{ patch: Record<string, any>, logs: Array<{ tipo: string, resumo: string, extra?: any }>, consumidos: string[], reservasConsumidas: string[], marcacoesConsumidas: string[], ignorados: Array<{ chave: string, motivo: string }> }}
  */
-export function aplicarAvisosNaFicha(a, itens, reservas = {}) {
+export function aplicarAvisosNaFicha(a, itens, reservas = {}, marcacoes = {}) {
   let ficha = { ...a };
   const patch = {};
   const logs = [];
   const consumidos = [];
   const reservasConsumidas = [];
+  const marcacoesConsumidas = [];
   const ignorados = [];
   const em = (/** @type {any} */ x) => Number(x && x.em) || 0;
   const ordem = [
-    ...Object.entries(itens || {}).map(([chave, item]) => ({ chave, item, reserva: false })),
-    ...Object.entries(reservas || {}).map(([chave, item]) => ({ chave, item, reserva: true })),
+    ...Object.entries(itens || {}).map(([chave, item]) => ({ chave, item, reserva: false, marcacao: false })),
+    ...Object.entries(reservas || {}).map(([chave, item]) => ({ chave, item, reserva: true, marcacao: false })),
+    ...Object.entries(marcacoes || {}).map(([chave, item]) => ({ chave, item, reserva: false, marcacao: true })),
   ].sort((x, y) => em(x.item) - em(y.item));
-  for (const { chave, item, reserva } of ordem) {
+  for (const { chave, item, reserva, marcacao } of ordem) {
+    if (marcacao) {
+      marcacoesConsumidas.push(chave);
+      if (!item || typeof item.data !== 'string' || !item.data) { ignorados.push({ chave, motivo: 'marcação sem dados' }); continue; }
+      const r = gravarMarcacao(ficha, item.data, item.hora, Number(item.em) || Date.now());
+      if ('recusa' in r) { ignorados.push({ chave, motivo: r.recusa.texto }); continue; }
+      ficha = { ...ficha, ...r.patch };
+      Object.assign(patch, r.patch);
+      logs.push({ ...r.log, resumo: `Pelo app: ${r.log.resumo}` });
+      continue;
+    }
     if (reserva) {
       reservasConsumidas.push(chave);
       if (!item || typeof item.data !== 'string' || !item.data) { ignorados.push({ chave, motivo: 'reserva sem dados' }); continue; }
@@ -80,14 +101,16 @@ export function aplicarAvisosNaFicha(a, itens, reservas = {}) {
     consumidos.push(chave);
     if (!item || !item.aviso || typeof item.chave !== 'string') { ignorados.push({ chave, motivo: 'aviso sem dados' }); continue; }
     const o = { aviso: item.aviso, em: Number(item.em) || Date.now() };
-    const r = item.tipo === 'reposicao' ? desmarcarReposicaoComAviso(ficha, item.chave, o) : desmarcar(ficha, item.chave, o);
-    if (!r) { ignorados.push({ chave, motivo: 'reposição não está mais marcada' }); continue; }
+    const r = item.tipo === 'reposicao' ? desmarcarReposicaoComAviso(ficha, item.chave, o)
+      : item.tipo === 'ilimitado' ? desmarcarIlimitadoComAviso(ficha, item.chave, o)
+        : desmarcar(ficha, item.chave, o);
+    if (!r) { ignorados.push({ chave, motivo: item.tipo === 'ilimitado' ? 'a aula do Ilimitado não está mais marcada' : 'reposição não está mais marcada' }); continue; }
     if ('recusa' in r) { ignorados.push({ chave, motivo: r.recusa.texto }); continue; }
     ficha = { ...ficha, ...r.patch };
     Object.assign(patch, r.patch);
     logs.push({ ...r.log, resumo: `Pelo app: ${r.log.resumo}` });
   }
-  return { patch, logs, consumidos, reservasConsumidas, ignorados };
+  return { patch, logs, consumidos, reservasConsumidas, marcacoesConsumidas, ignorados };
 }
 
 const V = '10.12.2';
