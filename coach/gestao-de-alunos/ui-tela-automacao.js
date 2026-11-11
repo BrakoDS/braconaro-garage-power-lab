@@ -72,13 +72,34 @@ export function atualizarFilaDeMensagens() {
     || `<div class="empty"><b>Nenhuma mensagem na fila</b>Quando houver conta do mês em aberto ou um pagamento entrar, a mensagem aparece aqui pronta para enviar.</div>`;
 }
 
+/**
+ * O rastro da Fila (etapa 5): a ROTINA propôs a mensagem (pela Fila, quando a
+ * ação aconteceu ou a condição apareceu) e o COACH decidiu — enviar é aprovar,
+ * descartar é recusar.
+ * @param {any} m a mensagem @param {'aprovada'|'recusada'} decisao
+ */
+function rastroDaFila(m, decisao) {
+  return {
+    proposta: { por: { tipo: 'rotina' }, via: 'fila', ...(Number(m.criadaEm) > 0 ? { em: Number(m.criadaEm) } : {}) },
+    aprovacao: { por: { tipo: 'coach' }, em: Date.now(), decisao },
+  };
+}
+
 /** Enviar: abre o WhatsApp, marca e registra — uma vez só, mesmo com dois toques. @param {string} chave */
 function enviar(chave) {
   const m = mensagens().find((x) => x.chave === chave);
   if (!m || !m.temTelefone) return;
   if (!marcarMensagem(chave, 'enviada')) return;
   deps.abrir(waMsg(m.telefone, m.texto));
-  reg('mensagem-enviada', db.obter(m.alunoId) || { id: m.alunoId, nome: m.nome }, `WhatsApp · ${m.rotulo} · ${detalhe(m)}`, { chave: `mensagem:${chave}` });
+  reg('mensagem-enviada', db.obter(m.alunoId) || { id: m.alunoId, nome: m.nome }, `WhatsApp · ${m.rotulo} · ${detalhe(m)}`, { chave: `mensagem:${chave}`, ...rastroDaFila(m, 'aprovada') });
+}
+
+/** Descartar: marca e deixa o rastro "Sugestão descartada" (proposta recusada) — uma vez só. @param {string} chave */
+function descartar(chave) {
+  const m = mensagens().find((x) => x.chave === chave);
+  if (!marcarMensagem(chave, 'descartada') || !m) return;
+  reg('mensagem-descartada', db.obter(m.alunoId) || { id: m.alunoId, nome: m.nome }, `Sugestão descartada · ${m.rotulo} · ${detalhe(m)}`,
+    { chave: `mensagem-descartada:${chave}`, situacao: 'recusada', ...rastroDaFila(m, 'recusada') });
 }
 
 /**
@@ -94,6 +115,6 @@ export function iniciarTelaAutomacao(d = {}) {
     const b = e.target.closest('[data-chave]');
     if (!b) return;
     if (b.classList.contains('auto-enviar')) enviar(b.dataset.chave);
-    else if (b.classList.contains('auto-descartar')) marcarMensagem(b.dataset.chave, 'descartada');
+    else if (b.classList.contains('auto-descartar')) descartar(b.dataset.chave);
   });
 }

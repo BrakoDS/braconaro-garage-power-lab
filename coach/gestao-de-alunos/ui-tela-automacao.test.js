@@ -107,7 +107,14 @@ test('lembrete: a conta a vencer aparece com "vence em N dias" e o texto "vence 
   assert.match(html, /Olá, Edu! 😊 Passando pra lembrar da sua mensalidade de Outubro \(R\$\s200,00\), que vence dia 20\. Pra facilitar/);
   const antes = logs().length;
   clicar('auto-descartar', 'cobranca-a-vencer:Edu03:2026-10');
-  assert.equal(logs().length, antes);
+  // Etapa 5: o descarte deixa o rastro — a rotina propôs, o coach recusou.
+  const novos = logs().slice(antes);
+  assert.equal(novos.length, 1);
+  assert.equal(novos[0].tipo, 'mensagem-descartada');
+  assert.equal(novos[0].situacao, 'recusada');
+  assert.deepEqual([novos[0].proposta.por, novos[0].proposta.via, novos[0].aprovacao.por, novos[0].aprovacao.decisao], [{ tipo: 'rotina' }, 'fila', { tipo: 'coach' }, 'recusada']);
+  clicar('auto-descartar', 'cobranca-a-vencer:Edu03:2026-10');
+  assert.equal(logs().length, antes + 1, 'o segundo toque não registra de novo');
   assert.deepEqual(cartoes(), ['cobranca-vencida:Gil02:2026-10', 'cobranca-vencida:Ana01:2026-10']);
   assert.equal(selo(), '2');
 });
@@ -148,11 +155,11 @@ test('b) a enviada não volta: nem na próxima varredura, nem com a ficha mudand
 
 /* ---------- c) Descartar ---------- */
 
-test('c) Descartar: some da fila e do selo, sem abrir WhatsApp e sem registrar envio', () => {
+test('c) Descartar: some da fila e do selo, sem abrir WhatsApp e sem registrar envio (só o descarte, etapa 5)', () => {
   const antes = logs().length;
   clicar('auto-descartar', 'cobranca-vencida:Gil02:2026-10');
   assert.equal(abertos.length, 1, 'nada aberto');
-  assert.equal(logs().length, antes, 'nada registrado');
+  assert.deepEqual(logs().slice(antes).map((e) => e.tipo), ['mensagem-descartada'], 'nenhum envio registrado; só o descarte');
   assert.deepEqual(cartoes(), []);
   assert.match(el('#auto-list').innerHTML, /Nenhuma mensagem na fila/);
   assert.equal(selo(), null, 'fila vazia: sem selo');
