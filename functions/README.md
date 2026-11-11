@@ -686,6 +686,34 @@ O crédito de box fechado é só da rotina.
 **Publicar:** o `eventos.js` está na cópia da Gestão (`lib/gestao/`), então publique as funções das caixas (a lista do
 "Publicar" acima), no mesmo dia do merge. Nenhuma regra muda.
 
+### Etapa 6.1: o plano, a pausa e os preços de 2027 (11/11/2026)
+
+O valor da mensalidade de cada mês passa a sair de `compartilhado/regras/planos.js` (`mensalidadeDoMes`): até
+dez/2026 o valor da ficha (`mensalidade`); da fatura de jan/2027 em diante a tabela de fundadores ou a regular do
+`plano` da ficha, menos os bônus (até 30%); cortesia zera; a pausa zera os meses inteiros pausados; quem volta ou
+começa no meio do mês paga as semanas que faltam (a semana quebrada conta se treinou as vezes do plano). Os campos
+novos da ficha são todos do coach: `plano`, `inicio`, `fundador`, `cortesia`, `pausas`, `dupla`, `instagram`,
+`parceriaLocal`, `indicadoPor`, `indicacoes`, `semanasAjuste` (ver `cadastro-regras.js`).
+
+**No servidor:**
+- **Pix:** `planos.ts` é o porte de `planos.js`, e o `checar-pix` compara as duas versões em fichas sorteadas de
+  set/2026 a mar/2027. O valor do Pix muda junto com a Gestão.
+- **Aluno pausado:** `avisarAusencia` e `agendarReposicao` recusam; a ocupação dos horários não conta o pausado.
+- **Caixas:** a cópia da Gestão (`chamada-faltas.js`, `creditos-fechamento.js`) não dá falta nem crédito de feriado ao
+  pausado.
+
+Nenhuma regra do Firestore muda (os campos novos ficam na ficha, que o coach já escreve).
+
+**Publicar, no mesmo dia do merge (com o aviso ao dono):**
+
+```bash
+firebase deploy --only functions:gerarPixCobranca,functions:webhookMercadoPago,functions:reconciliarPix,functions:avisarAusencia,functions:agendarReposicao,functions:ocupacaoDosHorarios,functions:aplicarAvisosAusencia,functions:aplicarReposicoesAluno,functions:aplicarCheckinsUgym,functions:aplicarCheckinsLousa,functions:aplicarChamadaDaLousa,functions:aplicarPixAprovado,functions:aplicarCaixasPendentes --project projeto-garage-f0a2f
+```
+
+**Migração das fichas de hoje** (`scripts/migrar-cadastro-planos.cjs`): simulação por padrão (só contagens);
+`--aplicar <backup-novo.json>` grava só o que falta (`inicio`, `plano`, `fundador`, `cortesia`), com backup antes.
+Rodar **depois** das funções publicadas, para o Pix já conhecer a cortesia.
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro
