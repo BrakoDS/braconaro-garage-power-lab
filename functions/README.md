@@ -735,6 +735,30 @@ firebase deploy --only functions:gerarPixCobranca,functions:webhookMercadoPago,f
 
 Nada é migrado (hoje nenhum aluno tem contrato).
 
+### Etapa 6.3: o Ilimitado marcando aula por aula (11/11/2026)
+
+A ficha com o plano Ilimitado marca a aula: `marcacoes[dia] = { hora }` (regras em `coach/gestao-de-alunos/ilimitado-regras.js`).
+As regras:
+- próximos 7 dias e até 1h antes;
+- uma aula por dia (marcada, de grade fixa ou de reposição) e 6 na semana;
+- vaga na turma: a grade fixa é garantida.
+
+Desmarcar com 2h ou mais libera a vaga; com menos, ou no-show, é falta.
+
+**No servidor:**
+- `marcarAulaIlimitado` (callable): confere tudo numa transação, com os pendentes, e grava `marcacoesAluno/{email}.itens[dia]`.
+- `aplicarMarcacoesAluno` (gatilho da caixa): aplica pela mesma fila do "Não irei" e da reserva (`ausencias-merge.js`).
+- `avisarAusencia` aceita o tipo `ilimitado`; `ocupacaoDosHorarios` e `agendarReposicao` contam as marcações pendentes.
+- `presenca.ts` tem o porte da regra (o `checar-presenca` compara com a Gestão).
+- **Regra do Firestore nova:** `marcacoesAluno/{email}` (o aluno lê a sua, o coach lê e consome).
+
+**Publicar, com aviso ao dono:** primeiro as regras, depois as funções.
+
+```bash
+firebase deploy --only firestore:rules --project projeto-garage-f0a2f
+firebase deploy --only functions:marcarAulaIlimitado,functions:aplicarMarcacoesAluno,functions:avisarAusencia,functions:agendarReposicao,functions:ocupacaoDosHorarios,functions:aplicarAvisosAusencia,functions:aplicarReposicoesAluno,functions:aplicarCheckinsUgym,functions:aplicarCheckinsLousa,functions:aplicarChamadaDaLousa,functions:aplicarPixAprovado,functions:aplicarCaixasPendentes --project projeto-garage-f0a2f
+```
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro

@@ -19,10 +19,10 @@
  * Roda no boot e de 2 em 2 minutos, junto com o Pix (boot.js).
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { agendarReposicao } from './checkin-regras.js?v=36';
-import { desmarcar, desmarcarReposicaoComAviso } from './presenca-regras.js?v=36';
-import { casarCaixasComFichas } from './portal-merge.js?v=36';
-import { gravarMarcacao, desmarcarIlimitadoComAviso } from './ilimitado-regras.js?v=36';
+import { agendarReposicao } from './checkin-regras.js?v=37';
+import { desmarcar, desmarcarReposicaoComAviso } from './presenca-regras.js?v=37';
+import { casarCaixasComFichas } from './portal-merge.js?v=37';
+import { gravarMarcacao, desmarcarIlimitadoComAviso } from './ilimitado-regras.js?v=37';
 
 /**
  * @typedef {{ tipo: 'titular'|'reposicao'|'ilimitado', chave: string, coachUid: string, alunoId?: string,

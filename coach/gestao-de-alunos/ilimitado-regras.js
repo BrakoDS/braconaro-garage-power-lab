@@ -21,9 +21,9 @@
  *
  * @typedef {import('./checkin-regras.js').Relogio} Relogio
  */
-import { antecedenciaMin, somarDias, textoAntecedencia, PRAZO_DESMARCAR_MIN } from './presenca-regras.js?v=36';
-import { donoDoDia, outraAulaUsa, diasReivindicados, chaveIlimitado } from './checkin-regras.js?v=36';
-import { datasDaSemana } from '../../compartilhado/regras/semana.js?v=36';
+import { antecedenciaMin, somarDias, textoAntecedencia, PRAZO_DESMARCAR_MIN } from './presenca-regras.js?v=37';
+import { donoDoDia, outraAulaUsa, diasReivindicados, chaveIlimitado } from './checkin-regras.js?v=37';
+import { datasDaSemana } from '../../compartilhado/regras/semana.js?v=37';
 import { estaPausado } from '../../compartilhado/regras/planos.js';
 
 /** As aulas dos próximos quantos dias (contando hoje) ele marca — o mesmo horizonte da reposição. */

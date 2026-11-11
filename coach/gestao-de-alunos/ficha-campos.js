@@ -21,7 +21,7 @@
  *
  * Puro: nada de Firebase, nada de storage.
  */
-import { canonico } from './db-migracao.js?v=36';
+import { canonico } from './db-migracao.js?v=37';
 
 /** Campos da ficha que só o servidor escreve: não descem para o cache nem sobem dele. */
 export const FICHA_RESERVADOS = Object.freeze(['atualizadoEm']);

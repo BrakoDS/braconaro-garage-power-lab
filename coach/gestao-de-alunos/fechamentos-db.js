@@ -13,7 +13,7 @@
  * local), guarda no localStorage deste navegador, para dar para testar.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { emit, EVENTOS } from './estado.js?v=36';
+import { emit, EVENTOS } from './estado.js?v=37';
 
 const V = '10.12.2';
 const CHAVE_LOCAL = 'braconaro_fechamentos_v1';

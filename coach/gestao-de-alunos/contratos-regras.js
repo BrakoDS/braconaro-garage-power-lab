@@ -18,7 +18,7 @@ import {
   contratosDe, contratoNoMes, fimDoContrato, diasTrancados, precoDoContrato, somarMeses, pausaAtual, mesCurto,
   ultimoDiaDoMes, somarDiasIso,
 } from '../../compartilhado/regras/planos.js';
-import { pausar } from './cadastro-regras.js?v=36';
+import { pausar } from './cadastro-regras.js?v=37';
 
 const ehMes = (/** @type {any} */ m) => typeof m === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(m);
 const ehDia = (/** @type {any} */ d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
