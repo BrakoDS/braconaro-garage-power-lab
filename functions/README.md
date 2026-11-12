@@ -759,6 +759,19 @@ firebase deploy --only firestore:rules --project projeto-garage-f0a2f
 firebase deploy --only functions:marcarAulaIlimitado,functions:aplicarMarcacoesAluno,functions:avisarAusencia,functions:agendarReposicao,functions:ocupacaoDosHorarios,functions:aplicarAvisosAusencia,functions:aplicarReposicoesAluno,functions:aplicarCheckinsUgym,functions:aplicarCheckinsLousa,functions:aplicarChamadaDaLousa,functions:aplicarPixAprovado,functions:aplicarCaixasPendentes --project projeto-garage-f0a2f
 ```
 
+### Etapa 6.4: consumo com quantidade e forma, e o mês fechado no Portal (11/11/2026)
+
+Tudo na Gestão e no Portal/app (decisão 12 do ESCOPO):
+- **Corte:** a venda de 01/12/2026 em diante vai, com o mês inteiro, para a conta seguinte (`CORTE_MES_INTEIRO_DESDE`, `consumo.js`).
+- **Quantidade:** `preco` é o total da linha, e `qtd` e `unitario` vão junto. A conta do servidor (`pix.ts`) só soma `preco`, então o resultado não muda.
+- **Pago na hora:** fica em `comprasNaHora[]`, fora de `consumos[]`, e nenhuma conta nem Pix soma.
+- **Venda a visitante:** fica em `vendasAvulsas` no documento do box.
+- **Mês fechado:** vai na fatia do aluno (`fechamentos[mês]`) pela Gestão.
+
+**Nenhuma função muda de comportamento e não há regra nova do Firestore.** A cópia das regras da Gestão em `lib/gestao/` muda junto, mas as caixas não lançam consumo.
+
+Simulação, só leitura e só contagens: `node scripts/simular-consumo-6-4.cjs`.
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro
