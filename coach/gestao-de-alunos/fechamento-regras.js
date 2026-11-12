@@ -20,7 +20,7 @@
  * cortesia paga o consumo (como a conta já faz); o mês fechado pode ser reaberto,
  * com motivo, e a versão anterior fica guardada.
  */
-import { contaDoMes, faturaDoAluno, rotuloMesFin, brl, mesesDoHistorico } from './financeiro-aluno.js?v=37';
+import { contaDoMes, faturaDoAluno, rotuloMesFin, brl, mesesDoHistorico } from './financeiro-aluno.js?v=38';
 import { parteCoberta } from '../../compartilhado/regras/consumo.js';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
 
@@ -133,8 +133,9 @@ export function divergenciasDoRetrato(linhas) {
 /**
  * O retrato do mês — a prévia que a tela mostra antes da aprovação.
  * @param {any[]} todos @param {string} mesId @param {string} hojeIso
- * @param {{ avulsos: { itens: any[], total: number }, devolucoes: { itens: any[], total: number } } | null} [extras]
- *   os avulsos (Day Pass) e as devoluções do mês (avulsos-regras.js), etapa 6.2
+ * @param {{ avulsos: { itens: any[], total: number }, devolucoes: { itens: any[], total: number }, naHora?: { itens: any[], total: number } } | null} [extras]
+ *   os avulsos (Day Pass e, desde a 6.4, as vendas a visitantes) e as devoluções do mês
+ *   (avulsos-regras.js), etapa 6.2; as vendas pagas na hora pelos alunos (`naHora`), etapa 6.4
  * @returns {Retrato}
  */
 export function retratoDoMes(todos, mesId, hojeIso, extras = null) {
@@ -146,10 +147,14 @@ export function retratoDoMes(todos, mesId, hojeIso, extras = null) {
   const retrato = { mesId, linhas, totais: totaisDoRetrato(linhas), divergencias: divergenciasDoRetrato(linhas) };
   // Etapa 6.2: o Day Pass pago (avulsos) e as devoluções de contrato do mês, fora das linhas dos alunos.
   if (!extras) return retrato;
+  const naHora = extras.naHora && extras.naHora.itens.length ? { naHora: extras.naHora.itens } : {};
   return {
     ...retrato,
-    avulsos: extras.avulsos.itens, devolucoes: extras.devolucoes.itens,
-    totais: { ...retrato.totais, avulsos: extras.avulsos.total, devolucoes: extras.devolucoes.total },
+    avulsos: extras.avulsos.itens, devolucoes: extras.devolucoes.itens, ...naHora,
+    totais: {
+      ...retrato.totais, avulsos: extras.avulsos.total, devolucoes: extras.devolucoes.total,
+      ...(extras.naHora && extras.naHora.total > 0 ? { naHora: extras.naHora.total } : {}),
+    },
   };
 }
 
@@ -248,6 +253,35 @@ export function historicoComFechamentos(a, todos, hojeIso, fechamentos = {}, max
 export function pagamentosParaLancar(a, fechamentos = {}) {
   const out = { ...((a && a.pagamentos) || {}) };
   for (const [mesId, doc] of Object.entries(fechamentos)) if (estaFechado(doc)) out[mesId] = true;
+  return out;
+}
+
+/**
+ * A linha de cada mês FECHADO de um aluno, para a fatia do Portal (etapa 6.4):
+ * o aluno vê, no Portal e no app, a conta como foi aprovada — o mesmo valor que
+ * o Pix cobra (`totalDoMesFechado`). Só o que a notinha mostra: itens, total,
+ * vencimento e a data do fechamento. O registro do pagamento (meio, comprovante,
+ * paymentId) NÃO vai, como `recebimentos` nunca foi para o Portal. Mês reaberto
+ * não entra: volta a ser calculado pela ficha.
+ * @param {Record<string, any>|undefined} fechamentos os documentos, por mês
+ * @param {string} alunoId
+ * @returns {Record<string, { total: number, vencimento: string, pagavel: boolean, fechadoEm: number,
+ *   itens: { tipo: string, descricao: string, valor: number, detalhe?: string, coberto?: boolean }[] }>}
+ */
+export function fechamentosDaFatia(fechamentos, alunoId) {
+  /** @type {Record<string, any>} */ const out = {};
+  for (const [mesId, doc] of Object.entries(fechamentos || {})) {
+    if (!estaFechado(doc) || !/^\d{4}-\d{2}$/.test(mesId)) continue;
+    const l = doc.linhas && doc.linhas[String(alunoId)];
+    if (!l) continue;
+    out[mesId] = {
+      total: Number(l.total) || 0, vencimento: String(l.vencimento || ''), pagavel: !!l.pagavel, fechadoEm: Number(doc.aprovadoEm) || 0,
+      itens: (Array.isArray(l.itens) ? l.itens : []).map((/** @type {any} */ i) => ({
+        tipo: String(i.tipo || ''), descricao: String(i.descricao || ''), valor: Number(i.valor) || 0,
+        ...(i.detalhe ? { detalhe: String(i.detalhe) } : {}), ...(i.coberto ? { coberto: true } : {}),
+      })),
+    };
+  }
   return out;
 }
 

@@ -39,9 +39,9 @@ globalThis.FormData = /** @type {any} */ (class {
   getAll(k) { const v = this.m[k]; return Array.isArray(v) ? v : v == null ? [] : [v]; }
 });
 
-const db = await import('./db.js?v=37');
-const { on, EVENTOS } = await import('./estado.js?v=37');
-const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=37');
+const db = await import('./db.js?v=38');
+const { on, EVENTOS } = await import('./estado.js?v=38');
+const { iniciarModalAluno } = await import('./ui-modal-aluno.js?v=38');
 const avisos = /** @type {string[]} */ ([]);
 iniciarModalAluno({ avisar: (o) => avisos.push(o.texto) });
 
@@ -99,7 +99,7 @@ test('cadastro curto: sem nome não grava; ID repetido avisa', () => {
 });
 
 test('cadastro vindo do Day Pass (etapa 6.2): a ficha guarda o Day Pass e avisa quem abriu', async () => {
-  const { abrirCadastroDaLista } = await import('./ui-modal-aluno.js?v=37');
+  const { abrirCadastroDaLista } = await import('./ui-modal-aluno.js?v=38');
   const criados = /** @type {any[]} */ ([]);
   abrirCadastroDaLista({ nome: 'Vi', telefone: '149', dayPass: { dia: '2027-01-06', valor: 50 }, aoCriar: (novo) => criados.push(novo.id) });
   enviar({ id: 'Vi09', nome: 'Vi', status: 'ativo', planoVezes: '3', inicio: '2027-01-11', mensalidade: '', vencimento: '10' });

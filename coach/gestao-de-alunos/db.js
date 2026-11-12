@@ -15,9 +15,9 @@
  * Continua local-first: toda função aqui é síncrona e responde do cache; a
  * nuvem vem atrás.
  */
-import { criarCache } from './db-cache.js?v=37';
-import { criarSync } from './db-sync.js?v=37';
-import { horasDaGrade } from './presenca-regras.js?v=37';
+import { criarCache } from './db-cache.js?v=38';
+import { criarSync } from './db-sync.js?v=38';
+import { horasDaGrade } from './presenca-regras.js?v=38';
 
 const cache = criarCache();
 
@@ -39,7 +39,7 @@ function idDoAparelho() {
 const sync = criarSync({
   cache,
   aparelho: idDoAparelho(),
-  abrirPorta: async (uid) => (await import('./db-firestore.js?v=37')).portaFirestore(uid),
+  abrirPorta: async (uid) => (await import('./db-firestore.js?v=38')).portaFirestore(uid),
   aoErro: (e) => { if (_aoErro) _aoErro(e); },
 });
 
@@ -76,7 +76,7 @@ export async function enviarAgora() {
  */
 export async function iniciarSync(uid, aoAtualizar) {
   try {
-    const fs = await import('./db-firestore.js?v=37');
+    const fs = await import('./db-firestore.js?v=38');
     if (!fs.cloudAtivo() || !uid) return undefined;
     return await sync.iniciar(uid, aoAtualizar);
   } catch (e) {
@@ -287,6 +287,22 @@ export function cpfsExperimentais() {
 /** Guarda o código do CPF de uma aula experimental marcada. @param {Record<string, string>} registro */
 export function salvarCpfsExperimentais(registro) {
   cache.gravarMeta({ cpfsExperimentais: registro });
+  gravou();
+}
+
+/**
+ * As vendas a visitantes, pagas na hora (etapa 6.4): dia → lista
+ * (avulsos-regras.js). Fora da lista do dia, que é de quem ocupa vaga.
+ * @returns {Record<string, any[]>}
+ */
+export function vendasAvulsas() {
+  const m = cache.meta().vendasAvulsas;
+  return (m && typeof m === 'object') ? m : {};
+}
+
+/** Grava as vendas a visitantes (o mapa inteiro, já sem os dias velhos). @param {Record<string, any[]>} mapa */
+export function salvarVendasAvulsas(mapa) {
+  cache.gravarMeta({ vendasAvulsas: mapa });
   gravou();
 }
 

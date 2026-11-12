@@ -8,10 +8,15 @@
  *
  * A QUAL FATURA UM CONSUMO PERTENCE
  *
- * O corte é o dia do vencimento. Com vencimento no dia 10, o que for consumido
- * até o dia 10 entra na fatura daquele mês; do dia 11 em diante já cai na do mês
- * seguinte. Uma dose comprada em 25/08 e outra em 31/08 aparecem juntas na
- * fatura de setembro, que vence em 10/09.
+ * Desde 01/12/2026 (decisão 12 do ESCOPO, etapa 6.4): o consumo do mês INTEIRO
+ * entra na fatura do mês seguinte. O que foi comprado de 1 a 31/12 vai para a
+ * fatura de janeiro, que vence no dia 10/01, numa linha separada da mensalidade
+ * de janeiro — é o que a mensagem do dia 1 mostra ("o consumo do mês que acabou
+ * e a mensalidade do mês que começa").
+ *
+ * Antes disso, o corte era o dia do vencimento. Com vencimento no dia 10, o que
+ * foi consumido até o dia 10 entrou na fatura daquele mês; do dia 11 em diante
+ * caiu na do mês seguinte. A venda antiga já está carimbada, então nada muda nela.
  *
  * O ciclo é CARIMBADO na hora da venda (`mesId` fica gravado no consumo), e não
  * recalculado depois. Duas razões: a fatura de um mês fechado não pode mudar de
@@ -27,14 +32,18 @@ function diaVencimentoNoMes(ano, mes, dia) {
   return Math.min(Math.max(1, parseInt(String(dia), 10) || 10), ultimoDia);
 }
 
+/** A venda deste dia em diante vai, com o mês inteiro, para a fatura seguinte (decisão 12). */
+export const CORTE_MES_INTEIRO_DESDE = '2026-12-01';
+
 /**
  * A fatura ('YYYY-MM') a que um consumo pertence, pela data.
  * @param {string} dataIso 'YYYY-MM-DD' da venda
- * @param {number|string} diaVencimento dia do mês em que a mensalidade vence
+ * @param {number|string} diaVencimento dia do mês em que a mensalidade vence (só a venda antiga usa)
  * @returns {string} 'YYYY-MM'
  */
 export function mesIdDoConsumo(dataIso, diaVencimento) {
   const [ano, mes, dia] = dataIso.split('-').map(Number);
+  if (dataIso >= CORTE_MES_INTEIRO_DESDE) return proximoMes(`${ano}-${String(mes).padStart(2, '0')}`);
   const corte = diaVencimentoNoMes(ano, mes, diaVencimento);
   if (dia <= corte) return `${ano}-${String(mes).padStart(2, '0')}`;
   const d = new Date(ano, mes, 1); // mes é 1-based, então isto já é o mês seguinte
@@ -80,6 +89,54 @@ export function consumosDoMes(consumos, mesId) {
 /** Quanto os consumos de uma fatura somam. @param {any[]} [consumos] @param {string} mesId */
 export function totalConsumos(consumos, mesId) {
   return consumosDoMes(consumos, mesId).reduce((s, c) => s + (Number(c.preco) || 0), 0);
+}
+
+/*
+ * QUANTIDADE (etapa 6.4). Um lançamento pode ter várias unidades: `qtd` e
+ * `unitario`, e `preco` é o TOTAL da linha (qtd × unitario). Quem só soma
+ * `preco` — o app que ainda não recebeu a atualização, o Pix, o retrato — chega
+ * no valor certo sem saber da quantidade. O lançamento antigo não tem `qtd`: é 1.
+ */
+
+/** Quantas unidades o lançamento tem. @param {any} c */
+export const qtdDoConsumo = (c) => Math.max(1, parseInt(c && c.qtd, 10) || 1);
+
+/** O preço de uma unidade: o gravado, ou o total ÷ a quantidade. @param {any} c */
+export function unitarioDoConsumo(c) {
+  const u = Number(c && c.unitario);
+  return u > 0 ? u : Math.round(((Number(c && c.preco) || 0) / qtdDoConsumo(c)) * 100) / 100;
+}
+
+/** "12 × Energético" (ou só "Energético"). @param {any} c */
+export function nomeComQtd(c) {
+  const q = qtdDoConsumo(c), nome = String((c && c.nome) || 'Consumo');
+  return q > 1 ? `${q} × ${nome}` : nome;
+}
+
+/**
+ * A notinha do aluno: os itens IGUAIS (mesmo nome, mesmo preço da unidade e
+ * mesmo dia) numa linha só — os 12 energéticos lançados um a um antes da
+ * quantidade viram "12 × Energético". Só agrupa na tela: nada é regravado.
+ * @param {any[]} [consumos] os de uma fatura (consumosDoMes)
+ * @returns {{ chave: string, nome: string, data: string, qtd: number, unitario: number, total: number, ids: string[] }[]}
+ */
+export function linhasDaNotinha(consumos) {
+  /** @type {Map<string, { chave: string, nome: string, data: string, qtd: number, unitario: number, total: number, ids: string[] }>} */
+  const por = new Map();
+  for (const c of consumos || []) {
+    if (!c) continue;
+    const nome = String(c.nome || 'Consumo'), data = String(c.data || ''), unitario = unitarioDoConsumo(c);
+    const chave = `${data}|${nome}|${Math.round(unitario * 100)}`;
+    const l = por.get(chave);
+    if (l) {
+      l.qtd += qtdDoConsumo(c);
+      l.total = centavos(l.total + (Number(c.preco) || 0));
+      if (c.id) l.ids.push(String(c.id));
+    } else {
+      por.set(chave, { chave, nome, data, qtd: qtdDoConsumo(c), unitario, total: centavos(Number(c.preco) || 0), ids: c.id ? [String(c.id)] : [] });
+    }
+  }
+  return [...por.values()];
 }
 
 /** Os descontos de parceria que o box oferece. */

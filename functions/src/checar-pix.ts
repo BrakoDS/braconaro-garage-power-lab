@@ -101,7 +101,14 @@ async function conta(): Promise<void> {
         if (r() < 0.5) f.pausas = [{ desde: pick(DIAS), ate: pick(DIAS), contrato: 'k1' }, ...(r() < 0.4 ? [{ desde: pick(DIAS), ate: pick(DIAS), contrato: 'k1' }] : [])];
       }
       if (r() < 0.15) f.dayPass = { dia: pick(DIAS), valor: pick([50, 30]) };
-      f.consumos = Array.from({ length: Math.floor(r() * 4) }, (_, j) => ({ id: 'c' + j, nome: pick(['Gel', 'Água']), preco: pick([9.99, 5, '10', 60, 0]), data: `2026-10-0${1 + j}`, mesId: pick(MESES) }));
+      f.consumos = Array.from({ length: Math.floor(r() * 4) }, (_, j) => {
+        // Etapa 6.4: o lançamento com quantidade — `preco` já é o total da linha.
+        const qtd = pick([1, 1, 2, 12]);
+        const unitario = pick([9.99, 5, 10, 60]);
+        return qtd > 1
+          ? { id: 'c' + j, nome: pick(['Gel', 'Água']), preco: Math.round(unitario * qtd * 100) / 100, qtd, unitario, data: `2026-10-0${1 + j}`, mesId: pick(MESES) }
+          : { id: 'c' + j, nome: pick(['Gel', 'Água']), preco: pick([9.99, 5, '10', 60, 0]), data: `2026-10-0${1 + j}`, mesId: pick(MESES) };
+      });
       return f;
     });
     for (const f of todos) if (r() < 0.35) f.pagoPor = { id: pick([...todos.map((x) => x.id), 'Saiu']), escopo: pick(['tudo', 'plano', '']) };

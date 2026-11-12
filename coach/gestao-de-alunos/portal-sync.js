@@ -8,9 +8,10 @@
  * de leitura para o aluno. Reaproveita o app Firebase já inicializado.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=37';
-import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=37';
+import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=38';
+import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=38';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
+import { fechamentosDaFatia } from './fechamento-regras.js?v=38';
 
 const V = '10.12.2';
 let _db = null, _fns = null;
@@ -93,8 +94,9 @@ export function semanasPublicadas(x, hojeIso) {
  * @param {any} a @param {any[]} todos a lista inteira, para resolver os vínculos
  * @param {string[]} fechadosDoBox dias em que o box não abriu (feriado confirmado)
  * @param {string} [hojeIso] o dia de hoje (as semanas publicadas dos dependentes)
+ * @param {Record<string, any>} [fechamentosDocs] os fechamentos do mês, por mês (etapa 6.4)
  */
-export function fatia(a, todos, fechadosDoBox = [], hojeIso = hojeLocal()) {
+export function fatia(a, todos, fechadosDoBox = [], hojeIso = hojeLocal(), fechamentosDocs = {}) {
   return {
     id: a.id, nome: a.nome || '', email: emailKey(a.email), fotoUrl: a.fotoUrl || '',
     status: a.status || 'ativo', objetivo: a.objetivo || '', nivel: a.nivel || '',
@@ -161,6 +163,10 @@ export function fatia(a, todos, fechadosDoBox = [], hojeIso = hojeLocal()) {
     faltas: a.faltas || {},
     // As aulas marcadas do Ilimitado (etapa 6.3): o Portal mostra e desmarca.
     marcacoes: a.marcacoes || {},
+    // Os meses que o coach fechou (etapa 6.4): a conta como foi aprovada, a
+    // mesma que o Pix cobra. Só itens, total e vencimento — o registro do
+    // pagamento fica na Gestão (fechamento-regras.js, `fechamentosDaFatia`).
+    fechamentos: fechamentosDaFatia(fechamentosDocs, a.id),
     avaliacoes: a.avaliacoes || [],
     // Só as metas corporais (lista). O mapa antigo por grupo saía aqui também,
     // como objeto; ele já vai em `metasGrupo`.
@@ -175,14 +181,17 @@ export function fatia(a, todos, fechadosDoBox = [], hojeIso = hojeLocal()) {
  * Publica/atualiza `portal/{email}` de todos os alunos que têm e-mail.
  * Silencioso: se a nuvem/regra falhar, não quebra o app do coach.
  * @param {any[]} alunos
+ * @param {string[]} [fechados] os dias em que o box não abriu
+ * @param {Record<string, any>} [fechamentosDocs] os fechamentos do mês (etapa 6.4)
  */
-export async function publicarPortal(alunos, fechados = []) {
+export async function publicarPortal(alunos, fechados = [], fechamentosDocs = {}) {
   if (!cloudAtivo()) return;
   try {
     await init();
     const comEmail = (alunos || []).filter((a) => emailKey(a.email));
+    const hojeIso = hojeLocal();
     await Promise.all(comEmail.map((a) =>
-      _fns.setDoc(_fns.doc(_db, 'portal', emailKey(a.email)), JSON.parse(JSON.stringify(fatia(a, alunos, fechados))))
+      _fns.setDoc(_fns.doc(_db, 'portal', emailKey(a.email)), JSON.parse(JSON.stringify(fatia(a, alunos, fechados, hojeIso, fechamentosDocs))))
     ));
   } catch (e) {
     console.warn('Falha ao publicar o Portal do Aluno:', e?.code || e);

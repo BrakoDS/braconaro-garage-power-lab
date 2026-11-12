@@ -12,25 +12,27 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=37';
-import * as regras from './presenca-regras.js?v=37';
-import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=37';
-import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=37';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=37';
-import { $ } from './util/dom.js?v=37';
-import { on, EVENTOS } from './estado.js?v=37';
-import { reg } from './registro.js?v=37';
-import { telaAtual } from './navegacao.js?v=37';
+import * as db from './db.js?v=38';
+import * as regras from './presenca-regras.js?v=38';
+import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=38';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=38';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=38';
+import { $ } from './util/dom.js?v=38';
+import { on, EVENTOS } from './estado.js?v=38';
+import { reg } from './registro.js?v=38';
+import { telaAtual } from './navegacao.js?v=38';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
-import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=37';
+import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=38';
 import {
   ehIlimitado, gravarMarcacao, desmarcarIlimitadoComAviso, noShowIlimitado, reabrirIlimitado, tirarMarcacao, previaDesmarcacaoIlimitado,
-} from './ilimitado-regras.js?v=37';
-import { chaveIlimitado } from './checkin-regras.js?v=37';
-import { pedirMotivo } from '../../compartilhado/ui/dialogo.js?v=37';
+} from './ilimitado-regras.js?v=38';
+import { chaveIlimitado } from './checkin-regras.js?v=38';
+import { pedirMotivo, confirmar } from '../../compartilhado/ui/dialogo.js?v=38';
 import {
   MEIOS_DAYPASS, dadosDoDayPass, dayPassDaFicha, cpfValido, digitosDoCpf, codigoDoCpf, experimentalJaFeita, comCpf,
-} from './avulsos-regras.js?v=37';
+  dadosDaVendaAvulsa, comVendaAvulsa, semVendaAvulsa,
+} from './avulsos-regras.js?v=38';
+import { brl } from './financeiro-aluno.js?v=38';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
@@ -372,7 +374,28 @@ function painelAdicionar(t) {
       <select class="tur-sel" data-dp-meio aria-label="Como pagou o Day Pass">${Object.entries(MEIOS_DAYPASS).map(([k, rot]) => `<option value="${k}">Pagou com ${rot}</option>`).join('')}</select>
       <button class="btn btn-sm" data-acao="add-daypass" type="button">Adicionar Day Pass</button>
     </div>
+    ${htmlVendaAvulsa()}
   </div>`;
+}
+
+/**
+ * A venda a um visitante sem ficha (etapa 6.4, decisão 12): produto do
+ * catálogo, quantidade e meio, paga na hora. Fica nos avulsos do dia, junto com
+ * o Day Pass, sem ocupar vaga. Embaixo, as vendas do dia, com o "×".
+ */
+function htmlVendaAvulsa() {
+  const produtos = db.listarProdutos();
+  const vendas = db.vendasAvulsas()[dia] || [];
+  const lista = vendas.length ? `<ul class="tur-vendas">${vendas.map((v) => `<li>${esc(v.visitante)} · ${esc((Number(v.qtd) || 1) > 1 ? `${v.qtd} × ${v.nome}` : v.nome)} · ${esc(brl(v.valor))} (${esc(MEIOS_DAYPASS[/** @type {'pix-chave'} */ (v.meio)] || v.meio)})`
+    + ` <button class="tur-x" data-acao="venda-remover" data-venda="${esc(v.id)}" type="button" aria-label="Tirar a venda de ${esc(v.visitante)}">×</button></li>`).join('')}</ul>` : '';
+  if (!produtos.length) return lista;
+  return `<div class="tur-add-linha">
+      <input class="tur-inp" type="text" data-va-nome placeholder="Nome (visitante comprando)" maxlength="60" />
+      <select class="tur-sel" data-va-prod aria-label="Produto vendido">${produtos.map((p) => `<option value="${esc(p.id)}">${esc(p.nome)} · ${esc(brl(p.preco))}</option>`).join('')}</select>
+      <input class="tur-inp tur-qtd" type="number" data-va-qtd min="1" max="99" step="1" value="1" aria-label="Quantidade" />
+      <select class="tur-sel" data-va-meio aria-label="Como pagou a compra">${Object.entries(MEIOS_DAYPASS).map(([k, rot]) => `<option value="${k}">Pagou com ${rot}</option>`).join('')}</select>
+      <button class="btn btn-sm" data-acao="add-venda" type="button">Registrar venda</button>
+    </div>${lista}`;
 }
 
 /* ============================================================
@@ -612,6 +635,32 @@ export function iniciarTelaTurmas() {
       if ('recusa' in r) { aviso = { chave: 'adicionar', texto: r.recusa }; render(); return; }
       gravarExperimentais(r.lista);
       render(); return;
+    }
+    if (acao === 'add-venda') {
+      // Etapa 6.4: a venda a um visitante, paga na hora (avulsos do dia).
+      const nome = /** @type {HTMLInputElement|null} */ ($('[data-va-nome]', corpo));
+      const prod = /** @type {HTMLSelectElement|null} */ ($('[data-va-prod]', corpo));
+      const qtd = /** @type {HTMLInputElement|null} */ ($('[data-va-qtd]', corpo));
+      const meio = /** @type {HTMLSelectElement|null} */ ($('[data-va-meio]', corpo));
+      const p = db.listarProdutos().find((x) => x.id === (prod ? prod.value : ''));
+      const d = dadosDaVendaAvulsa({
+        visitante: nome ? nome.value : '', item: p ? { nome: p.nome, preco: p.preco, produtoId: p.id, qtd: qtd ? qtd.value : 1 } : { nome: '', preco: 0 },
+        meio: meio ? meio.value : '', em: Date.now(), id: `va-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      });
+      if ('recusa' in d) { aviso = { chave: 'adicionar', texto: d.recusa }; render(); return; }
+      db.salvarVendasAvulsas(comVendaAvulsa(db.vendasAvulsas(), dia, d.dados, hoje()));
+      render(); return;
+    }
+    if (acao === 'venda-remover') {
+      const id = btn.dataset.venda || '';
+      if (!semVendaAvulsa(db.vendasAvulsas(), dia, id)) return;
+      const diaDaVenda = dia;
+      void confirmar({ titulo: 'Tirar a venda?', texto: 'A venda sai dos avulsos do dia (e do Financeiro do mês).', ok: 'Tirar', perigo: true }).then((sim) => {
+        // Relê na hora de gravar: outra aba pode ter mudado a lista enquanto a janela estava aberta.
+        const novo = sim ? semVendaAvulsa(db.vendasAvulsas(), diaDaVenda, id) : null;
+        if (novo) { db.salvarVendasAvulsas(novo); render(); }
+      });
+      return;
     }
     if (acao === 'exp-aluno') {
       const id = btn.dataset.exp;

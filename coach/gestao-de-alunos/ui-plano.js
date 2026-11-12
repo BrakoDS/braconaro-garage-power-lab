@@ -10,22 +10,22 @@
  * (plano, fundador, início, cortesia, parceria local, indicado por) se edita no
  * ✎ do card, pelo salvar global.
  */
-import * as db from './db.js?v=37';
-import { esc, fmtData, hoje } from './util/formato.js?v=37';
-import { painel, confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=37';
-import { brl } from './financeiro-aluno.js?v=37';
-import { reg } from './registro.js?v=37';
+import * as db from './db.js?v=38';
+import { esc, fmtData, hoje } from './util/formato.js?v=38';
+import { painel, confirmar, avisar } from '../../compartilhado/ui/dialogo.js?v=38';
+import { brl } from './financeiro-aluno.js?v=38';
+import { reg } from './registro.js?v=38';
 import {
   mensalidadeDoMes, explicacaoDoValor, rotuloDoPlano, ehFundador, pausaAtual, estaPausado, mesCurto, VIGENCIA_2027,
   TABELAS, TETO_BONUS, BONUS_PCT, FUNDADOR_ATE,
 } from '../../compartilhado/regras/planos.js';
 import {
   pausar, voltar, ligarDupla, desligarDupla, alternarInstagram, indicacoesDe, darIndicacao, tirarIndicacao, ajustarSemanas,
-} from './cadastro-regras.js?v=37';
+} from './cadastro-regras.js?v=38';
 import {
   fecharContrato, trancar, encerrarAntes, contaDaSaida, registrarDevolucao, avisoDeFim, renovar, passarParaMensal, contratoEmCurso,
   trancamentoDoContrato, MEIOS_DEVOLUCAO,
-} from './contratos-regras.js?v=37';
+} from './contratos-regras.js?v=38';
 import { precoDoContrato, contratosDe, fimDoContrato, somarMeses } from '../../compartilhado/regras/planos.js';
 
 /* ============================================================

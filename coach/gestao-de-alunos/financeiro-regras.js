@@ -25,11 +25,12 @@
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=37';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=38';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, comRecebimento, contaDoMes,
   eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, MEIOS_DA_BAIXA_MANUAL,
-} from './financeiro-aluno.js?v=37';
+  novaCompraNaHora, eventoVendaNaHora, eventoVendaDesfeita,
+} from './financeiro-aluno.js?v=38';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 /** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */
@@ -124,6 +125,46 @@ export function lancarConsumo(a, item, dataIso, id) {
     patch: { consumos: [...(a.consumos || []), consumo] },
     log: item.produtoId ? null : eventoLancamento(consumo),
   };
+}
+
+/**
+ * O que impede registrar uma venda paga na hora: '' quando dá.
+ * @param {{ nome: string, preco: number|string }} item @param {string} meio
+ */
+export function erroDaVendaNaHora(item, meio) {
+  if (!MEIOS_DA_BAIXA_MANUAL.includes(meio)) return 'Escolha como foi pago: Pix, cartão ou dinheiro.';
+  if (!String(item && item.nome || '').trim()) return 'Escreva o que foi vendido.';
+  if (!(numMoney(item && item.preco) > 0)) return 'Informe o valor, maior que zero.';
+  return '';
+}
+
+/**
+ * REGISTRAR VENDA PAGA NA HORA (etapa 6.4, decisão 12): vai para
+ * `comprasNaHora[]`, fora da fatura — o dinheiro já entrou, com o meio. null:
+ * meio ou item inválido (a tela mostra `erroDaVendaNaHora`).
+ * @param {any} a
+ * @param {{ nome: string, preco: number|string, produtoId?: string, qtd?: number|string }} item preço da unidade
+ * @param {string} dataIso @param {string} meio
+ * @param {{ em: number, id?: string }} o
+ * @returns {(Mudanca & { compra: any }) | null}
+ */
+export function registrarCompraNaHora(a, item, dataIso, meio, { em, id }) {
+  if (erroDaVendaNaHora(item, meio)) return null;
+  const compra = id === undefined ? novaCompraNaHora(item, dataIso, meio, em) : novaCompraNaHora(item, dataIso, meio, em, id);
+  return { compra, patch: { comprasNaHora: [...(a.comprasNaHora || []), compra] }, log: eventoVendaNaHora(compra) };
+}
+
+/**
+ * DESFAZER VENDA NA HORA — pede o motivo, como desfazer um pagamento (decisão 8).
+ * null: não há essa venda, ou o motivo está vazio.
+ * @param {any} a @param {string} compraId @param {string} motivo
+ * @returns {Mudanca | null}
+ */
+export function desfazerCompraNaHora(a, compraId, motivo) {
+  const lista = a.comprasNaHora || [];
+  const c = lista.find((x) => x && x.id === compraId);
+  if (!c || !String(motivo || '').trim()) return null;
+  return { patch: { comprasNaHora: lista.filter((x) => x !== c) }, log: eventoVendaDesfeita(c, motivo) };
 }
 
 /**

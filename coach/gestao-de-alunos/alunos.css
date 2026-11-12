@@ -1314,3 +1314,13 @@ button{font-family:inherit}
 #aviso-nuvem{position:sticky;top:0;z-index:90;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;
   padding:10px 16px;background:var(--bad);color:#fff;font-size:.85rem;line-height:1.35}
 #aviso-nuvem .btn{background:#fff;color:var(--bad);border-color:transparent}
+
+/* Etapa 6.4: a venda a visitante na tela Turmas e o "Pago na hora" do card Financeiro. */
+.tur-inp.tur-qtd{flex:0 0 72px}
+.tur-vendas{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--mut)}
+.tur-x{appearance:none;border:0;background:transparent;color:var(--mut-2);cursor:pointer;padding:0 6px;font-size:1rem;line-height:1}
+.tur-x:hover{color:var(--bad)}
+.tur-x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fa-fatura.fa-na-hora{border-left-color:var(--ok)}
+/* O que o formulário de lançamento esconde (avulso × produto, o meio do "pago na hora") some de verdade: o display do .field ganhava do [hidden]. */
+#form-fin [hidden]{display:none!important}

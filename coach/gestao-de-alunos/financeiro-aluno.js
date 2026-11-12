@@ -24,9 +24,9 @@
  *     como está, porque o Portal, o app, as conquistas e o Pix só perguntam se
  *     ele existe. `recebimentos` não vai para o Portal.
  */
-import { faturaDoMes, faturaComDependentes, mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
+import { faturaDoMes, faturaComDependentes, mesIdParaLancar, nomeComQtd } from '../../compartilhado/regras/consumo.js';
 import { mensalidadeDoMes, explicacaoDoValor, mesCurto } from '../../compartilhado/regras/planos.js';
-import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=37';
+import { statusDaCobranca, vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=38';
 
 export const MESES_FIN = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -64,17 +64,48 @@ export function statusFin(a, mesId, hojeIso) {
  * consumo.js) — a data manda, e fatura já quitada empurra para a seguinte.
  * Consumo avulso (camiseta, uma aula experimental) não tem `produtoId`; o
  * Portal e o app só leem nome, preço, data e fatura.
+ *
+ * Quantidade (etapa 6.4): `item.preco` é o preço da UNIDADE e `item.qtd` as
+ * unidades. Gravado, `preco` é o total da linha, e `qtd`/`unitario` vão junto
+ * só quando há mais de uma (ver consumo.js): quem só soma `preco` fica certo.
  * @param {any} a o aluno
- * @param {{ nome: string, preco: number|string, produtoId?: string }} item
+ * @param {{ nome: string, preco: number|string, produtoId?: string, qtd?: number|string }} item
  * @param {string} dataIso 'AAAA-MM-DD' da venda
  * @param {string} [id]
  */
 export function novoConsumo(a, item, dataIso, id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`) {
+  const qtd = qtdDoItem(item), unitario = numMoney(item.preco);
   const c = {
-    id, nome: String(item.nome || '').trim(), preco: numMoney(item.preco),
+    id, nome: String(item.nome || '').trim(), preco: emCentavos(unitario * qtd),
     data: dataIso, mesId: mesIdParaLancar(dataIso, a.vencimento, a.pagamentos || {}),
+    ...(qtd > 1 ? { qtd, unitario } : {}),
   };
   return item.produtoId ? { id, produtoId: item.produtoId, ...c } : c;
+}
+
+/** As unidades de um item lançado: inteiro de 1 a 99 (o padrão é 1). @param {{ qtd?: unknown }} item */
+export function qtdDoItem(item) {
+  const q = parseInt(String(item && item.qtd != null ? item.qtd : 1), 10);
+  return Number.isFinite(q) ? Math.min(99, Math.max(1, q)) : 1;
+}
+
+/** Reais arredondados ao centavo. @param {number} v */
+const emCentavos = (v) => Math.round((Number(v) || 0) * 100) / 100;
+
+/**
+ * Uma compra PAGA NA HORA, no balcão (etapa 6.4, decisão 12): fica fora da
+ * fatura do mês (`comprasNaHora[]`, não `consumos[]`), com o meio de pagamento.
+ * Nem a conta, nem o Pix, nem o Portal a somam: o dinheiro já entrou.
+ * @param {{ nome: string, preco: number|string, produtoId?: string, qtd?: number|string }} item
+ * @param {string} dataIso @param {string} meio 'pix-chave' | 'cartao' | 'dinheiro'
+ * @param {number} em @param {string} [id]
+ */
+export function novaCompraNaHora(item, dataIso, meio, em, id = `nh-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`) {
+  const qtd = qtdDoItem(item), unitario = numMoney(item.preco);
+  return {
+    id, nome: String(item.nome || '').trim(), qtd, unitario, valor: emCentavos(unitario * qtd),
+    data: dataIso, meio, em, ...(item.produtoId ? { produtoId: item.produtoId } : {}),
+  };
 }
 
 /** O mapa de pagamentos com o mês marcado (ou desmarcado). @param {Record<string, any>|undefined} pagamentos @param {string} mesId @param {boolean} pago */
@@ -236,7 +267,7 @@ export function faturaDoAluno(a, mesId, todos, hojeIso) {
     });
   }
   for (const c of propria.consumos) {
-    itens.push({ tipo: 'consumo', descricao: c.nome || 'Consumo', valor: Number(c.preco) || 0, detalhe: c.data || '', consumoId: c.id, coberto: escopo === 'tudo' });
+    itens.push({ tipo: 'consumo', descricao: nomeComQtd(c), valor: Number(c.preco) || 0, detalhe: c.data || '', consumoId: c.id, coberto: escopo === 'tudo' });
   }
   for (const d of conta.dependentes) {
     itens.push({ tipo: 'dependente', descricao: `Conta de ${d.nome || 'dependente'}`, valor: d.total, detalhe: d.escopo === 'plano' ? 'só o plano' : 'plano e consumíveis' });
@@ -293,7 +324,7 @@ export function resumoDoPlano(a, todos, hojeIso) {
    baixa da aba do aluno, da tela Financeiro do box ou das Cobranças. */
 
 /**
- * @typedef {{ tipo: 'pagamento'|'pagamento-desfeito'|'lancamento', resumo: string,
+ * @typedef {{ tipo: 'pagamento'|'pagamento-desfeito'|'lancamento'|'venda-na-hora'|'venda-desfeita', resumo: string,
  *   dados?: { mesId: string, valor?: number, soMensalidade?: boolean, meio?: string, data?: string }, motivo?: string }} EventoFinanceiro
  *   motivo: o porquê do coach (desfazer pagamento, etapa 5) — vai para a linha do log.
  *   dados: o fato em campos (o mês, o valor) para quem ouve o barramento — a
@@ -331,8 +362,25 @@ export function eventoPagamentoDesfeito(mesId, motivo = '') {
 /**
  * Lançamento fora do catálogo (camiseta, aula experimental), já com a fatura
  * em que caiu — o coach que lançou no dia 25 entende por que não está no mês.
- * @param {{ nome: string, preco: number, mesId: string }} consumo @returns {EventoFinanceiro}
+ * @param {{ nome: string, preco: number, mesId: string, qtd?: number }} consumo @returns {EventoFinanceiro}
  */
 export function eventoLancamento(consumo) {
-  return { tipo: 'lancamento', resumo: `Lançamento avulso · ${consumo.nome} · ${brl(consumo.preco)} · fatura de ${rotuloMesFin(consumo.mesId)}` };
+  return { tipo: 'lancamento', resumo: `Lançamento avulso · ${nomeComQtd(consumo)} · ${brl(consumo.preco)} · fatura de ${rotuloMesFin(consumo.mesId)}` };
+}
+
+/**
+ * Venda paga na hora (etapa 6.4): "Venda na hora · 2 × Energético · R$ 20,00 · Pix por chave".
+ * @param {{ nome: string, qtd: number, valor: number, meio: string }} c @returns {EventoFinanceiro}
+ */
+export function eventoVendaNaHora(c) {
+  const meio = MEIOS_PAGAMENTO[/** @type {keyof typeof MEIOS_PAGAMENTO} */ (c.meio)] || c.meio;
+  return { tipo: 'venda-na-hora', resumo: `Venda na hora · ${nomeComQtd(c)} · ${brl(c.valor)} · ${meio}` };
+}
+
+/**
+ * Venda na hora desfeita — com o motivo, como desfazer um pagamento (decisão 8).
+ * @param {{ nome: string, qtd: number, valor: number }} c @param {string} motivo @returns {EventoFinanceiro}
+ */
+export function eventoVendaDesfeita(c, motivo) {
+  return { tipo: 'venda-desfeita', resumo: `Venda na hora desfeita · ${nomeComQtd(c)} · ${brl(c.valor)}`, motivo: String(motivo || '').trim() };
 }

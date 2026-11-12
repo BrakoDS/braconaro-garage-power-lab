@@ -24,18 +24,20 @@
  * registrado (mês e valor), pagamento desfeito, lançamento avulso.
  * As regras (o que é atrasado, em que fatura cai) moram em financeiro-aluno.js.
  */
-import * as db from './db.js?v=37';
-import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=37';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=37';
-import { estado } from './estado.js?v=37';
-import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=37';
-import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento } from './financeiro-aluno.js?v=37';
-import { darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=37';
-import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=37';
-import { fechamentos } from './fechamentos-db.js?v=37';
-import { regFinanceiro } from './registro.js?v=37';
-import * as storage from '../../compartilhado/regras/storage-alunos.js?v=37';
+import * as db from './db.js?v=38';
+import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=38';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=38';
+import { estado } from './estado.js?v=38';
+import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=38';
+import { mesIdParaLancar, nomeComQtd } from '../../compartilhado/regras/consumo.js';
+import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento, qtdDoItem } from './financeiro-aluno.js?v=38';
+import {
+  darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo, erroDaVendaNaHora, registrarCompraNaHora, desfazerCompraNaHora,
+} from './financeiro-regras.js?v=38';
+import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=38';
+import { fechamentos } from './fechamentos-db.js?v=38';
+import { regFinanceiro } from './registro.js?v=38';
+import * as storage from '../../compartilhado/regras/storage-alunos.js?v=38';
 
 /** Rótulo e cor de cada situação. */
 const STATUS = {
@@ -109,11 +111,13 @@ function diaLocal(ms) {
 }
 
 /**
- * O formulário de novo lançamento.
+ * O formulário de novo lançamento: produto (ou avulso), quantidade, data e
+ * forma — na mensalidade (entra na fatura) ou pago na hora, com o meio (etapa 6.4).
  * @param {{id: string, nome: string, preco: number}[]} produtos @param {string} hojeIso
  */
 export function htmlFormLancamento(produtos, hojeIso) {
   const prods = produtos.map((p) => `<option value="${esc(p.id)}">${esc(p.nome)} · ${brl(p.preco)}</option>`).join('');
+  const meios = MEIOS_DA_BAIXA_MANUAL.map((m) => `<option value="${m}">${esc(MEIOS_PAGAMENTO[m])}</option>`).join('');
   return `
     <div class="fa-tipo" role="radiogroup" aria-label="Tipo de lançamento">
       <label class="chk"><input type="radio" name="tipo" value="produto"${produtos.length ? ' checked' : ' disabled'} /> Produto do box</label>
@@ -122,12 +126,42 @@ export function htmlFormLancamento(produtos, hojeIso) {
     <div class="grid-form">
       <div class="field full" data-campo="produto"${produtos.length ? '' : ' hidden'}><label>Produto</label><select name="produtoId">${prods}</select></div>
       <div class="field" data-campo="avulso"${produtos.length ? ' hidden' : ''}><label>Descrição</label><input name="nome" type="text" maxlength="60" placeholder="Ex.: Camiseta do box" /></div>
-      <div class="field" data-campo="avulso"${produtos.length ? ' hidden' : ''}><label>Valor (R$)</label><input name="preco" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="field" data-campo="avulso"${produtos.length ? ' hidden' : ''}><label>Valor da unidade (R$)</label><input name="preco" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="field"><label for="fa-qtd">Quantidade</label><input id="fa-qtd" name="qtd" type="number" inputmode="numeric" min="1" max="99" step="1" value="1" /></div>
       <div class="field"><label>Data da compra</label><input name="data" type="date" value="${esc(hojeIso)}" max="${esc(hojeIso)}" /></div>
+    </div>
+    <div class="fa-tipo" role="radiogroup" aria-label="Como vai pagar">
+      <label class="chk"><input type="radio" name="forma" value="mensalidade" checked /> Na mensalidade</label>
+      <label class="chk"><input type="radio" name="forma" value="hora" /> Pago na hora</label>
+    </div>
+    <div class="grid-form" data-forma="hora" hidden>
+      <div class="field"><label for="fa-meio">Como pagou</label><select id="fa-meio" name="meio">${meios}</select></div>
     </div>
     <p class="hint" id="fa-destino"></p>
     <p class="hint">A mensalidade não precisa ser lançada: ela entra sozinha em cada mês, pelo valor do plano (o ✎ do card Financeiro).</p>
     <p class="fa-erro" id="fa-erro" role="alert" hidden></p>`;
+}
+
+/**
+ * As compras pagas na hora (etapa 6.4), da mais nova para a mais antiga, com o
+ * "desfazer" (que pede o motivo). '' sem nenhuma.
+ * @param {any} a @param {number} [max]
+ */
+export function htmlComprasNaHora(a, max = 10) {
+  const lista = (Array.isArray(a && a.comprasNaHora) ? a.comprasNaHora : []).filter(Boolean)
+    .slice().sort((x, y) => (x.data < y.data ? 1 : x.data > y.data ? -1 : (Number(y.em) || 0) - (Number(x.em) || 0)));
+  if (!lista.length) return '';
+  const itens = lista.slice(0, max).map((c) => {
+    const meio = MEIOS_PAGAMENTO[/** @type {keyof typeof MEIOS_PAGAMENTO} */ (c.meio)] || c.meio || '';
+    return `<li class="fa-item fa-consumo"><span class="fa-item-d">${esc(nomeComQtd(c))}<small>${esc(fmtDataCurta(c.data))}${meio ? ` · ${esc(meio)}` : ''}</small></span><span class="fa-item-v">${brl(c.valor)}</span>`
+      + `<button class="fa-x" data-fin="desfazer-venda" data-venda="${esc(c.id)}" type="button" aria-label="Desfazer a venda de ${esc(nomeComQtd(c))}">×</button></li>`;
+  }).join('');
+  return `
+    <article class="fa-fatura fa-na-hora" aria-label="Pago na hora">
+      <header class="fa-fatura-hd"><div><span class="fa-mes">Pago na hora</span><span class="fa-venc">fora das faturas</span></div></header>
+      <ul class="fa-itens">${itens}</ul>
+      ${lista.length > max ? `<p class="hint">Mostrando as ${max} mais recentes.</p>` : ''}
+    </article>`;
 }
 
 /**
@@ -183,14 +217,25 @@ function abrirLancamento() {
   abrirModal('modal-fin');
 }
 
-/** "Entra na fatura de Outubro" — muda com a data e com uma fatura já paga. */
+/**
+ * "2 × R$ 10,00 = R$ 20,00 · entra na fatura de Janeiro" — muda com a data, a
+ * quantidade, a forma e uma fatura já paga.
+ */
 function atualizarDestino() {
   const a = alunoAberto(); const form = $('#form-fin'); const el = $('#fa-destino');
   if (!a || !form || !el) return;
   const tipo = form.tipo.value;
   for (const c of form.querySelectorAll('[data-campo]')) c.hidden = c.dataset.campo !== tipo;
+  const forma = form.forma ? form.forma.value : 'mensalidade';
+  for (const c of form.querySelectorAll('[data-forma]')) c.hidden = c.dataset.forma !== forma;
   const data = form.data.value || hoje();
-  el.textContent = `Entra na fatura de ${rotuloMesFin(mesIdParaLancar(data, a.vencimento, pagamentosParaLancar(a, fechamentos())))}.`;
+  const qtd = qtdDoItem({ qtd: form.qtd ? form.qtd.value : 1 });
+  const unidade = tipo === 'produto' ? Number((db.listarProdutos().find((p) => p.id === form.produtoId.value) || {}).preco) || 0 : numMoney(form.preco.value);
+  const conta = qtd > 1 && unidade > 0 ? `${qtd} × ${brl(unidade)} = ${brl(Math.round(unidade * qtd * 100) / 100)} · ` : '';
+  const frase = forma === 'hora'
+    ? 'pago agora: não entra na conta do mês.'
+    : `entra na fatura de ${rotuloMesFin(mesIdParaLancar(data, a.vencimento, pagamentosParaLancar(a, fechamentos())))}.`;
+  el.textContent = conta ? conta + frase : frase.charAt(0).toUpperCase() + frase.slice(1);
 }
 
 /**
@@ -336,22 +381,31 @@ function salvarModal(e) {
   const form = /** @type {any} */ (e.target);
   const erro = $('#fa-erro');
   const data = form.data.value || hoje();
+  const qtd = qtdDoItem({ qtd: form.qtd ? form.qtd.value : 1 });
   let item;
   if (form.tipo.value === 'produto') {
     const p = db.listarProdutos().find((x) => x.id === form.produtoId.value);
     if (!p) return;
-    item = { produtoId: p.id, nome: p.nome, preco: p.preco };
+    item = { produtoId: p.id, nome: p.nome, preco: p.preco, qtd };
   } else {
     const nome = form.nome.value.trim(), preco = numMoney(form.preco.value);
     if (!nome || !(preco > 0)) {
       erro.textContent = !nome ? 'Escreva o que foi vendido.' : 'Informe o valor, maior que zero.';
       erro.hidden = false; return;
     }
-    item = { nome, preco };
+    item = { nome, preco, qtd };
   }
-  // Do catálogo, o produto e o preço já dizem tudo; o avulso é o que deixa trilha.
-  // Data dentro de um mês FECHADO: o consumo vai para a próxima fatura aberta, como na fatura paga.
-  aplicar(a, lancarConsumo({ ...a, pagamentos: pagamentosParaLancar(a, fechamentos()) }, item, data));
+  if (form.forma && form.forma.value === 'hora') {
+    // Pago na hora (etapa 6.4): fora da fatura, com o meio; deixa trilha nos Registros.
+    const meio = String(form.meio ? form.meio.value : '');
+    const problema = erroDaVendaNaHora(item, meio);
+    if (problema) { erro.textContent = problema; erro.hidden = false; return; }
+    aplicar(a, registrarCompraNaHora(a, item, data, meio, { em: Date.now() }));
+  } else {
+    // Do catálogo, o produto e o preço já dizem tudo; o avulso é o que deixa trilha.
+    // Data dentro de um mês FECHADO: o consumo vai para a próxima fatura aberta, como na fatura paga.
+    aplicar(a, lancarConsumo({ ...a, pagamentos: pagamentosParaLancar(a, fechamentos()) }, item, data));
+  }
   modal = null;
   fecharModal('modal-fin');
 }
@@ -374,9 +428,20 @@ export function iniciarTabFinanceiro(painel = '#tab-geral') {
       if (motivo) aplicar(a, desfazerBaixa(a, b.dataset.mes, motivo));
     } else if (b.dataset.fin === 'remover') {
       const c = (a.consumos || []).find((x) => x.id === b.dataset.consumo); if (!c) return;
-      if (await confirmar({ titulo: 'Remover lançamento?', texto: `Tirar <b>${esc(c.nome)}</b> (${brl(c.preco)}) da fatura de ${esc(rotuloMesFin(c.mesId))}?`, ok: 'Remover', perigo: true })) {
+      if (await confirmar({ titulo: 'Remover lançamento?', texto: `Tirar <b>${esc(nomeComQtd(c))}</b> (${brl(c.preco)}) da fatura de ${esc(rotuloMesFin(c.mesId))}?`, ok: 'Remover', perigo: true })) {
         aplicar(a, removerConsumo(a, c.id));
       }
+    } else if (b.dataset.fin === 'desfazer-venda') {
+      // A venda paga na hora é dinheiro que entrou: desfazer pede o motivo (decisão 8).
+      const c = (a.comprasNaHora || []).find((/** @type {any} */ x) => x && x.id === b.dataset.venda); if (!c) return;
+      const motivo = await pedirMotivo({
+        titulo: 'Desfazer venda paga na hora?',
+        texto: `<b>${esc(nomeComQtd(c))}</b> (${brl(c.valor)}) sai dos registros de venda. Por que está desfazendo?`,
+        ok: 'Desfazer', placeholder: 'Ex.: lancei no aluno errado; devolvi o dinheiro', perigo: true,
+      });
+      if (motivo === null) return;
+      if (!motivo) { await avisar({ titulo: 'Falta o motivo', texto: 'Para desfazer uma venda paga, escreva o motivo: ele fica nos Registros. Nada foi desfeito.' }); return; }
+      aplicar(a, desfazerCompraNaHora(a, c.id, motivo));
     }
   });
   const form = $('#form-fin');

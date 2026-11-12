@@ -24,7 +24,8 @@ import { mensalidadeDoMes } from './planos';
  * A conta do mês (porte de consumo.js + financeiro-aluno.js)
  * ================================================================== */
 
-export interface Consumo { id?: string; nome?: string; preco?: unknown; data?: string; mesId?: string }
+/** `preco` é o total da linha; `qtd` e `unitario` só existem com mais de uma unidade (etapa 6.4) — a conta soma só `preco`. */
+export interface Consumo { id?: string; nome?: string; preco?: unknown; data?: string; mesId?: string; qtd?: number; unitario?: number }
 export interface Ficha {
   id: string;
   nome?: string;

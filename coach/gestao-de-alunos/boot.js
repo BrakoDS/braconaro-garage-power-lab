@@ -34,29 +34,29 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js?v=37';
-import * as eventos from './eventos.js?v=37';
-import { publicarPortal } from './portal-sync.js?v=37';
-import { mergarInboxes } from './portal-merge.js?v=37';
-import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=37';
-import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=37';
-import { sincronizarAvisos } from './avisos.js?v=37';
-import { sincronizarDesafios } from './desafios.js?v=37';
-import { estado, emit, EVENTOS } from './estado.js?v=37';
-import { abrirPeloEndereco } from './telas.js?v=37';
-import { $ } from './util/dom.js?v=37';
-import { renderLista } from './ui-lista.js?v=37';
-import { atualizarSelosDaLista } from './selos-lista.js?v=37';
-import { carregarBadgeLeads } from './ui-tela-leads.js?v=37';
-import { sincronizarAutomacao } from './automacao.js?v=37';
-import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=37';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=37';
-import { aplicarPixPendentes } from './pix-baixa.js?v=37';
-import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=37';
-import { ouvirFechamentos } from './fechamentos-db.js?v=37';
-import { reg } from './registro.js?v=37';
-import { ouvirAplicador, ouvirPagamentosDoServidor } from './caixas-servidor.js?v=37';
-import { avisarGravacaoRecusada } from './ui-aviso-nuvem.js?v=37';
+import * as db from './db.js?v=38';
+import * as eventos from './eventos.js?v=38';
+import { publicarPortal } from './portal-sync.js?v=38';
+import { mergarInboxes } from './portal-merge.js?v=38';
+import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=38';
+import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=38';
+import { sincronizarAvisos } from './avisos.js?v=38';
+import { sincronizarDesafios } from './desafios.js?v=38';
+import { estado, emit, on, EVENTOS } from './estado.js?v=38';
+import { abrirPeloEndereco } from './telas.js?v=38';
+import { $ } from './util/dom.js?v=38';
+import { renderLista } from './ui-lista.js?v=38';
+import { atualizarSelosDaLista } from './selos-lista.js?v=38';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=38';
+import { sincronizarAutomacao } from './automacao.js?v=38';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=38';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=38';
+import { aplicarPixPendentes } from './pix-baixa.js?v=38';
+import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=38';
+import { ouvirFechamentos, fechamentos } from './fechamentos-db.js?v=38';
+import { reg } from './registro.js?v=38';
+import { ouvirAplicador, ouvirPagamentosDoServidor } from './caixas-servidor.js?v=38';
+import { avisarGravacaoRecusada } from './ui-aviso-nuvem.js?v=38';
 
 /* ============================================================
    Quem aplica as caixas
@@ -100,7 +100,7 @@ let _portalTimer = /** @type {any} */ (null);
  */
 function agendarPublicarPortal() {
   clearTimeout(_portalTimer);
-  _portalTimer = setTimeout(async () => { await tratarPix(); publicarPortal(db.listar(), db.diasFechados()); }, 1500);
+  _portalTimer = setTimeout(async () => { await tratarPix(); publicarPortal(db.listar(), db.diasFechados(), fechamentos()); }, 1500);
 }
 
 /* ============================================================
@@ -263,7 +263,7 @@ async function entrar(user) {
     // 2) publica o Portal do Aluno (com a foto nova já aplicada) após sincronizar
     // Com os dias fechados: sem eles, o Portal publicado ao abrir mostrava falta
     // em feriado de porta fechada até a próxima gravação.
-    if (nuvemEmDia) publicarPortal(db.listar(), db.diasFechados());
+    if (nuvemEmDia) publicarPortal(db.listar(), db.diasFechados(), fechamentos());
     // 3) puxa o mural de avisos + desafios da nuvem (para editar no mesmo estado em qualquer aparelho)
     sincronizarAvisos();
     sincronizarDesafios();
@@ -333,6 +333,8 @@ export function iniciarBoot() {
   // Toda gravação: publica o Portal e avisa as telas que ouvem. É o ÚNICO lugar
   // que agenda a publicação depois de gravar — as telas só gravam.
   db.aoGravar(() => { agendarPublicarPortal(); emit(EVENTOS.ALUNOS_MUDARAM); });
+  // Etapa 6.4: o mês fechado (ou reaberto) vai para a fatia do aluno — o Portal e o app mostram o retrato.
+  on(EVENTOS.FECHAMENTOS_MUDARAM, agendarPublicarPortal);
   db.aoErroDeSync(avisarGravacaoRecusada);
   iniciarBackup();
   medirTamanhoBanco();
