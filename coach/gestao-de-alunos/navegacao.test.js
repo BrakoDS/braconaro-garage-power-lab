@@ -24,8 +24,8 @@ globalThis.document = /** @type {any} */ ({
 });
 globalThis.window = /** @type {any} */ ({ scrollTo: () => { rolou++; } });
 
-const { on, emit, EVENTOS } = await import('./estado.js?v=39');
-const { iniciarNavegacao, telaAtual, TELAS, lerPedidoDeTela } = await import('./navegacao.js?v=39');
+const { on, emit, EVENTOS } = await import('./estado.js?v=40');
+const { iniciarNavegacao, telaAtual, TELAS, lerPedidoDeTela } = await import('./navegacao.js?v=40');
 iniciarNavegacao();
 
 const visiveis = () => telas.filter((t) => t.classList.contains('active')).map((t) => t.id);

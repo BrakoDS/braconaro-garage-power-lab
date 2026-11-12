@@ -1,8 +1,10 @@
 // @ts-check
 /**
  * Tela Fila de mensagens — o que o motor de automação sugere mandar no
- * WhatsApp, com o texto pronto, e o selo de contagem no botão da lista: as
- * cobranças vencidas, os lembretes do mês (a vencer) e os recibos.
+ * WhatsApp, com o texto pronto, e o selo de contagem no botão da lista: a
+ * régua de pagamento, os créditos vencendo e as faltas (a rotina das 7h, etapa
+ * 8), os recibos e as propostas aprovadas dos agentes. No topo, os avisos só
+ * para o coach: o mês a fechar e as pendências (quem passou do vencimento + 1).
  *
  * Nada sai sozinho. "Enviar" abre a conversa do WhatsApp com o texto, marca a
  * mensagem como enviada e deixa a linha "WhatsApp · …" na aba Registros do
@@ -14,26 +16,30 @@
  * aberta — a baixa numa outra tela tira a cobrança daqui. O selo do botão é
  * refeito nos mesmos momentos, com a tela aberta ou não.
  */
-import * as db from './db.js?v=39';
-import { brl, rotuloMesFin } from './financeiro-aluno.js?v=39';
-import { GATILHOS } from './automacao-regras.js?v=39';
-import { rotuloDoTime } from './agentes-regras.js?v=39';
-import { mensagens, marcarMensagem } from './automacao.js?v=39';
-import { esc, waMsg } from './util/formato.js?v=39';
-import { $ } from './util/dom.js?v=39';
-import { on, EVENTOS } from './estado.js?v=39';
-import { reg } from './registro.js?v=39';
-import { telaAtual } from './navegacao.js?v=39';
+import * as db from './db.js?v=40';
+import { brl, rotuloMesFin } from './financeiro-aluno.js?v=40';
+import { GATILHOS } from './automacao-regras.js?v=40';
+import { rotuloDoTime } from './agentes-regras.js?v=40';
+import { mensagens, marcarMensagem, avisos } from './automacao.js?v=40';
+import { esc, waMsg } from './util/formato.js?v=40';
+import { $ } from './util/dom.js?v=40';
+import { on, EVENTOS } from './estado.js?v=40';
+import { reg } from './registro.js?v=40';
+import { telaAtual } from './navegacao.js?v=40';
 
 /** @type {{ abrir: (url: string) => void }} */
 let deps = { abrir: (url) => { window.open(url, '_blank', 'noopener'); } };
 
+/** 'AAAA-MM-DD' → 'DD/MM'. @param {unknown} iso */
+const ddmm = (iso) => { const s = String(iso || ''); return s.length >= 10 ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : s; };
+
 /** O detalhe da linha: quanto e de quando. @param {import('./automacao-regras.js').Mensagem} m */
 function detalhe(m) {
   const d = m.dados;
-  if (m.gatilho === 'cobranca-vencida') return `${brl(d.valor)} · venceu há ${Math.abs(d.dias)} dia${Math.abs(d.dias) === 1 ? '' : 's'}`;
-  if (m.gatilho === 'cobranca-a-vencer') return `${brl(d.valor)} · ${d.dias === 0 ? 'vence hoje' : d.dias === 1 ? 'vence amanhã' : `vence em ${d.dias} dias`}`;
   if (m.gatilho === 'agente') return `${rotuloDoTime(d.time)} · proposta aprovada`;
+  if (m.gatilho === 'credito-vencendo') return `crédito vence ${ddmm(d.expira)}`;
+  if (m.gatilho === 'falta-seguida') return `faltou ${(Array.isArray(d.dias) ? d.dias : []).map(ddmm).join(' e ')}`;
+  if (GATILHOS[m.gatilho] && GATILHOS[m.gatilho].fonte === 'rotina') return rotuloMesFin(d.mesId);
   return `${brl(d.valor)} · ${rotuloMesFin(d.mesId)}`;
 }
 
@@ -70,8 +76,23 @@ export function atualizarFilaDeMensagens() {
     const doGrupo = lista.filter((m) => m.gatilho === g);
     return doGrupo.length ? `<h4 class="cob-grupo">${esc(info.grupo)}</h4>${doGrupo.map(linha).join('')}` : '';
   }).join('');
-  $('#auto-list').innerHTML = grupos
-    || `<div class="empty"><b>Nenhuma mensagem na fila</b>Quando houver conta do mês em aberto ou um pagamento entrar, a mensagem aparece aqui pronta para enviar.</div>`;
+  $('#auto-list').innerHTML = htmlAvisos(avisos()) + (grupos
+    || `<div class="empty"><b>Nenhuma mensagem na fila</b>A rotina das 7h põe aqui a régua de pagamento, os créditos vencendo e as faltas; um pagamento põe o recibo.</div>`);
+}
+
+/**
+ * Os avisos só para o coach (etapa 8), no topo: o mês a fechar, com o botão que
+ * abre o Financeiro, e as pendências — quem passou do vencimento + 1 sem pagar
+ * (sem mensagem pronta: o caso é seu, decisão 4).
+ * @param {{ fechar: string[], pendencias: { alunoId: string, nome: string, mesId: string, valor: number, diasAtraso: number }[] }} av
+ */
+function htmlAvisos(av) {
+  const fechar = av.fechar.map((mes) => `<div class="auto-aviso auto-aviso-fechar"><span>🔒 Feche <b>${esc(rotuloMesFin(mes))}</b>: o mês ainda não foi fechado.</span>`
+    + `<button class="btn btn-sm" data-tela="financeiro" type="button">Abrir o Financeiro</button></div>`).join('');
+  const pend = av.pendencias.length ? `<div class="auto-aviso auto-aviso-pend"><b>Pendências</b> · passaram do vencimento + 1 sem pagar (sem mensagem pronta: o caso é seu)<ul>`
+    + av.pendencias.map((p) => `<li>${esc(p.nome)} · ${esc(rotuloMesFin(p.mesId))} · ${esc(brl(p.valor))} · ${p.diasAtraso} dia${p.diasAtraso === 1 ? '' : 's'} de atraso</li>`).join('')
+    + '</ul></div>' : '';
+  return fechar + pend;
 }
 
 /**

@@ -8,10 +8,10 @@
  * de leitura para o aluno. Reaproveita o app Firebase já inicializado.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=39';
-import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=39';
+import { matrizDe } from '../../compartilhado/regras/matriz-individualizacao.js?v=40';
+import { metasGrupoDe, metasCorporaisDe } from './metas-grupo.js?v=40';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
-import { fechamentosDaFatia } from './fechamento-regras.js?v=39';
+import { fechamentosDaFatia } from './fechamento-regras.js?v=40';
 
 const V = '10.12.2';
 let _db = null, _fns = null;

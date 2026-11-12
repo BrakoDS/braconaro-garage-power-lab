@@ -9,12 +9,12 @@
  * valem sobre o que já carregou; "Carregar mais" traz a página seguinte. O
  * desenho é puro, em registros-ui.js (`htmlFiltrosDoBox`, `htmlListaDoBox`).
  */
-import * as db from './db.js?v=39';
-import * as eventos from './eventos.js?v=39';
-import { $ } from './util/dom.js?v=39';
-import { hoje } from './util/formato.js?v=39';
-import { on, EVENTOS } from './estado.js?v=39';
-import { filtrarEventos, juntarEventos, htmlFiltrosDoBox, htmlListaDoBox } from './registros-ui.js?v=39';
+import * as db from './db.js?v=40';
+import * as eventos from './eventos.js?v=40';
+import { $ } from './util/dom.js?v=40';
+import { hoje } from './util/formato.js?v=40';
+import { on, EVENTOS } from './estado.js?v=40';
+import { filtrarEventos, juntarEventos, htmlFiltrosDoBox, htmlListaDoBox } from './registros-ui.js?v=40';
 
 const LIMITE = 50;
 /** As linhas já lidas da nuvem, do mais novo ao mais antigo. @type {any[]} */

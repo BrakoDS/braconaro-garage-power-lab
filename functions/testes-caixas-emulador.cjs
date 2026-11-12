@@ -120,6 +120,18 @@ async function regras() {
     await assertFails(fs.getDoc(fs.doc(aluno, `gestao/${COACH}/agentesLog/l1`)));
   });
 
+  // Etapa 8: a lista do dia da rotina das 7h — só o servidor grava.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await fs.setDoc(fs.doc(ctx.firestore(), `gestao/${COACH}/rotinas/2026-12-01`), { dia: '2026-12-01', itens: [] });
+  });
+  await caso('lista da rotina: o coach lê; criar, mudar ou apagar pelo navegador é recusado; o aluno não lê', async () => {
+    await assertSucceeds(fs.getDoc(fs.doc(coach, `gestao/${COACH}/rotinas/2026-12-01`)));
+    await assertFails(fs.setDoc(fs.doc(coach, `gestao/${COACH}/rotinas/2026-12-02`), { itens: [] }));
+    await assertFails(fs.updateDoc(fs.doc(coach, `gestao/${COACH}/rotinas/2026-12-01`), { itens: [{ x: 1 }] }));
+    await assertFails(fs.deleteDoc(fs.doc(coach, `gestao/${COACH}/rotinas/2026-12-01`)));
+    await assertFails(fs.getDoc(fs.doc(aluno, `gestao/${COACH}/rotinas/2026-12-01`)));
+  });
+
   await caso('aluno (ou outra conta) não lê nem grava ficha, avaliação ou interruptor', async () => {
     await assertFails(fs.getDoc(fs.doc(aluno, ficha)));
     await assertFails(fs.getDoc(fs.doc(aluno, `${ficha}/avaliacoes/1`)));

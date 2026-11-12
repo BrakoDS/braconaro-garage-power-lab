@@ -16,22 +16,22 @@
  * Embaixo, o log das chamadas dos agentes (quem, o quê, quantos registros,
  * quando) — sem os dados devolvidos, que nunca são guardados.
  */
-import * as db from './db.js?v=39';
-import { $ } from './util/dom.js?v=39';
-import { esc } from './util/formato.js?v=39';
-import { htmlProposta, htmlDecididas, htmlLog } from './aprovacoes-html.js?v=39';
-import { estado, on, EVENTOS } from './estado.js?v=39';
-import { reg } from './registro.js?v=39';
-import { telaAtual } from './navegacao.js?v=39';
-import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=39';
-import * as calc from '../../compartilhado/regras/calc.js?v=39';
-import { metasCorporaisDe, patchDeMetas } from './metas-grupo.js?v=39';
-import { propostas, logDosAgentes, decidir } from './propostas-db.js?v=39';
-import { adicionarMensagemDoAgente } from './automacao.js?v=39';
-import { abrirPagamento } from './ui-tab-financeiro.js?v=39';
+import * as db from './db.js?v=40';
+import { $ } from './util/dom.js?v=40';
+import { esc } from './util/formato.js?v=40';
+import { htmlProposta, htmlDecididas, htmlLog } from './aprovacoes-html.js?v=40';
+import { estado, on, EVENTOS } from './estado.js?v=40';
+import { reg } from './registro.js?v=40';
+import { telaAtual } from './navegacao.js?v=40';
+import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=40';
+import * as calc from '../../compartilhado/regras/calc.js?v=40';
+import { metasCorporaisDe, patchDeMetas } from './metas-grupo.js?v=40';
+import { propostas, logDosAgentes, decidir } from './propostas-db.js?v=40';
+import { adicionarMensagemDoAgente } from './automacao.js?v=40';
+import { abrirPagamento } from './ui-tab-financeiro.js?v=40';
 import {
   pendentes, descricaoDaProposta, planoDaAprovacao, decidirProposta, rotuloDoTime,
-} from './agentes-regras.js?v=39';
+} from './agentes-regras.js?v=40';
 
 /* ============================================================
    DOM

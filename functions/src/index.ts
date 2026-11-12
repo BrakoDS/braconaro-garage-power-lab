@@ -71,6 +71,7 @@ import { clienteFitControl } from './ugym-cliente';
 import { repoUgymFirestore, sincronizarCheckinsUgym } from './ugym-servico';
 import { regrasDaGestao } from './caixas';
 import { Limite, atenderAgente, regrasDosAgentes, type DepsDosAgentes, type Funcao } from './agentes';
+import { listaDoDia, regrasDasRotinas } from './rotinas';
 import { aplicarCaixasDoAluno, aplicarFaltasDaChamada, aplicarPixDaCobranca, aplicarTudoQueEstiverPendente } from './caixas-servico';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
@@ -3606,3 +3607,41 @@ function funcaoDeAgente(funcao: Funcao) {
 export const agenteConsultar = funcaoDeAgente('consultar');
 export const agentePropor = funcaoDeAgente('propor');
 export const agenteRegistrar = funcaoDeAgente('registrar');
+
+/* ================================================================== *
+ * As rotinas agendadas (Fase 1 · etapa 8, decisões 4 e 14)
+ * ================================================================== */
+
+/**
+ * Todo dia às 7h (horário de Brasília): monta a lista do dia da Fila de
+ * mensagens — a régua de pagamento (dia 1, meio do caminho, vencimento, dia
+ * seguinte), as pendências, os créditos vencendo, a 2ª falta seguida e o mês a
+ * fechar — e grava em `gestao/{coach}/rotinas/{AAAA-MM-DD}`. Só MONTA: quem
+ * envia é o coach, pela Fila. A regra é a da Gestão (rotinas.ts).
+ */
+export const rotinasDoBox = onSchedule(
+  { schedule: 'every day 07:00', timeZone: 'America/Sao_Paulo', region: 'southamerica-east1', memory: '512MiB', timeoutSeconds: 120, maxInstances: 1 },
+  async () => {
+    const db = getFirestore();
+    const coach = COACH_UIDS[0];
+    const hoje = relogioDoBox(new Date()).hoje;
+    const [{ meta, fichas }, fechSnap, feitasSnap, avisosSnap, reservasSnap, marcacoesSnap] = await Promise.all([
+      todasAsFichas(db, coach), db.collection(`gestao/${coach}/fechamentos`).get(), db.doc(`gestao/${coach}/automacao/feitas`).get(),
+      db.collection('avisosAusencia').get(), db.collection('reposicoesAluno').get(), db.collection('marcacoesAluno').get(),
+    ]);
+    // As turmas dos próximos 7 dias, com o pendente já contado (o crédito vencendo mostra onde tem vaga).
+    const ocupacao = await ocupacaoDasTurmas(db, coach, Array.from({ length: 7 }, (_, i) => somarDias(hoje, i)), hoje, {
+      avisosDocs: avisosSnap.docs.map((d) => d.data()), reservasDocs: reservasSnap.docs.map((d) => d.data()), marcacoesDocs: marcacoesSnap.docs.map((d) => d.data()),
+    });
+    const feriados = (meta.feriados && typeof meta.feriados === 'object') ? meta.feriados as Record<string, unknown> : {};
+    const lista = listaDoDia({
+      regras: await regrasDasRotinas(), hoje, fichas, agora: Date.now(),
+      fechamentos: Object.fromEntries(fechSnap.docs.map((d) => [d.id, d.data()])),
+      feitas: feitasSnap.data() ?? {},
+      ocupacao: ocupacao.map((t) => ({ dia: t.dia, hora: t.hora, vagas: t.vagas })),
+      fechados: Object.entries(feriados).filter(([, abriu]) => abriu === false).map(([d]) => d),
+    });
+    await db.doc(`gestao/${coach}/rotinas/${hoje}`).set(lista);
+    logger.info('Rotina do dia gravada.', { dia: hoje, contagem: lista.contagem, itens: lista.itens.length });
+  },
+);

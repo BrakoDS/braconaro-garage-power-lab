@@ -1342,3 +1342,9 @@ button{font-family:inherit}
 .apr-log{width:100%;border-collapse:collapse;font-size:.82rem}
 .apr-log th,.apr-log td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .apr-log-erro td{color:var(--bad)}
+
+/* Etapa 8: os avisos da rotina no topo da Fila (o mês a fechar e as pendências). */
+.auto-aviso{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;justify-content:space-between;padding:10px 14px;margin-bottom:10px;
+  background:var(--card);border:1px solid var(--line);border-left:3px solid var(--warn);font-size:.9rem}
+.auto-aviso-pend{display:block;border-left-color:var(--bad)}
+.auto-aviso-pend ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px;color:var(--mut)}

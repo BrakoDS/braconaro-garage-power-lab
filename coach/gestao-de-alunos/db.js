@@ -15,9 +15,9 @@
  * Continua local-first: toda função aqui é síncrona e responde do cache; a
  * nuvem vem atrás.
  */
-import { criarCache } from './db-cache.js?v=39';
-import { criarSync } from './db-sync.js?v=39';
-import { horasDaGrade } from './presenca-regras.js?v=39';
+import { criarCache } from './db-cache.js?v=40';
+import { criarSync } from './db-sync.js?v=40';
+import { horasDaGrade } from './presenca-regras.js?v=40';
 
 const cache = criarCache();
 
@@ -39,7 +39,7 @@ function idDoAparelho() {
 const sync = criarSync({
   cache,
   aparelho: idDoAparelho(),
-  abrirPorta: async (uid) => (await import('./db-firestore.js?v=39')).portaFirestore(uid),
+  abrirPorta: async (uid) => (await import('./db-firestore.js?v=40')).portaFirestore(uid),
   aoErro: (e) => { if (_aoErro) _aoErro(e); },
 });
 
@@ -76,7 +76,7 @@ export async function enviarAgora() {
  */
 export async function iniciarSync(uid, aoAtualizar) {
   try {
-    const fs = await import('./db-firestore.js?v=39');
+    const fs = await import('./db-firestore.js?v=40');
     if (!fs.cloudAtivo() || !uid) return undefined;
     return await sync.iniciar(uid, aoAtualizar);
   } catch (e) {

@@ -17,7 +17,7 @@
  * `origem: 'historico'`. Puro (testado em recebimentos-historico.test.js); quem
  * lê o banco e grava é functions/scripts/preencher-recebimentos.cjs.
  */
-import { MESES_FIN, diaDoBoxEm } from './financeiro-aluno.js?v=39';
+import { MESES_FIN, diaDoBoxEm } from './financeiro-aluno.js?v=40';
 
 /** 'Novembro / 2026' (o texto do Registro) → '2026-11'. @param {string} texto */
 function mesDoTexto(texto) {

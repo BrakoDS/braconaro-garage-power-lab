@@ -17,18 +17,23 @@ globalThis.localStorage = /** @type {any} */ ({
   getItem: (k) => (memoria.has(k) ? memoria.get(k) : null), setItem: (k, v) => memoria.set(k, String(v)), removeItem: (k) => memoria.delete(k),
 });
 
-const db = await import('./db.js?v=39');
-const eventos = await import('./eventos.js?v=39');
-const { reg } = await import('./registro.js?v=39');
-const { planoDoPix, aplicarPixPendentes } = await import('./pix-baixa.js?v=39');
-const { iniciarAutomacao, mensagens } = await import('./automacao.js?v=39');
-const { TIPOS } = await import('./registros-ui.js?v=39');
+const db = await import('./db.js?v=40');
+const eventos = await import('./eventos.js?v=40');
+const { reg } = await import('./registro.js?v=40');
+const { planoDoPix, aplicarPixPendentes } = await import('./pix-baixa.js?v=40');
+const { iniciarAutomacao, mensagens } = await import('./automacao.js?v=40');
+const { TIPOS } = await import('./registros-ui.js?v=40');
+const { itensDoDia } = await import('./rotinas-regras.js?v=40');
 
 const NB = (s) => String(s).replace(/ /g, ' ');
 const OUT = '2026-10', SET = '2026-09';
 const HOJE = '2026-10-09';
 const AGORA = Date.UTC(2026, 9, 9, 15);
-iniciarAutomacao({ hoje: () => HOJE, agora: () => AGORA, nuvem: { ler: async () => null, gravar: async () => {}, apagar: async () => {} } });
+// A lista da rotina das 7h (etapa 8), como o servidor gravaria hoje.
+iniciarAutomacao({
+  hoje: () => HOJE, agora: () => AGORA, rotinas: () => [{ dia: HOJE, itens: itensDoDia(db.listar(), HOJE, {}) }], fechamentos: () => ({}),
+  nuvem: { ler: async () => null, gravar: async () => {}, apagar: async () => {} },
+});
 
 /** Uma cobrança do livro-caixa, como o webhook deixa. */
 const pix = (paymentId, alunoId, mesId, valor, extra = {}) => ({
@@ -111,7 +116,7 @@ test('plano: não altera o que recebe', () => {
 
 /* ---------- a rodada de verdade ---------- */
 
-db.criar({ id: 'Eva01', nome: 'Eva Nunes', email: 'eva@box.com', telefone: '14988881234', mensalidade: '130', vencimento: '5' });
+db.criar({ id: 'Eva01', nome: 'Eva Nunes', email: 'eva@box.com', telefone: '14988881234', mensalidade: '130', vencimento: '9' });
 db.criar({ id: 'Rui02', nome: 'Rui Paz', email: 'rui@box.com', telefone: '14977770000', mensalidade: '90', vencimento: '5' });
 
 /** O livro-caixa em memória: a nuvem que o webhook preenche. */
@@ -136,7 +141,7 @@ function livroCaixa(cobrancas) {
 }
 
 test('rodada: o Pix aprovado dá baixa na ficha, registra, tira a cobrança da Fila e sugere o recibo', async () => {
-  assert.ok(mensagens().some((m) => m.chave === 'cobranca-vencida:Eva01:2026-10'), 'antes: a Eva está na Fila de cobrança');
+  assert.ok(mensagens().some((m) => m.chave === 'regua-vencimento:Eva01:2026-10'), 'antes: a Eva está na régua ("vence hoje")');
   const caixa = livroCaixa([pix('5001', 'Eva01', OUT, 130)]);
   const antes = eventos.pendentes().length;
   const r = await aplicarPixPendentes(caixa.deps());
@@ -149,7 +154,7 @@ test('rodada: o Pix aprovado dá baixa na ficha, registra, tira a cobrança da F
     [['pix-5001', 'pagamento', 'Eva01', 'Pagamento via Pix (Mercado Pago) · Outubro / 2026 · R$ 130,00']]);
   assert.deepEqual(caixa.marcados, ['5001'], 'só depois de aplicar, a bandeira desliga');
   const fila = mensagens().map((m) => m.chave);
-  assert.ok(!fila.includes('cobranca-vencida:Eva01:2026-10'), 'a cobrança saiu da Fila');
+  assert.ok(!fila.includes('regua-vencimento:Eva01:2026-10'), 'o "vence hoje" saiu da Fila');
   assert.ok(fila.includes('recibo:Eva01:2026-10'), 'e o recibo entrou');
 });
 

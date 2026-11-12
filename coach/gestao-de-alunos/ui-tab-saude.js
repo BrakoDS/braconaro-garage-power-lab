@@ -18,17 +18,17 @@
  * salvar global (ui-salvar-global.js), que desenha a aba a partir da ficha COM
  * o rascunho e grava pela barra do rodapé.
  */
-import { esc, hoje, fmtData, fmtN } from './util/formato.js?v=39';
-import { $ } from './util/dom.js?v=39';
-import { on, emit, EVENTOS } from './estado.js?v=39';
-import { registrarFormulario, redesenharAberta, comPrefixo } from './ui-salvar-global.js?v=39';
-import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=39';
-import { biometriaAtual, idadeDoAluno, alertaMedico } from './perfil-derivados.js?v=39';
-import { CAMINHO_LESOES, linhaLesao, lesoesDe, normalizarLesoes, descreverLesao, lerLinhasDeLesao } from './lesoes.js?v=39';
-import { ANAMNESE_SECOES, ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq } from './saude.js?v=39';
-import { htmlAnamnese, lerAnamnese } from './form-anamnese.js?v=39';
-import { htmlParq, lerParq, caminhosDoParq, bannerParq, respostasDoForm } from './form-par-q.js?v=39';
-import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=39';
+import { esc, hoje, fmtData, fmtN } from './util/formato.js?v=40';
+import { $ } from './util/dom.js?v=40';
+import { on, emit, EVENTOS } from './estado.js?v=40';
+import { registrarFormulario, redesenharAberta, comPrefixo } from './ui-salvar-global.js?v=40';
+import { camposDados, wireForm, lerCampos, CAMPOS } from './campos-aluno.js?v=40';
+import { biometriaAtual, idadeDoAluno, alertaMedico } from './perfil-derivados.js?v=40';
+import { CAMINHO_LESOES, linhaLesao, lesoesDe, normalizarLesoes, descreverLesao, lerLinhasDeLesao } from './lesoes.js?v=40';
+import { ANAMNESE_SECOES, ANAMNESE_CAMPOS, PARQ_PERGUNTAS, triagemParq } from './saude.js?v=40';
+import { htmlAnamnese, lerAnamnese } from './form-anamnese.js?v=40';
+import { htmlParq, lerParq, caminhosDoParq, bannerParq, respostasDoForm } from './form-par-q.js?v=40';
+import { htmlCard, botaoEditar, htmlLinhas } from './ui-card.js?v=40';
 
 /* ============================================================
    HTML (puro)

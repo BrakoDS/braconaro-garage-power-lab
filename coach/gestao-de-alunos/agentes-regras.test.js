@@ -8,9 +8,9 @@ import assert from 'node:assert/strict';
 import {
   TIMES, CONSULTAS, TIPOS_DE_PROPOSTA, consultar, consultasDoTime, validarProposta, descricaoDaProposta, efeitoDaAprovacao,
   planoDaAprovacao, decidirProposta, pendentes, eventoDaProposta, validarRegistro, statusDoAluno, MAX_REGISTROS,
-} from './agentes-regras.js?v=39';
-import { sugestaoDaProposta, comSugestao, filaVazia, marcar, visiveis, textoDa } from './automacao-regras.js?v=39';
-import { htmlProposta, htmlLog } from './aprovacoes-html.js?v=39';
+} from './agentes-regras.js?v=40';
+import { sugestaoDaProposta, comSugestao, filaVazia, marcar, visiveis, textoDa } from './automacao-regras.js?v=40';
+import { htmlProposta, htmlLog } from './aprovacoes-html.js?v=40';
 
 const ana = { id: '001', nome: 'Ana', mensalidade: '130', vencimento: '10', pagamentos: {}, consumos: [], telefone: '11999990000', email: 'ana@x.com', plano: { vezes: 3 }, inicio: '2026-10-01' };
 const ctx = (extra = {}) => ({ fichas: [ana], hojeIso: '2026-11-20', fechamentos: {}, meta: {}, ocupacao: [], consentimentos: ['ana@x.com'], ...extra });

@@ -3,8 +3,8 @@
  * O desenho da tela Aprovações (etapa 7), puro: os cartões das propostas, as
  * decididas e o log das chamadas dos agentes. ui-tela-aprovacoes.js liga ao DOM.
  */
-import { esc } from './util/formato.js?v=39';
-import { descricaoDaProposta, efeitoDaAprovacao, rotuloDoTime } from './agentes-regras.js?v=39';
+import { esc } from './util/formato.js?v=40';
+import { descricaoDaProposta, efeitoDaAprovacao, rotuloDoTime } from './agentes-regras.js?v=40';
 
 /** "11/11 às 14:05". @param {number} ms */
 export function quando(ms) {

@@ -9,13 +9,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './campos-aluno.js?v=39';
-import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=39';
-import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=39';
-import { htmlFatura, htmlFormLancamento, htmlFormPagamento, htmlRecebimento } from './ui-tab-financeiro.js?v=39';
-import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=39';
-import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=39';
-import { EVENTOS } from './estado.js?v=39';
+import { camposDados, formCadastroCurtoHTML, CAMPOS_CADASTRO, calcIdade, waLink, DIAS_FORM } from './campos-aluno.js?v=40';
+import { htmlCardPerfilTreino } from './ui-tab-treino.js?v=40';
+import { htmlListaAvaliacoes, htmlResultados, htmlComparacao, htmlResumoAvaliacoes } from './ui-tab-avaliacoes.js?v=40';
+import { htmlFatura, htmlFormLancamento, htmlFormPagamento, htmlRecebimento } from './ui-tab-financeiro.js?v=40';
+import { historicoFinanceiro, resumoDoPlano } from './financeiro-aluno.js?v=40';
+import { numf, fmtData, fmtDataCurta, addDias, opt, horaParaInput, horaLegivel } from './util/formato.js?v=40';
+import { EVENTOS } from './estado.js?v=40';
 
 /* ---------- util/formato.js ---------- */
 

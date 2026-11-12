@@ -20,7 +20,7 @@
  * cortesia paga o consumo (como a conta já faz); o mês fechado pode ser reaberto,
  * com motivo, e a versão anterior fica guardada.
  */
-import { contaDoMes, faturaDoAluno, rotuloMesFin, brl, mesesDoHistorico } from './financeiro-aluno.js?v=39';
+import { contaDoMes, faturaDoAluno, rotuloMesFin, brl, mesesDoHistorico } from './financeiro-aluno.js?v=40';
 import { parteCoberta } from '../../compartilhado/regras/consumo.js';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
 

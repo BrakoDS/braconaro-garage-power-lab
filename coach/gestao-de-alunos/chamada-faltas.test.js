@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emailsQueFaltaram, faltaDaChamada, desfazerFaltaDaChamada, ORIGEM_FALTA } from './chamada-faltas.js';
-import { aplicarCheckinsNaFicha, ORIGENS } from './ugym-merge.js?v=39';
-import { aulasDoDia, reabrirReposicao } from './presenca-regras.js?v=39';
+import { aplicarCheckinsNaFicha, ORIGENS } from './ugym-merge.js?v=40';
+import { aulasDoDia, reabrirReposicao } from './presenca-regras.js?v=40';
 
 const QUI = '2026-11-05'; // quinta
 const ana = (extra = {}) => ({

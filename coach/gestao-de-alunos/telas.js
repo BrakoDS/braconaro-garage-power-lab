@@ -11,38 +11,38 @@
  * das abas. Os ouvintes de um evento rodam na ordem em que foram ligados, então
  * a tela (ou o painel da aba) já está visível quando o módulo dela desenha.
  */
-import * as db from './db.js?v=39';
-import { iniciarModais } from './util/dom.js?v=39';
-import { iniciarNavegacao, lerPedidoDeTela } from './navegacao.js?v=39';
-import { emit, EVENTOS } from './estado.js?v=39';
-import { iniciarLista } from './ui-lista.js?v=39';
-import { iniciarPerfil } from './ui-perfil.js?v=39';
-import { iniciarFotoDoPerfil } from './ui-fotos.js?v=39';
-import { iniciarModalAluno } from './ui-modal-aluno.js?v=39';
-import { iniciarAcoesAluno } from './ui-acoes-aluno.js?v=39';
-import { iniciarSalvarGlobal } from './ui-salvar-global.js?v=39';
-import { iniciarTabGeral } from './ui-tab-geral.js?v=39';
-import { iniciarTabSaude } from './ui-tab-saude.js?v=39';
-import { iniciarTabTreino } from './ui-tab-treino.js?v=39';
-import { iniciarTabAvaliacoes } from './ui-tab-avaliacoes.js?v=39';
-import { iniciarEvolucaoIA } from './ui-evolucao-ia.js?v=39';
-import { iniciarTabProgresso } from './ui-tab-progresso.js?v=39';
-import { iniciarTabFinanceiro } from './ui-tab-financeiro.js?v=39';
-import { iniciarTabPortal } from './ui-tab-portal.js?v=39';
-import { iniciarTabRegistros } from './ui-tab-registros.js?v=39';
-import { iniciarTabHistorico } from './ui-tab-historico.js?v=39';
-import { iniciarTelaCheckin } from './ui-tela-checkin.js?v=39';
-import { iniciarTelaTurmas, pedirTurma } from './ui-tela-turmas.js?v=39';
-import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js?v=39';
-import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js?v=39';
-import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=39';
-import { iniciarTelaMural } from './ui-tela-mural.js?v=39';
-import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=39';
-import { iniciarTelaLeads } from './ui-tela-leads.js?v=39';
-import { iniciarAutomacao } from './automacao.js?v=39';
-import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=39';
-import { iniciarTelaRegistros } from './ui-tela-registros.js?v=39';
-import { iniciarTelaAprovacoes } from './ui-tela-aprovacoes.js?v=39';
+import * as db from './db.js?v=40';
+import { iniciarModais } from './util/dom.js?v=40';
+import { iniciarNavegacao, lerPedidoDeTela } from './navegacao.js?v=40';
+import { emit, EVENTOS } from './estado.js?v=40';
+import { iniciarLista } from './ui-lista.js?v=40';
+import { iniciarPerfil } from './ui-perfil.js?v=40';
+import { iniciarFotoDoPerfil } from './ui-fotos.js?v=40';
+import { iniciarModalAluno } from './ui-modal-aluno.js?v=40';
+import { iniciarAcoesAluno } from './ui-acoes-aluno.js?v=40';
+import { iniciarSalvarGlobal } from './ui-salvar-global.js?v=40';
+import { iniciarTabGeral } from './ui-tab-geral.js?v=40';
+import { iniciarTabSaude } from './ui-tab-saude.js?v=40';
+import { iniciarTabTreino } from './ui-tab-treino.js?v=40';
+import { iniciarTabAvaliacoes } from './ui-tab-avaliacoes.js?v=40';
+import { iniciarEvolucaoIA } from './ui-evolucao-ia.js?v=40';
+import { iniciarTabProgresso } from './ui-tab-progresso.js?v=40';
+import { iniciarTabFinanceiro } from './ui-tab-financeiro.js?v=40';
+import { iniciarTabPortal } from './ui-tab-portal.js?v=40';
+import { iniciarTabRegistros } from './ui-tab-registros.js?v=40';
+import { iniciarTabHistorico } from './ui-tab-historico.js?v=40';
+import { iniciarTelaCheckin } from './ui-tela-checkin.js?v=40';
+import { iniciarTelaTurmas, pedirTurma } from './ui-tela-turmas.js?v=40';
+import { iniciarTelaFinanceiro } from './ui-tela-financeiro.js?v=40';
+import { iniciarTelaCobrancas } from './ui-tela-cobrancas.js?v=40';
+import { iniciarTelaAvisos } from './ui-tela-avisos.js?v=40';
+import { iniciarTelaMural } from './ui-tela-mural.js?v=40';
+import { iniciarTelaDesafios } from './ui-tela-desafios.js?v=40';
+import { iniciarTelaLeads } from './ui-tela-leads.js?v=40';
+import { iniciarAutomacao } from './automacao.js?v=40';
+import { iniciarTelaAutomacao } from './ui-tela-automacao.js?v=40';
+import { iniciarTelaRegistros } from './ui-tela-registros.js?v=40';
+import { iniciarTelaAprovacoes } from './ui-tela-aprovacoes.js?v=40';
 
 /**
  * @param {{
