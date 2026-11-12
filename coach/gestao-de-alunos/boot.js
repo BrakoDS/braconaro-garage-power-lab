@@ -34,30 +34,31 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js?v=39';
-import * as eventos from './eventos.js?v=39';
-import { publicarPortal } from './portal-sync.js?v=39';
-import { mergarInboxes } from './portal-merge.js?v=39';
-import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=39';
-import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=39';
-import { sincronizarAvisos } from './avisos.js?v=39';
-import { sincronizarDesafios } from './desafios.js?v=39';
-import { estado, emit, on, EVENTOS } from './estado.js?v=39';
-import { abrirPeloEndereco } from './telas.js?v=39';
-import { $ } from './util/dom.js?v=39';
-import { renderLista } from './ui-lista.js?v=39';
-import { atualizarSelosDaLista } from './selos-lista.js?v=39';
-import { carregarBadgeLeads } from './ui-tela-leads.js?v=39';
-import { sincronizarAutomacao } from './automacao.js?v=39';
-import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=39';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=39';
-import { aplicarPixPendentes } from './pix-baixa.js?v=39';
-import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=39';
-import { ouvirFechamentos, fechamentos } from './fechamentos-db.js?v=39';
-import { ouvirPropostas } from './propostas-db.js?v=39';
-import { reg } from './registro.js?v=39';
-import { ouvirAplicador, ouvirPagamentosDoServidor } from './caixas-servidor.js?v=39';
-import { avisarGravacaoRecusada } from './ui-aviso-nuvem.js?v=39';
+import * as db from './db.js?v=40';
+import * as eventos from './eventos.js?v=40';
+import { publicarPortal } from './portal-sync.js?v=40';
+import { mergarInboxes } from './portal-merge.js?v=40';
+import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=40';
+import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=40';
+import { sincronizarAvisos } from './avisos.js?v=40';
+import { sincronizarDesafios } from './desafios.js?v=40';
+import { estado, emit, on, EVENTOS } from './estado.js?v=40';
+import { abrirPeloEndereco } from './telas.js?v=40';
+import { $ } from './util/dom.js?v=40';
+import { renderLista } from './ui-lista.js?v=40';
+import { atualizarSelosDaLista } from './selos-lista.js?v=40';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=40';
+import { sincronizarAutomacao } from './automacao.js?v=40';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=40';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=40';
+import { aplicarPixPendentes } from './pix-baixa.js?v=40';
+import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=40';
+import { ouvirFechamentos, fechamentos } from './fechamentos-db.js?v=40';
+import { ouvirPropostas } from './propostas-db.js?v=40';
+import { ouvirRotinas } from './rotinas-db.js?v=40';
+import { reg } from './registro.js?v=40';
+import { ouvirAplicador, ouvirPagamentosDoServidor } from './caixas-servidor.js?v=40';
+import { avisarGravacaoRecusada } from './ui-aviso-nuvem.js?v=40';
 
 /* ============================================================
    Quem aplica as caixas
@@ -212,6 +213,8 @@ async function entrar(user) {
   void ouvirFechamentos(estado.uid);
   // As propostas dos agentes e o log das chamadas (etapa 7): o painel de Aprovações.
   void ouvirPropostas(estado.uid);
+  // As listas da rotina das 7h (etapa 8): a régua, os créditos e as faltas na Fila.
+  void ouvirRotinas(estado.uid);
   $('#gate').style.display = 'none';
   $('#app').removeAttribute('hidden');
   renderLista();

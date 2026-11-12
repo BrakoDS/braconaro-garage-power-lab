@@ -8,8 +8,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ORIGENS, aplicarCheckinsNaFicha, temItens } from './ugym-merge.js?v=39';
-import { aulasDoDia } from './presenca-regras.js?v=39';
+import { ORIGENS, aplicarCheckinsNaFicha, temItens } from './ugym-merge.js?v=40';
+import { aulasDoDia } from './presenca-regras.js?v=40';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08';
 const ana = (extra = {}) => ({

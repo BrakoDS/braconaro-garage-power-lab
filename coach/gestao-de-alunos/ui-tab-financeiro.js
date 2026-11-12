@@ -24,20 +24,20 @@
  * registrado (mês e valor), pagamento desfeito, lançamento avulso.
  * As regras (o que é atrasado, em que fatura cai) moram em financeiro-aluno.js.
  */
-import * as db from './db.js?v=39';
-import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=39';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=39';
-import { estado } from './estado.js?v=39';
-import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=39';
+import * as db from './db.js?v=40';
+import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=40';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=40';
+import { estado } from './estado.js?v=40';
+import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=40';
 import { mesIdParaLancar, nomeComQtd } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento, qtdDoItem } from './financeiro-aluno.js?v=39';
+import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento, qtdDoItem } from './financeiro-aluno.js?v=40';
 import {
   darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo, erroDaVendaNaHora, registrarCompraNaHora, desfazerCompraNaHora,
-} from './financeiro-regras.js?v=39';
-import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=39';
-import { fechamentos } from './fechamentos-db.js?v=39';
-import { regFinanceiro } from './registro.js?v=39';
-import * as storage from '../../compartilhado/regras/storage-alunos.js?v=39';
+} from './financeiro-regras.js?v=40';
+import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=40';
+import { fechamentos } from './fechamentos-db.js?v=40';
+import { regFinanceiro } from './registro.js?v=40';
+import * as storage from '../../compartilhado/regras/storage-alunos.js?v=40';
 
 /** Rótulo e cor de cada situação. */
 const STATUS = {

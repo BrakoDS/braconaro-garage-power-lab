@@ -12,30 +12,32 @@
  *   'acao-registrada'). Um pagamento vira um RECIBO. A sugestão entra na fila
  *   (`pendentes`) e espera o coach, porque o momento da ação não se repete.
  *
- *   CONDIÇÃO — um fato que passa a valer com a data. A conta do mês em aberto
- *   não tem clique nenhum que a dispare: ela é VARRIDA do estado do box a cada
- *   desenho (`sugestoesDaVarredura`) e nunca fica guardada. Antes do
- *   vencimento (ou no dia) vira LEMBRETE; depois, COBRANÇA VENCIDA — duas
- *   chaves, então o aluno recebe no máximo um de cada. A baixa tira os dois da
- *   fila sozinha: a varredura seguinte já não encontra a conta.
+ *   ROTINA — desde a etapa 8 (decisões 4 e 14), o servidor roda todo dia às 7h
+ *   e grava a lista do dia (rotinas-regras.js, `itensDoDia`): a régua de
+ *   pagamento (dia 1, meio do caminho, vencimento e o dia seguinte), o crédito
+ *   vencendo e a 2ª falta seguida. A Gestão junta as listas dos últimos dias
+ *   (`sugestoesDaRotina`) e monta o texto na hora; conta paga ou mensagem
+ *   vencida somem sozinhas. Antes, a conta em aberto era varrida no navegador
+ *   e virava lembrete em qualquer dia do mês; a régua tomou o lugar.
  *
- * O ANTI-SPAM é a chave de cada sugestão, `gatilho:aluno:período` (um
- * lembrete e uma cobrança por aluno por mês, um recibo por aluno por mês pago). Enviada ou
+ * O ANTI-SPAM é a chave de cada sugestão, `gatilho:aluno:período` (cada degrau
+ * da régua uma vez por aluno por mês, um recibo por aluno por mês pago). Enviada ou
  * descartada, a chave vai para `feitas` e a sugestão não aparece de novo —
- * nem vinda de outra varredura, nem de uma segunda baixa do mesmo mês, nem de
- * outro aparelho (as `feitas` sobem para a nuvem e se mesclam: `planoDeSync`).
+ * nem vinda de outra lista da rotina, nem de uma segunda baixa do mesmo mês, nem de
+ * outro aparelho (as `feitas` sobem para a nuvem e se mesclam: `planoDeSync`; a
+ * rotina do servidor também as lê e não repete).
  *
  * O que fica guardado é o mínimo: o id do aluno, o gatilho e os números. O
  * nome, o telefone e o texto saem da ficha NA HORA de mostrar (`visiveis`) —
  * telefone trocado vale na hora, e a fila não vira uma cópia do cadastro.
  */
-import { cobrancasDoMes, msgCobranca, itensDaConta, itensFecham, linhasDosItens } from './financeiro-regras.js?v=39';
-import { MESES_FIN, brl } from './financeiro-aluno.js?v=39';
+import { itensDaConta, itensFecham, linhasDosItens } from './financeiro-regras.js?v=40';
+import { MESES_FIN, brl } from './financeiro-aluno.js?v=40';
 
 /**
- * @typedef {'cobranca-vencida'|'cobranca-a-vencer'|'recibo'} Gatilho
+ * @typedef {'regua-dia1'|'regua-meio'|'regua-vencimento'|'regua-pos'|'credito-vencendo'|'falta-seguida'|'recibo'|'agente'} Gatilho
  * @typedef {{ chave: string, gatilho: Gatilho, alunoId: string, criadaEm: number, dados: Record<string, any> }} Sugestao
- *   criadaEm: quando a ação aconteceu (0 nas de condição — elas valem enquanto a condição vale)
+ *   criadaEm: quando a ação aconteceu (0 nas da rotina — elas valem até a validade)
  * @typedef {{ status: 'enviada'|'descartada', em: number }} Feita
  * @typedef {{ pendentes: Sugestao[], feitas: Record<string, Feita> }} Fila
  * @typedef {Sugestao & { nome: string, telefone: string, temTelefone: boolean, texto: string, rotulo: string }} Mensagem
@@ -46,8 +48,13 @@ const DIA = 86400000;
 
 /** Os gatilhos que existem, na ordem em que a fila os mostra. */
 export const GATILHOS = Object.freeze({
-  'cobranca-vencida': Object.freeze({ rotulo: 'Cobrança vencida', fonte: 'condicao', grupo: 'Cobranças vencidas' }),
-  'cobranca-a-vencer': Object.freeze({ rotulo: 'Lembrete de vencimento', fonte: 'condicao', grupo: 'Lembretes do mês (a vencer)' }),
+  // Etapa 8: a régua de pagamento, o crédito vencendo e a 2ª falta seguida, da rotina das 7h.
+  'regua-dia1': Object.freeze({ rotulo: 'Virada do mês', fonte: 'rotina', grupo: 'Dia 1: a conta do mês' }),
+  'regua-meio': Object.freeze({ rotulo: 'Lembrete do meio', fonte: 'rotina', grupo: 'Meio do caminho até o vencimento' }),
+  'regua-vencimento': Object.freeze({ rotulo: 'Vence hoje', fonte: 'rotina', grupo: 'Vencimento hoje' }),
+  'regua-pos': Object.freeze({ rotulo: 'Venceu ontem', fonte: 'rotina', grupo: 'Venceu ontem' }),
+  'credito-vencendo': Object.freeze({ rotulo: 'Crédito vencendo', fonte: 'rotina', grupo: 'Créditos de reposição vencendo' }),
+  'falta-seguida': Object.freeze({ rotulo: '2ª falta seguida', fonte: 'rotina', grupo: 'Faltas sem aviso (2ª seguida)' }),
   'recibo': Object.freeze({ rotulo: 'Recibo de pagamento', fonte: 'acao', grupo: 'Recibos de pagamento' }),
   // Etapa 7: a mensagem que um agente propôs e o coach aprovou no painel de Aprovações.
   'agente': Object.freeze({ rotulo: 'Proposta de agente', fonte: 'acao', grupo: 'Propostas dos agentes (aprovadas)' }),
@@ -59,7 +66,7 @@ export const PRAZO_PENDENTE = 7 * DIA;
 /**
  * Quanto tempo uma chave enviada/descartada é lembrada. Tem de ser MAIOR que o
  * período da chave mais longa (um mês): esquecer a cobrança de outubro ainda
- * em outubro faria a varredura sugeri-la de novo.
+ * em outubro faria a rotina sugeri-la de novo.
  */
 export const GUARDA_FEITAS = 120 * DIA;
 
@@ -75,30 +82,6 @@ export const foiFeita = (fila, chave) => Object.prototype.hasOwnProperty.call(fi
 /* ============================================================
    As fontes
    ============================================================ */
-
-/**
- * CONDIÇÃO — as contas em aberto do mês de hoje, uma sugestão por conta (a
- * mesma lista e o mesmo valor da tela Cobranças: `cobrancasDoMes`):
- *   - vencida (venceu ontem ou antes) → 'cobranca-vencida';
- *   - vence hoje ou mais adiante no mês → 'cobranca-a-vencer' (o lembrete).
- * Paga, cortesia (R$ 0), dependente com a conta no responsável e inativo
- * ficam de fora — é a regra das Cobranças.
- * @param {any[]} todos @param {string} hojeIso
- * @returns {Sugestao[]}
- */
-export function sugestoesDaVarredura(todos, hojeIso) {
-  const mesId = hojeIso.slice(0, 7);
-  const { vencidas, emBreve, aVencer } = cobrancasDoMes(todos, mesId, hojeIso);
-  /** @param {Gatilho} gatilho @returns {(c: import('./financeiro-regras.js').Cobranca) => Sugestao} */
-  const sugestao = (gatilho) => ({ a, dias, valor, soMensalidade }) => ({
-    chave: chaveDe(gatilho, String(a.id), mesId),
-    gatilho,
-    alunoId: String(a.id),
-    criadaEm: 0,
-    dados: { mesId, valor, dias, soMensalidade },
-  });
-  return [...vencidas.map(sugestao('cobranca-vencida')), ...[...emBreve, ...aVencer].map(sugestao('cobranca-a-vencer'))];
-}
 
 /**
  * AÇÃO — a sugestão que uma ação do log merece, ou null. Hoje: o pagamento com
@@ -250,9 +233,9 @@ export function msgReciboDetalhado(a, mesId, valor, itens) {
 }
 
 /**
- * O texto de uma sugestão para a ficha. A cobrança é o MESMO `msgCobranca`
- * do botão da tela Cobranças, com o mesmo extrato. Com consumo na conta, o
- * texto detalha os itens — desde que eles somem o valor da sugestão: o recibo
+ * O texto de uma sugestão para a ficha. A da rotina (etapa 8) e a do agente
+ * (etapa 7) já trazem o texto, montado com a ficha de agora. No recibo, com
+ * consumo na conta, o texto detalha os itens — desde que eles somem o valor: o recibo
  * guarda o valor da HORA da baixa, e se a conta mudou depois, um extrato que
  * não fecha com o total confundiria o aluno (vale o texto curto).
  * @param {Sugestao} s @param {any} a @param {any[]} [todos] todos os alunos (os dependentes entram na conta)
@@ -261,27 +244,27 @@ export function textoDa(s, a, todos = [a]) {
   const d = s.dados;
   // A proposta de agente aprovada leva o texto que o coach leu no painel.
   if (s.gatilho === 'agente') return String(d.texto || '');
+  // A da rotina: o texto da régua, do crédito ou da falta (rotinas-regras.js, `textoDoItem`).
+  if (GATILHOS[s.gatilho] && GATILHOS[s.gatilho].fonte === 'rotina') return String(d.texto || '');
   const itens = itensDaConta(a, d.mesId, todos);
-  if (s.gatilho === 'cobranca-vencida' || s.gatilho === 'cobranca-a-vencer') return msgCobranca(a, d.mesId, d.valor, d.dias, d.soMensalidade, itens);
   return itens && itensFecham(itens, d.valor) ? msgReciboDetalhado(a, d.mesId, d.valor, itens) : msgRecibo(a, d.mesId, d.valor, d.soMensalidade);
 }
 
 /**
- * O que a fila mostra: as condições varridas agora e as ações esperando, sem
- * nada enviado ou descartado, sem chave repetida e sem aluno que não existe
- * mais — já com nome, telefone e texto tirados da ficha atual. Em ordem: os
- * gatilhos na ordem de `GATILHOS`; a cobrança mais atrasada e o lembrete que
- * vence antes primeiro; o
- * recibo mais novo primeiro.
- * @param {Fila} fila @param {Sugestao[]} varredura @param {any[]} todos
+ * O que a fila mostra: as mensagens da rotina que ainda valem (`sugestoesDaRotina`)
+ * e as ações esperando, sem nada enviado ou descartado, sem chave repetida e
+ * sem aluno que não existe mais — já com nome, telefone e texto tirados da
+ * ficha atual. Em ordem: os gatilhos na ordem de `GATILHOS`; dentro de cada um,
+ * a ação mais nova primeiro (as da rotina, pela chave).
+ * @param {Fila} fila @param {Sugestao[]} daRotina @param {any[]} todos
  * @returns {Mensagem[]}
  */
-export function visiveis(fila, varredura, todos) {
+export function visiveis(fila, daRotina, todos) {
   const porId = new Map(todos.map((a) => [String(a.id), a]));
   const vistas = new Set();
   /** @type {Mensagem[]} */
   const saida = [];
-  for (const s of [...varredura, ...fila.pendentes]) {
+  for (const s of [...daRotina, ...fila.pendentes]) {
     if (vistas.has(s.chave) || foiFeita(fila, s.chave)) continue;
     const a = porId.get(s.alunoId);
     if (!a) continue;
@@ -290,7 +273,7 @@ export function visiveis(fila, varredura, todos) {
     saida.push({ ...s, nome: a.nome || 'Sem nome', telefone, temTelefone: telefone.length >= 10, texto: textoDa(s, a, todos), rotulo: GATILHOS[s.gatilho].rotulo });
   }
   return saida.sort((x, y) => ORDEM.indexOf(x.gatilho) - ORDEM.indexOf(y.gatilho)
-    || (GATILHOS[x.gatilho].fonte === 'condicao' ? x.dados.dias - y.dados.dias : y.criadaEm - x.criadaEm)
+    || y.criadaEm - x.criadaEm
     || (x.chave < y.chave ? -1 : x.chave > y.chave ? 1 : 0));
 }
 

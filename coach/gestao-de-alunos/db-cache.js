@@ -25,10 +25,10 @@
  *
  * Puro: o armazenamento é injetado (testes passam um falso). Nenhum Firebase.
  */
-import { fatiarAluno, idsDosFeedbacks, canonico, CAMPO_EMAIL_NORM, SCHEMA_V2 } from './db-migracao.js?v=39';
+import { fatiarAluno, idsDosFeedbacks, canonico, CAMPO_EMAIL_NORM, SCHEMA_V2 } from './db-migracao.js?v=40';
 import {
   soDoBox, diferencasDaFicha, temDiferenca, juntarEntrada, sobrepor, converterLegada, ehLegada,
-} from './ficha-campos.js?v=39';
+} from './ficha-campos.js?v=40';
 
 /** Chave do blob v1 — lida uma vez, na primeira abertura do v2 neste aparelho. Nunca mais gravada. */
 export const CHAVE_V1 = 'braconaro_gestao_alunos_v1';

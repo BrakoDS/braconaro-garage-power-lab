@@ -12,8 +12,8 @@
  * "inteira" chega e ela já existe. `gravarComoServidor` simula o servidor
  * mexendo numa ficha, e `ouvirFichas` avisa quem ouve, como o onSnapshot.
  */
-import { canonico, decidirTrava } from './db-migracao.js?v=39';
-import { escritasDaAtualizacao, aplicarEscritas, mesclarInteira } from './ficha-campos.js?v=39';
+import { canonico, decidirTrava } from './db-migracao.js?v=40';
+import { escritasDaAtualizacao, aplicarEscritas, mesclarInteira } from './ficha-campos.js?v=40';
 
 const copia = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
 

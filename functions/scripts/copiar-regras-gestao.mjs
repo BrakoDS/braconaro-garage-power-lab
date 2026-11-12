@@ -38,6 +38,8 @@ export const ENTRADAS = [
   'coach/gestao-de-alunos/creditos-fechamento.js',
   // As funções por time (etapa 7): as consultas e as propostas dos agentes (functions/src/agentes.ts).
   'coach/gestao-de-alunos/agentes-regras.js',
+  // As rotinas agendadas (etapa 8): a lista do dia da Fila (functions/src/rotinas.ts).
+  'coach/gestao-de-alunos/rotinas-regras.js',
 ];
 
 /** Os especificadores relativos de import/export estático de um arquivo (comentário não conta). */

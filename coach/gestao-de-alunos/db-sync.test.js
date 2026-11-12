@@ -8,8 +8,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { criarCache, CHAVE_V1 } from './db-cache.js?v=39';
-import { criarSync } from './db-sync.js?v=39';
+import { criarCache, CHAVE_V1 } from './db-cache.js?v=40';
+import { criarSync } from './db-sync.js?v=40';
 import { portaEmMemoria } from './db-memoria.js';
 
 function armazenamento(inicial = {}) {

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   checkin, trocarDia, atestado, desfazer, desfazerPedeMotivo, comMotivo, agendarReposicao, desmarcarReposicao, alternarPresenca,
   diaEfetivo, diasReivindicados, outraAulaUsa, donoDoDia, quemSumiu, ultimaPresenca, diasDesde, DIA_EXT,
-} from './checkin-regras.js?v=39';
+} from './checkin-regras.js?v=40';
 import { datasDaSemana } from '../../compartilhado/regras/semana.js';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08', SEX = '2026-10-09';

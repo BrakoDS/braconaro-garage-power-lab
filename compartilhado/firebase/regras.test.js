@@ -206,10 +206,12 @@ test('gestao v2: as subcoleções (fichas, avaliações, backup, eventos) são s
     'allow create, update: if ehCoachDono(uid) && request.resource.data.atualizadoEm == request.time;',
     'allow read, write: if ehCoachDono(uid);',
     'allow read: if ehCoachDono(uid);',
-    "allow write: if ehCoachDono(uid) && !(colecao in ['alunos', 'propostas', 'agentesLog']);",
+    "allow write: if ehCoachDono(uid) && !(colecao in ['alunos', 'propostas', 'agentesLog', 'rotinas']);",
     // Etapa 7: as propostas dos agentes (o coach só registra a decisão) e o log das chamadas (só leitura).
     'allow read: if ehCoachDono(uid);',
     "allow update: if ehCoachDono(uid) && resource.data.situacao == 'proposta' && request.resource.data.situacao in ['aprovada', 'recusada'] && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'decisao']);",
+    'allow read: if ehCoachDono(uid);',
+    // Etapa 8: a lista do dia da rotina das 7h (só leitura).
     'allow read: if ehCoachDono(uid);',
   ], 'nenhuma outra porta dentro de gestao/{uid}');
 });
@@ -225,7 +227,8 @@ test('gestao: a ficha só se grava com o carimbo do servidor, e nenhum curinga r
   assert.match(bloco, /match \/alunos\/\{alunoId\} \{\s*allow read, delete: if ehCoachDono\(uid\);\s*allow create, update: if ehCoachDono\(uid\) && request\.resource\.data\.atualizadoEm == request\.time;/);
   assert.match(bloco, /match \/\{filho\}\/\{filhoId\} \{\s*allow read, write: if ehCoachDono\(uid\);\s*\}/, 'avaliações e feedbacks: um nível só abaixo da ficha');
   assert.doesNotMatch(bloco, /\{\w+=\*\*\}\s*\{\s*allow read, write/, 'nenhum curinga recursivo com escrita livre');
-  assert.match(bloco, /match \/\{colecao\}\/\{resto=\*\*\} \{\s*allow read: if ehCoachDono\(uid\);\s*allow write: if ehCoachDono\(uid\) && !\(colecao in \['alunos', 'propostas', 'agentesLog'\]\);/);
+  assert.match(bloco, /match \/\{colecao\}\/\{resto=\*\*\} \{\s*allow read: if ehCoachDono\(uid\);\s*allow write: if ehCoachDono\(uid\) && !\(colecao in \['alunos', 'propostas', 'agentesLog', 'rotinas'\]\);/);
+  assert.match(bloco, /match \/rotinas\/\{dia\} \{\s*allow read: if ehCoachDono\(uid\);\s*\}/, 'a lista da rotina: só leitura');
 });
 
 test('agentes (etapa 7): as propostas e o log só o servidor grava; o coach lê e só decide a proposta que espera', () => {

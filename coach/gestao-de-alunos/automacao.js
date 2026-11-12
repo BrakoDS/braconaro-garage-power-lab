@@ -7,9 +7,9 @@
  *
  *   - ouve 'acao-registrada' (registro.js): um pagamento põe o recibo na fila;
  *     desfazer a baixa tira;
- *   - a varredura das condições (a cobrança vencida) não fica guardada: roda a
- *     cada `mensagens()`, sobre os alunos de agora — por isso a lista nunca
- *     fica velha, e a baixa tira a cobrança sem ninguém avisar o motor;
+ *   - as listas da rotina das 7h (etapa 8, rotinas-db.js) viram mensagens a
+ *     cada `mensagens()`, sobre os alunos de agora — conta paga, aluno pausado
+ *     ou mensagem vencida somem sem ninguém avisar o motor;
  *   - `marcarMensagem` grava a chave como enviada ou descartada, aqui e na
  *     nuvem, e avisa 'automacao-mudou';
  *   - `sincronizarAutomacao(uid)` (boot.js, depois do sync) mescla as chaves
@@ -18,26 +18,30 @@
  * Nada aqui envia mensagem: o envio é o coach tocando "Enviar" na tela
  * (ui-tela-automacao.js), que abre o WhatsApp com o texto pronto.
  */
-import * as db from './db.js?v=39';
-import { hoje } from './util/formato.js?v=39';
-import { estado, on, emit, EVENTOS } from './estado.js?v=39';
+import * as db from './db.js?v=40';
+import { hoje } from './util/formato.js?v=40';
+import { estado, on, emit, EVENTOS } from './estado.js?v=40';
 import {
-  filaVazia, normalizarFila, aoAgir, marcar, podar, visiveis, sugestoesDaVarredura, planoDeSync, sugestaoDaProposta, comSugestao,
-} from './automacao-regras.js?v=39';
-import { lerFeitas, gravarFeitas, apagarFeitas } from './automacao-nuvem.js?v=39';
+  filaVazia, normalizarFila, aoAgir, marcar, podar, visiveis, planoDeSync, sugestaoDaProposta, comSugestao,
+} from './automacao-regras.js?v=40';
+import { lerFeitas, gravarFeitas, apagarFeitas } from './automacao-nuvem.js?v=40';
+import { sugestoesDaRotina, avisosDaRotina } from './rotinas-regras.js?v=40';
+import { rotinas } from './rotinas-db.js?v=40';
+import { fechamentos } from './fechamentos-db.js?v=40';
 
 const CHAVE = 'braconaro_automacao_v1';
 
 /**
  * @typedef {{
  *   listar: () => any[], hoje: () => string, agora: () => number,
+ *   rotinas: () => import('./rotinas-regras.js').ListaDoDia[], fechamentos: () => Record<string, any>,
  *   nuvem: { ler: (uid: string) => Promise<Record<string, any> | null>,
  *            gravar: (uid: string, feitas: Record<string, any>) => Promise<void>,
  *            apagar: (uid: string, chaves: string[]) => Promise<void> },
  * }} Deps
  */
 /** @type {Deps} */
-let deps = { listar: db.listar, hoje, agora: () => Date.now(), nuvem: { ler: lerFeitas, gravar: gravarFeitas, apagar: apagarFeitas } };
+let deps = { listar: db.listar, hoje, agora: () => Date.now(), rotinas, fechamentos, nuvem: { ler: lerFeitas, gravar: gravarFeitas, apagar: apagarFeitas } };
 let fila = filaVazia();
 let ligado = false;
 
@@ -60,7 +64,15 @@ const avisarFalha = (e) => console.warn('Fila de mensagens: a marca ficou só ne
 /** As mensagens à espera do coach, agora: as condições varridas e as ações na fila. */
 export function mensagens() {
   const todos = deps.listar();
-  return visiveis(fila, sugestoesDaVarredura(todos, deps.hoje()), todos);
+  return visiveis(fila, sugestoesDaRotina(deps.rotinas(), todos, deps.hoje(), deps.fechamentos()), todos);
+}
+
+/**
+ * Os avisos da rotina para o coach (etapa 8): os meses a fechar e as pendências
+ * (quem passou do vencimento + 1 sem pagar).
+ */
+export function avisos() {
+  return avisosDaRotina(deps.rotinas(), deps.listar(), deps.hoje(), deps.fechamentos());
 }
 
 /**

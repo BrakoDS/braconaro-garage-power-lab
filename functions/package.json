@@ -9,7 +9,7 @@
   "scripts": {
     "build": "node scripts/copiar-regras-gestao.mjs && tsc",
     "watch": "tsc --watch",
-    "checar": "node scripts/copiar-regras-gestao.mjs && tsc && node lib/checar.js && node lib/checar-conquistas.js && node lib/checar-box.js && node lib/checar-catalogo.js && node lib/checar-hiit.js && node lib/checar-cross.js && node lib/checar-pix.js && node lib/checar-pix-http.js && node lib/checar-presenca.js && node lib/checar-ugym.js && node lib/checar-evolucao-ia.js && node lib/checar-caixas.js && node lib/checar-quadro-publicar.js && node lib/checar-agentes.js",
+    "checar": "node scripts/copiar-regras-gestao.mjs && tsc && node lib/checar.js && node lib/checar-conquistas.js && node lib/checar-box.js && node lib/checar-catalogo.js && node lib/checar-hiit.js && node lib/checar-cross.js && node lib/checar-pix.js && node lib/checar-pix-http.js && node lib/checar-presenca.js && node lib/checar-ugym.js && node lib/checar-evolucao-ia.js && node lib/checar-caixas.js && node lib/checar-quadro-publicar.js && node lib/checar-agentes.js && node lib/checar-rotinas.js",
     "checar:quadro": "tsc && node lib/checar-quadro-publicar.js",
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
@@ -27,7 +27,8 @@
     "checar:pix": "tsc && node lib/checar-pix.js && node lib/checar-pix-http.js",
     "seed:catalogo": "tsc && node lib/seed-catalogo.js",
     "checar:caixas": "node scripts/copiar-regras-gestao.mjs && tsc && node lib/checar-caixas.js",
-    "checar:agentes": "node scripts/copiar-regras-gestao.mjs && tsc && node lib/checar-agentes.js"
+    "checar:agentes": "node scripts/copiar-regras-gestao.mjs && tsc && node lib/checar-agentes.js",
+    "checar:rotinas": "node scripts/copiar-regras-gestao.mjs && tsc && node lib/checar-rotinas.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",

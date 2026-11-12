@@ -14,14 +14,14 @@
  * O HTML de cada estado é puro (testado em ui-acoes-aluno.test.js); a fiação
  * fica em `iniciarAcoesAluno`.
  */
-import * as db from './db.js?v=39';
-import { esc } from './util/formato.js?v=39';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=39';
-import { estado, on, emit, EVENTOS } from './estado.js?v=39';
-import { apagarFotosDoAluno } from './ui-fotos.js?v=39';
-import * as eventos from './eventos.js?v=39';
-import { criarAcesso as criarAcessoReal, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=39';
-import { valorPendente } from './ui-salvar-global.js?v=39';
+import * as db from './db.js?v=40';
+import { esc } from './util/formato.js?v=40';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=40';
+import { estado, on, emit, EVENTOS } from './estado.js?v=40';
+import { apagarFotosDoAluno } from './ui-fotos.js?v=40';
+import * as eventos from './eventos.js?v=40';
+import { criarAcesso as criarAcessoReal, linkWhatsApp, mensagemConvite } from './acesso-aluno.js?v=40';
+import { valorPendente } from './ui-salvar-global.js?v=40';
 
 /* ============================================================
    Acesso ao Portal — HTML (puro)

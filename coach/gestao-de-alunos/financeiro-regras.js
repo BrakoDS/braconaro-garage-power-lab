@@ -25,12 +25,12 @@
  */
 import { mesIdParaLancar, totalConsumos } from '../../compartilhado/regras/consumo.js';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=39';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=40';
 import {
   MESES_FIN, brl, numMoney, statusFin, novoConsumo, comPagamento, comRecebimento, contaDoMes,
   eventoPagamento, eventoPagamentoDesfeito, eventoLancamento, MEIOS_DA_BAIXA_MANUAL,
   novaCompraNaHora, eventoVendaNaHora, eventoVendaDesfeita,
-} from './financeiro-aluno.js?v=39';
+} from './financeiro-aluno.js?v=40';
 
 const ativo = (a) => (a.status || 'ativo') !== 'inativo';
 /** A fatura é só a mensalidade — sem consumo e sem dependente? O lembrete e o recibo dizem "mensalidade" ou "conta". @param {any} conta */
@@ -252,6 +252,8 @@ export function diasAteVencimento(a, mesId, hojeIso) {
 
 /** A chave Pix e o nome que vão no lembrete. */
 export const PIX = Object.freeze({ chave: '66.567.011/0001-66', nome: 'Guilherme Braconaro' });
+/** A frase do Pix no fim de toda mensagem de cobrança (o lembrete das Cobranças e a régua da rotina, etapa 8). */
+export const TEXTO_DO_PIX = `Pra facilitar, o Pix é a chave CNPJ ${PIX.chave} (${PIX.nome}) — dá pra pagar direto pelo Portal do Aluno também. Qualquer dúvida é só chamar! 💪`;
 
 /** @typedef {{ rotulo: string, valor: number }} ItemDaConta */
 
@@ -316,7 +318,7 @@ export function msgCobranca(a, mesId, valor, dias, soMensalidade = true, itens =
   const nome = primeiroNome(a.nome);
   const mesNome = MESES_FIN[Number(mesId.split('-')[1]) - 1];
   const quando = dias < 0 ? `venceu dia ${a.vencimento}` : dias === 0 ? 'vence hoje' : `vence dia ${a.vencimento}`;
-  const pix = `Pra facilitar, o Pix é a chave CNPJ ${PIX.chave} (${PIX.nome}) — dá pra pagar direto pelo Portal do Aluno também. Qualquer dúvida é só chamar! 💪`;
+  const pix = TEXTO_DO_PIX;
   if (itens && itens.length && itensFecham(itens, valor)) {
     return `Olá, ${nome}! 😊 Passando pra lembrar da sua conta de ${mesNome} (${brl(valor)}), que ${quando}:\n${linhasDosItens(itens)}\n${pix}`;
   }

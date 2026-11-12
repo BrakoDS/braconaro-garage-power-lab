@@ -135,7 +135,7 @@ service cloud.firestore {
       // exige um segmento, e a coleção das fichas fica de fora da escrita.
       match /{colecao}/{resto=**} {
         allow read: if ehCoachDono(uid);
-        allow write: if ehCoachDono(uid) && !(colecao in ['alunos', 'propostas', 'agentesLog']);
+        allow write: if ehCoachDono(uid) && !(colecao in ['alunos', 'propostas', 'agentesLog', 'rotinas']);
       }
 
       // As funções por time (Fase 1 · etapa 7, decisão 13): as propostas dos
@@ -151,6 +151,13 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'decisao']);
       }
       match /agentesLog/{id} {
+        allow read: if ehCoachDono(uid);
+      }
+
+      // As rotinas agendadas (Fase 1 · etapa 8): a lista do dia da Fila de
+      // mensagens, gravada SÓ pela rotina das 7h do servidor (rotinasDoBox,
+      // Admin SDK). A Gestão lê; ninguém edita nem apaga pelo navegador.
+      match /rotinas/{dia} {
         allow read: if ehCoachDono(uid);
       }
     }
