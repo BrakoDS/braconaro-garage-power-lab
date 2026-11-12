@@ -11,16 +11,16 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'checkin'), que sempre volta
  * para hoje, e a cada ação ou troca de dia.
  */
-import * as db from './db.js?v=37';
-import * as regras from './checkin-regras.js?v=37';
-import { DIA_EXT } from './checkin-regras.js?v=37';
-import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=37';
-import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js?v=37';
+import * as db from './db.js?v=38';
+import * as regras from './checkin-regras.js?v=38';
+import { DIA_EXT } from './checkin-regras.js?v=38';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=38';
+import { semanaDoAluno, datasDaSemana, chaveDoDia, reposicoesPendentes, ORDEM_DIAS } from '../../compartilhado/regras/semana.js?v=38';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=37';
-import { $ } from './util/dom.js?v=37';
-import { on, EVENTOS } from './estado.js?v=37';
-import { reg } from './registro.js?v=37';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=38';
+import { $ } from './util/dom.js?v=38';
+import { on, EVENTOS } from './estado.js?v=38';
+import { reg } from './registro.js?v=38';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIA_MIN = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta', sab: 'sábado', dom: 'domingo' };

@@ -28,9 +28,9 @@
  * falta da chamada NÃO apaga a troca de dia (`remarcacoes`) da aula, ao contrário
  * do no-show do coach: sem a troca, o check-in corrigido não acharia a aula.
  */
-import { aulasDoDia, marcarNoShow, noShowReposicao } from './presenca-regras.js?v=37';
+import { aulasDoDia, marcarNoShow, noShowReposicao } from './presenca-regras.js?v=38';
 import { estaPausado } from '../../compartilhado/regras/planos.js';
-import { noShowIlimitado } from './ilimitado-regras.js?v=37';
+import { noShowIlimitado } from './ilimitado-regras.js?v=38';
 
 /** A marca da falta que nasceu na chamada da Lousa. */
 export const ORIGEM_FALTA = 'lousa';

@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback, autorDoEvento } from './eventos.js?v=37';
+import { cortar, resumoFeedback, autorDoEvento } from './eventos.js?v=38';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -51,6 +51,9 @@ export const TIPOS = {
   'pagamento': { icone: '💰', categoria: 'financeiro' },
   'pagamento-desfeito': { icone: '↩️', categoria: 'financeiro' },
   'lancamento': { icone: '🧾', categoria: 'financeiro' },
+  // O consumo pago na hora, no balcão (etapa 6.4), e a venda desfeita (com motivo).
+  'venda-na-hora': { icone: '🛒', categoria: 'financeiro' },
+  'venda-desfeita': { icone: '↩️', categoria: 'financeiro' },
   // Pix do Mercado Pago que precisa do olho do coach (pix-baixa.js): mês já
   // pago, valor divergente, devolução.
   'pix-alerta': { icone: '⚠️', categoria: 'financeiro' },

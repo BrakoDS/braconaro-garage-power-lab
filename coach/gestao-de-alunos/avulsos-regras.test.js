@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   cpfValido, digitosDoCpf, codigoDoCpf, experimentalJaFeita, comCpf, dadosDoDayPass, dayPassDaFicha, avulsosDoMes, devolucoesDoMes,
-} from './avulsos-regras.js?v=37';
-import { adicionarExperimental } from './presenca-regras.js?v=37';
+} from './avulsos-regras.js?v=38';
+import { adicionarExperimental } from './presenca-regras.js?v=38';
 
 test('CPF: dígitos verificadores', () => {
   assert.equal(cpfValido('529.982.247-25'), true);

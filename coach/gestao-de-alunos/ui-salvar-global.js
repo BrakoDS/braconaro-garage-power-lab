@@ -30,16 +30,16 @@
  * avaliações, financeiro (pagamento, lançamento), metas, acesso ao Portal e
  * exclusão. Plano: docs/superpowers/specs/2026-10-11-ficha-do-aluno-cards-design.md.
  */
-import * as db from './db.js?v=37';
-import { esc } from './util/formato.js?v=37';
-import { $ } from './util/dom.js?v=37';
-import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=37';
-import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=37';
-import { regFicha, regAnamnese, regParq } from './registro.js?v=37';
-import { resumoFicha } from './registros-ui.js?v=37';
-import { normalizarFicha } from './normalizar-ficha.js?v=37';
-import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=37';
-import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=37';
+import * as db from './db.js?v=38';
+import { esc } from './util/formato.js?v=38';
+import { $ } from './util/dom.js?v=38';
+import { estado, on, emit, EVENTOS, definirGuardaDeSaida } from './estado.js?v=38';
+import { criarRascunho, mesmoValor } from './perfil-rascunho.js?v=38';
+import { regFicha, regAnamnese, regParq } from './registro.js?v=38';
+import { resumoFicha } from './registros-ui.js?v=38';
+import { normalizarFicha } from './normalizar-ficha.js?v=38';
+import { CAMPO as CAMPO_MATRIZ, VERSAO as VERSAO_MATRIZ } from '../../compartilhado/regras/matriz-individualizacao.js?v=38';
+import { confirmar, painel, avisar } from '../../compartilhado/ui/dialogo.js?v=38';
 
 /**
  * @typedef {{

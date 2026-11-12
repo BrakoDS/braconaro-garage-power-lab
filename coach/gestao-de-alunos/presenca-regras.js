@@ -50,12 +50,12 @@
  *   tipo: 'daypass' é o visitante pagante (etapa 6.2); sem tipo, aula experimental.
  *   cpf: o código embaralhado do CPF (avulsos-regras.js), nunca o número; alunoId: virou aluno.
  */
-import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=37';
-import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=37';
+import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=38';
+import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=38';
 
 /**
  * O mesmo `creditoVencido` do semana.js, de propósito aqui. O semana.js é importado
- * com `?v=37` (as duas funções novas, validadeDoCredito e fimDoMesSeguinte, só existem
+ * com `?v=38` (as duas funções novas, validadeDoCredito e fimDoMesSeguinte, só existem
  * na cópia nova: sem a versão, o GitHub Pages serve .js por 10 minutos e um semana.js
  * antigo em cache com este arquivo novo é um SyntaxError que derruba a Gestão). A
  * cópia local de `creditoVencido` é anterior a isso e fica. @param {any} credito @param {string} hojeIso
