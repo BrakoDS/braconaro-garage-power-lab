@@ -772,6 +772,38 @@ Tudo na Gestão e no Portal/app (decisão 12 do ESCOPO):
 
 Simulação, só leitura e só contagens: `node scripts/simular-consumo-6-4.cjs`.
 
+### Etapa 7: funções por time (11/11/2026)
+
+A porta dos agentes à base (decisão 3 e decisão 13 do ESCOPO). Eles **só leem e propõem**: toda ação espera o ok do coach no painel de **Aprovações** da Gestão.
+
+**As funções** (`functions/src/agentes.ts`, regras em `coach/gestao-de-alunos/agentes-regras.js`, copiadas para `lib/gestao`):
+- `agenteConsultar`: `{ consulta, mes?, aluno? }`, uma consulta da lista fechada do time;
+- `agentePropor`: `{ tipo, alunoId, dados, motivo }`, grava em `gestao/{coach}/propostas` e deixa uma linha nos Registros;
+- `agenteRegistrar`: `{ resumo, motivo? }`, uma linha nos Registros com o autor agente.
+
+**Como chamar:** POST com o corpo em JSON e `Authorization: Bearer <chave do time>`, em `https://southamerica-east1-projeto-garage-f0a2f.cloudfunctions.net/<função>`.
+
+**Identidade:** os segredos `AGENTE_CHAVE_ADMINISTRATIVO` e `AGENTE_CHAVE_ALUNOS` (no mínimo 24 caracteres). Trocar a chave corta o acesso do time. Cadastrar sem nunca escrever o valor em chat, PR ou arquivo:
+
+```bash
+firebase functions:secrets:set AGENTE_CHAVE_ADMINISTRATIVO --project projeto-garage-f0a2f
+firebase functions:secrets:set AGENTE_CHAVE_ALUNOS --project projeto-garage-f0a2f
+```
+
+**Limites e log:**
+- no máximo 200 registros por consulta e 60 chamadas por minuto por time (`maxInstances: 1`);
+- toda chamada vai para `gestao/{coach}/agentesLog`, sem os dados devolvidos.
+
+**LGPD:** o Time Administrativo não recebe dado de saúde. O `checar-agentes` procura, campo a campo, em fichas sorteadas com um texto-sentinela nos campos de saúde.
+
+**Regra do Firestore:** `propostas` e `agentesLog` só o servidor grava. A Gestão lê, e na proposta que espera só registra a decisão. **O merge publica a regra.**
+
+**Publicar, com aviso ao dono** (as caixas não mudam de comportamento):
+
+```bash
+firebase deploy --only functions:agenteConsultar,functions:agentePropor,functions:agenteRegistrar --project projeto-garage-f0a2f
+```
+
 ## Código compartilhado
 
 O deploy envia só esta pasta, então nada aqui pode importar de `../compartilhado` ou de outro

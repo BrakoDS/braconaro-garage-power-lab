@@ -38,14 +38,14 @@ globalThis.document = /** @type {any} */ ({
 });
 globalThis.window = /** @type {any} */ ({ scrollTo() {} });
 
-const db = await import('./db.js?v=38');
-const eventos = await import('./eventos.js?v=38');
-const { estado, on, emit, EVENTOS } = await import('./estado.js?v=38');
-const { iniciarNavegacao } = await import('./navegacao.js?v=38');
-const { iniciarAutomacao, mensagens, sincronizarAutomacao } = await import('./automacao.js?v=38');
-const { iniciarTelaAutomacao } = await import('./ui-tela-automacao.js?v=38');
-const { darBaixa, desfazerBaixa } = await import('./financeiro-regras.js?v=38');
-const { regFinanceiro } = await import('./registro.js?v=38');
+const db = await import('./db.js?v=39');
+const eventos = await import('./eventos.js?v=39');
+const { estado, on, emit, EVENTOS } = await import('./estado.js?v=39');
+const { iniciarNavegacao } = await import('./navegacao.js?v=39');
+const { iniciarAutomacao, mensagens, sincronizarAutomacao } = await import('./automacao.js?v=39');
+const { iniciarTelaAutomacao } = await import('./ui-tela-automacao.js?v=39');
+const { darBaixa, desfazerBaixa } = await import('./financeiro-regras.js?v=39');
+const { regFinanceiro } = await import('./registro.js?v=39');
 
 /* ---------- o que vem de fora ---------- */
 const OUT = '2026-10';
@@ -307,8 +307,8 @@ test('d) selo: a virada do dia conta sem nenhum dado mudar — voltar para a lis
 });
 
 test('consistência: o botão WhatsApp da tela Cobranças abre o MESMO texto da Fila (com o extrato dos consumos)', async () => {
-  const { iniciarTelaCobrancas } = await import('./ui-tela-cobrancas.js?v=38');
-  const { mesIdAtual } = await import('./financeiro-aluno.js?v=38');
+  const { iniciarTelaCobrancas } = await import('./ui-tela-cobrancas.js?v=39');
+  const { mesIdAtual } = await import('./financeiro-aluno.js?v=39');
   iniciarTelaCobrancas();
   // A tela Cobranças olha o mês do relógio; a Fila, o mesmo dia.
   HOJE = new Date().toISOString().slice(0, 10);

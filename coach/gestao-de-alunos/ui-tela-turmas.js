@@ -12,27 +12,27 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=38';
-import * as regras from './presenca-regras.js?v=38';
-import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=38';
-import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=38';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=38';
-import { $ } from './util/dom.js?v=38';
-import { on, EVENTOS } from './estado.js?v=38';
-import { reg } from './registro.js?v=38';
-import { telaAtual } from './navegacao.js?v=38';
+import * as db from './db.js?v=39';
+import * as regras from './presenca-regras.js?v=39';
+import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=39';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=39';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=39';
+import { $ } from './util/dom.js?v=39';
+import { on, EVENTOS } from './estado.js?v=39';
+import { reg } from './registro.js?v=39';
+import { telaAtual } from './navegacao.js?v=39';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
-import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=38';
+import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=39';
 import {
   ehIlimitado, gravarMarcacao, desmarcarIlimitadoComAviso, noShowIlimitado, reabrirIlimitado, tirarMarcacao, previaDesmarcacaoIlimitado,
-} from './ilimitado-regras.js?v=38';
-import { chaveIlimitado } from './checkin-regras.js?v=38';
-import { pedirMotivo, confirmar } from '../../compartilhado/ui/dialogo.js?v=38';
+} from './ilimitado-regras.js?v=39';
+import { chaveIlimitado } from './checkin-regras.js?v=39';
+import { pedirMotivo, confirmar } from '../../compartilhado/ui/dialogo.js?v=39';
 import {
   MEIOS_DAYPASS, dadosDoDayPass, dayPassDaFicha, cpfValido, digitosDoCpf, codigoDoCpf, experimentalJaFeita, comCpf,
   dadosDaVendaAvulsa, comVendaAvulsa, semVendaAvulsa,
-} from './avulsos-regras.js?v=38';
-import { brl } from './financeiro-aluno.js?v=38';
+} from './avulsos-regras.js?v=39';
+import { brl } from './financeiro-aluno.js?v=39';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */

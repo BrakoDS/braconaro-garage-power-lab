@@ -14,15 +14,16 @@
  * aberta — a baixa numa outra tela tira a cobrança daqui. O selo do botão é
  * refeito nos mesmos momentos, com a tela aberta ou não.
  */
-import * as db from './db.js?v=38';
-import { brl, rotuloMesFin } from './financeiro-aluno.js?v=38';
-import { GATILHOS } from './automacao-regras.js?v=38';
-import { mensagens, marcarMensagem } from './automacao.js?v=38';
-import { esc, waMsg } from './util/formato.js?v=38';
-import { $ } from './util/dom.js?v=38';
-import { on, EVENTOS } from './estado.js?v=38';
-import { reg } from './registro.js?v=38';
-import { telaAtual } from './navegacao.js?v=38';
+import * as db from './db.js?v=39';
+import { brl, rotuloMesFin } from './financeiro-aluno.js?v=39';
+import { GATILHOS } from './automacao-regras.js?v=39';
+import { rotuloDoTime } from './agentes-regras.js?v=39';
+import { mensagens, marcarMensagem } from './automacao.js?v=39';
+import { esc, waMsg } from './util/formato.js?v=39';
+import { $ } from './util/dom.js?v=39';
+import { on, EVENTOS } from './estado.js?v=39';
+import { reg } from './registro.js?v=39';
+import { telaAtual } from './navegacao.js?v=39';
 
 /** @type {{ abrir: (url: string) => void }} */
 let deps = { abrir: (url) => { window.open(url, '_blank', 'noopener'); } };
@@ -32,6 +33,7 @@ function detalhe(m) {
   const d = m.dados;
   if (m.gatilho === 'cobranca-vencida') return `${brl(d.valor)} · venceu há ${Math.abs(d.dias)} dia${Math.abs(d.dias) === 1 ? '' : 's'}`;
   if (m.gatilho === 'cobranca-a-vencer') return `${brl(d.valor)} · ${d.dias === 0 ? 'vence hoje' : d.dias === 1 ? 'vence amanhã' : `vence em ${d.dias} dias`}`;
+  if (m.gatilho === 'agente') return `${rotuloDoTime(d.time)} · proposta aprovada`;
   return `${brl(d.valor)} · ${rotuloMesFin(d.mesId)}`;
 }
 
@@ -79,8 +81,10 @@ export function atualizarFilaDeMensagens() {
  * @param {any} m a mensagem @param {'aprovada'|'recusada'} decisao
  */
 function rastroDaFila(m, decisao) {
+  // A mensagem de um agente (etapa 7) foi proposta por ele, não pela rotina da Fila.
+  const por = m.gatilho === 'agente' ? { tipo: 'agente', nome: rotuloDoTime(m.dados.time) } : { tipo: 'rotina' };
   return {
-    proposta: { por: { tipo: 'rotina' }, via: 'fila', ...(Number(m.criadaEm) > 0 ? { em: Number(m.criadaEm) } : {}) },
+    proposta: { por, via: m.gatilho === 'agente' ? 'funcao' : 'fila', ...(Number(m.criadaEm) > 0 ? { em: Number(m.criadaEm) } : {}) },
     aprovacao: { por: { tipo: 'coach' }, em: Date.now(), decisao },
   };
 }

@@ -6,13 +6,13 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lancarConsumo, registrarCompraNaHora, desfazerCompraNaHora, erroDaVendaNaHora } from './financeiro-regras.js?v=38';
-import { faturaDoAluno } from './financeiro-aluno.js?v=38';
+import { lancarConsumo, registrarCompraNaHora, desfazerCompraNaHora, erroDaVendaNaHora } from './financeiro-regras.js?v=39';
+import { faturaDoAluno } from './financeiro-aluno.js?v=39';
 import {
   dadosDaVendaAvulsa, comVendaAvulsa, semVendaAvulsa, avulsosDoMes, comprasNaHoraDoMes, DIAS_DE_VENDAS_AVULSAS,
-} from './avulsos-regras.js?v=38';
-import { retratoDoMes, aprovarFechamento, reabrirFechamento, fechamentosDaFatia } from './fechamento-regras.js?v=38';
-import { fatia } from './portal-sync.js?v=38';
+} from './avulsos-regras.js?v=39';
+import { retratoDoMes, aprovarFechamento, reabrirFechamento, fechamentosDaFatia } from './fechamento-regras.js?v=39';
+import { fatia } from './portal-sync.js?v=39';
 
 const ana = (extra = {}) => ({ id: 'A1', nome: 'Ana', email: 'ana@x.com', mensalidade: '130', vencimento: '10', pagamentos: {}, consumos: [], ...extra });
 const energetico = { produtoId: 'p1', nome: 'Energético', preco: 10 };

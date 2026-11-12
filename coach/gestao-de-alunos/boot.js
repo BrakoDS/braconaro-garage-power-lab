@@ -34,29 +34,30 @@
 import { cloudAtivo, sessaoAtual, login, resetarSenha } from '../../compartilhado/firebase/cloud.js';
 import { estaLiberado, tentarLiberar } from '../../compartilhado/firebase/auth.js';
 import { bloquearSeNaoCoach } from '../../compartilhado/firebase/coach-guard.js';
-import * as db from './db.js?v=38';
-import * as eventos from './eventos.js?v=38';
-import { publicarPortal } from './portal-sync.js?v=38';
-import { mergarInboxes } from './portal-merge.js?v=38';
-import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=38';
-import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=38';
-import { sincronizarAvisos } from './avisos.js?v=38';
-import { sincronizarDesafios } from './desafios.js?v=38';
-import { estado, emit, on, EVENTOS } from './estado.js?v=38';
-import { abrirPeloEndereco } from './telas.js?v=38';
-import { $ } from './util/dom.js?v=38';
-import { renderLista } from './ui-lista.js?v=38';
-import { atualizarSelosDaLista } from './selos-lista.js?v=38';
-import { carregarBadgeLeads } from './ui-tela-leads.js?v=38';
-import { sincronizarAutomacao } from './automacao.js?v=38';
-import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=38';
-import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=38';
-import { aplicarPixPendentes } from './pix-baixa.js?v=38';
-import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=38';
-import { ouvirFechamentos, fechamentos } from './fechamentos-db.js?v=38';
-import { reg } from './registro.js?v=38';
-import { ouvirAplicador, ouvirPagamentosDoServidor } from './caixas-servidor.js?v=38';
-import { avisarGravacaoRecusada } from './ui-aviso-nuvem.js?v=38';
+import * as db from './db.js?v=39';
+import * as eventos from './eventos.js?v=39';
+import { publicarPortal } from './portal-sync.js?v=39';
+import { mergarInboxes } from './portal-merge.js?v=39';
+import { mesclarAvisosDeAusencia } from './ausencias-merge.js?v=39';
+import { mesclarCheckinsLousa, mesclarCheckinsUgym, ouvirCheckinsLousa, ouvirCheckinsUgym } from './ugym-merge.js?v=39';
+import { sincronizarAvisos } from './avisos.js?v=39';
+import { sincronizarDesafios } from './desafios.js?v=39';
+import { estado, emit, on, EVENTOS } from './estado.js?v=39';
+import { abrirPeloEndereco } from './telas.js?v=39';
+import { $ } from './util/dom.js?v=39';
+import { renderLista } from './ui-lista.js?v=39';
+import { atualizarSelosDaLista } from './selos-lista.js?v=39';
+import { carregarBadgeLeads } from './ui-tela-leads.js?v=39';
+import { sincronizarAutomacao } from './automacao.js?v=39';
+import { atualizarFilaDeMensagens } from './ui-tela-automacao.js?v=39';
+import { medirTamanhoBanco, iniciarBackup } from './medidor-banco.js?v=39';
+import { aplicarPixPendentes } from './pix-baixa.js?v=39';
+import { listarPixParaTratar, marcarPixTratado } from './pix-read.js?v=39';
+import { ouvirFechamentos, fechamentos } from './fechamentos-db.js?v=39';
+import { ouvirPropostas } from './propostas-db.js?v=39';
+import { reg } from './registro.js?v=39';
+import { ouvirAplicador, ouvirPagamentosDoServidor } from './caixas-servidor.js?v=39';
+import { avisarGravacaoRecusada } from './ui-aviso-nuvem.js?v=39';
 
 /* ============================================================
    Quem aplica as caixas
@@ -209,6 +210,8 @@ async function entrar(user) {
   estado.uid = user?.uid || null;
   // Os fechamentos do mês (etapa 4): ao vivo da nuvem, ou do navegador sem ela.
   void ouvirFechamentos(estado.uid);
+  // As propostas dos agentes e o log das chamadas (etapa 7): o painel de Aprovações.
+  void ouvirPropostas(estado.uid);
   $('#gate').style.display = 'none';
   $('#app').removeAttribute('hidden');
   renderLista();

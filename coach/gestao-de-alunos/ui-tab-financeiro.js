@@ -24,20 +24,20 @@
  * registrado (mês e valor), pagamento desfeito, lançamento avulso.
  * As regras (o que é atrasado, em que fatura cai) moram em financeiro-aluno.js.
  */
-import * as db from './db.js?v=38';
-import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=38';
-import { $, abrirModal, fecharModal } from './util/dom.js?v=38';
-import { estado } from './estado.js?v=38';
-import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=38';
+import * as db from './db.js?v=39';
+import { esc, hoje, fmtData, fmtDataCurta } from './util/formato.js?v=39';
+import { $, abrirModal, fecharModal } from './util/dom.js?v=39';
+import { estado } from './estado.js?v=39';
+import { confirmar, pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=39';
 import { mesIdParaLancar, nomeComQtd } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento, qtdDoItem } from './financeiro-aluno.js?v=38';
+import { brl, numMoney, rotuloMesFin, MEIOS_PAGAMENTO, MEIOS_DA_BAIXA_MANUAL, textoDoRecebimento, qtdDoItem } from './financeiro-aluno.js?v=39';
 import {
   darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo, erroDaVendaNaHora, registrarCompraNaHora, desfazerCompraNaHora,
-} from './financeiro-regras.js?v=38';
-import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=38';
-import { fechamentos } from './fechamentos-db.js?v=38';
-import { regFinanceiro } from './registro.js?v=38';
-import * as storage from '../../compartilhado/regras/storage-alunos.js?v=38';
+} from './financeiro-regras.js?v=39';
+import { faturaComFechamento, pagamentosParaLancar } from './fechamento-regras.js?v=39';
+import { fechamentos } from './fechamentos-db.js?v=39';
+import { regFinanceiro } from './registro.js?v=39';
+import * as storage from '../../compartilhado/regras/storage-alunos.js?v=39';
 
 /** Rótulo e cor de cada situação. */
 const STATUS = {
@@ -170,19 +170,23 @@ export function htmlComprasNaHora(a, max = 10) {
  * foto do comprovante, opcional.
  * @param {import('./financeiro-aluno.js').Fatura} f @param {string} hojeIso
  * @param {string} [nome] o nome do aluno, quando a janela abre fora da ficha dele
+ * @param {{ valor?: number, data?: string, meio?: string }} [preenchido] o que veio de uma proposta de agente (etapa 7)
  */
-export function htmlFormPagamento(f, hojeIso, nome = '') {
+export function htmlFormPagamento(f, hojeIso, nome = '', preenchido = {}) {
   const itens = f.itens.filter((i) => !i.coberto).map((i) => `<li><span>${esc(i.descricao)}</span><span>${brl(i.valor)}</span></li>`).join('');
-  const meios = MEIOS_DA_BAIXA_MANUAL.map((m, i) =>
-    `<label class="chk"><input type="radio" name="meio" value="${m}"${i === 0 ? ' checked' : ''} /> ${esc(MEIOS_PAGAMENTO[m])}</label>`).join('');
+  const meioMarcado = MEIOS_DA_BAIXA_MANUAL.includes(String(preenchido.meio || '')) ? String(preenchido.meio) : MEIOS_DA_BAIXA_MANUAL[0];
+  const meios = MEIOS_DA_BAIXA_MANUAL.map((m) =>
+    `<label class="chk"><input type="radio" name="meio" value="${m}"${m === meioMarcado ? ' checked' : ''} /> ${esc(MEIOS_PAGAMENTO[m])}</label>`).join('');
+  const valor = Number(preenchido.valor) > 0 ? Number(preenchido.valor) : f.total;
+  const data = /^\d{4}-\d{2}-\d{2}$/.test(String(preenchido.data || '')) && String(preenchido.data) <= hojeIso ? String(preenchido.data) : hojeIso;
   return `
     <p class="fa-pg-mes">${nome ? `${esc(nome)} · ` : ''}${esc(f.rotulo)} · vence ${fmtData(f.vencimento)}</p>
     <ul class="fa-pg-itens">${itens}</ul>
     <p class="fa-pg-total">Total <b>${brl(f.total)}</b></p>
     <div class="fa-tipo fa-pg-meio" role="radiogroup" aria-label="Meio de pagamento">${meios}</div>
     <div class="grid-form">
-      <div class="field"><label for="fa-pg-valor">Valor recebido (R$)</label><input id="fa-pg-valor" name="valor" type="number" inputmode="decimal" min="0" step="0.01" value="${f.total.toFixed(2)}" /></div>
-      <div class="field"><label for="fa-pg-data">Data do pagamento</label><input id="fa-pg-data" name="data" type="date" value="${esc(hojeIso)}" max="${esc(hojeIso)}" /></div>
+      <div class="field"><label for="fa-pg-valor">Valor recebido (R$)</label><input id="fa-pg-valor" name="valor" type="number" inputmode="decimal" min="0" step="0.01" value="${valor.toFixed(2)}" /></div>
+      <div class="field"><label for="fa-pg-data">Data do pagamento</label><input id="fa-pg-data" name="data" type="date" value="${esc(data)}" max="${esc(hojeIso)}" /></div>
       <div class="field full"><label for="fa-pg-foto">Comprovante (opcional)</label><input id="fa-pg-foto" name="comprovante" type="file" accept="image/*" /></div>
     </div>
     <p class="hint">A fatura inteira fica paga — no Portal e no app do aluno ela passa a aparecer como paga. A foto fica só na Gestão; PDF não entra (tire um print).</p>
@@ -243,21 +247,24 @@ function atualizarDestino() {
  * Financeiro do box e nas Cobranças.
  * @param {string} alunoId @param {string} mesId
  * @param {() => void} [aoGravar] quem redesenhar depois da baixa (a tela que abriu)
+ * @param {{ valor?: number, data?: string, meio?: string }} [preenchido] a janela já preenchida (a baixa proposta por um agente, etapa 7)
+ * @returns {boolean} se a janela abriu (não abre para conta paga, sem valor ou que não é dele)
  */
-export function abrirPagamento(alunoId, mesId, aoGravar) {
-  const a = db.obter(alunoId); if (!a) return;
+export function abrirPagamento(alunoId, mesId, aoGravar, preenchido = {}) {
+  const a = db.obter(alunoId); if (!a) return false;
   // Direto pelo mês: a tela Financeiro do box navega para meses fora do histórico da ficha.
   // Mês FECHADO (etapa 4): a fatura é a do retrato, e o valor também.
   const f = faturaComFechamento(a, mesId, db.listar(), hoje(), fechamentos());
-  if (!f || f.status === 'pago' || !f.pagavel) return;
+  if (!f || f.status === 'pago' || !f.pagavel) return false;
   modal = { modo: 'pagamento', mesId, alunoId, aoGravar, totalDaConta: f.total };
   gravando = false;
   $('#modal-fin-titulo').textContent = 'Registrar pagamento';
   $('#modal-fin-ok').textContent = 'Confirmar pagamento';
   $('#modal-fin-ok').disabled = false;
   const fora = !estado.alunoAtual || estado.alunoAtual.id !== a.id;
-  $('#modal-fin-body').innerHTML = htmlFormPagamento(f, hoje(), fora ? (a.nome || '') : '');
+  $('#modal-fin-body').innerHTML = htmlFormPagamento(f, hoje(), fora ? (a.nome || '') : '', preenchido);
   abrirModal('modal-fin');
+  return true;
 }
 
 /** Mostra o erro na janela. @param {string} texto */

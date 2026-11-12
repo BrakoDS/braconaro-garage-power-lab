@@ -5,7 +5,7 @@ import {
   diasEntre, mesSeguinte, congelarCreditos, pausar, voltar, gradeDiferente, ligarDupla, desligarDupla,
   alternarInstagram, indicacoesDe, darIndicacao, tirarIndicacao, ajustarSemanas,
   inicioDaFicha, planoDaFicha, migracaoDaFicha, fundadorPeloInicio,
-} from './cadastro-regras.js?v=38';
+} from './cadastro-regras.js?v=39';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
 
 const ana = { id: 'Ana01', nome: 'Ana Souza', status: 'ativo', plano: { vezes: 3, prazo: 'mensal' }, fundador: true, mensalidade: '130' };

@@ -12,10 +12,10 @@
  * periódica, de propósito: reler todas as fichas a cada intervalo gastaria a
  * cota gratuita do Firestore com a aba aberta o dia inteiro.
  */
-import * as db from '../gestao-de-alunos/db.js?v=38';
-import { horasDaGrade } from '../gestao-de-alunos/presenca-regras.js?v=38';
-import { publicarPortal } from '../gestao-de-alunos/portal-sync.js?v=38';
-import { chaveDoDia } from '../../compartilhado/regras/semana.js?v=38';
+import * as db from '../gestao-de-alunos/db.js?v=39';
+import { horasDaGrade } from '../gestao-de-alunos/presenca-regras.js?v=39';
+import { publicarPortal } from '../gestao-de-alunos/portal-sync.js?v=39';
+import { chaveDoDia } from '../../compartilhado/regras/semana.js?v=39';
 import { feriadoEm } from '../../compartilhado/regras/feriados.js';
 import { painel as painelReal } from '../../compartilhado/ui/dialogo.js';
 import { CAMADAS } from './camadas/registro.js';

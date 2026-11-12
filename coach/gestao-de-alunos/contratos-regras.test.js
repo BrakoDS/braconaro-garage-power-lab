@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import {
   fecharContrato, trancar, trancamentoDoContrato, contaDaSaida, encerrarAntes, registrarDevolucao, avisoDeFim, renovar,
   passarParaMensal, contratoEmCurso,
-} from './contratos-regras.js?v=38';
-import { voltar } from './cadastro-regras.js?v=38';
+} from './contratos-regras.js?v=39';
+import { voltar } from './cadastro-regras.js?v=39';
 import { mensalidadeDoMes } from '../../compartilhado/regras/planos.js';
 
 const ana = { id: 'Ana01', nome: 'Ana', status: 'ativo', plano: { vezes: 3, prazo: 'mensal' }, fundador: true, mensalidade: '130' };

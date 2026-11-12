@@ -6,7 +6,7 @@
  * Quem decide QUANDO perguntar é `desfazerPedeMotivo` (checkin-regras.js);
  * quem põe o motivo na linha dos Registros é `comMotivo`.
  */
-import { pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=38';
+import { pedirMotivo, avisar } from '../../compartilhado/ui/dialogo.js?v=39';
 
 /** 'AAAA-MM-DD' → 'DD/MM'. @param {string} iso */
 const ddmm = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || '')) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : String(iso || ''));

@@ -206,7 +206,11 @@ test('gestao v2: as subcoleções (fichas, avaliações, backup, eventos) são s
     'allow create, update: if ehCoachDono(uid) && request.resource.data.atualizadoEm == request.time;',
     'allow read, write: if ehCoachDono(uid);',
     'allow read: if ehCoachDono(uid);',
-    "allow write: if ehCoachDono(uid) && colecao != 'alunos';",
+    "allow write: if ehCoachDono(uid) && !(colecao in ['alunos', 'propostas', 'agentesLog']);",
+    // Etapa 7: as propostas dos agentes (o coach só registra a decisão) e o log das chamadas (só leitura).
+    'allow read: if ehCoachDono(uid);',
+    "allow update: if ehCoachDono(uid) && resource.data.situacao == 'proposta' && request.resource.data.situacao in ['aprovada', 'recusada'] && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'decisao']);",
+    'allow read: if ehCoachDono(uid);',
   ], 'nenhuma outra porta dentro de gestao/{uid}');
 });
 
@@ -221,7 +225,16 @@ test('gestao: a ficha só se grava com o carimbo do servidor, e nenhum curinga r
   assert.match(bloco, /match \/alunos\/\{alunoId\} \{\s*allow read, delete: if ehCoachDono\(uid\);\s*allow create, update: if ehCoachDono\(uid\) && request\.resource\.data\.atualizadoEm == request\.time;/);
   assert.match(bloco, /match \/\{filho\}\/\{filhoId\} \{\s*allow read, write: if ehCoachDono\(uid\);\s*\}/, 'avaliações e feedbacks: um nível só abaixo da ficha');
   assert.doesNotMatch(bloco, /\{\w+=\*\*\}\s*\{\s*allow read, write/, 'nenhum curinga recursivo com escrita livre');
-  assert.match(bloco, /match \/\{colecao\}\/\{resto=\*\*\} \{\s*allow read: if ehCoachDono\(uid\);\s*allow write: if ehCoachDono\(uid\) && colecao != 'alunos';/);
+  assert.match(bloco, /match \/\{colecao\}\/\{resto=\*\*\} \{\s*allow read: if ehCoachDono\(uid\);\s*allow write: if ehCoachDono\(uid\) && !\(colecao in \['alunos', 'propostas', 'agentesLog'\]\);/);
+});
+
+test('agentes (etapa 7): as propostas e o log só o servidor grava; o coach lê e só decide a proposta que espera', () => {
+  const c = codigo(firestore);
+  const bloco = c.split('match /gestao/{uid} {')[1]?.split(/\n    match \//)[0] || '';
+  assert.match(bloco, /match \/propostas\/\{id\} \{\s*allow read: if ehCoachDono\(uid\);\s*allow update: if ehCoachDono\(uid\)\s*&& resource\.data\.situacao == 'proposta'/);
+  assert.match(bloco, /affectedKeys\(\)\.hasOnly\(\['situacao', 'decisao'\]\)/, 'a decisão não mexe no que o agente propôs');
+  assert.match(bloco, /match \/agentesLog\/\{id\} \{\s*allow read: if ehCoachDono\(uid\);\s*\}/, 'o log: só leitura');
+  assert.doesNotMatch(bloco.split('match /propostas/{id}')[1] || '', /allow (create|delete|write)/, 'nem criar, nem apagar pelo navegador');
 });
 
 test('gestao v2: depois da virada, ninguém regrava o blob nem tira o schema', () => {

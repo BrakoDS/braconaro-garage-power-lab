@@ -70,6 +70,7 @@ import { reconciliarCobrancas } from './pix-servico';
 import { clienteFitControl } from './ugym-cliente';
 import { repoUgymFirestore, sincronizarCheckinsUgym } from './ugym-servico';
 import { regrasDaGestao } from './caixas';
+import { Limite, atenderAgente, regrasDosAgentes, type DepsDosAgentes, type Funcao } from './agentes';
 import { aplicarCaixasDoAluno, aplicarFaltasDaChamada, aplicarPixDaCobranca, aplicarTudoQueEstiverPendente } from './caixas-servico';
 import { URL_PUSH_EXPO, lerRespostaExpo, payloadDoPush, textoParaNotificar, tokenDoAluno } from './push';
 import { calcularConquistas, contextoDoAluno, mudou, noFusoDoBox } from './conquistas';
@@ -3510,3 +3511,98 @@ export const aplicarCaixasPendentes = onSchedule(
     }
   },
 );
+
+/* ================================================================== *
+ * As funções por time (Fase 1 · etapa 7, decisão 13): a porta dos agentes
+ * ================================================================== */
+
+/**
+ * Uma chave secreta por time (Secret Manager). Trocar a chave corta o acesso
+ * daquele time; segredo vazio ou curto não abre nada (`timeDaChave`).
+ */
+const AGENTE_CHAVE_ADMINISTRATIVO = defineSecret('AGENTE_CHAVE_ADMINISTRATIVO');
+const AGENTE_CHAVE_ALUNOS = defineSecret('AGENTE_CHAVE_ALUNOS');
+/** O limite de chamadas por minuto, por time, nesta instância (uma só: `maxInstances: 1`). */
+const limiteDosAgentes = new Limite();
+
+/** O mundo das funções dos agentes: o Firestore do coach (o box tem um só). */
+async function depsDosAgentes(): Promise<DepsDosAgentes> {
+  const db = getFirestore();
+  const coach = COACH_UIDS[0];
+  const hoje = () => relogioDoBox(new Date()).hoje;
+  return {
+    regras: await regrasDosAgentes(),
+    chaves: { administrativo: AGENTE_CHAVE_ADMINISTRATIVO.value(), alunos: AGENTE_CHAVE_ALUNOS.value() },
+    limite: limiteDosAgentes,
+    agora: () => Date.now(),
+    hojeIso: hoje,
+    lerFichas: async () => (await todasAsFichas(db, coach)).fichas,
+    // Só o que a consulta pede: as avaliações (dado de saúde) só são lidas na consulta `avaliacoes`.
+    lerContexto: async (consulta, params) => {
+      const { meta, fichas } = await todasAsFichas(db, coach);
+      const ctx: Record<string, unknown> & { fichas: Record<string, unknown>[] } = {
+        fichas, meta: { experimentais: meta.experimentais, vendasAvulsas: meta.vendasAvulsas },
+      };
+      if (consulta === 'cobrancas' || consulta === 'fechamento' || consulta === 'em-atraso') {
+        const s = await db.collection(`gestao/${coach}/fechamentos`).get();
+        ctx.fechamentos = Object.fromEntries(s.docs.map((d) => [d.id, d.data()]));
+      }
+      if (consulta === 'lotacao') {
+        const [avisosSnap, reservasSnap, marcacoesSnap] = await Promise.all([
+          db.collection('avisosAusencia').get(), db.collection('reposicoesAluno').get(), db.collection('marcacoesAluno').get(),
+        ]);
+        const h = hoje();
+        ctx.ocupacao = await ocupacaoDasTurmas(db, coach, Array.from({ length: 7 }, (_, i) => somarDias(h, i)), h, {
+          avisosDocs: avisosSnap.docs.map((d) => d.data()), reservasDocs: reservasSnap.docs.map((d) => d.data()),
+          marcacoesDocs: marcacoesSnap.docs.map((d) => d.data()),
+        });
+      }
+      if (consulta === 'avaliacoes' && typeof params.aluno === 'string' && /^[\w-]{1,64}$/.test(params.aluno)) {
+        const s = await db.collection(`gestao/${coach}/alunos/${params.aluno}/avaliacoes`).get();
+        ctx.avaliacoes = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+      }
+      if (consulta === 'ficha-pendencias') {
+        // Só os ids (o e-mail de quem aceitou): o conteúdo do consentimento não é lido.
+        const s = await db.collection('consentimentos').select().get();
+        ctx.consentimentos = s.docs.map((d) => d.id);
+      }
+      return ctx;
+    },
+    gravarProposta: async (id, doc, evento) => {
+      const lote = db.batch();
+      lote.set(db.doc(`gestao/${coach}/propostas/${id}`), doc);
+      lote.set(db.doc(`gestao/${coach}/eventos/${String(evento.id)}`), evento);
+      await lote.commit();
+    },
+    gravarEvento: async (evento) => { await db.doc(`gestao/${coach}/eventos/${String(evento.id)}`).set(evento); },
+    gravarLog: async (linha) => { await db.collection(`gestao/${coach}/agentesLog`).add(linha); },
+    novoId: () => randomUUID(),
+  };
+}
+
+/**
+ * Uma função de agente: POST com `Authorization: Bearer <chave do time>` e o
+ * corpo em JSON. Ver functions/src/agentes.ts e o README (etapa 7).
+ *
+ *     POST /agenteConsultar  { consulta: 'cobrancas', mes: '2026-11' }
+ *     POST /agentePropor     { tipo: 'mensagem', alunoId: '001', dados: { texto }, motivo }
+ *     POST /agenteRegistrar  { resumo, motivo? }
+ */
+function funcaoDeAgente(funcao: Funcao) {
+  return onRequest(
+    { secrets: [AGENTE_CHAVE_ADMINISTRATIVO, AGENTE_CHAVE_ALUNOS], invoker: 'public', timeoutSeconds: 30, memory: '512MiB', maxInstances: 1 },
+    async (req, res) => {
+      try {
+        const r = await atenderAgente(funcao, { method: req.method, headers: req.headers as Record<string, unknown>, body: req.body }, await depsDosAgentes());
+        res.status(r.status).json(r.corpo);
+      } catch (e) {
+        logger.error('Função de agente falhou.', { funcao, erro: e instanceof Error ? e.message : String(e) });
+        res.status(500).json({ ok: false, erro: 'Erro interno.' });
+      }
+    },
+  );
+}
+
+export const agenteConsultar = funcaoDeAgente('consultar');
+export const agentePropor = funcaoDeAgente('propor');
+export const agenteRegistrar = funcaoDeAgente('registrar');

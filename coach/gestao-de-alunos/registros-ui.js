@@ -11,7 +11,7 @@
  *
  * Testado em registros-ui.test.js.
  */
-import { cortar, resumoFeedback, autorDoEvento } from './eventos.js?v=38';
+import { cortar, resumoFeedback, autorDoEvento } from './eventos.js?v=39';
 
 /** Ícone e nome de cada tipo, e o filtro em que ele aparece. */
 export const TIPOS = {
@@ -63,10 +63,13 @@ export const TIPOS = {
   'mensagem-enviada': { icone: '📤', categoria: 'mensagem' },
   // A sugestão da Fila que o coach descartou (etapa 5): proposta e recusada.
   'mensagem-descartada': { icone: '🗑️', categoria: 'mensagem' },
+  // As funções por time (etapa 7): a proposta de um agente (e a decisão do coach) e a anotação de um agente.
+  'proposta-agente': { icone: '🤖', categoria: 'agentes' },
+  'agente': { icone: '🤖', categoria: 'agentes' },
 };
 
 export const CATEGORIAS = [
-  ['todos', 'Tudo'], ['presenca', 'Presença'], ['foto', 'Foto'], ['feedback', 'Feedback'], ['ficha', 'Ficha'], ['financeiro', 'Financeiro'], ['mensagem', 'Mensagens'],
+  ['todos', 'Tudo'], ['presenca', 'Presença'], ['foto', 'Foto'], ['feedback', 'Feedback'], ['ficha', 'Ficha'], ['financeiro', 'Financeiro'], ['mensagem', 'Mensagens'], ['agentes', 'Agentes'],
 ];
 
 export const ORIGEM_ROTULO = { app: 'App', portal: 'Portal do aluno', gestao: 'Gestão', servidor: 'Automático', aluno: 'Aluno' };

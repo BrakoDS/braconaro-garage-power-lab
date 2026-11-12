@@ -14,9 +14,9 @@ import { readFileSync } from 'node:fs';
 import {
   origemDaMedida, htmlCardBiometria, htmlCardAlerta, seloDoParq, leituraAnamnese, leituraParq,
   respondidasAnamnese, htmlCardFormularios, htmlAbaSaude,
-} from './ui-tab-saude.js?v=38';
-import { CAMINHO_LESOES, normalizarLesoes, descreverLesao, linhaLesao, lesoesDe } from './lesoes.js?v=38';
-import { cruzaComRascunho } from './ui-salvar-global.js?v=38';
+} from './ui-tab-saude.js?v=39';
+import { CAMINHO_LESOES, normalizarLesoes, descreverLesao, linhaLesao, lesoesDe } from './lesoes.js?v=39';
+import { cruzaComRascunho } from './ui-salvar-global.js?v=39';
 
 const HOJE = '2026-10-11';
 const comLesoes = (lesoes, extra = {}) => ({ id: 'A1', nome: 'Ana', matrizIndividualizacao: { adaptacoes: { lesoes } }, ...extra });

@@ -38,7 +38,7 @@
  * @typedef {{ hoje: string, agora: string }} Relogio
  *   hoje: 'AAAA-MM-DD'; agora: 'HH:MM'
  */
-import { datasDaSemana, chaveDoDia, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=38';
+import { datasDaSemana, chaveDoDia, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=39';
 
 /** O nome do dia da semana, por extenso. */
 export const DIA_EXT = Object.freeze({ seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' });

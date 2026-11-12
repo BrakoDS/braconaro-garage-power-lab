@@ -29,8 +29,8 @@
  * nome, o telefone e o texto saem da ficha NA HORA de mostrar (`visiveis`) —
  * telefone trocado vale na hora, e a fila não vira uma cópia do cadastro.
  */
-import { cobrancasDoMes, msgCobranca, itensDaConta, itensFecham, linhasDosItens } from './financeiro-regras.js?v=38';
-import { MESES_FIN, brl } from './financeiro-aluno.js?v=38';
+import { cobrancasDoMes, msgCobranca, itensDaConta, itensFecham, linhasDosItens } from './financeiro-regras.js?v=39';
+import { MESES_FIN, brl } from './financeiro-aluno.js?v=39';
 
 /**
  * @typedef {'cobranca-vencida'|'cobranca-a-vencer'|'recibo'} Gatilho
@@ -49,6 +49,8 @@ export const GATILHOS = Object.freeze({
   'cobranca-vencida': Object.freeze({ rotulo: 'Cobrança vencida', fonte: 'condicao', grupo: 'Cobranças vencidas' }),
   'cobranca-a-vencer': Object.freeze({ rotulo: 'Lembrete de vencimento', fonte: 'condicao', grupo: 'Lembretes do mês (a vencer)' }),
   'recibo': Object.freeze({ rotulo: 'Recibo de pagamento', fonte: 'acao', grupo: 'Recibos de pagamento' }),
+  // Etapa 7: a mensagem que um agente propôs e o coach aprovou no painel de Aprovações.
+  'agente': Object.freeze({ rotulo: 'Proposta de agente', fonte: 'acao', grupo: 'Propostas dos agentes (aprovadas)' }),
 });
 const ORDEM = /** @type {Gatilho[]} */ (Object.keys(GATILHOS));
 
@@ -115,6 +117,35 @@ export function sugestaoDaAcao(acao, agora) {
     criadaEm: agora,
     dados: { mesId: d.mesId, valor: Number(d.valor), soMensalidade: d.soMensalidade !== false },
   };
+}
+
+/**
+ * A mensagem que um agente propôs e o coach APROVOU (etapa 7): entra na fila,
+ * pronta para enviar, com o texto do agente. A chave é a da proposta: aprovar de
+ * novo não duplica.
+ * @param {{ id: string, alunoId: string, time?: string, dados?: { texto?: string } }} p @param {number} agora
+ * @returns {Sugestao | null}
+ */
+export function sugestaoDaProposta(p, agora) {
+  const texto = String((p && p.dados && p.dados.texto) || '').trim();
+  if (!p || !p.id || !p.alunoId || !texto) return null;
+  return {
+    chave: chaveDe('agente', String(p.alunoId), String(p.id)),
+    gatilho: 'agente',
+    alunoId: String(p.alunoId),
+    criadaEm: agora,
+    dados: { texto, time: String(p.time || ''), propostaId: String(p.id) },
+  };
+}
+
+/**
+ * A fila com uma sugestão a mais (a de uma proposta aprovada). Devolve a MESMA
+ * fila quando a sugestão é nula, já foi feita ou já está esperando.
+ * @param {Fila} fila @param {Sugestao | null} s @returns {Fila}
+ */
+export function comSugestao(fila, s) {
+  if (!s || foiFeita(fila, s.chave) || fila.pendentes.some((x) => x.chave === s.chave)) return fila;
+  return { ...fila, pendentes: [...fila.pendentes, s] };
 }
 
 /* ============================================================
@@ -228,6 +259,8 @@ export function msgReciboDetalhado(a, mesId, valor, itens) {
  */
 export function textoDa(s, a, todos = [a]) {
   const d = s.dados;
+  // A proposta de agente aprovada leva o texto que o coach leu no painel.
+  if (s.gatilho === 'agente') return String(d.texto || '');
   const itens = itensDaConta(a, d.mesId, todos);
   if (s.gatilho === 'cobranca-vencida' || s.gatilho === 'cobranca-a-vencer') return msgCobranca(a, d.mesId, d.valor, d.dias, d.soMensalidade, itens);
   return itens && itensFecham(itens, d.valor) ? msgReciboDetalhado(a, d.mesId, d.valor, itens) : msgRecibo(a, d.mesId, d.valor, d.soMensalidade);
