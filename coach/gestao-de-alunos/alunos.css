@@ -1324,3 +1324,21 @@ button{font-family:inherit}
 .fa-fatura.fa-na-hora{border-left-color:var(--ok)}
 /* O que o formulário de lançamento esconde (avulso × produto, o meio do "pago na hora") some de verdade: o display do .field ganhava do [hidden]. */
 #form-fin [hidden]{display:none!important}
+
+/* Etapa 7: a tela Aprovações (ui-tela-aprovacoes.js). */
+.apr-lista{display:flex;flex-direction:column;gap:12px;margin-bottom:22px}
+.apr-card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--warn);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.apr-hd{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.apr-tipo{font-weight:600}
+.apr-quando{margin-left:auto;color:var(--mut-2);font-size:.82rem}
+.apr-aluno{margin:0}
+.apr-texto{margin:0;padding:8px 10px;border-left:2px solid var(--line-2);background:var(--bg-2);white-space:normal;font-size:.9rem}
+.apr-motivo{margin:0;color:var(--mut);font-size:.9rem}
+.apr-motivo span{color:var(--mut-2)}
+.apr-botoes{display:flex;gap:8px;flex-wrap:wrap}
+.apr-sub{margin:18px 0 6px;font-size:.95rem}
+.apr-decididas,.apr-resumo{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.88rem}
+.apr-log-wrap{overflow-x:auto}
+.apr-log{width:100%;border-collapse:collapse;font-size:.82rem}
+.apr-log th,.apr-log td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.apr-log-erro td{color:var(--bad)}

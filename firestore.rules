@@ -135,7 +135,23 @@ service cloud.firestore {
       // exige um segmento, e a coleção das fichas fica de fora da escrita.
       match /{colecao}/{resto=**} {
         allow read: if ehCoachDono(uid);
-        allow write: if ehCoachDono(uid) && colecao != 'alunos';
+        allow write: if ehCoachDono(uid) && !(colecao in ['alunos', 'propostas', 'agentesLog']);
+      }
+
+      // As funções por time (Fase 1 · etapa 7, decisão 13): as propostas dos
+      // agentes e o log de cada chamada deles. Quem GRAVA é só o servidor
+      // (Admin SDK, functions/src/agentes.ts). A Gestão lê os dois e, na
+      // proposta que ainda espera, só registra a decisão do coach: aprovar ou
+      // recusar, com o motivo. O log ninguém edita nem apaga pelo navegador.
+      match /propostas/{id} {
+        allow read: if ehCoachDono(uid);
+        allow update: if ehCoachDono(uid)
+          && resource.data.situacao == 'proposta'
+          && request.resource.data.situacao in ['aprovada', 'recusada']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'decisao']);
+      }
+      match /agentesLog/{id} {
+        allow read: if ehCoachDono(uid);
       }
     }
 

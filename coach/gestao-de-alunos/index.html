@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./alunos.css?v=22" />
+  <link rel="stylesheet" href="./alunos.css?v=23" />
   <link rel="stylesheet" href="./matriz.css?v=2" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#0a0a0b" />
@@ -60,6 +60,7 @@
             <button class="btn ghost btn-sm" id="btn-leads" data-tela="leads" type="button">Leads</button>
             <button class="btn ghost btn-sm" id="btn-automacao" data-tela="automacao" type="button">Fila de mensagens</button>
             <button class="btn ghost btn-sm" id="btn-registros" data-tela="registros" type="button">Registros</button>
+            <button class="btn ghost btn-sm" id="btn-aprovacoes" data-tela="aprovacoes" type="button">Aprovações</button>
           </div>
           <div class="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -108,6 +109,19 @@
         <div class="fin-head"><span class="eyebrow">Fila de mensagens</span></div>
         <p class="hint" style="margin:6px 0 14px">Mensagens prontas para o WhatsApp, montadas a partir do que acontece no box. Nada sai sozinho: <b>Enviar</b> abre a conversa com o texto, <b>Descartar</b> tira da fila. Enviada ou descartada, a mensagem não volta.</p>
         <div id="auto-list"></div>
+      </div>
+    </section>
+
+    <!-- ----------- TELA: APROVAÇÕES (etapa 7, ui-tela-aprovacoes.js) ----------- -->
+    <section id="tela-aprovacoes" class="screen">
+      <div class="wrap">
+        <div style="margin-bottom:14px"><button class="btn ghost btn-sm" id="apr-voltar" data-tela="lista" type="button">← Voltar para a listagem</button></div>
+        <div class="fin-head"><span class="eyebrow">Aprovações</span></div>
+        <p class="hint" style="margin:6px 0 14px">O que os agentes propuseram. Eles só leem e propõem: nada acontece sem o seu ok. <b>Aprovar</b> executa (a mensagem vai para a Fila, a meta entra na ficha, a baixa abre a janela de pagamento preenchida); <b>Recusar</b> pede o motivo.</p>
+        <div id="apr-lista" class="apr-lista"></div>
+        <h3 class="apr-sub">Chamadas dos agentes</h3>
+        <p class="hint">Quem chamou, o quê, quantos registros e quando. O que foi devolvido não é guardado.</p>
+        <div id="apr-log"></div>
       </div>
     </section>
 
@@ -435,6 +449,6 @@
     </div>
   </div>
 
-  <script type="module" src="./main.js?v=38"></script>
+  <script type="module" src="./main.js?v=39"></script>
 </body>
 </html>

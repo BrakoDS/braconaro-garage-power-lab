@@ -12,9 +12,9 @@
  *     conferir e a lista, aluno por aluno;
  *   - a LINHA de um aluno num mês fechado: pelo retrato, com o pagamento de agora.
  */
-import { brl, rotuloMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=38';
-import { esc } from './util/formato.js?v=38';
-import { estaFechado, podeFechar, faturaFechada } from './fechamento-regras.js?v=38';
+import { brl, rotuloMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=39';
+import { esc } from './util/formato.js?v=39';
+import { estaFechado, podeFechar, faturaFechada } from './fechamento-regras.js?v=39';
 
 /** 'DD/MM' de um instante, no relógio deste aparelho (o do coach). @param {number} ms */
 function ddmmDe(ms) {

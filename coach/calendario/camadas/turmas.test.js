@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { camadaTurmas, VEM } from './turmas.js';
-import { turmasDoDia } from '../../gestao-de-alunos/presenca-regras.js?v=38';
+import { turmasDoDia } from '../../gestao-de-alunos/presenca-regras.js?v=39';
 import { CAMADAS } from './registro.js';
 
 const SEG = '2026-11-02', QUA = '2026-11-04';

@@ -14,8 +14,8 @@ import {
   concederCredito, concederCreditoReposicao, agendarReposicaoNaTurma, reabrirReposicao,
   adicionarExperimental, statusExperimental, removerExperimental, podarExperimentais, resumoDaTurma,
   PRAZO_DESMARCAR_MIN, VALIDADE_CREDITO_DIAS, CAPACIDADE_PADRAO, STATUS,
-} from './presenca-regras.js?v=38';
-import { checkin, trocarDia, desfazer } from './checkin-regras.js?v=38';
+} from './presenca-regras.js?v=39';
+import { checkin, trocarDia, desfazer } from './checkin-regras.js?v=39';
 import { semanaDoAluno, reposicoesPendentes } from '../../compartilhado/regras/semana.js';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08', SEX = '2026-10-09';
@@ -406,7 +406,7 @@ test('sem chamada: reposição passada sem nada gravado é sem chamada; no-show 
 });
 
 test('sem chamada: a chamada ainda grava a falta numa aula sem chamada (não perde o caminho)', async () => {
-  const { faltaDaChamada } = await import('./chamada-faltas.js?v=38');
+  const { faltaDaChamada } = await import('./chamada-faltas.js?v=39');
   const r = faltaDaChamada(ana(), { dia: SEG, hora: '07:00', em: 9, hoje: QUA });
   assert.equal(r.acao, 'falta', JSON.stringify(r));
   const depois = { ...ana(), ...(r.acao === 'falta' ? r.patch : {}) };

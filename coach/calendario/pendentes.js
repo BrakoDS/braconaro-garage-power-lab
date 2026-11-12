@@ -8,8 +8,8 @@
  * aluno já ouviu no app, mesmo com a Gestão fechada, sem gravar nada.
  */
 import { CLOUD_ATIVO, firebaseConfig } from '../../compartilhado/firebase/config.js';
-import { aplicarAvisosNaFicha } from '../gestao-de-alunos/ausencias-merge.js?v=38';
-import { casarCaixasComFichas } from '../gestao-de-alunos/portal-merge.js?v=38';
+import { aplicarAvisosNaFicha } from '../gestao-de-alunos/ausencias-merge.js?v=39';
+import { casarCaixasComFichas } from '../gestao-de-alunos/portal-merge.js?v=39';
 
 /** @typedef {import('./core/camadas.js').Pendente} Pendente */
 /** @typedef {{ avisos: Record<string, any>, reservas: Record<string, any> }} Caixas  id do doc (o e-mail) → data() */

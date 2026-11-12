@@ -63,6 +63,8 @@ export const EVENTOS = Object.freeze({
   AUTOMACAO_MUDOU: 'automacao-mudou',
   /** Os fechamentos do mês mudaram (um mês fechado, reaberto, ou vindo da nuvem). fechamentos-db.js. */
   FECHAMENTOS_MUDARAM: 'fechamentos-mudaram',
+  /** As propostas dos agentes ou o log das chamadas mudaram (etapa 7). propostas-db.js. */
+  PROPOSTAS_MUDARAM: 'propostas-mudaram',
 });
 
 /** @type {Map<string, Set<(dados?: any) => void>>} */

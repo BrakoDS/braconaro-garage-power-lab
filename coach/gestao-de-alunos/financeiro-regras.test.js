@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   darBaixa, desfazerBaixa, erroDaBaixa, lancarConsumo, removerConsumo, mesDoBox, cobrancasDoMes, diasAteVencimento, msgCobranca, PIX,
-} from './financeiro-regras.js?v=38';
+} from './financeiro-regras.js?v=39';
 
 const OUT = '2026-10', SET = '2026-09', NOV = '2026-11';
 const HOJE = '2026-10-07';
@@ -279,7 +279,7 @@ test('puro: nenhuma regra altera o que recebe', () => {
 /* ---------- Etapa 6.1: pausa e investimento na tela Financeiro ---------- */
 
 test('mês do box: o pausado aparece como Pausado e não conta como investimento', async () => {
-  const { mesDoBox: mes } = await import('./financeiro-regras.js?v=38');
+  const { mesDoBox: mes } = await import('./financeiro-regras.js?v=39');
   const pausada = { id: 'P', nome: 'Pat', mensalidade: '130', vencimento: '10', plano: { vezes: 3 }, fundador: true, status: 'pausado', pausas: [{ desde: '2027-01-10' }] };
   const cortesia = { id: 'C', nome: 'Cid', mensalidade: '150', vencimento: '10', plano: { vezes: 4 }, fundador: true, cortesia: { motivo: 'Parceria' } };
   const r = mes([pausada, cortesia], '2027-02', '2027-02-05');

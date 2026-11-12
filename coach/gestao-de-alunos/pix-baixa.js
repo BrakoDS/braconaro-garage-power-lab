@@ -26,8 +26,8 @@
  * A primeira metade é pura (testada em pix-baixa.test.js); `aplicarPixPendentes`
  * recebe o mundo por parâmetro.
  */
-import { darBaixa } from './financeiro-regras.js?v=38';
-import { brl, rotuloMesFin, contaDoMes, diaDoBoxEm } from './financeiro-aluno.js?v=38';
+import { darBaixa } from './financeiro-regras.js?v=39';
+import { brl, rotuloMesFin, contaDoMes, diaDoBoxEm } from './financeiro-aluno.js?v=39';
 
 const cents = (v) => Math.round((Number(v) || 0) * 100);
 

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import {
   FECHAMENTO_DESDE, podeFechar, estaFechado, entraNoRetrato, retratoDoMes, aprovarFechamento, reabrirFechamento,
   faturaFechada, faturaComFechamento, historicoComFechamentos, pagamentosParaLancar, totalDoMesFechado,
-} from './fechamento-regras.js?v=38';
+} from './fechamento-regras.js?v=39';
 import { mesIdParaLancar } from '../../compartilhado/regras/consumo.js';
 
 const OUT = '2026-10', NOV = '2026-11';

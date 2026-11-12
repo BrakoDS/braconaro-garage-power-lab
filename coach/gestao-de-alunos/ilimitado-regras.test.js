@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import {
   avaliarMarcacao, marcar, gravarMarcacao, desmarcarIlimitadoComAviso, noShowIlimitado, reabrirIlimitado, tirarMarcacao,
   aulasNaSemana, previaDesmarcacaoIlimitado, ehIlimitado,
-} from './ilimitado-regras.js?v=38';
-import { turmasDoDia, aulasDoDia } from './presenca-regras.js?v=38';
-import { agendarReposicao } from './checkin-regras.js?v=38';
-import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=38';
+} from './ilimitado-regras.js?v=39';
+import { turmasDoDia, aulasDoDia } from './presenca-regras.js?v=39';
+import { agendarReposicao } from './checkin-regras.js?v=39';
+import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=39';
 import { faltaDaChamada, desfazerFaltaDaChamada } from './chamada-faltas.js';
 
 // Semana de 16/11/2026 (segunda) a 22/11 (domingo).

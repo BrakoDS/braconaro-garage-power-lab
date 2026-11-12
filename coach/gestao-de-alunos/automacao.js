@@ -18,13 +18,13 @@
  * Nada aqui envia mensagem: o envio é o coach tocando "Enviar" na tela
  * (ui-tela-automacao.js), que abre o WhatsApp com o texto pronto.
  */
-import * as db from './db.js?v=38';
-import { hoje } from './util/formato.js?v=38';
-import { estado, on, emit, EVENTOS } from './estado.js?v=38';
+import * as db from './db.js?v=39';
+import { hoje } from './util/formato.js?v=39';
+import { estado, on, emit, EVENTOS } from './estado.js?v=39';
 import {
-  filaVazia, normalizarFila, aoAgir, marcar, podar, visiveis, sugestoesDaVarredura, planoDeSync,
-} from './automacao-regras.js?v=38';
-import { lerFeitas, gravarFeitas, apagarFeitas } from './automacao-nuvem.js?v=38';
+  filaVazia, normalizarFila, aoAgir, marcar, podar, visiveis, sugestoesDaVarredura, planoDeSync, sugestaoDaProposta, comSugestao,
+} from './automacao-regras.js?v=39';
+import { lerFeitas, gravarFeitas, apagarFeitas } from './automacao-nuvem.js?v=39';
 
 const CHAVE = 'braconaro_automacao_v1';
 
@@ -73,6 +73,15 @@ export function marcarMensagem(chave, status) {
   const uid = estado.uid;
   if (uid) deps.nuvem.gravar(uid, { [chave]: fila.feitas[chave] }).catch(avisarFalha);
   return true;
+}
+
+/**
+ * Põe na fila a mensagem de uma proposta de agente que o coach aprovou (etapa 7).
+ * false: não havia texto, ou a mesma proposta já estava na fila ou foi enviada.
+ * @param {{ id: string, alunoId: string, time?: string, dados?: { texto?: string } }} proposta
+ */
+export function adicionarMensagemDoAgente(proposta) {
+  return trocar(comSugestao(fila, sugestaoDaProposta(proposta, deps.agora())));
 }
 
 /**

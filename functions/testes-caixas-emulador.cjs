@@ -93,6 +93,33 @@ async function regras() {
     await assertSucceeds(fs.setDoc(fs.doc(coach, `gestao/${COACH}`), { schema: 2, seq: 2 }, { mergeFields: ['seq', 'schema'] }));
   });
 
+  // Etapa 7: as propostas dos agentes e o log das chamadas — só o servidor grava.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await fs.setDoc(fs.doc(db, `gestao/${COACH}/propostas/p1`), { id: 'p1', time: 'alunos', tipo: 'meta', situacao: 'proposta', em: 1 });
+    await fs.setDoc(fs.doc(db, `gestao/${COACH}/propostas/p2`), { id: 'p2', time: 'alunos', tipo: 'mensagem', situacao: 'aprovada', em: 1 });
+    await fs.setDoc(fs.doc(db, `gestao/${COACH}/agentesLog/l1`), { time: 'alunos', funcao: 'consultar', ok: true, em: 1 });
+  });
+
+  await caso('propostas e log dos agentes: o coach lê; criar, apagar ou mexer no log é recusado', async () => {
+    await assertSucceeds(fs.getDocs(fs.collection(coach, `gestao/${COACH}/propostas`)));
+    await assertSucceeds(fs.getDocs(fs.collection(coach, `gestao/${COACH}/agentesLog`)));
+    await assertFails(fs.setDoc(fs.doc(coach, `gestao/${COACH}/propostas/nova`), { situacao: 'proposta' }));
+    await assertFails(fs.deleteDoc(fs.doc(coach, `gestao/${COACH}/propostas/p1`)));
+    await assertFails(fs.setDoc(fs.doc(coach, `gestao/${COACH}/agentesLog/l2`), { time: 'alunos' }));
+    await assertFails(fs.updateDoc(fs.doc(coach, `gestao/${COACH}/agentesLog/l1`), { ok: false }));
+    await assertFails(fs.deleteDoc(fs.doc(coach, `gestao/${COACH}/agentesLog/l1`)));
+  });
+
+  await caso('a decisão do coach: só situação e decisão, só na proposta que espera', async () => {
+    await assertFails(fs.updateDoc(fs.doc(coach, `gestao/${COACH}/propostas/p1`), { situacao: 'aprovada', tipo: 'baixa' }));
+    await assertFails(fs.updateDoc(fs.doc(coach, `gestao/${COACH}/propostas/p1`), { situacao: 'executada' }));
+    await assertSucceeds(fs.updateDoc(fs.doc(coach, `gestao/${COACH}/propostas/p1`), { situacao: 'recusada', decisao: { por: 'coach', em: 2, motivo: 'não agora' } }));
+    await assertFails(fs.updateDoc(fs.doc(coach, `gestao/${COACH}/propostas/p2`), { situacao: 'recusada', decisao: { por: 'coach', em: 2 } }));
+    await assertFails(fs.getDoc(fs.doc(aluno, `gestao/${COACH}/propostas/p1`)));
+    await assertFails(fs.getDoc(fs.doc(aluno, `gestao/${COACH}/agentesLog/l1`)));
+  });
+
   await caso('aluno (ou outra conta) não lê nem grava ficha, avaliação ou interruptor', async () => {
     await assertFails(fs.getDoc(fs.doc(aluno, ficha)));
     await assertFails(fs.getDoc(fs.doc(aluno, `${ficha}/avaliacoes/1`)));
