@@ -10,20 +10,26 @@ const camada = (/** @type {any[]} */ itens) => ({ id: 'turmas', nome: 'Turmas', 
 const ctx = /** @type {any} */ ({ fichas: [], meta: {}, fechados: ['2026-11-06'], pendentes: {}, hoje: '2026-11-04', agora: '08:40' });
 const grade = () => ['06:00', '18:10'];
 
-test('semana: seg a sáb (domingo sem turma sai), totais, hoje e fechado', () => {
-  const m = montarModelo({ camadas: [camada([turma('2026-11-02', '06:00', 4), turma('2026-11-02', '18:10', 6), turma('2026-11-04', '06:00', 2)])], ctx, visao: 'semana', ancora: '2026-11-04', ligadas: new Set(['turmas']), gradeDoDia: grade });
-  assert.deepEqual(m.dias.map((d) => d.rotulo), ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']);
+test('semana: os 7 dias; domingo (grade vazia, sem turma) fica "sem aula"', () => {
+  const grade7 = (/** @type {string} */ iso) => (iso === '2026-11-08' ? [] : ['06:00', '18:10']);
+  const m = montarModelo({ camadas: [camada([turma('2026-11-02', '06:00', 4), turma('2026-11-02', '18:10', 6), turma('2026-11-04', '06:00', 2)])], ctx, visao: 'semana', ancora: '2026-11-04', ligadas: new Set(['turmas']), gradeDoDia: grade7 });
+  assert.deepEqual(m.dias.map((d) => d.rotulo), ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']);
   assert.equal(m.dias[0].total, 10);
   assert.equal(m.dias[2].hoje, true);
   assert.equal(m.dias[4].fechado, true);
+  assert.equal(m.dias[6].rotulo, 'Dom');
+  assert.equal(m.dias[6].semAula, true, 'domingo: sem grade e sem turma');
+  assert.equal(m.dias[0].semAula, false, 'dia com grade não é sem-aula');
+  assert.equal(m.dias[4].semAula, false, 'feriado fechado não é "sem aula"');
   assert.equal(m.rotulo, '2 – 7 NOV 2026');
   assert.deepEqual(m.horas, [{ hora: '06:00', foraDaGrade: false }, { hora: '18:10', foraDaGrade: false }]);
   assert.equal(m.semanas, null);
 });
 
-test('semana: domingo com turma aparece; hora fora da grade e "sem horário" por último', () => {
+test('semana: domingo com turma aparece e NÃO é "sem aula"; hora fora da grade e "sem horário" por último', () => {
   const m = montarModelo({ camadas: [camada([turma('2026-11-08', '08:00', 1), turma('2026-11-02', '18:00', 1), turma('2026-11-02', '', 1)])], ctx, visao: 'semana', ancora: '2026-11-04', ligadas: new Set(['turmas']), gradeDoDia: grade });
   assert.equal(m.dias.at(-1)?.rotulo, 'Dom');
+  assert.equal(m.dias.at(-1)?.semAula, false, 'domingo com turma não é sem-aula');
   assert.deepEqual(m.horas.map((h) => [h.hora, h.foraDaGrade]), [['08:00', true], ['18:00', true], ['', true]]);
 });
 
