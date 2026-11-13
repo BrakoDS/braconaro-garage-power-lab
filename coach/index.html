@@ -49,20 +49,6 @@
 
       <h2 class="apps-titulo">Suas ferramentas</h2>
       <div class="apps">
-        <!-- App ativo: Montador de treino -->
-        <a class="app-card" href="./montador-de-treino/index.html">
-          <span class="app-ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6.5 6.5 17.5 17.5"/><path d="M21 21l-1-1"/><path d="M3 3l1 1"/>
-              <rect x="2.5" y="7.5" width="4" height="9" rx="1" transform="rotate(-45 4.5 12)"/>
-              <rect x="17.5" y="7.5" width="4" height="9" rx="1" transform="rotate(-45 19.5 12)"/>
-            </svg>
-          </span>
-          <span class="app-name">Montador de treino</span>
-          <span class="app-desc">Gera o programa da semana, mesociclos, histórico e gerencia alunos.</span>
-          <span class="app-go">Abrir →</span>
-        </a>
-
         <!-- App ativo: Gestão de Alunos -->
         <a class="app-card" href="./gestao-de-alunos/index.html">
           <span class="app-ic" aria-hidden="true">
@@ -158,36 +144,6 @@
           <span class="app-go">Abrir →</span>
         </a>
 
-        <!-- Montador individual: em teste ao lado do montador atual, até o coach desativar o antigo -->
-        <a class="app-card" href="./montador-individual/index.html">
-          <span class="tag">Em teste</span>
-          <span class="app-ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 6h10M4 12h16M4 18h7"/>
-              <circle cx="18" cy="6" r="2"/>
-              <circle cx="14" cy="18" r="2"/>
-            </svg>
-          </span>
-          <span class="app-name">Montador Individual</span>
-          <span class="app-desc">O treino da aula montado por você, por dia, com o volume por grupo. A versão de cada aluno vem depois.</span>
-          <span class="app-go">Abrir →</span>
-        </a>
-
-        <!-- Montador Híbrido: lousa do coach + dashboard de volume. Em teste ao lado dos outros dois montadores. -->
-        <a class="app-card" href="./montador-hibrido/index.html">
-          <span class="tag">Em teste</span>
-          <span class="app-ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2.5" y="4" width="19" height="13" rx="1.5"/>
-              <path d="M8 21h8"/><path d="M12 17v4"/>
-              <path d="M6.5 12.5c1.5-3 3-3 4.5 0s3 3 4.5 0"/>
-            </svg>
-          </span>
-          <span class="app-name">Montador Híbrido</span>
-          <span class="app-desc">Escreva e desenhe o treino na lousa, a IA estrutura, o motor avisa o que está repetindo e a turma recebe a ficha ajustada.</span>
-          <span class="app-go">Abrir →</span>
-        </a>
-
         <!-- Semana do Box: a matriz semanal gerada no servidor (gerarMatrizSemanalBox). Em teste. -->
         <a class="app-card" href="./semana-do-box/index.html">
           <span class="tag">Em teste</span>
@@ -217,6 +173,53 @@
           <span class="app-go">Abrir →</span>
         </a>
       </div>
+
+      <!-- Ferramentas que o coach não está usando agora: recolhidas para não ocupar
+           espaço. Um clique abre; voltar ao grid é mover o card de volta para cima. -->
+      <details class="apps-arq">
+        <summary>Ferramentas arquivadas <span class="apps-arq-n">3</span></summary>
+        <p class="apps-arq-sub">Guardadas para não ocupar espaço — os montadores que você não está usando agora. Elas continuam funcionando; é só abrir.</p>
+        <div class="apps">
+          <a class="app-card" href="./montador-de-treino/index.html">
+            <span class="app-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6.5 6.5 17.5 17.5"/><path d="M21 21l-1-1"/><path d="M3 3l1 1"/>
+                <rect x="2.5" y="7.5" width="4" height="9" rx="1" transform="rotate(-45 4.5 12)"/>
+                <rect x="17.5" y="7.5" width="4" height="9" rx="1" transform="rotate(-45 19.5 12)"/>
+              </svg>
+            </span>
+            <span class="app-name">Montador de treino</span>
+            <span class="app-desc">Gera o programa da semana, mesociclos, histórico e gerencia alunos.</span>
+            <span class="app-go">Abrir →</span>
+          </a>
+
+          <a class="app-card" href="./montador-individual/index.html">
+            <span class="app-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 6h10M4 12h16M4 18h7"/>
+                <circle cx="18" cy="6" r="2"/>
+                <circle cx="14" cy="18" r="2"/>
+              </svg>
+            </span>
+            <span class="app-name">Montador Individual</span>
+            <span class="app-desc">O treino da aula montado por você, por dia, com o volume por grupo. A versão de cada aluno vem depois.</span>
+            <span class="app-go">Abrir →</span>
+          </a>
+
+          <a class="app-card" href="./montador-hibrido/index.html">
+            <span class="app-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2.5" y="4" width="19" height="13" rx="1.5"/>
+                <path d="M8 21h8"/><path d="M12 17v4"/>
+                <path d="M6.5 12.5c1.5-3 3-3 4.5 0s3 3 4.5 0"/>
+              </svg>
+            </span>
+            <span class="app-name">Montador Híbrido</span>
+            <span class="app-desc">Escreva e desenhe o treino na lousa, a IA estrutura, o motor avisa o que está repetindo e a turma recebe a ficha ajustada.</span>
+            <span class="app-go">Abrir →</span>
+          </a>
+        </div>
+      </details>
 
       <a class="hub-back" href="../index.html">← Voltar ao site</a>
     </main>
