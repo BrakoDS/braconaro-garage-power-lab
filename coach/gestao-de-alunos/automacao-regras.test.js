@@ -15,10 +15,10 @@ import {
   GATILHOS, PRAZO_PENDENTE, GUARDA_FEITAS, chaveDe, filaVazia, foiFeita,
   sugestaoDaAcao, aoAgir, marcar, podar, normalizarFila,
   msgRecibo, textoDa, visiveis, mesclarFeitas, planoDeSync,
-} from './automacao-regras.js?v=40';
-import { darBaixa, desfazerBaixa, msgCobranca, cobrancasDoMes, itensFecham } from './financeiro-regras.js?v=40';
-import { brl } from './financeiro-aluno.js?v=40';
-import { itensDoDia, sugestoesDaRotina } from './rotinas-regras.js?v=40';
+} from './automacao-regras.js?v=41';
+import { darBaixa, desfazerBaixa, msgCobranca, cobrancasDoMes, itensFecham } from './financeiro-regras.js?v=41';
+import { brl } from './financeiro-aluno.js?v=41';
+import { itensDoDia, sugestoesDaRotina } from './rotinas-regras.js?v=41';
 
 const NB = (s) => s.replace(/ /g, ' ');
 const DIA = 86400000;

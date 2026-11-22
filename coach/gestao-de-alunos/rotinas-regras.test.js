@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {
   itensDoDia, itemDaRegua, diaDoMeio, itemDeFalta, creditosVencendo, sugestoesDaRotina, avisosDaRotina, textoDoItem,
   ultimoDiaDoMes, somarDias,
-} from './rotinas-regras.js?v=40';
+} from './rotinas-regras.js?v=41';
 
 /** O `brl` separa "R$" do número com espaço sem quebra (U+00A0): os textos comparam com espaço comum. */
 const NB = (/** @type {string} */ s) => s.replace(/ /g, ' ');

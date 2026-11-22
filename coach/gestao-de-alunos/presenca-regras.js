@@ -10,12 +10,12 @@
  * AS REGRAS DO BOX
  *   1. Quem tem grade fixa (`diasTreino` + `horarios`) está na turma do seu
  *      horário automaticamente — a turma é calculada, não cadastrada.
- *   2. Desmarcou com PRAZO_DESMARCAR_MIN (2h) ou mais de antecedência: a vaga
+ *   2. Desmarcou com PRAZO_DESMARCAR_MIN (1h) ou mais de antecedência: a vaga
  *      fica livre e ele ganha +1 crédito de reposição, que vale até o fim
  *      do mês, com no mínimo 7 dias (validadeDoCredito).
- *   3. Desmarcou com menos de 2h, ou não veio (no-show): falta, sem crédito.
+ *   3. Desmarcou com menos de 1h, ou não veio (no-show): falta, sem crédito.
  *      O coach pode abrir uma exceção e conceder o crédito mesmo assim.
- *   4. Reposição só se agenda até ANTECEDENCIA_REPOSICAO_MIN (1h) antes do
+ *   4. Reposição só se agenda até ANTECEDENCIA_REPOSICAO_MIN (30 min) antes do
  *      treino, numa turma com vaga, e dentro da validade do crédito.
  *
  * ONDE MORA NA FICHA
@@ -51,7 +51,7 @@
  *   cpf: o código embaralhado do CPF (avulsos-regras.js), nunca o número; alunoId: virou aluno.
  */
 import { datasDaSemana, chaveDoDia, validadeDoCredito, fimDoMesSeguinte } from '../../compartilhado/regras/semana.js?v=40';
-import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=40';
+import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from './checkin-regras.js?v=41';
 
 /**
  * O mesmo `creditoVencido` do semana.js, de propósito aqui. O semana.js é importado
@@ -63,9 +63,9 @@ import { diaEfetivo, outraAulaUsa, agendarReposicao, desmarcarReposicao } from '
 const creditoVencido = (credito, hojeIso) => !!(credito && credito.expira && credito.expira < hojeIso);
 
 /** Antecedência mínima para desmarcar e ganhar o crédito, em minutos. */
-export const PRAZO_DESMARCAR_MIN = 120;
+export const PRAZO_DESMARCAR_MIN = 60;
 /** Até quantos minutos antes da aula uma reposição pode ser agendada. */
-export const ANTECEDENCIA_REPOSICAO_MIN = 60;
+export const ANTECEDENCIA_REPOSICAO_MIN = 30;
 /** Por quantos dias o crédito de reposição vale, contando do dia em que nasceu. */
 export const VALIDADE_CREDITO_DIAS = 30;
 /** Vagas de uma turma quando o coach não definiu outra. */
@@ -345,8 +345,8 @@ export function previaDesmarcacao(a, diaPlanejado, aviso) {
  * DESMARCAR — o titular avisou que não vem. O prazo conta da hora em que ele
  * AVISOU (`aviso`), não da hora em que o coach lançou: a mensagem das 5h lida
  * às 8h continua no prazo de uma aula das 9h.
- *   ≥ 2h: a vaga fica livre e nasce o crédito (vale até o fim do mês do aviso);
- *   < 2h: falta, sem crédito.
+ *   ≥ 1h: a vaga fica livre e nasce o crédito (vale até o fim do mês do aviso);
+ *   < 1h: falta, sem crédito.
  * @param {any} a @param {string} diaPlanejado
  * @param {{ aviso: Relogio, em: number }} o em: o instante do lançamento
  * @returns {Mudanca | Recusa}
@@ -379,7 +379,7 @@ export function desmarcar(a, diaPlanejado, { aviso, em }) {
 }
 
 /**
- * DESMARCAR A REPOSIÇÃO — a mesma régua de 2h. No prazo, o crédito volta para
+ * DESMARCAR A REPOSIÇÃO — a mesma régua de 1h. No prazo, o crédito volta para
  * a fila (com a validade que já tinha); fora do prazo, a reposição vira falta
  * e o crédito foi gasto.
  * @param {any} a @param {string} origem a aula que gerou o crédito
@@ -494,7 +494,7 @@ export function agendarReposicaoNaTurma(a, origem, { data, hora }, { relogio, va
   if (v.expira && data > v.expira) return recusa(a, origem, `O crédito vale até ${ddmm(v.expira)}`);
   const ant = antecedenciaMin(relogio, data, hora);
   if (ant == null) return recusa(a, origem, 'Escolha uma turma com horário');
-  if (ant < ANTECEDENCIA_REPOSICAO_MIN) return recusa(a, origem, 'Reposição só pode ser marcada até 1h antes da aula');
+  if (ant < ANTECEDENCIA_REPOSICAO_MIN) return recusa(a, origem, 'Reposição só pode ser marcada até 30 min antes da aula');
   if (vagas <= 0) return recusa(a, origem, 'Turma lotada');
   return agendarReposicao(a, origem, data, hora);
 }

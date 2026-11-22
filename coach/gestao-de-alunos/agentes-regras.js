@@ -17,12 +17,12 @@
  *    do servidor confere campo a campo, em fichas sorteadas);
  *  - o Time de Alunos vê do financeiro só "em atraso: sim/não".
  */
-import { faturaComFechamento, historicoComFechamentos } from './fechamento-regras.js?v=40';
-import { creditosDisponiveis } from './presenca-regras.js?v=40';
-import { avulsosDoMes } from './avulsos-regras.js?v=40';
-import { brl, rotuloMesFin } from './financeiro-aluno.js?v=40';
-import { metasCorporaisDe } from './metas-grupo.js?v=40';
-import { META_TIPOS } from '../../compartilhado/regras/calc.js?v=40';
+import { faturaComFechamento, historicoComFechamentos } from './fechamento-regras.js?v=41';
+import { creditosDisponiveis } from './presenca-regras.js?v=41';
+import { avulsosDoMes } from './avulsos-regras.js?v=41';
+import { brl, rotuloMesFin } from './financeiro-aluno.js?v=41';
+import { metasCorporaisDe } from './metas-grupo.js?v=41';
+import { META_TIPOS } from '../../compartilhado/regras/calc.js?v=41';
 import { estaPausado } from '../../compartilhado/regras/planos.js';
 import { qtdDoConsumo } from '../../compartilhado/regras/consumo.js';
 

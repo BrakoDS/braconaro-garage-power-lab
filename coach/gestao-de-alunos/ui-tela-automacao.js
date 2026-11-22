@@ -16,16 +16,16 @@
  * aberta — a baixa numa outra tela tira a cobrança daqui. O selo do botão é
  * refeito nos mesmos momentos, com a tela aberta ou não.
  */
-import * as db from './db.js?v=40';
-import { brl, rotuloMesFin } from './financeiro-aluno.js?v=40';
-import { GATILHOS } from './automacao-regras.js?v=40';
-import { rotuloDoTime } from './agentes-regras.js?v=40';
-import { mensagens, marcarMensagem, avisos } from './automacao.js?v=40';
-import { esc, waMsg } from './util/formato.js?v=40';
-import { $ } from './util/dom.js?v=40';
-import { on, EVENTOS } from './estado.js?v=40';
-import { reg } from './registro.js?v=40';
-import { telaAtual } from './navegacao.js?v=40';
+import * as db from './db.js?v=41';
+import { brl, rotuloMesFin } from './financeiro-aluno.js?v=41';
+import { GATILHOS } from './automacao-regras.js?v=41';
+import { rotuloDoTime } from './agentes-regras.js?v=41';
+import { mensagens, marcarMensagem, avisos } from './automacao.js?v=41';
+import { esc, waMsg } from './util/formato.js?v=41';
+import { $ } from './util/dom.js?v=41';
+import { on, EVENTOS } from './estado.js?v=41';
+import { reg } from './registro.js?v=41';
+import { telaAtual } from './navegacao.js?v=41';
 
 /** @type {{ abrir: (url: string) => void }} */
 let deps = { abrir: (url) => { window.open(url, '_blank', 'noopener'); } };

@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import {
   avaliarMarcacao, marcar, gravarMarcacao, desmarcarIlimitadoComAviso, noShowIlimitado, reabrirIlimitado, tirarMarcacao,
   aulasNaSemana, previaDesmarcacaoIlimitado, ehIlimitado,
-} from './ilimitado-regras.js?v=40';
-import { turmasDoDia, aulasDoDia } from './presenca-regras.js?v=40';
-import { agendarReposicao } from './checkin-regras.js?v=40';
-import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=40';
+} from './ilimitado-regras.js?v=41';
+import { turmasDoDia, aulasDoDia } from './presenca-regras.js?v=41';
+import { agendarReposicao } from './checkin-regras.js?v=41';
+import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=41';
 import { faltaDaChamada, desfazerFaltaDaChamada } from './chamada-faltas.js';
 
 // Semana de 16/11/2026 (segunda) a 22/11 (domingo).
@@ -23,13 +23,13 @@ test('só o Ilimitado marca; pausado não', () => {
   assert.match(/** @type {any} */ (avaliarMarcacao({ ...ilim, status: 'pausado' }, { data: TER, hora: '18:10' }, { relogio, vagas: 3 })).erro, /pausado/);
 });
 
-test('janela de 7 dias, 1h antes, turma com vaga', () => {
+test('janela de 7 dias, 30 min antes, turma com vaga', () => {
   assert.deepEqual(avaliarMarcacao(ilim, { data: TER, hora: '18:10' }, { relogio, vagas: 1 }), { ok: true, antecedenciaMin: 2050 });
   assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: '2026-11-15', hora: '18:10' }, { relogio, vagas: 1 })).erro, /próximos 7 dias/);
   assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: '2026-11-23', hora: '18:10' }, { relogio, vagas: 1 })).erro, /próximos 7 dias/);
   assert.equal('ok' in avaliarMarcacao(ilim, { data: '2026-11-22', hora: '09:00' }, { relogio, vagas: 1 }), true, 'o 7º dia (contando hoje) ainda vale');
-  assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: SEG, hora: '08:30' }, { relogio, vagas: 1 })).erro, /até 1h antes/);
-  assert.equal('ok' in avaliarMarcacao(ilim, { data: SEG, hora: '09:00' }, { relogio, vagas: 1 }), true, 'exatamente 1h antes vale');
+  assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: SEG, hora: '08:29' }, { relogio, vagas: 1 })).erro, /até 30 min antes/);
+  assert.equal('ok' in avaliarMarcacao(ilim, { data: SEG, hora: '08:30' }, { relogio, vagas: 1 }), true, 'exatamente 30 min antes vale');
   assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: TER, hora: '18:10' }, { relogio, vagas: 0 })).erro, /lotada/);
   assert.match(/** @type {any} */ (avaliarMarcacao(ilim, { data: TER, hora: '' }, { relogio, vagas: 1 })).erro, /horário/);
 });
@@ -68,13 +68,13 @@ test('na turma: a aula marcada entra como Ilimitado e ocupa vaga', () => {
   assert.equal(aulasDoDia([a], TER, { hoje: QUA })[0].status, 'sem-chamada');
 });
 
-test('desmarcar: com 2h ou mais a vaga fica livre; com menos, falta', () => {
+test('desmarcar: com 1h ou mais a vaga fica livre; com menos, falta', () => {
   const a = { ...ilim, marcacoes: { [TER]: { hora: '18:10', em: 1 } } };
-  assert.deepEqual(previaDesmarcacaoIlimitado(a, TER, { hoje: TER, agora: '16:10' }), { noPrazo: true, antecedenciaMin: 120 });
-  const noPrazo = /** @type {any} */ (desmarcarIlimitadoComAviso(a, TER, { aviso: { hoje: TER, agora: '16:10' }, em: 5 }));
+  assert.deepEqual(previaDesmarcacaoIlimitado(a, TER, { hoje: TER, agora: '17:10' }), { noPrazo: true, antecedenciaMin: 60 });
+  const noPrazo = /** @type {any} */ (desmarcarIlimitadoComAviso(a, TER, { aviso: { hoje: TER, agora: '17:10' }, em: 5 }));
   assert.deepEqual(noPrazo.patch.marcacoes, {});
   assert.match(noPrazo.log.resumo, /no prazo/);
-  const fora = /** @type {any} */ (desmarcarIlimitadoComAviso(a, TER, { aviso: { hoje: TER, agora: '16:30' }, em: 5 }));
+  const fora = /** @type {any} */ (desmarcarIlimitadoComAviso(a, TER, { aviso: { hoje: TER, agora: '17:30' }, em: 5 }));
   assert.equal(fora.patch.marcacoes[TER].foraDoPrazo, true);
   assert.equal(fora.log.tipo, 'falta');
   const comFalta = comPatch(a, fora);

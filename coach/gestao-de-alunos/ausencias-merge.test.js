@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=40';
+import { aplicarAvisosNaFicha } from './ausencias-merge.js?v=41';
 
 const QUA = '2026-10-07', SEX = '2026-10-09', QUI = '2026-10-08';
 const ana = (extra = {}) => ({
@@ -28,7 +28,7 @@ test('aviso no prazo vira crédito até o fim do mês do AVISO, mesmo aplicado d
 });
 
 test('aviso fora do prazo vira falta sem crédito', () => {
-  const r = aplicarAvisosNaFicha(ana(), { [`titular|${QUA}`]: aviso('titular', QUA, QUA, '06:00', 10) });
+  const r = aplicarAvisosNaFicha(ana(), { [`titular|${QUA}`]: aviso('titular', QUA, QUA, '06:30', 10) });
   assert.equal(r.patch.faltas[QUA].tipo, 'fora-do-prazo');
   assert.deepEqual(r.patch.atestados, {});
 });
@@ -54,7 +54,7 @@ test('reposição: no prazo o crédito volta para a fila; fora do prazo é perdi
   const comRep = ana({ atestados: { '2026-09-28': { em: 1, tipo: 'desmarcacao', expira: '2026-10-28', reposicao: { data: QUI, hora: '18:00' } } } });
   const noPrazo = aplicarAvisosNaFicha(comRep, { 'reposicao|2026-09-28': aviso('reposicao', '2026-09-28', QUI, '15:00', 1) });
   assert.equal(noPrazo.patch.atestados['2026-09-28'].reposicao, null);
-  const fora = aplicarAvisosNaFicha(comRep, { 'reposicao|2026-09-28': aviso('reposicao', '2026-09-28', QUI, '17:00', 1) });
+  const fora = aplicarAvisosNaFicha(comRep, { 'reposicao|2026-09-28': aviso('reposicao', '2026-09-28', QUI, '17:30', 1) });
   assert.equal(fora.patch.atestados['2026-09-28'].reposicao.foraDoPrazo, true);
 });
 
@@ -79,7 +79,7 @@ test('reserva com o crédito de um "Não irei" ainda não aplicado: o aviso entr
 
 test('reserva e depois "Não irei" fora do prazo nela: a reserva entra e a reposição vira falta', () => {
   const a = ana({ atestados: { '2026-09-28': { em: 1, tipo: 'desmarcacao', expira: '2026-10-28', reposicao: null } } });
-  const r = aplicarAvisosNaFicha(a, { 'reposicao|2026-09-28': aviso('reposicao', '2026-09-28', QUI, '17:00', 30) }, { '2026-09-28': reserva(QUI, '18:00', 20) });
+  const r = aplicarAvisosNaFicha(a, { 'reposicao|2026-09-28': aviso('reposicao', '2026-09-28', QUI, '17:30', 30) }, { '2026-09-28': reserva(QUI, '18:00', 20) });
   assert.equal(r.patch.atestados['2026-09-28'].reposicao.data, QUI);
   assert.equal(r.patch.atestados['2026-09-28'].reposicao.foraDoPrazo, true);
 });

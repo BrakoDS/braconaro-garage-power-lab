@@ -14,19 +14,19 @@
  * Quando desenha: ao abrir a tela ('abrir-tela' → 'financeiro'), que sempre
  * volta para o mês atual, e a cada ação ou troca de mês.
  */
-import * as db from './db.js?v=40';
+import * as db from './db.js?v=41';
 import { mesIdParaLancar, consumosDoMes } from '../../compartilhado/regras/consumo.js';
-import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=40';
-import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=40';
-import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=40';
-import { esc, hoje, fmtDataCurta } from './util/formato.js?v=40';
-import { $, $$ } from './util/dom.js?v=40';
-import { estado, on, EVENTOS } from './estado.js?v=40';
-import { regFinanceiro, regDoBox } from './registro.js?v=40';
-import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=40';
-import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=40';
-import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados, htmlAvulsosEDevolucoes } from './fechamento-html.js?v=40';
-import { avulsosDoMes, devolucoesDoMes, comprasNaHoraDoMes } from './avulsos-regras.js?v=40';
+import { brl, numMoney, mesIdAtual, rotuloMesFin, addMesFin, textoDoRecebimento } from './financeiro-aluno.js?v=41';
+import { mesDoBox, desfazerBaixa, lancarConsumo, removerConsumo } from './financeiro-regras.js?v=41';
+import { abrirPagamento, pedirMotivoDoDesfazerPagamento } from './ui-tab-financeiro.js?v=41';
+import { esc, hoje, fmtDataCurta } from './util/formato.js?v=41';
+import { $, $$ } from './util/dom.js?v=41';
+import { estado, on, EVENTOS } from './estado.js?v=41';
+import { regFinanceiro, regDoBox } from './registro.js?v=41';
+import { painel, avisar } from '../../compartilhado/ui/dialogo.js?v=41';
+import { estaFechado, retratoDoMes, aprovarFechamento, reabrirFechamento } from './fechamento-regras.js?v=41';
+import { htmlBarraFechamento, htmlRetrato, linhaFechadaHTML, htmlTotaisFechados, htmlAvulsosEDevolucoes } from './fechamento-html.js?v=41';
+import { avulsosDoMes, devolucoesDoMes, comprasNaHoraDoMes } from './avulsos-regras.js?v=41';
 
 /** O Day Pass pago e as devoluções de contrato de um mês (etapa 6.2). @param {string} mes */
 // Etapa 6.4: as vendas a visitantes entram nos avulsos, e as compras pagas na hora pelos alunos são `naHora`.
@@ -34,7 +34,7 @@ const extrasDoMes = (mes) => ({
   avulsos: avulsosDoMes(db.experimentaisDoBox(), mes, db.vendasAvulsas()), devolucoes: devolucoesDoMes(db.listar(), mes),
   naHora: comprasNaHoraDoMes(db.listar(), mes),
 });
-import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=40';
+import { fechamentoDe, gravarFechamento } from './fechamentos-db.js?v=41';
 
 let finMes = mesIdAtual();
 /** Qual aluno está com o balcão de consumíveis aberto na tela. */

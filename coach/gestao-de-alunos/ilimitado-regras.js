@@ -8,12 +8,12 @@
  *
  * AS REGRAS
  *   - Só a ficha com o plano Ilimitado marca; pausado não marca.
- *   - De hoje até 7 dias à frente, até 1h antes da aula.
+ *   - De hoje até 7 dias à frente, até 30 min antes da aula.
  *   - Uma aula por dia (marcada, de grade fixa ou de reposição) e no máximo 6
  *     na semana (a falta não conta).
  *   - A turma precisa ter vaga: a grade fixa é garantida, o Ilimitado só pega o
  *     que sobra ou o que o "Não irei" liberou (a vaga é conferida por quem chama).
- *   - Desmarcar: com 2h ou mais, a vaga só fica livre; com menos, é falta.
+ *   - Desmarcar: com 1h ou mais, a vaga só fica livre; com menos, é falta.
  *     O no-show também é só falta (não há crédito a perder).
  *
  * ONDE MORA NA FICHA
@@ -21,8 +21,8 @@
  *
  * @typedef {import('./checkin-regras.js').Relogio} Relogio
  */
-import { antecedenciaMin, somarDias, textoAntecedencia, PRAZO_DESMARCAR_MIN } from './presenca-regras.js?v=40';
-import { donoDoDia, outraAulaUsa, diasReivindicados, chaveIlimitado } from './checkin-regras.js?v=40';
+import { antecedenciaMin, somarDias, textoAntecedencia, PRAZO_DESMARCAR_MIN } from './presenca-regras.js?v=41';
+import { donoDoDia, outraAulaUsa, diasReivindicados, chaveIlimitado } from './checkin-regras.js?v=41';
 import { datasDaSemana } from '../../compartilhado/regras/semana.js?v=40';
 import { estaPausado } from '../../compartilhado/regras/planos.js';
 
@@ -31,7 +31,7 @@ export const JANELA_MARCACAO_DIAS = 7;
 /** No máximo quantas aulas na semana (1 por dia, seg a sáb). */
 export const LIMITE_SEMANA_ILIMITADO = 6;
 /** Até quantos minutos antes da aula dá para marcar. */
-export const ANTECEDENCIA_MARCACAO_MIN = 60;
+export const ANTECEDENCIA_MARCACAO_MIN = 30;
 
 /** O plano da ficha é o Ilimitado? @param {any} a */
 export const ehIlimitado = (a) => !!a && !!a.plano && a.plano.vezes === 'ilimitado';
@@ -76,7 +76,7 @@ export function avaliarMarcacao(a, { data, hora }, { relogio, vagas }) {
   if (data < relogio.hoje || data > somarDias(relogio.hoje, JANELA_MARCACAO_DIAS - 1)) return { erro: `Dá para marcar só nas aulas dos próximos ${JANELA_MARCACAO_DIAS} dias.` };
   const ant = antecedenciaMin(relogio, data, hora);
   if (ant == null) return { erro: 'Escolha uma turma com horário.' };
-  if (ant < ANTECEDENCIA_MARCACAO_MIN) return { erro: 'A aula só pode ser marcada até 1h antes.' };
+  if (ant < ANTECEDENCIA_MARCACAO_MIN) return { erro: 'A aula só pode ser marcada até 30 min antes.' };
   if ((a.marcacoes || {})[data]) return { erro: `Já há uma aula marcada em ${ddmm(data)}.` };
   if (donoDoDia(a, chaveIlimitado(data), data)) return { erro: `Já há uma aula em ${ddmm(data)} (uma por dia).` };
   if (aulasNaSemana(a, data) >= LIMITE_SEMANA_ILIMITADO) return { erro: `A semana de ${ddmm(data)} já tem ${LIMITE_SEMANA_ILIMITADO} aulas.` };
@@ -132,7 +132,7 @@ export function previaDesmarcacaoIlimitado(a, dia, aviso) {
 }
 
 /**
- * DESMARCAR — com 2h ou mais, a vaga fica livre (a marcação sai); com menos, é falta.
+ * DESMARCAR — com 1h ou mais, a vaga fica livre (a marcação sai); com menos, é falta.
  * @param {any} a @param {string} dia @param {{ aviso: Relogio, em: number }} o
  */
 export function desmarcarIlimitadoComAviso(a, dia, { aviso, em }) {

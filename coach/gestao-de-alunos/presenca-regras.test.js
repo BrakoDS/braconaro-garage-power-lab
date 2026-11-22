@@ -14,8 +14,8 @@ import {
   concederCredito, concederCreditoReposicao, agendarReposicaoNaTurma, reabrirReposicao,
   adicionarExperimental, statusExperimental, removerExperimental, podarExperimentais, resumoDaTurma,
   PRAZO_DESMARCAR_MIN, VALIDADE_CREDITO_DIAS, CAPACIDADE_PADRAO, STATUS,
-} from './presenca-regras.js?v=40';
-import { checkin, trocarDia, desfazer } from './checkin-regras.js?v=40';
+} from './presenca-regras.js?v=41';
+import { checkin, trocarDia, desfazer } from './checkin-regras.js?v=41';
 import { semanaDoAluno, reposicoesPendentes } from '../../compartilhado/regras/semana.js';
 
 const SEG = '2026-10-05', TER = '2026-10-06', QUA = '2026-10-07', QUI = '2026-10-08', SEX = '2026-10-09';
@@ -104,18 +104,18 @@ test('turma: aluno sem horário na ficha cai na turma "sem horário", por últim
 
 /* ---------- regra 2: desmarcar com 2h ou mais gera crédito ---------- */
 
-test('desmarcar com exatamente 2h: no prazo, +1 crédito até o fim do mês, vaga livre', () => {
-  const aviso = { hoje: QUA, agora: '05:00' };
+test('desmarcar com exatamente 1h: no prazo, +1 crédito até o fim do mês, vaga livre', () => {
+  const aviso = { hoje: QUA, agora: '06:00' };
   assert.deepEqual(previaDesmarcacao(ana(), QUA, aviso), { noPrazo: true, antecedenciaMin: PRAZO_DESMARCAR_MIN });
   const r = desmarcar(ana(), QUA, { aviso, em: 111 });
   assert.ok('patch' in r);
   assert.deepEqual(r.patch.atestados[QUA], {
-    em: 111, tipo: 'desmarcacao', aula: { data: QUA, hora: '07:00' }, antecedenciaMin: 120,
+    em: 111, tipo: 'desmarcacao', aula: { data: QUA, hora: '07:00' }, antecedenciaMin: 60,
     expira: '2026-10-31', reposicao: null, // fim do mês do aviso (07/10)
   });
   assert.deepEqual(r.patch.faltas, {});
   assert.equal(r.log.tipo, 'desmarcacao');
-  assert.equal(r.log.resumo, 'Desmarcou no prazo (2h antes · aula de 07/10 07:00) · +1 crédito até 31/10');
+  assert.equal(r.log.resumo, 'Desmarcou no prazo (1h antes · aula de 07/10 07:00) · +1 crédito até 31/10');
   assert.equal(r.log.extra?.chave, `atestado:A1:${QUA}`);
   const a = aplicar(ana(), r);
   assert.equal(aulasDoDia([a], QUA, { hoje: QUA })[0].status, 'desmarcou-no-prazo');
@@ -157,13 +157,13 @@ test('desmarcar: aula sem horário é recusada (não há como medir o prazo); cr
 
 /* ---------- regra 3: menos de 2h, ou no-show, é falta sem crédito ---------- */
 
-test('desmarcar com 1h59: fora do prazo, falta sem crédito, mas a vaga fica livre', () => {
-  const r = desmarcar(ana(), QUA, { aviso: { hoje: QUA, agora: '05:01' }, em: 5 });
+test('desmarcar com 59 min: fora do prazo, falta sem crédito, mas a vaga fica livre', () => {
+  const r = desmarcar(ana(), QUA, { aviso: { hoje: QUA, agora: '06:01' }, em: 5 });
   assert.ok('patch' in r);
   assert.deepEqual(r.patch.atestados, {});
-  assert.deepEqual(r.patch.faltas[QUA], { em: 5, tipo: 'fora-do-prazo', aula: { data: QUA, hora: '07:00' }, antecedenciaMin: 119 });
+  assert.deepEqual(r.patch.faltas[QUA], { em: 5, tipo: 'fora-do-prazo', aula: { data: QUA, hora: '07:00' }, antecedenciaMin: 59 });
   assert.equal(r.log.tipo, 'falta');
-  assert.equal(r.log.resumo, 'Desmarcou fora do prazo (1h59 antes · aula de 07/10 07:00) · sem crédito');
+  assert.equal(r.log.resumo, 'Desmarcou fora do prazo (59min antes · aula de 07/10 07:00) · sem crédito');
   const a = aplicar(ana(), r);
   const t = turmasDoDia([a], QUA, { hoje: QUA })[0];
   assert.deepEqual([t.aulas[0].status, t.ocupadas], ['desmarcou-fora', 0]);
@@ -221,7 +221,7 @@ test('check-in, troca e desfazer apagam a falta lançada (as duas telas não div
 /* ---------- exceção do coach ---------- */
 
 test('conceder crédito (exceção) a quem desmarcou fora do prazo: vira crédito até o fim do mês seguinte', () => {
-  const a0 = aplicar(ana(), desmarcar(ana(), QUA, { aviso: { hoje: QUA, agora: '06:00' }, em: 1 }));
+  const a0 = aplicar(ana(), desmarcar(ana(), QUA, { aviso: { hoje: QUA, agora: '06:30' }, em: 1 }));
   const r = concederCredito(a0, QUA, { hoje: QUA, em: 2 });
   assert.ok('patch' in r);
   assert.deepEqual(r.patch.atestados[QUA], { em: 2, tipo: 'excecao', antes: 'fora-do-prazo', aula: { data: QUA, hora: '07:00' }, expira: '2026-11-30', reposicao: null });
@@ -272,9 +272,9 @@ test('reposição: agendada na turma de outro aluno, ocupa vaga e aparece como r
   assert.deepEqual(creditosDisponiveis(a, QUA), [], 'o crédito foi usado');
 });
 
-test('reposição: com menos de 1h de antecedência é recusada', () => {
-  const r = agendarReposicaoNaTurma(comCredito(), QUA, { data: QUA, hora: '18:00' }, { relogio: { hoje: QUA, agora: '17:01' }, vagas: 3 });
-  assert.deepEqual(r, { recusa: { chave: `A1|${QUA}`, texto: 'Reposição só pode ser marcada até 1h antes da aula' } });
+test('reposição: com menos de 30 min de antecedência é recusada', () => {
+  const r = agendarReposicaoNaTurma(comCredito(), QUA, { data: QUA, hora: '18:00' }, { relogio: { hoje: QUA, agora: '17:31' }, vagas: 3 });
+  assert.deepEqual(r, { recusa: { chave: `A1|${QUA}`, texto: 'Reposição só pode ser marcada até 30 min antes da aula' } });
 });
 
 test('reposição: turma lotada, crédito vencido, fora da validade e sem horário são recusados', () => {
@@ -314,7 +314,7 @@ test('desmarcar a reposição no prazo: o crédito volta para a fila', () => {
 });
 
 test('desmarcar a reposição fora do prazo: falta, e o crédito foi gasto', () => {
-  const r = desmarcarReposicaoComAviso(comReposicao(), QUA, { aviso: { hoje: TER2, agora: '17:00' }, em: 9 });
+  const r = desmarcarReposicaoComAviso(comReposicao(), QUA, { aviso: { hoje: TER2, agora: '17:30' }, em: 9 });
   assert.ok(r && 'patch' in r);
   const a = aplicar(comReposicao(), r);
   assert.deepEqual(aulasDoDia([a], TER2, { hoje: TER2 }).filter((x) => x.tipo === 'reposicao').map((x) => x.status), ['desmarcou-fora']);

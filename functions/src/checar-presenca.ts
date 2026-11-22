@@ -1,7 +1,7 @@
 /**
  * Confere `presenca.ts` (o servidor do "Não irei ao treino" e da ocupação):
  *
- *   1) casos escritos à mão — o relógio de São Paulo, o prazo de 2h, as
+ *   1) casos escritos à mão — o relógio de São Paulo, o prazo de 1h, as
  *      recusas e a contagem das vagas;
  *   2) PARIDADE com o coach: roda `coach/gestao-de-alunos/presenca-regras.js`
  *      e este port sobre as mesmas fichas sorteadas — o status de cada aula na
@@ -44,13 +44,13 @@ ok(antecedenciaMin({ hoje: TER, agora: '22:30' }, QUA, '07:00') === 510 && somar
 
 console.log('\n"NÃO IREI AO TREINO"\n');
 const no = (r: ReturnType<typeof avaliarAusencia>) => ('erro' in r ? r.erro : r);
-const r1 = avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '05:00' });
-ok(igual(no(r1), { aula: { data: QUA, hora: '07:00' }, noPrazo: true, antecedenciaMin: 120, expira: '2026-10-31' }), 'exatamente 2h antes: no prazo, crédito até o fim do mês');
+const r1 = avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '06:00' });
+ok(igual(no(r1), { aula: { data: QUA, hora: '07:00' }, noPrazo: true, antecedenciaMin: 60, expira: '2026-10-31' }), 'exatamente 1h antes: no prazo, crédito até o fim do mês');
 const rFim = avaliarAusencia(ana(), 'titular', '2026-10-28', { hoje: '2026-10-28', agora: '05:00' });
 ok(!('erro' in rFim) && rFim.expira === '2026-11-04', 'aviso no fim do mês (28/10): o crédito vale no mínimo 7 dias');
 ok(validadeDoCredito('2026-11-30') === '2026-12-07' && validadeDoCredito('2026-11-03') === '2026-11-30' && validadeDoCredito('2026-12-28') === '2027-01-04', 'validade: fim do mês, nunca menos de 7 dias');
-const r2 = avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '05:01' });
-ok(igual(no(r2), { aula: { data: QUA, hora: '07:00' }, noPrazo: false, antecedenciaMin: 119, expira: null }), '1h59 antes: fora do prazo, sem crédito');
+const r2 = avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '06:01' });
+ok(igual(no(r2), { aula: { data: QUA, hora: '07:00' }, noPrazo: false, antecedenciaMin: 59, expira: null }), '59 min antes: fora do prazo, sem crédito');
 ok(no(avaliarAusencia(ana(), 'titular', QUA, { hoje: QUA, agora: '07:00' })) === 'Essa aula já começou.', 'na hora da aula já não dá para avisar');
 ok(no(avaliarAusencia(ana(), 'titular', TER, { hoje: SEG, agora: '07:00' })) === 'Essa aula não é da sua grade.', 'dia fora da grade é recusado');
 ok(no(avaliarAusencia(ana({ atestados: { [QUA]: { tipo: 'desmarcacao' } } }), 'titular', QUA, { hoje: TER, agora: '07:00' })).toString().startsWith('Essa aula já foi desmarcada'), 'aula já desmarcada é recusada');
@@ -100,8 +100,8 @@ ok(rep(comCredito(), QUI, '18:00', null) === 'Não há turma nesse dia e horári
 ok(rep(comCredito(), QUI, '18:00', 0) === 'Turma lotada.', 'turma lotada é recusada');
 ok(rep(comCredito(), QUA, '18:00', 3) === 'Você já tem aula nesse dia.', 'dia em que ele já treina é recusado (um dia, uma aula)');
 ok(typeof rep(comCredito({ ...credSeg(), [QUA]: { tipo: 'desmarcacao', expira: '2026-11-06' } }), QUA, '18:00', 3) === 'object', 'dia da aula que ele desmarcou fica livre para a reposição');
-ok(rep(comCredito(), TER, '10:59', 3) === 'A reposição só pode ser marcada até 1h antes da aula.', '59 min antes: recusado');
-ok(typeof rep(comCredito(), TER, '11:00', 3) === 'object', 'exatamente 1h antes: vale');
+ok(rep(comCredito(), TER, '10:29', 3) === 'A reposição só pode ser marcada até 30 min antes da aula.', '29 min antes: recusado');
+ok(typeof rep(comCredito(), TER, '10:30', 3) === 'object', 'exatamente 30 min antes: vale');
 ok(rep(comCredito(), TER, '09:00', 3) === 'Essa aula já começou.', 'aula que já começou é recusada');
 ok(rep(comCredito(), '2026-10-13', '18:00', 3).toString().includes('próximos 7 dias'), 'além dos 7 dias da ocupação: recusado');
 ok(rep(ana(), QUI, '18:00', 3) === 'Você não tem crédito de reposição.', 'sem crédito: recusado');
@@ -138,7 +138,7 @@ ok(marca(ana(), QUI, '18:00', 2) === 'Só o plano Ilimitado marca aula por aula.
 ok(marca(ivo({ status: 'pausado' }), QUI, '18:00', 2) === 'Seu plano está pausado.', 'pausado não marca');
 ok(marca(ivo(), QUI, '18:00', null) === 'Não há turma nesse dia e horário.', 'sem turma: recusado');
 ok(marca(ivo(), QUI, '18:00', 0) === 'Turma lotada.', 'lotada: recusado');
-ok(marca(ivo(), TER, '10:59', 2) === 'A aula só pode ser marcada até 1h antes.', '59 min antes: recusado');
+ok(marca(ivo(), TER, '10:29', 2) === 'A aula só pode ser marcada até 30 min antes.', '29 min antes: recusado');
 ok(String(marca(ivo(), '2026-10-13', '18:00', 2)).includes('próximos 7 dias'), 'além dos 7 dias: recusado');
 ok(String(marca(ivo({ marcacoes: { [QUI]: { hora: '07:00' } } }), QUI, '18:00', 2)).includes('uma por dia'), 'uma aula por dia');
 const seis = ivo({ marcacoes: Object.fromEntries(['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10'].map((d) => [d, { hora: '07:00' }])) });
@@ -224,7 +224,7 @@ async function paridade(): Promise<void> {
     for (const f of fichas) {
       for (const k of f.diasTreino as string[]) {
         const plan = datasDaSemana(hoje)[k];
-        const relogio = { hoje: um(semana), agora: um(['00:30', '04:59', '05:00', '05:01', '16:00', '17:31', '23:59']) };
+        const relogio = { hoje: um(semana), agora: um(['00:30', '05:59', '06:00', '06:01', '06:30', '16:00', '17:31', '23:59']) };
         const r = avaliarAusencia(f, 'titular', plan, relogio);
         if ('erro' in r) continue;
         const p = site.previaDesmarcacao(f, plan, relogio);
