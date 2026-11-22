@@ -2,7 +2,7 @@
  * Presença do lado do ALUNO: "Não irei ao treino" e a ocupação dos horários.
  *
  * Port, em TypeScript, do pedaço de `coach/gestao-de-alunos/presenca-regras.js`
- * que o servidor precisa — onde cada aula acontece, o prazo de 2h e a contagem
+ * que o servidor precisa — onde cada aula acontece, o prazo de 1h e a contagem
  * das turmas. `checar-presenca.ts` roda os dois lados sobre as mesmas fichas e
  * compara: o aluno não pode ouvir "no prazo" do servidor e o coach ver "fora do
  * prazo" no painel. O PORQUÊ de cada regra mora no original.
@@ -23,7 +23,7 @@ export interface Onde { data: string; hora: string }
 export type TipoAula = 'titular' | 'reposicao' | 'ilimitado';
 export type StatusAula = 'confirmado' | 'presente' | 'desmarcou-no-prazo' | 'desmarcou-fora' | 'falta' | 'sem-chamada' | 'atestado' | 'fechado';
 
-export const PRAZO_DESMARCAR_MIN = 120;
+export const PRAZO_DESMARCAR_MIN = 60;
 export const VALIDADE_CREDITO_DIAS = 30;
 export const CAPACIDADE_PADRAO = 6;
 
@@ -285,7 +285,7 @@ export interface ResultadoAusencia {
 /**
  * O aluno avisa que não vem. Confere que a aula é dele, ainda está em aberto,
  * tem horário, não começou e cai nos próximos HORIZONTE_AVISO_DIAS dias; e diz
- * o que o aviso dá — a mesma régua de 2h do coach (`desmarcar` /
+ * o que o aviso dá — a mesma régua de 1h do coach (`desmarcar` /
  * `desmarcarReposicaoComAviso`).
  */
 export function avaliarAusencia(a: Dados, tipo: TipoAula, chave: string, relogio: Relogio): ResultadoAusencia | { erro: string } {
@@ -344,7 +344,7 @@ export function avisosPorAluno(docs: unknown[], coachUid: string): Record<string
    ============================================================ */
 
 /** Até quantos minutos antes da aula o aluno marca a reposição (o mesmo do coach). */
-export const ANTECEDENCIA_REPOSICAO_MIN = 60;
+export const ANTECEDENCIA_REPOSICAO_MIN = 30;
 /** Até quantos dias à frente: o mesmo horizonte da ocupação que ele vê. */
 export const HORIZONTE_REPOSICAO_DIAS = 7;
 
@@ -438,7 +438,7 @@ export function avaliarReposicao(
   if (vagas == null) return { erro: 'Não há turma nesse dia e horário.' };
   const ant = antecedenciaMin(relogio, aula.data, aula.hora);
   if (ant == null || ant <= 0) return { erro: 'Essa aula já começou.' };
-  if (ant < ANTECEDENCIA_REPOSICAO_MIN) return { erro: 'A reposição só pode ser marcada até 1h antes da aula.' };
+  if (ant < ANTECEDENCIA_REPOSICAO_MIN) return { erro: 'A reposição só pode ser marcada até 30 min antes da aula.' };
   if (aula.data > somarDias(relogio.hoje, HORIZONTE_REPOSICAO_DIAS - 1)) return { erro: `Dá para marcar só nas aulas dos próximos ${HORIZONTE_REPOSICAO_DIAS} dias.` };
   if (diaJaTemAula(a, aula.data)) return { erro: 'Você já tem aula nesse dia.' };
   if (vagas <= 0) return { erro: 'Turma lotada.' };
@@ -460,7 +460,7 @@ export const HORIZONTE_MARCACAO_DIAS = 7;
 /** No máximo quantas aulas na semana (1 por dia, seg a sáb). */
 export const LIMITE_SEMANA_ILIMITADO = 6;
 /** Até quantos minutos antes da aula. */
-export const ANTECEDENCIA_MARCACAO_MIN = 60;
+export const ANTECEDENCIA_MARCACAO_MIN = 30;
 
 /** A aula que o aluno marcou e a rotina ainda não aplicou: `marcacoesAluno/{email}.itens[dia]`. */
 export interface MarcacaoPendente { data: string; hora: string }
@@ -533,7 +533,7 @@ export function avaliarMarcacao(
   if (aula.data < relogio.hoje || aula.data > somarDias(relogio.hoje, HORIZONTE_MARCACAO_DIAS - 1)) return { erro: `Dá para marcar só nas aulas dos próximos ${HORIZONTE_MARCACAO_DIAS} dias.` };
   const ant = antecedenciaMin(relogio, aula.data, aula.hora);
   if (ant == null || ant <= 0) return { erro: 'Essa aula já começou.' };
-  if (ant < ANTECEDENCIA_MARCACAO_MIN) return { erro: 'A aula só pode ser marcada até 1h antes.' };
+  if (ant < ANTECEDENCIA_MARCACAO_MIN) return { erro: 'A aula só pode ser marcada até 30 min antes.' };
   if (diaJaTemAula(a, aula.data)) return { erro: `Já há uma aula em ${ddmm(aula.data)} (uma por dia).` };
   if (aulasNaSemana(a, aula.data) >= LIMITE_SEMANA_ILIMITADO) return { erro: `A semana de ${ddmm(aula.data)} já tem ${LIMITE_SEMANA_ILIMITADO} aulas.` };
   if (vagas <= 0) return { erro: 'Turma lotada.' };

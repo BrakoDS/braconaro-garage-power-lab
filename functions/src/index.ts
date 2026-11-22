@@ -3155,7 +3155,7 @@ function recusarSePausado(ficha: { status?: unknown }): void {
 }
 
 /**
- * "Não irei ao treino". A régua é a do coach (presenca.ts): avisou com 2h ou
+ * "Não irei ao treino". A régua é a do coach (presenca.ts): avisou com 1h ou
  * mais, a vaga fica livre e nasce +1 crédito de reposição (30 dias); com menos,
  * é falta, sem crédito.
  *
@@ -3329,7 +3329,7 @@ export const agendarReposicao = onCall(
 /**
  * O aluno do Ilimitado marca uma aula (Fase 1 · etapa 6.3, decisão 11). A régua
  * é a da Gestão (`avaliarMarcacao`, presenca.ts): plano Ilimitado, próximos 7
- * dias, até 1h antes, uma aula por dia, 6 na semana, e vaga — a grade fixa é
+ * dias, até 30 min antes, uma aula por dia, 6 na semana, e vaga — a grade fixa é
  * garantida, o Ilimitado pega o que sobra ou o que o "Não irei" liberou.
  *
  * A marcação vai para `marcacoesAluno/{email}.itens[dia]` — que só o servidor

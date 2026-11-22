@@ -3,7 +3,7 @@
  * Tela Turmas — o Painel de Presença do coach: as turmas do dia, quem está em
  * cada uma, e o que aconteceu com cada aula.
  *
- * As REGRAS (prazo de 2h, crédito de 30 dias, reposição até 1h antes, vagas)
+ * As REGRAS (prazo de 1h, crédito até o fim do mês, reposição até 30 min antes, vagas)
  * moram em `presenca-regras.js`, puras e testadas; o check-in e o desfazer são
  * os mesmos do `checkin-regras.js`. Aqui ficam o desenho, os botões e a
  * aplicação: a regra devolve o que mudar e a linha do log, e a tela grava
@@ -12,27 +12,27 @@
  * O que é do box e não de um aluno (as vagas de cada horário e as aulas
  * experimentais) vai no meta: `db.salvarVagasDaTurma` e `db.salvarExperimentais`.
  */
-import * as db from './db.js?v=40';
-import * as regras from './presenca-regras.js?v=40';
-import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=40';
-import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=40';
-import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=40';
-import { $ } from './util/dom.js?v=40';
-import { on, EVENTOS } from './estado.js?v=40';
-import { reg } from './registro.js?v=40';
-import { telaAtual } from './navegacao.js?v=40';
+import * as db from './db.js?v=41';
+import * as regras from './presenca-regras.js?v=41';
+import { checkin, desfazer, desfazerPedeMotivo, comMotivo } from './checkin-regras.js?v=41';
+import { pedirMotivoDoDesfazerAula } from './ui-motivo.js?v=41';
+import { esc, hoje, fmtData, fmtDataCurta, addDias, horaLegivel } from './util/formato.js?v=41';
+import { $ } from './util/dom.js?v=41';
+import { on, EVENTOS } from './estado.js?v=41';
+import { reg } from './registro.js?v=41';
+import { telaAtual } from './navegacao.js?v=41';
 import { foraDoTreino } from '../../compartilhado/regras/planos.js';
-import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=40';
+import { abrirCadastroDaLista } from './ui-modal-aluno.js?v=41';
 import {
   ehIlimitado, gravarMarcacao, desmarcarIlimitadoComAviso, noShowIlimitado, reabrirIlimitado, tirarMarcacao, previaDesmarcacaoIlimitado,
-} from './ilimitado-regras.js?v=40';
-import { chaveIlimitado } from './checkin-regras.js?v=40';
-import { pedirMotivo, confirmar } from '../../compartilhado/ui/dialogo.js?v=40';
+} from './ilimitado-regras.js?v=41';
+import { chaveIlimitado } from './checkin-regras.js?v=41';
+import { pedirMotivo, confirmar } from '../../compartilhado/ui/dialogo.js?v=41';
 import {
   MEIOS_DAYPASS, dadosDoDayPass, dayPassDaFicha, cpfValido, digitosDoCpf, codigoDoCpf, experimentalJaFeita, comCpf,
   dadosDaVendaAvulsa, comVendaAvulsa, semVendaAvulsa,
-} from './avulsos-regras.js?v=40';
-import { brl } from './financeiro-aluno.js?v=40';
+} from './avulsos-regras.js?v=41';
+import { brl } from './financeiro-aluno.js?v=41';
 
 const DIAS_SEM = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 /** 'seg'…'dom' de uma data, e o plural da caixinha "Horário fixo das quartas". */
@@ -128,8 +128,8 @@ function render() {
       </span>
     </div>
     ${turma ? corpoDaTurma(turma) : `<div class="empty"><b>Sem turma</b>Ninguém da grade fixa treina neste dia. Abra um horário para marcar reposição ou aula experimental.</div>`}
-    <p class="tur-regras">Desmarcar com <b>2h ou mais</b> de antecedência libera a vaga e gera <b>+1 crédito de reposição</b> (vale até o fim do mês, no mínimo 7 dias).
-      Menos de 2h, ou não vir: <b>falta, sem crédito</b>. Reposição: até <b>1h antes</b> da aula, se houver vaga.</p>
+    <p class="tur-regras">Desmarcar com <b>1h ou mais</b> de antecedência libera a vaga e gera <b>+1 crédito de reposição</b> (vale até o fim do mês, no mínimo 7 dias).
+      Menos de 1h, ou não vir: <b>falta, sem crédito</b>. Reposição: até <b>30 min antes</b> da aula, se houver vaga.</p>
     ${blocoDaGrade()}`;
 }
 
@@ -310,8 +310,8 @@ function previa(x, quando) {
         : `Avisou ${regras.textoAntecedencia(ant)}: no prazo — o crédito volta para ser usado em outra data.` };
   }
   return { cls: 'bad', texto: x.tipo === 'ilimitado'
-    ? `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 2h — falta.`
-    : `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 2h — falta, sem crédito.` };
+    ? `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 1h — falta.`
+    : `Avisou ${regras.textoAntecedencia(ant)}: fora do prazo de 1h — falta, sem crédito.` };
 }
 
 /** O painel de desmarcar: quando o aluno avisou, e o que isso dá. @param {regras.AulaNaTurma} x */

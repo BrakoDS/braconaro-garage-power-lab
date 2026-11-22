@@ -23,11 +23,11 @@
  *    crédito, com as turmas que ainda têm vaga;
  *  - FECHAMENTO: o mês anterior que falta fechar (um aviso para o coach).
  */
-import { contaDoMes, statusFin, brl, MESES_FIN } from './financeiro-aluno.js?v=40';
-import { TEXTO_DO_PIX } from './financeiro-regras.js?v=40';
-import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=40';
-import { historicoComFechamentos, totalDoMesFechado, estaFechado, FECHAMENTO_DESDE } from './fechamento-regras.js?v=40';
-import { aulasDoDia, creditosDisponiveis } from './presenca-regras.js?v=40';
+import { contaDoMes, statusFin, brl, MESES_FIN } from './financeiro-aluno.js?v=41';
+import { TEXTO_DO_PIX } from './financeiro-regras.js?v=41';
+import { vencimentoNoMes } from '../../compartilhado/regras/cobranca.js?v=41';
+import { historicoComFechamentos, totalDoMesFechado, estaFechado, FECHAMENTO_DESDE } from './fechamento-regras.js?v=41';
+import { aulasDoDia, creditosDisponiveis } from './presenca-regras.js?v=41';
 import { estaPausado } from '../../compartilhado/regras/planos.js';
 
 /** Os tipos de item da rotina, na ordem em que a Fila os mostra. */

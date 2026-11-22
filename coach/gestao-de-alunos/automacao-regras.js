@@ -31,8 +31,8 @@
  * nome, o telefone e o texto saem da ficha NA HORA de mostrar (`visiveis`) —
  * telefone trocado vale na hora, e a fila não vira uma cópia do cadastro.
  */
-import { itensDaConta, itensFecham, linhasDosItens } from './financeiro-regras.js?v=40';
-import { MESES_FIN, brl } from './financeiro-aluno.js?v=40';
+import { itensDaConta, itensFecham, linhasDosItens } from './financeiro-regras.js?v=41';
+import { MESES_FIN, brl } from './financeiro-aluno.js?v=41';
 
 /**
  * @typedef {'regua-dia1'|'regua-meio'|'regua-vencimento'|'regua-pos'|'credito-vencendo'|'falta-seguida'|'recibo'|'agente'} Gatilho

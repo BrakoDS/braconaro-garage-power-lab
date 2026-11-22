@@ -41,12 +41,12 @@ function elemento(sel) {
 const el = (s) => (tela[s] ||= elemento(s));
 globalThis.document = /** @type {any} */ ({ querySelector: (s) => el(s), querySelectorAll: () => [] });
 
-const db = await import('./db.js?v=40');
-const { emit, EVENTOS } = await import('./estado.js?v=40');
-const eventos = await import('./eventos.js?v=40');
-const { iniciarTelaTurmas, pedirTurma } = await import('./ui-tela-turmas.js?v=40');
-const { hoje, addDias, fmtData } = await import('./util/formato.js?v=40');
-const regras = await import('./presenca-regras.js?v=40');
+const db = await import('./db.js?v=41');
+const { emit, EVENTOS } = await import('./estado.js?v=41');
+const eventos = await import('./eventos.js?v=41');
+const { iniciarTelaTurmas, pedirTurma } = await import('./ui-tela-turmas.js?v=41');
+const { hoje, addDias, fmtData } = await import('./util/formato.js?v=41');
+const regras = await import('./presenca-regras.js?v=41');
 const { fimDoMes } = await import('../../compartilhado/regras/semana.js');
 iniciarTelaTurmas();
 
@@ -80,7 +80,7 @@ test('abrir pelo roteador: hoje, a turma das 23h59 com os titulares ativos e a o
   for (const n of ['Gil', 'Bia', 'Davi']) assert.match(linha(n), /tur-status st-confirmado">Confirmado/, n);
   assert.doesNotMatch(html, /Fora/, 'inativo não entra na turma');
   assert.match(html, /<option value="Caio04\|2026-01-05">Caio — aula de 05\/01 \(desmarcou no prazo · vence/, 'Caio pode repor');
-  assert.match(html, /2h ou mais<\/b> de antecedência/, 'as regras à vista');
+  assert.match(html, /1h ou mais<\/b> de antecedência/, 'as regras à vista');
 });
 
 test('✓ Presente: grava a presença, registra o check-in e pinta a linha', () => {
@@ -90,7 +90,7 @@ test('✓ Presente: grava a presença, registra o check-in e pinta a linha', () 
   assert.match(linha('Gil'), /st-presente">Presente/);
 });
 
-test('Desmarcou no prazo: o painel pede a hora do aviso; com 2h ou mais, crédito e vaga livre', () => {
+test('Desmarcou no prazo: o painel pede a hora do aviso; com 1h ou mais, crédito e vaga livre', () => {
   agir('desmarcar', 'Bia02');
   assert.match(linha('Bia'), /data-aviso-data/, 'o painel abriu na linha');
   campos['[data-aviso-data]'] = { value: addDias(HOJE, -1) };

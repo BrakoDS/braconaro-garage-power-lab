@@ -38,15 +38,15 @@ globalThis.document = /** @type {any} */ ({
 });
 globalThis.window = /** @type {any} */ ({ scrollTo() {} });
 
-const db = await import('./db.js?v=40');
-const eventos = await import('./eventos.js?v=40');
-const { estado, on, emit, EVENTOS } = await import('./estado.js?v=40');
-const { iniciarNavegacao } = await import('./navegacao.js?v=40');
-const { iniciarAutomacao, mensagens, sincronizarAutomacao } = await import('./automacao.js?v=40');
-const { iniciarTelaAutomacao } = await import('./ui-tela-automacao.js?v=40');
-const { darBaixa, desfazerBaixa } = await import('./financeiro-regras.js?v=40');
-const { regFinanceiro } = await import('./registro.js?v=40');
-const { itensDoDia } = await import('./rotinas-regras.js?v=40');
+const db = await import('./db.js?v=41');
+const eventos = await import('./eventos.js?v=41');
+const { estado, on, emit, EVENTOS } = await import('./estado.js?v=41');
+const { iniciarNavegacao } = await import('./navegacao.js?v=41');
+const { iniciarAutomacao, mensagens, sincronizarAutomacao } = await import('./automacao.js?v=41');
+const { iniciarTelaAutomacao } = await import('./ui-tela-automacao.js?v=41');
+const { darBaixa, desfazerBaixa } = await import('./financeiro-regras.js?v=41');
+const { regFinanceiro } = await import('./registro.js?v=41');
+const { itensDoDia } = await import('./rotinas-regras.js?v=41');
 
 /* ---------- o que vem de fora ---------- */
 const OUT = '2026-10';
@@ -311,8 +311,8 @@ test('d) selo: a virada do dia conta sem nenhum dado mudar — voltar para a lis
 });
 
 test('Cobranças: o botão WhatsApp da tela continua com o lembrete e o extrato dos consumos (a régua da Fila tem os textos dela)', async () => {
-  const { iniciarTelaCobrancas } = await import('./ui-tela-cobrancas.js?v=40');
-  const { mesIdAtual } = await import('./financeiro-aluno.js?v=40');
+  const { iniciarTelaCobrancas } = await import('./ui-tela-cobrancas.js?v=41');
+  const { mesIdAtual } = await import('./financeiro-aluno.js?v=41');
   iniciarTelaCobrancas();
   // A tela Cobranças olha o mês do relógio; a Fila, o mesmo dia.
   HOJE = new Date().toISOString().slice(0, 10);
